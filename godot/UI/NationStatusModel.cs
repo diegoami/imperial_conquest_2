@@ -129,11 +129,23 @@ public static class NationStatusModel
         lines.Add(new NationStatusLine(UnityKey, $"Unity: {InformationWords.Unity(nation.Unity)}"));
         lines.Add(new NationStatusLine(TaxRateKey, $"Tax rate: {nation.TaxRatePercent}%"));
 
-        // N08, N09: Mobilized and Treasury, own nation only.
+        // N08, N09: Mobilized and Treasury. The own nation shows the values; a foreign nation
+        // (including one selected for viewing from the Nations menu while another's turn runs)
+        // still gets the two rows, in their position, with the values blank — the original
+        // keeps the rows but withholds the figures (R3 of the R1 review: a foreign panel that
+        // omits the rows entirely hides the field's place in the original's order).
         if (isOwnNation)
         {
             lines.Add(new NationStatusLine(MobilizedKey, $"Mobilized: {nation.MobilizedPercent}%"));
-            lines.Add(new NationStatusLine(TreasuryKey, $"Treasury: {nation.Treasury}"));
+            // N09: the own Treasury line carries the same ' talents' suffix the engine's other
+            // money lines use (R4 of the R1 review: the omission broke the panel's text
+            // consistency with city tribute and army money lines).
+            lines.Add(new NationStatusLine(TreasuryKey, $"Treasury: {nation.Treasury} talents"));
+        }
+        else
+        {
+            lines.Add(new NationStatusLine(MobilizedKey, "Mobilized:"));
+            lines.Add(new NationStatusLine(TreasuryKey, "Treasury:"));
         }
 
         // N10: spacer and heading.

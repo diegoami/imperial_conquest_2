@@ -81,7 +81,7 @@ public sealed class NationStatusModelTests
 
         Assert.Equal($"Tax rate: {rome.TaxRatePercent}%", byKey[NationStatusModel.TaxRateKey]);
         Assert.Equal($"Mobilized: {rome.MobilizedPercent}%", byKey[NationStatusModel.MobilizedKey]);
-        Assert.Equal($"Treasury: {rome.Treasury}", byKey[NationStatusModel.TreasuryKey]);
+        Assert.Equal($"Treasury: {rome.Treasury} talents", byKey[NationStatusModel.TreasuryKey]);
 
         // N11: every other nation has a relation row. The text uses the original's words
         // (trade/ally/war) on a "Name: word" line, or just the name when the value is <= 0
@@ -138,6 +138,16 @@ public sealed class NationStatusModelTests
         Assert.Equal($"Unity: {InformationWords.Unity(carthage.Unity)}", byKey[NationStatusModel.UnityKey]);
         Assert.Equal($"Tax rate: {carthage.TaxRatePercent}%", byKey[NationStatusModel.TaxRateKey]);
 
+        // N08 / N09: a foreign nation still gets the Mobilized and Treasury rows, in their
+        // position, with the values blank — the original keeps the rows but withholds the
+        // figures (R3 of the R1 review).
+        Assert.True(byKey.ContainsKey(NationStatusModel.MobilizedKey),
+            "the foreign panel keeps the Mobilized row");
+        Assert.Equal("Mobilized:", byKey[NationStatusModel.MobilizedKey]);
+        Assert.True(byKey.ContainsKey(NationStatusModel.TreasuryKey),
+            "the foreign panel keeps the Treasury row");
+        Assert.Equal("Treasury:", byKey[NationStatusModel.TreasuryKey]);
+
         // Every relation line is rendered (N11), not just the viewer cell (the 2026-10-01 default).
         var relationLines = lines.Where(line =>
             line.Key.StartsWith(NationStatusModel.RelationKeyPrefix, StringComparison.Ordinal)).ToList();
@@ -160,11 +170,10 @@ public sealed class NationStatusModelTests
             }
         }
 
-        // Withheld: Mobilized, Treasury and the training section are absent from the foreign panel.
+        // Withheld: the training section is absent from the foreign panel. Mobilized and Treasury
+        // rows ARE present, with blank values (N08 / N09 / R3 of the R1 review).
         foreach (var withheld in new[]
         {
-            NationStatusModel.MobilizedKey,
-            NationStatusModel.TreasuryKey,
             NationStatusModel.TrainingHeaderKey,
             NationStatusModel.TrainingNoneKey,
         })
@@ -179,7 +188,8 @@ public sealed class NationStatusModelTests
     /// <summary>
     /// A nation's own panel always carries the full list — even a foreign nation, when chosen as the
     /// viewer. The Carthage-as-own assertion pins the same code path regardless of who selects the
-    /// panel.
+    /// panel. The Treasury row is now present on both panels; the foreign branch shows a blank
+    /// value, the own branch shows the value with the ' talents' suffix.
     /// </summary>
     [Fact]
     public void The_same_nation_as_the_own_nation_carries_the_full_list()
@@ -190,8 +200,13 @@ public sealed class NationStatusModelTests
         var asForeign = NationStatusModel.Build(state, session.Ruleset, CarthageId, viewerNationId: RomeId);
         var asOwn = NationStatusModel.Build(state, session.Ruleset, CarthageId, viewerNationId: CarthageId);
 
-        Assert.DoesNotContain(asForeign, line => string.Equals(line.Key, NationStatusModel.TreasuryKey, StringComparison.Ordinal));
+        // Both panels carry a Treasury row (the foreign one is blank, the own one carries the
+        // suffix'd value).
+        Assert.Contains(asForeign, line => string.Equals(line.Key, NationStatusModel.TreasuryKey, StringComparison.Ordinal));
         Assert.Contains(asOwn, line => string.Equals(line.Key, NationStatusModel.TreasuryKey, StringComparison.Ordinal));
+
+        // The own-only training section is on the own panel and absent from the foreign one.
+        Assert.DoesNotContain(asForeign, line => string.Equals(line.Key, NationStatusModel.TrainingHeaderKey, StringComparison.Ordinal));
         Assert.Contains(asOwn, line => string.Equals(line.Key, NationStatusModel.TrainingHeaderKey, StringComparison.Ordinal));
     }
 

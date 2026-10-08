@@ -344,9 +344,20 @@ public partial class InformationPanelCheck : Control
             PanelHasLabel($"Tax rate: {carthage.TaxRatePercent}%"),
             "Carthage's panel shows Tax rate");
 
-        // Withheld: Mobilized and Treasury are blank for foreign nations.
-        Check(!PanelHasLabelStartingWith("Mobilized:"), "Carthage's panel omits Mobilized");
-        Check(!PanelHasLabelStartingWith("Treasury:"), "Carthage's panel omits Treasury");
+        // Withheld: Mobilized and Treasury are blank for foreign nations — the rows are present
+        // (N08 / N09) but the values are empty. R3 of the R1 review: a foreign panel that omits
+        // the rows entirely hides the field's place in the original's order.
+        Check(PanelHasLabel("Mobilized:"), "Carthage's panel keeps a blank Mobilized row");
+        Check(PanelHasLabel("Treasury:"), "Carthage's panel keeps a blank Treasury row");
+        // The values do not leak: the blank line has no digits or '%' after the colon.
+        var mobilizedBlank = FindPanelLabel(label => label.Text == "Mobilized:");
+        Check(
+            mobilizedBlank is not null && !ContainsDigit(mobilizedBlank.Text),
+            "the foreign Mobilized line carries no digits");
+        var treasuryBlank = FindPanelLabel(label => label.Text == "Treasury:");
+        Check(
+            treasuryBlank is not null && !ContainsDigit(treasuryBlank.Text),
+            "the foreign Treasury line carries no digits");
     }
 
     private void AssertPanelShowsForeignTributeWordForCarthago()
@@ -390,8 +401,8 @@ public partial class InformationPanelCheck : Control
             PanelHasLabel($"Mobilized: {rome.MobilizedPercent}%"),
             "Rome's own panel shows Mobilized");
         Check(
-            PanelHasLabel($"Treasury: {rome.Treasury}"),
-            "Rome's own panel shows Treasury");
+            PanelHasLabel($"Treasury: {rome.Treasury} talents"),
+            "Rome's own panel shows Treasury with the ' talents' suffix (R4 of the R1 review)");
 
         // Clicking Rome (the capital) while the active seat is Rome shows the own shape — tribute
         // in talents, supply in tons.
@@ -509,6 +520,10 @@ public partial class InformationPanelCheck : Control
         && Mathf.Abs(a.G - b.G) < 0.01f
         && Mathf.Abs(a.B - b.B) < 0.01f
         && Mathf.Abs(a.A - b.A) < 0.01f;
+
+    /// <summary>Whether <paramref name="text"/> carries any digit. Used to confirm a blank-value
+    /// row (e.g. a foreign Mobilized or Treasury caption) really withholds its number.</summary>
+    private static bool ContainsDigit(string text) => text.Any(char.IsDigit);
 
     private bool PanelShowsHeading(string text) =>
         FindPanelLabel(label => label.Text == text) is { Visible: true };
