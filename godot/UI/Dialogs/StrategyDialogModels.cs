@@ -439,6 +439,29 @@ public sealed class BuildFleetDialogModel
         ArgumentException.ThrowIfNullOrEmpty(newFleetId);
         return $"{StrategyDialogModels.OrderFleetCommandVerb} {cityId} {ships.ToString(System.Globalization.CultureInfo.InvariantCulture)} {newFleetId}";
     }
+
+    /// <summary>
+    /// The id the OK button hands the engine for the fleet it orders: the lowest-numbered
+    /// <c>"fleet-{n}"</c> id not already in use — the same deterministic rule
+    /// <see cref="RecruitUnitDialogModel.NextArmyId"/> applies to mobilized armies. Consumes no
+    /// randomness and no clock, so a replay of the same state proposes the same id and the engine's
+    /// duplicate-id refusal can never fire.
+    /// </summary>
+    public static string NextFleetId(GameState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        var index = 0;
+        string candidate;
+        do
+        {
+            candidate = $"fleet-{index.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+            index++;
+        }
+        while (state.FleetById(candidate) is not null);
+
+        return candidate;
+    }
 }
 
 /// <summary>
@@ -598,6 +621,38 @@ public sealed class RecruitUnitDialogModel
     /// <summary>The <c>disband-slot</c> line the Disband button submits, with the slot index.</summary>
     public string DisbandSlotLine(int slotIndex) =>
         $"{StrategyDialogModels.DisbandSlotCommandVerb} {slotIndex.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+
+    /// <summary>
+    /// The prompt the Disband button asks before it acts: the original's own text, singular for one
+    /// unit and plural for more <strong>[derived: code, <c>TArmyRecruits_DisbandUnits</c>
+    /// :56133-56148; prompt P09 of <c>2026-10-05-refusal-texts-and-conditions.md</c>, research
+    /// <c>593fe15</c>]</strong>. Only Yes acts; No and Cancel submit nothing.
+    /// </summary>
+    public static string DisbandPromptText(int unitCount) =>
+        $"Are you sure you want to disband {unitCount.ToString(System.Globalization.CultureInfo.InvariantCulture)} unit{(unitCount > 1 ? "s" : string.Empty)}.";
+
+    /// <summary>
+    /// The id the Mobilize button hands the engine for an army it would have to create: the
+    /// lowest-numbered <c>"army-{n}"</c> id not already in use — the same rule the engine's own AI
+    /// phase applies (<c>AiEconomyPhase.NextArmyId</c>), so <c>MobilizeRecruitSlotRejections.DuplicateArmyId</c>
+    /// can never fire. Consumes no randomness and no clock: a replay of the same state proposes the
+    /// same id. The engine ignores the id when an existing army receives the unit.
+    /// </summary>
+    public static string NextArmyId(GameState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        var index = 0;
+        string candidate;
+        do
+        {
+            candidate = $"army-{index.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+            index++;
+        }
+        while (state.ArmyById(candidate) is not null);
+
+        return candidate;
+    }
 
     /// <summary>
     /// Where the regiment of <paramref name="slotIndex"/> will appear when mobilized — the

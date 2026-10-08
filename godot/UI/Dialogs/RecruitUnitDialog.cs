@@ -66,6 +66,18 @@ public partial class RecruitUnitDialog : Control
     private Label _replyLabel = null!;
     private Label _mobTargetLabel = null!;
 
+    /// <summary>
+    /// The slot-table index of the training list's selected row, or <see langword="null"/> when none
+    /// is selected. Kept as a field because <see cref="RefreshTrainingList"/> rebuilds the
+    /// <c>ItemList</c> (whose <c>Clear</c> wipes the widget's own selection) on every refresh; the
+    /// field survives and the rebuilt list re-selects the row it still names.
+    /// </summary>
+    private int? _selectedSlotIndex;
+
+    /// <summary>The rows <see cref="_trainingList"/> currently shows, in row order — the map from a
+    /// row position to <see cref="_selectedSlotIndex"/>.</summary>
+    private IReadOnlyList<TrainingRegimentView> _trainingRows = Array.Empty<TrainingRegimentView>();
+
     /// <summary>The live model, exposed so a headless check can read its figures.</summary>
     public RecruitUnitDialogModel ModelForCheck => _model;
 
@@ -126,7 +138,11 @@ public partial class RecruitUnitDialog : Control
             _cityIds.Add(city.Id);
         }
 
-        _cityDropdown.ItemSelected += _ => Refresh();
+        _cityDropdown.ItemSelected += _ =>
+        {
+            _selectedSlotIndex = null;
+            Refresh();
+        };
         column.AddChild(_cityDropdown);
 
         // Type buttons: one per ruleset unit type, in the ruleset's own order.
@@ -165,7 +181,12 @@ public partial class RecruitUnitDialog : Control
         column.AddChild(UiKit.MakeLabel("In training here", 14, UiKit.MutedTextColor));
 
         _trainingList = new ItemList { CustomMinimumSize = new Vector2(0, 140) };
-        _trainingList.ItemSelected += _ => Refresh();
+        _trainingList.ItemSelected += index =>
+        {
+            var row = index >= 0 && index < _trainingRows.Count ? _trainingRows[(int)index] : null;
+            _selectedSlotIndex = row?.SlotIndex;
+            Refresh();
+        };
         column.AddChild(_trainingList);
 
         // The action buttons: each reads the same training list selection.
@@ -238,11 +259,10 @@ public partial class RecruitUnitDialog : Control
             + $"  ·  quarterly: {_model.QuarterlyCostFor(troops, _selectedUnitTypeId).ToString(System.Globalization.CultureInfo.InvariantCulture)}";
 
         RefreshTrainingList();
-        var slotIndex = SelectedSlotIndex();
-        if (slotIndex is { } idx && idx < _model.Slots.Count)
+        var selectedRow = _trainingRows.FirstOrDefault(row => row.SlotIndex == _selectedSlotIndex);
+        if (selectedRow is { } row)
         {
-            var slot = _model.Slots[idx];
-            var target = _model.MobilizationTargetFor(idx, $"{slot.UnitTypeId}-{idx}-{System.Guid.NewGuid():N}");
+            var target = _model.MobilizationTargetFor(row.SlotIndex, RecruitUnitDialogModel.NextArmyId(Session.State));
             _mobTargetLabel.Text = target.ReceivingArmyId is null
                 ? $"The regiment will appear in a new army beside the city."
                 : $"The regiment will join army {target.ReceivingArmyId}.";
@@ -252,35 +272,41 @@ public partial class RecruitUnitDialog : Control
             _mobTargetLabel.Text = string.Empty;
         }
 
-        _mobilizeButton.Disabled = slotIndex is null
-            || SelectedSlotIndex() is not { } s
-            || s >= _model.Slots.Count
-            || !_model.TrainingAtCity(SelectedCityIdForCheck)[0].IsReady;
+        _mobilizeButton.Disabled = selectedRow is not { IsReady: true };
+        _disbandButton.Disabled = selectedRow is null;
     }
 
     private void RefreshTrainingList()
     {
         _trainingList.Clear();
-        var rows = _model.TrainingAtCity(SelectedCityIdForCheck);
-        foreach (var row in rows)
+        _trainingRows = _model.TrainingAtCity(SelectedCityIdForCheck);
+        var reselectRow = -1;
+        for (var i = 0; i < _trainingRows.Count; i++)
         {
-            _trainingList.AddItem(FormatTrainingRow(row));
+            _trainingList.AddItem(FormatTrainingRow(_trainingRows[i]));
+            if (_trainingRows[i].SlotIndex == _selectedSlotIndex)
+            {
+                reselectRow = i;
+            }
+        }
+
+        // ItemList.Clear wiped the widget's selection; restore it when the refreshed list still
+        // contains the selected slot, so Mobilize and Disband keep acting on the player's pick.
+        if (reselectRow >= 0)
+        {
+            _trainingList.Select(reselectRow);
         }
     }
 
     private static string FormatTrainingRow(TrainingRegimentView row) =>
         $"{row.UnitTypeId} — {row.Troops} troops — {row.ReadinessText}";
 
-    private int? SelectedSlotIndex()
-    {
-        var selected = _trainingList.GetSelectedItems();
-        if (selected.Length == 0)
-        {
-            return null;
-        }
-
-        return (int)selected[0];
-    }
+    /// <summary>
+    /// The slot-table index the selected training row names, or <see langword="null"/>. This is the
+    /// index the engine's <c>mobilize</c> and <c>disband-slot</c> verbs take, which is the row's
+    /// <see cref="TrainingRegimentView.SlotIndex"/>, not its position in this city's list.
+    /// </summary>
+    private int? SelectedSlotIndex() => _selectedSlotIndex;
 
     private void SubmitRecruit()
     {
@@ -303,11 +329,10 @@ public partial class RecruitUnitDialog : Control
             return;
         }
 
-        var newArmyId = $"mobilized-{slotIndex}-{System.Guid.NewGuid():N}";
-        var target = _model.MobilizationTargetFor(slotIndex, newArmyId);
-        var line = _model.MobilizeLine(slotIndex, target.NewArmyId);
+        var line = _model.MobilizeLine(slotIndex, RecruitUnitDialogModel.NextArmyId(Session.State));
         var lines = Submit(line);
         _replyLabel.Text = lines.Skip(1).FirstOrDefault(text => text.Length > 0) ?? string.Empty;
+        _selectedSlotIndex = null;
         Refresh();
     }
 
@@ -324,21 +349,22 @@ public partial class RecruitUnitDialog : Control
             return;
         }
 
-        var slot = _model.Slots[slotIndex];
-        var promptText = slotCount > 1
-            ? $"Are you sure you want to disband {slotCount} units."
-            : "Are you sure you want to disband 1 unit.";
-
-        var prompt = new ConfirmPrompt { Question = promptText };
+        // One row can be selected at a time, so the prompt always names one unit. The text is the
+        // original's own [derived: code, TArmyRecruits_DisbandUnits :56133-56148].
+        var prompt = new ConfirmPrompt { Question = RecruitUnitDialogModel.DisbandPromptText(1) };
         prompt.Confirmed += () =>
         {
+            prompt.QueueFree();
             var line = _model.DisbandSlotLine(slotIndex);
             var lines = Submit(line);
             _replyLabel.Text = lines.Skip(1).FirstOrDefault(text => text.Length > 0) ?? string.Empty;
+            _selectedSlotIndex = null;
             Refresh();
         };
+        prompt.Refused += prompt.QueueFree;
 
         AddChild(prompt);
+        prompt.SetAnchorsPreset(LayoutPreset.FullRect);
     }
 
     private void Ok() => Closed?.Invoke();
@@ -362,6 +388,7 @@ public partial class RecruitUnitDialog : Control
             if (string.Equals(_cityIds[i], cityId, StringComparison.Ordinal))
             {
                 _cityDropdown.Select(i);
+                _selectedSlotIndex = null;
                 Refresh();
                 return;
             }
@@ -390,14 +417,16 @@ public partial class RecruitUnitDialog : Control
         Refresh();
     }
 
-    /// <summary>Selects a training-list row by its position, exactly as a click would — exposed for the headless check.</summary>
+    /// <summary>Selects a training-list row by its position, exactly as a click would — exposed for
+    /// the headless check. The row's own slot-table index becomes the selection.</summary>
     public void SelectTrainingRowForCheck(int rowIndex)
     {
-        if (rowIndex < 0 || rowIndex >= _trainingList.ItemCount)
+        if (rowIndex < 0 || rowIndex >= _trainingList.ItemCount || rowIndex >= _trainingRows.Count)
         {
             return;
         }
 
+        _selectedSlotIndex = _trainingRows[rowIndex].SlotIndex;
         _trainingList.Select(rowIndex);
         Refresh();
     }

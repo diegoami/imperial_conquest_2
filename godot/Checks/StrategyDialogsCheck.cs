@@ -408,15 +408,18 @@ public partial class StrategyDialogsCheck : Control
         dialog.SelectCityForCheck(RomeCityId);
         var rows = dialog.ModelForCheck.TrainingAtCity(RomeCityId);
         Check(rows.Count > 0, "the city has a regiment to disband");
+        var slotsBefore = _session.State.NationById(RomeId)!.RecruitmentSlots.Count;
         dialog.SelectTrainingRowForCheck(0);
         dialog.DisbandForCheck();
-        var prompt = _mainGame.ActiveOverlay;
+
+        // The prompt is a child of the dialog, the same seam ChangeUnitsDialogTests uses.
+        var prompt = dialog.GetChildren().OfType<ConfirmPrompt>().FirstOrDefault();
         Check(prompt is ConfirmPrompt, "Disband opens the confirmation prompt");
-        var yesButton = ButtonsUnder(prompt!).FirstOrDefault(b => string.Equals(b.Text, "Yes", StringComparison.Ordinal));
+        var yesButton = ButtonsUnder(prompt ?? (Node)dialog).FirstOrDefault(b => string.Equals(b.Text, "Yes", StringComparison.Ordinal));
         Check(yesButton is not null, "the prompt has a 'Yes' button");
         yesButton?.EmitSignal(BaseButton.SignalName.Pressed);
         var slotsAfter = _session.State.NationById(RomeId)!.RecruitmentSlots.Count;
-        Check(slotsAfter == _session.State.NationById(RomeId)!.RecruitmentSlots.Count, "the prompt accepts and the dialog refreshes");
+        Check(slotsAfter == slotsBefore - 1, $"the prompt's Yes removes the slot ({slotsBefore} -> {slotsAfter})");
     }
 
     private void AssertDisbandRemovedSlot()
@@ -531,16 +534,49 @@ public partial class StrategyDialogsCheck : Control
     }
 
     /// <summary>
-    /// The shipped <c>classical-mediterranean</c> world with Rome as the human seat; no scripted
-    /// cities or armies, so the dialogs and the engine see the live world. The data root is the
-    /// <see cref="GameDataContext.RepositoryRoot"/> the rest of the project already resolves to
-    /// (<see cref="GameSessionFactory.RepositoryRootFromGlobalizedResPath"/>), so the check and the
-    /// live game cannot disagree on where the data lives.
+    /// The shipped <c>classical-mediterranean</c> world with Rome as the human seat, plus one Roman
+    /// starting fleet (<c>t109-rom-fleet</c>) on a water tile beside Caere — the shipped world gives
+    /// Rome no fleet, and the Build fleet dialog's "fleets under construction" section and the
+    /// fleet-count assertions want one in the state. The port tile is found from the shipped terrain
+    /// (the same <c>Decode</c> + <c>PassableByFleets</c> read <c>FleetCityOrdersCheck</c> uses), so
+    /// the fixture never depends on a hand-copied coordinate.
     /// </summary>
     private static GameSession BuildSession()
     {
         var resolved = GameDataContext.Repository.Resolve("classical-mediterranean");
+        var world = resolved.World;
+        var caere = world.Cities.First(c => c.Id == T109BuildCityId);
+        var terrain = world.Terrain.Decode(world.Width, world.Height);
+
+        int portX = -1, portY = -1;
+        for (var dy = -1; dy <= 1 && portX < 0; dy++)
+        {
+            for (var dx = -1; dx <= 1; dx++)
+            {
+                var x = caere.X + dx;
+                var y = caere.Y + dy;
+                var inBounds = x >= 0 && y >= 0 && x < world.Width && y < world.Height;
+                if (inBounds && world.TileTypeByCode(terrain[(y * world.Width) + x])?.PassableByFleets == true)
+                {
+                    portX = x;
+                    portY = y;
+                    break;
+                }
+            }
+        }
+
+        if (portX < 0)
+        {
+            throw new InvalidOperationException("No water tile adjoins Caere in the shipped world.");
+        }
+
+        var fleets = world.StartingFleets.ToList();
+        fleets.Add(new StartingFleet(
+            T109RomeFleetId, RomeId, portX, portY,
+            Ships: 20, ConditionPercent: 100, Money: 50, SupplyTons: 100, Moves: 8));
+
+        var customWorld = world with { StartingFleets = ValueList.From(fleets) };
         return new GameSession(
-            resolved.World, resolved.Ruleset, resolved.Scenario, seedOverride: 1, humanSeatNationId: RomeId);
+            customWorld, resolved.Ruleset, resolved.Scenario, seedOverride: 1, humanSeatNationId: RomeId);
     }
 }

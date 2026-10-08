@@ -20,6 +20,11 @@ namespace IC2.Slice.UI;
 /// <param name="Troops">Troops raised so far — the slot's own <see cref="RecruitmentSlot.Troops"/>.</param>
 /// <param name="TargetCityId">The city training this regiment.</param>
 /// <param name="StateCode">The raw readiness counter, shown by no screen but carried for tests/tools.</param>
+/// <param name="SlotIndex">
+/// The row's index into <see cref="NationState.RecruitmentSlots"/> — the index the engine's
+/// <c>mobilize</c> and <c>disband-slot</c> verbs name. T109's Recruit unit dialog reads it so its
+/// training list can submit the real slot-table index, not the row's position within one city's list.
+/// </param>
 /// <param name="IsReady">Whether this seat may mobilize the slot right now.</param>
 /// <param name="WeeksUntilReady">
 /// How many weekly ticks until <paramref name="IsReady"/> turns true, or <c>0</c> when it already has;
@@ -31,6 +36,7 @@ public sealed record TrainingRegimentView(
     int Troops,
     string TargetCityId,
     int StateCode,
+    int SlotIndex,
     bool IsReady,
     int? WeeksUntilReady)
 {
@@ -153,11 +159,12 @@ public static class RecruitmentPanelViewModel
         }
 
         var rows = new List<TrainingRegimentView>(nation.RecruitmentSlots.Count);
-        foreach (var slot in nation.RecruitmentSlots)
+        for (var slotIndex = 0; slotIndex < nation.RecruitmentSlots.Count; slotIndex++)
         {
+            var slot = nation.RecruitmentSlots[slotIndex];
             if (string.Equals(slot.TargetCityId, cityId, StringComparison.Ordinal))
             {
-                rows.Add(Describe(slot, nation, ruleset));
+                rows.Add(Describe(slot, slotIndex, nation, ruleset));
             }
         }
 
@@ -182,9 +189,9 @@ public static class RecruitmentPanelViewModel
         }
 
         var rows = new List<TrainingRegimentView>(nation.RecruitmentSlots.Count);
-        foreach (var slot in nation.RecruitmentSlots)
+        for (var slotIndex = 0; slotIndex < nation.RecruitmentSlots.Count; slotIndex++)
         {
-            rows.Add(Describe(slot, nation, ruleset));
+            rows.Add(Describe(nation.RecruitmentSlots[slotIndex], slotIndex, nation, ruleset));
         }
 
         return rows;
@@ -228,12 +235,13 @@ public static class RecruitmentPanelViewModel
         return MobilizeChoice.None(NoReadySlotReason);
     }
 
-    private static TrainingRegimentView Describe(RecruitmentSlot slot, NationState nation, Ruleset ruleset) =>
+    private static TrainingRegimentView Describe(RecruitmentSlot slot, int slotIndex, NationState nation, Ruleset ruleset) =>
         new(
             UnitTypeId: slot.UnitTypeId,
             Troops: slot.Troops,
             TargetCityId: slot.TargetCityId,
             StateCode: slot.StateCode,
+            SlotIndex: slotIndex,
             IsReady: IsReady(slot, nation, ruleset),
             WeeksUntilReady: WeeksUntilReady(slot.StateCode, nation, ruleset));
 

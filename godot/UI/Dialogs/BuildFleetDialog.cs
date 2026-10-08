@@ -236,8 +236,7 @@ public partial class BuildFleetDialog : Control
 
         var ships = (int)_ships.Value;
         var city = _model.FreeCoastalCities[0];
-        var newFleetId = $"t109-fleet-{System.Guid.NewGuid():N}";
-        var line = _model.OrderFleetLine(ships, city.Id, newFleetId);
+        var line = _model.OrderFleetLine(ships, city.Id, BuildFleetDialogModel.NextFleetId(Session.State));
         var lines = Submit(line);
         _replyLabel.Text = lines.Skip(1).FirstOrDefault(text => text.Length > 0) ?? string.Empty;
         Closed?.Invoke();

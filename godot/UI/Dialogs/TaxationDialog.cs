@@ -202,14 +202,14 @@ public partial class TaxationDialog : Control
         // would clamp to 40, but 38 + 5 = 43 would clamp to 40 too, contradicting the brief's "39
         // +5 page gives 40" rule. The Range's Step is the slider's snapping unit, the page key is
         // just a five-step nudge.
-        if (@event is InputEventKey { Pressed: true, Keycode: Key.PageUp })
+        if (@event is InputEventKey { Pressed: true, Keycode: Key.Pageup })
         {
             _slider.Value = _model.Clamp((int)_slider.Value + StrategyDialogModels.TaxPageStep);
             GetViewport().SetInputAsHandled();
             return;
         }
 
-        if (@event is InputEventKey { Pressed: true, Keycode: Key.PageDown })
+        if (@event is InputEventKey { Pressed: true, Keycode: Key.Pagedown })
         {
             _slider.Value = _model.Clamp((int)_slider.Value - StrategyDialogModels.TaxPageStep);
             GetViewport().SetInputAsHandled();
