@@ -35,8 +35,19 @@ public partial class SupplyDialog : Control
     /// <summary>The session the dialog submits to and reads its figures from.</summary>
     public required GameSession Session { get; init; }
 
-    /// <summary>The army the dialog acts on.</summary>
-    public required string ArmyId { get; init; }
+    /// <summary>
+    /// The army the dialog acts on (the Army menu's Supply army) — <see langword="null"/> when the dialog
+    /// is opened for a fleet instead, in which case <see cref="FleetId"/> is set. Exactly one is set.
+    /// </summary>
+    public string? ArmyId { get; init; }
+
+    /// <summary>The fleet the dialog acts on (the Fleet menu's Supply fleet, T112), or <see langword="null"/>.</summary>
+    public string? FleetId { get; init; }
+
+    private bool IsFleet => FleetId is not null;
+
+    /// <summary>The buying army's or fleet's id.</summary>
+    private string SubjectId => FleetId ?? ArmyId!;
 
     /// <summary>
     /// Submits one composed command line through the screen's own path and returns the session's output
@@ -65,7 +76,9 @@ public partial class SupplyDialog : Control
 
     public override void _Ready()
     {
-        _model = SupplyDialogModel.ForArmy(Session.State, Session.State.ArmyById(ArmyId)!, Session.Ruleset);
+        _model = IsFleet
+            ? SupplyDialogModel.ForFleet(Session.State, Session.State.FleetById(FleetId!)!, Session.Ruleset)
+            : SupplyDialogModel.ForArmy(Session.State, Session.State.ArmyById(ArmyId!)!, Session.Ruleset);
 
         var backdrop = new ColorRect { Color = new Color(0f, 0f, 0f, 0.6f), MouseFilter = MouseFilterEnum.Stop };
         backdrop.SetAnchorsPreset(LayoutPreset.FullRect);
@@ -83,7 +96,8 @@ public partial class SupplyDialog : Control
         column.AddThemeConstantOverride("separation", 8);
         panel.AddChild(column);
 
-        column.AddChild(UiKit.MakeLabel($"Supply army — {ArmyId}", 18, UiKit.AccentColor));
+        column.AddChild(UiKit.MakeLabel(
+            $"{(IsFleet ? "Supply fleet" : "Supply army")} — {SubjectId}", 18, UiKit.AccentColor));
 
         _figuresLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.TextColor);
         _figuresLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -257,7 +271,20 @@ public partial class SupplyDialog : Control
 
     private void RefreshFigures()
     {
-        var army = Session.State.ArmyById(ArmyId);
+        if (IsFleet)
+        {
+            var fleet = Session.State.FleetById(FleetId!);
+            if (fleet is null)
+            {
+                return;
+            }
+
+            _model.Refresh(Session.State, fleet);
+            UpdateFigures();
+            return;
+        }
+
+        var army = Session.State.ArmyById(ArmyId!);
         if (army is null)
         {
             return;
@@ -270,8 +297,8 @@ public partial class SupplyDialog : Control
     private void UpdateFigures()
     {
         _figuresLabel.Text =
-            $"Supply {_model.ArmySupplyTons}t  ·  Room {_model.ArmyRoomTons}t  ·  "
-            + $"Army money {_model.ArmyMoney}  ·  Treasury {_model.NationalTreasury}";
+            $"Supply {_model.UnitSupplyTons}t  ·  Room {_model.UnitRoomTons}t  ·  "
+            + $"{_model.UnitMoney} money  ·  Treasury {_model.NationalTreasury}";
 
         _providerList.Clear();
         foreach (var provider in _model.Providers)
@@ -287,7 +314,7 @@ public partial class SupplyDialog : Control
         UpdateProviderDetails();
 
         _moneyLabel.Text =
-            $"National balance {_model.NationalTreasury}  ·  Army money {_model.ArmyMoney}";
+            $"National balance {_model.NationalTreasury}  ·  {_model.UnitMoney} money";
 
         _viaPicker.Clear();
         foreach (var choice in _model.MoneyViaChoices)
@@ -320,7 +347,7 @@ public partial class SupplyDialog : Control
         _providerKindLabel.Text = selected is null
             ? "No provider."
             : selected.IsFree
-                ? "Free at your own city or fleet."
+                ? (IsFleet ? "Free at your own city." : "Free at your own city or fleet.")
                 : $"Paid — {_model.StagedCostTalents} talents for {_model.StagedTons} tons.";
 
         _stagedLabel.Text = selected is { IsFree: false }

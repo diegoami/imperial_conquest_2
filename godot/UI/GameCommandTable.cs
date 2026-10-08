@@ -206,8 +206,8 @@ public sealed class GameCommandTable
             new GameCommandRow("area_map.find_city", "Area map", null, "Find a city", "ui.command.find_city.icon", null, Wired: true),
         });
 
-        // ---- Unit map (audit §1.6); T134 wires Supply army and T111 the other Army entries, so only
-        // Recruit mercenaries (T113, after T76) and the Fleet/City rows stay disabled ----
+        // ---- Unit map (audit §1.6); T134 wires Supply army, T111 the other Army entries, T112 the six
+        // Fleet orders and Fortify city, so only Recruit mercenaries (T113, after T76) stays disabled ----
         rows.AddRange(new[]
         {
             new GameCommandRow("unit_map.army_supply", "Unit map", "Army", "Supply army", "ui.command.army_supply.icon", null, Wired: true),
@@ -217,13 +217,13 @@ public sealed class GameCommandTable
             new GameCommandRow("unit_map.army_join", "Unit map", "Army", "Join armies", "ui.command.army_join.icon", null, Wired: true),
             new GameCommandRow("unit_map.army_change_units", "Unit map", "Army", "Change units", "ui.command.army_change_units.icon", null, Wired: true),
             new GameCommandRow("unit_map.army_disband", "Unit map", "Army", "Disband army", "ui.command.army_disband.icon", null, Wired: true),
-            new GameCommandRow("unit_map.fleet_supply", "Unit map", "Fleet", "Supply fleet", "ui.command.fleet_supply.icon", null, Wired: false),
-            new GameCommandRow("unit_map.fleet_repair", "Unit map", "Fleet", "Repair fleet", "ui.command.fleet_repair.icon", null, Wired: false),
-            new GameCommandRow("unit_map.fleet_transfer_ships", "Unit map", "Fleet", "Transfer ships", "ui.command.fleet_transfer_ships.icon", null, Wired: false),
-            new GameCommandRow("unit_map.fleet_split", "Unit map", "Fleet", "Split fleet", "ui.command.fleet_split.icon", null, Wired: false),
-            new GameCommandRow("unit_map.fleet_join", "Unit map", "Fleet", "Join fleets", "ui.command.fleet_join.icon", null, Wired: false),
-            new GameCommandRow("unit_map.fleet_scuttle", "Unit map", "Fleet", "Scuttle fleet", "ui.command.fleet_scuttle.icon", null, Wired: false),
-            new GameCommandRow("unit_map.city_fortify", "Unit map", "City", "Fortify city", "ui.command.city_fortify.icon", null, Wired: false),
+            new GameCommandRow("unit_map.fleet_supply", "Unit map", "Fleet", "Supply fleet", "ui.command.fleet_supply.icon", null, Wired: true),
+            new GameCommandRow("unit_map.fleet_repair", "Unit map", "Fleet", "Repair fleet", "ui.command.fleet_repair.icon", null, Wired: true),
+            new GameCommandRow("unit_map.fleet_transfer_ships", "Unit map", "Fleet", "Transfer ships", "ui.command.fleet_transfer_ships.icon", null, Wired: true),
+            new GameCommandRow("unit_map.fleet_split", "Unit map", "Fleet", "Split fleet", "ui.command.fleet_split.icon", null, Wired: true),
+            new GameCommandRow("unit_map.fleet_join", "Unit map", "Fleet", "Join fleets", "ui.command.fleet_join.icon", null, Wired: true),
+            new GameCommandRow("unit_map.fleet_scuttle", "Unit map", "Fleet", "Scuttle fleet", "ui.command.fleet_scuttle.icon", null, Wired: true),
+            new GameCommandRow("unit_map.city_fortify", "Unit map", "City", "Fortify city", "ui.command.city_fortify.icon", null, Wired: true),
             new GameCommandRow("unit_map.cancel_selection", "Unit map", null, "Cancel selection", "ui.command.cancel_selection.icon", "Shift+X", Wired: true),
         });
 

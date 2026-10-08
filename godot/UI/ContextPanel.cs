@@ -18,32 +18,29 @@ namespace IC2.Slice.UI;
 /// is read all over the economy systems but nothing in <c>src/IC2.Engine/Economy/Commands</c> or
 /// <c>src/IC2.Engine/Cities/Orders</c> ever writes it — there is no command that sets a nation's tax
 /// rate. This panel shows the value; it has no control to change it.</description></item>
-/// <item><description><strong>The army panel is information only.</strong> T111 moved its Disband
-/// button into the Army menu's Disband army entry (with T99's confirmation prompt), so the panel now
-/// renders no order button of its own beyond T109's Mobilize. An army's own supply transfer is the Army
-/// menu's Supply army dialog (<c>economy.buy-supply</c>, T134), and its units, supply and money move
-/// between two adjacent armies through the Army menu's Transfer unit dialog
-/// (<c>armies.army-transfer</c>, T106/T117).</description></item>
+/// <item><description><strong>The panels are information only.</strong> T112 removed the last order
+/// buttons — the city panel's Order Fortification (and, before it, Recruit) and the fleet panel's Repair
+/// and Scuttle — so this panel renders no command button at all (the user's decision that it shows
+/// information only). The Unit map's menu and its command strip own every order: Supply fleet/army
+/// (<c>economy.buy-supply</c>/<c>naval.buy-fleet-supply</c>, T134/T112), Transfer unit/ships
+/// (<c>armies.army-transfer</c>/<c>naval.fleet-to-fleet-transfer</c>, T106/T117/T114), Repair fleet,
+/// Split fleet and Fortify city. T109 moves the city's Recruit and the army's Mobilize into the
+/// Strategy menu's dialogs.</description></item>
 /// </list>
 /// </remarks>
 public partial class ContextPanel : Control
 {
-    private static readonly (string Id, string Label)[] UnitTypes =
-    {
-        ("light_infantry", "Light Infantry"),
-        ("heavy_infantry", "Heavy Infantry"),
-        ("archers", "Archers"),
-        ("light_cavalry", "Light Cavalry"),
-        ("heavy_cavalry", "Heavy Cavalry"),
-    };
-
     public required GameSession Session { get; init; }
 
     public required GameMapView MapView { get; init; }
 
     /// <summary>Raised after this panel issues a command, so <see cref="MainGameScreen"/> can append the
-    /// output to the news log and refresh the top bar/map.</summary>
+    /// output to the news log and refresh the top bar/map. <strong>T112:</strong> the panel is information
+    /// only, so it never raises this itself; the event is kept because
+    /// <c>godot/Checks/MapClickCheck.cs</c> (out of this task's Owns) subscribes to it.</summary>
+#pragma warning disable CS0067 // The event is subscribed by MapClickCheck; the panel issues no command since T112.
     public event Action<IReadOnlyList<string>>? CommandIssued;
+#pragma warning restore CS0067
 
     private VBoxContainer _content = null!;
     private Selection _selection = Selection.None();
@@ -198,21 +195,6 @@ public partial class ContextPanel : Control
     }
 
     /// <summary>
-    /// Fix #491: a <see cref="Button"/>'s own minimum width is likewise its unclipped label's full
-    /// width ("Attack (click a target on the map)" is longer than the 340&#160;px panel itself), which
-    /// forced the panel wide even after <see cref="Fact"/> started wrapping. Every button this panel
-    /// adds goes through here instead of a bare <c>UiKit.MakeButton</c> call, so it clips to whatever
-    /// width the panel actually settles at rather than demanding more.
-    /// </summary>
-    private void AddButton(string text, Action onPressed, bool enabled = true)
-    {
-        var button = UiKit.MakeButton(text, onPressed);
-        button.ClipText = true;
-        button.Disabled = !enabled;
-        _content.AddChild(button);
-    }
-
-    /// <summary>
     /// T110: the viewed nation's status panel, or the All nations view when the viewed nation is null.
     /// The own nation's lines come from <see cref="NationStatusModel"/> with the full confirmed list; a
     /// foreign nation's are its public facts only (the user's decision of 2026-10-01).
@@ -296,70 +278,10 @@ public partial class ContextPanel : Control
             return;
         }
 
-        _content.AddChild(new HSeparator());
-        _content.AddChild(UiKit.MakeLabel("Recruit standing unit", 15, UiKit.TextColor));
-
-        var typePicker = new OptionButton();
-        foreach (var (_, label) in UnitTypes)
-        {
-            typePicker.AddItem(label);
-        }
-
-        _content.AddChild(typePicker);
-
-        // Fix #519: the box's range is the selected type's own standard battalion (max) and a fifth of
-        // it (min and default), read from the session's ruleset — never the invented 10..2000 literal
-        // this used to carry. The step is the original dialog's 100; its page keys move 1,000.
-        var troopSpin = new SpinBox();
-        void ApplyTroopBounds()
-        {
-            var index = typePicker.Selected < 0 ? 0 : typePicker.Selected;
-            var bounds = RecruitTroopBounds.For(Session.Ruleset, UnitTypes[index].Id);
-            troopSpin.MinValue = bounds.Minimum;
-            troopSpin.MaxValue = bounds.Maximum;
-            troopSpin.Step = bounds.Step;
-            troopSpin.Value = bounds.DefaultValue;
-        }
-
-        ApplyTroopBounds();
-        typePicker.ItemSelected += _ => ApplyTroopBounds();
-
-        // Godot's SpinBox has no page-key handling (Range.Page belongs to ScrollBar/Slider only), so
-        // PageUp/PageDown are handled on the box's own LineEdit. Accepting the event keeps the LineEdit
-        // from also moving its caret on the same key.
-        troopSpin.GetLineEdit().GuiInput += @event =>
-        {
-            if (@event is not InputEventKey { Pressed: true, Echo: false } key)
-            {
-                return;
-            }
-
-            if (key.IsAction("ui_page_up"))
-            {
-                troopSpin.Value += RecruitTroopBounds.PageStepSize;
-                troopSpin.AcceptEvent();
-            }
-            else if (key.IsAction("ui_page_down"))
-            {
-                troopSpin.Value -= RecruitTroopBounds.PageStepSize;
-                troopSpin.AcceptEvent();
-            }
-        };
-
-        _content.AddChild(troopSpin);
-
-        AddButton("Recruit", () =>
-        {
-            var unitTypeId = UnitTypes[typePicker.Selected].Id;
-            Issue($"recruit-standing {city.Id} {unitTypeId} {(int)troopSpin.Value}");
-        });
-
-        _content.AddChild(new HSeparator());
-        _content.AddChild(UiKit.MakeLabel("Fortify", 15, UiKit.TextColor));
-        var fortifyPoints = new SpinBox { MinValue = 1, MaxValue = 100, Step = 1, Value = 10 };
-        _content.AddChild(fortifyPoints);
-        AddButton("Order Fortification", () =>
-            Issue($"order-city {city.Id} fortify {(int)fortifyPoints.Value}"));
+        // T112: the panel is information only — its last order buttons (Order Fortification, and before
+        // it Recruit) are gone, and the city's orders live in the Unit map → City menu (and, from T109,
+        // the Strategy menu's dialogs). See this class's remarks.
+        Note("Orders for this city are in the Unit map menu.");
     }
 
     private void BuildArmyPanel(ArmyState army)
@@ -385,21 +307,11 @@ public partial class ContextPanel : Control
 
         _content.AddChild(new HSeparator());
 
-        // Fix #513, Defect 2: the choice is the engine's own readiness gate, so the button can only
-        // issue "mobilize <a ready index>" -- and says why it is disabled when nothing is ready.
-        var mobilize = RecruitmentPanelViewModel.ChooseMobilization(Session.State, Session.Ruleset, army.Nation);
-        AddButton(
-            "Mobilize first ready slot",
-            () => MobilizeFirstReadySlot(army.Id, mobilize.SlotIndex!.Value),
-            mobilize.IsEnabled);
-        if (!mobilize.IsEnabled)
-        {
-            Note(mobilize.Reason!);
-        }
-
         // T111: the army panel's Disband button is gone — the Army menu's Disband army entry (with
-        // T99's confirmation prompt) is now the one path to disband-army. The city panel's Recruit
-        // section and the army panel's Mobilize button go with T109.
+        // T99's confirmation prompt) is now the one path to disband-army.
+        // T112: the panel is information only; the Mobilize button moved with T109's Recruit unit dialog,
+        // so no army order button remains here. See this class's remarks.
+        Note("Orders for this army are in the Unit map menu.");
     }
 
     private void BuildFleetPanel(FleetState fleet)
@@ -414,12 +326,9 @@ public partial class ContextPanel : Control
             return;
         }
 
-        _content.AddChild(new HSeparator());
-        var repairPoints = new SpinBox { MinValue = 1, MaxValue = 100, Step = 1, Value = 10 };
-        _content.AddChild(UiKit.MakeLabel("Repair points", 13, UiKit.MutedTextColor));
-        _content.AddChild(repairPoints);
-        AddButton("Repair", () => Issue($"repair-fleet {fleet.Id} {(int)repairPoints.Value}"));
-        AddButton("Scuttle", () => Issue($"scuttle-fleet {fleet.Id}"));
+        // T112: the fleet panel's Repair and Scuttle buttons are gone — the panel is information only,
+        // and the fleet's orders live in the Unit map → Fleet menu. See this class's remarks.
+        Note("Orders for this fleet are in the Unit map menu.");
     }
 
     /// <summary>
@@ -496,37 +405,9 @@ public partial class ContextPanel : Control
             : string.Join(", ", units.Select(u =>
                 $"{u.Troops}x {u.UnitTypeId} ({ArmyDialogModels.QualityCaption(u.Quality)})"));
 
-    /// <summary>
-    /// Mobilizes <paramref name="slotIndex"/> — the first slot <see cref="MobilizationReadiness"/> says
-    /// this seat may actually mobilize, chosen by
-    /// <see cref="RecruitmentPanelViewModel.ChooseMobilization"/> in <see cref="BuildArmyPanel"/>.
-    /// </summary>
-    /// <remarks>
-    /// <strong>Fix #513, Defect 2.</strong> The old button issued <c>mobilize 0 …</c> whatever slot 0's
-    /// state was, so an order given while slot 0 was still training was refused — and #484 made the
-    /// refusal silent. This method now only ever receives an index the engine's own gate accepted; when
-    /// none is ready, <see cref="BuildArmyPanel"/> disables the button and shows
-    /// <see cref="MobilizeChoice.Reason"/> instead of issuing anything.
-    /// </remarks>
-    /// <param name="newArmyName">The army id prefix; the engine appends <c>-recruit</c> (see
-    /// <see cref="BuildArmyPanel"/>).</param>
-    /// <param name="slotIndex">The index into the nation's <see cref="NationState.RecruitmentSlots"/>.</param>
-    private void MobilizeFirstReadySlot(string newArmyName, int slotIndex)
-    {
-        Issue($"mobilize {slotIndex} {newArmyName}-recruit");
-    }
-
     private string DisplayNation(string nationId) => Session.State.NationById(nationId)?.Name ?? nationId;
 
     private string CityName(string cityId) => Session.State.CityById(cityId)?.Name ?? cityId;
-
-    private void Issue(string commandLine)
-    {
-        var output = Session.Submit(commandLine);
-        CommandIssued?.Invoke(output.Lines);
-        MapView.Refresh();
-        Refresh();
-    }
 
     private enum SelectionKind
     {

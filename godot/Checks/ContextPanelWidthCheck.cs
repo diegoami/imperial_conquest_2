@@ -35,14 +35,6 @@ public partial class ContextPanelWidthCheck : Control
     private const int SettleFrames = 6;
     private const string LongTroopsArmyId = "north-army-1";
 
-    // T99: "Move" and "Attack" went with the button-armed pending action — orders are map clicks now.
-    // T111: the army panel's Disband button is gone (the Army menu's Disband army entry replaces it), so
-    // Mobilize first ready slot is the army panel's only remaining order button. (T109 removes it too.)
-    private static readonly string[] OrderButtonLabels =
-    {
-        "Mobilize first ready slot",
-    };
-
     private MainGameScreen _mainGame = null!;
     private int _frame;
     private int _step;
@@ -100,28 +92,21 @@ public partial class ContextPanelWidthCheck : Control
             "the context panel keeps its 340px minimum width after selecting an army with a long "
             + $"Troops line (got {contextPanel.Size.X}px)");
 
-        var buttons = FindButtons(contextPanel)
-            .Where(b => OrderButtonLabels.Any(label => b.Text.StartsWith(label, StringComparison.Ordinal)))
-            .ToList();
-
+        var panelRect = contextPanel.GetGlobalRect();
+        var panelInsideViewport =
+            panelRect.Position.X >= -0.5f && panelRect.Position.Y >= -0.5f
+            && panelRect.Position.X + panelRect.Size.X <= viewportSize.X + 0.5f
+            && panelRect.Position.Y + panelRect.Size.Y <= viewportSize.Y + 0.5f;
         ok &= Check(
-            buttons.Count == OrderButtonLabels.Length,
-            $"the panel renders all {OrderButtonLabels.Length} order buttons "
-            + $"(found {buttons.Count}: {string.Join(", ", buttons.Select(b => b.Text))})");
+            panelInsideViewport,
+            $"the panel's rect ({panelRect}) lies inside the viewport "
+            + $"(0,0)-({viewportSize.X},{viewportSize.Y})");
 
-        foreach (var button in buttons)
-        {
-            var rect = button.GetGlobalRect();
-            var insideViewport =
-                rect.Position.X >= -0.5f && rect.Position.Y >= -0.5f
-                && rect.Position.X + rect.Size.X <= viewportSize.X + 0.5f
-                && rect.Position.Y + rect.Size.Y <= viewportSize.Y + 0.5f;
-
-            ok &= Check(
-                insideViewport,
-                $"the '{button.Text}' order button's rect ({rect}) lies inside the viewport "
-                + $"(0,0)-({viewportSize.X},{viewportSize.Y})");
-        }
+        // T112 Done-when 5: the panel is information only, so no Button of any kind remains in it.
+        var buttons = FindButtons(contextPanel).ToList();
+        ok &= Check(
+            buttons.Count == 0,
+            $"the panel renders no order button (found {buttons.Count}: {string.Join(", ", buttons.Select(b => b.Text))})");
 
         return ok;
     }
