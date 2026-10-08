@@ -80,7 +80,7 @@ public enum AreaMapHighlightKind
 public static class AreaMapHighlights
 {
     /// <summary>The sentinel that marks a hired mercenary slot — not a live offer.</summary>
-    private const int HiredSlotSentinelTroops = 0xFFFF;
+    public const int HiredSlotSentinelTroops = 0xFFFF;
 
     /// <summary>
     /// The tiles <paramref name="kind"/> marks for the viewed nation, or for every nation when
