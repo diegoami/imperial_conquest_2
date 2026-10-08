@@ -1,6 +1,8 @@
 using IC2.Engine.Model;
+using IC2.Engine.Naval.Commands;
 using IC2.Engine.Serialization;
 using IC2.Engine.Tests.Core;
+using IC2.Engine.Tests.Naval;
 using IC2.Slice.UI;
 using Xunit;
 using ModelTestPaths = IC2.Engine.Tests.Model.TestPaths;
@@ -15,6 +17,7 @@ namespace IC2.Engine.Tests.Ui;
 public sealed class FleetCityDialogModelsTests
 {
     private const string NationId = "rome";
+    private const string EngineNationId = "north";
     private const string FleetId = "t112-fleet";
     private const string PartnerId = "t112-partner";
     private const string NewFleetId = "t112-fleet-split";
@@ -33,8 +36,9 @@ public sealed class FleetCityDialogModelsTests
         int condition = 70,
         int supply = 300,
         int money = 100,
-        string? carriedArmyId = null) => new(
-        id, NationId, x, y, Moves: 8, Ships: ships, ConditionPercent: condition, Money: money,
+        string? carriedArmyId = null,
+        string nation = NationId) => new(
+        id, nation, x, y, Moves: 8, Ships: ships, ConditionPercent: condition, Money: money,
         SupplyTons: supply, ConstructionTicksRemaining: null, BuildCityId: null,
         CarriedArmyId: carriedArmyId, CoveredTileCode: null);
 
@@ -237,6 +241,75 @@ public sealed class FleetCityDialogModelsTests
         Assert.Equal(5, model.MaxShipsToPartner);
         model.AdjustShips(10);
         Assert.Equal(5, model.ShipsNet);
+    }
+
+    // ---- Done-when 1: Transfer ships refuses the selected fleet's last ship (T112 R2) ----
+
+    [Fact]
+    public void Transfer_ships_refuses_moving_the_selected_fleets_last_ship()
+    {
+        var ruleset = ClassicalRuleset;
+        var selected = Fleet(ships: 30);
+        var partner = Fleet(PartnerId, x: 3, y: 3, ships: 20);
+        var state = State(selected, partner);
+        var model = FleetTransferModel.ForFleets(state.FleetById(FleetId)!, state.FleetById(PartnerId)!, ruleset);
+
+        // Every one of A's ships toward B is the engine's disband trigger (remainingShips == 0): the model
+        // refuses it and composes nothing.
+        model.AdjustShips(30);
+        Assert.Equal(30, model.ShipsNet);
+        Assert.True(model.MovesEverySelectedShip);
+        Assert.Equal(FleetCityDialogModels.TransferAllShipsMessage, model.RefusalMessage);
+        Assert.Empty(model.ComposeOk());
+
+        // One short of every ship is accepted: the partial A -> B line composes as before.
+        model.AdjustShips(-1);
+        Assert.False(model.MovesEverySelectedShip);
+        Assert.Null(model.RefusalMessage);
+        Assert.Equal($"fleet-transfer {FleetId} {PartnerId} 29 0 0", Assert.Single(model.ComposeOk()));
+    }
+
+    /// <summary>
+    /// T112 R2: the permitted two-way staging that stages <em>all</em> of A's ships toward B plus B's
+    /// money toward A is refused, and the engine confirms the sequence the pre-fix model composed was
+    /// destructive: the A → B line disbands A, so the following B → A line names a fleet that no longer
+    /// exists and the staged money is lost.
+    /// </summary>
+    [Fact]
+    public void Transfer_ships_refuses_the_all_ships_two_way_staging_and_the_engine_confirms_the_lost_line()
+    {
+        var state = CoreTestbed.InitialState();
+        var selected = Fleet(FleetId, x: 3, y: 3, ships: 30, supply: 300, money: 100, nation: EngineNationId);
+        var partner = Fleet(PartnerId, x: 4, y: 3, ships: 20, supply: 200, money: 50, nation: EngineNationId);
+        state = state with { Fleets = ValueList.Of(selected, partner) };
+
+        var ruleset = NavalTestbed.Ruleset;
+        var model = FleetTransferModel.ForFleets(state.FleetById(FleetId)!, state.FleetById(PartnerId)!, ruleset);
+
+        // The destructive staging: A -> B 30/30 ships and B -> A 50 talents.
+        model.AdjustShips(30);
+        model.AdjustMoney(-50);
+
+        // The model refuses the whole staging and composes nothing — there is no first line to disband A.
+        Assert.True(model.MovesEverySelectedShip);
+        Assert.Equal(FleetCityDialogModels.TransferAllShipsMessage, model.RefusalMessage);
+        Assert.Empty(model.ComposeOk());
+
+        // The engine confirms the pre-fix sequence was destructive: A -> B 30 ships disbands A ...
+        var dispatcher = NavalTestbed.RealEngineDispatcher();
+        var disband = dispatcher.Dispatch(
+            state,
+            new FleetToFleetTransferCommand(EngineNationId, FleetId, PartnerId, Ships: 30, SupplyTons: 0, Money: 0));
+        Assert.True(disband.IsAccepted, disband.ToString());
+        Assert.Null(disband.State.FleetById(FleetId));
+
+        // ... and the following B -> A 50-talents line is then rejected outright: the staged money is lost.
+        var lost = dispatcher.Dispatch(
+            disband.State,
+            new FleetToFleetTransferCommand(EngineNationId, PartnerId, FleetId, Ships: 0, SupplyTons: 0, Money: 50));
+        Assert.True(lost.IsRejected);
+        Assert.Equal(FleetToFleetTransferRejections.UnknownFleet, lost.Code);
+        Assert.Same(disband.State, lost.State);
     }
 
     // ---- Done-when 1: Transfer ships refuses a carrying fleet (T112 R1) ----

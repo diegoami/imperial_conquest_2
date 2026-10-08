@@ -177,6 +177,9 @@ public partial class FleetTransferDialog : Control
         var lines = _model.ComposeOk();
         if (lines.Count == 0)
         {
+            // Nothing to submit: show the model's own refusal (the no-partner, carrying-army, cap or
+            // last-ship line) instead of silently ignoring the press.
+            _replyLabel.Text = _model.RefusalMessage ?? string.Empty;
             return;
         }
 

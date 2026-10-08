@@ -105,6 +105,17 @@ public static class FleetCityDialogModels
     /// <c>FleetToFleetTransferRejections.CarryingArmy</c> branch.</summary>
     public const string TransferCarryingArmyMessage = "Neither fleet may carry an army to transfer.";
 
+    /// <summary>
+    /// Transfer ships' refusal when the staged A → B move would take the selected fleet's <em>last</em>
+    /// ship. The engine disbands a fleet whose remaining ships reach zero
+    /// (<see cref="IC2.Engine.Naval.Commands.FleetToFleetTransferCommandHandler"/>'s
+    /// <c>remainingShips == 0</c> branch), so a staged second B → A line would then name a fleet that no
+    /// longer exists and be lost. The selected fleet keeps at least one ship, the same rule
+    /// <see cref="SplitFleetModel.MaxShips"/> already keeps (T112 R2).
+    /// </summary>
+    public const string TransferAllShipsMessage =
+        "You cannot move every ship from this fleet; leave at least one.";
+
     /// <summary>Scuttle fleet composes <c>scuttle-fleet</c>.</summary>
     public static string ScuttleFleetLine(string fleetId) => $"scuttle-fleet {fleetId}";
 }
@@ -374,7 +385,10 @@ public sealed class SplitFleetModel
 /// player's. With no partner the model composes nothing and refuses with the clone's no-partner message;
 /// while either fleet carries an army it refuses with the engine's own carrying-army line
 /// (<see cref="FleetCityDialogModels.TransferCarryingArmyMessage"/>); with the two fleets' combined ships
-/// above <see cref="NavalRules.JoinMaxShips"/> it refuses with the engine's own combined-ships line.
+/// above <see cref="NavalRules.JoinMaxShips"/> it refuses with the engine's own combined-ships line; and
+/// when the A → B line would move the selected fleet's last ship it refuses with
+/// <see cref="FleetCityDialogModels.TransferAllShipsMessage"/>, because the engine disbands that fleet and
+/// a staged B → A line would then name a fleet that no longer exists (T112 R2).
 /// </para>
 /// </remarks>
 public sealed class FleetTransferModel
@@ -428,9 +442,18 @@ public sealed class FleetTransferModel
             ? FleetCityDialogModels.NoPartnerMessage
             : EitherCarryingArmy
                 ? FleetCityDialogModels.TransferCarryingArmyMessage
-                : CombinedShipsWithinCap
-                    ? null
-                    : FleetCityDialogModels.CombinedShipsTooLargeMessage(_ruleset);
+                : !CombinedShipsWithinCap
+                    ? FleetCityDialogModels.CombinedShipsTooLargeMessage(_ruleset)
+                    : MovesEverySelectedShip
+                        ? FleetCityDialogModels.TransferAllShipsMessage
+                        : null;
+
+    /// <summary>
+    /// Whether the staged A → B ship move takes every one of the selected fleet's ships — the engine's own
+    /// disband trigger (<c>remainingShips == 0</c>). Submitting it would delete the selected fleet before a
+    /// staged B → A line could run, so <see cref="ComposeOk"/> refuses the whole staging (T112 R2).
+    /// </summary>
+    public bool MovesEverySelectedShip => _shipsNet > 0 && _shipsNet == _selected.Ships;
 
     /// <summary>The staged ship net: positive is A → B, negative is B → A.</summary>
     public int ShipsNet => _shipsNet;
@@ -484,11 +507,13 @@ public sealed class FleetTransferModel
     /// <summary>
     /// <c>OK</c>: one <c>fleet-transfer</c> per direction that has a non-zero amount — one line for an
     /// ordinary staging, two when the player staged resources both ways, and none when refused or nothing
-    /// is staged.
+    /// is staged. A staging whose A → B line would move the selected fleet's last ship composes
+    /// <em>nothing</em>: the engine would disband that fleet first, and the second line would then name a
+    /// fleet that no longer exists (T112 R2).
     /// </summary>
     public IReadOnlyList<string> ComposeOk()
     {
-        if (_partner is null || EitherCarryingArmy || !CombinedShipsWithinCap
+        if (_partner is null || EitherCarryingArmy || !CombinedShipsWithinCap || MovesEverySelectedShip
             || (_shipsNet == 0 && _supplyNet == 0 && _moneyNet == 0))
         {
             return Array.Empty<string>();

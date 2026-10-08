@@ -65,6 +65,7 @@ public partial class FleetCityOrdersCheck : Control
         _steps.Add(CheckFixture);
         _steps.Add(SupplyFleet);
         _steps.Add(RepairFleet);
+        _steps.Add(TransferShipsAllShipsRefused);
         _steps.Add(TransferShips);
         _steps.Add(EmbarkCarryingArmy);
         _steps.Add(TransferShipsWhileCarrying);
@@ -160,6 +161,46 @@ public partial class FleetCityOrdersCheck : Control
         Check(
             _session.State.NationById(Rome)!.Treasury == treasuryBefore - expectedCost,
             $"the treasury paid {expectedCost} talents");
+    }
+
+    /// <summary>
+    /// T112 R2: the destructive mixed staging — every one of A's ships toward B and B's money toward A — is
+    /// refused by the model and commits nothing. OK issues no command and the post-state matches the
+    /// pre-state exactly: before R2 the A → B line disbanded A and the following B → A line was lost.
+    /// </summary>
+    private void TransferShipsAllShipsRefused()
+    {
+        _mainGame.SelectFleetForCheck(SupplyFleetId);
+        var before = _commandsSeen;
+        var selectedBefore = _session.State.FleetById(SupplyFleetId)!;
+        var partnerBefore = _session.State.FleetById(PartnerFleetId)!;
+
+        Check(
+            _mainGame.MenuBar.PressItemForCheck("unit_map.fleet_transfer_ships"),
+            "Transfer ships is wired from the menu for the all-ships staging");
+        Check(_mainGame.ActiveOverlay is FleetTransferDialog, "Transfer ships opens its all-ships dialog");
+        var dialog = (FleetTransferDialog)_mainGame.ActiveOverlay!;
+
+        // A -> B every ship (30/30) and B -> A 50 talents: the two arrows the R2 finding names.
+        dialog.AdjustShipsForCheck(selectedBefore.Ships);
+        dialog.AdjustMoneyForCheck(-50);
+        Check(dialog.ModelForCheck.MovesEverySelectedShip, "the model sees the A -> B line would move every ship");
+        Check(
+            dialog.ModelForCheck.RefusalMessage == FleetCityDialogModels.TransferAllShipsMessage,
+            $"the model shows the all-ships refusal ({dialog.ModelForCheck.RefusalMessage})");
+
+        dialog.OkForCheck();
+
+        Check(_commandsSeen == before, $"the refused all-ships OK composes no command ({_commandsSeen - before})");
+        Check(_mainGame.ActiveOverlay is FleetTransferDialog, "the refused all-ships dialog stays open");
+        var selectedAfter = _session.State.FleetById(SupplyFleetId)!;
+        var partnerAfter = _session.State.FleetById(PartnerFleetId)!;
+        Check(
+            selectedAfter == selectedBefore && partnerAfter == partnerBefore,
+            "the all-ships post-state matches the pre-state exactly (no ships, supply or money moved)");
+
+        dialog.CancelForCheck();
+        Check(_mainGame.ActiveOverlay is null, "Cancel closes the refused all-ships dialog");
     }
 
     /// <summary>Done-when 3: Transfer ships moves ships, supply and money to the game's own partner.</summary>
