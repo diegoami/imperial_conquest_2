@@ -78,6 +78,7 @@ There is no fixed model order (the owner's decision of 2026-10-06). The main ses
 - `pwsh scripts/Choose-Model.ps1 -Role reviewer -Tier complex -ExcludeModel <implementer>` prints the candidates best first, each with its reasons.
 - `-Pick` prints the top name only.
 - `-SelfTest` checks the ranking on fixture quotas.
+- `-ExcludeFamily <name>[,<name>…]` (T150) drops every candidate of each named model's family, for either role. `external-implement.ps1` uses it for its substitute when the chain is spent: every failed family, plus `luna` (the whole OpenAI family), so the substitute is never OpenAI.
 
 What it reads:
 
