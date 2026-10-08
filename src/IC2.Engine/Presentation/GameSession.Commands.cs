@@ -791,6 +791,17 @@ public sealed partial class GameSession
         return IssueCommand(new RecruitStandingUnitCommand(State.ActiveNationId, tokens[1], tokens[2], troops));
     }
 
+    private IReadOnlyList<string> HandleDisbandSlot(string[] tokens)
+    {
+        if (tokens.Length != 2
+            || !int.TryParse(tokens[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var slotIndex))
+        {
+            return new[] { "Usage: disband-slot <slot-index>" };
+        }
+
+        return IssueCommand(new DisbandRecruitmentSlotCommand(State.ActiveNationId, slotIndex));
+    }
+
     // ---- naval ----
 
     private IReadOnlyList<string> HandleMoveFleet(string[] tokens)

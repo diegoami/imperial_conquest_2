@@ -150,6 +150,7 @@ public sealed class CommandCoverageTests
         ["recruitment.hire-mercenary"] = "hire-mercenary",
         ["recruitment.mobilize-recruit-slot"] = "mobilize",
         ["recruitment.recruit-standing-unit"] = "recruit-standing",
+        ["recruitment.disband-recruitment-slot"] = "disband-slot",
     };
 
     /// <summary>

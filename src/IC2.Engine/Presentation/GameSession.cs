@@ -1277,6 +1277,9 @@ public sealed partial class GameSession
             case "recruit-standing":
                 lines.AddRange(HandleRecruitStanding(tokens));
                 break;
+            case "disband-slot":
+                lines.AddRange(HandleDisbandSlot(tokens));
+                break;
             case "move-fleet":
                 lines.AddRange(HandleMoveFleet(tokens));
                 break;
