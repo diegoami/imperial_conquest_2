@@ -16,6 +16,11 @@ permission:
     "*": ask
     "*?data?opencode?tool-output?*": allow
     "*?data?opencode?shell?*": allow
+    # The one exception to the worktree guard: the Godot shim the headless Done-when checks run
+    # (`godot` in bash, `godot.cmd` in PowerShell). Exactly the two files, either separator; the
+    # rest of ~\.local\bin and everything else outside the worktree stays under the `ask` above.
+    "C:?Users?diego?.local?bin?godot.cmd": allow
+    "C:?Users?diego?.local?bin?godot.exe": allow
   task:
     "*": deny
   bash:
