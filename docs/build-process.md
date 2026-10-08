@@ -98,8 +98,8 @@ Every system is written against these interfaces and registers itself, so no two
 
 Models are chosen per task, in the task's entry, by what an error would cost:
 
-- **OpenCode Go (and the Alibaba Token Plan), by default** (the user's decision of 2026-09-28: Claude credit is the scarce resource; moved from OpenCode Zen to OpenCode Go, `opencode-go/…`, on 2026-10-01, fix #551). `-Model auto` runs `deepseek-flash` (DeepSeek V4.1 Flash, effort `high`; on OpenCode Go, or on the Alibaba Token Plan when quota-tracker's `/avoid` lists `opencode_go`), then `qwen-flash` (Qwen3.8 Flash on the Alibaba Token Plan, effort `medium`), then Claude Sonnet (the user's decision of 2026-10-05, extending fix 575's one OpenCode model of 2026-10-01). A chain model with no route that has quota is skipped. GLM ended long implementer runs early (#557, #562), and Go's Luna failed long runs with `Bad Request` (#553). OpenCode runs use effort `high`, not `max`, except where a model offers no `high` or is heavy: Qwen3.8 Flash runs at `medium` (it offers `low`, `medium`, `xhigh`), and the heavy reviewers run light (GLM-5.3 and Qwen3.8 Max at `low`, Sol at `low`, DeepSeek V4 Pro at its lightest, `high`). No free or Zen model is used. An entry that still says Sonnet reads as the default.
-- **No larger OpenCode tier for implementers** (the user's decision of 2026-10-01, fix 573): a High-effort entry, an entry that says Opus and is not an architecture task, and a task that failed a rework round all run `deepseek-flash`, then `qwen-flash`, then Claude Sonnet. `glm`, `glm-flash` and `luna` stay valid as an explicit `-Model` value. The reviewer is set by the PR's review tier ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers), the user's decision of 2026-10-03): Luna for a simple PR only, GPT-6 Sol for a complex one, a cold Claude Opus for a very complex one (Sol plus the OpenCode pair when Claude implemented it). An entry's **Reviewer** field, and the catalogue index's Reviewer column, were written under the earlier rule and now name only the tier's default (an "Opus" there is the very complex tier's reviewer, or the fallback); the tier rule decides, and a `+ human visual review` or `+ ultra` suffix still applies. A "Luna pair" in an entry or the index reads as the OpenCode pair (the user's decision of 2026-10-04).
+- **OpenCode, on the model the quota tracker chooses** (the user's decision of 2026-10-08, CLAUDE.md rule 17, replacing the fixed chain of 2026-10-05; Claude credit stays the scarce resource, and OpenCode Go has been `opencode-go/…` since fix #551). The main session reads `/recommend?tier=heavy` and passes `-Model <alias>` explicitly, with rule 17's exclusions. **Until [T152](tasks/T152.md) lands, `-Model auto` still runs the old fixed chain** (`deepseek-flash`, then `qwen-flash`, then Claude Sonnet), so don't use it. A chain model with no route that has quota is skipped. GLM ended long implementer runs early (#557, #562), and Go's Luna failed long runs with `Bad Request` (#553). OpenCode runs use effort `high`, not `max`, except where a model offers no `high` or is heavy: Qwen3.8 Flash runs at `medium` (it offers `low`, `medium`, `xhigh`), and the heavy reviewers run light (GLM-5.3 and Qwen3.8 Max at `low`, Sol at `low`, DeepSeek V4 Pro at its lightest, `high`). No free or Zen model is used. An entry that still says Sonnet reads as the default.
+- **No separate tier for larger entries** (fix 573, its GLM exclusion lifted by the user's decision of 2026-10-08): a High-effort entry, an entry that says Opus and is not an architecture task, and a task that failed a rework round all run the model rule 17 takes from `/recommend?tier=heavy`. `glm`, `glm-flash` and `luna` stay valid as an explicit `-Model` value. The reviewer is set by the PR's review tier ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers), the user's decision of 2026-10-03): Luna for a simple PR only, GPT-6 Sol for a complex one, a cold Claude Opus for a very complex one (Sol plus the OpenCode pair when Claude implemented it). An entry's **Reviewer** field, and the catalogue index's Reviewer column, were written under the earlier rule and now name only the tier's default (an "Opus" there is the very complex tier's reviewer, or the fallback); the tier rule decides, and a `+ human visual review` or `+ ultra` suffix still applies. A "Luna pair" in an entry or the index reads as the OpenCode pair (the user's decision of 2026-10-04).
 - **Claude Opus only on an architecture task**, where an error is not local: the domain model and the engine seams, battle resolution, the AI (T02, T03, T16, T22). Sonnet implements only as the fallback when OpenCode is unavailable (the script exits 3), and then for every task OpenCode would have run, whatever model the entry names (the user's decision of 2026-09-29); otherwise it reviews only as the OpenCode pair's fallback second reviewer ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers)); structural tasks are complex and go to GPT-6 Sol.
 - **Haiku** is retired (the user's decision of 2026-09-27) and is never assigned; a task small enough for Haiku is cheap enough on Sonnet (incident 4). Two tasks merged on Haiku before that, T36 and T77.
 - **Fable** for pure templates and configuration, never for anything that must compile against the domain model.
@@ -140,6 +140,8 @@ Models are chosen per task, in the task's entry, by what an error would cost:
    | The implementer is GLM | DeepSeek V4 Pro, then Qwen3.8 Max | the same, when OpenAI is out of quota |
    | The implementer is DeepSeek (the default `deepseek-flash`) | GLM-5.3, then Qwen3.8 Max | the same, when OpenAI is out of quota |
    | The implementer is Qwen (`qwen-flash`) | GLM-5.3, then DeepSeek V4 Pro | the same, when OpenAI is out of quota |
+
+   **Which substitute goes first** (the user's decision of 2026-10-08, CLAUDE.md rule 17): the table says *who* may substitute. The order among them is quota-tracker's `/recommend?tier=light` ranking, a skipped or negative-scoring one last, instead of the fixed order above. Until [T152](tasks/T152.md) lands, the main session reads that ranking by hand.
 
    Qwen3.8 Max was added after GLM-5.3 and DeepSeek V4 Pro by the user's decision of 2026-10-05. **Routes**: GLM-5.3 and DeepSeek V4 Pro (and V4.1 Flash) also run on the Alibaba Token Plan, the same model under the same name and family: `external-review.ps1 -Route auto` (the default) takes Z.AI or OpenCode Go unless quota-tracker's `/avoid` lists `zai` or `opencode_go`, then Alibaba (`alibaba-token-plan/glm-5.3`, `alibaba-token-plan/deepseek-v4-pro`); `-Route alibaba` forces it. The route is named in the posted review's signature line. Qwen runs only on Alibaba ([environment.md](environment.md)).
 
@@ -815,7 +817,7 @@ check holds as written; the bug body replaces the task entry in Appendix A's bri
 files it names plus gate 4's implicit set; DoD = the bug's reproduction as a test that fails
 before and passes after, plus green build and test; worktree ic2-work\fix-<issue>, branch
 fix/<issue>-<slug>, commit subject "fix <issue>: <subject>" (no #), PR body "Closes #<issue>";
-implementer the default, as step 1 says (deepseek-flash, then qwen-flash, then Claude Sonnet); reviewer by step 2's tier (complex at least) with the line "Fix lane:
+implementer from quota-tracker's `/recommend`, as step 1 says; reviewer by step 2's tier (complex at least) with the line "Fix lane:
 gates 0, 1, 3 and 4 plus a read of the diff; no mutation protocol" at the top of its brief. In step 3, a failing
 review while the issue carries review-round:1 files a correction task at the contract tier and
 stops; there is no review-round:2. In step 4 the follow-up issue is "#<issue> follow-up", and
@@ -836,12 +838,11 @@ the docs item applies only if the review named a claim.
    as the default, and so do a non-architecture Opus and a High-effort entry; a fix or a Low-effort task
    is the default too):
    - an OpenCode model (luna, glm-flash, deepseek-flash, glm, qwen-flash, mimo-pro, mimo-flash): write the brief to a file and run
-     `pwsh scripts/external-implement.ps1 -Task T<nn> -Slug <slug> -Issue <n> -Model auto
-     -BriefFile <file>` (`-Fix <issue>` for a fix; `-LocalOnly` where the label says). `-Model auto`
-     (the default) runs deepseek-flash (on OpenCode Go, or on Alibaba when quota-tracker's /avoid
-     lists opencode_go: `-Route auto`, the default), then qwen-flash (Alibaba), skipping a model
-     with no route that has quota; pass an explicit `-Model
-     <model>` only when the entry names another model (glm, luna, ...), which then runs alone. It creates
+     `pwsh scripts/external-implement.ps1 -Task T<nn> -Slug <slug> -Issue <n> -Model <alias>
+     -BriefFile <file>` (`-Fix <issue>` for a fix; `-LocalOnly` where the label says), the alias taken
+     from quota-tracker's `/recommend?tier=heavy` with CLAUDE.md rule 17's exclusions (the user's
+     decision of 2026-10-08; `-Model auto`'s fixed chain ranks the old way until T152 lands, so don't
+     use it). Log the chosen row's `reasons` on the issue. It creates
      the worktree and branch, runs OpenCode there, and returns with the PR number or a warning;
      read its tail. Run it in the background and watch it (operating-guide §3): the session must
      start and keep making progress. On a failure, READ BEFORE RETRY (CLAUDE.md rule 19, the
@@ -927,17 +928,15 @@ the docs item applies only if the review named a claim.
                the main session applies it from every review.")
       A trailing "-" (SOL-, SUB- x) means the same command without -Issue <n> -ApplyLabel: one of
       several reviews.
-      QUOTA FIRST (harness_imperial L50, the user's decision of 2026-10-05): before choosing or
-      dispatching any model, run `curl -s localhost:8765/avoid` (docs/environment.md). A reviewer or
-      implementer whose provider is listed there (openai for sol, by its `7d` window; openai for luna, by its own `gpt-5.6-luna:7d` window; zai for glm, glm-flash;
-      opencode_go for deepseek*, mimo*; alibaba for qwen*; claude for sonnet, opus) is skipped as if it had exited 3 (luna only when its own window is at 95% or more;
-      glm and deepseek* only when alibaba is listed too, since -Route auto moves them there),
-      and the next one of its chain runs, passed explicitly; the tier comment or PR body says so
-      ("GLM skipped: zai exhausted until 21:40; reviewed by Sol"). Luna is GPT-5.6 Luna on its own
-      weekly pool: it stays usable while `curl -s localhost:8765/quota/openai` shows its
-      `gpt-5.6-luna:7d` window under 95%, even when openai is exhausted. If the service does not
-      answer (`curl -sf localhost:8765/health`), go on without it and count a usage-limit error as
-      exhausted.
+      QUOTA FIRST (CLAUDE.md rule 17, the user's decision of 2026-10-08, which replaces the /avoid
+      check of 2026-10-05): before choosing or dispatching any model, read quota-tracker's
+      `/recommend?tier=heavy` (implementers) or `tier=light` (Sol's substitutes), take its `ranking`
+      in order with rule 17's exclusions, pass the choice explicitly, and log the chosen row's
+      `reasons`. A provider in `skipped` is passed over as if it had exited 3, and the tier comment
+      or PR body says so. Luna stays the simple tier's reviewer while its own `gpt-5.6-luna:7d`
+      window (`curl -s localhost:8765/quota/openai`) is under 95%. If the service does not answer,
+      restart it (`systemctl --user restart quota-tracker`), wait and retry; if it still fails, ask
+      the user instead of guessing.
       DIAGNOSE, when SOL or LUNA exits 3: search the files the script kept and named, and the newest
       log in %USERPROFILE%\.local\share\ic2-opencode-1x\data\opencode\log\, for "The usage limit has
       been reached" (or "insufficient_quota", or Z.AI's "Usage limit reached for 5 hour"), and read

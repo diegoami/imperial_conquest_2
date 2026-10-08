@@ -81,20 +81,31 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
 
 ## Model choice
 
-17. **Check quota before choosing a model** (harness_imperial L50). Before choosing, recommending or
-    delegating to a model (an OpenCode implementer or reviewer, a Claude agent or subagent), check
-    how much quota its provider has left with quota-tracker (`curl -s localhost:8765/avoid`;
-    [docs/environment.md](docs/environment.md)). There is no fixed model order: choose case by case,
-    and `pwsh scripts/Choose-Model.ps1 -Role <implementer|reviewer> [-Tier …] [-ExcludeModel …]` ranks
-    the candidates by quota, pricing and strength (the owner's decision of 2026-10-06; it chooses
-    nothing). A provider whose status is `exhausted` is not used
-    until it is usable again: take the next model of the chain whose provider has quota, pass it
-    explicitly (`-Reviewer`/`-Model`, or the Agent call's model), and say so in the run's report or
-    the PR body ("GLM skipped: zai exhausted until 21:40; reviewed by Luna"). Where the service does
-    not answer, go on without it and count a usage-limit error as `exhausted`. Model ids come from the
-    provider's live list (`opencode models <provider>`), never memory. Heavy models run at `medium`
-    effort rather than `high`, or lighter when medium is not needed (the user's decision of
-    2026-10-05).
+17. **The quota tracker chooses the model** (harness_imperial L50; the user's decision of
+    2026-10-08). Before choosing, recommending or delegating to a model (an OpenCode implementer or
+    reviewer, a Claude agent or subagent), read `curl -s 'localhost:8765/recommend?tier=heavy'`
+    (implementation) or `tier=light` (small tasks and reviews) and take its `ranking` in order:
+    `pick` is the first, `score` is spare calls per day until the pool's reset after projected
+    demand and reserves, and `skipped` lists exhausted or failing providers. **Never rank providers
+    by `headroom_pct` or `pace_pct`**: the pools differ hugely in size, some are monthly and some
+    weekly, and Claude sessions draw on some as their main model. Map each row's provider and tier to
+    our alias (minimax + heavy → `mm-m3`) and keep our exclusions on top:
+    - Claude is the orchestrator, so it is not used for a delegated task unless nothing else has a
+      positive score.
+    - `gpt-5.6-luna` stays the simple-PR reviewer.
+    - A reviewer is never of the implementer's family.
+    - A negative score means that pool runs out before its reset: avoid it unless nothing else is left.
+    - Alibaba is not ranked: use it only occasionally, in its discount hours (rule 20).
+
+    Pass the choice explicitly (`-Model`/`-Reviewer`, or the Agent call's model) and log the chosen
+    row's `reasons` on the task's issue or in the PR body. Right after a restart `note` says the
+    statistics are loading and `ranking` is empty: wait and retry, never fall back to percentages.
+    If the service does not answer, run `systemctl --user restart quota-tracker`, wait and retry; if
+    it still fails, tell the user instead of guessing. Model ids come from the provider's live list
+    (`opencode models <provider>`), never memory. Heavy models run at `medium` effort rather than
+    `high`, or lighter when medium is not needed (the user's decision of 2026-10-05). Until
+    [T152](docs/tasks/T152.md) lands, `scripts/Choose-Model.ps1` and `-Model auto` still rank the
+    old way: don't rely on them.
 
 18. **The light OpenAI model, and the reviewer `luna`, is GPT-5.6 Luna** (harness_imperial L51) on
     the direct OpenAI route: `openai/gpt-5.6-luna`, effort `high`, on its own weekly pool. It is not

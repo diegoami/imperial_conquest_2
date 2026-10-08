@@ -212,6 +212,7 @@ graph TD
   T147 --> T149[T149 sound effects]
   T150[T150 implementer churn]
   T150 --> T151[T151 keep worktrees]
+  T150 --> T152[T152 recommend]
   T23 --> T26[T26 scenario docs+examples]
   T29 --> T26
   T22 --> T28[T28 nightly soak gate]
@@ -1222,6 +1223,12 @@ Keep worktrees (process tooling, the user's decision of 2026-10-08; in the v0.5.
 
 ---
 
+#### T152 The dispatch scripts take the model from quota-tracker's /recommend
+
+Model choice from /recommend (process tooling, the user's decision of 2026-10-08; in the v0.5.0 gate; it merges after T150, never in flight with T151) → [full entry](tasks/T152.md) · [#866](https://github.com/diegoami/imperial_conquest_2/issues/866)
+
+---
+
 #### T25 Battle result, diplomacy, and hotseat handoff screens
 
 Godot screens → [full entry](tasks/T25.md) · [#25](https://github.com/diegoami/imperial_conquest_2/issues/25)
@@ -1403,3 +1410,4 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T149](#t149-the-game-plays-sounds-at-the-originals-events-generated-with-elevenlabs) | Sound effects | M18 | Sonnet | Medium | Sol + human | T147 | [#792](https://github.com/diegoami/imperial_conquest_2/issues/792) |
 | [T150](#t150-an-implementer-run-survives-a-benign-outside-path-keeps-its-brief-and-has-a-second-family-to-fall-back-on) | Implementer churn | none | Sonnet | Medium | Sol | PR #856 | [#854](https://github.com/diegoami/imperial_conquest_2/issues/854) |
 | [T151](#t151-a-failed-run-keeps-its-work-and-its-worktree-worktrees-are-cleaned-up-on-a-schedule) | Keep worktrees | none | Sonnet | Medium | Sol | T150 | [#862](https://github.com/diegoami/imperial_conquest_2/issues/862) |
+| [T152](#t152-the-dispatch-scripts-take-the-model-from-quota-trackers-recommend) | Model choice from /recommend | none | Sonnet | Medium | Sol | T150 | [#866](https://github.com/diegoami/imperial_conquest_2/issues/866) |
