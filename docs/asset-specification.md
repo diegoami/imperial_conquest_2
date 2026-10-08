@@ -411,8 +411,8 @@ marker = owner + (t < 25 ? 200 : t < 50 ? 216 : 232)
 ```
 
 **[confirmed]** — `army.tier1.icon` = **under 25,000 troops**, `army.tier2.icon` = **25,000–49,999**,
-`army.tier3.icon` = **≥ 50,000**. The boundaries are also seen in play: armies of 24,999 / 25,000 / 49,999 / 50,000 troops leave map words owner + 200 / 216 / 216 / 232 **[confirmed: Wine candidate, [`2026-10-08-army-marker-size-band-on-the-map.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-08-army-marker-size-band-on-the-map.md), research `be0691a`]**. That run read the map word only; whether the original draws a different glyph per band on screen was not compared there, so the per-tier artwork below rests on the decompiled code, not on a seen icon. Depict the same army silhouette at increasing size/weight (more
-figures, a denser formation, a larger banner) across the three tiers — cite the original's own red/purple
+`army.tier3.icon` = **≥ 50,000**. The boundaries are also seen in play: armies of 24,999 / 25,000 / 49,999 / 50,000 troops leave map words owner + 200 / 216 / 216 / 232 **[confirmed: Wine candidate, [`2026-10-08-army-marker-size-band-on-the-map.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-08-army-marker-size-band-on-the-map.md), research `be0691a`]**. The original also draws a different icon per band: Rome's army is a small soldier with a spear at 200, a medium one at 216, and a large one with a bigger shield and a mace at 232, three pixel-different 32×32 tiles **[confirmed: Wine candidate, [`2026-10-08-army-icon-follows-the-size-band.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-08-army-icon-follows-the-size-band.md), research `bff6bff`; Rome's colours only]**. It picks the icon by the stored map word, not the troops; the clone draws the tier of the current troop count instead, a deliberate difference (the user's decision of 2026-10-08, [#874](https://github.com/diegoami/imperial_conquest_2/issues/874)). Depict the same army figure at increasing size and weight across the three tiers, as the original does (a larger figure, then a bigger shield and a heavier weapon; more
+figures, a denser formation or a larger banner are equally in the family) — cite the original's own red/purple
 unit-map glyph for the shape family (`screenshots-processed/1_rome_270_summer_7_1.png`,
 `screenshots-processed/1_rome_270_autumn_7_1.png`: a small upright figure pictogram on a nation-coloured
 square).
@@ -431,7 +431,7 @@ marker = owner + (s < 25 ? 300 : s < 50 ? 316 : 332)
 correctly in the ≥ 50 band. The writer and its every caller are now decompiled in full
 (`2026-10-07-city-marker-variants.md` **[confirmed: decompile]**: `FUN_0044a878` recomputes the band
 wherever a fleet's ship count changes — joins and splits, construction completion, storm damage, the
-AI merge — which is what produces the `333`/`335` codes cross-checked above).
+AI merge — which is what produces the `333`/`335` codes cross-checked above). The boundaries are seen in play (24 / 25 / 49 / 50 ships give owner + 300 / 316 / 316 / 332 after Join fleets), and Split fleet and Transfer ships re-band every fleet they change **[confirmed: Wine candidate, [`2026-10-08-fleet-marker-band-and-icon.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-08-fleet-marker-band-and-icon.md), research `f9d061a`, and [`2026-10-08-split-and-transfer-reband-fleets.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-08-split-and-transfer-reband-fleets.md), research `0389684`]**. **The original's three fleet icons**, for Rome: a small sailboat (300), a galley with three shields along the hull (316), and a larger galley with a bigger sail and four shields (332), three pixel-different tiles chosen by the stored word, not the ships **[confirmed: Wine candidate, the same fleet report]**. The clone draws the tier of the current ship count, the same deliberate difference as for armies (§3.1).
 
 **Correction (rework round 1): the depiction below previously cited a screenshot with no fleet in it,
 and misdescribed the glyph.** The 90-ship Carthaginian fleet cross-checked above is the one visible on
@@ -463,7 +463,7 @@ by analogy with the army and city markers, but not directly observable here) and
 plain square, matching every other confirmed marker, or something else) are **not established** by this
 citation. Depict the ship silhouette itself — hull, mast with crossbar, the sail-like upper masses,
 anchor — at increasing size/count
-across the three tiers, on the tier's own nation-coloured square background (matching the army and city
+across the three tiers (the original goes from a small sailboat to a galley with three shields and then a larger galley with four; that run drew unselected fleets, but its report describes neither their field colour nor their border, so both stay open), on the tier's own nation-coloured square background (matching the army and city
 convention, §1.2), **without** a diamond outline or a cursor halo, which belong to the game's selection
 UI, not to any one marker type.
 
