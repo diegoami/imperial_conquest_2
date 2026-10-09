@@ -391,10 +391,10 @@ Items 10–13 and 18 did not apply to `v0.3.0`: item 10 applies from `v0.4.0`, i
 | 14 | The preset table was regenerated from both rulesets with `jq` by the release reviewer, and matches the note. |
 | 15 | Known gaps, derived from the task index against issue state: M18 (T127), M20 (T131), M21 (T125–T130). |
 | 16 | The release-note reviewer (Opus) re-ran items 4–10 and asked for 15 edits (R1–R15, on #229, each with its current and replacement text). The draft Release's body carries every replacement text: [the draft](https://github.com/diegoami/imperial_conquest_2/releases/tag/untagged-bb4a88c4967d6b5ce128) (`gh release view v0.5.0 --json body`). |
-| 17 | ⏳ At the cut: `git tag -l v0.5.0` empty; annotated, on `main`, on this PR's squash merge. |
-| 18 | ⏳ The user's visual sign-off and partial play session. |
-| 19 | ⏳ Published by the user. |
-| 20 | ⏳ The Windows zip and installer, built by hand with `scripts/package.ps1` from the tag (T131's workflow is not built), attached before publishing. |
+| 17 | `git tag -l v0.5.0` was empty; the tag is annotated, on `main`, on this PR's squash merge `37f3062` (tag object `a821028`). |
+| 18 | The user played the installed build on 2026-10-09 and found two recruitment bugs, #515 (every town recruits; the original needs fortification ≥ 75%) and #903 (Recruit unit's stale training list). By the user's decision they ship in `v0.5.1`, named as known gaps in the note. |
+| 19 | Published on 2026-10-09, as a pre-release, by the user's decision ("Publish v0.5.0, then v0.5.1"): [release](https://github.com/diegoami/imperial_conquest_2/releases/tag/v0.5.0). |
+| 20 | Built by hand from the tag with `scripts/package.ps1 -Verify` (T131's workflow is not built) and attached before publishing: `ImperialConquest2-v0.5.0-windows-x64-setup.exe` (SHA-256 `B6EAFDEC…0753AECD`) and `ImperialConquest2-v0.5.0-windows-x64.zip` (SHA-256 `6EE8C0F5…500DAB19`). |
 
 Items 11–13 apply to `v1.0.0` only.
 
