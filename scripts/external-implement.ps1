@@ -163,7 +163,7 @@ param(
     [string] $Slug,
     [int] $Issue,
     [string] $BriefFile,
-    [ValidateSet('luna', 'glm-flash', 'glm', 'qwen-flash', 'mm-m3', 'mm-m2.7', 'ali-glm', 'mimo-pro', 'mimo-flash')] [string] $Model,
+    [ValidateSet('luna', 'glm-flash', 'glm', 'qwen-flash', 'mm-m3', 'mm-m2.7', 'ali-glm', 'mimo-pro', 'mimo-flash')] [ValidateScript({ if ($_ -match 'deepseek') { throw "DeepSeek is not used (the user's decision of 2026-10-09)" }; $true })] [string] $Model,
     [ValidateSet('auto', 'go', 'zai', 'alibaba')] [string] $Route = 'auto',
     [switch] $LocalOnly,
     [string] $FixturesDir,
@@ -179,15 +179,22 @@ param(
 )
 
 # Refuse a DeepSeek alias before any worktree, brief copy or OpenCode call (#908: the user's
-# decision of 2026-10-09). The ValidateSet above already excludes them, so this is the net a
-# script invocation that names one some other way (a -ModelIds override, a future refactor)
-# would still catch. The blacklist reason is the same string /recommend prints for a blacklisted
-# row (Choose-Model.ps1).
+# decision of 2026-10-09). A direct -Model deepseek-flash is refused at binding by the
+# ValidateScript on -Model, with exit 1 and the same reason (it is not in the ValidateSet, so
+# the alias is never usable); this guard covers the -ModelIds override, keys and VALUES (any id
+# containing "deepseek", whatever the provider prefix), before a worktree or an OpenCode call.
 $deepseekRejectMessage = 'DeepSeek is not used (the user''s decision of 2026-10-09)'
 if ($ModelIds) {
     foreach ($k in @($ModelIds.Keys)) {
         if ($k -match '^(deepseek|ali-deepseek)') {
             [Console]::Error.WriteLine("Refused: -ModelId key '$k' names a DeepSeek alias; $deepseekRejectMessage.")
+            exit 1
+        }
+        # An override VALUE is refused too (any id containing "deepseek", whatever the provider
+        # prefix and the case): @{ 'mimo-pro' = 'opencode-go/deepseek-v4-pro' } would otherwise
+        # replace a permitted alias's id with a blacklisted model, on every route.
+        if ("$($ModelIds[$k])" -match '(?i)deepseek') {
+            [Console]::Error.WriteLine("Refused: -ModelId '$k' maps to the DeepSeek model id '$($ModelIds[$k])'; $deepseekRejectMessage.")
             exit 1
         }
     }
@@ -407,6 +414,53 @@ function Invoke-ImplementerSelfTest {
     Add 'DW5 R4: the same-cause text names each attempt''s kept files' ($sameCauseText -match 'mm-m3-20261009-120000\.patch' -and $sameCauseText -match 'none \(the tree was clean\)')
     Add 'DW5 R4: the same-cause text names the run log and says the substitute is NOT run' ($sameCauseText -like '*run log: C:\w\ic2-work\T99.implementer.log*' -and $sameCauseText -match 'substitute attempt is NOT run')
     Add 'DW5 R4: the same-cause text carries the outside-paths report' ($sameCauseText -match 'Outside paths touched')
+
+    # --- #908 rework (PR 930): DeepSeek is refused everywhere ---------------------------------------
+    $dsReason = "DeepSeek is not used (the user's decision of 2026-10-09)"
+    $selfPath = $PSCommandPath
+    $probeBriefI = Join-Path ([System.IO.Path]::GetTempPath()) "ic2-implselftest-brief-$([guid]::NewGuid().ToString('N').Substring(0, 8)).md"
+    Set-Content -LiteralPath $probeBriefI -Value 'self-test probe brief' -Encoding utf8
+    try {
+        # R2: a direct -Model deepseek-flash (and the other removed aliases) exits 1 with the reason.
+        foreach ($a in 'deepseek-flash', 'deepseek-pro', 'ali-deepseek-pro', 'ali-deepseek-flash') {
+            $o = (& pwsh -NoProfile -File $selfPath -Task T1 -Slug x -Issue 1 -BriefFile $probeBriefI -Model $a -WhatIf 2>&1 | Out-String)
+            Add "R2: -Model $a exits 1 with '$dsReason' (got $LASTEXITCODE)" ($LASTEXITCODE -eq 1 -and $o -like "*$dsReason*")
+        }
+        $o = (& pwsh -NoProfile -File $selfPath -Task T1 -Slug x -Issue 1 -BriefFile $probeBriefI -Model no-such-alias -WhatIf 2>&1 | Out-String)
+        Add "R2: -Model no-such-alias exits 1 and does not claim the DeepSeek reason (got $LASTEXITCODE)" ($LASTEXITCODE -eq 1 -and $o -notlike '*DeepSeek*')
+        # R1: a DeepSeek id as the VALUE of an allowed key exits 1 with the reason, whatever the prefix or case.
+        foreach ($v in 'opencode-go/deepseek-v4-pro', 'alibaba-token-plan/deepseek-v4.1-flash', 'zai-coding-plan/DeepSeek-V4-Pro', 'openai/deepseek-v4-pro-0813') {
+            $cmd = "& '$selfPath' -Task T1 -Slug x -Issue 1 -BriefFile '$probeBriefI' -Model mimo-pro -ModelIds @{ 'mimo-pro' = '$v' } -WhatIf; exit `$LASTEXITCODE"
+            $o = (& pwsh -NoProfile -Command $cmd 2>&1 | Out-String)
+            Add "R1: -ModelIds @{ mimo-pro = '$v' } exits 1 with '$dsReason' (got $LASTEXITCODE)" ($LASTEXITCODE -eq 1 -and $o -like "*$dsReason*")
+        }
+        $cmd = "& '$selfPath' -Task T1 -Slug x -Issue 1 -BriefFile '$probeBriefI' -Model mimo-pro -ModelIds @{ 'deepseek-pro' = 'opencode-go/mimo-v2.6-pro' } -WhatIf; exit `$LASTEXITCODE"
+        $o = (& pwsh -NoProfile -Command $cmd 2>&1 | Out-String)
+        Add "R1: -ModelIds keyed deepseek-pro is still refused with exit 1 (got $LASTEXITCODE)" ($LASTEXITCODE -eq 1 -and $o -like "*$dsReason*")
+    } finally { Remove-Item -LiteralPath $probeBriefI -Force -ErrorAction SilentlyContinue }
+
+    # The chain-spent substitute (T150) never maps an opencode_go row to a DeepSeek alias: the
+    # run that picked deepseek-flash from "provider opencode_go, model mimo-v2.6-pro" is the
+    # case. The canned /recommend goes through the real Choose-Model.ps1 -Pick.
+    $subDir = Join-Path ([System.IO.Path]::GetTempPath()) "ic2-implselftest-sub-$([guid]::NewGuid().ToString('N').Substring(0, 8))"
+    New-Item -ItemType Directory -Force -Path $subDir | Out-Null
+    try {
+        function New-SubRow([string] $Provider, [string] $ModelId, $Score) { [ordered]@{ provider = $Provider; model = $ModelId; score = $Score; confidence = 'ok'; reasons = @('self-test'); usable = $true } }
+        $recMimo = Join-Path $subDir 'mimo.json'
+        (@{ note = $null; skipped = @(); ranking = @((New-SubRow 'minimax' 'MiniMax-M3' 900), (New-SubRow 'opencode_go' 'mimo-v2.6-pro' 500)) } | ConvertTo-Json -Depth 6) | Set-Content -LiteralPath $recMimo -Encoding utf8
+        $why = $null
+        $sub = Get-SubstituteModel -ExcludeFamilies @('mm-m3') -Why ([ref]$why) -RecommendFile $recMimo -RecommendRetryWaitSec 0
+        Add "#908 substitute: chain spent (mm-m3), opencode_go + mimo-v2.6-pro row -> mimo-pro, never a deepseek alias (got '$sub')" ($sub -eq 'mimo-pro' -and "$sub" -notmatch 'deepseek')
+        $recDs = Join-Path $subDir 'ds.json'
+        (@{ note = $null; skipped = @(); ranking = @((New-SubRow 'minimax' 'MiniMax-M3' 900), (New-SubRow 'opencode_go' 'deepseek-v4.1-flash' 700), (New-SubRow 'opencode_go' 'deepseek-v4-pro' 600), (New-SubRow 'alibaba' 'deepseek-v4-pro' 500)) } | ConvertTo-Json -Depth 6) | Set-Content -LiteralPath $recDs -Encoding utf8
+        $why2 = $null
+        $sub2 = Get-SubstituteModel -ExcludeFamilies @('mm-m3') -Why ([ref]$why2) -RecommendFile $recDs -RecommendRetryWaitSec 0
+        Add "#908 substitute: chain spent, only DeepSeek rows left -> none, never a deepseek alias (got '$sub2')" (-not $sub2)
+        $recUnk = Join-Path $subDir 'unk.json'
+        (@{ note = $null; skipped = @(); ranking = @((New-SubRow 'minimax' 'MiniMax-M3' 900), (New-SubRow 'opencode_go' 'mimo-future-9' 700)) } | ConvertTo-Json -Depth 6) | Set-Content -LiteralPath $recUnk -Encoding utf8
+        $sub3 = Get-SubstituteModel -ExcludeFamilies @('mm-m3') -Why ([ref]$why2) -RecommendFile $recUnk -RecommendRetryWaitSec 0
+        Add "#908 substitute: an unknown opencode_go model is unmapped, so none is picked (got '$sub3')" (-not $sub3)
+    } finally { Remove-Item -LiteralPath $subDir -Recurse -Force -ErrorAction SilentlyContinue }
 
     # Report.
     $i = 0; $failed = 0

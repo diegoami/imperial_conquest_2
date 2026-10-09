@@ -206,7 +206,7 @@
 [CmdletBinding()]
 param(
     [int] $Pr,
-    [ValidateSet('auto', 'glm-flash', 'glm', 'luna', 'sol', 'mimo-pro', 'mimo-flash', 'qwen', 'qwen-flash', 'mm-m3', 'mm-m2.7', 'ali-glm', 'nemotron', 'north-mini', 'inkling', 'laguna')] [string] $Reviewer = 'auto',
+    [ValidateSet('auto', 'glm-flash', 'glm', 'luna', 'sol', 'mimo-pro', 'mimo-flash', 'qwen', 'qwen-flash', 'mm-m3', 'mm-m2.7', 'ali-glm', 'nemotron', 'north-mini', 'inkling', 'laguna')] [ValidateScript({ if ($_ -match 'deepseek') { throw "DeepSeek is not used (the user's decision of 2026-10-09)" }; $true })] [string] $Reviewer = 'auto',
     [string] $BriefFile,
     [int] $Issue,
     [switch] $ApplyLabel,
@@ -217,23 +217,30 @@ param(
     [int] $StartupTimeoutSec = 180,
     [int] $TotalTimeoutSec = 3600,
     [int] $IdleTimeoutSec = 600,
-    [ValidateSet('mimo-pro', 'mimo-flash', 'glm-flash', 'glm', 'luna', 'sol', 'qwen', 'qwen-flash', 'mm-m3', 'mm-m2.7', 'ali-glm', 'sonnet', 'opus')] [string] $ExcludeModel,
+    [ValidateSet('mimo-pro', 'mimo-flash', 'glm-flash', 'glm', 'luna', 'sol', 'qwen', 'qwen-flash', 'mm-m3', 'mm-m2.7', 'ali-glm', 'sonnet', 'opus')] [ValidateScript({ if ($_ -match 'deepseek') { throw "DeepSeek is not used (the user's decision of 2026-10-09)" }; $true })] [string] $ExcludeModel,
     [hashtable] $ModelIds,
     [ValidateSet('low', 'medium')] [string] $Effort,
     [ValidateSet('auto', 'go', 'zai', 'alibaba')] [string] $Route = 'auto'
 )
 
 # Refuse a DeepSeek alias before any PR fetch, worktree, brief parse or OpenCode call
-# (#908: the user's decision of 2026-10-09). The ValidateSet above already excludes DeepSeek
-# names from -Reviewer and -ExcludeModel, so a direct -Reviewer deepseek-pro reaches
-# PowerShell's binding error first (exit 1) with its own message; this guard catches the
-# -ModelIds override and any future path the ValidateSet cannot see, and prints the
-# blacklist reason that /recommend prints for a DeepSeek row (Choose-Model.ps1).
+# (#908: the user's decision of 2026-10-09.) A direct -Reviewer deepseek-pro or -ExcludeModel
+# deepseek-flash is refused at binding by the
+# ValidateScript on those parameters, with exit 1 and the same reason (they are not in the
+# ValidateSet, so the alias is never usable); this guard covers the -ModelIds override, keys
+# and VALUES (any id containing "deepseek", whatever the provider prefix), before a run.
 $deepseekRejectMessage = 'DeepSeek is not used (the user''s decision of 2026-10-09)'
 if ($ModelIds) {
     foreach ($k in @($ModelIds.Keys)) {
         if ($k -match '^(deepseek|ali-deepseek)') {
             [Console]::Error.WriteLine("Refused: -ModelId key '$k' names a DeepSeek alias; $deepseekRejectMessage.")
+            exit 1
+        }
+        # An override VALUE is refused too (any id containing "deepseek", whatever the provider
+        # prefix and the case): @{ 'mimo-pro' = 'opencode-go/deepseek-v4-pro' } would otherwise
+        # replace a permitted alias's id with a blacklisted model, on every route.
+        if ("$($ModelIds[$k])" -match '(?i)deepseek') {
+            [Console]::Error.WriteLine("Refused: -ModelId '$k' maps to the DeepSeek model id '$($ModelIds[$k])'; $deepseekRejectMessage.")
             exit 1
         }
     }
@@ -702,9 +709,9 @@ function Invoke-ReviewParserSelfTest {
     New-Item -ItemType Directory -Force -Path $deepseekHelperDir | Out-Null
     $deepseekHelper = Join-Path $deepseekHelperDir 'invoke.ps1'
     $helperText = @"
-param([string] `$Key)
+param([string] `$Key, [string] `$Value = 'opencode-go/mimo-v2.6-pro')
 `$f = `$args[0]; `$script = `$args[1]
-`$ids = @{ "`$Key" = 'opencode-go/mimo-v2.6-pro' }
+`$ids = @{ "`$Key" = `$Value }
 `$out = & `$script -Pr 1 -Reviewer mimo-pro -BriefFile `$f -ModelIds `$ids -WhatIf 2>&1
 `$code = `$LASTEXITCODE
 `$out | Out-String
@@ -712,13 +719,13 @@ Write-Host "__exit:`$code"
 "@
     [System.IO.File]::WriteAllText($deepseekHelper, $helperText, [System.Text.UTF8Encoding]::new($false))
     $probeDeep = {
-        param([string] $Key)
+        param([string] $Key, [string] $Value = 'opencode-go/mimo-v2.6-pro')
         $savedAvoid = $env:IC2_QUOTA_AVOID
         $env:IC2_QUOTA_AVOID = 'none'
         try {
             $f = Join-Path $probeDir "selftest-brief-$([guid]::NewGuid().ToString('N').Substring(0, 8)).md"
             Set-Content -LiteralPath $f -Value "T0 review (Luna)`nself-test probe brief" -Encoding utf8
-            $lines = & pwsh -NoProfile -File $deepseekHelper -Key $Key $f $PSCommandPath 2>&1
+            $lines = & pwsh -NoProfile -File $deepseekHelper -Key $Key -Value $Value $f $PSCommandPath 2>&1
             $code = if ($lines) {
                 $last = @($lines)[-1]
                 if ($last -match '^__exit:(\d+)$') { [int]$Matches[1] } else { $LASTEXITCODE }
@@ -734,7 +741,29 @@ Write-Host "__exit:`$code"
         $r = & $probeDeep $k
         $ruleChecks += [pscustomobject]@{ Name = "-ModelIds override $k is refused with exit 1 and the blacklist reason (got $($r.Code))"; Ok = ($r.Code -eq 1 -and $r.Out -match 'DeepSeek is not used') }
     }
+    # R1 (PR 930 rework): a DeepSeek model id as the VALUE of an allowed key is refused too, on
+    # every provider prefix and in any case, before a run.
+    foreach ($v in 'opencode-go/deepseek-v4-pro', 'alibaba-token-plan/deepseek-v4.1-flash', 'zai-coding-plan/DeepSeek-V4-Pro', 'openai/deepseek-v4-pro-0813') {
+        $r = & $probeDeep 'mimo-pro' $v
+        $ruleChecks += [pscustomobject]@{ Name = "-ModelIds @{ mimo-pro = '$v' } is refused with exit 1 and the blacklist reason (got $($r.Code))"; Ok = ($r.Code -eq 1 -and $r.Out -match 'DeepSeek is not used') }
+    }
+    $r = & $probeDeep 'mimo-pro' 'opencode-go/mimo-v2.6-flash'
+    $ruleChecks += [pscustomobject]@{ Name = "-ModelIds @{ mimo-pro = 'opencode-go/mimo-v2.6-flash' } (no DeepSeek) is still accepted (got $($r.Code))"; Ok = ($r.Code -eq 0) }
     Remove-Item -LiteralPath $deepseekHelperDir -Recurse -Force -ErrorAction SilentlyContinue
+    # R2 (PR 930 rework): a direct DeepSeek alias is refused with exit 1 AND the blacklist reason
+    # (the binding error carries it), and is not usable; a plain bad alias is refused without it.
+    $probeAlias = { param([string[]] $more) $o = (& pwsh -NoProfile -File $PSCommandPath -Pr 1 -BriefFile $probeBrief2 -WhatIf @more 2>&1 | Out-String); [pscustomobject]@{ Code = $LASTEXITCODE; Out = $o } }
+    $probeBrief2 = Join-Path $probeDir "selftest-brief-$([guid]::NewGuid().ToString('N').Substring(0, 8)).md"
+    Set-Content -LiteralPath $probeBrief2 -Value "T0 review (Luna)`nself-test probe brief" -Encoding utf8
+    foreach ($a in 'deepseek-pro', 'deepseek-flash', 'ali-deepseek-pro', 'ali-deepseek-flash') {
+        $r = & $probeAlias @('-Reviewer', $a)
+        $ruleChecks += [pscustomobject]@{ Name = "-Reviewer $a is refused with exit 1 and 'DeepSeek is not used (the user's decision of 2026-10-09)' (got $($r.Code))"; Ok = ($r.Code -eq 1 -and $r.Out -like "*DeepSeek is not used (the user's decision of 2026-10-09)*") }
+    }
+    $r = & $probeAlias @('-Reviewer', 'luna', '-ExcludeModel', 'deepseek-pro')
+    $ruleChecks += [pscustomobject]@{ Name = "-ExcludeModel deepseek-pro is refused with exit 1 and the blacklist reason (got $($r.Code))"; Ok = ($r.Code -eq 1 -and $r.Out -like "*DeepSeek is not used (the user's decision of 2026-10-09)*") }
+    $r = & $probeAlias @('-Reviewer', 'no-such-alias')
+    $ruleChecks += [pscustomobject]@{ Name = "-Reviewer no-such-alias is refused with exit 1 and without the DeepSeek reason (got $($r.Code))"; Ok = ($r.Code -eq 1 -and $r.Out -notlike '*DeepSeek*') }
+    Remove-Item -LiteralPath $probeBrief2 -Force -ErrorAction SilentlyContinue
     # Sol's round-2 review of PR 783, R3: OpenCode's own stderr error line stops an Alibaba run even at
     # exit 0; the model's words (stdout, or a stderr line that is not OpenCode's "Error: " line) never do.
     $okRun = [pscustomobject]@{ ExitCode = 0; StdOut = 'review text'; StdErr = "`n> build · qwen3.8-flash`n`nError: Invalid API-key provided. For details, see the docs" }
