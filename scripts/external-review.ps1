@@ -10,8 +10,11 @@
     The main session fills the reviewer brief itself (build-process.md Appendix B for a task PR,
     the plan-review prompt for a plan PR) and passes it as -BriefFile, exactly as it would to a
     Claude reviewer. This script then:
-      1. creates a detached worktree at the PR head under ic2-work\<pr>-external-review-<token>,
-         a path of its own, so two reviews of one PR never touch each other's tree;
+      1. runs `opencode run` in one detached worktree per attempt, at the PR head, under
+          ic2-work\<pr>-review-<reviewer>-<yyyyMMdd-HHmmss>: a path of its own, so no attempt's
+          tree is ever reused, removed or overwritten (T151 Done-when 2; a failed review's work
+          and diagnostics are kept, and scripts/Clean-Worktrees.ps1 removes old trees on a
+          schedule);
       2. runs `opencode run` there with the .opencode/agents/external-reviewer.md agent and the
          model of the reviewer, feeding it the brief plus the output rules. The run is watched
          (scripts/Invoke-OpenCodeWatched.ps1) with the prompt on stdin, from a file, never on the
@@ -42,7 +45,8 @@
          review that does not parse is posted whole, not cut down to its header;
       4. with -ApplyLabel, applies status:approved or status:rework to the task's issue from the
          verdict, as a Claude reviewer would (never for a plan PR; never for a flagged review);
-      5. removes the worktree it created, and only that one.
+      5. keeps every attempt's worktree (T151 Done-when 2: nothing is deleted any more; the
+          cleanup is scripts/Clean-Worktrees.ps1's, on a schedule).
     A post that GitHub does not take (gh exits non-zero, or no comment URL comes back; bug #645)
     is retried once; if it fails again the script prints "NOT posted:", saves the review to
     rendered\review-not-posted-pr<pr>-<reviewer>-<time>.md, applies no label and exits 5: the main
@@ -59,7 +63,7 @@
     failure: no session
     in time, an idle session, no exit in time, a run that exits without a session, a non-zero
     exit, the fallback-to-default-agent guard, or no review at all. Any other error stops the
-    script with a non-zero exit that is not 3. The worktree is recreated for each attempt. The
+    script with a non-zero exit that is not 3.     The worktree is one per attempt, never reused or removed (T151). The
     posted header names the model that reviewed and the ones that failed before it, e.g. "Plan
     review (Luna; DeepSeek failed: no session in 180 s)". Two consecutive attempts failing
     with the same cause (Get-OpenCodeFailureClass) stop the chain early.
@@ -542,6 +546,15 @@ function Invoke-ReviewParserSelfTest {
     $ruleChecks += [pscustomobject]@{ Name = 'Get-ExcludedReviewers: no implementer (-WhatIf without -ExcludeModel) excludes nothing'; Ok = (@(Get-ExcludedReviewers $null).Count -eq 0) }
     $ruleChecks += [pscustomobject]@{ Name = 'Get-ExcludedReviewers: a sonnet implementer excludes nothing'; Ok = (@(Get-ExcludedReviewers @('sonnet')).Count -eq 0) }
     $probeDir = Join-Path (Split-Path $PSScriptRoot -Parent) 'rendered'
+
+    # --- T151 Done-when 2: one worktree per attempt, kept, never removed ------------------------
+    $p1 = Get-ReviewWorktreePath -WorkRoot 'C:\w\ic2-work' -Pr 862 -Name 'sol' -Stamp '20261009-120000'
+    $ruleChecks += [pscustomobject]@{ Name = 'review worktree path is <pr>-review-<reviewer>-<yyyyMMdd-HHmmss>'; Ok = ($p1 -eq 'C:\w\ic2-work\862-review-sol-20261009-120000') }
+    $colRoot = Join-Path $probeDir 'col-root'
+    New-Item -ItemType Directory -Force -Path (Join-Path $colRoot '862-review-sol-20261009-120000') | Out-Null
+    $p2 = Get-ReviewWorktreePath -WorkRoot $colRoot -Pr 862 -Name 'sol' -Stamp '20261009-120000'
+    $ruleChecks += [pscustomobject]@{ Name = 'a same-second second attempt gets its own tree (suffix), never reuse or overwrite'; Ok = ($p2 -eq (Join-Path $colRoot '862-review-sol-20261009-120000-1')) }
+    $ruleChecks += [pscustomobject]@{ Name = 'the script no longer runs `git worktree remove` (T151: a review never deletes its worktree)'; Ok = ((Get-Content -Raw -LiteralPath $PSCommandPath) -notmatch 'worktree\s+remove\s+--force') }
     New-Item -ItemType Directory -Force -Path $probeDir | Out-Null
     $probeBrief = Join-Path $probeDir "selftest-brief-$([guid]::NewGuid().ToString('N').Substring(0, 8)).md"
     Set-Content -LiteralPath $probeBrief -Value "T0 review (Sol)`nself-test probe brief" -Encoding utf8
@@ -1001,6 +1014,21 @@ function Get-NoReviewExit($Failures, [bool] $Advisory, [string] $SameCause) {
     return [pscustomobject]@{ Code = 3; Message = "OpenCode unavailable: $reasons. Nothing posted." }
 }
 
+# T151 Done-when 2: one worktree per attempt, ic2-work\<pr>-review-<reviewer>-<yyyyMMdd-HHmmss>,
+# never reused, removed or overwritten (the user's decision of 2026-10-08: a failed review keeps
+# its work and its diagnostics). New-ReviewWorktree assigns each attempt's path; nothing here
+# removes a tree -- that is scripts/Clean-Worktrees.ps1's job, on a schedule.
+function Get-ReviewWorktreePath {
+    # The per-attempt worktree path (T151 Done-when 2). <pr>-review-<reviewer>-<yyyyMMdd-HHmmss>,
+    # with a numeric suffix if the same second names a tree twice, so no attempt's tree is reused
+    # or overwritten. Factored out so the self-test can check the shape offline.
+    param([string] $WorkRoot, [int] $Pr, [string] $Name, [string] $Stamp = (Get-Date -Format 'yyyyMMdd-HHmmss'))
+    $path = Join-Path $WorkRoot "$Pr-review-$Name-$Stamp"
+    $n = 1
+    while (Test-Path -LiteralPath $path) { $path = Join-Path $WorkRoot "$Pr-review-$Name-$Stamp-$n"; $n++ }
+    return $path
+}
+
 if ($SelfTest) { exit (Invoke-ReviewParserSelfTest) }
 if (-not $Pr) { throw '-Pr is required (or use -SelfTest).' }
 if (-not $BriefFile) { throw '-BriefFile is required.' }
@@ -1024,9 +1052,7 @@ $mainRoot = Split-Path $commonDir -Parent
 $workRoot = Join-Path (Split-Path $mainRoot -Parent) 'ic2-work'
 $agentFile = Join-Path $repo '.opencode/agents/external-reviewer.md'
 if (-not (Test-Path -LiteralPath $agentFile)) { throw "Agent file not found: $agentFile" }
-# A path of this invocation's own: a second review of the same PR never removes this one's tree.
-$worktree = Join-Path $workRoot "$Pr-external-review-$([guid]::NewGuid().ToString('N').Substring(0, 8))"
-$script:worktreeCreated = $false
+$worktree = $null
 if (-not (Test-Path $BriefFile)) { throw "Brief not found: $BriefFile" }
 $brief = Get-Content -Raw -LiteralPath $BriefFile
 $briefLines = $brief -split "`r?`n"
@@ -1138,25 +1164,21 @@ $headSha = gh pr view $Pr --json headRefOid --jq .headRefOid
 if (-not $headSha) { throw "Could not read PR #$Pr's head." }
 git -C $repo fetch -q origin "pull/$Pr/head"
 
-function New-ReviewWorktree {
-    # 1. A detached worktree at the PR head. Never the main checkout. Recreated for every attempt,
-    #    so a failed run leaves nothing behind for the next model. Only a tree this invocation
-    #    created is ever removed.
-    if ($script:worktreeCreated) {
-        git -C $repo worktree remove --force $worktree 2>$null
-        if (Test-Path $worktree) { Remove-Item -Recurse -Force -LiteralPath $worktree }
-        git -C $repo worktree prune
-        $script:worktreeCreated = $false
-    }
-    if (Test-Path $worktree) { throw "$worktree already exists and is not this run's." }
-    git -C $repo worktree add --detach $worktree $headSha 2>$null | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw "git worktree add failed for $worktree at $headSha" }
-    $script:worktreeCreated = $true
-    Write-Host "worktree: $worktree at $headSha"
-    # The PR under review usually does not carry this agent file, and OpenCode silently falls back
-    # to its default, full-permission agent when --agent names one it cannot find. Copy the
-    # read-only agent into the review worktree (untracked; the worktree is removed afterwards).
-    $agentDir = Join-Path $worktree '.opencode/agents'
+function New-ReviewWorktree([string] $Name) {
+    # 1. A detached worktree at the PR head, one per attempt. Never the main checkout. Never
+    #    reused, removed or overwritten (T151 Done-when 2): a failed review's work and
+    #    diagnostics stay in its tree for diagnosis, and scripts/Clean-Worktrees.ps1 removes
+    #    old trees on a schedule.
+    $script:worktree = Get-ReviewWorktreePath -WorkRoot $workRoot -Pr $Pr -Name $Name
+    git -C $repo worktree add --detach $script:worktree $headSha 2>$null | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "git worktree add failed for $($script:worktree) at $headSha" }
+    Write-Host "worktree: $($script:worktree) at $headSha (kept; scripts/Clean-Worktrees.ps1 removes it on a schedule)"
+    # OpenCode silently falls back to its default, full-permission agent when --agent names one it
+    # cannot find, so copy the read-only agent into the review worktree to make --agent always
+    # resolve (the PR head may predate the file). It is a tracked file: an identical copy leaves
+    # the tree clean, a differing one is uncommitted work, and Done-when 3 keeps any tree that
+    # holds uncommitted work.
+    $agentDir = Join-Path $script:worktree '.opencode/agents'
     New-Item -ItemType Directory -Force -Path $agentDir | Out-Null
     Copy-Item -LiteralPath $agentFile -Destination (Join-Path $agentDir 'external-reviewer.md') -Force
 }
@@ -1174,7 +1196,7 @@ function Invoke-ReviewAttempt([string] $Name) {
     $prompt = $header + "`n" + $briefRest + $rules
     $fail = { param($reason, $detail) [pscustomobject]@{ Ok = $false; Name = $Name; Model = $model; Route = $route; Header = $header; Reason = $reason; Detail = $detail } }
 
-    New-ReviewWorktree
+    New-ReviewWorktree $Name
     # 2. Run OpenCode in the worktree, watched. `opencode run [message..]` is non-interactive;
     #    The directory it runs in is the worktree (1.x `--dir`, 2.x the process's own working
     #    directory), `--agent` and `--model provider/model` are the documented flags, and the
@@ -1311,8 +1333,10 @@ try {
     }
 }
 finally {
-    # 5. Clean up: this invocation's tree only.
-    if ($script:worktreeCreated) { git -C $repo worktree remove --force $worktree 2>$null }
+    # 5. No worktree cleanup (T151 Done-when 2): every attempt's tree is kept -- a failed
+    #    review's work and diagnostics are never deleted again -- and scripts/Clean-Worktrees.ps1
+    #    removes old trees on a schedule. The main session never runs `git worktree remove`
+    #    through this script any more.
     if ($isAdvisory -and $null -ne $savedFixtures) { $env:IC2_FIXTURES_DIR = $savedFixtures }
 }
 
