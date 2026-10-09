@@ -45,7 +45,11 @@ public sealed class RecruitmentPanelViewModelTests
 {
     private const string RomeId = "rome";
     private const string RomeCityId = "rome";
-    private const string CapuaCityId = "capua";
+
+    // T155 (#515, #904): the second training town must be one the capital-or-75% gate accepts a new
+    // order at. Luceria (77%) is Rome's only such non-capital — the fixture was Capua (57%) before
+    // the gate, which RecruitStandingUnitCommandHandler now refuses.
+    private const string LuceriaCityId = "luceria";
 
     private static ResolvedScenario Classical() =>
         GameDataRepository.Load(ModelTestPaths.DataRoot).Resolve("classical-mediterranean");
@@ -112,7 +116,7 @@ public sealed class RecruitmentPanelViewModelTests
         Assert.Equal(2, session.Ruleset.Calendar.CityUnitStateCodeStep);
 
         Recruit(session, RomeCityId, "light_infantry", 200);
-        Recruit(session, CapuaCityId, "archers", 400);
+        Recruit(session, LuceriaCityId, "archers", 400);
 
         var rows = RecruitmentPanelViewModel.TrainingAtCity(session.State, session.Ruleset, RomeId, RomeCityId);
         var row = Assert.Single(rows);
@@ -123,8 +127,8 @@ public sealed class RecruitmentPanelViewModelTests
         Assert.Equal(8, row.WeeksUntilReady);
         Assert.Equal("8 weeks", row.ReadinessText);
 
-        // Capua's regiment is Capua's, not Rome's city panel's.
-        Assert.DoesNotContain(rows, r => string.Equals(r.TargetCityId, CapuaCityId, StringComparison.Ordinal));
+        // Luceria's regiment is Luceria's, not Rome's city panel's.
+        Assert.DoesNotContain(rows, r => string.Equals(r.TargetCityId, LuceriaCityId, StringComparison.Ordinal));
 
         EndTurns(session, 4);
         row = Assert.Single(RecruitmentPanelViewModel.TrainingAtCity(session.State, session.Ruleset, RomeId, RomeCityId));
@@ -146,7 +150,7 @@ public sealed class RecruitmentPanelViewModelTests
     {
         var session = RomeSession();
         Recruit(session, RomeCityId, "light_infantry", 200);
-        Recruit(session, CapuaCityId, "archers", 400);
+        Recruit(session, LuceriaCityId, "archers", 400);
 
         var rows = RecruitmentPanelViewModel.TrainingForNation(session.State, session.Ruleset, RomeId);
 
@@ -157,7 +161,7 @@ public sealed class RecruitmentPanelViewModelTests
         Assert.Equal("8 weeks", rows[0].ReadinessText);
         Assert.Equal("archers", rows[1].UnitTypeId);
         Assert.Equal(400, rows[1].Troops);
-        Assert.Equal(CapuaCityId, rows[1].TargetCityId);
+        Assert.Equal(LuceriaCityId, rows[1].TargetCityId);
         Assert.Equal("8 weeks", rows[1].ReadinessText);
 
         EndTurns(session, 8);
@@ -198,7 +202,7 @@ public sealed class RecruitmentPanelViewModelTests
     {
         var session = RomeSession();
         Recruit(session, RomeCityId, "light_infantry", 200);
-        Recruit(session, CapuaCityId, "archers", 400);
+        Recruit(session, LuceriaCityId, "archers", 400);
 
         EndTurns(session, 8);
         var ready = RomeNation(session).RecruitmentSlots[1];
@@ -228,7 +232,7 @@ public sealed class RecruitmentPanelViewModelTests
         var session = RomeSession();
         Recruit(session, RomeCityId, "light_infantry", 200);
         EndTurns(session, 8);
-        Recruit(session, CapuaCityId, "archers", 400);
+        Recruit(session, LuceriaCityId, "archers", 400);
 
         var slots = RomeNation(session).RecruitmentSlots;
         Assert.True(EngineSaysReady(session, slots[0]));

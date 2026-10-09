@@ -44,6 +44,14 @@ public static class RecruitmentTestbed
                 string.Equals(a.Id, updated.Id, StringComparison.Ordinal) ? updated : a)),
         };
 
+    /// <summary>Returns <paramref name="state"/> with one city replaced by <paramref name="updated"/>.</summary>
+    public static GameState WithCity(GameState state, CityState updated) =>
+        state with
+        {
+            Cities = ValueList.From(state.Cities.Select(c =>
+                string.Equals(c.Id, updated.Id, StringComparison.Ordinal) ? updated : c)),
+        };
+
     /// <summary>Returns <paramref name="state"/> with one nation replaced by <paramref name="updated"/>.</summary>
     public static GameState WithNation(GameState state, NationState updated) =>
         state with
