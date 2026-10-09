@@ -5,9 +5,11 @@ namespace IC2.Engine.Model;
 /// world's starting data against the scenario's seat assignments.
 /// </summary>
 /// <remarks>
-/// This is pure data materialisation, not a rule: no value is computed, defaulted or rolled here. The
-/// only thing it reads from the <see cref="Ruleset"/> is the numeric code that means "at peace", so
-/// the starting relation matrix is built from ruleset data rather than a literal.
+/// This is pure data materialisation, not a rule: no value is computed, defaulted or rolled here — with
+/// one Owns-mandated exception, T56's New Game mercenary fill at the end of
+/// <see cref="CreateInitial"/> (see that call's own remarks). Apart from that fill, the only thing this
+/// reads from the <see cref="Ruleset"/> is the numeric code that means "at peace", so the starting
+/// relation matrix is built from ruleset data rather than a literal.
 /// <para>
 /// <strong>T86: <see cref="GameState.Neighbours"/>.</strong> <c>Diplomacy.NeighbourGeography.InitialAdjacency</c>
 /// is called by its fully-qualified name rather than a <c>using</c>, on purpose — <c>IC2.Engine.Model</c>
@@ -163,7 +165,7 @@ public static class GameStateFactory
             YearBc: ruleset.Calendar.StartYearBc,
             TurnIndex: 0);
 
-        return new GameState(
+        var state = new GameState(
             SchemaVersion: GameDataSchema.CurrentVersion,
             WorldId: world.Id,
             RulesetId: ruleset.Id,
@@ -181,6 +183,19 @@ public static class GameStateFactory
             NewsLog: StartingNewsFor(world, ruleset),
             PendingOffer: null,
             Neighbours: Diplomacy.NeighbourGeography.InitialAdjacency(world));
+
+        // T56 (bug #457): the New Game mercenary fill — the one place this factory draws anything, by
+        // the task's own Owns amendment. The original's FUN_00448AA4 calls the quarterly restock
+        // FUN_00449130 exactly once over the 50 slots the DAT reload just emptied, and that single
+        // pass is how every new game gets its starting offers [confirmed:
+        // decompiled-new-game-mercenary-fill.md §1]. The pool above starts empty (this engine's
+        // absent-slot convention, not a 50-entry sentinel table), so the fill is one restock pass
+        // through IRng, from the state's own seed via its own stream — the first New Game draw in the
+        // original's order, and independent of every other one here because each has its own named
+        // stream. A world without a template table draws nothing; a save import never calls this
+        // factory, so loading a SAV never re-fills (same report §3). Fully qualified for the same
+        // reason as NeighbourGeography above: Model otherwise depends on nothing else in the engine.
+        return IC2.Engine.Recruitment.MercenaryPoolRestock.FillNewGamePool(state, ruleset, world);
     }
 
     /// <summary>

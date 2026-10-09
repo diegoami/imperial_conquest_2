@@ -667,6 +667,44 @@ public sealed record WeatherEffectRule(
 /// <strong>[confirmed: decompiled-mercenary-offer-list-and-position.md §3]</strong>. The hire itself
 /// charges nothing; the threshold is only a gate.
 /// </param>
+/// <param name="MercenaryRestockEmptyRollDenominator">
+/// T56: the quarterly restock's first roll on an <em>empty</em> slot is <c>rand(6)</c> — the exclusive
+/// bound of <c>FUN_00449130</c>'s <c>rand(6) &gt; 4</c> test
+/// <strong>[confirmed: decompiled-mobilization-and-mercenary-restock.md §6]</strong>.
+/// </param>
+/// <param name="MercenaryRestockEmptyRollRefillCeiling">
+/// T56: an empty slot whose <c>rand(6)</c> draw is at or below this value (<c>4</c>, i.e. the
+/// <c>&gt; 4</c> test's other side) refills immediately; a draw above it falls through to the same
+/// replace roll a live offer takes <strong>[confirmed: same report §6]</strong>. Composed, an empty slot
+/// refills with probability <c>46/54 ≈ 85%</c>.
+/// </param>
+/// <param name="MercenaryRestockReplaceRollDenominator">
+/// T56: the roll a live offer (or a fallen-through empty slot) gets — <c>rand(9)</c>; at or above
+/// <see cref="MercenaryRestockReplaceRollFloor"/> the slot is replaced, so a live offer is replaced with
+/// probability <c>1/9</c> per quarter <strong>[confirmed: same report §6]</strong>.
+/// </param>
+/// <param name="MercenaryRestockReplaceRollFloor">The <c>8</c> of that <c>rand(9) &gt; 7</c> test.</param>
+/// <param name="MercenaryRestockTemplateDrawCount">
+/// T56: the exclusive bound of the restock's template draw, <c>rand(200)</c> over the 201-record template
+/// table — template 200 is data the draw can never select
+/// <strong>[confirmed: decompiled-new-game-mercenary-fill.md §2 and §4]</strong>.
+/// </param>
+/// <param name="MercenaryRestockTroopsScaleNumerator">
+/// T56: the numerator of the offer-size base, <c>base = (3 × template.troops) / 2</c>; the offer is
+/// <c>base + rand(base)</c>, i.e. 1.5×–3× the template value
+/// <strong>[confirmed: decompiled-mobilization-and-mercenary-restock.md §6]</strong>.
+/// </param>
+/// <param name="MercenaryRestockTroopsScaleDenominator">The <c>2</c> of that same expression.</param>
+/// <param name="MercenaryRestockQualityFloor">
+/// T56: the low clamp of the offer quality, <c>min(9, max(5, ...))</c> — quality is always 5–9, matching
+/// every offer observed in the corpus <strong>[confirmed: same report §6]</strong>.
+/// </param>
+/// <param name="MercenaryRestockQualityCeiling">The high clamp <c>9</c> of that same expression.</param>
+/// <param name="MercenaryRestockQualityRaise">
+/// T56: the <c>+ 1</c> of <c>quality + 1 − rand(2)</c> — an offer's quality is the template's value or
+/// one above it <strong>[confirmed: decompiled-new-game-mercenary-fill.md §2]</strong>.
+/// </param>
+/// <param name="MercenaryRestockQualityJitterSteps">The exclusive bound <c>2</c> of that same roll.</param>
 public sealed record RecruitmentRules(
     int TroopsPerCostUnit,
     int MercenaryPoolSlots,
@@ -675,6 +713,17 @@ public sealed record RecruitmentRules(
     int MercenaryHireRangeHumanSeat,
     int MercenaryHireRangeAiSeat,
     int MercenaryAiHireMinMoney,
+    int MercenaryRestockEmptyRollDenominator,
+    int MercenaryRestockEmptyRollRefillCeiling,
+    int MercenaryRestockReplaceRollDenominator,
+    int MercenaryRestockReplaceRollFloor,
+    int MercenaryRestockTemplateDrawCount,
+    int MercenaryRestockTroopsScaleNumerator,
+    int MercenaryRestockTroopsScaleDenominator,
+    int MercenaryRestockQualityFloor,
+    int MercenaryRestockQualityCeiling,
+    int MercenaryRestockQualityRaise,
+    int MercenaryRestockQualityJitterSteps,
     int MaxSlots,
     int MobilizationQualityDivisor,
     int MobilizationMinStateCodeHumanSeat,
