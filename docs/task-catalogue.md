@@ -214,6 +214,7 @@ graph TD
   T150 --> T151[T151 keep worktrees]
   T150 --> T152[T152 recommend]
   T151 --> T154[T154 review brief in worktree]
+  T56 --> T155[T155 recruit-town gate]
   T23 --> T26[T26 scenario docs+examples]
   T29 --> T26
   T22 --> T28[T28 nightly soak gate]
@@ -1234,6 +1235,10 @@ Model choice from /recommend (process tooling, the user's decision of 2026-10-08
 
 Review brief in worktree (process tooling, the harness's L60, the user's decision of 2026-10-09; after the v0.5.0 release; it merges after T151) → [full entry](tasks/T154.md) · [#884](https://github.com/diegoami/imperial_conquest_2/issues/884)
 
+#### T155 Only the capital and towns fortified to 75% take a recruitment order
+
+Recruit-town gate (the correction for #515, folding #903; found by the user playing `v0.5.0`, ships in `v0.5.1`, the user's decision of 2026-10-09; it merges after T56) → [full entry](tasks/T155.md) · [#904](https://github.com/diegoami/imperial_conquest_2/issues/904)
+
 ---
 
 #### T25 Battle result, diplomacy, and hotseat handoff screens
@@ -1419,3 +1424,4 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T151](#t151-a-failed-run-keeps-its-work-and-its-worktree-worktrees-are-cleaned-up-on-a-schedule) | Keep worktrees | none | Sonnet | Medium | Sol | T150 | [#862](https://github.com/diegoami/imperial_conquest_2/issues/862) |
 | [T152](#t152-the-dispatch-scripts-take-the-model-from-quota-trackers-recommend) | Model choice from /recommend | none | Sonnet | Medium | Sol | T150 | [#866](https://github.com/diegoami/imperial_conquest_2/issues/866) |
 | [T154](#t154-a-review-run-reads-its-brief-from-inside-its-own-worktree) | Review brief in worktree | none | Sonnet | Low | Sol | T151 | [#884](https://github.com/diegoami/imperial_conquest_2/issues/884) |
+| [T155](#t155-only-the-capital-and-towns-fortified-to-75-take-a-recruitment-order) | Recruit-town gate | M4 | Sonnet | Medium | Sol | T56 | [#904](https://github.com/diegoami/imperial_conquest_2/issues/904) |

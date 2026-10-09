@@ -153,6 +153,13 @@ The user's decisions of 2026-10-04, recorded on [#690](https://github.com/diegoa
 
 **The main session publishes a v0.4.x without asking** (the user's decision of 2026-10-04; [§3.2](#32-who-cuts-the-tag--recommended-consistent-with-q-a)'s v0.4.x row). When the patch's listed tasks and fixes are merged and CI is green at the commit it cuts (on `main` for `v0.4.1`, on `release/0.4` after it), it runs the guard check above and the [§5](#5-release-checklist) checklist's agent lines, then: tags the release; creates the GitHub Release with its notes and the Windows zip and installer; publishes it; and installs the update on the user's machine by running the Release's `setup.exe` silently (`/VERYSILENT /SUPPRESSMSGBOXES /NORESTART`), which upgrades the existing install in place (the user's standing instruction). It reports the tag, the Release's link and the install's result to the user.
 
+### 2.2.3 v0.5.x patches
+
+The user's decision of 2026-10-09, after playing `v0.5.0` ("Publish v0.5.0, then v0.5.1"): the two recruitment bugs found in that play session, #515 and #903, ship as **`v0.5.1`** through [T155](tasks/T155.md) (#904), labelled `release:v0.5.1`. `v0.5.0` was published with them named as known gaps, because a tag is never moved ([§3.1](#31-naming-and-placement--decided)).
+
+- **`v0.5.1` is cut from `main`** when T155 merges, provided no tactical-battle work (`v0.6.0`'s T125–T130) has merged since `v0.5.0`. If any has, it is cut from a `release/0.5` maintenance branch instead, as [§2.2.2](#222-two-release-lines-a-maintenance-branch-per-patched-minor) does for `0.4`.
+- **The main session cuts and publishes it** once T155 has merged and [§5](#5-release-checklist)'s checklist passes, then installs the update on the user's machine, as for a v0.4.x patch ([§3.2](#32-who-cuts-the-tag--recommended-consistent-with-q-a)). Items the user lists after playing `v0.5.1` go to `v0.5.2`.
+
 ### 2.2.2 Two release lines: a maintenance branch per patched MINOR
 
 The user's decision of 2026-10-04, after `v0.4.1`: *"we need separate paths for 0.4.x and 0.5.x"*. It is the standard gitflow case: patch releases for the shipped version, with fixes, while the next version is developed, and the next version needs those fixes too. **This section is written for `release/0.4`, the only maintenance line.** A later line (`release/0.5` while `v0.6.0` develops, `release/1.0` after 1.0) is opened by its own plan PR when the user asks for patches on a line whose successor is already on `main`. That PR names the branch, its tag and its release labels, and makes each `release/0.4` and `v0.4.x` below, and in [build-process.md Appendix C](build-process.md#appendix-c-the-run-task-skill)'s maintenance-line block, read for it.
