@@ -383,18 +383,88 @@ public sealed class AuthoredPackConformanceTests
                 samples.Add(BitConverter.ToInt16(bytes, i));
             }
 
-            var totalEnergy = samples.Sum(s => s * s);
-            var lowPassEnergy = OnePoleLowPassEnergy(samples, (double)sampleRate, 300.0);
-            var above300Share = totalEnergy > 0 ? 1.0 - Math.Min(1.0, lowPassEnergy / totalEnergy) : 0.0;
-            Assert.True(above300Share >= 0.30,
-                $"{key}: only {above300Share:P0} of the file's energy is above 300 Hz - a bass-only file " +
-                "is inaudible on ordinary speakers (the user's listening review, PR #886 U1)");
-
-            var rms = Math.Sqrt(totalEnergy / samples.Count);
-            var rmsDbfs = 20.0 * Math.Log10(rms / 32767.0);
-            Assert.True(rmsDbfs > -30.0,
-                $"{key}: RMS {rmsDbfs:F1} dBFS is below -30 dBFS - the file is effectively silent to the ear");
+            var audibilityProblem = AudibilityProblem(samples, (int)sampleRate, key);
+            Assert.True(audibilityProblem is null,
+                $"{key}: {audibilityProblem} (the user's listening review, PR #886 U1)");
         }
+    }
+
+    /// <summary>
+    /// T149 rework round 2 (Sol's review of PR #886, R4): the audibility guard as a helper, so
+    /// the offline negative test below runs the <em>same</em> formula the committed pack is
+    /// held to, not a copy. Returns <see langword="null"/> when the samples are audible on
+    /// ordinary speakers, else the reason. The guards and their reasons:
+    /// <list type="bullet">
+    /// <item>at least 30% of the energy above 300 Hz — small drivers roll off below that line,
+    /// so a file with almost no energy above it is inaudible on them;</item>
+    /// <item>RMS above −30 dBFS — loudness the ear reads, not the one peak sample.</item>
+    /// </list>
+    /// The energy split is the same gentle one-pole low-pass the generator logs
+    /// (scripts/generate-sounds.py's band_energy_shares): approximate by design, exact enough
+    /// to separate a mid-range file from a sub-bass one.
+    /// </summary>
+    private static string? AudibilityProblem(List<double> samples, int sampleRate, string key)
+    {
+        var totalEnergy = samples.Sum(s => s * s);
+        var lowPassEnergy = OnePoleLowPassEnergy(samples, sampleRate, 300.0);
+        var above300Share = totalEnergy > 0 ? 1.0 - Math.Min(1.0, lowPassEnergy / totalEnergy) : 0.0;
+        if (above300Share < 0.30)
+        {
+            return $"only {above300Share:P0} of the file's energy is above 300 Hz - a bass-only file " +
+                "is inaudible on ordinary speakers";
+        }
+
+        if (totalEnergy <= 0 || samples.Count == 0)
+        {
+            return "the file is silent (no energy)";
+        }
+
+        var rms = Math.Sqrt(totalEnergy / samples.Count);
+        var rmsDbfs = 20.0 * Math.Log10(rms / 32767.0);
+        if (rmsDbfs <= -30.0)
+        {
+            return $"RMS {rmsDbfs:F1} dBFS is below -30 dBFS - the file is effectively silent to the ear";
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// T149 rework round 2 (Sol's review of PR #886, R4): a committed negative test for the
+    /// audibility guard. A bass-only sine (80 Hz, 0.5 s, −6 dBFS peak) synthesised in memory
+    /// must be rejected by the same helper the pack is held to — this is the shape the shipped
+    /// battle.wav had (~95% of its energy at 60–120 Hz, inaudible on the user's speakers) —
+    /// and a 1 kHz sine of the same level and length must pass. Offline, no file read.
+    /// </summary>
+    [Fact]
+    public void AudibilityGuard_RejectsBassOnlySineAndPassesSameLevelMidRangeSine()
+    {
+        const int sampleRate = 44100;
+        const double seconds = 0.5;
+        const double peakDbfs = -6.0;
+        var peakAmplitude = 32767.0 * Math.Pow(10.0, peakDbfs / 20.0); // -6 dBFS peak
+        var sampleCount = (int)(seconds * sampleRate);
+
+        List<double> Synthesise(double frequencyHz)
+        {
+            var result = new List<double>(sampleCount);
+            for (var i = 0; i < sampleCount; i++)
+            {
+                result.Add(peakAmplitude * Math.Sin(2.0 * Math.PI * frequencyHz * i / sampleRate));
+            }
+
+            return result;
+        }
+
+        var bassOnly = AudibilityProblem(Synthesise(80.0), sampleRate, "synthesised-bass-only");
+        Assert.False(bassOnly is null,
+            "an 80 Hz sine at -6 dBFS peak must be rejected: almost all of its energy is below 300 Hz, " +
+            "the band ordinary speakers barely reproduce (the shipped battle.wav's failure mode)");
+        Assert.Contains("300 Hz", bassOnly);
+
+        var midRange = AudibilityProblem(Synthesise(1000.0), sampleRate, "synthesised-mid-range");
+        Assert.True(midRange is null,
+            $"a 1 kHz sine at the same -6 dBFS peak must pass the audibility guard (got: {midRange})");
     }
 
     /// <summary>
