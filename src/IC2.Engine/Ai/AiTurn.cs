@@ -236,7 +236,9 @@ public static class AiTurn
             // (<c>FUN_0044ebe8</c>). When the chosen command was accepted but that army's tile is
             // unchanged -- directly, not via <see cref="AiSubstantiveState.AreEquivalent"/>'s whole-state
             // comparison -- the driver runs the fallback for that army. An army that moved takes no
-            // fallback; an army whose command was rejected was never on the hook for one. The fallback
+            // fallback; an army whose command was rejected was never on the hook for one; an army with
+            // no moves left (the chosen command spent them all, e.g. on a battle that zeroes them) also
+            // takes no fallback, since <c>MoveArmyCommand</c> would only be refused. The fallback
             // itself is one more command (a MoveArmyCommand), so its accepted/rejected path feeds the
             // same counters as any other command this loop processed.
             if (execution.Issued > 0
@@ -245,6 +247,7 @@ public static class AiTurn
             {
                 var afterArmy = state.ArmyById(armyId);
                 if (afterArmy is { } afterTile
+                    && afterArmy.Moves > 0
                     && beforeTile.X == afterTile.X
                     && beforeTile.Y == afterTile.Y)
                 {
