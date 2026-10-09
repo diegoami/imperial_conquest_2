@@ -166,49 +166,82 @@ public sealed class MercenaryPoolNewGameFillTests
         Assert.NotEmpty(at3.State.MercenaryPool);
         Assert.NotEmpty(at4.State.MercenaryPool);
 
-        // Two seeds, two different pools — and neither is the scenario's committed-seed pool. (The
-        // session's pool is not byte-equal to a raw FillNewGamePool at the same seed: constructing a
-        // session with a human seat advances the game to that seat's first turn, which can itself
-        // cross a quarter boundary and restock once more, so the comparison here is between two
-        // sessions constructed identically but for the seed — the only thing that can differ is what
-        // the fill drew.)
+        // Two seeds, two different pools — and neither is the scenario's committed-seed pool. The
+        // two sessions are constructed identically but for the seed, so the only thing that can
+        // differ is what the fill drew.
         Assert.NotEqual(at3.State.MercenaryPool, at4.State.MercenaryPool);
         var at270 = NewGame(Classical.Scenario.RandomSeed).MercenaryPool;
         Assert.NotEqual(at270, at3.State.MercenaryPool);
         Assert.NotEqual(at270, at4.State.MercenaryPool);
     }
 
-    [Fact]
+    [SkippableFact]
     public void The_CLIs_seed_option_reaches_the_fill()
     {
-        // R1: the CLI's --seed is the observable the review named. This runs the real CLI (the same
-        // dotnet run --project src/IC2.Cli the goldens are regenerated with) twice on a one-command
-        // script: hire from pool slot 11 with macedonia's starting army. Slot 11 is filled by the
-        // fill at seed 4 and left empty at seed 3 (both pinned by the pool computation above), so the
-        // transcripts' hire line differs between the two seeds — "has no offer to hire" at 3 and the
-        // position-gate rejection at 4 — which is only possible if --seed reached the fill.
+        // Rework round 2 (R1): the CLI's --seed is the observable the review named. This runs the
+        // real CLI twice on a one-command script: hire from pool slot 11 with macedonia's starting
+        // army. Slot 11's state at the two seeds is pinned HERE, from GameSessions built at those
+        // seeds: filled at seed 4, empty at seed 3. The transcripts' hire line therefore differs
+        // between the two seeds — "has no offer to hire" at 3 and the position-gate rejection at 4 —
+        // which is only possible if --seed reached the fill.
         const ulong FilledSeed = 4;
         const ulong EmptySeed = 3;
         const int Slot = 11;
 
-        var cliDll = Path.Combine(
-            ModelTestPaths.RepositoryRoot, "src", "IC2.Cli", "bin", "Debug", "net10.0", "IC2.Cli.dll");
-        if (!File.Exists(cliDll))
+        // Pin slot 11's state from the same constructor path the CLI drives.
+        Assert.Contains(
+            new GameSession(Classical.World, Classical.Ruleset, Classical.Scenario,
+                seedOverride: FilledSeed, humanSeatNationId: "macedonia").State.MercenaryPool,
+            s => s.SlotIndex == Slot);
+        Assert.DoesNotContain(
+            new GameSession(Classical.World, Classical.Ruleset, Classical.Scenario,
+                seedOverride: EmptySeed, humanSeatNationId: "macedonia").State.MercenaryPool,
+            s => s.SlotIndex == Slot);
+
+        var cliDll = FindCliDll();
+        Skip.If(cliDll is null,
+            "IC2.Cli.dll was not built next to this test assembly's own output (configuration/target "
+            + "framework); a narrow test invocation that never built IC2.Cli cannot spawn it, and "
+            + "dotnet test IC2.sln always builds it first.");
+
+        var scriptPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".txt");
+        try
         {
-            // The same skip CliProcessTests uses: a narrow test invocation that never built IC2.Cli
-            // cannot spawn it, and dotnet test IC2.sln always builds it first.
-            return;
+            File.WriteAllText(scriptPath, $"hire-mercenary army-8 {Slot}{Environment.NewLine}quit{Environment.NewLine}");
+
+            var atFilled = RunCli(cliDll!, scriptPath, FilledSeed);
+            var atEmpty = RunCli(cliDll!, scriptPath, EmptySeed);
+
+            var noOffer = $"Mercenary pool slot {Slot} has no offer to hire.";
+            Assert.DoesNotContain(noOffer, atFilled, StringComparison.Ordinal);
+            Assert.Contains(noOffer, atEmpty, StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.Delete(scriptPath);
+        }
+    }
+
+    /// <summary>
+    /// Finds the built <c>IC2.Cli.dll</c> next to this test assembly's own build output — same
+    /// repository root, same configuration, same target framework — mirroring
+    /// <c>CliProcessTests.FindCliDll</c>, so a Release CI build is found too. Returns
+    /// <see langword="null"/> if this test run never built it.
+    /// </summary>
+    private static string? FindCliDll()
+    {
+        var testOutputDir = new DirectoryInfo(AppContext.BaseDirectory.TrimEnd(
+            Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        var targetFramework = testOutputDir.Name;
+        var configuration = testOutputDir.Parent?.Name;
+        if (configuration is null)
+        {
+            return null;
         }
 
-        var scriptPath = Path.Combine(Path.GetTempPath(), "ic2-t56-seed-reaches-fill.txt");
-        File.WriteAllText(scriptPath, $"hire-mercenary army-8 {Slot}{Environment.NewLine}quit{Environment.NewLine}");
-
-        var atFilled = RunCli(cliDll, scriptPath, FilledSeed);
-        var atEmpty = RunCli(cliDll, scriptPath, EmptySeed);
-
-        var noOffer = $"Mercenary pool slot {Slot} has no offer to hire.";
-        Assert.DoesNotContain(noOffer, atFilled, StringComparison.Ordinal);
-        Assert.Contains(noOffer, atEmpty, StringComparison.Ordinal);
+        var candidate = Path.Combine(
+            ModelTestPaths.RepositoryRoot, "src", "IC2.Cli", "bin", configuration, targetFramework, "IC2.Cli.dll");
+        return File.Exists(candidate) ? candidate : null;
     }
 
     /// <summary>

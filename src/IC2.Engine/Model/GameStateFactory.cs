@@ -5,11 +5,9 @@ namespace IC2.Engine.Model;
 /// world's starting data against the scenario's seat assignments.
 /// </summary>
 /// <remarks>
-/// This is pure data materialisation, not a rule: no value is computed, defaulted or rolled here — with
-/// one Owns-mandated exception, T56's New Game mercenary fill at the end of
-/// <see cref="CreateInitial"/> (see that call's own remarks). Apart from that fill, the only thing this
-/// reads from the <see cref="Ruleset"/> is the numeric code that means "at peace", so the starting
-/// relation matrix is built from ruleset data rather than a literal.
+/// This is pure data materialisation, not a rule: no value is computed, defaulted or rolled here. The
+/// only thing it reads from the <see cref="Ruleset"/> is the numeric code that means "at peace", so
+/// the starting relation matrix is built from ruleset data rather than a literal.
 /// <para>
 /// <strong>T86: <see cref="GameState.Neighbours"/>.</strong> <c>Diplomacy.NeighbourGeography.InitialAdjacency</c>
 /// is called by its fully-qualified name rather than a <c>using</c>, on purpose — <c>IC2.Engine.Model</c>
@@ -165,7 +163,7 @@ public static class GameStateFactory
             YearBc: ruleset.Calendar.StartYearBc,
             TurnIndex: 0);
 
-        var state = new GameState(
+        return new GameState(
             SchemaVersion: GameDataSchema.CurrentVersion,
             WorldId: world.Id,
             RulesetId: ruleset.Id,
@@ -183,19 +181,6 @@ public static class GameStateFactory
             NewsLog: StartingNewsFor(world, ruleset),
             PendingOffer: null,
             Neighbours: Diplomacy.NeighbourGeography.InitialAdjacency(world));
-
-        // T56 (bug #457), rework round 1 (R1): the New Game mercenary fill is NOT drawn here. This
-        // factory commits the scenario's own seed, and both New Game callers apply their effective
-        // seed only after CreateInitial returns (the CLI's --seed through GameSession, a soak through
-        // AiGameRunner), so a fill inside the factory would draw every starting pool from the
-        // scenario's seed and the game's own seed would never reach it. The fill is instead one call
-        // in each of those two callers, right after the seed is set and next to NewGameLeaders.Apply —
-        // MercenaryPoolRestock.FillNewGamePool, which draws from the state's (now effective) seed via
-        // its own named stream. The pool above therefore starts empty (this engine's absent-slot
-        // convention, not a 50-entry sentinel table), exactly as it did before T56; a world without a
-        // template table draws nothing; and a save import never calls this factory, so loading a SAV
-        // never re-fills (decompiled-new-game-mercenary-fill.md §1 and §3).
-        return state;
     }
 
     /// <summary>
