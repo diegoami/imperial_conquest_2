@@ -48,6 +48,7 @@ gh issue list --label triage:needed --state open         # untriaged bugs and fo
 | [release-plan.md](release-plan.md) | Versions, release gates, release notes, the release checklist |
 | [milestone-review.md](milestone-review.md) | A portable process: how a milestone is defined, frozen on a review branch, reviewed by an independent reviewer through a never-merged PR, and tagged |
 | [evidence-pipeline.md](evidence-pipeline.md) | The `/process-evidence` pipeline and its skill text |
+| [running-notes.md](running-notes.md) | An implementer's `rendered/RUN-NOTES.md`: plan, progress, notes and an END block, read by the next round and pasted into the review brief |
 | [recording-analysis.md](recording-analysis.md) | Reading a screen recording: the `/parse-recording` pipeline, the ffmpeg recipe, and what each in-game panel is worth |
 | [investigations/README.md](investigations/README.md) | Index of this repository's own evidence write-ups |
 

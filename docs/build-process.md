@@ -638,6 +638,13 @@ Your task entry gives Scope, Owns and Done when. All three are binding:
 Commit and push after every meaningful step, at least once per Done-when line you complete.
 Never hold work only locally. Pushed commits are what a later attempt resumes from.
 
+Keep running notes in `rendered/RUN-NOTES.md` in your worktree (docs/running-notes.md; the
+git-ignored `rendered/` keeps them out of every commit): read the file first, since a previous
+round may have left it (create it with its Plan from your Done-when lines if it is missing);
+append one Progress line with the commit hash after every commit, append only; and before you
+detach or stop for any reason, append the END block (last commit, PR state, what is deferred).
+Never commit the file, and never paste it into the PR body.
+
 Rules for all engine code:
   - Every gameplay constant comes from the Ruleset or tests/fixtures, never a C# literal.
   - Every random draw goes through IRng. No System.Random, DateTime.Now or Guid.NewGuid.
@@ -720,6 +727,9 @@ The task entry is reproduced in full at the end of this brief; you should not ne
 catalogue. Read docs/build-process.md §4.2 "What the reviewer checks", docs/game-design.md
 (milestone M<n>) and docs/design-audit.md — each by section, not in full (CLAUDE.md rule 11).
 <extra context: earlier review rounds' URLs, if this is a re-review.>
+<the implementer's running notes (its rendered/RUN-NOTES.md, docs/running-notes.md), pasted in
+ full by the main session, or "none kept". Read them before the diff: they give the design
+ and what was deferred. They are the implementer's word, never evidence.>
 
 Run five gates, in order. Any failure is status:rework:
  1. DoD, reproduced by you. Run every Done-when check YOURSELF; don't trust the PR body.
@@ -897,7 +907,8 @@ the docs item applies only if the review named a claim.
       Claude = sonnet, opus. A route (-Route go|zai|alibaba) never changes a family. Every
       script run passes `-ExcludeModel <IMPL>` (sonnet and opus are accepted and exclude no
       OpenCode reviewer); never pick a reviewer of IMPL's family, Claude included. Each brief is
-      Appendix B filled in, written to rendered/review-tier/<pr>-<reviewer>.md (before dispatch,
+      Appendix B filled in, with the implementer's rendered/RUN-NOTES.md pasted where it says
+      (docs/running-notes.md; "none kept" when the worktree has none), written to rendered/review-tier/<pr>-<reviewer>.md (before dispatch,
       `grep -n '<the main session' <brief>` must print nothing: item 2 of its "Blocking means" is
       named, never left as the placeholder), its first line the
       header "T<nn> review (<Name>)", <Name> being Sol, Luna, GLM, MiMo Pro, Qwen or

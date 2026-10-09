@@ -83,7 +83,11 @@ write it. The brief that follows tells you what to check; this file tells you ho
   file changed to run (a mutation), change it IN PLACE in your worktree with a shell edit, never
   commit it, and restore it with `git checkout -- <file>`, run in the worktree, a touch and a
   clean rebuild (build-process.md §4.2 gate 5). Never copy the worktree elsewhere: a path outside
-  your worktree is rejected by OpenCode, and the rejection ends your review.
+  your worktree is denied by OpenCode (#931, #934), and the check you needed cannot run.
+- When the brief carries the implementer's running notes (its `rendered/RUN-NOTES.md`, pasted by
+  the main session; docs/running-notes.md), read them before the diff: they give the design and
+  what was deferred, so you grade against the design. They are the implementer's word, never
+  evidence: the diff and your own checks decide.
 - A worktree has no `assets.local.ini`; set `IC2_FIXTURES_DIR` if the brief gives you a
   fixtures clone, otherwise say which tests skipped and why.
 - Your **final message is the review**, and nothing else: the first line is exactly the header

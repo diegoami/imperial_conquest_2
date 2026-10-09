@@ -78,6 +78,13 @@ follows is the contract; this file says how the run works.
 - The brief's Owns list, Done-when lines and rules are binding as written there. A Done-when
   line you cannot satisfy means you stop and report why; you never weaken it. A defect in
   another task's merged code is reported, never patched.
+- Track your progress in `rendered/RUN-NOTES.md` in your worktree (docs/running-notes.md; the
+  git-ignored `rendered/` keeps it out of every commit). Three rules: (1) read it first, since a
+  previous round may have left it, and if it is missing create it with its Plan from the brief's
+  Done-when lines; (2) after every commit, append one Progress line with the commit hash, append
+  only, and a line that turned out wrong gets a new line saying it was reverted and why; (3) before
+  `git checkout --detach`, or before you stop for any reason, append the END block: the last
+  commit, the PR state, and what is deferred. Never commit it, and never paste it into the PR body.
 - When done, open the PR with `gh pr create` as the brief says, run `git checkout --detach` in
   your worktree, and make your **final message the report**: the where-I-worked block, what you
   built, each Done-when line with the command and its result, anything you could not verify, and
