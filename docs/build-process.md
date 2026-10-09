@@ -641,7 +641,7 @@ Never hold work only locally. Pushed commits are what a later attempt resumes fr
 Keep running notes in `rendered/RUN-NOTES.md` in your worktree (docs/running-notes.md; the
 git-ignored `rendered/` keeps them out of every commit): read the file first, since a previous
 round may have left it (create it with its Plan from your Done-when lines if it is missing, then
-run `git check-ignore -q rendered/RUN-NOTES.md`: if it exits 1, the file is not ignored, so
+run `git -C <your worktree> check-ignore -q rendered/RUN-NOTES.md`: if it exits 1, it is not ignored, so
 delete it, stop and report);
 append one Progress line with the commit hash after every commit, append only; and before you
 detach or stop for any reason, append the END block (last commit, PR state, what is deferred).
