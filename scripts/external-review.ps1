@@ -932,6 +932,12 @@ Write-Host "__exit:`$code"
     $ruleChecks += [pscustomobject]@{ Name = '#931: the export overrides a printed Read title (a bash write stays a write)'; Ok = ((Get-OpenCodeDeniedWrite $denyRead @($ed | Where-Object Tool -eq 'bash')) -like 'bash *') }
     $ruleChecks += [pscustomobject]@{ Name = '#931: export reads only means no write'; Ok = ($null -eq (Get-OpenCodeDeniedWrite $denyPatch @($ed | Where-Object Read))) }
     $ruleChecks += [pscustomobject]@{ Name = '#931: a missing export is $null (the printed output is the fallback)'; Ok = ($null -eq (Get-OpenCodeExportDenials 'C:\no\such\export.json')) }
+    # PR #932's re-check R1: a parseable export that misses a printed denial must not drop a write.
+    $none = [object[]]@()
+    $ruleChecks += [pscustomobject]@{ Name = '#931 re-check R1: an export with no denial does not hide a printed write'; Ok = ((Get-OpenCodeDeniedWrite $denyPatch $none) -eq 'Patch') }
+    $ruleChecks += [pscustomobject]@{ Name = '#931 re-check R1: an export with no denial does not hide a printed read either (it fails closed)'; Ok = ((Get-OpenCodeDeniedWrite $denyRead $none) -like '(a printed denial the export does not hold*') }
+    $ruleChecks += [pscustomobject]@{ Name = '#931 re-check R1: an export holding the one printed denial decides it (a printed Read, a bash write)'; Ok = ((Get-OpenCodeDeniedWrite $denyRead @($ed | Where-Object Tool -eq 'bash')) -like 'bash *') }
+    $ruleChecks += [pscustomobject]@{ Name = '#931 re-check R1: an export accounting for both printed denials as reads means no write'; Ok = ($null -eq (Get-OpenCodeDeniedWrite "$denyRead`n$denyGlob" @($ed | Where-Object Read))) }
     foreach ($c in $ruleChecks) {
         $n++
         if (-not $c.Ok) { $failed++ }

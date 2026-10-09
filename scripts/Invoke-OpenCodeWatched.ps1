@@ -214,8 +214,25 @@ function Get-OpenCodeExportDenials([string] $ExportFile) {
 
 function Get-OpenCodeDeniedWrite([string] $Text, $Denials) {
     # The first denied outside WRITE (anything not shown to be a read) as its call, or $null (bug
-    # #931). $Denials, when given (the export's, the authority), is used instead of parsing $Text.
-    $all = if ($null -ne $Denials) { @($Denials) } else { @(Get-OpenCodePermissionDenials $Text) }
+    # #931). $Denials, when given, is the session export's list, the authority on which tool was
+    # denied (a shell `grep x > out` prints like the Grep tool). It FAILS CLOSED (PR #932's re-check
+    # R1): the export decides only when it accounts for every denial the printed output shows. When
+    # the printed output shows more denials than the export holds (a part the export missed, an
+    # error that is not the expected string), any printed write counts, and so does each printed
+    # denial the export does not explain, so a denied write is never dropped.
+    $printed = @(Get-OpenCodePermissionDenials $Text)
+    if ($null -eq $Denials) { $all = $printed }
+    else {
+        $exp = @($Denials)
+        $all = $exp
+        if ($printed.Count -gt $exp.Count) {
+            $unexplained = @($printed | Where-Object { -not $_.Read })
+            if ($unexplained.Count -eq 0) {
+                $unexplained = @([pscustomobject]@{ Call = "(a printed denial the export does not hold: $($printed.Count) printed, $($exp.Count) in the export)"; Read = $false })
+            }
+            $all = @($exp) + $unexplained
+        }
+    }
     $w = @($all | Where-Object { -not $_.Read })
     if ($w.Count -eq 0) { return $null }
     return $w[0].Call
