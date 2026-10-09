@@ -655,8 +655,8 @@ public static class AiMilitaryPhase
         // handler accepts the order with the army back at its origin, the state is unchanged. The
         // passability rule is "terrain only" — AiView.IsArmyPassable — mirroring how IsBlocked treats
         // terrain before occupancy; the occupancy check below mirrors IsBlocked's own occupancy scan,
-        // and the two are kept separate so the comment in MoveArmyCommandHandler lines 65-105 stays the
-        // single source of truth for "what stops a marcher".
+        // and the two are kept separate so MoveArmyCommandHandler.IsBlocked stays the single source of
+        // truth for "what stops a marcher".
         var path = BresenhamPath.Trace(new GridPoint(army.X, army.Y), new GridPoint(command.X, command.Y));
         if (path.Count < 2 || !view.IsArmyPassable(path[1]))
         {
