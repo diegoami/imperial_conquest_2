@@ -43,12 +43,19 @@ public sealed class AiBlockedMarchProposalsTests
     [Fact]
     public void A_march_whose_first_step_holds_an_enemy_city_is_not_proposed()
     {
+        // The march under test is to "target-city" at (7,4); Bresenham's first step is (2,2), which
+        // is the enemy city "blocker-city". The rationale format is "march at {city.Id} ...", so
+        // "target-city" names the proposal and "blocker-city" names nothing — the assertion must
+        // be on the proposal's own city id. The previous wording asserted on "blocker-city", which
+        // no rationale ever contained; that version passed on main and passed again with the city
+        // check removed (the assert was vacuously true). Asserting on the proposal's own id makes
+        // this test fail when the blocker-city check is removed.
         var candidates = MarchCandidates(BlockerAtFirstStepCity());
 
         Assert.DoesNotContain(
             candidates,
             c => c.Kind == AiCandidate.ApproachKind
-                 && c.Rationale.Contains("blocker-city", StringComparison.Ordinal));
+                 && c.Rationale.Contains("target-city", StringComparison.Ordinal));
     }
 
     [Fact]
