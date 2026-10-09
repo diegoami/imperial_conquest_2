@@ -67,9 +67,11 @@
     are on OpenCode Go, `opencode-go/…`, per the user's decision of 2026-10-01 (issue #551), except
     luna: the direct OpenAI route, `openai/gpt-5.6-luna`, via the machine's OpenAI login (issue #575).
     The Alibaba Token Plan (`alibaba-token-plan/…`, the user's decision of 2026-10-05) carries
-    qwen-flash and a second route for deepseek-flash and glm (-Route). Its key is the user variable
-    ALIBABA_TOKEN_PLAN_API_KEY, loaded into this process when missing and never printed; "Invalid
-    API-key" or "Provider not found" from it stops the script (exit 1) with the cause, never a retry.
+    qwen-flash and (with -Route alibaba) glm only; on 2026-10-09 DeepSeek went out of use
+    (the user's decision: every DeepSeek model on every route), so miMo is the only
+    opencode_go family now. Its key is the user variable ALIBABA_TOKEN_PLAN_API_KEY, loaded
+    into this process when missing and never printed; "Invalid API-key" or "Provider not
+    found" from it stops the script (exit 1) with the cause, never a retry.
 
 .PARAMETER Task
     T<nn>, for a task. Mutually exclusive with -Fix.
@@ -86,10 +88,14 @@
     /recommend). One model: qwen-flash (Qwen3.8 Flash at medium, `alibaba-token-plan/qwen3.8-flash`; it
     offers low, medium and xhigh), luna (GPT-5.6 Luna at
     high effort, `openai/gpt-5.6-luna`, direct OpenAI via the machine's OpenAI login), glm-flash
-    (GLM-5.3 Flash at high), glm (GLM-5.3 at low, a heavy model run light; only selected explicitly), deepseek-flash (DeepSeek V4.1 Flash
-    at high, proven on this repository in #279), mimo-pro, or mimo-flash.
+    (GLM-5.3 Flash at high), glm (GLM-5.3 at low, a heavy model run light; only selected explicitly;
+    -Route alibaba moves it to the Alibaba Token Plan when the user asks, #893),
+    miMo Pro (mimo-pro, `opencode-go/mimo-v2.6-pro`, the heavy model on OpenCode Go since
+    2026-10-09; the user's decision that day), or miMo Flash (mimo-flash, `opencode-go/mimo-v2.6-flash`).
+    DeepSeek is not used (the user's decision of 2026-10-09); naming a DeepSeek alias is refused with
+    "DeepSeek is not used (the user's decision of 2026-10-09)".
 .PARAMETER Route
-    Which provider deepseek-flash and glm run through: auto (the default) takes the usual one
+    Which provider miMo and glm run through: auto (the default) takes the usual one
     (OpenCode Go, Z.AI) and warns when quota-tracker's /avoid lists it; it never moves to the
     Alibaba Token Plan, which is used only when the user asks (#893, the user's decision of
     2026-10-09: -Route alibaba). go, zai or alibaba force one: an explicit -Model that route does not serve is refused (exit
@@ -114,12 +120,12 @@
 .PARAMETER SimulateFailed
     With -WhatIf: the implementer model names (comma-separated or repeated) to treat as failed for
     the check. Each entry is a model name, or `model=class` to name the failure class
-    (Get-OpenCodeFailureClass's, e.g. deepseek-flash=no-session): two consecutive entries with one
+    (Get-OpenCodeFailureClass's, e.g. mimo-flash=no-session): two consecutive entries with one
     class show the same-cause stop (T151 Done-when 5: the diagnosis text and exit 3, no
     substitute); otherwise the script prints the substitute Choose-Model.ps1 would pick with those
     models' families excluded, and why, without running anything (Done-when 2's check).
 .PARAMETER ModelIds
-    Overrides of the model name -> model id map, e.g. @{ 'deepseek-flash' = 'opencode-go/deepseek-v4.2-flash' },
+    Overrides of the model name -> model id map, e.g. @{ 'mimo-flash' = 'opencode-go/mimo-v2.6-flash' },
     for when `opencode models` shows a different id (or, in a test, a bad id to exercise the chain).
 .PARAMETER RecommendFile
     A canned /recommend?tier=<heavy|light> JSON response, in place of quota-tracker's /recommend.
@@ -157,7 +163,7 @@ param(
     [string] $Slug,
     [int] $Issue,
     [string] $BriefFile,
-    [ValidateSet('luna', 'glm-flash', 'glm', 'deepseek-flash', 'qwen-flash', 'mm-m3', 'mm-m2.7', 'ali-deepseek-flash', 'ali-deepseek-pro', 'ali-glm', 'mimo-pro', 'mimo-flash')] [string] $Model,
+    [ValidateSet('luna', 'glm-flash', 'glm', 'qwen-flash', 'mm-m3', 'mm-m2.7', 'ali-glm', 'mimo-pro', 'mimo-flash')] [string] $Model,
     [ValidateSet('auto', 'go', 'zai', 'alibaba')] [string] $Route = 'auto',
     [switch] $LocalOnly,
     [string] $FixturesDir,
@@ -171,6 +177,21 @@ param(
     [int]    $RecommendRetryWaitSec = 0,
     [switch] $SelfTest
 )
+
+# Refuse a DeepSeek alias before any worktree, brief copy or OpenCode call (#908: the user's
+# decision of 2026-10-09). The ValidateSet above already excludes them, so this is the net a
+# script invocation that names one some other way (a -ModelIds override, a future refactor)
+# would still catch. The blacklist reason is the same string /recommend prints for a blacklisted
+# row (Choose-Model.ps1).
+$deepseekRejectMessage = 'DeepSeek is not used (the user''s decision of 2026-10-09)'
+if ($ModelIds) {
+    foreach ($k in @($ModelIds.Keys)) {
+        if ($k -match '^(deepseek|ali-deepseek)') {
+            [Console]::Error.WriteLine("Refused: -ModelId key '$k' names a DeepSeek alias; $deepseekRejectMessage.")
+            exit 1
+        }
+    }
+}
 
 # -SelfTest runs offline checks with no worktree, no OpenCode, no PR. Slug / BriefFile /
 # Task / Fix are optional in the param block so a bare `-SelfTest` invocation does not
@@ -369,9 +390,9 @@ function Invoke-ImplementerSelfTest {
     # --- T151 Done-when 5 (bug #868): the exit texts ------------------------------------------------
     # R3: both leftWork exit-1 paths print the "Outside paths touched" report before exiting
     # (Get-LeftWorkExitText is what they print), keeping their exit code.
-    $outsideRun = [pscustomobject]@{ Model = 'deepseek-flash'; Run = [pscustomobject]@{ OutsidePathsKnown = $true; OutsidePaths = @('C:\Users\diego\AppData\Local\Temp\opencode') } }
-    $leftWorkText = Get-LeftWorkExitText -Model 'deepseek-flash' -Reason 'no session in 180 s' -Branch 'task/T99-x' -Log 'C:\work\ic2-work\T99.implementer.log' -OutsideRuns @($outsideRun)
-    Add 'DW5 R3: the leftWork exit text carries the "Outside paths touched" report' ($leftWorkText -match 'Outside paths touched' -and $leftWorkText -like '*Temp\opencode (deepseek-flash)*')
+    $outsideRun = [pscustomobject]@{ Model = 'mimo-flash'; Run = [pscustomobject]@{ OutsidePathsKnown = $true; OutsidePaths = @('C:\Users\diego\AppData\Local\Temp\opencode') } }
+    $leftWorkText = Get-LeftWorkExitText -Model 'mimo-flash' -Reason 'no session in 180 s' -Branch 'task/T99-x' -Log 'C:\work\ic2-work\T99.implementer.log' -OutsideRuns @($outsideRun)
+    Add 'DW5 R3: the leftWork exit text carries the "Outside paths touched" report' ($leftWorkText -match 'Outside paths touched' -and $leftWorkText -like '*Temp\opencode (mimo-flash)*')
     Add 'DW5 R3: the leftWork exit text keeps the original message and the log path' ($leftWorkText -like '*after committing, pushing or opening a PR*' -and $leftWorkText -like '*Log: C:\work\ic2-work\T99.implementer.log*')
     $leftWorkNone = Get-LeftWorkExitText -Model 'qwen-flash' -Reason 'exit 1' -Branch 'task/T99-x' -Log 'L' -OutsideRuns @()
     Add 'DW5 R3: no run at all still reports (unknown), never crashes' ($leftWorkNone -match 'unknown: no attempt returned a session')
@@ -534,35 +555,34 @@ function Set-PullRequestSection {
 # On 2026-10-01 the user moved the OpenCode runs from OpenCode Zen to OpenCode Go (issue #551):
 # every id is `opencode-go/…` and no Zen model is used, the free ones included. The one exception
 # is luna: the direct OpenAI route, `openai/gpt-5.6-luna`, via the machine's OpenAI login (issue
-# #575). The default chain is DeepSeek V4.1 Flash (high effort) alone (issue #575: one OpenCode
-# model per role before Claude), then the main session runs Claude Sonnet. GLM left the
-# implementer side in #573 (GLM-5.3 ended T99's run early, mid-exploration, with no error, #557)
-# and luna is no longer on the default path, but glm, glm-flash and luna stay valid as explicit
-# -Model values.
-# mimo-flash-free is dropped, Go does not offer it; MiMo Pro and MiMo Flash stay in the table for
-# the day the plan lists them. Confirm the ids with `opencode models` on first use; -ModelIds
-# overrides any of them.
+# #575). The main session chooses the implementer model from /recommend (CLAUDE.md rule 17)
+# and passes it as -Model; on 2026-10-09 DeepSeek was blacklisted (the user's decision) and
+# MiMo v2.6 Pro / Flash took its place (#908). GLM left the default implementer side in #573
+# (GLM-5.3 ended T99's run early, mid-exploration, with no error, #557), so glm, glm-flash and
+# luna stay valid only as explicit -Model values, and so does qwen-flash (-AllowAlibaba / the
+# user's decision).
+# MiMo Pro and MiMo Flash stay in the table (tested on implement, fix and review tasks on
+# 2026-10-09). Confirm the ids with `opencode models` on first use; -ModelIds overrides any
+# of them.
 $models = @{
-    'luna'            = 'openai/gpt-5.6-luna'
-    'glm-flash'       = 'zai-coding-plan/glm-5.3-flash'
-    'glm'             = 'zai-coding-plan/glm-5.3'
-    'deepseek-flash'  = 'opencode-go/deepseek-v4.1-flash'
-    'mimo-pro'        = 'opencode-go/mimo-v2.6-pro'
-    'mimo-flash'      = 'opencode-go/mimo-v2.6-flash'
+    'luna'       = 'openai/gpt-5.6-luna'
+    'glm-flash'  = 'zai-coding-plan/glm-5.3-flash'
+    'glm'        = 'zai-coding-plan/glm-5.3'
+    'mimo-pro'   = 'opencode-go/mimo-v2.6-pro'
+    'mimo-flash' = 'opencode-go/mimo-v2.6-flash'
     # Qwen3.8 Flash on the Alibaba Token Plan (the user's decision of 2026-10-05).
-    'qwen-flash'      = 'alibaba-token-plan/qwen3.8-flash'
-    # MiniMax (minimax.io Token Plan, provider `minimax`) and the Alibaba Token Plan's DeepSeek and GLM
-    # under names of their own (the owner's decision of 2026-10-06); explicit -Model values only.
-    'mm-m3'              = 'minimax/MiniMax-M3'
-    'mm-m2.7'            = 'minimax/MiniMax-M2.7'
-    'ali-deepseek-flash' = 'alibaba-token-plan/deepseek-v4.1-flash'
-    'ali-deepseek-pro'   = 'alibaba-token-plan/deepseek-v4-pro-0813'
-    'ali-glm'            = 'alibaba-token-plan/glm-5.3'
+    'qwen-flash' = 'alibaba-token-plan/qwen3.8-flash'
+    # MiniMax (minimax.io Token Plan, provider `minimax`) and the Alibaba Token Plan's GLM
+    # under a name of its own (the owner's decision of 2026-10-06; DeepSeek is no longer on
+    # the plan, #908). Explicit -Model values only.
+    'mm-m3'   = 'minimax/MiniMax-M3'
+    'mm-m2.7' = 'minimax/MiniMax-M2.7'
+    'ali-glm' = 'alibaba-token-plan/glm-5.3'
 }
-# The Alibaba Token Plan route of the same models (-Route; the user's decision of 2026-10-05).
+# The Alibaba Token Plan route of the same models (-Route; the user's decision of 2026-10-05,
+# 2026-10-09: DeepSeek is gone, so the AliDeepSeek* ids are gone too).
 $alibabaIds = @{
-    'deepseek-flash' = 'alibaba-token-plan/deepseek-v4.1-flash'
-    'glm'            = 'alibaba-token-plan/glm-5.3'
+    'glm' = 'alibaba-token-plan/glm-5.3'
 }
 if ($ModelIds) { foreach ($k in $ModelIds.Keys) { $models[$k] = $ModelIds[$k] } }
 # Provider-specific variant. Invoke-OpenCodeWatched passes it by the CLI's major version (1.x
@@ -570,7 +590,7 @@ if ($ModelIds) { foreach ($k in $ModelIds.Keys) { $models[$k] = $ModelIds[$k] } 
 # is overkill); luna was already high.
 # Heavy models run light (the user's decision of 2026-10-05): glm at low (GLM-5.3 has no medium).
 # qwen-flash at medium: Qwen3.8 Flash offers low, medium and xhigh, no high.
-$variants = @{ 'luna' = 'high'; 'glm-flash' = 'high'; 'glm' = 'low'; 'deepseek-flash' = 'high'; 'qwen-flash' = 'medium'; 'mm-m3' = 'thinking'; 'mm-m2.7' = ''; 'ali-deepseek-flash' = 'high'; 'ali-deepseek-pro' = 'high'; 'ali-glm' = 'low'; 'mimo-pro' = ''; 'mimo-flash' = '' }
+$variants = @{ 'luna' = 'high'; 'glm-flash' = 'high'; 'glm' = 'low'; 'qwen-flash' = 'medium'; 'mm-m3' = 'thinking'; 'mm-m2.7' = ''; 'ali-glm' = 'low'; 'mimo-pro' = ''; 'mimo-flash' = '' }
 
 # -SelfTest short-circuits the run path: offline checks only (R3 rework). No worktree, no
 # OpenCode, no PR. Use it to verify Format-ImplementerAttempt end-to-end without billing.
