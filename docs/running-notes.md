@@ -35,7 +35,7 @@ The user's decision of 2026-10-10, adopting the convention landed on the goal2-a
 
 ## The implementer's three rules
 
-1. **Read it first.** A previous round may have left it.
+1. **Read it first.** A previous round may have left it. On creating it, **verify it is ignored**: `git check-ignore -q rendered/RUN-NOTES.md`. Exit 1 means it is not (someone removed `/rendered/` from `.gitignore`): delete the file, stop and report, rather than risk committing it.
 2. **Append after every commit** a one-line Progress entry. Append only: an entry that turned out wrong gets a new entry saying it was reverted and why, never an edit.
 3. **Write the END block before you stop**, whether finished, stopped to report, or out of time: the last commit, the PR state, and what is deferred.
 
