@@ -509,7 +509,17 @@ function Resolve-Pair {
         [string[]] $ExcludeFamily
     )
     $impl = Resolve-Chosen -Role 'implementer' -Tier 'complex' -ExcludeFamily $ExcludeFamily -Recommend $Recommend
-    $implFamily = if ($impl.Chosen) { [string]$impl.Chosen.Family } else { $null }
+    # The tracker's own pair.implementer comes first when it survives our exclusions (it is in
+    # Resolve-Chosen's filtered ranking with an alias); otherwise the top ranked implementer
+    # (Sol's R1 on PR 896).
+    $implementer = $impl.Chosen
+    $implSource = 'ranking'
+    $pairImpl = if ($Recommend.PSObject.Properties['pair'] -and $Recommend.pair) { $Recommend.pair.implementer } else { $null }
+    if ($pairImpl) {
+        $match = @($impl.Ranking | Where-Object { $_.Alias -and $_.Provider -eq [string]$pairImpl.provider -and $_.Model -eq [string]$pairImpl.model } | Select-Object -First 1)
+        if ($match) { $implementer = $match[0]; $implSource = 'pair' }
+    }
+    $implFamily = if ($implementer) { [string]$implementer.Family } else { $null }
     $skipFamilies = @()
     if ($implFamily) { $skipFamilies += $implFamily }
     if ($ExcludeModel) { $skipFamilies += (Get-FamilyForName $ExcludeModel) }
@@ -538,12 +548,12 @@ function Resolve-Pair {
         }
         break
     }
-    return [pscustomobject]@{ Implementer = $impl.Chosen; ImplementerResult = $impl; Reviewer = $reviewer; Passed = $passed }
+    return [pscustomobject]@{ Implementer = $implementer; ImplementerSource = $implSource; ImplementerResult = $impl; Reviewer = $reviewer; Passed = $passed }
 }
 
 function Show-PairReport($Pair, $Recommend) {
     "role pair, /recommend?tier=heavy"
-    if ($Pair.Implementer) { Show-ChosenModel $Pair.Implementer | ForEach-Object { $_ -replace '^chosen:', 'implementer:' } }
+    if ($Pair.Implementer) { Show-ChosenModel $Pair.Implementer | ForEach-Object { if ($_ -like 'chosen:*') { ($_ -replace '^chosen:', 'implementer:') + ", from /recommend's $($Pair.ImplementerSource)" } else { $_ } } }
     else { 'implementer: none (no candidate with an alias)' }
     if ($Pair.Reviewer) {
         $r = $Pair.Reviewer
@@ -933,6 +943,25 @@ function Invoke-ChooserSelfTest {
     Add-Check '#893 pair: with -ExcludeModel deepseek-pro too, no reviewer is left (null: tell the user)' ($null -eq $p2x.Reviewer)
     $out = (& { Show-PairReport $p2x $pairRec2 } | Out-String)
     Add-Check '#893 pair: the report says "no other family has quota: tell the user"' ($out -match 'no other family has quota: tell the user')
+
+    # Case 13b (Sol's R1 on PR 896): a valid tracker pair is kept as given, not re-derived from
+    # the ranking: opencode_go implements and zai reviews although zai ranks first.
+    $pairRec4 = [pscustomobject]@{
+        note = $null
+        pair = [pscustomobject]@{
+            implementer = (New-CannedRow -Provider 'opencode_go' -Model 'ds-flash' -Score 50)
+            reviewer    = (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'  -Score 100)
+        }
+        ranking = @(
+            (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'  -Score 100),
+            (New-CannedRow -Provider 'opencode_go' -Model 'ds-flash' -Score 50)
+        )
+        skipped = @()
+    }
+    $p4 = Resolve-Pair -Recommend $pairRec4
+    Add-Check 'R1 (PR 896): the tracker pair is kept: deepseek-flash implements (from pair), glm reviews (from pair)' ($p4.Implementer.Alias -eq 'deepseek-flash' -and $p4.ImplementerSource -eq 'pair' -and $p4.Reviewer.Alias -eq 'glm' -and $p4.Reviewer.Source -eq 'pair')
+    $p4x = Resolve-Pair -Recommend $pairRec4 -ExcludeFamily @('deepseek-flash')
+    Add-Check 'R1 (PR 896): a pair implementer our exclusions drop falls back to the ranking (glm), and the reviewer moves off glm' ($p4x.Implementer.Alias -eq 'glm' -and $p4x.ImplementerSource -eq 'ranking' -and (-not $p4x.Reviewer -or $p4x.Reviewer.Alias -ne 'glm'))
 
     # Case 14 (#893): a null pair reviewer from the tracker with nothing else of another family.
     $pairRec3 = [pscustomobject]@{
