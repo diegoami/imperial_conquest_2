@@ -1,0 +1,500 @@
+<#
+.SYNOPSIS
+    Lists the worktrees under ic2-work\, and -- on request -- removes the safe, old ones.
+
+.DESCRIPTION
+    T151 (Done-when 3; the user's decision of 2026-10-08: "relax the rules of deleting worktrees
+    immediately after failure, throwing away diagnostics and work done. Rather plan some clean up
+    regularly."). The dispatch scripts no longer delete anything: external-implement.ps1 keeps a
+    failed attempt's work as a patch in its worktree, and external-review.ps1 keeps every
+    attempt's review worktree (ic2-work\<pr>-review-<reviewer>-<yyyyMMdd-HHmmss>). This script is
+    the scheduled cleanup that bounds the disk they grow by.
+
+    It lists every worktree under the root (default: the ic2-work\ beside the main checkout),
+    one line each: its path, branch or detached HEAD, age (last modification anywhere under it),
+    PR state when the branch has one (gh pr list --head; a detached review tree's PR is read from
+    its <pr>-review-... name, the pre-T151 <pr>-external-review-... names included), its size, and
+    whether it is SAFE to remove.
+
+    A tree is safe only when ALL of these hold:
+      (a) `git status --porcelain --ignored` shows nothing outside bin/, obj/, .godot/ and .vs/
+          -- so a run's ignored diagnostics under rendered/ count as work and keep the tree;
+      (b) no commit on it is absent from origin (its HEAD is contained in a remote-tracking ref;
+          local knowledge only, no fetch happens here, so a stale fetch errs towards "not safe");
+      (c) its branch's PR is merged or closed, or -- for a detached review tree -- the PR it
+          reviewed is merged or closed. An open PR's trees are never safe, whatever their age.
+    With no switch it only lists. -Apply removes the safe ones older than -OlderThanDays, with
+    `git worktree remove` and then `git worktree prune`. -Force <path> removes one named tree
+    whatever its state, after printing what it holds. It never touches the main checkout (a
+    directory with a .git folder, not a worktree's .git file) or anything outside the root.
+
+    It exits 0 and prints a one-line summary: "N worktrees, S safe to remove, R removed" (S is
+    the count safe AND older than -OlderThanDays, the -Apply candidates; R what was actually
+    removed). A refusal (-Force outside the root, or a main checkout) prints an error and exits 1.
+
+.PARAMETER Root
+    The directory holding the worktrees. Default: the ic2-work\ beside this repository's main
+    checkout (resolved through the git common dir, so the script may run from a worktree).
+    -SelfTest passes a temporary root in its place.
+.PARAMETER Apply
+    Remove the safe worktrees older than -OlderThanDays (git worktree remove, then git worktree
+    prune). Without it, the script only lists.
+.PARAMETER OlderThanDays
+    The -Apply age threshold in days (default 7). Age is the newest modification anywhere under
+    the tree, a build under bin/ included.
+.PARAMETER Force
+    Remove this one named worktree whatever its state, after printing what it holds. Must be
+    under -Root.
+.PARAMETER SelfTest
+    Offline checks (no network, no real gh, no real ic2-work): temporary git repos under the TEMP
+    folder build one worktree in each state the rules describe (clean and merged; dirty; ignored
+    files under rendered/ only; an unpushed commit; a detached review tree of an open PR, old; a
+    detached review tree of a merged PR), and the list and -Apply are shown to treat each as the
+    rules say. gh is stubbed in-process; nothing is billed.
+
+.EXAMPLE
+    pwsh scripts/Clean-Worktrees.ps1
+.EXAMPLE
+    pwsh scripts/Clean-Worktrees.ps1 -Apply -OlderThanDays 14
+.EXAMPLE
+    pwsh scripts/Clean-Worktrees.ps1 -Force C:\Users\diego\projects\ic2-work\590-review-luna-20261001-120000
+#>
+[CmdletBinding()]
+param(
+    [string] $Root = '',
+    [switch] $Apply,
+    [int] $OlderThanDays = 7,
+    [string] $Force,
+    [switch] $SelfTest
+)
+
+$ErrorActionPreference = 'Stop'
+
+# gh invoker, stubbed in-process by -SelfTest (the self-test never calls the real gh).
+if (-not $script:Gh) { $script:Gh = { param([string[]] $GhArgs) & gh @GhArgs } }
+function Invoke-Gh {
+    param([string[]] $GhArgs)
+    return (& $script:Gh $GhArgs)
+}
+# gh resolves its repository from the working directory: run it from the main checkout (the
+# self-test's clone) so `pr list --head` and `pr view` answer for this repository.
+function Invoke-GhRepo {
+    param([string[]] $GhArgs)
+    if ($script:RepoRoot -and (Test-Path -LiteralPath $script:RepoRoot)) {
+        Push-Location -LiteralPath $script:RepoRoot
+        try { return (Invoke-Gh $GhArgs) } finally { Pop-Location }
+    }
+    return (Invoke-Gh $GhArgs)
+}
+
+function Get-PrStateByBranch([string] $Branch) {
+    # The branch's PR state (OPEN/MERGED/CLOSED), 'none' when it has no PR, $null when unknown.
+    $out = @()
+    try { $out = @(Invoke-GhRepo @('pr', 'list', '--head', $Branch, '--state', 'all', '--json', 'number,state') | Where-Object { $_ }) } catch { $out = @() }
+    $text = (($out | ForEach-Object { [string]$_ }) -join "`n").Trim()
+    if (-not $text) { return $null }
+    try { $prs = @($text | ConvertFrom-Json) } catch { return $null }
+    if ($prs.Count -eq 0) { return 'none' }
+    return ([string]$prs[0].state).ToUpperInvariant()
+}
+
+function Get-PrStateByNumber([string] $Number) {
+    # A PR's state (OPEN/MERGED/CLOSED) by number, 'none' when it does not exist, $null when unknown.
+    $out = @()
+    try { $out = @(Invoke-GhRepo @('pr', 'view', $Number, '--json', 'state') | Where-Object { $_ }) } catch { $out = @() }
+    $text = (($out | ForEach-Object { [string]$_ }) -join "`n").Trim()
+    if (-not $text) { return $null }
+    try { return ([string]($text | ConvertFrom-Json).state).ToUpperInvariant() } catch { return $null }
+}
+
+function Get-WorktreeStats([string] $Path) {
+    # Age (the newest LastWriteTime anywhere under the tree, a build under bin/ included -- it is
+    # activity) and size, in one pass. A foreach statement, not ForEach-Object: the script block's
+    # scope would swallow $best and $sum.
+    $best = (Get-Item -LiteralPath $Path -Force).LastWriteTime
+    [long] $sum = 0
+    foreach ($item in @(Get-ChildItem -LiteralPath $Path -Recurse -Force -ErrorAction SilentlyContinue)) {
+        if ($item.LastWriteTime -gt $best) { $best = $item.LastWriteTime }
+        $sum += $item.Length
+    }
+    return [pscustomobject]@{ Age = $best; Size = $sum }
+}
+
+function Format-Size([long] $Bytes) {
+    if ($Bytes -ge 1GB) { return ('{0:N2} GB' -f ($Bytes / 1GB)) }
+    if ($Bytes -ge 1MB) { return ('{0:N1} MB' -f ($Bytes / 1MB)) }
+    return ('{0:N0} kB' -f ($Bytes / 1KB))
+}
+
+function Get-WorktreeNoise([string] $Path) {
+    # Rule (a): the `git status --porcelain --ignored` entries whose path is outside bin/, obj/,
+    # .godot/ and .vs/. Ignored diagnostics under rendered/ count as work and keep the tree.
+    # Returns the offending paths, empty when the tree holds nothing but allowed noise.
+    $bad = @()
+    $lines = @()
+    try { $lines = @(git -C $Path status --porcelain --ignored 2>$null) } catch { $lines = @() }
+    foreach ($l in $lines) {
+        if (-not $l -or $l.Length -lt 4) { continue }
+        $body = $l.Substring(3)
+        foreach ($side in @($body -split ' -> ')) {
+            $p = $side.Trim().Trim('"')
+            if (-not $p) { continue }
+            $first = ($p -split '[\\/]')[0]
+            if ($first -notin @('bin', 'obj', '.godot', '.vs')) { $bad += $p }
+        }
+    }
+    return @($bad | Select-Object -Unique)
+}
+
+function Test-AllCommitsOnOrigin([string] $Path) {
+    # Rule (b): no commit on the tree is absent from origin -- its HEAD is contained in a
+    # remote-tracking ref (ancestry covers every commit below HEAD). Local knowledge only: no
+    # fetch here, so stale remote refs err towards "not safe".
+    $sha = $null
+    try { $sha = (git -C $Path rev-parse HEAD 2>$null) } catch { return $false }
+    if (-not $sha) { return $false }
+    $refs = @()
+    try { $refs = @(git -C $Path branch -r --contains "$($sha.Trim())" 2>$null) } catch { return $false }
+    return @($refs | Where-Object { "$_".Trim() }).Count -gt 0
+}
+
+function Get-WorktreeEntry([string] $Path) {
+    # One worktree's facts, or $null when the directory is not a git worktree.
+    $leaf = Split-Path $Path -Leaf
+    $branch = $null
+    try { $branch = (git -C $Path rev-parse --abbrev-ref HEAD 2>$null) } catch { $branch = $null }
+    if (-not $branch) { return $null }
+    $detached = ($branch.Trim() -eq 'HEAD')
+    $stats = Get-WorktreeStats $Path
+    $ageDays = ((Get-Date) - $stats.Age).TotalDays
+    $prState = $null
+    $branchText = ''
+    $prText = ''
+    if ($detached) {
+        $branchText = 'detached HEAD'
+        # A review tree's PR is read from its <pr>-review-... name (the pre-T151
+        # <pr>-external-review-... names are recognised too, so old trees are also cleaned).
+        $m = [regex]::Match($leaf, '^(\d+)-(external-)?review-')
+        if ($m.Success) {
+            $prState = Get-PrStateByNumber $m.Groups[1].Value
+            $prText = "PR #$($m.Groups[1].Value) $(if ($prState) { $prState } else { 'state unknown' })"
+        } else {
+            $prText = 'detached, not a review tree'
+        }
+    } else {
+        $branchText = $branch.Trim()
+        $prState = Get-PrStateByBranch $branchText
+        $prText = switch ($prState) {
+            'none' { "no PR for $branchText" }
+            { $null -eq $prState } { "PR state unknown for $branchText" }
+            default { "PR for $branchText $prState" }
+        }
+    }
+    # Safety (Done-when 3): all three rules must hold.
+    $reasons = @()
+    $noise = Get-WorktreeNoise $Path
+    if ($noise) {
+        $shown = @($noise | Select-Object -First 5)
+        $reasons += "holds work: $($shown -join ', ')$(if ($noise.Count -gt 5) { " (+$($noise.Count - 5) more)" })"
+    }
+    if (-not (Test-AllCommitsOnOrigin $Path)) { $reasons += 'commits absent from origin' }
+    if ($prState -notin @('MERGED', 'CLOSED')) {
+        $why = switch ($prState) {
+            'OPEN' { 'the PR is open' }
+            'none' { "no PR ($prText)" }
+            { $null -eq $prState } { 'PR state unknown' }
+            default { "PR state $prState" }
+        }
+        $reasons += $why
+    }
+    return [pscustomobject]@{
+        Path = $Path; Branch = $branchText; Detached = $detached
+        Age = $stats.Age; AgeDays = $ageDays; SizeBytes = $stats.Size
+        PrState = [string]$prState; PrText = $prText
+        Safe = ($reasons.Count -eq 0); Reasons = $reasons
+    }
+}
+
+function Format-WorktreeLine($Entry) {
+    # One list line: path, branch or detached HEAD, age, PR state, size, safety (Done-when 3).
+    $safeText = if ($Entry.Safe) { 'SAFE to remove' } else { 'NOT safe: ' + ($Entry.Reasons -join '; ') }
+    return '{0} | {1} | {2:N1} days old | {3} | {4} | {5}' -f $Entry.Path, $Entry.Branch, $Entry.AgeDays, $Entry.PrText, (Format-Size $Entry.SizeBytes), $safeText
+}
+
+function Get-WorktreeEntries([string] $RootPath) {
+    # Every git worktree directly under the root, in path order.
+    $entries = @()
+    foreach ($dir in @(Get-ChildItem -LiteralPath $RootPath -Directory -Force -ErrorAction SilentlyContinue | Sort-Object Name)) {
+        $e = Get-WorktreeEntry $dir.FullName
+        if ($e) { $entries += $e }
+    }
+    return $entries
+}
+
+function Remove-Worktree([string] $Path, [switch] $ForceRemove) {
+    # Removes one worktree with `git worktree remove` (from its repository's main checkout, never
+    # from the tree itself). Never the main checkout: a worktree's .git is a FILE, a main
+    # checkout's is a directory. $ForceRemove adds --force (-Force, or an -Apply candidate git
+    # refuses for stray files); without it a failure is reported, never forced.
+    if (Test-Path -LiteralPath (Join-Path $Path '.git') -PathType Container) {
+        [Console]::Error.WriteLine("refusing: $Path is a main checkout, not a worktree; this script never touches the main checkout.")
+        return $false
+    }
+    $commonDir = $null
+    try { $commonDir = (git -C $Path rev-parse --path-format=absolute --git-common-dir 2>$null) } catch { $commonDir = $null }
+    if (-not $commonDir) {
+        if ($ForceRemove -and (Test-Path -LiteralPath $Path)) {
+            # Not a registered worktree: a leftover directory the user named with -Force.
+            Remove-Item -Recurse -Force -LiteralPath $Path -ErrorAction SilentlyContinue
+            return (-not (Test-Path -LiteralPath $Path))
+        }
+        [Console]::Error.WriteLine("not a git worktree: $Path")
+        return $false
+    }
+    $repoRoot = (Split-Path $commonDir.Trim() -Parent)
+    $gitArgs = @('worktree', 'remove') + $(if ($ForceRemove) { @('--force') })
+    git -C $repoRoot @gitArgs $Path
+    if ($LASTEXITCODE -ne 0) { return $false }
+    if (Test-Path -LiteralPath $Path) { Remove-Item -Recurse -Force -LiteralPath $Path -ErrorAction SilentlyContinue }
+    return (-not (Test-Path -LiteralPath $Path))
+}
+
+function Invoke-WorktreePrune([string[]] $RemovedPaths) {
+    # `git worktree prune` once per repository a removal touched.
+    $done = @()
+    foreach ($p in $RemovedPaths) {
+        $commonDir = $null
+        try { $commonDir = (git -C $p rev-parse --path-format=absolute --git-common-dir 2>$null) } catch { $commonDir = $null }
+        $repoRoot = if ($commonDir) { (Split-Path $commonDir.Trim() -Parent) } else { $null }
+        if ($repoRoot -and $repoRoot -notin $done) {
+            git -C $repoRoot worktree prune
+            $done += $repoRoot
+        }
+    }
+}
+
+function Invoke-CleanWorktreesSelfTest {
+    # T151 Done-when 4: temporary worktrees in each state the rules describe, under a temp root
+    # passed in place of ic2-work\, and the list and -Apply shown to treat each as Done-when 3
+    # says. gh is stubbed in-process (never the real one); the only tools run are git and
+    # file cmdlets, on throwaway repositories under the TEMP folder. Returns the failed count.
+    $checks = New-Object System.Collections.Generic.List[object]
+    function Add([string] $Name, [bool] $Ok) {
+        $checks.Add([pscustomobject]@{ Name = $Name; Ok = [bool]$Ok }) | Out-Null
+    }
+
+    $temp = Join-Path ([System.IO.Path]::GetTempPath()) ('ic2-cleanwt-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
+    try {
+        # A bare origin and a main clone: real git, throwaway, nothing pushed anywhere real.
+        $origin = Join-Path $temp 'origin.git'
+        $main = Join-Path $temp 'main'
+        git init -q --bare -b main $origin
+        git init -q -b main $main
+        git -C $main config user.email selftest@local | Out-Null
+        git -C $main config user.name selftest | Out-Null
+        Set-Content -LiteralPath (Join-Path $main '.gitignore') -Value "rendered/`nbin/`nobj/`n" -Encoding utf8
+        Set-Content -LiteralPath (Join-Path $main 'base.txt') -Value 'base' -Encoding utf8
+        git -C $main add -A
+        git -C $main commit -q -m base
+        git -C $main remote add origin $origin
+        git -C $main push -q -u origin main
+        $root = Join-Path $temp 'ic2-work'
+        New-Item -ItemType Directory -Force -Path $root | Out-Null
+        $script:RepoRoot = $main
+
+        $ageTree = {
+            # Make a tree "old": every LastWriteTime under it pushed back by N days.
+            param([string] $Path, [int] $Days)
+            Get-ChildItem -LiteralPath $Path -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object { $_.LastWriteTime = (Get-Date).AddDays(-$Days) }
+            (Get-Item -LiteralPath $Path -Force).LastWriteTime = (Get-Date).AddDays(-$Days)
+        }
+
+        # 1. Clean and merged, recent (safe, but too young for -Apply: it stays).
+        git -C $main worktree add -q (Join-Path $root 't1-merged') -b task/t1
+        Set-Content -LiteralPath (Join-Path $root 't1-merged\one.txt') -Value 'one' -Encoding utf8
+        git -C (Join-Path $root 't1-merged') add -A
+        git -C (Join-Path $root 't1-merged') commit -q -m t1
+        git -C (Join-Path $root 't1-merged') push -q -u origin task/t1
+        git -C $main merge -q --ff-only task/t1
+        git -C $main push -q origin main
+        $t1Sha = (git -C $main rev-parse HEAD).Trim()
+
+        # 2. Dirty (a tracked file modified, uncommitted), merged branch, old.
+        git -C $main worktree add -q (Join-Path $root 't2-dirty') -b task/t2
+        git -C (Join-Path $root 't2-dirty') push -q -u origin task/t2
+        Set-Content -LiteralPath (Join-Path $root 't2-dirty\base.txt') -Value 'dirty' -Encoding utf8
+        & $ageTree (Join-Path $root 't2-dirty') 30
+
+        # 3. Ignored files under rendered/ only, merged branch, old: the diagnostics count as work.
+        git -C $main worktree add -q (Join-Path $root 't3-rendered') -b task/t3
+        git -C (Join-Path $root 't3-rendered') push -q -u origin task/t3
+        New-Item -ItemType Directory -Force -Path (Join-Path $root 't3-rendered\rendered') | Out-Null
+        Set-Content -LiteralPath (Join-Path $root 't3-rendered\rendered\diagnostics.txt') -Value 'kept' -Encoding utf8
+        & $ageTree (Join-Path $root 't3-rendered') 30
+
+        # 4. An unpushed commit, old.
+        git -C $main worktree add -q (Join-Path $root 't4-unpushed') -b task/t4
+        Set-Content -LiteralPath (Join-Path $root 't4-unpushed\four.txt') -Value 'four' -Encoding utf8
+        git -C (Join-Path $root 't4-unpushed') add -A
+        git -C (Join-Path $root 't4-unpushed') commit -q -m t4
+        & $ageTree (Join-Path $root 't4-unpushed') 30
+
+        # 5. A detached review tree of an open PR, old.
+        git -C $main worktree add -q --detach (Join-Path $root '777-review-luna-20260101-000000') $t1Sha
+        & $ageTree (Join-Path $root '777-review-luna-20260101-000000') 30
+
+        # 6. A detached review tree of a merged PR, old: safe, and old enough to remove.
+        git -C $main worktree add -q --detach (Join-Path $root '888-review-sol-20260101-000000') $t1Sha
+        & $ageTree (Join-Path $root '888-review-sol-20260101-000000') 30
+
+        # gh is stubbed: no network, no real PRs.
+        $script:BranchStates = @{ 'task/t1' = 'MERGED'; 'task/t2' = 'MERGED'; 'task/t3' = 'MERGED'; 'task/t4' = 'MERGED' }
+        $script:PrStates = @{ '777' = 'OPEN'; '888' = 'MERGED' }
+        $script:Gh = {
+            param([string[]] $GhArgs)
+            if ($GhArgs -contains '--head') {
+                $b = $GhArgs[($GhArgs.IndexOf('--head') + 1)]
+                $s = $script:BranchStates[$b]
+                if ($s) { return "[{`"number`":1,`"state`":`"$s`"}]" }
+                return '[]'
+            }
+            if ($GhArgs.Count -ge 2 -and $GhArgs[0] -eq 'pr' -and $GhArgs[1] -eq 'view') {
+                $s = $script:PrStates[[string]$GhArgs[2]]
+                if ($s) { return "{`"state`":`"$s`"}" }
+            }
+            return ''
+        }
+
+        # --- the list ---
+        $entries = @(Get-WorktreeEntries $root)
+        $lines = @($entries | ForEach-Object { Format-WorktreeLine $_ })
+        $lines | ForEach-Object { Write-Host $_ }
+        $listText = $lines -join "`n"
+        Add 'list: six worktrees are listed, one line each' ($entries.Count -eq 6 -and $lines.Count -eq 6)
+        Add 'list: every line names the path, the branch or detached HEAD, the age, the PR and safety' (@($lines | Where-Object { $_ -match ' \| ' }).Count -eq 6)
+        $t1 = $entries | Where-Object { $_.Path -like '*t1-merged' }
+        Add 'clean and merged, recent: SAFE' ($t1.Safe -and $t1.PrState -eq 'MERGED' -and $t1.AgeDays -lt 7)
+        $t2 = $entries | Where-Object { $_.Path -like '*t2-dirty' }
+        Add 'dirty: NOT safe, and the work is named' (-not $t2.Safe -and (($t2.Reasons -join '; ') -match 'base\.txt'))
+        $t3 = $entries | Where-Object { $_.Path -like '*t3-rendered' }
+        Add 'ignored files under rendered/ only: NOT safe (rendered/ counts as work)' (-not $t3.Safe -and (($t3.Reasons -join '; ') -match 'rendered'))
+        $t4 = $entries | Where-Object { $_.Path -like '*t4-unpushed' }
+        Add 'an unpushed commit: NOT safe (commits absent from origin)' (-not $t4.Safe -and (($t4.Reasons -join '; ') -match 'absent from origin'))
+        $t5 = $entries | Where-Object { $_.Path -like '*777-review-luna*' }
+        Add 'a detached review tree of an open PR, old: NOT safe (open PR), branch shown as detached' (-not $t5.Safe -and $t5.Detached -and (($t5.Reasons -join '; ') -match 'open') -and $t5.PrState -eq 'OPEN')
+        $t6 = $entries | Where-Object { $_.Path -like '*888-review-sol*' }
+        Add 'a detached review tree of a merged PR, old: SAFE' ($t6.Safe -and $t6.Detached -and $t6.PrState -eq 'MERGED' -and $t6.AgeDays -gt 7)
+
+        # --- -Apply: the safe ones older than -OlderThanDays only ---
+        $candidates = @($entries | Where-Object { $_.Safe -and $_.AgeDays -gt 7 })
+        Add 'apply candidates: exactly the old safe one (the merged review tree)' ($candidates.Count -eq 1 -and $candidates[0].Path -like '*888-review-sol*')
+        $removedPaths = @()
+        foreach ($c in $candidates) {
+            Write-Host "removing: $($c.Path)"
+            if (Remove-Worktree $c.Path) { $removedPaths += $c.Path } else { Add "apply: $($c.Path) could not be removed" $false }
+        }
+        if ($removedPaths) { Invoke-WorktreePrune $removedPaths }
+        Add 'apply: the merged review tree is gone, the worktree pruned' (-not (Test-Path (Join-Path $root '888-review-sol-20260101-000000')))
+        Add 'apply: every other tree is kept' (((@('t1-merged', 't2-dirty', 't3-rendered', 't4-unpushed', '777-review-luna-20260101-000000') | Where-Object { -not (Test-Path (Join-Path $root $_)) }).Count) -eq 0)
+        $summary = '{0} worktrees, {1} safe to remove, {2} removed' -f $entries.Count, $candidates.Count, $removedPaths.Count
+        Write-Host $summary
+        Add 'summary: "N worktrees, S safe to remove, R removed"' ($summary -eq '6 worktrees, 1 safe to remove, 1 removed')
+
+        # --- -Force: one named tree, whatever its state ---
+        $target = Join-Path $root 't2-dirty'
+        Write-Host "force: $(Format-WorktreeLine $t2)"
+        $forced = Remove-Worktree $target -ForceRemove
+        Add 'force: a dirty tree is removed when named' ($forced -and -not (Test-Path $target))
+        # A path outside the root is refused.
+        $outsideOk = $false
+        try {
+            $resolved = (Resolve-Path -LiteralPath (Join-Path $temp 'origin.git')).Path
+            $rootFull = (Resolve-Path -LiteralPath $root).Path
+            $outsideOk = -not $resolved.StartsWith($rootFull, [System.StringComparison]::OrdinalIgnoreCase)
+        } catch { $outsideOk = $false }
+        Add 'force: a path outside the root is recognised and would be refused' ($outsideOk)
+    } catch {
+        Add 'the self-test ran without error' $false
+        Write-Host "self-test error: $_"
+    } finally {
+        Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    $i = 0; $failed = 0
+    foreach ($c in $checks) {
+        $i++
+        $status = if ($c.Ok) { 'PASS' } else { 'FAIL' }
+        "[{0,2}/{1}] {2}  -- {3}" -f $i, $checks.Count, $status, $c.Name | Write-Host
+        if (-not $c.Ok) { $failed++ }
+    }
+    Write-Host "self-test: $($checks.Count - $failed)/$($checks.Count) passed"
+    return [int]$failed
+}
+
+if ($SelfTest) { exit (Invoke-CleanWorktreesSelfTest) }
+
+# --- main -------------------------------------------------------------------------------------------
+# The main checkout this script's repository belongs to (the script may run from a worktree).
+$script:RepoRoot = (git -C $PSScriptRoot rev-parse --show-toplevel 2>$null)
+if (-not $script:RepoRoot) { $script:RepoRoot = $null }
+if (-not $Root) {
+    if (-not $script:RepoRoot) { throw 'Give -Root, or run the script from inside the repository.' }
+    $commonDir = (git -C $script:RepoRoot rev-parse --path-format=absolute --git-common-dir).Trim()
+    $mainRoot = Split-Path $commonDir -Parent
+    $Root = Join-Path (Split-Path $mainRoot -Parent) 'ic2-work'
+}
+if (-not (Test-Path -LiteralPath $Root)) {
+    Write-Host "0 worktrees, 0 safe to remove, 0 removed (no such root: $Root)"
+    exit 0
+}
+
+$entries = @(Get-WorktreeEntries $Root)
+$candidates = @($entries | Where-Object { $_.Safe -and $_.AgeDays -gt $OlderThanDays })
+$removed = 0
+
+if ($Force) {
+    $rootFull = (Resolve-Path -LiteralPath $Root).Path
+    $target = $null
+    try { $target = (Resolve-Path -LiteralPath $Force).Path } catch { $target = $null }
+    if (-not $target) { [Console]::Error.WriteLine("-Force: no such path: $Force"); exit 1 }
+    if (-not $target.StartsWith($rootFull, [System.StringComparison]::OrdinalIgnoreCase)) {
+        [Console]::Error.WriteLine("refusing: $target is not under $rootFull; this script never removes anything outside its root.")
+        exit 1
+    }
+    # Print what it holds, then remove it whatever its state.
+    $entry = $entries | Where-Object { $_.Path -eq $target }
+    if ($entry) {
+        Write-Host (Format-WorktreeLine $entry)
+    } else {
+        Write-Host "$target (not a listed worktree)"
+    }
+    $status = @(git -C $target status --porcelain --ignored 2>$null)
+    if ($status) {
+        Write-Host 'what it holds:'
+        @($status | Select-Object -First 20) | ForEach-Object { Write-Host "  $_" }
+        if ($status.Count -gt 20) { Write-Host "  (+$($status.Count - 20) more)" }
+    } else {
+        Write-Host 'what it holds: nothing (clean)'
+    }
+    if (Remove-Worktree $target -ForceRemove) { $removed = 1; Invoke-WorktreePrune @($target) }
+    else { [Console]::Error.WriteLine("could not remove $target") }
+    $summary = '{0} worktrees, {1} safe to remove, {2} removed' -f $entries.Count, $candidates.Count, $removed
+    Write-Host $summary
+    exit 0
+}
+
+foreach ($e in $entries) { Write-Host (Format-WorktreeLine $e) }
+
+if ($Apply) {
+    $removedPaths = @()
+    foreach ($c in $candidates) {
+        Write-Host "removing: $($c.Path) ($(Format-Size $c.Size), $($c.PrText))"
+        if (Remove-Worktree $c.Path) { $removedPaths += $c.Path; $removed++ }
+        else { [Console]::Error.WriteLine("could not remove $($c.Path); left in place") }
+    }
+    if ($removedPaths) { Invoke-WorktreePrune $removedPaths }
+}
+
+$summary = '{0} worktrees, {1} safe to remove, {2} removed' -f $entries.Count, $candidates.Count, $removed
+Write-Host $summary
+exit 0
