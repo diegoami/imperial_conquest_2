@@ -99,7 +99,7 @@ The chooser's table, edited by the owner. `heavy` and `light` follow [Models per
 | `glm` | heavy | GLM-5.3 on Z.ai |
 | `ali-glm` | heavy | GLM-5.3 on Alibaba, no discount; only when the user asks (#893) |
 | `glm-flash` | light | GLM-5.3 Flash on Z.ai |
-| `deepseek-pro` | heavy | DeepSeek V4 Pro on Go (Alibaba when Go is avoided) |
+| `deepseek-pro` | heavy | DeepSeek V4 Pro on Go (on Alibaba only with `-Route alibaba`, when the user asks: #893) |
 | `ali-deepseek-pro` | heavy | DeepSeek V4 Pro 0813 on Alibaba, night discount |
 | `deepseek` | light | DeepSeek V4.1 Flash, the reviewer name |
 | `deepseek-flash` | light | DeepSeek V4.1 Flash, the implementer name |
@@ -142,7 +142,7 @@ Adopted by the owner's decision of 2026-10-06, as a supplement only: for smaller
 Adopted by the owner's decision of 2026-10-05, for three uses: the DeepSeek route when OpenCode Go is low, Qwen as a model family of its own (implementer `qwen-flash`, reviewers `qwen` and `qwen-flash`), and GLM-5.3 when Z.AI is out.
 
 - **One pool.** Every model draws on one monthly credit pool: `curl -s localhost:8765/quota/alibaba`, window `month`; the provider is `alibaba` in `/avoid`, `/best` and `/quota`.
-- **Night discount**, 22:00–08:00 UTC+8 (14:00–00:00 UTC; 16:00–02:00 in European summer time, 15:00–01:00 in winter): `qwen3.8-max` and `qwen3.8-flash` cost 60% fewer credits, and `deepseek-v4-pro-0813` and `deepseek-v4.1-flash` 50% fewer. `glm-5.3` gets no discount. Prefer long, deferrable Qwen and DeepSeek runs on Alibaba while `pricing.discount_now` is true (CLAUDE.md rule 20).
+- **Night discount**, 22:00–08:00 UTC+8 (14:00–00:00 UTC; 16:00–02:00 in European summer time, 15:00–01:00 in winter): `qwen3.8-max` and `qwen3.8-flash` cost 60% fewer credits, and `deepseek-v4-pro-0813` and `deepseek-v4.1-flash` 50% fewer. `glm-5.3` gets no discount. When the user asks for an Alibaba run (#893: never otherwise), prefer a long, deferrable Qwen or DeepSeek one while `pricing.discount_now` is true (CLAUDE.md rule 20).
 - **Z.ai's peak**, from 8 October 2026: `glm-5.3` costs 3× quota Mon–Fri 14:00–18:00 UTC+8 (08:00–12:00 in European summer time). While `/quota/zai`'s `pricing.peak_now` is true, prefer another provider for long runs (not `ali-glm` unless the user asks: #893).
 - **Never use** Kimi or MiniMax on Alibaba: they are Team-edition only and fail on this plan. MiniMax runs on its own provider, `minimax`.
 - **Routes.** `external-review.ps1` and `external-implement.ps1` take `-Route auto|go|zai|alibaba`. `auto` (the default) runs DeepSeek on OpenCode Go and GLM on Z.AI. When `/avoid` lists `opencode_go` or `zai` the model is marked avoided (a review drops it; an implementer run warns), and it is never moved to Alibaba, which runs only when the user asks, with `-Route alibaba` (#893). When the tracker does not answer, the usual route. The name and the family do not change with the route. The route is printed, logged, and named on the posted review's signature line and the "implemented by:" line.
