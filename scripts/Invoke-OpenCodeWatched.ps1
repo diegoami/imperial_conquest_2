@@ -715,7 +715,8 @@ function Get-OpenCodeRateLimit([string] $Text) {
 
 # --- Routes and quota-tracker (CLAUDE.md rule 17, docs/environment.md) ----------------------------
 # A route is the provider a model name runs through. The usual route comes from the name's model id;
-# DeepSeek and GLM also run on the Alibaba Token Plan (the user's decision of 2026-10-05).
+# GLM also runs on the Alibaba Token Plan (the user's decision of 2026-10-05; 2026-10-09: DeepSeek is
+# out of use, so MiMo is the OpenCode Go family now).
 $script:OpenCodeRouteQuotaProvider = @{ go = 'opencode_go'; zai = 'zai'; alibaba = 'alibaba'; openai = 'openai'; minimax = 'minimax' }
 
 function Get-OpenCodeRouteName([string] $ModelId) {
