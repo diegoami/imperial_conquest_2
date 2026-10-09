@@ -634,8 +634,8 @@ public static class AiMilitaryPhase
     }
 
     /// <summary>
-    /// The <see cref="MoveArmyCommandHandler"/> gates, checked in advance, plus the passability of the
-    /// first traced step.
+    /// The <see cref="MoveArmyCommandHandler"/> gates, checked in advance, plus the passability and
+    /// occupancy of the first traced step.
     /// </summary>
     private static bool IsProposableMove(AiView view, ArmyState army, MoveArmyCommand command)
     {
@@ -650,9 +650,47 @@ public static class AiMilitaryPhase
         }
 
         // BresenhamPath.Trace is the walker's own path function; [0] is the origin, so [1] is the first
-        // cell the army would enter. A march whose very first step is impassable achieves nothing.
+        // cell the army would enter. A march whose very first step is impassable terrain, or whose first
+        // step is occupied by a city, an army or a fleet, achieves nothing: the walker refuses it, the
+        // handler accepts the order with the army back at its origin, the state is unchanged. The
+        // passability rule is "terrain only" — AiView.IsArmyPassable — mirroring how IsBlocked treats
+        // terrain before occupancy; the occupancy check below mirrors IsBlocked's own occupancy scan,
+        // and the two are kept separate so the comment in MoveArmyCommandHandler lines 65-105 stays the
+        // single source of truth for "what stops a marcher".
         var path = BresenhamPath.Trace(new GridPoint(army.X, army.Y), new GridPoint(command.X, command.Y));
-        return path.Count >= 2 && view.IsArmyPassable(path[1]);
+        if (path.Count < 2 || !view.IsArmyPassable(path[1]))
+        {
+            return false;
+        }
+
+        var firstStep = path[1];
+        foreach (var city in view.State.Cities)
+        {
+            if (city.X == firstStep.X && city.Y == firstStep.Y)
+            {
+                return false;
+            }
+        }
+
+        foreach (var other in view.State.Armies)
+        {
+            if (!string.Equals(other.Id, army.Id, StringComparison.Ordinal)
+                && other.CoveredTileCode is not null
+                && other.X == firstStep.X && other.Y == firstStep.Y)
+            {
+                return false;
+            }
+        }
+
+        foreach (var fleet in view.State.Fleets)
+        {
+            if (!fleet.IsUnderConstruction && fleet.X == firstStep.X && fleet.Y == firstStep.Y)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static FleetPower.CarriedArmyStrength? CarriedArmyStrengthOf(

@@ -205,11 +205,22 @@ public static class AiTurn
             var before = state;
             var execution = Execute(state, ruleset, commands, events, chosen, log);
             state = execution.State;
-            issued += execution.Issued;
+            var changed = !AiSubstantiveState.AreEquivalent(before, state);
+            if (changed)
+            {
+                // CommandsIssued counts only what actually moved the state. An accepted command that left
+                // every substantive field untouched -- the "no-op" case a blocked march falls into, for
+                // instance -- does not belong on the same axis as one that took effect: a soak's stall
+                // counter increments only when CommandsIssued == 0, so counting a no-op there hides a
+                // true stall from the metric that exists to find it. Rejected commands are tracked on
+                // their own counter; they never count here.
+                issued += execution.Issued;
+            }
+
             rejected += execution.Rejected;
             mismatches += execution.Mismatches;
 
-            if (AiSubstantiveState.AreEquivalent(before, state))
+            if (!changed)
             {
                 // The command was accepted and changed nothing the game can act on -- a blocked march,
                 // for instance. Re-proposing it would produce the same non-event, so the turn stops
