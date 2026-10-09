@@ -4,16 +4,21 @@ mode: all
 permission:
   edit: allow
   # The guard that keeps a run inside its worktree (issue #501). The user's global opencode.json
-  # allows external_directory everywhere, which would switch it off, so each agent asks (a run
-  # auto-rejects an ask, and the rejection is what the scripts report), and then re-allows
-  # OpenCode's own spill directories for long tool output. Last match wins, so the allows follow.
+  # allows external_directory everywhere, which would switch it off, so each agent DENIES every
+  # outside path, then re-allows OpenCode's own spill directories for long tool output. Last match
+  # wins, so the allows follow. `deny`, not `ask` (bug #931, the user's request of 2026-10-09): a
+  # non-interactive run auto-rejects an `ask`, and OpenCode 1.18 ENDS the agent loop on a rejection,
+  # so one mistyped read killed a whole run; a `deny` fails only that tool call ("The user has
+  # specified a rule which prevents you ..."), the model sees the error, and the loop goes on. The
+  # guard blocks exactly what it blocked before. scripts/Invoke-OpenCodeWatched.ps1 then lets a run
+  # continue after a denied read, and ends it after a denied write, edit, patch or shell command.
   # The allows are as narrow as a static file can make them: the scripts' data directory is always
   # <root>\data\opencode, so they match only <anything>\data\opencode\tool-output\ and
   # ...\data\opencode\shell\ (either separator), not the desktop app's own ~\.local\share\opencode.
   # The run's exact root is not known to a tracked file (IC2_OPENCODE_DATA_HOME can move it).
   # OpenCode 1.x and 2.x both read this one format; 2.x maps bash to shell and task to subagent.
   external_directory:
-    "*": ask
+    "*": deny
     "*?data?opencode?tool-output?*": allow
     "*?data?opencode?shell?*": allow
     # T150's two narrow exceptions to the worktree guard (the user's decision of 2026-10-08): the
@@ -37,7 +42,7 @@ permission:
     # both `\` and `/`) and `*` matches any number of characters, so the four rules cover any
     # `..` segment in either separator, anywhere in the path: `C:\…\bin\..\share\…` (R1),
     # `…\Temp\opencode\..\..\..\..\..\Windows\win.ini` (M1), and the trailing `..` of an
-    # attempted `cd`. Everything outside either root still asks.
+    # attempted `cd`. Everything outside either root is still denied.
     "*?..?*": deny
     "*/../*": deny
     "*?..": deny

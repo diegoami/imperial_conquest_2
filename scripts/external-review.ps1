@@ -884,6 +884,27 @@ Write-Host "__exit:`$code"
     $ruleChecks += [pscustomobject]@{ Name = "51 free requests left: -WhatIf -Reviewer inkling exits 0 on openrouter (got $($p.Code))"; Ok = ($p.Code -eq 0 -and $p.Out -like '*openrouter/thinkingmachines/inkling:free*') }
     $p = & $advProbe '500' $okBrief @('-Reviewer', 'nemotron', '-ExcludeModel', 'luna')
     $ruleChecks += [pscustomobject]@{ Name = "-Reviewer nemotron -ExcludeModel luna is not excluded (got $($p.Code))"; Ok = ($p.Code -eq 0) }
+    # Bug #931: the guard denies outside paths; a denied read lets the run go on, a denied write
+    # (any other tool, a shell command included) ends it. The lines are the 2026-10-09 probe's
+    # (OpenCode 1.18.34), with its colour codes; the rules list is shortened.
+    $x = [char]0x2717; $esc = [char]27
+    $ext = 'Here are some of the relevant rules [{"permission":"external_directory","pattern":"*","action":"deny"}]'
+    $err = "Error: The user has specified a rule which prevents you from using this specific tool call. "
+    $denyRead  = "${esc}[91m${esc}[1m$x ${esc}[0mRead C:/Users/diego/projects/ic2-work/ic2-work/scripts/Choose-Model.ps1 failed`n${esc}[91m${esc}[1m$err${esc}[0m$ext"
+    $denyPatch = "$x Patch failed`n$err$ext"
+    $denyBash  = "$x cat C:/Windows/win.ini failed`n$err$ext"
+    $denyGlob  = "$x Glob C:/Windows/*.ini failed`n$err$ext"
+    $bashRule  = "$x git stash failed`n$err" + 'Here are some of the relevant rules [{"permission":"bash","pattern":"git stash*","action":"deny"}]'
+    $d = @(Get-OpenCodePermissionDenials $denyRead)
+    $ruleChecks += [pscustomobject]@{ Name = '#931: a denied outside Read is found, read-only, with its call'; Ok = ($d.Count -eq 1 -and $d[0].Read -and $d[0].Call -eq 'Read C:/Users/diego/projects/ic2-work/ic2-work/scripts/Choose-Model.ps1') }
+    $ruleChecks += [pscustomobject]@{ Name = '#931: a denied Glob is a read'; Ok = (@(Get-OpenCodePermissionDenials $denyGlob)[0].Read -eq $true) }
+    $ruleChecks += [pscustomobject]@{ Name = '#931: a denied outside read is not a write (the run goes on)'; Ok = ($null -eq (Get-OpenCodeDeniedWrite $denyRead)) }
+    $ruleChecks += [pscustomobject]@{ Name = '#931: a denied Patch is a write'; Ok = ((Get-OpenCodeDeniedWrite $denyPatch) -eq 'Patch') }
+    $ruleChecks += [pscustomobject]@{ Name = '#931: a denied shell command is a write'; Ok = ((Get-OpenCodeDeniedWrite $denyBash) -eq 'cat C:/Windows/win.ini') }
+    $ruleChecks += [pscustomobject]@{ Name = '#931: a read, then a write: the write is found'; Ok = ((Get-OpenCodeDeniedWrite "$denyRead`nmore output`n$denyPatch") -eq 'Patch') }
+    $ruleChecks += [pscustomobject]@{ Name = '#931: a bash-rule deny (git stash) is not an outside denial'; Ok = (@(Get-OpenCodePermissionDenials $bashRule).Count -eq 0) }
+    $ruleChecks += [pscustomobject]@{ Name = '#931: the error text quoted without the line start is not a denial'; Ok = (@(Get-OpenCodePermissionDenials ("echo '" + $err + $ext + "'")).Count -eq 0) }
+    $ruleChecks += [pscustomobject]@{ Name = '#931: no denial in an empty text'; Ok = (@(Get-OpenCodePermissionDenials '').Count -eq 0) }
     foreach ($c in $ruleChecks) {
         $n++
         if (-not $c.Ok) { $failed++ }

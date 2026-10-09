@@ -130,6 +130,61 @@ function Get-OpenCodePermissionRejection([string] $Text) {
     return $found[$found.Count - 1].Groups['what'].Value
 }
 
+function Get-OpenCodePermissionDenials([string] $Text) {
+    # Every tool call OpenCode's guard DENIED for a path outside the worktree, in order (bug #931).
+    # The agents deny outside paths (`external_directory: "*": deny`) instead of asking: OpenCode
+    # 1.18 ends the agent loop on a rejected ask, but a denied call only fails, and the run goes
+    # on. Probed 2026-10-09 (1.18.34, gpt-5.6-luna): each denied call prints its title on a line of
+    # its own and the error on the next, after colour codes:
+    #   ✗ Read C:/Windows/win.ini failed
+    #   Error: The user has specified a rule which prevents you from using this specific tool call. Here are some of the relevant rules [{"permission":"external_directory",...}]
+    # (`✗ Patch failed` for a write, `✗ cat C:/Windows/win.ini failed` for a shell command). The
+    # error lists the rules of the denied permission, so a bash deny (`git stash`, a force push)
+    # names "bash" and is not counted here: those denies are not about outside paths and never end
+    # a run. Read is $true for the read-only tools (Read, Glob, Grep, List), which the watcher lets
+    # the run survive; any other tool, a shell command included, is a write and ends the run.
+    if (-not $Text) { return @() }
+    $clean = [regex]::Replace($Text, '\x1b\[[0-9;]*m', '')
+    $lines = $clean -split '\r?\n'
+    $mark = [string][char]0x2717
+    $found = New-Object System.Collections.Generic.List[object]
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        $line = $lines[$i]
+        if ($line -notmatch '^\s*Error: The user has specified a rule which prevents you from using this specific tool call') { continue }
+        if ($line -notmatch '"permission"\s*:\s*"external_directory"') { continue }
+        $call = $null
+        for ($j = $i - 1; $j -ge [Math]::Max(0, $i - 5); $j--) {
+            $t = $lines[$j].Trim()
+            if ($t.StartsWith($mark) -and $t.EndsWith(' failed')) {
+                $call = $t.Substring($mark.Length, $t.Length - $mark.Length - ' failed'.Length).Trim()
+                break
+            }
+        }
+        if (-not $call) { $call = '(unknown tool)' }
+        $tool = ($call -split '\s+')[0]
+        $found.Add([pscustomobject]@{ Call = $call; Tool = $tool; Read = ($tool -in @('Read', 'Glob', 'Grep', 'List')) })
+    }
+    # ToArray, not @($found): @() over a List of PSObjects throws "Argument types do not match".
+    return $found.ToArray()
+}
+
+function Get-OpenCodeDeniedWrite([string] $Text) {
+    # The first denied outside WRITE (any tool but the read-only four) as "<call>", or $null (bug #931).
+    $w = @(Get-OpenCodePermissionDenials $Text | Where-Object { -not $_.Read })
+    if ($w.Count -eq 0) { return $null }
+    return $w[0].Call
+}
+
+function Read-OpenCodeSharedText([string] $Path) {
+    # The text of a file another process is still writing, or '' (bug #931's live denial watch).
+    try {
+        $fs = [System.IO.File]::Open($Path, 'Open', 'Read', 'ReadWrite')
+        try { return (New-Object System.IO.StreamReader($fs, [System.Text.Encoding]::UTF8)).ReadToEnd() }
+        finally { $fs.Dispose() }
+    }
+    catch { return '' }
+}
+
 function Get-OpenCodeAllowedOutsideRoots {
     # The two roots an OpenCode agent may touch outside its worktree (T150 Done-when 3), matching
     # the two `external_directory` allows in .opencode/agents/external-{implementer,reviewer}.md.
@@ -931,6 +986,7 @@ function Invoke-OpenCodeRun {
         $idleMs = [long]$IdleTimeoutSec * 1000
         $idlePollMs = [int]([Math]::Max($PollSec, [Math]::Min(60, [Math]::Ceiling($IdleTimeoutSec / 5))) * 1000)
         $lastUpdated = if ($session) { [long]$session.updated } else { $startedMs }
+        $deniedSeen = 0; $deniedWrite = $null
         while ($true) {
             $remainingMs = [Math]::Max(0, $totalMs - $clock.ElapsedMilliseconds)
             $waitMs = if ($session -and $idleMs -gt 0) { [Math]::Min($idlePollMs, $remainingMs) } else { $remainingMs }
@@ -942,6 +998,16 @@ function Invoke-OpenCodeRun {
             $seen = Find-OpenCodeSession -Cli $Cli -WorkDir $WorkDir -Title $Title -StartedMs $startedMs -LogDir $LogDir `
                 -InFile $inFile -TimeoutMs ([int][Math]::Max(0, [Math]::Min(30000, $totalMs - $clock.ElapsedMilliseconds)))
             if ($p.HasExited) { break }
+            # Bug #931: a denied outside read is reported and the run goes on; a denied write ends it
+            # here, and the caller fails the attempt on PermissionRejected as it did for a rejection.
+            $liveText = Read-OpenCodeSharedText $outFile
+            foreach ($d in @(Get-OpenCodePermissionDenials $liveText | Select-Object -Skip $deniedSeen)) {
+                $deniedSeen++
+                if ($d.Read) { Write-Host "opencode: denied an outside read, the run goes on: $($d.Call)" }
+                else { Write-Host "opencode: denied an outside write, ending the run: $($d.Call)" }
+            }
+            $deniedWrite = Get-OpenCodeDeniedWrite $liveText
+            if ($deniedWrite) { Stop-OpenCodeTree $p; break }
             if ($seen -and [long]$seen.updated -gt $lastUpdated) { $lastUpdated = [long]$seen.updated }
             $idleFor = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() - $lastUpdated
             if ($idleFor -ge $idleMs) {
@@ -996,8 +1062,15 @@ function Invoke-OpenCodeRun {
         # True when OpenCode ran its default agent instead of the requested --agent.
         AgentFallback = $agentFallback
         SessionAgent  = $sessionAgent
-        # What OpenCode's permission guard auto-rejected (the rejection ended the run), or $null.
-        PermissionRejected = Get-OpenCodePermissionRejection ($stdout + "`n" + $stderr)
+        # What OpenCode's permission guard refused in a way that ends the attempt, or $null: an
+        # auto-rejected ask (the rejection ended the run), or a denied outside write (bug #931: the
+        # watcher ended the run). A denied outside read does not count: the run went on.
+        PermissionRejected = $(
+            $rej = Get-OpenCodePermissionRejection ($stdout + "`n" + $stderr)
+            if ($rej) { $rej }
+            else { $w = Get-OpenCodeDeniedWrite ($stdout + "`n" + $stderr); if ($w) { "external_directory denied a write ($w)" } else { $null } })
+        # The denied outside reads the run survived (bug #931), as their call titles.
+        OutsideReadsDenied = @(Get-OpenCodePermissionDenials ($stdout + "`n" + $stderr) | Where-Object { $_.Read } | ForEach-Object { $_.Call })
         Files     = if ($p.ExitCode -eq 0) { @() } else { $files }
         # The kept transcript (JSON), or $null when the export failed.
         ExportFile = if ($exported) { $exportFile } else { $null }
