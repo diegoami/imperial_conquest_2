@@ -38,6 +38,11 @@ namespace IC2.Engine.Model;
 /// for the classical world always was. See <see cref="ValidateStartingNeighboursShape"/> and
 /// https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/dat-neighbour-mask.md.
 /// </param>
+/// <param name="MercenaryTemplates">
+/// T56: the fixed mercenary template table the quarterly restock and the New Game fill draw from, in DAT
+/// order and keyed by index — or <see langword="null"/> when the world carries none (the toy world),
+/// in which case the restock and the fill have nothing to draw and change nothing.
+/// </param>
 /// <remarks>
 /// Deliberately free of any 320×140 / 16-nation / 334-city assumption: the original's data becomes
 /// one shipped <see cref="World"/> (task T29) among possibly many, and the toy fixture under
@@ -59,6 +64,7 @@ public sealed record World(
     DiplomaticRelations? StartingRelations = null,
     NewsLog? StartingNews = null,
     ValueList<NationNeighbours>? StartingNeighbours = null,
+    ValueList<MercenaryTemplate>? MercenaryTemplates = null,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null) : IVersionedDocument
 {
     /// <summary>Finds a tile type by its id, or <see langword="null"/>.</summary>
@@ -263,6 +269,47 @@ public sealed record World(
 /// <param name="NationId">The nation this entry is about.</param>
 /// <param name="NeighbourIds">Every nation this one borders, in the DAT's own bit order (ascending nation code).</param>
 public sealed record NationNeighbours(string NationId, ValueList<string> NeighbourIds);
+
+/// <summary>
+/// T56: one record of the fixed mercenary template table the quarterly restock draws from — the DAT's
+/// 201-record table at <c>0x0049D0A4</c> in memory (DAT file offset <c>0x1FCD6</c>, 251 × 12 bytes of
+/// which records 0–200 are the templates; records 201–250 are the 50 live slots, shipped empty),
+/// exported verbatim by <c>scripts/export-classical-world.cs</c>.
+/// <strong>[confirmed: decompiled-new-game-mercenary-fill.md §4]</strong>
+/// </summary>
+/// <remarks>
+/// <para>
+/// <strong>Keyed by index, never by city and label.</strong> The record's position in
+/// <see cref="World.MercenaryTemplates"/> is its index — the same index the original's
+/// <c>rand(200)</c> draw selects — and four (x, y, Label, type) keys appear twice in the table,
+/// differing only in troops or quality, so no consumer may key templates by anything but position
+/// <strong>[confirmed: DAT, decompiled-new-game-mercenary-fill.md §4]</strong>. Template 200 is data
+/// the draw never selects (the draw bound is 200, not 201) and is carried anyway so the indices match.
+/// </para>
+/// <para>
+/// <see cref="Label"/> round-trips as a number: it indexes the 52 ethnic names at DAT
+/// <c>0x1F8C6</c>, which the export records in its provenance note; this model deliberately carries no
+/// display string for it.
+/// </para>
+/// </remarks>
+/// <param name="X">The offer city's tile x, copied wholesale onto the refilled slot (record +0).</param>
+/// <param name="Y">The offer city's tile y (record +2). Every template's (x, y) is a city tile.</param>
+/// <param name="Label">The mercenary name-table index (record +4), values 1–51 in the shipped table.</param>
+/// <param name="UnitTypeId">The unit type (record +6, DAT codes 0–4), mapped to the engine's own unit-type ids.</param>
+/// <param name="TroopsBase">
+/// The troops <em>base</em> (record +8): an offer is 1.5×–3× this value, capped at the type's standard
+/// battalion size — never the offer size itself.
+/// </param>
+/// <param name="QualityBase">
+/// The quality base (record +10): an offer's quality is this value or one above it, clamped to 5–9.
+/// </param>
+public sealed record MercenaryTemplate(
+    int X,
+    int Y,
+    int Label,
+    string UnitTypeId,
+    int TroopsBase,
+    int QualityBase);
 
 /// <summary>How a <see cref="TerrainGrid"/>'s cell codes are encoded in JSON.</summary>
 /// <remarks>

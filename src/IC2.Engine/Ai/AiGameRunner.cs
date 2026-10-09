@@ -137,6 +137,14 @@ public static class AiGameRunner
         var coordinator = new TurnCoordinator(registry, ruleset, world, NullEventSink.Instance, dispatcher);
 
         var state = GameStateFactory.CreateInitial(world, ruleset, scenario) with { RandomSeed = seed };
+
+        // T56 (bug #457), rework round 1 (R1; Owns widened on #229, 2026-10-09): the New Game mercenary
+        // fill, after the seed is set (the fill draws from the state's own seed, so a fill inside the
+        // factory would have drawn from the scenario's committed seed instead — the same reason the
+        // leader draw below runs here) and before that draw, matching the original's New Game order
+        // (the fill first). Its own named stream; a world without a template table draws nothing.
+        state = IC2.Engine.Recruitment.MercenaryPoolRestock.FillNewGamePool(state, ruleset, world);
+
         // T146: the New Game leader draw, from the state's own seed -- the same draw GameSession's New
         // Game constructor makes. A world without a leader-name pool (the toy world) draws nothing.
         state = NewGameLeaders.Apply(state, world);

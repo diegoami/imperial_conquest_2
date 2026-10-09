@@ -36,6 +36,7 @@ move mac-sac-1 151 31
 end
 move mac-sac-1 151 31
 end
+accept-offer
 move mac-sac-1 151 31
 end
 attack-army mac-sac-1 army-14
@@ -54,7 +55,6 @@ buy-fleet-supply mac-fleet-1 amphipolis 5
 repair-fleet mac-fleet-1 1
 split-fleet mac-fleet-1 mac-fleet-keep 10
 end
-accept-offer
 status
 news
 set-tax 20
@@ -79,4 +79,17 @@ embark-army army-8 mac-fleet-keep
 disembark-army army-8 148 40
 recruit-standing pella light_infantry 200
 disband-slot 0
+end
+move mac-marines 143 42
+end
+buy mac-marines pella 5000
+split-unit mac-marines 1 200
+split-army mac-marines mac-merc 2 supply=50 money=80
+end
+move mac-merc 140 47
+end
+move mac-merc 141 48
+end
+move mac-merc 142 50
+hire-mercenary mac-merc 25
 quit

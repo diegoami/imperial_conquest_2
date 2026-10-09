@@ -717,6 +717,16 @@ public sealed partial class GameSession
         var initial = GameStateFactory.CreateInitial(world, ruleset, scenario);
         State = seedOverride.HasValue ? initial with { RandomSeed = seedOverride.Value } : initial;
 
+        // T56 (bug #457), rework round 1 (R1; Owns widened on #229, 2026-10-09): the New Game mercenary
+        // fill — one restock pass over the 50 empty slots, the original's single FUN_00449130 call that
+        // FUN_00448AA4 makes right after the DAT reload empties the pool [confirmed:
+        // decompiled-new-game-mercenary-fill.md §1]. It runs AFTER the seed override (so the CLI's
+        // --seed reaches it — the factory's own committed seed would otherwise draw every pool) and
+        // BEFORE the leader draw, matching the original's order (the fill is the first New Game draw).
+        // Its own named stream, so no other seeded outcome moves; a world without a template table
+        // (the toy world) draws nothing.
+        State = IC2.Engine.Recruitment.MercenaryPoolRestock.FillNewGamePool(State, ruleset, world);
+
         // T146: the New Game leader draw, after the seed override and before any seat is advanced, so
         // the fall sites below redraw from the same world pool the New Game used. Its own stream, so no
         // other seeded outcome moves; a world without a pool draws nothing.

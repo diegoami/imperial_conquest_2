@@ -107,10 +107,13 @@ internal static class DatLayout
 }
 
 /// <summary>Thrown when code asks a parser for something the DAT genuinely does not store — a whole
-/// table (mercenary pool, calendar trailer) or a single nation-record field (leader name,
+/// table (the mercenary <em>pool</em>: the DAT holds the 201 templates plus 50 empty live slots at
+/// <c>0x1FCD6</c>, and the offers themselves are generated at New Game and quarterly by the restock —
+/// or the calendar trailer) or a single nation-record field (leader name,
 /// human-player flag) that is New Game state the original assigns only once play actually starts
 /// (<c>TPremierForm_NewGame</c>'s second helper, <c>FUN_00448aa4</c> — see
-/// docs/investigations/dat-file-layout.md). Distinguishes "absent by construction" from a genuinely
+/// docs/investigations/dat-file-layout.md and decompiled-new-game-mercenary-fill.md §4).
+/// Distinguishes "absent by construction" from a genuinely
 /// malformed record, which still throws <see cref="System.IO.InvalidDataException"/>.</summary>
 public sealed class DatDataNotPresentException : InvalidOperationException
 {

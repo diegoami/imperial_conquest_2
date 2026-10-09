@@ -89,22 +89,14 @@ public sealed class CommandCoverageTests
     /// <summary>
     /// docs/tasks/T80.md Done-when 2b: "The coverage test may exempt exactly these, each named in the
     /// test with its reason ... Each keyed exception names its issue. The task that closes that issue
-    /// removes the exception and adds the command's line to the success script." One entry, and no more:
-    /// <c>attack-fleet</c> and <c>peace-yes</c> are deliberately absent — both must succeed, and both do —
-    /// and T93/#453 removed the <c>embark-army</c> and <c>disembark-army</c> entries by adding an accepted
-    /// line for each to <c>success.txt</c> (see <see cref="Presentation.SuccessScriptTests"/>'s class
-    /// remarks).
+    /// removes the exception and adds the command's line to the success script." Empty since T56
+    /// (#229, bug #457): its last entry, <c>recruitment.hire-mercenary</c> (keyed to #229), was removed
+    /// by adding a <c>hire-mercenary</c> line to <c>success.txt</c> once the New Game fill and the
+    /// quarterly restock keep the pool populated; <c>attack-fleet</c> and <c>peace-yes</c> were never
+    /// entries — both succeed (see <see cref="Presentation.SuccessScriptTests"/>'s class remarks).
     /// </summary>
     private static readonly HashSet<string> ConfirmedUnreachable = new(StringComparer.Ordinal)
     {
-        // Keyed to #229 (T56, the quarterly mercenary restock, still open). GameStateFactory.CreateInitial
-        // hardcodes MercenaryPool empty for every scenario -- no world/scenario JSON field feeds it -- and
-        // the only write to GameState.MercenaryPool anywhere in the engine is OriginalSaveImporter's (a
-        // legacy-save import the CLI has no flag to reach). T56's own Scope line ("T22's soak fires the
-        // hire in the first quarters") describes the ORIGINAL decompiled game, not this reimplementation:
-        // AiEconomyPhase never calls HireMercenaryCommand at all (confirmed by grep), so no AI turn, in any
-        // scenario, at any seed, can populate or drain the pool either. T56 removes this exception.
-        "recruitment.hire-mercenary",
     };
 
     /// <summary>

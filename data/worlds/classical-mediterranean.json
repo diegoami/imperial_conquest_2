@@ -8554,6 +8554,1616 @@
       ]
     }
   ],
+  "mercenaryTemplates": [
+    {
+      "x": 69,
+      "y": 89,
+      "label": 1,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 3000,
+      "qualityBase": 7
+    },
+    {
+      "x": 85,
+      "y": 89,
+      "label": 1,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 4000,
+      "qualityBase": 6
+    },
+    {
+      "x": 113,
+      "y": 110,
+      "label": 1,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 3500,
+      "qualityBase": 7
+    },
+    {
+      "x": 79,
+      "y": 82,
+      "label": 1,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 600,
+      "qualityBase": 8
+    },
+    {
+      "x": 51,
+      "y": 78,
+      "label": 1,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 500,
+      "qualityBase": 7
+    },
+    {
+      "x": 67,
+      "y": 79,
+      "label": 1,
+      "unitTypeId": "heavy_cavalry",
+      "troopsBase": 500,
+      "qualityBase": 8
+    },
+    {
+      "x": 111,
+      "y": 69,
+      "label": 2,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 2000,
+      "qualityBase": 7
+    },
+    {
+      "x": 111,
+      "y": 69,
+      "label": 2,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 2500,
+      "qualityBase": 9
+    },
+    {
+      "x": 222,
+      "y": 73,
+      "label": 2,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 1800,
+      "qualityBase": 7
+    },
+    {
+      "x": 71,
+      "y": 36,
+      "label": 2,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 3000,
+      "qualityBase": 8
+    },
+    {
+      "x": 63,
+      "y": 39,
+      "label": 2,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 1500,
+      "qualityBase": 8
+    },
+    {
+      "x": 221,
+      "y": 65,
+      "label": 2,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 2700,
+      "qualityBase": 7
+    },
+    {
+      "x": 158,
+      "y": 78,
+      "label": 2,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 3000,
+      "qualityBase": 9
+    },
+    {
+      "x": 192,
+      "y": 77,
+      "label": 2,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 1600,
+      "qualityBase": 7
+    },
+    {
+      "x": 166,
+      "y": 67,
+      "label": 2,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 2000,
+      "qualityBase": 8
+    },
+    {
+      "x": 162,
+      "y": 54,
+      "label": 2,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 2500,
+      "qualityBase": 8
+    },
+    {
+      "x": 162,
+      "y": 54,
+      "label": 2,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 4000,
+      "qualityBase": 8
+    },
+    {
+      "x": 147,
+      "y": 53,
+      "label": 2,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 3000,
+      "qualityBase": 7
+    },
+    {
+      "x": 152,
+      "y": 62,
+      "label": 2,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 2500,
+      "qualityBase": 7
+    },
+    {
+      "x": 37,
+      "y": 65,
+      "label": 3,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 5000,
+      "qualityBase": 7
+    },
+    {
+      "x": 42,
+      "y": 42,
+      "label": 3,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 1200,
+      "qualityBase": 7
+    },
+    {
+      "x": 31,
+      "y": 44,
+      "label": 3,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 2300,
+      "qualityBase": 8
+    },
+    {
+      "x": 14,
+      "y": 62,
+      "label": 3,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 1000,
+      "qualityBase": 6
+    },
+    {
+      "x": 9,
+      "y": 90,
+      "label": 4,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 2100,
+      "qualityBase": 6
+    },
+    {
+      "x": 18,
+      "y": 87,
+      "label": 4,
+      "unitTypeId": "archers",
+      "troopsBase": 500,
+      "qualityBase": 7
+    },
+    {
+      "x": 268,
+      "y": 79,
+      "label": 5,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 3300,
+      "qualityBase": 6
+    },
+    {
+      "x": 175,
+      "y": 52,
+      "label": 5,
+      "unitTypeId": "archers",
+      "troopsBase": 700,
+      "qualityBase": 8
+    },
+    {
+      "x": 234,
+      "y": 44,
+      "label": 6,
+      "unitTypeId": "archers",
+      "troopsBase": 400,
+      "qualityBase": 7
+    },
+    {
+      "x": 208,
+      "y": 57,
+      "label": 7,
+      "unitTypeId": "archers",
+      "troopsBase": 800,
+      "qualityBase": 7
+    },
+    {
+      "x": 208,
+      "y": 57,
+      "label": 7,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 4500,
+      "qualityBase": 6
+    },
+    {
+      "x": 165,
+      "y": 26,
+      "label": 8,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 1700,
+      "qualityBase": 9
+    },
+    {
+      "x": 166,
+      "y": 39,
+      "label": 8,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 1100,
+      "qualityBase": 9
+    },
+    {
+      "x": 150,
+      "y": 31,
+      "label": 8,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 1500,
+      "qualityBase": 7
+    },
+    {
+      "x": 131,
+      "y": 50,
+      "label": 8,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 600,
+      "qualityBase": 6
+    },
+    {
+      "x": 213,
+      "y": 45,
+      "label": 9,
+      "unitTypeId": "archers",
+      "troopsBase": 500,
+      "qualityBase": 7
+    },
+    {
+      "x": 208,
+      "y": 57,
+      "label": 9,
+      "unitTypeId": "archers",
+      "troopsBase": 800,
+      "qualityBase": 6
+    },
+    {
+      "x": 237,
+      "y": 30,
+      "label": 10,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 6000,
+      "qualityBase": 6
+    },
+    {
+      "x": 246,
+      "y": 34,
+      "label": 10,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 4000,
+      "qualityBase": 7
+    },
+    {
+      "x": 247,
+      "y": 22,
+      "label": 10,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 1500,
+      "qualityBase": 6
+    },
+    {
+      "x": 177,
+      "y": 37,
+      "label": 10,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 1200,
+      "qualityBase": 7
+    },
+    {
+      "x": 91,
+      "y": 27,
+      "label": 11,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 7000,
+      "qualityBase": 7
+    },
+    {
+      "x": 67,
+      "y": 33,
+      "label": 11,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 1000,
+      "qualityBase": 6
+    },
+    {
+      "x": 67,
+      "y": 33,
+      "label": 11,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 800,
+      "qualityBase": 7
+    },
+    {
+      "x": 98,
+      "y": 31,
+      "label": 11,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 4000,
+      "qualityBase": 7
+    },
+    {
+      "x": 98,
+      "y": 31,
+      "label": 11,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 1200,
+      "qualityBase": 5
+    },
+    {
+      "x": 62,
+      "y": 33,
+      "label": 11,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 3200,
+      "qualityBase": 6
+    },
+    {
+      "x": 106,
+      "y": 21,
+      "label": 11,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 4100,
+      "qualityBase": 7
+    },
+    {
+      "x": 158,
+      "y": 78,
+      "label": 12,
+      "unitTypeId": "archers",
+      "troopsBase": 500,
+      "qualityBase": 8
+    },
+    {
+      "x": 271,
+      "y": 91,
+      "label": 13,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 1700,
+      "qualityBase": 6
+    },
+    {
+      "x": 267,
+      "y": 90,
+      "label": 13,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 2200,
+      "qualityBase": 6
+    },
+    {
+      "x": 276,
+      "y": 100,
+      "label": 13,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 900,
+      "qualityBase": 6
+    },
+    {
+      "x": 255,
+      "y": 46,
+      "label": 14,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 1700,
+      "qualityBase": 8
+    },
+    {
+      "x": 257,
+      "y": 50,
+      "label": 14,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 1500,
+      "qualityBase": 9
+    },
+    {
+      "x": 83,
+      "y": 85,
+      "label": 15,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 2200,
+      "qualityBase": 6
+    },
+    {
+      "x": 82,
+      "y": 79,
+      "label": 15,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 2000,
+      "qualityBase": 6
+    },
+    {
+      "x": 94,
+      "y": 83,
+      "label": 15,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 1300,
+      "qualityBase": 5
+    },
+    {
+      "x": 63,
+      "y": 96,
+      "label": 16,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 1500,
+      "qualityBase": 5
+    },
+    {
+      "x": 22,
+      "y": 90,
+      "label": 16,
+      "unitTypeId": "archers",
+      "troopsBase": 900,
+      "qualityBase": 7
+    },
+    {
+      "x": 113,
+      "y": 110,
+      "label": 16,
+      "unitTypeId": "archers",
+      "troopsBase": 700,
+      "qualityBase": 8
+    },
+    {
+      "x": 162,
+      "y": 111,
+      "label": 16,
+      "unitTypeId": "archers",
+      "troopsBase": 1100,
+      "qualityBase": 7
+    },
+    {
+      "x": 138,
+      "y": 55,
+      "label": 17,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 1300,
+      "qualityBase": 8
+    },
+    {
+      "x": 143,
+      "y": 59,
+      "label": 17,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 900,
+      "qualityBase": 9
+    },
+    {
+      "x": 147,
+      "y": 53,
+      "label": 17,
+      "unitTypeId": "heavy_cavalry",
+      "troopsBase": 600,
+      "qualityBase": 9
+    },
+    {
+      "x": 153,
+      "y": 33,
+      "label": 18,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 800,
+      "qualityBase": 7
+    },
+    {
+      "x": 147,
+      "y": 31,
+      "label": 18,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 1400,
+      "qualityBase": 7
+    },
+    {
+      "x": 154,
+      "y": 26,
+      "label": 18,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 2000,
+      "qualityBase": 6
+    },
+    {
+      "x": 260,
+      "y": 23,
+      "label": 19,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 5800,
+      "qualityBase": 8
+    },
+    {
+      "x": 243,
+      "y": 18,
+      "label": 19,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 4800,
+      "qualityBase": 8
+    },
+    {
+      "x": 247,
+      "y": 22,
+      "label": 20,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 4700,
+      "qualityBase": 6
+    },
+    {
+      "x": 260,
+      "y": 60,
+      "label": 20,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 6300,
+      "qualityBase": 5
+    },
+    {
+      "x": 67,
+      "y": 33,
+      "label": 21,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 3200,
+      "qualityBase": 7
+    },
+    {
+      "x": 67,
+      "y": 33,
+      "label": 21,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 1800,
+      "qualityBase": 8
+    },
+    {
+      "x": 73,
+      "y": 23,
+      "label": 21,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 3500,
+      "qualityBase": 7
+    },
+    {
+      "x": 60,
+      "y": 57,
+      "label": 22,
+      "unitTypeId": "archers",
+      "troopsBase": 400,
+      "qualityBase": 9
+    },
+    {
+      "x": 276,
+      "y": 100,
+      "label": 23,
+      "unitTypeId": "archers",
+      "troopsBase": 1200,
+      "qualityBase": 7
+    },
+    {
+      "x": 276,
+      "y": 100,
+      "label": 23,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 2100,
+      "qualityBase": 7
+    },
+    {
+      "x": 249,
+      "y": 50,
+      "label": 23,
+      "unitTypeId": "archers",
+      "troopsBase": 1600,
+      "qualityBase": 6
+    },
+    {
+      "x": 124,
+      "y": 52,
+      "label": 24,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 3000,
+      "qualityBase": 8
+    },
+    {
+      "x": 124,
+      "y": 52,
+      "label": 24,
+      "unitTypeId": "heavy_cavalry",
+      "troopsBase": 500,
+      "qualityBase": 8
+    },
+    {
+      "x": 124,
+      "y": 52,
+      "label": 24,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 1500,
+      "qualityBase": 8
+    },
+    {
+      "x": 111,
+      "y": 69,
+      "label": 24,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 2900,
+      "qualityBase": 9
+    },
+    {
+      "x": 111,
+      "y": 69,
+      "label": 24,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 1800,
+      "qualityBase": 7
+    },
+    {
+      "x": 162,
+      "y": 54,
+      "label": 25,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 3400,
+      "qualityBase": 9
+    },
+    {
+      "x": 162,
+      "y": 54,
+      "label": 25,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 2100,
+      "qualityBase": 7
+    },
+    {
+      "x": 166,
+      "y": 67,
+      "label": 25,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 1800,
+      "qualityBase": 7
+    },
+    {
+      "x": 106,
+      "y": 21,
+      "label": 26,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 2300,
+      "qualityBase": 6
+    },
+    {
+      "x": 102,
+      "y": 24,
+      "label": 26,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 1300,
+      "qualityBase": 8
+    },
+    {
+      "x": 193,
+      "y": 121,
+      "label": 27,
+      "unitTypeId": "archers",
+      "troopsBase": 2000,
+      "qualityBase": 8
+    },
+    {
+      "x": 191,
+      "y": 115,
+      "label": 27,
+      "unitTypeId": "archers",
+      "troopsBase": 1700,
+      "qualityBase": 8
+    },
+    {
+      "x": 22,
+      "y": 65,
+      "label": 28,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 1600,
+      "qualityBase": 6
+    },
+    {
+      "x": 14,
+      "y": 62,
+      "label": 28,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 1500,
+      "qualityBase": 6
+    },
+    {
+      "x": 147,
+      "y": 65,
+      "label": 29,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 1300,
+      "qualityBase": 9
+    },
+    {
+      "x": 152,
+      "y": 62,
+      "label": 29,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 1600,
+      "qualityBase": 9
+    },
+    {
+      "x": 279,
+      "y": 50,
+      "label": 30,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 2300,
+      "qualityBase": 7
+    },
+    {
+      "x": 267,
+      "y": 45,
+      "label": 30,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 2100,
+      "qualityBase": 7
+    },
+    {
+      "x": 262,
+      "y": 34,
+      "label": 31,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 1800,
+      "qualityBase": 7
+    },
+    {
+      "x": 260,
+      "y": 23,
+      "label": 31,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 2300,
+      "qualityBase": 7
+    },
+    {
+      "x": 166,
+      "y": 67,
+      "label": 32,
+      "unitTypeId": "archers",
+      "troopsBase": 1100,
+      "qualityBase": 8
+    },
+    {
+      "x": 162,
+      "y": 54,
+      "label": 32,
+      "unitTypeId": "archers",
+      "troopsBase": 600,
+      "qualityBase": 9
+    },
+    {
+      "x": 87,
+      "y": 119,
+      "label": 33,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 1800,
+      "qualityBase": 7
+    },
+    {
+      "x": 113,
+      "y": 110,
+      "label": 33,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 2100,
+      "qualityBase": 6
+    },
+    {
+      "x": 91,
+      "y": 27,
+      "label": 34,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 4100,
+      "qualityBase": 7
+    },
+    {
+      "x": 91,
+      "y": 27,
+      "label": 34,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 1400,
+      "qualityBase": 6
+    },
+    {
+      "x": 91,
+      "y": 27,
+      "label": 34,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 1200,
+      "qualityBase": 7
+    },
+    {
+      "x": 190,
+      "y": 94,
+      "label": 35,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 4200,
+      "qualityBase": 6
+    },
+    {
+      "x": 200,
+      "y": 97,
+      "label": 35,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 5100,
+      "qualityBase": 5
+    },
+    {
+      "x": 193,
+      "y": 97,
+      "label": 35,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 1300,
+      "qualityBase": 6
+    },
+    {
+      "x": 27,
+      "y": 45,
+      "label": 36,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 2900,
+      "qualityBase": 7
+    },
+    {
+      "x": 31,
+      "y": 44,
+      "label": 36,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 3700,
+      "qualityBase": 6
+    },
+    {
+      "x": 45,
+      "y": 68,
+      "label": 2,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 2500,
+      "qualityBase": 8
+    },
+    {
+      "x": 19,
+      "y": 75,
+      "label": 2,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 3100,
+      "qualityBase": 7
+    },
+    {
+      "x": 143,
+      "y": 59,
+      "label": 43,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 2400,
+      "qualityBase": 8
+    },
+    {
+      "x": 93,
+      "y": 78,
+      "label": 2,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 3000,
+      "qualityBase": 8
+    },
+    {
+      "x": 129,
+      "y": 43,
+      "label": 44,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 4200,
+      "qualityBase": 7
+    },
+    {
+      "x": 147,
+      "y": 65,
+      "label": 2,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 3100,
+      "qualityBase": 8
+    },
+    {
+      "x": 160,
+      "y": 58,
+      "label": 2,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 3200,
+      "qualityBase": 9
+    },
+    {
+      "x": 190,
+      "y": 94,
+      "label": 2,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 3500,
+      "qualityBase": 9
+    },
+    {
+      "x": 129,
+      "y": 43,
+      "label": 42,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 1500,
+      "qualityBase": 8
+    },
+    {
+      "x": 37,
+      "y": 65,
+      "label": 3,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 4000,
+      "qualityBase": 8
+    },
+    {
+      "x": 227,
+      "y": 71,
+      "label": 5,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 4600,
+      "qualityBase": 6
+    },
+    {
+      "x": 165,
+      "y": 57,
+      "label": 5,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 2500,
+      "qualityBase": 7
+    },
+    {
+      "x": 166,
+      "y": 39,
+      "label": 8,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 1400,
+      "qualityBase": 8
+    },
+    {
+      "x": 208,
+      "y": 57,
+      "label": 9,
+      "unitTypeId": "archers",
+      "troopsBase": 1200,
+      "qualityBase": 7
+    },
+    {
+      "x": 247,
+      "y": 22,
+      "label": 10,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 4800,
+      "qualityBase": 6
+    },
+    {
+      "x": 82,
+      "y": 79,
+      "label": 15,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 1400,
+      "qualityBase": 6
+    },
+    {
+      "x": 143,
+      "y": 59,
+      "label": 17,
+      "unitTypeId": "heavy_cavalry",
+      "troopsBase": 600,
+      "qualityBase": 9
+    },
+    {
+      "x": 260,
+      "y": 23,
+      "label": 19,
+      "unitTypeId": "heavy_cavalry",
+      "troopsBase": 1600,
+      "qualityBase": 9
+    },
+    {
+      "x": 193,
+      "y": 121,
+      "label": 27,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 3800,
+      "qualityBase": 7
+    },
+    {
+      "x": 113,
+      "y": 110,
+      "label": 33,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 1100,
+      "qualityBase": 5
+    },
+    {
+      "x": 91,
+      "y": 27,
+      "label": 34,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 1700,
+      "qualityBase": 7
+    },
+    {
+      "x": 200,
+      "y": 97,
+      "label": 35,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 1300,
+      "qualityBase": 6
+    },
+    {
+      "x": 27,
+      "y": 45,
+      "label": 36,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 900,
+      "qualityBase": 7
+    },
+    {
+      "x": 121,
+      "y": 53,
+      "label": 38,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 2000,
+      "qualityBase": 7
+    },
+    {
+      "x": 98,
+      "y": 31,
+      "label": 37,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 1800,
+      "qualityBase": 6
+    },
+    {
+      "x": 98,
+      "y": 31,
+      "label": 40,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 2900,
+      "qualityBase": 7
+    },
+    {
+      "x": 111,
+      "y": 69,
+      "label": 39,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 2800,
+      "qualityBase": 7
+    },
+    {
+      "x": 97,
+      "y": 27,
+      "label": 40,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 2200,
+      "qualityBase": 8
+    },
+    {
+      "x": 94,
+      "y": 27,
+      "label": 45,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 2300,
+      "qualityBase": 6
+    },
+    {
+      "x": 117,
+      "y": 34,
+      "label": 44,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 2400,
+      "qualityBase": 7
+    },
+    {
+      "x": 37,
+      "y": 65,
+      "label": 41,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 3000,
+      "qualityBase": 6
+    },
+    {
+      "x": 47,
+      "y": 55,
+      "label": 41,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 2100,
+      "qualityBase": 6
+    },
+    {
+      "x": 87,
+      "y": 119,
+      "label": 42,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 1800,
+      "qualityBase": 7
+    },
+    {
+      "x": 193,
+      "y": 121,
+      "label": 42,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 3900,
+      "qualityBase": 6
+    },
+    {
+      "x": 143,
+      "y": 52,
+      "label": 17,
+      "unitTypeId": "heavy_cavalry",
+      "troopsBase": 1300,
+      "qualityBase": 8
+    },
+    {
+      "x": 147,
+      "y": 65,
+      "label": 29,
+      "unitTypeId": "heavy_cavalry",
+      "troopsBase": 1000,
+      "qualityBase": 9
+    },
+    {
+      "x": 302,
+      "y": 105,
+      "label": 5,
+      "unitTypeId": "heavy_cavalry",
+      "troopsBase": 1200,
+      "qualityBase": 7
+    },
+    {
+      "x": 304,
+      "y": 90,
+      "label": 5,
+      "unitTypeId": "heavy_cavalry",
+      "troopsBase": 1000,
+      "qualityBase": 7
+    },
+    {
+      "x": 120,
+      "y": 56,
+      "label": 37,
+      "unitTypeId": "heavy_cavalry",
+      "troopsBase": 600,
+      "qualityBase": 8
+    },
+    {
+      "x": 31,
+      "y": 44,
+      "label": 28,
+      "unitTypeId": "heavy_cavalry",
+      "troopsBase": 500,
+      "qualityBase": 7
+    },
+    {
+      "x": 291,
+      "y": 20,
+      "label": 48,
+      "unitTypeId": "heavy_cavalry",
+      "troopsBase": 700,
+      "qualityBase": 7
+    },
+    {
+      "x": 232,
+      "y": 13,
+      "label": 51,
+      "unitTypeId": "heavy_cavalry",
+      "troopsBase": 900,
+      "qualityBase": 8
+    },
+    {
+      "x": 176,
+      "y": 3,
+      "label": 19,
+      "unitTypeId": "heavy_cavalry",
+      "troopsBase": 1200,
+      "qualityBase": 8
+    },
+    {
+      "x": 281,
+      "y": 19,
+      "label": 20,
+      "unitTypeId": "heavy_cavalry",
+      "troopsBase": 1000,
+      "qualityBase": 6
+    },
+    {
+      "x": 240,
+      "y": 114,
+      "label": 16,
+      "unitTypeId": "archers",
+      "troopsBase": 600,
+      "qualityBase": 6
+    },
+    {
+      "x": 311,
+      "y": 91,
+      "label": 5,
+      "unitTypeId": "archers",
+      "troopsBase": 900,
+      "qualityBase": 8
+    },
+    {
+      "x": 271,
+      "y": 91,
+      "label": 5,
+      "unitTypeId": "archers",
+      "troopsBase": 700,
+      "qualityBase": 8
+    },
+    {
+      "x": 215,
+      "y": 99,
+      "label": 16,
+      "unitTypeId": "archers",
+      "troopsBase": 800,
+      "qualityBase": 7
+    },
+    {
+      "x": 156,
+      "y": 80,
+      "label": 12,
+      "unitTypeId": "archers",
+      "troopsBase": 500,
+      "qualityBase": 9
+    },
+    {
+      "x": 303,
+      "y": 101,
+      "label": 50,
+      "unitTypeId": "archers",
+      "troopsBase": 900,
+      "qualityBase": 7
+    },
+    {
+      "x": 177,
+      "y": 56,
+      "label": 6,
+      "unitTypeId": "archers",
+      "troopsBase": 600,
+      "qualityBase": 8
+    },
+    {
+      "x": 173,
+      "y": 39,
+      "label": 6,
+      "unitTypeId": "archers",
+      "troopsBase": 700,
+      "qualityBase": 8
+    },
+    {
+      "x": 317,
+      "y": 49,
+      "label": 49,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 4800,
+      "qualityBase": 6
+    },
+    {
+      "x": 198,
+      "y": 132,
+      "label": 27,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 4200,
+      "qualityBase": 7
+    },
+    {
+      "x": 230,
+      "y": 136,
+      "label": 35,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 3600,
+      "qualityBase": 6
+    },
+    {
+      "x": 37,
+      "y": 84,
+      "label": 4,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 4000,
+      "qualityBase": 6
+    },
+    {
+      "x": 145,
+      "y": 94,
+      "label": 15,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 3200,
+      "qualityBase": 7
+    },
+    {
+      "x": 138,
+      "y": 97,
+      "label": 15,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 4100,
+      "qualityBase": 5
+    },
+    {
+      "x": 47,
+      "y": 29,
+      "label": 21,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 5500,
+      "qualityBase": 6
+    },
+    {
+      "x": 132,
+      "y": 25,
+      "label": 47,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 3200,
+      "qualityBase": 6
+    },
+    {
+      "x": 136,
+      "y": 16,
+      "label": 47,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 3800,
+      "qualityBase": 7
+    },
+    {
+      "x": 129,
+      "y": 12,
+      "label": 46,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 4600,
+      "qualityBase": 6
+    },
+    {
+      "x": 171,
+      "y": 13,
+      "label": 46,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 5800,
+      "qualityBase": 6
+    },
+    {
+      "x": 213,
+      "y": 45,
+      "label": 7,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 5000,
+      "qualityBase": 6
+    },
+    {
+      "x": 229,
+      "y": 42,
+      "label": 30,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 3200,
+      "qualityBase": 5
+    },
+    {
+      "x": 303,
+      "y": 12,
+      "label": 49,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 3500,
+      "qualityBase": 7
+    },
+    {
+      "x": 217,
+      "y": 4,
+      "label": 48,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 3000,
+      "qualityBase": 8
+    },
+    {
+      "x": 282,
+      "y": 33,
+      "label": 51,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 4600,
+      "qualityBase": 6
+    },
+    {
+      "x": 279,
+      "y": 104,
+      "label": 5,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 2700,
+      "qualityBase": 8
+    },
+    {
+      "x": 304,
+      "y": 109,
+      "label": 5,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 4200,
+      "qualityBase": 8
+    },
+    {
+      "x": 303,
+      "y": 101,
+      "label": 50,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 3000,
+      "qualityBase": 7
+    },
+    {
+      "x": 163,
+      "y": 45,
+      "label": 6,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 2600,
+      "qualityBase": 6
+    },
+    {
+      "x": 200,
+      "y": 40,
+      "label": 10,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 3100,
+      "qualityBase": 8
+    },
+    {
+      "x": 196,
+      "y": 25,
+      "label": 10,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 2700,
+      "qualityBase": 7
+    },
+    {
+      "x": 60,
+      "y": 15,
+      "label": 11,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 4500,
+      "qualityBase": 6
+    },
+    {
+      "x": 217,
+      "y": 4,
+      "label": 19,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 6000,
+      "qualityBase": 6
+    },
+    {
+      "x": 142,
+      "y": 49,
+      "label": 17,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 2400,
+      "qualityBase": 9
+    },
+    {
+      "x": 298,
+      "y": 63,
+      "label": 13,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 3600,
+      "qualityBase": 7
+    },
+    {
+      "x": 220,
+      "y": 87,
+      "label": 35,
+      "unitTypeId": "light_infantry",
+      "troopsBase": 3000,
+      "qualityBase": 6
+    },
+    {
+      "x": 264,
+      "y": 65,
+      "label": 5,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 1600,
+      "qualityBase": 7
+    },
+    {
+      "x": 173,
+      "y": 39,
+      "label": 10,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 1900,
+      "qualityBase": 7
+    },
+    {
+      "x": 145,
+      "y": 94,
+      "label": 15,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 1000,
+      "qualityBase": 6
+    },
+    {
+      "x": 298,
+      "y": 102,
+      "label": 13,
+      "unitTypeId": "heavy_infantry",
+      "troopsBase": 2200,
+      "qualityBase": 8
+    },
+    {
+      "x": 142,
+      "y": 5,
+      "label": 19,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 1500,
+      "qualityBase": 8
+    },
+    {
+      "x": 306,
+      "y": 57,
+      "label": 49,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 2000,
+      "qualityBase": 6
+    },
+    {
+      "x": 279,
+      "y": 50,
+      "label": 51,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 2400,
+      "qualityBase": 6
+    },
+    {
+      "x": 303,
+      "y": 12,
+      "label": 48,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 1600,
+      "qualityBase": 7
+    },
+    {
+      "x": 224,
+      "y": 100,
+      "label": 5,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 1200,
+      "qualityBase": 8
+    },
+    {
+      "x": 162,
+      "y": 54,
+      "label": 17,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 800,
+      "qualityBase": 9
+    },
+    {
+      "x": 138,
+      "y": 97,
+      "label": 15,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 600,
+      "qualityBase": 7
+    },
+    {
+      "x": 18,
+      "y": 87,
+      "label": 4,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 900,
+      "qualityBase": 6
+    },
+    {
+      "x": 287,
+      "y": 77,
+      "label": 5,
+      "unitTypeId": "light_cavalry",
+      "troopsBase": 600,
+      "qualityBase": 8
+    }
+  ],
   "_provenance": {
     "width": "confirmed: WorldPrefix.MapWidth, T30's DAT parse -- 320x140, docs/investigations/dat-file-layout.md.",
     "height": "confirmed: WorldPrefix.MapHeight, T30's DAT parse.",
@@ -8566,6 +10176,7 @@
     "turnOrder": "designed: the DAT's own nation-table order (0..15), used as a default. TPremierForm_NewGame's FUN_00448aa4 shuffles the 16-entry turn order at New Game -- docs/investigations/dat-file-layout.md -- which this export does not reproduce; not DAT-derived play state.",
     "startingRelations": "confirmed: T73's DAT nation-table parse (IC2.Data.SaveNationTable.Parse's Relations field), DAT nation record +0x0B, 16x16 shorts -- decompiled-diplomacy-peace-terms-and-instant-battles.md's 2026-09-24 addition, \"the starting matrix\": symmetric, zero diagonal, 5 wars, 13 trades, 4 alliances, no cooldowns.",
     "startingNews": "confirmed: T73's DAT news-seed parse (IC2.Data.SaveNewsLog.Parse), the DAT's last 2,440 bytes -- news-log-format-and-messages.md §Q1: slots 0-26 are the scripted 272-271 BC history, kept byte-for-byte verbatim (no trim, no re-render), with the newest index set to 26 exactly as FUN_00448AA4 sets it at New Game.",
-    "startingNeighbours": "confirmed: T85's DAT nation-table parse (IC2.Data.NationRecord.NeighbourMask field), DAT nation record +0x2B (IC2.Data.DatLayout.NationNeighbourOffset), 16 words -- dat-neighbour-mask.md §2, \"The mask in the DAT\": symmetric, no self bit, 24 pairs across all 16 rows, matching all 101 local saves. Replaces the geometric derivation NeighbourGeography used before this field existed (dat-neighbour-mask.md §6/§7); that derivation reproduces all 24 of these pairs but adds 6 more (Rome-Greece, Thracia-Bithynia, Thracia-Seleucid, Seleucid-Macedonia, Seleucid-Greece, Ptolemaic-Greece) that this field does not carry."
+    "startingNeighbours": "confirmed: T85's DAT nation-table parse (IC2.Data.NationRecord.NeighbourMask field), DAT nation record +0x2B (IC2.Data.DatLayout.NationNeighbourOffset), 16 words -- dat-neighbour-mask.md §2, \"The mask in the DAT\": symmetric, no self bit, 24 pairs across all 16 rows, matching all 101 local saves. Replaces the geometric derivation NeighbourGeography used before this field existed (dat-neighbour-mask.md §6/§7); that derivation reproduces all 24 of these pairs but adds 6 more (Rome-Greece, Thracia-Bithynia, Thracia-Seleucid, Seleucid-Macedonia, Seleucid-Greece, Ptolemaic-Greece) that this field does not carry.",
+    "mercenaryTemplates": "confirmed: T56's read of the DAT's fixed mercenary template table (decompiled-new-game-mercenary-fill.md §4): 201 records of six signed 16-bit little-endian words at DAT 0x1FCD6 (the first 201 of the 251-record block the loader reads into 0x0049D0A4; records 201-250 are the 50 live pool slots, checked here to ship as the empty (0,0,0,0,-1,0)), in DAT order and keyed by index -- four (x, y, Label, type) keys appear twice, and template 200 (Vologesias, light cavalry) is data the restock's Random(200) draw never selects but is carried anyway so the indices match. Every (x, y) is checked to be a city tile. The 52 Label names the Label field indexes live at DAT 0x1F8C6, 20-byte NUL-terminated: 0=Regular; 1=Numidian; 2=Greek; 3=Celtiberian; 4=Moor; 5=Persian; 6=Mysian; 7=Cilician; 8=Thracian; 9=Elymaian; 10=Galatian; 11=Gallic; 12=Cretan; 13=Bactrian; 14=Kappadockian; 15=Libyan; 16=Arab; 17=Thessalian; 18=Paionian; 19=Scythian; 20=Sarmatian; 21=Ligurian; 22=Balearic; 23=Median; 24=Tarantine; 25=Pergamene; 26=Gaesatai; 27=Nubian; 28=Asturian; 29=Boeotian; 30=Kardackian; 31=Sakan; 32=Rhodian; 33=Gastulian; 34=Insubre; 35=Egyptian; 36=Vascone; 37=Etruscan; 38=Samnite; 39=Syracusan; 40=Boii; 41=Spanish; 42=African; 43=Aetolian; 44=Illyrian; 45=Cenomani; 46=Getai; 47=Agriane; 48=Rhoxolani; 49=Dahai; 50=Kyrtii; 51=Cossaei. The names are recorded here rather than as world data: Label round-trips as a number, and this model deliberately carries no display string for it."
   }
 }
