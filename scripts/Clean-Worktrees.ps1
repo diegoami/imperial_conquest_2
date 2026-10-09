@@ -22,8 +22,11 @@
           -- plus .opencode/, assets.local.ini and rendered/ matched only as the FIRST path
           -- component, i.e. at the tree root (src/rendered/x and docs/.opencode/y are work);
           -- the run's ignored diagnostics under a ROOT rendered/ are disposable once (c) holds
-          -- (the user's decision of 2026-10-09, plan PR #894); uncommitted tracked changes and
-          -- untracked files elsewhere still keep the tree;
+          -- (the user's decision of 2026-10-09, plan PR #894); every such exemption reaches only
+          -- an IGNORED (`!!`) entry: a tracked modification, a staged change, a deletion or an
+          -- untracked (`??`) entry at one of those paths is work and keeps the tree (rework
+          -- round 2, R1); uncommitted tracked changes and untracked files elsewhere still keep
+          -- the tree;
       (b) no commit on it is absent from origin (its HEAD is contained in a remote-tracking ref;
           local knowledge only, no fetch happens here, so a stale fetch errs towards "not safe");
       (c) its branch's PR is merged or closed, or -- for a detached review tree -- the PR it
@@ -54,12 +57,15 @@
     Offline checks (no network, no real gh, no real ic2-work): temporary git repos under the TEMP
     folder build one worktree in each state the rules describe (clean and merged; dirty; ignored
     files under a root rendered/ only, both merged and with an open PR; a root .opencode/ only; a
-    root assets.local.ini only; nested x/rendered/ and x/.opencode/ that still count as work; an
-    unpushed commit; a detached review tree of an open PR, old; a detached review tree of a merged
-    PR; a branch with a closed PR listed before an open one), and the list and -Apply are shown to
-    treat each as the rules say. It also covers nested build output at src/IC2.Engine/bin/,
-    godot/.godot/ and so on (R2), and that a path still present after `git worktree remove` is
-    reported and left in place (R4). gh is stubbed in-process; nothing is billed.
+    root assets.local.ini only; nested x/rendered/ and x/.opencode/ that still count as work; a
+    tracked edit under a root .opencode/ and a nested bin/; an untracked rendered/ entry when that
+    tree's .gitignore does not ignore it; an unpushed commit; a detached review tree of an open PR,
+    old; a detached review tree of a merged PR; a branch with a closed PR listed before an open one),
+    and the list and -Apply are shown to treat each as the rules say. It also covers nested build
+    output at src/IC2.Engine/bin/, godot/.godot/ and so on (R2), the -Force containment boundary
+    (R2: a sibling <root>-other, a child and the root itself), and that a path still present after
+    `git worktree remove` is reported and left in place (R4). gh is stubbed in-process; nothing is
+    billed.
 
 .EXAMPLE
     pwsh scripts/Clean-Worktrees.ps1
@@ -143,6 +149,23 @@ function Format-Size([long] $Bytes) {
     return ('{0:N0} kB' -f ($Bytes / 1KB))
 }
 
+function Test-StrictlyUnderRoot([string] $RootFull, [string] $TargetFull) {
+    # R2 (-Force containment): the target must lie STRICTLY under the root. The root itself is
+    # refused, and so is a sibling whose name only starts with the root's (ic2-work-other for root
+    # ic2-work): the comparison is against the root plus a path separator, so a directory boundary
+    # is required. Both paths are canonical full paths ([System.IO.Path]::GetFullPath) with trailing
+    # separators trimmed. Windows path comparison is case-insensitive; other platforms are not.
+    if (-not $RootFull -or -not $TargetFull) { return $false }
+    $sep = [System.IO.Path]::DirectorySeparatorChar
+    $alt = [System.IO.Path]::AltDirectorySeparatorChar
+    $root = $RootFull.TrimEnd([char[]]@($sep, $alt))
+    $target = $TargetFull.TrimEnd([char[]]@($sep, $alt))
+    if (-not $root -or -not $target) { return $false }
+    $cmp = if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT) { [System.StringComparison]::OrdinalIgnoreCase } else { [System.StringComparison]::Ordinal }
+    if ($target.Equals($root, $cmp)) { return $false }
+    return $target.StartsWith($root + $sep, $cmp)
+}
+
 function Get-WorktreeNoise([string] $Path) {
     # Rule (a), as amended by the user's decision of 2026-10-09 (plan PR #894): the
     # `git status --porcelain --ignored` entries that are NOT allowed noise.
@@ -150,6 +173,10 @@ function Get-WorktreeNoise([string] $Path) {
     #     src/IC2.Engine/bin/ and godot/.godot/ are noise), never as substrings of a component.
     #   - .opencode/, assets.local.ini and rendered/ are noise ONLY as the FIRST path component,
     #     i.e. at the tree ROOT (so src/rendered/x and docs/.opencode/y still count as work).
+    # EVERY path exemption reaches only an IGNORED (`!!`) entry (R1): the two-character status is
+    # read first, and a tracked modification, a staged change, a deletion or an untracked (`??`)
+    # entry at an exempt path is still work and keeps the tree. `.opencode/` in .gitignore does not
+    # make an uncommitted edit to a tracked file under it disposable.
     # Rule (a) does not judge by PR state -- (c) does -- so anything under a root rendered/ is
     # not work here: once the tree's PR is merged or closed, the run's ignored diagnostics there
     # are disposable (a root rendered/ whose PR is still open is kept by (c), not by (a)).
@@ -162,10 +189,14 @@ function Get-WorktreeNoise([string] $Path) {
     try { $lines = @(git -C $Path status --porcelain --ignored 2>$null) } catch { $lines = @() }
     foreach ($l in $lines) {
         if (-not $l -or $l.Length -lt 4) { continue }
+        # R1: the two-character status BEFORE any path exemption. Only `!!` (ignored) entries may
+        # be exempted by path; everything else is work.
+        $status = $l.Substring(0, 2)
         $body = $l.Substring(3)
         foreach ($side in @($body -split ' -> ')) {
             $p = $side.Trim().Trim('"')
             if (-not $p) { continue }
+            if ($status -ne '!!') { $bad += $p; continue }
             $parts = @($p -split '[\\/]' | Where-Object { $_ })
             $noise = $false
             foreach ($part in $parts) {
@@ -431,6 +462,34 @@ function Invoke-CleanWorktreesSelfTest {
         git -C (Join-Path $root 't10-nested') push -q -u origin task/t10
         & $ageTree (Join-Path $root 't10-nested') 30
 
+        # 12 (rework round 2, R1): a TRACKED modification at an exempt path is work, not noise.
+        # The files live under a root .opencode/ and a nested bin/, both git-ignored, so they are
+        # force-added and committed; the tree then has an unstaged ` M` edit to each. The path
+        # exemption must reach only `!!` entries, so both edits keep the tree.
+        git -C $main worktree add -q (Join-Path $root 't12-tracked-exempt') -b task/t12
+        New-Item -ItemType Directory -Force -Path (Join-Path $root 't12-tracked-exempt\.opencode\agents'), (Join-Path $root 't12-tracked-exempt\src\IC2.Engine\bin') | Out-Null
+        Set-Content -LiteralPath (Join-Path $root 't12-tracked-exempt\.opencode\agents\external-reviewer.md') -Value '# reviewer' -Encoding utf8
+        Set-Content -LiteralPath (Join-Path $root 't12-tracked-exempt\src\IC2.Engine\bin\tracked.dll') -Value 'binary' -Encoding utf8
+        git -C (Join-Path $root 't12-tracked-exempt') add -f -A
+        git -C (Join-Path $root 't12-tracked-exempt') commit -q -m t12
+        git -C (Join-Path $root 't12-tracked-exempt') push -q -u origin task/t12
+        Add-Content -LiteralPath (Join-Path $root 't12-tracked-exempt\.opencode\agents\external-reviewer.md') -Value 'uncommitted edit'
+        Add-Content -LiteralPath (Join-Path $root 't12-tracked-exempt\src\IC2.Engine\bin\tracked.dll') -Value 'uncommitted edit'
+        & $ageTree (Join-Path $root 't12-tracked-exempt') 30
+
+        # 13 (rework round 2, R1): an UNTRACKED (`??`) entry under a root rendered/ is work when
+        # rendered/ is not ignored for that tree. The branch drops the `rendered/` ignore line, so
+        # the diagnostics file is untracked, not ignored; only an `!!` entry may be exempted.
+        git -C $main worktree add -q (Join-Path $root 't13-rendered-untracked') -b task/t13
+        $gi = Join-Path $root 't13-rendered-untracked\.gitignore'
+        @(Get-Content -LiteralPath $gi) | Where-Object { $_.Trim() -ne 'rendered/' } | Set-Content -LiteralPath $gi -Encoding utf8
+        git -C (Join-Path $root 't13-rendered-untracked') add -A
+        git -C (Join-Path $root 't13-rendered-untracked') commit -q -m t13
+        git -C (Join-Path $root 't13-rendered-untracked') push -q -u origin task/t13
+        New-Item -ItemType Directory -Force -Path (Join-Path $root 't13-rendered-untracked\rendered') | Out-Null
+        Set-Content -LiteralPath (Join-Path $root 't13-rendered-untracked\rendered\x.txt') -Value 'work' -Encoding utf8
+        & $ageTree (Join-Path $root 't13-rendered-untracked') 30
+
         # 11 (amended 3(a), plan PR #894): a root rendered/ only, but its PR is OPEN. (a) is
         # satisfied (root rendered/ is not work); (c) is not, so the open PR is the ONLY reason.
         git -C $main worktree add -q (Join-Path $root 't3b-rendered-open') -b task/t3b
@@ -458,6 +517,8 @@ function Invoke-CleanWorktreesSelfTest {
             'task/t8' = 'MERGED'
             'task/t9' = 'MERGED'
             'task/t10' = 'MERGED'
+            'task/t12' = 'MERGED'
+            'task/t13' = 'MERGED'
         }
         $script:PrStates = @{ '777' = 'OPEN'; '888' = 'MERGED' }
         $script:Gh = {
@@ -484,8 +545,8 @@ function Invoke-CleanWorktreesSelfTest {
         $lines = @($entries | ForEach-Object { Format-WorktreeLine $_ })
         $lines | ForEach-Object { Write-Host $_ }
         $listText = $lines -join "`n"
-        Add 'list: eleven worktrees are listed, one line each' ($entries.Count -eq 11 -and $lines.Count -eq 11)
-        Add 'list: every line names the path, the branch or detached HEAD, the age, the PR and safety' (@($lines | Where-Object { $_ -match ' \| ' }).Count -eq 11)
+        Add 'list: thirteen worktrees are listed, one line each' ($entries.Count -eq 13 -and $lines.Count -eq 13)
+        Add 'list: every line names the path, the branch or detached HEAD, the age, the PR and safety' (@($lines | Where-Object { $_ -match ' \| ' }).Count -eq 13)
         $t1 = $entries | Where-Object { $_.Path -like '*t1-merged' }
         Add 'clean and merged, recent: SAFE' ($t1.Safe -and $t1.PrState -eq 'MERGED' -and $t1.AgeDays -lt 7)
         Add 'R2: nested build output (src/.../bin, src/.../obj, godot/.godot, src/.vs) is noise, not work' ((Get-WorktreeNoise (Join-Path $root 't1-merged')).Count -eq 0)
@@ -502,6 +563,12 @@ function Invoke-CleanWorktreesSelfTest {
         $t10 = $entries | Where-Object { $_.Path -like '*t10-nested' }
         $t10Noise = @(Get-WorktreeNoise (Join-Path $root 't10-nested'))
         Add 'amended 3(a): a nested x/rendered/ or x/.opencode/ still counts as work; the root allowances do not reach it' (-not $t10.Safe -and $t10Noise.Count -ge 1 -and (@($t10Noise | Where-Object { $_ -notmatch '^src[\\/]' }).Count -eq 0))
+        $t12 = $entries | Where-Object { $_.Path -like '*t12-tracked-exempt' }
+        $t12Noise = @(Get-WorktreeNoise (Join-Path $root 't12-tracked-exempt'))
+        Add 'R1: a TRACKED modification under a root .opencode/ (and under a nested bin/) is work, not noise' ((-not $t12.Safe) -and ($t12Noise -contains '.opencode/agents/external-reviewer.md') -and (@($t12Noise | Where-Object { $_ -match 'bin/tracked\.dll$' }).Count -eq 1))
+        $t13 = $entries | Where-Object { $_.Path -like '*t13-rendered-untracked' }
+        $t13Noise = @(Get-WorktreeNoise (Join-Path $root 't13-rendered-untracked'))
+        Add 'R1: an UNTRACKED (??) entry under a root rendered/ is work when rendered/ is not ignored' ((-not $t13.Safe) -and (@($t13Noise | Where-Object { $_ -match '^rendered' }).Count -ge 1))
         $t4 = $entries | Where-Object { $_.Path -like '*t4-unpushed' }
         Add 'an unpushed commit: NOT safe (commits absent from origin)' (-not $t4.Safe -and (($t4.Reasons -join '; ') -match 'absent from origin'))
         $t5 = $entries | Where-Object { $_.Path -like '*777-review-luna*' }
@@ -522,24 +589,29 @@ function Invoke-CleanWorktreesSelfTest {
         Add 'apply: the merged review tree is gone' (-not (Test-Path (Join-Path $root '888-review-sol-20260101-000000')))
         Add 'apply: the amended-3(a) root-noise trees are gone (rendered/, .opencode/, assets.local.ini)' (((@('t3-rendered', 't8-opencode', 't9-assets') | Where-Object { Test-Path (Join-Path $root $_) }).Count) -eq 0)
         Add 'apply: `git worktree list` no longer names the removed tree (remove then prune)' (@((git -C $main worktree list --porcelain) -like '*888-review-sol*').Count -eq 0)
-        Add 'apply: every other tree is kept' (((@('t1-merged', 't2-dirty', 't4-unpushed', '777-review-luna-20260101-000000', 't7-closed-then-open', 't10-nested', 't3b-rendered-open') | Where-Object { -not (Test-Path (Join-Path $root $_)) }).Count) -eq 0)
+        Add 'apply: every other tree is kept' (((@('t1-merged', 't2-dirty', 't4-unpushed', '777-review-luna-20260101-000000', 't7-closed-then-open', 't10-nested', 't3b-rendered-open', 't12-tracked-exempt', 't13-rendered-untracked') | Where-Object { -not (Test-Path (Join-Path $root $_)) }).Count) -eq 0)
         $summary = '{0} worktrees, {1} safe to remove, {2} removed' -f $entries.Count, $candidates.Count, $removedCount
         Write-Host $summary
-        Add 'summary: "N worktrees, S safe to remove, R removed"' ($summary -eq '11 worktrees, 4 safe to remove, 4 removed')
+        Add 'summary: "N worktrees, S safe to remove, R removed"' ($summary -eq '13 worktrees, 4 safe to remove, 4 removed')
 
         # --- -Force: one named tree, whatever its state ---
         $target = Join-Path $root 't2-dirty'
         Write-Host "force: $(Format-WorktreeLine $t2)"
         $forced = Remove-Worktree $target -ForceRemove
         Add 'force: a dirty tree is removed when named' ($forced -and -not (Test-Path $target))
-        # A path outside the root is refused.
-        $outsideOk = $false
-        try {
-            $resolved = (Resolve-Path -LiteralPath (Join-Path $temp 'origin.git')).Path
-            $rootFull = (Resolve-Path -LiteralPath $root).Path
-            $outsideOk = -not $resolved.StartsWith($rootFull, [System.StringComparison]::OrdinalIgnoreCase)
-        } catch { $outsideOk = $false }
-        Add 'force: a path outside the root is recognised and would be refused' ($outsideOk)
+        # --- -Force containment (R2): the check the -Force main path calls, with a boundary ---
+        $rootFull = [System.IO.Path]::GetFullPath($root)
+        # A sibling whose name only starts with the root (ic2-work-other) is NOT under it.
+        $sibling = [System.IO.Path]::GetFullPath((Join-Path $temp 'ic2-work-other\x'))
+        Add 'R2 force: a sibling <root>-other is refused (no prefix without a directory boundary)' (-not (Test-StrictlyUnderRoot -RootFull $rootFull -TargetFull $sibling))
+        # A child path is accepted.
+        $child = [System.IO.Path]::GetFullPath((Join-Path $root 'x'))
+        Add 'R2 force: a child <root>\x is accepted' (Test-StrictlyUnderRoot -RootFull $rootFull -TargetFull $child)
+        # The root itself is refused (equal, not strictly under).
+        Add 'R2 force: the root itself is refused' (-not (Test-StrictlyUnderRoot -RootFull $rootFull -TargetFull $rootFull))
+        # A path outside the root altogether is refused too.
+        $outside = [System.IO.Path]::GetFullPath((Join-Path $temp 'origin.git'))
+        Add 'force: a path outside the root is refused' (-not (Test-StrictlyUnderRoot -RootFull $rootFull -TargetFull $outside))
 
         # --- R4: a remainder after `git worktree remove` is reported and left, never deleted ---
         $leftover = Join-Path $root 'leftover-after-remove'
@@ -586,11 +658,14 @@ $candidates = @($entries | Where-Object { $_.Safe -and $_.AgeDays -gt $OlderThan
 $removed = 0
 
 if ($Force) {
-    $rootFull = (Resolve-Path -LiteralPath $Root).Path
+    $rootFull = [System.IO.Path]::GetFullPath($Root)
+    if (-not (Test-Path -LiteralPath $Force)) { [Console]::Error.WriteLine("-Force: no such path: $Force"); exit 1 }
     $target = $null
-    try { $target = (Resolve-Path -LiteralPath $Force).Path } catch { $target = $null }
+    try { $target = [System.IO.Path]::GetFullPath($Force) } catch { $target = $null }
     if (-not $target) { [Console]::Error.WriteLine("-Force: no such path: $Force"); exit 1 }
-    if (-not $target.StartsWith($rootFull, [System.StringComparison]::OrdinalIgnoreCase)) {
+    # R2: strictly under the root. StartsWith($rootFull) alone accepted a sibling like
+    # <root>-other; Test-StrictlyUnderRoot requires the root plus a path separator.
+    if (-not (Test-StrictlyUnderRoot -RootFull $rootFull -TargetFull $target)) {
         [Console]::Error.WriteLine("refusing: $target is not under $rootFull; this script never removes anything outside its root.")
         exit 1
     }
