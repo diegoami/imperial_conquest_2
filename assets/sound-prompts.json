@@ -3,12 +3,14 @@
     {
       "key": "sfx.unit_move",
       "prompt": "single crisp wooden footstep on hard ground, sharp clear mid-frequency tick, dry, no reverb, 0.05 seconds",
-      "durationSeconds": 0.5
+      "durationSeconds": 0.5,
+      "tickTrimSeconds": 0.06
     },
     {
       "key": "sfx.fleet_move",
       "prompt": "one oar stroke: creaking wood and a bright splash against a hull, clear mid tones, 0.2 seconds",
-      "durationSeconds": 0.5
+      "durationSeconds": 0.5,
+      "tickTrimSeconds": 0.06
     },
     {
       "key": "sfx.battle_arrows",

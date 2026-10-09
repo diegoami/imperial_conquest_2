@@ -26,10 +26,16 @@ Generate every sfx.* key (forwards "--all").
 .PARAMETER SelfCheck
 Run the offline conversion self-test (forwards "--self-check").
 
-.PARAMETER PythonExe
-Optional override of the python executable. Defaults to the first python on PATH, then
-py.exe, then python3. The check for the existence of urllib.request is the standard library,
-so any modern Python 3 will run the .py without an install step.
+.PARAMETER PostprocessOnly
+Re-postprocess one key offline from the kept raw response or the committed WAV (forwards
+"--postprocess-only <value>"); makes no API call and spends no credit.
+
+ .PARAMETER PythonExe
+ Optional override of the python executable. Defaults to the first python on PATH, then
+ py.exe, then python3. The dry run, the headerless-PCM/WAV conversion and the self-test use
+ only the standard library, so any modern Python 3 runs them without an install step; if the
+ API returns an MP3 instead, the .py stops and names the packages it needs (numpy and
+ soundfile) rather than silently requiring them.
 #>
 
 [CmdletBinding()]
@@ -37,6 +43,7 @@ param(
     [string]$Key,
     [switch]$All,
     [switch]$SelfCheck,
+    [string]$PostprocessOnly,
     [string]$PythonExe
 )
 
@@ -77,6 +84,9 @@ if ($All) {
 }
 if ($SelfCheck) {
     $forwarded += "--self-check"
+}
+if ($PostprocessOnly) {
+    $forwarded += @("--postprocess-only", $PostprocessOnly)
 }
 
 & $PythonExe $pythonScript @forwarded

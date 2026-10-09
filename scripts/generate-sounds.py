@@ -73,6 +73,13 @@ PEAK_DBFS_FLOOR = -30.0
 RMS_DBFS_TARGET = -18.0
 PEAK_DBFS_CEILING = -1.0
 HIGHPASS_HZ = 120.0
+# T149 rework round 2 (the user's decision on PR #886 R1/R2, 2026-10-09): the two step keys
+# ship as a short tick of about 60 ms, so a 70 ms step gap plays every step in full with
+# nothing ever restarted. The API's own 0.5 s floor means the tick is cut in post: the
+# generated sound is trimmed to its most energetic ~60 ms (onset search, keep 60 ms, ~10 ms
+# linear fade-out), then high-passed and RMS-normalised as before.
+TICK_TRIM_SECONDS = 0.06
+TICK_FADE_SECONDS = 0.01
 # Band edges for the band-energy log the pipeline prints per file (U1): below 120 Hz is the
 # inaudible-on-laptops band, above 300 Hz is the band small drivers reproduce well.
 AUDIBILITY_BAND_HZ = 300.0
@@ -266,36 +273,54 @@ def convert_to_wav(raw_audio: bytes) -> bytes:
 
     The result is handed to :func:`normalise_wav` for the trim, the high-pass and the RMS
     normalisation, so every path into the pack goes through the same envelope.
-    """
-    import numpy
-    import soundfile
 
+    Sol's review of PR #886 (R3): ``numpy`` and ``soundfile`` are imported lazily, only on
+    the MP3 fallback path. The normal paths — a WAV container or the documented headerless
+    PCM — need only the standard library (``struct`` + ``wave``), so any modern Python 3 runs
+    them without an install step. On the fallback a missing package stops with a message
+    naming it.
+    """
     if raw_audio[:4] == b"RIFF" and raw_audio[8:12] == b"WAVE":
         return normalise_wav(raw_audio)
 
     if raw_audio[:3] == b"ID3" or (len(raw_audio) >= 2 and raw_audio[0] == 0xFF and (raw_audio[1] & 0xE0) == 0xE0):
+        # MP3 fallback: the only path that needs third-party packages. Import lazily and
+        # name the missing one rather than dying with an ImportError traceback.
+        try:
+            import numpy
+            import soundfile
+        except ImportError as exc:
+            raise SystemExit(
+                f"the API returned an MP3, whose decode needs the '{exc.name}' package; "
+                "pip install numpy soundfile and run again. The standard-library PCM path "
+                "needs neither. No output was written."
+            ) from exc
         data, source_rate = soundfile.read(io.BytesIO(raw_audio), dtype="float64", always_2d=True)
-        mono = data.mean(axis=1)
-    else:
-        # Headerless mono 16-bit LE PCM at 44.1 kHz -- what output_format=pcm_44100 returns.
-        values = struct.unpack(f"<{len(raw_audio) // 2}h", raw_audio[: (len(raw_audio) // 2) * 2])
-        data = numpy.array(values, dtype="float64").reshape(-1, 1)
-        mono = data.mean(axis=1)
-        source_rate = TARGET_SAMPLE_RATE
+        mono = [float(v) for v in data.mean(axis=1)]
+        if source_rate != TARGET_SAMPLE_RATE:
+            target_length = int(round(len(mono) * TARGET_SAMPLE_RATE / source_rate))
+            positions = numpy.linspace(0.0, len(mono) - 1, target_length)
+            mono = [float(v) for v in numpy.interp(positions, numpy.arange(len(mono)), mono)]
+        buffer = io.BytesIO()
+        soundfile.write(
+            buffer,
+            numpy.array(mono, dtype="float64"),
+            TARGET_SAMPLE_RATE,
+            subtype="PCM_16",
+            format="WAV",
+        )
+        return normalise_wav(buffer.getvalue())
 
-    if source_rate != TARGET_SAMPLE_RATE:
-        target_length = int(round(len(mono) * TARGET_SAMPLE_RATE / source_rate))
-        positions = numpy.linspace(0.0, len(mono) - 1, target_length)
-        mono = numpy.interp(positions, numpy.arange(len(mono)), mono)
-
+    # Headerless mono 16-bit LE PCM at 44.1 kHz -- what output_format=pcm_44100 returns.
+    # Standard library only: unpack, wrap in a WAV container, let normalise_wav do the rest.
+    count = len(raw_audio) // 2
+    samples = struct.unpack(f"<{count}h", raw_audio[: count * 2])
     buffer = io.BytesIO()
-    soundfile.write(
-        buffer,
-        mono,
-        TARGET_SAMPLE_RATE,
-        subtype="PCM_16",
-        format="WAV",
-    )
+    with wave.open(buffer, "wb") as handle:
+        handle.setnchannels(TARGET_CHANNELS)
+        handle.setsampwidth(TARGET_SAMPLE_WIDTH)
+        handle.setframerate(TARGET_SAMPLE_RATE)
+        handle.writeframes(struct.pack(f"<{count}h", *samples))
     return normalise_wav(buffer.getvalue())
 
 
@@ -423,6 +448,60 @@ def normalise_wav(wav_bytes: bytes) -> bytes:
     return buffer.getvalue()
 
 
+def tick_trim_wav(wav_bytes: bytes, trim_seconds: float, fade_seconds: float) -> bytes:
+    """Trim a WAV to its most energetic onset window: find the onset, keep ``trim_seconds``,
+    apply a linear fade-out over the last ``fade_seconds``.
+
+    The user's decision on PR #886 R1/R2 (2026-10-09): the step keys ship as a ~60 ms tick
+    because a 70 ms step gap must let every step play in full — the shipped 0.96 s
+    unit_move.wav was restarted by every 70 ms timer tick, cutting each clip off. The onset
+    search takes the first sample at or above 10% of the file's peak (the "most energetic"
+    part of a one-shot effect starts there, not in the pre-onset breath the API often pads
+    with), keeps the next ``trim_seconds``, and fades the tail so the cut is click-free.
+    """
+    with wave.open(io.BytesIO(wav_bytes), "rb") as handle:
+        channels = handle.getnchannels()
+        sample_width = handle.getsampwidth()
+        frame_rate = handle.getframerate()
+        frames = handle.readframes(handle.getnframes())
+
+    if channels != TARGET_CHANNELS or sample_width != TARGET_SAMPLE_WIDTH or frame_rate != TARGET_SAMPLE_RATE:
+        raise SystemExit(
+            f"tick trim expects a mono 16-bit {TARGET_SAMPLE_RATE} Hz WAV; got {channels} ch, "
+            f"{sample_width * 8}-bit, {frame_rate} Hz."
+        )
+
+    samples = list(struct.unpack(f"<{len(frames) // sample_width}h", frames))
+    if not samples:
+        raise SystemExit("tick trim: WAV has no samples.")
+    peak = max(abs(s) for s in samples)
+    if peak == 0:
+        raise SystemExit("tick trim: WAV is silent.")
+
+    threshold = max(1, int(peak * 0.10))
+    onset = 0
+    for index, sample in enumerate(samples):
+        if abs(sample) >= threshold:
+            onset = index
+            break
+
+    trim_count = int(round(trim_seconds * TARGET_SAMPLE_RATE))
+    fade_count = min(int(round(fade_seconds * TARGET_SAMPLE_RATE)), trim_count)
+    kept = samples[onset : onset + trim_count]
+    if len(kept) < trim_count:
+        kept = kept + [0] * (trim_count - len(kept))
+    for index in range(len(kept) - fade_count, len(kept)):
+        kept[index] = int(round(kept[index] * (len(kept) - 1 - index) / max(1, fade_count - 1)))
+
+    buffer = io.BytesIO()
+    with wave.open(buffer, "wb") as handle:
+        handle.setnchannels(TARGET_CHANNELS)
+        handle.setsampwidth(TARGET_SAMPLE_WIDTH)
+        handle.setframerate(TARGET_SAMPLE_RATE)
+        handle.writeframes(struct.pack(f"<{len(kept)}h", *kept))
+    return buffer.getvalue()
+
+
 def write_wav(target: Path, wav_bytes: bytes) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(wav_bytes)
@@ -514,6 +593,12 @@ def main(argv: list[str]) -> int:
         description="Generate sfx.* WAVs through ElevenLabs' sound-effects API."
     )
     parser.add_argument("--key", help="the single sfx.* key to generate (default: dry run).")
+    parser.add_argument(
+        "--postprocess-only",
+        help="re-postprocess one key offline: re-read the kept raw response under rendered/ "
+        "(or the committed WAV when no raw was kept), apply the tick trim and the normalise "
+        "pipeline, and rewrite the pack file. Makes NO API call, spends no credit.",
+    )
     parser.add_argument("--all", action="store_true", help="generate every sfx.* key.")
     parser.add_argument(
         "--self-check",
@@ -526,6 +611,10 @@ def main(argv: list[str]) -> int:
         return self_check()
 
     prompts = load_prompts()
+
+    if args.postprocess_only:
+        return postprocess_only(args.postprocess_only, prompts)
+
     if not (args.key or args.all):
         print_dry_run(prompts)
         return 0
@@ -554,9 +643,58 @@ def main(argv: list[str]) -> int:
         scratch.mkdir(parents=True, exist_ok=True)
         (scratch / f"{key.removeprefix('sfx.')}.raw").write_bytes(raw)
         wav = convert_to_wav(raw)
+        wav = apply_tick_trim(wav, entry)
         target = AUTHORED_PACK / (key.removeprefix("sfx.") + ".wav")
         write_wav(target, wav)
         print(f"  wrote {target}", file=sys.stderr)
+    return 0
+
+
+def apply_tick_trim(wav_bytes: bytes, entry: dict) -> bytes:
+    """Apply the entry's optional ``tickTrimSeconds``: trim to the onset window, then run the
+    normalise pipeline again so the tick is high-passed and RMS-normalised like every other
+    file (the user's decision on PR #886 R1/R2). Entries without the field pass through."""
+    trim = entry.get("tickTrimSeconds")
+    if not trim:
+        return wav_bytes
+    trimmed = tick_trim_wav(wav_bytes, float(trim), TICK_FADE_SECONDS)
+    return normalise_wav(trimmed)
+
+
+def postprocess_only(key: str, prompts: list[dict]) -> int:
+    """Re-postprocess one key offline (the user's decision on PR #886 R1/R2, 2026-10-09).
+
+    Re-reads the kept raw response under ``rendered/`` (written before conversion by the real
+    run, so a conversion change costs no credit); when no raw was kept, the committed WAV is
+    the input. Applies the entry's tick trim and the normalise pipeline, rewrites the pack
+    file. Makes NO API call either way.
+    """
+    if not key.startswith("sfx."):
+        raise SystemExit(f"--postprocess-only must be a 'sfx.*' asset key; got '{key}'.")
+    selected = [entry for entry in prompts if entry["key"] == key]
+    if not selected:
+        available = ", ".join(entry["key"] for entry in prompts)
+        raise SystemExit(f"unknown key '{key}'. Available: {available}")
+    entry = selected[0]
+
+    stem = key.removeprefix("sfx.")
+    raw_path = REPO_ROOT / "rendered" / f"{stem}.raw"
+    committed = AUTHORED_PACK / f"{stem}.wav"
+    if raw_path.is_file():
+        source_bytes = raw_path.read_bytes()
+        wav = convert_to_wav(source_bytes)
+        origin = f"kept raw response {raw_path}"
+    elif committed.is_file():
+        wav = normalise_wav(committed.read_bytes())
+        origin = f"committed WAV {committed}"
+    else:
+        raise SystemExit(
+            f"no raw response at {raw_path} and no committed WAV at {committed}; "
+            "nothing to post-process."
+        )
+    wav = apply_tick_trim(wav, entry)
+    write_wav(committed, wav)
+    print(f"postprocess-only: {key} rewritten from the {origin} (no API call).", file=sys.stderr)
     return 0
 
 
