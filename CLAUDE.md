@@ -124,7 +124,7 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
     `Bad Request` in long agent loops.
 
 20. **Use the providers' pricing windows deliberately, not by chance** (the owner's decision of
-    2026-10-06). Alibaba runs only when the user asks (rule 17); when they do, for a Qwen or DeepSeek
+    2026-10-06). Alibaba runs only when the user asks (rule 17); when they do, for a Qwen
     route (`ali-qwen-*`; `-Route alibaba` or a `qwen*` model), read
     `curl -s localhost:8765/quota/alibaba | jq .pricing`: when `discount_now` is false, prefer
     another entry for a long run, or start it after `next_change_at`. Alibaba's GLM (`ali-glm`) has

@@ -138,7 +138,7 @@ Models are chosen per task, in the task's entry, by what an error would cost:
    | Only Sol is unavailable | GLM-5.3 (`-Reviewer glm`), then MiMo v2.6 Pro (`-Reviewer mimo-pro`, `opencode-go/mimo-v2.6-pro`), then Qwen3.8 Max (`-Reviewer qwen`), with the reason in its header | Luna, as usual |
    | The OpenAI account is out of quota | GLM-5.3, then MiMo v2.6 Pro, then Qwen3.8 Max | GLM-5.3, then MiMo v2.6 Pro, then Qwen3.8 Max |
    | The implementer is GLM | MiMo v2.6 Pro, then Qwen3.8 Max | the same, when OpenAI is out of quota |
-   | The implementer is DeepSeek (the default `deepseek-flash`) | GLM-5.3, then Qwen3.8 Max | the same, when OpenAI is out of quota |
+   | The implementer is MiMo (`mimo-pro`, `mimo-flash`) | GLM-5.3, then Qwen3.8 Max | the same, when OpenAI is out of quota |
    | The implementer is Qwen (`qwen-flash`) | GLM-5.3, then MiMo v2.6 Pro | the same, when OpenAI is out of quota |
 
    **Which substitute goes first** (the user's decision of 2026-10-08, CLAUDE.md rule 17): the table says *who* may substitute. The order among them is quota-tracker's `/recommend?tier=light` ranking, a skipped or negative-scoring one last, instead of the fixed order above. Since [T152](tasks/T152.md), `Choose-Model.ps1 -Role reviewer -ExcludeModel <implementer>` prints them in that order.
@@ -853,7 +853,7 @@ the docs item applies only if the review named a claim.
    (plus any review URLs from an earlier attempt). Then, by the entry's model (§3.3: Sonnet reads
    as the default, and so do a non-architecture Opus and a High-effort entry; a fix or a Low-effort task
    is the default too):
-   - an OpenCode model (luna, glm-flash, deepseek-flash, glm, qwen-flash, mimo-pro, mimo-flash): write the brief to a file and run
+   - an OpenCode model (luna, glm-flash, glm, qwen-flash, mimo-pro, mimo-flash, mm-m3): write the brief to a file and run
      `pwsh scripts/external-implement.ps1 -Task T<nn> -Slug <slug> -Issue <n> -Model <alias>
      -BriefFile <file>` (`-Fix <issue>` for a fix; `-LocalOnly` where the label says), the alias taken
      from quota-tracker's `/recommend?tier=heavy` with CLAUDE.md rule 17's exclusions (the user's
@@ -890,16 +890,16 @@ the docs item applies only if the review named a claim.
       whatever Jev says. A failed Jev call blocks nothing: decide by the criteria. Record the tier,
       Jev's answer and probability, and any override in one PR comment.
    c. WHO IMPLEMENTED, AND PROBES. IMPL is the name on external-implement.ps1's "implemented by:"
-      line (deepseek-flash, glm, luna, ...), or sonnet or opus when Claude implemented (the Sonnet
+      line (mm-m3, glm, mimo-pro, luna, ...), or sonnet or opus when Claude implemented (the Sonnet
       fallback, or Opus on an architecture task). Families: OpenAI = luna, sol; GLM = glm,
-      glm-flash; DeepSeek = deepseek, mimo-pro, deepseek-flash; Qwen = qwen, qwen-flash;
+      glm-flash; MiMo = mimo-pro, mimo-flash; Qwen = qwen, qwen-flash;
       Claude = sonnet, opus. A route (-Route go|zai|alibaba) never changes a family. Every
       script run passes `-ExcludeModel <IMPL>` (sonnet and opus are accepted and exclude no
       OpenCode reviewer); never pick a reviewer of IMPL's family, Claude included. Each brief is
       Appendix B filled in, written to rendered/review-tier/<pr>-<reviewer>.md (before dispatch,
       `grep -n '<the main session' <brief>` must print nothing: item 2 of its "Blocking means" is
       named, never left as the placeholder), its first line the
-      header "T<nn> review (<Name>)", <Name> being Sol, Luna, GLM, DeepSeek, MiMo Pro, Qwen or
+      header "T<nn> review (<Name>)", <Name> being Sol, Luna, GLM, MiMo Pro, Qwen or
       Qwen Flash
       (always pass -Reviewer, never a -ModelIds override). A brief for GLM or MiMo is never
       shortened (nor for Qwen): it always carries both sections in full, "Blocking means" written for this PR
@@ -970,7 +970,7 @@ the docs item applies only if the review named a claim.
       two reviews from the order GLM, DSP, QWEN, SONNET (the user's decision of 2026-10-05), each
       skipped when it is of IMPL's family (SONNET when IMPL is Claude); one that exits 3 is replaced
       by the next in that order. The pair has failed when it cannot reach two reviews.
-      - complex, IMPL DeepSeek, GLM or MiMo: SOL. Exit 3: DIAGNOSE, then SOL'S SUBSTITUTES, then
+      - complex, IMPL GLM, MiMo or MiniMax: SOL. Exit 3: DIAGNOSE, then SOL'S SUBSTITUTES, then
         OPUS.
       - complex, IMPL Claude: SOL. Exit 3: DIAGNOSE, then SOL'S SUBSTITUTES, then escalate.
       - complex or very complex, IMPL OpenAI (luna): OPUS.
