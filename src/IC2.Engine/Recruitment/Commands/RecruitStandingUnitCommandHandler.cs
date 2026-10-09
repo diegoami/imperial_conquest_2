@@ -35,6 +35,20 @@ namespace IC2.Engine.Recruitment.Commands;
 /// ordering between them.
 /// </para>
 /// <para>
+/// <strong>T155 (#515, #904) — a new order only at the capital or at a fortification word ≥ the
+/// ruleset's threshold.</strong> The original's third refusal is a non-capital town whose fortification
+/// word is ≤ 74 (<em>"This city's fortification has fallen below 75%."</em>, <c>RecruitUnit</c>
+/// <c>0x454E78</c>), compared <strong>raw</strong>, so any pending fortify order passes whatever the
+/// current level, and the capital always passes <strong>[derived: code; #515's stage-2 comment item
+/// 1]</strong>. This handler refuses with <see cref="RecruitStandingUnitRejections.IneligibleRecruitmentTown"/>
+/// through <see cref="RecruitmentEligibility.MayTakeOrder"/>, the same predicate the AI's candidates
+/// and the UI's Recruit controls follow; the threshold is
+/// <see cref="Ruleset.Recruitment"/>.<see cref="RecruitmentRules.RecruitTownMinFortificationPercent"/>
+/// (<c>75</c> shipped), never a literal here. The dialog's <em>town list</em> is the other predicate
+/// (<see cref="RecruitmentEligibility.IsListedInDialog"/>), which is why a town listed only for its
+/// units in training still shows Mobilize and Disband while Recruit is not offered.
+/// </para>
+/// <para>
 /// <strong>Bug #549, T115 — the treasury check is a ruleset flag.</strong> The original's
 /// <c>TArmyRecruits.RecruitUnit</c> (<c>0x454E78</c>) checks no balance and takes the cost anyway, so
 /// <see cref="RulesetFlags.UnaffordableRecruitAndFortify"/> <c>allowDebt</c> (<c>classical-faithful</c>)
@@ -87,6 +101,18 @@ public sealed class RecruitStandingUnitCommandHandler : ICommandHandler<RecruitS
             return CommandOutcome.Reject(
                 RecruitStandingUnitRejections.RecruitmentTableFull,
                 $"Nation '{nation.Id}' already has {context.Ruleset.Recruitment.MaxSlots} units in training.");
+        }
+
+        // T155 (#515, #904) — the capital-or-75% gate, the original's third refusal ("This city's
+        // fortification has fallen below 75%."): the town's RAW fortification word, exactly as
+        // RecruitUnit compares it, so any pending fortify order passes whatever the current level.
+        // It sits after the table refusal and before the purchase for the same reason the table one
+        // does — the original refuses before it ever reads the cost.
+        if (!RecruitmentEligibility.MayTakeOrder(city, nation, context.Ruleset))
+        {
+            return CommandOutcome.Reject(
+                RecruitStandingUnitRejections.IneligibleRecruitmentTown,
+                RecruitmentEligibility.RefusalReason(city, nation, context.Ruleset));
         }
 
         var cost = StandingRecruitmentCost.InitialCost(command.Troops, command.UnitTypeId, context.Ruleset);

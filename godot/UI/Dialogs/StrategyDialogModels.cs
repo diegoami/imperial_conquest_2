@@ -566,15 +566,24 @@ public sealed class RecruitUnitDialogModel
     /// <summary>The five unit-type buttons, in the ruleset's own order.</summary>
     public IReadOnlyList<UnitTypeRules> UnitTypes => _ruleset.UnitTypes;
 
-    /// <summary>The nation's own cities, in the world's order — the list the dialog offers.</summary>
-    public IReadOnlyList<CityState> OwnedCities
+    /// <summary>
+    /// The towns the dialog's dropdown offers — T155 (#515, #904): the Recruit unit dialog's own town
+    /// list, the original's <c>FUN_004544E0</c>, not every owned city. A town is listed when it is the
+    /// nation's capital, or its <em>current</em> fortification level is at or above
+    /// <see cref="RecruitmentRules.RecruitTownMinFortificationPercent"/>, or it already has units in
+    /// training — <see cref="RecruitmentEligibility.IsListedInDialog"/>, the predicate's one home, in
+    /// the world's order. A town listed only for its units in training is here so they can still be
+    /// mobilized or disbanded; <see cref="CanRecruitAt"/> is false there and Recruit is not offered.
+    /// </summary>
+    public IReadOnlyList<CityState> ListedCities
     {
         get
         {
             var list = new List<CityState>();
             foreach (var city in _state.Cities)
             {
-                if (string.Equals(city.Owner, Nation.Id, StringComparison.Ordinal))
+                if (string.Equals(city.Owner, Nation.Id, StringComparison.Ordinal)
+                    && RecruitmentEligibility.IsListedInDialog(city, Nation, _ruleset))
                 {
                     list.Add(city);
                 }
@@ -584,8 +593,28 @@ public sealed class RecruitUnitDialogModel
         }
     }
 
-    /// <summary>The default city on first open — the first owned city in the world's order.</summary>
-    public CityState? DefaultCity => OwnedCities.Count > 0 ? OwnedCities[0] : null;
+    /// <summary>The default city on first open — the first listed town in the world's order.</summary>
+    public CityState? DefaultCity => ListedCities.Count > 0 ? ListedCities[0] : null;
+
+    /// <summary>
+    /// Whether the engine would accept a new recruitment order at <paramref name="cityId"/> —
+    /// <see cref="RecruitmentEligibility.MayTakeOrder"/>, <c>RecruitUnit</c>'s raw-word rule (T155).
+    /// The dialog follows this for its Recruit control; the engine refuses without it anyway.
+    /// </summary>
+    public bool CanRecruitAt(string cityId) =>
+        _state.CityById(cityId) is { } city
+        && RecruitmentEligibility.MayTakeOrder(city, Nation, _ruleset);
+
+    /// <summary>
+    /// The rule's reason a new recruitment order is refused at <paramref name="cityId"/> —
+    /// <see cref="RecruitmentEligibility.RefusalReason"/>, the engine's own words — or
+    /// <see langword="null"/> when the order would be accepted.
+    /// </summary>
+    public string? RecruitRefusalReasonAt(string cityId) =>
+        _state.CityById(cityId) is { } city
+        && !RecruitmentEligibility.MayTakeOrder(city, Nation, _ruleset)
+            ? RecruitmentEligibility.RefusalReason(city, Nation, _ruleset)
+            : null;
 
     /// <summary>The selected unit type's display name, or the id when the ruleset has no record.</summary>
     public string UnitTypeName(string unitTypeId) =>

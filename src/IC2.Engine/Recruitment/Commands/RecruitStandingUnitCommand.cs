@@ -59,6 +59,17 @@ public static class RecruitStandingUnitRejections
     /// (T55 Done-when 6; see <see cref="RecruitStandingUnitCommandHandler"/>'s remarks).
     /// </summary>
     public static readonly RejectionCode RecruitmentTableFull = new("recruitment.table-full");
+
+    /// <summary>
+    /// T155 (#515, #904): the training town is neither its nation's capital nor at a raw
+    /// <see cref="Model.CityState.FortificationCode"/> word of at least
+    /// <see cref="Model.RecruitmentRules.RecruitTownMinFortificationPercent"/> (the current level, or
+    /// any pending fortify order) — the original's <em>"This city's fortification has fallen below
+    /// 75%."</em>, which <c>RecruitUnit</c> reports third, after the table and mobilisation refusals
+    /// (the mobilisation one is still <c>[open]</c> here). The message is
+    /// <see cref="RecruitmentEligibility.RefusalReason"/>'s, naming the town and the rule.
+    /// </summary>
+    public static readonly RejectionCode IneligibleRecruitmentTown = new("recruitment.ineligible-town");
 }
 
 /// <summary>

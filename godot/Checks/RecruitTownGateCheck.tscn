@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Checks/RecruitTownGateCheck.cs" id="1_recruit_town_gate_check"]
+
+[node name="RecruitTownGateCheck" type="Control"]
+script = ExtResource("1_recruit_town_gate_check")
