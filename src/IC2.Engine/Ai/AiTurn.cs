@@ -203,6 +203,8 @@ public static class AiTurn
             }
 
             var before = state;
+            var subjectId = chosen.SubjectId;
+            var beforeArmy = subjectId is { } sid ? state.ArmyById(sid) : null;
             var execution = Execute(state, ruleset, commands, events, chosen, log);
             state = execution.State;
             var changed = !AiSubstantiveState.AreEquivalent(before, state);
@@ -228,6 +230,27 @@ public static class AiTurn
                 log.Add("last action changed nothing substantive; turn ends");
                 hitCap = false;
                 break;
+            }
+
+            // T156 (issue #925) Done-when 3: the original's garrison fallback
+            // (<c>FUN_0044ebe8</c>). When the chosen command was accepted but that army's tile is
+            // unchanged -- directly, not via <see cref="AiSubstantiveState.AreEquivalent"/>'s whole-state
+            // comparison -- the driver runs the fallback for that army. An army that moved takes no
+            // fallback; an army whose command was rejected was never on the hook for one. The fallback
+            // itself is one more command (a MoveArmyCommand), so its accepted/rejected path feeds the
+            // same counters as any other command this loop processed.
+            if (execution.Issued > 0
+                && beforeArmy is { } beforeTile
+                && subjectId is { } armyId)
+            {
+                var afterArmy = state.ArmyById(armyId);
+                if (afterArmy is { } afterTile
+                    && beforeTile.X == afterTile.X
+                    && beforeTile.Y == afterTile.Y)
+                {
+                    RunGarrisonFallback(view, armyId, ruleset, commands, events, ref state, log,
+                        ref issued, ref rejected, ref mismatches, marched);
+                }
             }
         }
 
@@ -283,6 +306,63 @@ public static class AiTurn
     }
 
     private readonly record struct ExecutionResult(GameState State, int Issued, int Rejected, int Mismatches);
+
+    /// <summary>
+    /// T156 (issue #925) Done-when 3: the original's garrison fallback
+    /// (<c>FUN_0044ebe8</c>). When the chosen command was accepted but that army's tile is unchanged --
+    /// directly, not via <see cref="AiSubstantiveState.AreEquivalent"/>'s whole-state comparison -- the
+    /// driver runs the fallback for that army: if some other own army is already within
+    /// <see cref="AiWeightsRules.GarrisonFallbackCapitalDistance"/> tiles of the capital, head for the
+    /// nearest city of any owner; otherwise head for the capital. The fallback is one more command
+    /// (<c>MoveArmyCommand</c>), so its accepted/rejected path feeds the same counters as any other
+    /// command this loop processed.
+    /// </summary>
+    private static void RunGarrisonFallback(
+        AiView view,
+        string armyId,
+        Ruleset ruleset,
+        ICommandDispatch commands,
+        IEventSink events,
+        ref GameState state,
+        List<string> log,
+        ref int issued,
+        ref int rejected,
+        ref int mismatches,
+        List<string> marched)
+    {
+        if (AiArmyTargetTree.GarrisonFallback(view, state.ArmyById(armyId)!, state) is not { } dest)
+        {
+            log.Add(Inv("garrison fallback skipped for {0}: no capital", armyId));
+            return;
+        }
+
+        var army = state.ArmyById(armyId)!;
+        var candidate = AiCandidate.Single(
+            AiPhase.Military,
+            AiCandidate.ApproachKind,
+            new Movement.Commands.MoveArmyCommand(view.NationId, armyId, dest.X, dest.Y),
+            ruleset.Ai.MinimumActionScore,
+            Inv("garrison fallback {0} toward ({1}, {2})", armyId, dest.X, dest.Y),
+            armyId);
+
+        var before = state;
+        var execution = Execute(state, ruleset, commands, events, candidate, log);
+        state = execution.State;
+
+        if (!AiSubstantiveState.AreEquivalent(before, state))
+        {
+            issued += execution.Issued;
+        }
+
+        rejected += execution.Rejected;
+        mismatches += execution.Mismatches;
+
+        if (execution.Issued > 0)
+        {
+            marched.Add(armyId);
+            log.Add(Inv("garrison fallback moved {0} to ({1}, {2})", armyId, dest.X, dest.Y));
+        }
+    }
 
     private static ExecutionResult Execute(
         GameState state,
