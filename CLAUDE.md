@@ -95,6 +95,9 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
     - `gpt-5.6-luna` stays the simple-PR reviewer.
     - A reviewer is never of the implementer's family.
     - A negative score means that pool runs out before its reset: avoid it unless nothing else is left.
+    - **DeepSeek is never used**, on any route (the user's decision of 2026-10-09). OpenCode Go's
+      heavy and light models are `mimo-pro` (`opencode-go/mimo-v2.6-pro`) and `mimo-flash`
+      (`opencode-go/mimo-v2.6-flash`), and MiMo is a family of its own for the reviewer rule.
     - Alibaba is never used unless the user asks (the user's decision of 2026-10-09: its monthly
       pool is 91% used until 2026-11-06). `/recommend` never ranks it, and the scripts neither
       choose it nor move a route to it; with the user's say-so, `-AllowAlibaba` or `-Route alibaba`.
@@ -121,8 +124,8 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
     `Bad Request` in long agent loops.
 
 20. **Use the providers' pricing windows deliberately, not by chance** (the owner's decision of
-    2026-10-06). Alibaba runs only when the user asks (rule 17); when they do, for a Qwen or DeepSeek
-    route (`ali-qwen-*`, `ali-deepseek-*`; `-Route alibaba` or a `qwen*` model), read
+    2026-10-06). Alibaba runs only when the user asks (rule 17); when they do, for a Qwen
+    route (`ali-qwen-*`; `-Route alibaba` or a `qwen*` model), read
     `curl -s localhost:8765/quota/alibaba | jq .pricing`: when `discount_now` is false, prefer
     another entry for a long run, or start it after `next_change_at`. Alibaba's GLM (`ali-glm`) has
     no discount, so the time does not matter for it. Likewise read
