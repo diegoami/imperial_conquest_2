@@ -9,426 +9,392 @@ using CaptureFixtures = IC2.Engine.Tests.Cities.Capture.CaptureTestbed;
 namespace IC2.Engine.Tests.Ai;
 
 /// <summary>
-/// T156 (issue #925) Done-when 1: the three scorers (<see cref="AiArmyTargetTree.ScoreArmyTarget"/>,
-/// <see cref="AiArmyTargetTree.ScoreCityTarget"/>, <see cref="AiArmyTargetTree.ScoreResupplyCity"/>)
-/// reproduce the original's decompiled arithmetic on hand-built states. Each test runs the scorer on a
-/// hand-built state and asserts the integer score; each term (region halving, defense-strength doubling,
-/// capital defense-halving doubling, distance return, army-score 1000 cap, weaker +1000 bonus, own-capital
-/// -20, foreign-non-war +20, beyond-15 fallback) is observed at least once across the test class.
+/// T156 (issue #925) Done-when 1: the three scorers of the original's army target tree
+/// (<c>FUN_0044ece4</c>, <c>FUN_0044ee60</c>, <c>FUN_0044e670</c>) on hand-built states. Every expected
+/// value is the report's formula written out in the test from the same public strength and defence
+/// functions the scorer uses (<c>2026-10-07-strategic-ai-turn.md</c> §3.3 and §5), so a removed or
+/// altered term moves a score the test pins to the integer.
 /// </summary>
 public sealed class AiArmyTargetTreeScorerTests
 {
-    private const string Acting = AiScriptedStates.Attacker;
-    private const string Other = AiScriptedStates.Defender;
+    private const string Us = "north";
+    private const string Them = "south";
+    private const string Third = "east";
 
     private static Ruleset Ruleset => AiScriptedStates.Ruleset;
 
-    private static AiView BuildViewWith(
-        IEnumerable<NationDefinition> nations,
+    private static string Archer => BattleCommandRuleset.ArcherUnitTypeIdIn(Ruleset)!;
+
+    /// <summary>
+    /// A view for <see cref="Us"/> over the given cities and armies. <see cref="Us"/> and <see cref="Them"/>
+    /// are at war; <see cref="Third"/> is at peace with both. The world is the toy world: the scorers
+    /// read distances only, so coordinates outside its grid are fine.
+    /// </summary>
+    private static AiView ViewOf(
         IEnumerable<CityState> cities,
         IEnumerable<ArmyState> armies,
-        IEnumerable<Seat> seats,
-        IEnumerable<string> turnOrder,
-        ValueList<AiCityRegionAssignment> cityRegionById,
-        string actingId)
+        params (string CityId, int Region)[] regions)
     {
-        var ruleset = Ruleset with
+        var nations = new[]
         {
-            Ai = Ruleset.Ai with { CityRegionById = cityRegionById },
+            CaptureFixtures.Nation(Us, capitalCityId: "us-capital"),
+            CaptureFixtures.Nation(Them, capitalCityId: "them-capital"),
+            CaptureFixtures.Nation(Third, capitalCityId: "third-capital"),
         };
-        var customWorld = AiScriptedStates.World with
-        {
-            Nations = ValueList.From(nations),
-        };
-        var scenario = new Scenario(
-            SchemaVersion: 1,
-            Id: "scenario-test",
-            Name: "Scenario Test",
-            WorldId: customWorld.Id,
-            RulesetId: ruleset.Id,
-            Seats: ValueList.Of(seats.ToArray()),
-            Victory: new VictoryCondition(VictoryConditionType.TotalConquest),
-            TurnLimit: null,
-            BlindHotseat: false,
-            RandomSeed: 1UL);
-        var state = GameStateFactory.CreateInitial(customWorld, ruleset, scenario) with
-        {
-            RandomSeed = 1UL,
-        };
+        var state = BattleCommandTestbed.StateWith(nations, cities, armies);
         state = state with
         {
-            Cities = ValueList.From(cities),
-            Armies = ValueList.From(armies),
-            ActiveSeatIndex = Array.IndexOf(state.TurnOrder.ToArray(), actingId),
+            Relations = state.Relations.WithRelation(Us, Them, Ruleset.Diplomacy.StateCodes.War),
         };
-        return new AiView(state, ruleset, customWorld, actingId);
+        var ruleset = Ruleset with
+        {
+            Ai = Ruleset.Ai with
+            {
+                CityRegionById = ValueList.From(regions.Select(r => new AiCityRegionAssignment(r.CityId, r.Region))),
+            },
+        };
+        return new AiView(state, ruleset, AiScriptedStates.World, Us);
     }
 
-    private static NationDefinition Nation(string id, string capitalCityId) =>
-        new(
-            Id: id, Name: id, ColorHex: "#fff", LeaderName: "L", CapitalCityId: capitalCityId,
-            Treasury: 0, Unity: 600, Wealth: 0, TaxBase: 0, TaxRatePercent: 15,
-            MobilizedPercent: 0, Population: 100);
-
-    private static ArmyState MakeArmy(string id, string nation, int x, int y, int morale, int troops, int moves = 9) =>
-        CaptureFixtures.Army(id, nation, x, y, morale,
-                CaptureFixtures.Unit("heavy_infantry", troops))
-            with { Moves = moves };
-
-    private static CityState MakeCity(string id, string owner, int x, int y, int loyalty = 90, int fort = 100, int pop = 100, int supply = 0) =>
+    private static CityState City(
+        string id, string owner, int x, int y, int loyalty = 90, int fort = 100, int pop = 200, int supply = 0) =>
         CaptureFixtures.City(id, id, x, y, owner, owner,
             loyalty: loyalty, fortificationCode: fort, populationThousands: pop, maxPopulationThousands: pop, tribute: 0)
-            with { SupplyTons = supply };
+        with { SupplyTons = supply };
 
-    // ---------- City score ----------
+    private static ArmyState Army(string id, string nation, int x, int y, int troops, int morale = 60) =>
+        CaptureFixtures.Army(id, nation, x, y, morale, CaptureFixtures.Unit("light_infantry", troops))
+        with { Moves = 9 };
 
-    /// <summary>
-    /// Region halving: a state with two enemy cities of equal strength at the same distance, one in-region
-    /// and one cross-region, gives a higher score for the in-region one. Specifically, the cross-region
-    /// score is half of the in-region score (modulo the +distance step which both share).
-    /// </summary>
-    [Fact]
-    public void ScoreCityTarget_halves_for_cross_region_target()
+    private static int Strength(ArmyState army, AiView view) =>
+        AiArmyTargetTree.AssaultStrength(army, view.Ruleset, Archer);
+
+    private static int Defense(CityState city, AiView view) =>
+        AiArmyTargetTree.CityDefense(city, view.Ruleset, view.State);
+
+    private static int StrengthOf(int troops) =>
+        AiArmyTargetTree.AssaultStrength(Army("probe", Us, 0, 0, troops), Ruleset, Archer);
+
+    /// <summary>The first troop count (in steps of 50) whose strength satisfies <paramref name="fits"/>.</summary>
+    private static int TroopsWhere(Func<int, bool> fits)
     {
-        var view = BuildViewWith(
-            nations: new[] { Nation("west", "west-cap"), Nation("east", "east-cap") },
-            cities: new[] { MakeCity("near", "east", 11, 10), MakeCity("far", "east", 12, 12), MakeCity("west-cap", "west", 0, 0), MakeCity("east-cap", "east", 20, 20) },
-            armies: new[] { MakeArmy("attacker", "west", 10, 10, 60, 30_000) },
-            seats: new[] { new Seat("west", SeatControl.Ai, null), new Seat("east", SeatControl.Ai, null) },
-            turnOrder: new[] { "west", "east" },
-            cityRegionById: ValueList<AiCityRegionAssignment>.Of(
-                new AiCityRegionAssignment("west-cap", 0),
-                new AiCityRegionAssignment("east-cap", 1),
-                new AiCityRegionAssignment("near", 0),
-                new AiCityRegionAssignment("far", 1)),
-            actingId: "west");
+        for (var troops = 50; troops <= 400_000; troops += 50)
+        {
+            if (fits(troops))
+            {
+                return troops;
+            }
+        }
 
-        var scored = AiArmyTargetTree.ScoreCityTarget(view, view.State.ArmyById("attacker")!, atWar: true);
-        Assert.NotNull(scored.City);
-        // The in-region city is preferred (higher score after the halving).
-        Assert.Equal("near", scored.City!.Id);
-        // The score (before +distance) is reduced by halving. Two cities at the same distance (1 each)
-        // share that step, so the returned score difference reflects the halving.
-        Assert.True(scored.Score > 0, "the in-region city should have a positive score");
-
-        // Verify the halving directly: score a state with only the cross-region city.
-        var crossOnlyView = BuildViewWith(
-            nations: new[] { Nation("west", "west-cap"), Nation("east", "east-cap") },
-            cities: new[] { MakeCity("far", "east", 11, 10), MakeCity("west-cap", "west", 0, 0), MakeCity("east-cap", "east", 20, 20) },
-            armies: new[] { MakeArmy("attacker", "west", 10, 10, 60, 30_000) },
-            seats: new[] { new Seat("west", SeatControl.Ai, null), new Seat("east", SeatControl.Ai, null) },
-            turnOrder: new[] { "west", "east" },
-            cityRegionById: ValueList<AiCityRegionAssignment>.Of(
-                new AiCityRegionAssignment("west-cap", 0),
-                new AiCityRegionAssignment("east-cap", 1),
-                new AiCityRegionAssignment("far", 1)),
-            actingId: "west");
-        var crossScored = AiArmyTargetTree.ScoreCityTarget(crossOnlyView, crossOnlyView.State.ArmyById("attacker")!, atWar: true);
-        // The cross-region score (before +distance) should be exactly half of the in-region one (also before +distance).
-        Assert.Equal(scored.Score / 2, crossScored.Score);
+        throw new InvalidOperationException("no troop count fits the wanted strength band");
     }
 
-    /// <summary>
-    /// Defense-strength doubling: a city whose defense is well below the army's strength scores
-    /// twice as much as one whose defense matches the army.
-    /// </summary>
+    // ---------- the best enemy city (FUN_0044ece4) ----------
+
+    /// <summary>A strong city, same region, distance 4: no modifier applies, so the score is <c>110 s / d - dist</c> and the return adds the distance back.</summary>
     [Fact]
-    public void ScoreCityTarget_doubles_when_defense_is_below_strength_and_distance_below_seven()
+    public void City_score_is_the_ratio_minus_distance_and_the_return_adds_the_distance_back()
     {
-        // Two cities at the same distance with very different defenses.
-        var view = BuildViewWith(
-            nations: new[] { Nation("west", "west-cap"), Nation("east", "east-cap") },
-            cities: new[]
-            {
-                MakeCity("weak", "east", 11, 10, loyalty: 1, fort: 0, pop: 1),
-                MakeCity("strong", "east", 11, 11, loyalty: 90, fort: 100, pop: 200),
-                MakeCity("west-cap", "west", 0, 0),
-                MakeCity("east-cap", "east", 20, 20),
-            },
-            armies: new[] { MakeArmy("attacker", "west", 10, 10, 60, 50_000) },
-            seats: new[] { new Seat("west", SeatControl.Ai, null), new Seat("east", SeatControl.Ai, null) },
-            turnOrder: new[] { "west", "east" },
-            cityRegionById: ValueList<AiCityRegionAssignment>.Of(
-                new AiCityRegionAssignment("west-cap", 0),
-                new AiCityRegionAssignment("east-cap", 0),
-                new AiCityRegionAssignment("weak", 0),
-                new AiCityRegionAssignment("strong", 0)),
-            actingId: "west");
+        var city = City("c", Them, 14, 10);
+        var d = Defense(city, ViewOf([City("us-capital", Us, 8, 10), city], []));
+        var army = Army("a", Us, 10, 10, TroopsWhere(t => StrengthOf(t) >= d * 9 / 10));
+        var view = ViewOf([City("us-capital", Us, 8, 10), city, City("them-capital", Them, 30, 30)], [army]);
+        var s = Strength(army, view);
+        Assert.True(d >= s, "fixture: the city must out-defend the army so no doubling applies");
 
-        var scored = AiArmyTargetTree.ScoreCityTarget(view, view.State.ArmyById("attacker")!, atWar: true);
-        Assert.NotNull(scored.City);
-        // The weak city wins (doubled).
-        Assert.Equal("weak", scored.City!.Id);
+        var scored = AiArmyTargetTree.ScoreCityTarget(view, army);
 
-        // Verify: only the strong city. Without doubling, it would score higher than the weak one.
-        var strongOnlyView = BuildViewWith(
-            nations: new[] { Nation("west", "west-cap"), Nation("east", "east-cap") },
-            cities: new[] { MakeCity("strong", "east", 11, 10, loyalty: 90, fort: 100, pop: 200), MakeCity("west-cap", "west", 0, 0), MakeCity("east-cap", "east", 20, 20) },
-            armies: new[] { MakeArmy("attacker", "west", 10, 10, 60, 50_000) },
-            seats: new[] { new Seat("west", SeatControl.Ai, null), new Seat("east", SeatControl.Ai, null) },
-            turnOrder: new[] { "west", "east" },
-            cityRegionById: ValueList<AiCityRegionAssignment>.Of(
-                new AiCityRegionAssignment("west-cap", 0),
-                new AiCityRegionAssignment("east-cap", 0),
-                new AiCityRegionAssignment("strong", 0)),
-            actingId: "west");
-        var strongScored = AiArmyTargetTree.ScoreCityTarget(strongOnlyView, strongOnlyView.State.ArmyById("attacker")!, atWar: true);
-        // The weak (doubled) score is exactly 2x the strong (not doubled).
-        Assert.Equal(strongScored.Score * 2, scored.Score);
+        Assert.Equal("c", scored.City!.Id);
+        Assert.Equal(4, scored.Distance);
+        var raw = (110 * s / d) - 4;
+        Assert.Equal(raw + 4, scored.Score);
     }
 
-    /// <summary>
-    /// Capital defense-halving doubling: a capital whose defense is below the two-thirds threshold
-    /// scores twice as much as a non-capital city of equal defense.
-    /// </summary>
+    /// <summary>A city in another region is halved: <c>score -= score / 2</c>, then the distance is added back.</summary>
     [Fact]
-    public void ScoreCityTarget_doubles_when_city_is_a_capital_and_two_thirds_of_defense_is_below_strength()
+    public void City_score_is_halved_when_the_city_is_in_another_region()
     {
-        // Two cities at the same distance with the SAME defense shape.
-        var view = BuildViewWith(
-            nations: new[] { Nation("west", "west-cap"), Nation("east", "capital") },
-            cities: new[]
-            {
-                MakeCity("capital", "east", 11, 10, loyalty: 90, fort: 100, pop: 100),
-                MakeCity("regular", "east", 11, 10, loyalty: 90, fort: 100, pop: 100),
-                MakeCity("west-cap", "west", 0, 0),
-            },
-            armies: new[] { MakeArmy("attacker", "west", 10, 10, 60, 50_000) },
-            seats: new[] { new Seat("west", SeatControl.Ai, null), new Seat("east", SeatControl.Ai, null) },
-            turnOrder: new[] { "west", "east" },
-            cityRegionById: ValueList<AiCityRegionAssignment>.Of(
-                new AiCityRegionAssignment("west-cap", 0),
-                new AiCityRegionAssignment("capital", 0),
-                new AiCityRegionAssignment("regular", 0)),
-            actingId: "west");
+        var city = City("c", Them, 14, 10);
+        var d = Defense(city, ViewOf([City("us-capital", Us, 8, 10), city], []));
+        var army = Army("a", Us, 10, 10, TroopsWhere(t => StrengthOf(t) >= d * 9 / 10));
+        var view = ViewOf(
+            [City("us-capital", Us, 8, 10), city, City("them-capital", Them, 30, 30)],
+            [army],
+            ("us-capital", 0), ("c", 1));
+        var s = Strength(army, view);
+        Assert.True(d >= s);
 
-        var scored = AiArmyTargetTree.ScoreCityTarget(view, view.State.ArmyById("attacker")!, atWar: true);
-        Assert.NotNull(scored.City);
-        Assert.Equal("capital", scored.City!.Id);
+        var scored = AiArmyTargetTree.ScoreCityTarget(view, army);
 
-        var regularOnlyView = BuildViewWith(
-            nations: new[] { Nation("west", "west-cap"), Nation("east", "regular") },
-            cities: new[]
-            {
-                MakeCity("regular", "east", 11, 10, loyalty: 90, fort: 100, pop: 100),
-                MakeCity("west-cap", "west", 0, 0),
-            },
-            armies: new[] { MakeArmy("attacker", "west", 10, 10, 60, 50_000) },
-            seats: new[] { new Seat("west", SeatControl.Ai, null), new Seat("east", SeatControl.Ai, null) },
-            turnOrder: new[] { "west", "east" },
-            cityRegionById: ValueList<AiCityRegionAssignment>.Of(
-                new AiCityRegionAssignment("west-cap", 0),
-                new AiCityRegionAssignment("regular", 0)),
-            actingId: "west");
-        var regularScored = AiArmyTargetTree.ScoreCityTarget(regularOnlyView, regularOnlyView.State.ArmyById("attacker")!, atWar: true);
-        // The capital's doubled score is exactly 2x the regular's.
-        Assert.Equal(regularScored.Score * 2, scored.Score);
+        var raw = (110 * s / d) - 4;
+        Assert.True(raw > 1, "fixture: a score of at least 2 so that halving changes it");
+        Assert.Equal(raw - (raw / 2) + 4, scored.Score);
     }
 
-    /// <summary>
-    /// The scorer returns `score + distance` (the original's own return shape). Two cities at different
-    /// distances differ on this returned value by the distance delta.
-    /// </summary>
-    [Fact]
-    public void ScoreCityTarget_returns_score_plus_distance()
+    /// <summary>Defence below strength and distance below 7 doubles the score; at 7 it does not.</summary>
+    [Theory]
+    [InlineData(6, true)]
+    [InlineData(7, false)]
+    public void City_score_doubles_when_defence_is_below_strength_and_the_distance_is_below_seven(int distance, bool doubled)
     {
-        var view = BuildViewWith(
-            nations: new[] { Nation("west", "west-cap"), Nation("east", "east-cap") },
-            cities: new[]
-            {
-                MakeCity("near", "east", 11, 10, loyalty: 1, fort: 0, pop: 1),
-                MakeCity("far", "east", 20, 20, loyalty: 1, fort: 0, pop: 1),
-                MakeCity("west-cap", "west", 0, 0),
-                MakeCity("east-cap", "east", 30, 30),
-            },
-            armies: new[] { MakeArmy("attacker", "west", 10, 10, 60, 30_000) },
-            seats: new[] { new Seat("west", SeatControl.Ai, null), new Seat("east", SeatControl.Ai, null) },
-            turnOrder: new[] { "west", "east" },
-            cityRegionById: ValueList<AiCityRegionAssignment>.Of(
-                new AiCityRegionAssignment("west-cap", 0),
-                new AiCityRegionAssignment("east-cap", 0),
-                new AiCityRegionAssignment("near", 0),
-                new AiCityRegionAssignment("far", 0)),
-            actingId: "west");
+        var army = Army("a", Us, 10, 10, 20_000);
+        var city = City("c", Them, 10 + distance, 10, loyalty: 10, fort: 10, pop: 10);
+        var view = ViewOf([City("us-capital", Us, 8, 10), city, City("them-capital", Them, 30, 30)], [army]);
+        var s = Strength(army, view);
+        var d = Defense(city, view);
+        Assert.True(d < s, "fixture: the army must out-strengthen the city");
 
-        var scored = AiArmyTargetTree.ScoreCityTarget(view, view.State.ArmyById("attacker")!, atWar: true);
-        Assert.NotNull(scored.City);
-        Assert.Equal("near", scored.City!.Id);
-        Assert.Equal(1, scored.Distance); // army at (10,10), city at (11,10) → Chebyshev distance 1
+        var scored = AiArmyTargetTree.ScoreCityTarget(view, army);
 
-        // Verify the +distance return: a far city gives a larger Distance but lower Score (since the
-        // base score is reduced by distance).
-        var farOnlyView = BuildViewWith(
-            nations: new[] { Nation("west", "west-cap"), Nation("east", "east-cap") },
-            cities: new[]
-            {
-                MakeCity("far", "east", 20, 20, loyalty: 1, fort: 0, pop: 1),
-                MakeCity("west-cap", "west", 0, 0),
-                MakeCity("east-cap", "east", 30, 30),
-            },
-            armies: new[] { MakeArmy("attacker", "west", 10, 10, 60, 30_000) },
-            seats: new[] { new Seat("west", SeatControl.Ai, null), new Seat("east", SeatControl.Ai, null) },
-            turnOrder: new[] { "west", "east" },
-            cityRegionById: ValueList<AiCityRegionAssignment>.Of(
-                new AiCityRegionAssignment("west-cap", 0),
-                new AiCityRegionAssignment("east-cap", 0),
-                new AiCityRegionAssignment("far", 0)),
-            actingId: "west");
-        var farScored = AiArmyTargetTree.ScoreCityTarget(farOnlyView, farOnlyView.State.ArmyById("attacker")!, atWar: true);
-        Assert.True(farScored.Distance > scored.Distance, "the far city should have a larger Distance");
+        var raw = (110 * s / d) - distance;
+        Assert.Equal((doubled ? raw * 2 : raw) + distance, scored.Score);
     }
 
-    // ---------- Army score ----------
-
-    /// <summary>
-    /// Army-score 1000 cap + weaker bonus: a vastly weaker enemy gives a returned score at or above
-    /// 1000 (the cap), with the +1000 weaker bonus added on top.
-    /// </summary>
+    /// <summary>A capital whose defence times two thirds is below the strength doubles, even beyond 7; the same city when it is no capital does not.</summary>
     [Fact]
-    public void ScoreArmyTarget_caps_at_one_thousand_then_adds_the_weaker_bonus()
+    public void City_score_doubles_for_a_capital_whose_two_thirds_defence_is_below_the_strength()
     {
-        var view = BuildViewWith(
-            nations: new[] { Nation("west", "west-cap"), Nation("east", "east-cap") },
-            cities: new[] { MakeCity("west-cap", "west", 0, 0), MakeCity("east-cap", "east", 20, 20) },
-            armies: new[] { MakeArmy("attacker", "west", 10, 10, 60, 30_000), MakeArmy("weaker", "east", 11, 10, 1, 100) },
-            seats: new[] { new Seat("west", SeatControl.Ai, null), new Seat("east", SeatControl.Ai, null) },
-            turnOrder: new[] { "west", "east" },
-            cityRegionById: ValueList<AiCityRegionAssignment>.Of(
-                new AiCityRegionAssignment("west-cap", 0),
-                new AiCityRegionAssignment("east-cap", 0)),
-            actingId: "west");
+        var capital = City("them-capital", Them, 18, 10, loyalty: 10, fort: 10, pop: 10);
+        var d = Defense(capital, ViewOf([City("us-capital", Us, 8, 10), capital], []));
+        var army = Army("a", Us, 10, 10, TroopsWhere(t => StrengthOf(t) > d));
+        var view = ViewOf([City("us-capital", Us, 8, 10), capital], [army]);
+        var s = Strength(army, view);
+        Assert.True(d * 2 / 3 < s && d < s);
 
-        var scored = AiArmyTargetTree.ScoreArmyTarget(view, view.State.ArmyById("attacker")!, atWar: true);
-        Assert.NotNull(scored.Army);
-        Assert.Equal("weaker", scored.Army!.Id);
-        // 1000 cap + 1000 weaker bonus = 2000 (since weaker bonus is additive on the cap).
-        Assert.True(scored.Score >= 1000, $"score should be >= 1000, got {scored.Score}");
+        var asCapital = AiArmyTargetTree.ScoreCityTarget(view, army);
+
+        Assert.Equal(8, asCapital.Distance);
+        var raw = (110 * s / d) - 8;
+        Assert.Equal((raw * 2) + 8, asCapital.Score);
+
+        // The same city when it is not a capital (the owner's capital is elsewhere): no doubling at distance 8.
+        var plain = capital with { Id = "plain" };
+        var plainView = ViewOf([City("us-capital", Us, 8, 10), plain, City("them-capital", Them, 30, 30)], [army]);
+        var plainScore = AiArmyTargetTree.ScoreCityTarget(plainView, army);
+        var plainDefense = Defense(plain, plainView);
+        Assert.Equal(((110 * s / plainDefense) - 8) + 8, plainScore.Score);
     }
 
-    /// <summary>
-    /// Cross-region halving for armies: the score on a cross-region enemy is at most half of an
-    /// in-region enemy's, at the same distance.
-    /// </summary>
+    /// <summary>The capital doubling is keyed to two thirds of the defence: between two thirds and the full defence it applies, at or below two thirds it does not.</summary>
     [Fact]
-    public void ScoreArmyTarget_halves_when_target_is_in_another_region()
+    public void City_score_capital_doubling_is_keyed_to_two_thirds_of_the_defence()
     {
-        var view = BuildViewWith(
-            nations: new[] { Nation("west", "west-cap"), Nation("east", "east-cap") },
-            cities: new[] { MakeCity("west-cap", "west", 0, 0), MakeCity("east-cap", "east", 20, 20) },
-            armies: new[]
-            {
-                MakeArmy("attacker", "west", 10, 10, 60, 30_000),
-                MakeArmy("in-region", "east", 11, 10, 1, 100),
-                MakeArmy("cross-region", "east", 11, 12, 1, 100),
-            },
-            seats: new[] { new Seat("west", SeatControl.Ai, null), new Seat("east", SeatControl.Ai, null) },
-            turnOrder: new[] { "west", "east" },
-            cityRegionById: ValueList<AiCityRegionAssignment>.Of(
-                new AiCityRegionAssignment("west-cap", 0),
-                new AiCityRegionAssignment("east-cap", 0),
-                new AiCityRegionAssignment("in-region", 0),
-                new AiCityRegionAssignment("cross-region", 1)),
-            actingId: "west");
+        var capital = City("them-capital", Them, 18, 10);
+        var d = Defense(capital, ViewOf([City("us-capital", Us, 8, 10), capital], []));
+        var between = Army("a", Us, 10, 10, TroopsWhere(t => StrengthOf(t) > d * 2 / 3));
+        var view = ViewOf([City("us-capital", Us, 8, 10), capital], [between]);
+        var s = Strength(between, view);
+        Assert.True(s > d * 2 / 3 && s < d, "fixture: strength between two thirds of the defence and the defence");
 
-        var scored = AiArmyTargetTree.ScoreArmyTarget(view, view.State.ArmyById("attacker")!, atWar: true);
-        Assert.NotNull(scored.Army);
-        // The in-region army wins.
-        Assert.Equal("in-region", scored.Army!.Id);
+        var scored = AiArmyTargetTree.ScoreCityTarget(view, between);
+
+        // Defence is not below the strength at distance 8 either way; only the capital doubling can apply.
+        Assert.Equal((((110 * s / d) - 8) * 2) + 8, scored.Score);
+
+        var weaker = Army("a", Us, 10, 10, TroopsWhere(t => StrengthOf(t) > d / 2));
+        var weakerView = ViewOf([City("us-capital", Us, 8, 10), capital], [weaker]);
+        var w = Strength(weaker, weakerView);
+        Assert.True(w <= d * 2 / 3);
+        var none = AiArmyTargetTree.ScoreCityTarget(weakerView, weaker);
+        Assert.Equal(((110 * w / d) - 8) + 8, none.Score);
     }
 
-    // ---------- Resupply city ----------
-
-    /// <summary>
-    /// Own-capital -20 penalty: an own city that is also the capital is the chosen one only when it
-    /// is the only option; otherwise a non-capital own city at the same distance scores 20 higher.
-    /// </summary>
+    /// <summary>Cities of nations not at war are not targets.</summary>
     [Fact]
-    public void ScoreResupplyCity_applies_minus_twenty_for_own_capital()
+    public void City_score_ignores_cities_of_nations_not_at_war()
     {
-        // Two identical own cities. The non-capital one wins (less penalty).
-        var view = BuildViewWith(
-            nations: new[] { Nation("west", "capital-city") },
-            cities: new[]
-            {
-                MakeCity("capital-city", "west", 10, 11, loyalty: 1, fort: 0, pop: 1),
-                MakeCity("regular-city", "west", 10, 12, loyalty: 1, fort: 0, pop: 1),
-            },
-            armies: new[] { MakeArmy("attacker", "west", 10, 10, 60, 100) },
-            seats: new[] { new Seat("west", SeatControl.Ai, null) },
-            turnOrder: new[] { "west" },
-            cityRegionById: ValueList<AiCityRegionAssignment>.Of(
-                new AiCityRegionAssignment("capital-city", 0),
-                new AiCityRegionAssignment("regular-city", 0)),
-            actingId: "west");
+        var army = Army("a", Us, 10, 10, 1_000);
+        var view = ViewOf([City("us-capital", Us, 8, 10), City("t", Third, 12, 10), City("them-capital", Them, 30, 30)], [army]);
 
-        var scored = AiArmyTargetTree.ScoreResupplyCity(view, view.State.ArmyById("attacker")!, atWar: false);
-        Assert.NotNull(scored.City);
-        Assert.Equal("regular-city", scored.City!.Id);
+        var scored = AiArmyTargetTree.ScoreCityTarget(view, army);
+
+        Assert.Equal("them-capital", scored.City!.Id);
     }
 
-    /// <summary>
-    /// Foreign-non-war +20 bonus: a foreign city not at war scores +20 higher than an identical foreign
-    /// city that *is* at war (the war city's stock exceeds strength + 80, so it would qualify).
-    /// </summary>
-    [Fact]
-    public void ScoreResupplyCity_applies_plus_twenty_for_foreign_non_war_cities()
-    {
-        // Two foreign cities (with high stock). The neutral one wins (+20 bonus), the war one doesn't.
-        var view = BuildViewWith(
-            nations: new[] { Nation("west", "west-cap"), Nation("neutral", "neutral-city"), Nation("east", "east-cap") },
-            cities: new[]
-            {
-                MakeCity("neutral-city", "neutral", 10, 11, loyalty: 50, fort: 50, pop: 50, supply: 100_000),
-                MakeCity("east-cap", "east", 10, 12, loyalty: 50, fort: 50, pop: 50, supply: 100_000),
-                MakeCity("west-cap", "west", 0, 0),
-            },
-            armies: new[] { MakeArmy("attacker", "west", 10, 10, 60, 100) with { Money = 1000 } },
-            seats: new[]
-            {
-                new Seat("west", SeatControl.Ai, null),
-                new Seat("neutral", SeatControl.Ai, null),
-                new Seat("east", SeatControl.Ai, null),
-            },
-            turnOrder: new[] { "west", "neutral", "east" },
-            cityRegionById: ValueList<AiCityRegionAssignment>.Of(
-                new AiCityRegionAssignment("west-cap", 0),
-                new AiCityRegionAssignment("east-cap", 0),
-                new AiCityRegionAssignment("neutral-city", 0),
-                new AiCityRegionAssignment("east-cap", 1)), // NB: duplicate id, distinct name
-            actingId: "west");
+    // ---------- the best enemy field army (FUN_0044ee60) ----------
 
-        var scored = AiArmyTargetTree.ScoreResupplyCity(view, view.State.ArmyById("attacker")!, atWar: false);
-        Assert.NotNull(scored.City);
-        // The non-war (neutral) city wins.
-        Assert.Equal("neutral-city", scored.City!.Id);
+    /// <summary>A far weaker enemy within 7: the ratio is capped at 1000, then +1000 for weaker and near; at 7 only the cap.</summary>
+    [Theory]
+    [InlineData(6, 2000)]
+    [InlineData(7, 1000)]
+    public void Army_score_caps_the_ratio_at_one_thousand_then_adds_a_thousand_for_a_weaker_near_enemy(int distance, long expected)
+    {
+        var army = Army("a", Us, 10, 10, 20_000);
+        var enemy = Army("e", Them, 10 + distance, 10, 100);
+        var view = ViewOf([City("us-capital", Us, 8, 10), City("them-capital", Them, 30, 30)], [army, enemy]);
+        var s = Strength(army, view);
+        var t = Strength(enemy, view);
+        Assert.True((110 * s / t) - distance > 1000 && t < s);
+
+        var scored = AiArmyTargetTree.ScoreArmyTarget(view, army);
+
+        Assert.Equal("e", scored.Army!.Id);
+        Assert.Equal(distance, scored.Distance);
+        Assert.Equal(expected, scored.Score);
     }
 
-    /// <summary>
-    /// Foreign-city beyond-15 fallback: a foreign city more than 15 tiles away is rejected in favour of
-    /// the nearest own city.
-    /// </summary>
+    /// <summary>A moderately weaker enemy: no cap reached, so the score is the ratio minus the distance plus the +1000.</summary>
     [Fact]
-    public void ScoreResupplyCity_rejects_foreign_cities_beyond_fifteen_and_falls_back_to_own()
+    public void Army_score_without_the_cap_is_the_ratio_minus_distance_plus_the_weaker_bonus()
     {
-        var view = BuildViewWith(
-            nations: new[] { Nation("west", "west-cap"), Nation("neutral", "far-city") },
-            cities: new[]
-            {
-                MakeCity("own-city", "west", 11, 10, loyalty: 1, fort: 0, pop: 1),
-                MakeCity("far-city", "neutral", 30, 30, loyalty: 50, fort: 50, pop: 50, supply: 100_000),
-                MakeCity("west-cap", "west", 0, 0),
-            },
-            armies: new[] { MakeArmy("attacker", "west", 10, 10, 60, 100) with { Money = 1000 } },
-            seats: new[] { new Seat("west", SeatControl.Ai, null), new Seat("neutral", SeatControl.Ai, null) },
-            turnOrder: new[] { "west", "neutral" },
-            cityRegionById: ValueList<AiCityRegionAssignment>.Of(
-                new AiCityRegionAssignment("west-cap", 0),
-                new AiCityRegionAssignment("own-city", 0),
-                new AiCityRegionAssignment("far-city", 0)),
-            actingId: "west");
+        var enemy = Army("e", Them, 13, 10, 5_000);
+        var t = Strength(enemy, ViewOf([City("us-capital", Us, 8, 10)], [enemy]));
+        var army = Army("a", Us, 10, 10, TroopsWhere(x => StrengthOf(x) > t * 2));
+        var view = ViewOf([City("us-capital", Us, 8, 10), City("them-capital", Them, 30, 30)], [army, enemy]);
+        var s = Strength(army, view);
+        var raw = (110 * s / t) - 3;
+        Assert.True(raw < 1000 && t < s);
 
-        var scored = AiArmyTargetTree.ScoreResupplyCity(view, view.State.ArmyById("attacker")!, atWar: false);
-        Assert.NotNull(scored.City);
-        Assert.Equal("own-city", scored.City!.Id);
+        var scored = AiArmyTargetTree.ScoreArmyTarget(view, army);
+
+        Assert.Equal(raw + 1000, scored.Score);
+    }
+
+    /// <summary>An equal or stronger enemy gets no bonus: the score is the ratio minus the distance.</summary>
+    [Fact]
+    public void Army_score_of_a_stronger_enemy_has_no_weaker_bonus()
+    {
+        var army = Army("a", Us, 10, 10, 1_000);
+        var enemy = Army("e", Them, 13, 10, 3_000);
+        var view = ViewOf([City("us-capital", Us, 8, 10), City("them-capital", Them, 30, 30)], [army, enemy]);
+        var s = Strength(army, view);
+        var t = Strength(enemy, view);
+        Assert.True(t >= s);
+
+        var scored = AiArmyTargetTree.ScoreArmyTarget(view, army);
+
+        Assert.Equal((110 * s / t) - 3, scored.Score);
+    }
+
+    /// <summary>An enemy in another region is halved before the cap.</summary>
+    [Fact]
+    public void Army_score_is_halved_when_the_enemy_is_in_another_region()
+    {
+        var army = Army("a", Us, 10, 10, 1_000);
+        var enemy = Army("e", Them, 13, 10, 3_000);
+        var view = ViewOf(
+            [City("us-capital", Us, 8, 10), City("them-capital", Them, 14, 10)],
+            [army, enemy],
+            ("us-capital", 0), ("them-capital", 1));
+        var s = Strength(army, view);
+        var t = Strength(enemy, view);
+        Assert.True(t >= s);
+        var raw = (110 * s / t) - 3;
+        Assert.True(raw > 1);
+
+        var scored = AiArmyTargetTree.ScoreArmyTarget(view, army);
+
+        Assert.Equal(raw - (raw / 2), scored.Score);
+    }
+
+    // ---------- the resupply or defence city (FUN_0044e670) ----------
+
+    private static ArmyState Supplicant() =>
+        Army("a", Us, 10, 10, 10_000) with { Money = 1_000 };
+
+    /// <summary>An own capital scores -20: the nearer capital loses to a farther ordinary city that needs stock too.</summary>
+    [Fact]
+    public void Resupply_scores_an_own_capital_twenty_lower()
+    {
+        var army = Supplicant();
+        var view = ViewOf(
+            [City("us-capital", Us, 13, 10), City("regular", Us, 20, 10), City("them-capital", Them, 30, 30)],
+            [army]);
+
+        var scored = AiArmyTargetTree.ScoreResupplyCity(view, army, atWar: false);
+
+        Assert.Equal("regular", scored.City!.Id);
+        Assert.Equal(-10, scored.Score);
+    }
+
+    /// <summary>A qualifying foreign city of a nation not at war scores +20, so a foreign city at 15 beats an own one at 5, while at war only.</summary>
+    [Fact]
+    public void Resupply_scores_a_foreign_non_war_city_twenty_higher_while_at_war()
+    {
+        var army = Supplicant();
+        var view = ViewOf(
+            [City("us-capital", Us, 15, 10), City("foreign", Third, 25, 10, supply: 1_000), City("them-capital", Them, 30, 30)],
+            [army]);
+
+        var atWar = AiArmyTargetTree.ScoreResupplyCity(view, army, atWar: true);
+        var atPeace = AiArmyTargetTree.ScoreResupplyCity(view, army, atWar: false);
+
+        Assert.Equal("foreign", atWar.City!.Id);
+        Assert.Equal(5, atWar.Score);
+        Assert.Equal("us-capital", atPeace.City!.Id);
+    }
+
+    /// <summary>A foreign city needs stock above <c>troops/100 + 80</c> and the army money above <c>troops/100/5</c>; a city of a nation at war is never a source.</summary>
+    [Fact]
+    public void Resupply_foreign_city_must_hold_stock_and_the_army_money_and_not_be_at_war()
+    {
+        var army = Supplicant();
+        var strength = army.TotalTroops / 100;
+        var thin = ViewOf(
+            [City("us-capital", Us, 25, 10), City("thin", Third, 12, 10, supply: strength + 80), City("them-capital", Them, 30, 30)],
+            [army]);
+        var pocketChange = army with { Money = strength / 5 };
+        var poor = ViewOf(
+            [City("us-capital", Us, 25, 10), City("rich", Third, 12, 10, supply: strength + 81), City("them-capital", Them, 30, 30)],
+            [pocketChange]);
+        var hostile = ViewOf(
+            [City("us-capital", Us, 25, 10), City("them-capital", Them, 12, 10, supply: 5_000)],
+            [army]);
+        var enough = ViewOf(
+            [City("us-capital", Us, 25, 10), City("rich", Third, 12, 10, supply: strength + 81), City("them-capital", Them, 30, 30)],
+            [army]);
+
+        Assert.Equal("us-capital", AiArmyTargetTree.ScoreResupplyCity(thin, army, atWar: true).City!.Id);
+        Assert.Equal("us-capital", AiArmyTargetTree.ScoreResupplyCity(poor, pocketChange, atWar: true).City!.Id);
+        Assert.Equal("us-capital", AiArmyTargetTree.ScoreResupplyCity(hostile, army, atWar: true).City!.Id);
+        Assert.Equal("rich", AiArmyTargetTree.ScoreResupplyCity(enough, army, atWar: true).City!.Id);
+    }
+
+    /// <summary>The best foreign city beyond 15 is dropped for the nearest own city, even one that needs no stock.</summary>
+    [Fact]
+    public void Resupply_falls_back_to_the_nearest_own_city_when_the_foreign_pick_is_beyond_fifteen()
+    {
+        var army = Supplicant();
+        var view = ViewOf(
+            [
+                City("us-capital", Us, 40, 10),
+                City("own-near", Us, 30, 10, supply: 5_000),
+                City("foreign", Third, 26, 10, supply: 1_000),
+                City("them-capital", Them, 50, 50),
+            ],
+            [army]);
+
+        var scored = AiArmyTargetTree.ScoreResupplyCity(view, army, atWar: true);
+
+        Assert.Equal("own-near", scored.City!.Id);
+        Assert.Equal(20, scored.Distance);
+    }
+
+    /// <summary>A foreign city at exactly 15 is still taken.</summary>
+    [Fact]
+    public void Resupply_keeps_a_foreign_pick_at_exactly_fifteen()
+    {
+        var army = Supplicant();
+        var view = ViewOf(
+            [City("us-capital", Us, 40, 10), City("foreign", Third, 25, 10, supply: 1_000), City("them-capital", Them, 50, 50)],
+            [army]);
+
+        var scored = AiArmyTargetTree.ScoreResupplyCity(view, army, atWar: true);
+
+        Assert.Equal("foreign", scored.City!.Id);
+    }
+
+    /// <summary>A city the army stands beside is where the original's army already is, so it is never the destination.</summary>
+    [Fact]
+    public void Resupply_never_picks_the_city_the_army_is_beside()
+    {
+        var army = Supplicant();
+        var view = ViewOf(
+            [City("beside", Us, 11, 10), City("far", Us, 30, 10), City("them-capital", Them, 50, 50)],
+            [army]);
+
+        var scored = AiArmyTargetTree.ScoreResupplyCity(view, army, atWar: false);
+
+        Assert.Equal("far", scored.City!.Id);
     }
 }

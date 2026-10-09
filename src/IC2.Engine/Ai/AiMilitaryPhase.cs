@@ -304,8 +304,8 @@ public static class AiMilitaryPhase
 
         if (siegeGates is not null)
         {
-            var cityScore = AiArmyTargetTree.ScoreCityTarget(view, army, atWar);
-            var armyScore = AiArmyTargetTree.ScoreArmyTarget(view, army, atWar);
+            var cityScore = AiArmyTargetTree.ScoreCityTarget(view, army);
+            var armyScore = AiArmyTargetTree.ScoreArmyTarget(view, army);
             foreach (var city in view.State.Cities)
             {
                 if (string.Equals(city.Owner, army.Nation, StringComparison.Ordinal)

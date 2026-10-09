@@ -112,8 +112,7 @@ public static class AiArmyTargetTree
     /// </remarks>
     public static CityTarget ScoreCityTarget(
         AiView view,
-        ArmyState army,
-        bool atWar)
+        ArmyState army)
     {
         ArgumentNullException.ThrowIfNull(view);
         ArgumentNullException.ThrowIfNull(army);
@@ -139,7 +138,7 @@ public static class AiArmyTargetTree
                 continue;
             }
 
-            if (!atWar && !view.IsAtWar(army.Nation, city.Owner))
+            if (!view.IsAtWar(army.Nation, city.Owner))
             {
                 // The brief (§3.3) names "cities of nations at war" — a city of a nation this army's
                 // nation is at peace with is not a candidate at all, even reachable.
@@ -196,8 +195,7 @@ public static class AiArmyTargetTree
     /// </summary>
     public static ArmyTarget ScoreArmyTarget(
         AiView view,
-        ArmyState army,
-        bool atWar)
+        ArmyState army)
     {
         ArgumentNullException.ThrowIfNull(view);
         ArgumentNullException.ThrowIfNull(army);
@@ -223,7 +221,7 @@ public static class AiArmyTargetTree
                 continue;
             }
 
-            if (!atWar && !view.IsAtWar(army.Nation, target.Nation))
+            if (!view.IsAtWar(army.Nation, target.Nation))
             {
                 continue;
             }
@@ -270,10 +268,26 @@ public static class AiArmyTargetTree
     }
 
     /// <summary>
-    /// The original's <c>FUN_0044e670</c> — the resupply or defence city for this army, with the
-    /// beyond-15 foreign fallback to the nearest own city. The return value's <see cref="ResupplyCity.City"/>
-    /// is <see langword="null"/> only when no city qualifies at all; the caller treats that as "do nothing".
+    /// The original's <c>FUN_0044e670</c> — the resupply or defence city for this army.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// With <c>strength = troops / 100</c> (the report's own definition in the same sentence), a city
+    /// qualifies when it is an own city whose supply stock is below <c>strength</c>, or — only while at war
+    /// — a foreign city of a nation not at war with this one whose stock is above <c>strength + 80</c>
+    /// while the army holds more than <c>strength / 5</c> in money. An own capital scores −20 and a
+    /// foreign city +20 on top of a base of minus the distance. The report names the two adjustments and
+    /// no base; <em>minus the distance</em> is the reading under which the nearer city wins, and it is
+    /// the one [designed] term here. The best score wins; when nothing qualifies, or the winner is a
+    /// foreign city beyond <see cref="AiWeightsRules.ResupplyMaxForeignDistance"/>, the nearest own city
+    /// is the answer. <see cref="ResupplyCity.City"/> is <see langword="null"/> only when the nation has
+    /// no own city the army is not already beside.
+    /// </para>
+    /// <para>
+    /// A city the army is already beside (<see cref="IsInsideCity"/>) is never a destination: it is where
+    /// the original's army would already stand.
+    /// </para>
+    /// </remarks>
     public static ResupplyCity ScoreResupplyCity(
         AiView view,
         ArmyState army,
@@ -283,132 +297,74 @@ public static class AiArmyTargetTree
         ArgumentNullException.ThrowIfNull(army);
 
         var rules = view.Ruleset.Ai;
-        var strength = army.TotalTroops;
-        var troopsDivisor = rules.ResupplyStrengthTroopsDivisor;
-        var supplyMargin = rules.ResupplyForeignSupplyMargin;
-        var moneyDivisor = rules.ResupplyForeignMoneyDivisor;
-        var capitalPenalty = rules.ResupplyCapitalPenalty;
-        var foreignBonus = rules.ResupplyForeignBonus;
-        var maxForeignDist = rules.ResupplyMaxForeignDistance;
+        var strength = army.TotalTroops / rules.ResupplyStrengthTroopsDivisor;
 
-        // The brief: own cities score −20 if they are capitals; foreign non-war cities score +20. We
-        // collect own candidates and foreign candidates separately so the "beyond 15 → nearest own
-        // city" fallback can replace the foreign pick cleanly.
-        var ownCandidates = new List<(CityState City, long Score, int Distance)>();
-        var foreignCandidates = new List<(CityState City, long Score, int Distance)>();
-        (CityState City, int Distance)? nearestOwn = null;
+        CityState? best = null;
+        long bestScore = long.MinValue;
+        var bestDistance = 0;
+        var bestIsForeign = false;
+        CityState? nearestOwn = null;
+        var nearestOwnDistance = int.MaxValue;
 
         foreach (var city in view.State.Cities)
         {
-            var distance = AiView.Distance(army.X, army.Y, city.X, city.Y);
             if (IsInsideCity(army, city))
             {
                 continue;
             }
 
+            var distance = AiView.Distance(army.X, army.Y, city.X, city.Y);
             var isOwn = string.Equals(city.Owner, army.Nation, StringComparison.Ordinal);
-            var isForeignAtWar = !isOwn && view.IsAtWar(army.Nation, city.Owner);
-
+            long score;
             if (isOwn)
             {
-                // Own cities qualify when their stock is below the army's strength. The capital's −20
-                // is the only adjustment.
-                if (city.SupplyTons >= strength / troopsDivisor)
+                if (distance < nearestOwnDistance)
                 {
-                    if (nearestOwn is null || distance < nearestOwn.Value.Distance)
-                    {
-                        nearestOwn = (city, distance);
-                    }
+                    nearestOwn = city;
+                    nearestOwnDistance = distance;
+                }
 
+                if (city.SupplyTons >= strength)
+                {
                     continue;
                 }
 
-                long ownScore = -distance;
+                score = -distance;
                 if (CapitalOwnership.IsAnyNationsCapital(view.State, city.Id))
                 {
-                    ownScore -= capitalPenalty;
-                }
-
-                ownCandidates.Add((city, ownScore, distance));
-                if (nearestOwn is null || distance < nearestOwn.Value.Distance)
-                {
-                    nearestOwn = (city, distance);
+                    score -= rules.ResupplyCapitalPenalty;
                 }
             }
-            else if (!isForeignAtWar)
+            else
             {
-                // Foreign non-war cities qualify only while at war, when their stock exceeds
-                // strength + supplyMargin AND the army has the money. The +20 is the only adjustment.
-                if (!atWar)
+                if (!atWar
+                    || view.IsAtWar(army.Nation, city.Owner)
+                    || city.SupplyTons <= strength + rules.ResupplyForeignSupplyMargin
+                    || army.Money <= strength / rules.ResupplyForeignMoneyDivisor)
                 {
                     continue;
                 }
 
-                if (city.SupplyTons <= strength + supplyMargin)
-                {
-                    continue;
-                }
-
-                if (army.Money <= strength / moneyDivisor)
-                {
-                    continue;
-                }
-
-                foreignCandidates.Add((city, distance + foreignBonus, distance));
+                score = -distance + rules.ResupplyForeignBonus;
             }
-        }
 
-        // Pick the best foreign candidate by score (closer first, +20 the tiebreaker), then fall back
-        // to the nearest own city when it is beyond maxForeignDist.
-        (CityState City, long Score, int Distance)? bestForeign = null;
-        foreach (var candidate in foreignCandidates)
-        {
-            if (bestForeign is null || candidate.Score > bestForeign.Value.Score
-                || (candidate.Score == bestForeign.Value.Score && candidate.Distance < bestForeign.Value.Distance))
+            if (score > bestScore || (score == bestScore && distance < bestDistance))
             {
-                bestForeign = candidate;
+                best = city;
+                bestScore = score;
+                bestDistance = distance;
+                bestIsForeign = !isOwn;
             }
         }
 
-        if (bestForeign is { } foreign)
+        if (best is null || (bestIsForeign && bestDistance > rules.ResupplyMaxForeignDistance))
         {
-            if (foreign.Distance > maxForeignDist)
-            {
-                if (nearestOwn is null)
-                {
-                    return new ResupplyCity(null, 0, 0);
-                }
-
-                return new ResupplyCity(nearestOwn.Value.City, long.MinValue, nearestOwn.Value.Distance);
-            }
-
-            return new ResupplyCity(foreign.City, foreign.Score, foreign.Distance);
+            return nearestOwn is null
+                ? new ResupplyCity(null, 0, 0)
+                : new ResupplyCity(nearestOwn, -nearestOwnDistance, nearestOwnDistance);
         }
 
-        // No foreign qualified (or the war branch was off); pick the best own candidate.
-        (CityState City, long Score, int Distance)? bestOwn = null;
-        foreach (var candidate in ownCandidates)
-        {
-            if (bestOwn is null || candidate.Score > bestOwn.Value.Score
-                || (candidate.Score == bestOwn.Value.Score && candidate.Distance < bestOwn.Value.Distance))
-            {
-                bestOwn = candidate;
-            }
-        }
-
-        if (bestOwn is { } own)
-        {
-            return new ResupplyCity(own.City, own.Score, own.Distance);
-        }
-
-        // Nothing qualified at all; the brief's last-ditch fallback is "the nearest own city" — which
-        // may have been tracked above as nearestOwn.
-        if (nearestOwn is { } nearest)
-        {
-            return new ResupplyCity(nearest.City, long.MinValue, nearest.Distance);
-        }
-
-        return new ResupplyCity(null, 0, 0);
+        return new ResupplyCity(best, bestScore, bestDistance);
     }
 
     /// <summary>What the tree decided an army should do.</summary>
@@ -504,8 +460,8 @@ public static class AiArmyTargetTree
         ArgumentNullException.ThrowIfNull(view);
         ArgumentNullException.ThrowIfNull(army);
 
-        var city = ScoreCityTarget(view, army, atWar);
-        var armyScore = ScoreArmyTarget(view, army, atWar);
+        var city = ScoreCityTarget(view, army);
+        var armyScore = ScoreArmyTarget(view, army);
         var resupply = ScoreResupplyCity(view, army, atWar);
         var decision = DecideFromScores(view.Ruleset.Ai, army, city, armyScore, resupply);
         _activeLog?.Add(new DecisionRecord(
@@ -710,25 +666,31 @@ public static class AiArmyTargetTree
     }
 
     /// <summary>
-    /// The region id for a coordinate, looked up in <see cref="AiWeightsRules.CityRegionById"/> by the
-    /// nearest city. Empty list means every coordinate sits in region <c>0</c>, the shipped-world
-    /// behaviour.
+    /// The region id for a coordinate: the region of the nearest city that
+    /// <see cref="AiWeightsRules.CityRegionById"/> assigns one to (the first listed wins a tie). An empty
+    /// list means every coordinate sits in region <c>0</c>, the shipped-world behaviour.
     /// </summary>
     private static int RegionOf(AiView view, int x, int y)
     {
+        var region = 0;
+        var nearest = int.MaxValue;
         foreach (var assignment in view.Ruleset.Ai.CityRegionById)
         {
-            foreach (var city in view.State.Cities)
+            var city = view.State.CityById(assignment.CityId);
+            if (city is null)
             {
-                if (string.Equals(city.Id, assignment.CityId, StringComparison.Ordinal)
-                    && city.X == x && city.Y == y)
-                {
-                    return assignment.Region;
-                }
+                continue;
+            }
+
+            var distance = AiView.Distance(x, y, city.X, city.Y);
+            if (distance < nearest)
+            {
+                nearest = distance;
+                region = assignment.Region;
             }
         }
 
-        return 0;
+        return region;
     }
 
     /// <summary>Own-capital predicate, delegated to <see cref="CapitalOwnership.IsAnyNationsCapital"/>.</summary>
