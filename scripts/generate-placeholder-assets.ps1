@@ -390,7 +390,7 @@ foreach ($command in $uiCommands) {
 }
 
 Write-Host "Generating WAV files..."
-foreach ($sfx in @("city_captured", "battle", "unit_move")) {
+foreach ($sfx in @("city_captured", "battle", "unit_move", "fleet_move", "battle_arrows", "battle_javelin", "battle_melee", "siege_failed", "fleet_sunk", "nation_conquered")) {
     $filepath = Join-Path -Path $OutputPath -ChildPath "sfx/$sfx.wav"
     New-SilentWAV -Path $filepath
     Write-Host "  + sfx/$sfx.wav"
@@ -425,7 +425,7 @@ foreach ($surface in @("plain", "desert", "forest", "mountain", "sea_shallow", "
     $manifest.assets["terrain.$surface.surface"] = "terrain/${surface}_surface.bmp"
 }
 
-foreach ($sfx in @("city_captured", "battle", "unit_move")) {
+foreach ($sfx in @("city_captured", "battle", "unit_move", "fleet_move", "battle_arrows", "battle_javelin", "battle_melee", "siege_failed", "fleet_sunk", "nation_conquered")) {
     $manifest.assets["sfx.$sfx"] = "sfx/$sfx.wav"
 }
 

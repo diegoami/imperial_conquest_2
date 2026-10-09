@@ -76,6 +76,13 @@ public sealed class ScuttleFleetCommandHandler : ICommandHandler<ScuttleFleetCom
         var updatedNations = state.Nations.Select(n =>
             string.Equals(n.Id, updatedNation.Id, StringComparison.Ordinal) ? updatedNation : n);
 
+        // T149: a scuttle is the original's `MakeSound(8)` trigger (the report's row 8), one of the
+        // three row-12/16/8 sinks that share the fleet-sunk sound. Published only on an accepted
+        // order; the cue list will play `sfx.fleet_sunk` from this event alone.
+        context.Events.Publish(new FleetScuttled(
+            FleetId: fleet.Id,
+            NationId: fleet.Nation));
+
         return CommandOutcome.Accept(state with
         {
             Fleets = ValueList.From(updatedFleets),

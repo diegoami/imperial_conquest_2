@@ -34,6 +34,23 @@ public partial class SettingsScreen : Control
     /// (<c>authored</c> when present and valid, otherwise <c>placeholder</c>).</summary>
     public static string? SelectedPackId { get; private set; }
 
+    /// <summary>
+    /// T149: whether sound is on — on by default, the original had no such option so this is the
+    /// clone's own (the task entry's "the original has no such option, so this is the clone's own").
+    /// Read by <see cref="Audio.SoundPlayer"/> every time it queues a cue, so toggling here applies
+    /// to the next cue (a cue already on Godot's audio thread finishes naturally — the player
+    /// restarts nothing). A future game picks up the current value the same way it picks up
+    /// <see cref="SelectedPackId"/>, since both are static state.
+    /// </summary>
+    public static bool SoundEnabled { get; private set; } = true;
+
+    /// <summary>
+    /// T149 (Sol's review of PR #886, R4): the headless check's way to flip the Sound toggle
+    /// without driving the CheckBox, so <see cref="MainGameScreen"/>'s production subscription
+    /// (which reads <see cref="SoundEnabled"/> on every event) is what mutes the player.
+    /// </summary>
+    public static void SetSoundEnabledForCheck(bool enabled) => SoundEnabled = enabled;
+
     public override void _Ready()
     {
         UiKit.ApplyBackground(this, UiKit.Background);
@@ -85,6 +102,18 @@ public partial class SettingsScreen : Control
 
         picker.ItemSelected += index => SelectedPackId = packs[(int)index];
         column.AddChild(picker);
+
+        // T149: the Sound on/off checkbox, kept the same way SelectedPackId's picker is — a static
+        // getter, the picker writes it directly, the player reads it every cue. Default true (the
+        // original has no such option, so a fresh game starts with the cue list active).
+        column.AddChild(UiKit.MakeLabel("Sound:", 16, UiKit.TextColor));
+        var soundCheck = new CheckBox
+        {
+            Text = "Enabled",
+            ButtonPressed = SoundEnabled,
+        };
+        soundCheck.Toggled += pressed => SoundEnabled = pressed;
+        column.AddChild(soundCheck);
     }
 
     private static List<string> DiscoverPacks()

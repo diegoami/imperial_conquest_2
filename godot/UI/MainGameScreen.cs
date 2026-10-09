@@ -169,6 +169,12 @@ public partial class MainGameScreen : Control
     // T112: the Unit map's context strip, placed below the main toolbar.
     private UnitCommandStrip _commandStrip = null!;
 
+    // T149: the cue player, built once in _Ready, parented to the root, and wired to one
+    // subscription on Session.EventsPublished (below). The only Owns slice this screen carries
+    // for the cue list: the player's creation and that one subscription. Every other Owns line
+    // (godot/Audio/SoundPlayer.cs, godot/Audio/SoundCues.cs) lives in their own files.
+    private Audio.SoundPlayer _soundPlayer = null!;
+
     public override void _Ready()
     {
         UiKit.ApplyBackground(this, UiKit.Background);
@@ -189,6 +195,15 @@ public partial class MainGameScreen : Control
             SettingsScreen.SelectedPackId,
             onFailure: key => GD.PushWarning(
                 $"T100 toolbar: asset pack could not resolve or load '{key}'; falling back to the caption."));
+
+        // T149: the sound player reads the same pack the toolbar and map read, so a "key the pack
+        // lacks plays nothing" stays true when the player changes packs. Created before the
+        // subscription below so OnSessionEventsPublished never sees a null player.
+        _soundPlayer = new Audio.SoundPlayer(
+            Path.Combine(RepositoryRoot, "assets", "packs", SettingsScreen.SelectedPackId ?? Assets.AssetPackManifestLoader.DefaultPackId));
+        AddChild(_soundPlayer);
+        _soundPlayer.Muted = !SettingsScreen.SoundEnabled;
+        Session.EventsPublished += OnSessionEventsPublished;
 
         Toolbar = new CommandToolbar
         {
@@ -1660,6 +1675,35 @@ public partial class MainGameScreen : Control
         return lines;
     }
 
+    /// <summary>
+    /// T149 (Sol's review of PR #886, R4): the screen's own cue player, read-only, so a headless
+    /// check reads the production player the production subscription writes to — never a private
+    /// player with a check-made subscription beside it, which could pass while this screen's own
+    /// wiring was broken. The check-seam convention <see cref="SubmitForCheck"/> establishes,
+    /// applied to the audio slice this task owns.
+    /// </summary>
+    public Audio.SoundPlayer SoundPlayerForCheck => _soundPlayer;
+
+    /// <summary>
+    /// T149: the one subscription on <see cref="GameSession.EventsPublished"/>. Reads the
+    /// Godot-free <see cref="Audio.SoundCues"/> for the events one <see cref="GameSession.Submit"/>
+    /// published, plays the resulting keys, and does nothing else — never a state read, never a
+    /// label update, never a news line; the cue list's contract is "no listener state change". A
+    /// <c>Submit</c> that produced no events raises the handler with an empty list, which the
+    /// player already treats as a no-op.
+    /// </summary>
+    private void OnSessionEventsPublished(IReadOnlyList<Engine.Core.DomainEvent> events)
+    {
+        if (_soundPlayer is null)
+        {
+            return;
+        }
+
+        _soundPlayer.Muted = !SettingsScreen.SoundEnabled;
+        var cues = Audio.SoundCues.ForEvents(events, Session.State);
+        _soundPlayer.Play(cues);
+    }
+
     private void OnCommandIssued(IReadOnlyList<string> lines)
     {
         // Fix #484: Submit always ends its output with a blank separator line, so lines[^1] was always
@@ -1855,6 +1899,11 @@ public partial class MainGameScreen : Control
     public override void _ExitTree()
     {
         SidePanelToggle.Changed -= ApplySidePanelState;
+
+        // T149: the screen is the only Owns slice that subscribes; every other Owns line lives in
+        // godot/Audio. Unsubscribing here keeps a screen swap from leaving a stale handler on
+        // Session.EventsPublished.
+        Session.EventsPublished -= OnSessionEventsPublished;
     }
 
     private void ToggleSidePanel()

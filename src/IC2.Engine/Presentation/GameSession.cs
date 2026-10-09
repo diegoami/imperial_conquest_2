@@ -307,6 +307,23 @@ public sealed partial class GameSession
     private readonly List<SeatFall> _pendingSeatFalls = new();
 
     /// <summary>
+    /// T149: every <see cref="DomainEvent"/> one <see cref="Submit"/> call published, in publication
+    /// order — the command's own events (one dispatch in <see cref="HandleMove"/>, <see cref="HandleBuy"/>
+    /// or <see cref="IssueCommand"/>) and every seat's <see cref="TurnCoordinator.RunTurn"/> result's
+    /// events (one for the ending seat, then one per AI seat <see cref="PlayUntilOneFullLapOrRepeat"/>
+    /// walks through). The accumulator is cleared at the start of every <see cref="Submit"/> call and
+    /// drained into the <see cref="EventsPublished"/> handler just before the call returns, exactly
+    /// like <see cref="_pendingBattleResults"/> and <see cref="_pendingSeatFalls"/>; nothing it carries
+    /// is rendered, so a subscriber (or its absence) cannot change any line, news entry or state
+    /// change. <strong>The accumulator reads from <see cref="CommandResult.Events"/> and
+    /// <see cref="TurnResult.Events"/>, not from a session-scoped sink the dispatcher and coordinator
+    /// were rebuilt with</strong>: the dispatcher's and coordinator's constructor sinks stay
+    /// <see cref="NullEventSink.Instance"/>, the test that an absent subscriber sees the same lines and
+    /// state is structural, and the order is the one the result itself carries.
+    /// </summary>
+    private readonly List<DomainEvent> _eventsThisCall = new();
+
+    /// <summary>
     /// Drains <see cref="_pendingSeatFalls"/> for one <see cref="Submit"/> return — called at every return
     /// path in <see cref="Submit"/>, exactly as <see cref="SessionOutput.SeatFalls"/> requires. Returns an
     /// empty array (not merely an empty list) when nothing is pending, matching
@@ -330,6 +347,49 @@ public sealed partial class GameSession
         _pendingSeatFalls.Clear();
         LastSeatFalls = flushed;
         return flushed;
+    }
+
+    /// <summary>
+    /// T149: accumulates <paramref name="events"/> onto <see cref="_eventsThisCall"/>, in order, for
+    /// <see cref="EventsPublished"/>'s next raise. Every call site that already reads
+    /// <see cref="CommandResult.Events"/> or <see cref="TurnResult.Events"/> calls this immediately
+    /// after — the list is drained only at <see cref="Submit"/>'s own return paths, so a single
+    /// <c>Submit</c> call always sees the events every code path that call exercised, in the order it
+    /// exercised them. A no-op for an empty list, the common case for read-only commands.
+    /// </summary>
+    private void AccumulateEvents(IReadOnlyList<DomainEvent> events)
+    {
+        if (events is null || events.Count == 0)
+        {
+            return;
+        }
+
+        for (var i = 0; i < events.Count; i++)
+        {
+            _eventsThisCall.Add(events[i]);
+        }
+    }
+
+    /// <summary>
+    /// T149: drains <see cref="_eventsThisCall"/> into a fresh array and raises
+    /// <see cref="EventsPublished"/> with it, then clears the accumulator for the next
+    /// <see cref="Submit"/>. Called at every return path in <see cref="Submit"/>, exactly as
+    /// <see cref="FlushPendingBattleResults"/> and <see cref="FlushPendingSeatFalls"/> are. Returns
+    /// an empty array (not merely an empty list) when nothing is pending, so a subscriber's view of
+    /// "no events" matches what <see cref="Submit"/> would have raised on an empty command.
+    /// </summary>
+    private IReadOnlyList<DomainEvent> FlushEventsAndPublish()
+    {
+        if (_eventsThisCall.Count == 0)
+        {
+            EventsPublished?.Invoke(Array.Empty<DomainEvent>());
+            return Array.Empty<DomainEvent>();
+        }
+
+        var snapshot = _eventsThisCall.ToArray();
+        _eventsThisCall.Clear();
+        EventsPublished?.Invoke(snapshot);
+        return snapshot;
     }
 
     /// <summary>
@@ -1132,11 +1192,23 @@ public sealed partial class GameSession
     /// <summary>
     /// T138: whether no human seat can give orders any more — the game is over, as
     /// <see cref="AnnounceGameOverIfNoHumanSeatRemains"/> sets it, or a <c>--seat</c>-style session's own
-    /// seat is lost and the session is in watch mode (<see cref="_seatLost"/>). The game-end window's own
-    /// "The game is over." line and its Main menu / View map buttons read this; it changes no rule and
-    /// stops no turn the engine was not already stopping.
+    /// seat is lost (<see cref="_seatLost"/>). The game-end window's own "The game is over." line and
+    /// its Main menu / View map buttons read this; it changes no rule and stops no turn the engine was
+    /// not already stopping.
     /// </summary>
     public bool IsGameOver => _gameOver || _seatLost;
+
+    /// <summary>
+    /// T149: every <see cref="DomainEvent"/> one <see cref="Submit"/> call published, raised once with
+    /// the whole list in publication order just before the call returns. Sol's review of PR 793 (R1,
+    /// R2, R4) — the cue list reads it, the Godot UI's <c>MainGameScreen</c> subscribes once when the
+    /// session is attached, and a subscriber (or its absence) reads no field, mutates no state and
+    /// adds no line: the accumulator lives on the session itself, drained by
+    /// <see cref="Submit"/>'s own return paths, never a sink the dispatcher or coordinator was rebuilt
+    /// with. The handler runs synchronously, in the call's own thread, before the
+    /// <see cref="SessionOutput"/> the caller reads.
+    /// </summary>
+    public event Action<IReadOnlyList<DomainEvent>>? EventsPublished;
 
     /// <summary>
     /// Parses and runs one command line, returning what to print and whether the session should stop.
@@ -1145,6 +1217,10 @@ public sealed partial class GameSession
     public SessionOutput Submit(string rawLine)
     {
         ArgumentNullException.ThrowIfNull(rawLine);
+
+        // T149: the per-call event accumulator is cleared on every entry. A subscriber that subscribes
+        // once and stays subscribed sees one batch per Submit, never anything stale from a prior call.
+        _eventsThisCall.Clear();
 
         var lines = new List<string>();
         if (_pendingPrelude is { Count: > 0 } prelude)
@@ -1162,7 +1238,10 @@ public sealed partial class GameSession
         if (trimmed.Length == 0)
         {
             lines.Add(string.Empty);
-            return new SessionOutput(lines, shouldExit, FlushPendingBattleResults(), FlushPendingSeatFalls(), IsGameOver);
+            var emptyOutput = new SessionOutput(
+                lines, shouldExit, FlushPendingBattleResults(), FlushPendingSeatFalls(), IsGameOver);
+            FlushEventsAndPublish();
+            return emptyOutput;
         }
 
         // T87 rework round 2, R2: DoD 2's own "before it can issue an order" also covers the moment
@@ -1178,7 +1257,10 @@ public sealed partial class GameSession
         {
             lines.Add("The game is over. No further commands are accepted.");
             lines.Add(string.Empty);
-            return new SessionOutput(lines, true, FlushPendingBattleResults(), FlushPendingSeatFalls(), IsGameOver);
+            var gameOverOutput = new SessionOutput(
+                lines, true, FlushPendingBattleResults(), FlushPendingSeatFalls(), IsGameOver);
+            FlushEventsAndPublish();
+            return gameOverOutput;
         }
 
         var tokens = trimmed.Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -1348,7 +1430,10 @@ public sealed partial class GameSession
         // T87, DoD 3: whichever command's own processing first found no human seat left (an "end" that
         // played the last human seat's fall, or a human-issued capture that eliminated the last other
         // human seat) also ends the session -- the same signal `quit` already uses.
-        return new SessionOutput(lines, shouldExit || _gameOver, FlushPendingBattleResults(), FlushPendingSeatFalls(), IsGameOver);
+        var normalOutput = new SessionOutput(
+            lines, shouldExit || _gameOver, FlushPendingBattleResults(), FlushPendingSeatFalls(), IsGameOver);
+        FlushEventsAndPublish();
+        return normalOutput;
     }
 
     private IReadOnlyList<string> HandleMove(string[] tokens)
@@ -1375,6 +1460,11 @@ public sealed partial class GameSession
         {
             return new[] { $"Move rejected ({result.Code}): {result.Rejection!.Message}" };
         }
+
+        // T149: every dispatch this session published flows through EventsPublished. The accumulator
+        // is drained by Submit's own return path; reading it here would still see events from prior
+        // calls, so only the live Submit call's own drain reads it.
+        AccumulateEvents(result.Events);
 
         State = NewsLogWriter.Append(result.State, result.Events, Ruleset.NewsLog);
 
@@ -1504,6 +1594,8 @@ public sealed partial class GameSession
             return new[] { $"Purchase rejected ({result.Code}): {result.Rejection!.Message}" };
         }
 
+        AccumulateEvents(result.Events);
+
         State = NewsLogWriter.Append(result.State, result.Events, Ruleset.NewsLog);
 
         var purchased = result.Events.OfType<ArmySupplyPurchased>().First();
@@ -1530,6 +1622,8 @@ public sealed partial class GameSession
         {
             return new[] { $"Purchase rejected ({result.Code}): {result.Rejection!.Message}" };
         }
+
+        AccumulateEvents(result.Events);
 
         State = NewsLogWriter.Append(result.State, result.Events, Ruleset.NewsLog);
 
@@ -1663,6 +1757,13 @@ public sealed partial class GameSession
             var nationsBeforeThisSeatsTurn = State.Nations;
             var result = _coordinator.RunTurn(State);
             State = result.State;
+
+            // T149: every seat the round plays (the ending seat's own RunTurn, then every AI seat
+            // PlayUntilOneFullLapOrRepeat walks through) contributes its events to the per-Submit
+            // accumulator. The cue list reads the same list a single Submit call drained, so a sound
+            // the AI plays on its own turn still reaches the human.
+            AccumulateEvents(result.Events);
+
             AppendPerSeatLine(lines, seat, result.Events);
 
             // T88 (DoD 3, Hazard 1): an AI seat's own turn can resolve a battle that raises a
@@ -1826,6 +1927,12 @@ public sealed partial class GameSession
 
         var result = _coordinator.RunTurn(State);
         State = result.State;
+
+        // T149: the ending seat's own RunTurn, including its round-scoped phases when this call ends
+        // the round (the CityTick that defects a city, the economic pass that credits a treasury),
+        // contributes its events to the per-Submit accumulator.
+        AccumulateEvents(result.Events);
+
         lines.Add($"{NationDisplay(endingSeat)} ends its turn.");
         AppendWeatherLines(lines, result.Events);
 

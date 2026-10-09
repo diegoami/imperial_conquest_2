@@ -1,0 +1,56 @@
+{
+  "prompts": [
+    {
+      "key": "sfx.unit_move",
+      "prompt": "single crisp wooden footstep on hard ground, sharp clear mid-frequency tick, dry, no reverb, 0.05 seconds",
+      "durationSeconds": 0.5,
+      "tickTrimSeconds": 0.06
+    },
+    {
+      "key": "sfx.fleet_move",
+      "prompt": "one oar stroke: creaking wood and a bright splash against a hull, clear mid tones, 0.2 seconds",
+      "durationSeconds": 0.5,
+      "tickTrimSeconds": 0.06
+    },
+    {
+      "key": "sfx.battle_arrows",
+      "prompt": "ancient arrows flying past then striking a wooden shield, whoosh and thunk, 0.4 seconds",
+      "durationSeconds": 0.5
+    },
+    {
+      "key": "sfx.battle_javelin",
+      "prompt": "thrown javelin whizzing through the air, quick zip, 0.2 seconds",
+      "durationSeconds": 0.5
+    },
+    {
+      "key": "sfx.battle_melee",
+      "prompt": "two iron swords clashing once, bright metallic clang with short ring, 0.4 seconds",
+      "durationSeconds": 0.5
+    },
+    {
+      "key": "sfx.siege_failed",
+      "prompt": "battering ram hitting a heavy wooden city gate that holds, sharp knock and splintering crack, clear mid tones, 0.5 seconds",
+      "durationSeconds": 0.5
+    },
+    {
+      "key": "sfx.city_captured",
+      "prompt": "stone city wall collapsing, sharp cracks and clattering debris, bright and immediate, 0.8 seconds",
+      "durationSeconds": 0.8
+    },
+    {
+      "key": "sfx.fleet_sunk",
+      "prompt": "wooden ship breaking apart, planks splintering with a splash and gurgle, clear mid tones, 0.5 seconds",
+      "durationSeconds": 0.5
+    },
+    {
+      "key": "sfx.battle",
+      "prompt": "close ancient battlefield, clashing steel swords and men shouting, bright and immediate, no rumble, 0.5 seconds",
+      "durationSeconds": 0.5
+    },
+    {
+      "key": "sfx.nation_conquered",
+      "prompt": "bright ancient war horn blast with clear mid-range harmonics, solemn, steady note fading out, 1.5 seconds",
+      "durationSeconds": 1.5
+    }
+  ]
+}

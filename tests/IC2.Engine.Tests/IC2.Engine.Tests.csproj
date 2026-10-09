@@ -237,6 +237,14 @@
     <Compile Include="../../godot/UI/InformationPanelModel.cs" Link="Ui/InformationPanelModel.cs" />
 
     <!--
+      T149 (tests/IC2.Engine.Tests/Ui/SoundCuesTests.cs): the same seam, for the Godot-free
+      events -> sounds mapping. SoundCues.cs reads the same DomainEvent kinds and the same
+      GameState the cue list itself reads, so a plain xunit test can pin the mapping without
+      the Godot SDK. No `using Godot` anywhere; never a second, hand-maintained copy.
+    -->
+    <Compile Include="../../godot/Audio/SoundCues.cs" Link="Ui/SoundCues.cs" />
+
+    <!--
       T109 (tests/IC2.Engine.Tests/Ui/StrategyDialogModelsTests.cs): the same seam once more.
       StrategyDialogModels.cs is the Godot-free model behind the four Strategy menu dialogs (Taxation,
       Balance sheet, Recruit unit, Build fleet) — the tax preview against TaxIncome, the build-fleet

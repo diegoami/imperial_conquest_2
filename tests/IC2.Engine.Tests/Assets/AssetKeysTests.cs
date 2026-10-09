@@ -37,6 +37,13 @@ public class AssetKeysTests
         Assert.Contains(AssetKeys.SfxCityCaptured, allKeys);
         Assert.Contains(AssetKeys.SfxBattle, allKeys);
         Assert.Contains(AssetKeys.SfxUnitMove, allKeys);
+        Assert.Contains(AssetKeys.SfxFleetMove, allKeys);
+        Assert.Contains(AssetKeys.SfxBattleArrows, allKeys);
+        Assert.Contains(AssetKeys.SfxBattleJavelin, allKeys);
+        Assert.Contains(AssetKeys.SfxBattleMelee, allKeys);
+        Assert.Contains(AssetKeys.SfxSiegeFailed, allKeys);
+        Assert.Contains(AssetKeys.SfxFleetSunk, allKeys);
+        Assert.Contains(AssetKeys.SfxNationConquered, allKeys);
     }
 
     [Fact]
@@ -119,18 +126,21 @@ public class AssetKeysTests
     }
 
     /// <summary>
-    /// T101 DoD 1, widened by T148: <see cref="AssetKeys.AllKeys"/> yields exactly the 25 pre-T101
-    /// keys, T148's six terrain surface keys and the 36 <c>ui.command.*</c> keys (audit §3.5: 9 main,
-    /// 12 Area-map, 15 unit-map), and nothing else.
+    /// T101 DoD 1, widened by T148 and T149: <see cref="AssetKeys.AllKeys"/> yields exactly the
+    /// 25 pre-T101 keys, T148's six terrain surface keys, the 36 <c>ui.command.*</c> keys
+    /// (audit §3.5: 9 main, 12 Area-map, 15 unit-map), and T149's seven new <c>sfx.*</c> keys
+    /// (sfx.fleet_move, sfx.battle_arrows, sfx.battle_javelin, sfx.battle_melee, sfx.siege_failed,
+    /// sfx.fleet_sunk, sfx.nation_conquered), and nothing else.
     /// </summary>
     [Fact]
     public void AllKeys_HasExactlyThePreT101AndToolbarCommandKeys()
     {
         var allKeys = AssetKeys.AllKeys.ToList();
 
-        Assert.Equal(67, allKeys.Count);
-        Assert.Equal(31, allKeys.Count(k => !k.StartsWith("ui.command.", StringComparison.Ordinal)));
+        Assert.Equal(74, allKeys.Count);
+        Assert.Equal(38, allKeys.Count(k => !k.StartsWith("ui.command.", StringComparison.Ordinal)));
         Assert.Equal(36, allKeys.Count(k => k.StartsWith("ui.command.", StringComparison.Ordinal)));
+        Assert.Equal(10, allKeys.Count(k => k.StartsWith("sfx.", StringComparison.Ordinal)));
     }
 
     /// <summary>
@@ -174,6 +184,39 @@ public class AssetKeysTests
         Assert.Equal(AssetKeys.TerrainMountainSurface, expected[3]);
         Assert.Equal(AssetKeys.TerrainSeaShallowSurface, expected[4]);
         Assert.Equal(AssetKeys.TerrainSeaDeepSurface, expected[5]);
+    }
+
+    /// <summary>
+    /// T149 (correction task for bug #790) DoD 2, the "lists the seven new keys" half: every
+    /// <c>sfx.*</c> key T149 added is present in <see cref="AssetKeys.AllKeys"/>, with its
+    /// documented string, alongside the three pre-existing <c>sfx.*</c> keys. A rename of any
+    /// of the seven new id's fails here rather than silently changing what the cue list resolves
+    /// to.
+    /// </summary>
+    [Fact]
+    public void T149_NewSfxKeys_AreAllPresentWithTheirExactStrings()
+    {
+        var expected = new[]
+        {
+            "sfx.fleet_move",
+            "sfx.battle_arrows",
+            "sfx.battle_javelin",
+            "sfx.battle_melee",
+            "sfx.siege_failed",
+            "sfx.fleet_sunk",
+            "sfx.nation_conquered",
+        };
+
+        Assert.Equal(7, expected.Length);
+        Assert.All(expected, key => Assert.Contains(key, AssetKeys.AllKeys));
+
+        Assert.Equal(AssetKeys.SfxFleetMove, expected[0]);
+        Assert.Equal(AssetKeys.SfxBattleArrows, expected[1]);
+        Assert.Equal(AssetKeys.SfxBattleJavelin, expected[2]);
+        Assert.Equal(AssetKeys.SfxBattleMelee, expected[3]);
+        Assert.Equal(AssetKeys.SfxSiegeFailed, expected[4]);
+        Assert.Equal(AssetKeys.SfxFleetSunk, expected[5]);
+        Assert.Equal(AssetKeys.SfxNationConquered, expected[6]);
     }
 
     /// <summary>
