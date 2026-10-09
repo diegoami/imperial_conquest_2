@@ -373,12 +373,12 @@ Items 10–13 and 18 did not apply to `v0.3.0`: item 10 applies from `v0.4.0`, i
 
 ---
 
-**`v0.5.0`'s checklist was run at `09eb54a`** (the release docs pass, on top of T56's squash merge `361af5e`, the last gating merge), on 2026-10-09. The tag goes on this PR's squash merge (item 17). The evidence is the release reviewer's own re-run in a fresh clone (Opus, [#229](https://github.com/diegoami/imperial_conquest_2/issues/229#issuecomment-6081414203)), and it matches the main session's run in a second clone.
+**`v0.5.0`'s checklist was run at `09eb54a`** (the release docs pass, on top of T56's squash merge `361af5e`, the last gating merge), on 2026-10-09. The tag goes on this PR's squash merge (item 17). The evidence is the release reviewer's own re-run in a fresh clone (Opus, [#229](https://github.com/diegoami/imperial_conquest_2/issues/229#issuecomment-6081414203)), unless a row names another source.
 
 | Item | Evidence |
 | --- | --- |
-| 0 | `bca0546` and `09eb54a` (the UI command audit's 23 rows, T56's Owns widenings), plus the wiki's "Where the build stands" (`8a65560`). |
-| 1 | `gh issue list --label release:v0.5.0 --state all`: 60 issues, all closed and `status:merged`. T56 (#229) and #457 joined the gate by the user's decision of 2026-10-09 (PR #897). |
+| 0 | The docs-pass commits `bca0546` (the UI command audit's Strategy and Unit map rows) and `09eb54a` (its Show mercenaries rows and line 116, and T56's Owns widenings in `docs/tasks/T56.md`); `git show --stat` on each lists the files. The wiki's "Where the build stands" gained the `v0.5.0` and `v0.6.0` rows (wiki commit `8a65560`). |
+| 1 | `gh issue list --label release:v0.5.0 --state all`: 60 issues, all closed and `status:merged`. T56 (#229) and #457 joined the gate by the user's decision of 2026-10-09: plan PR #897, merged at `d838d6c`, whose §2 bullet records it. |
 | 2 | No issue carries `status:escalated`, and no open issue carries `needs-human`. |
 | 3 | No open PR carries `status:approved`. |
 | 4 | CI on `09eb54a`: `success`. |
@@ -390,7 +390,7 @@ Items 10–13 and 18 did not apply to `v0.3.0`: item 10 applies from `v0.4.0`, i
 | 10 | Godot: the main scene runs with no `SCRIPT ERROR` and no `ERROR` line, and 27/27 headless check scenes pass. `check-godot-churn.ps1` reports its two files clean; the import leaves 109 untracked `.uid` files, which it does not inspect (#489, `post-v0.5.0`). |
 | 14 | The preset table was regenerated from both rulesets with `jq` by the release reviewer, and matches the note. |
 | 15 | Known gaps, derived from the task index against issue state: M18 (T127), M20 (T131), M21 (T125–T130). |
-| 16 | The release-note reviewer (Opus) re-ran items 4–10 and requested 15 edits (R1–R15, on #229). They were applied verbatim. |
+| 16 | The release-note reviewer (Opus) re-ran items 4–10 and asked for 15 edits (R1–R15, on #229, each with its current and replacement text). The draft Release's body carries every replacement text: [the draft](https://github.com/diegoami/imperial_conquest_2/releases/tag/untagged-bb4a88c4967d6b5ce128) (`gh release view v0.5.0 --json body`). |
 | 17 | ⏳ At the cut: `git tag -l v0.5.0` empty; annotated, on `main`, on this PR's squash merge. |
 | 18 | ⏳ The user's visual sign-off and partial play session. |
 | 19 | ⏳ Published by the user. |
