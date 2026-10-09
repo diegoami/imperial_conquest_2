@@ -424,10 +424,17 @@ public static class AiArmyTargetTree
     /// accepted that turn.
     /// </summary>
     public sealed record DecisionRecord(
+        string NationId,
         string ArmyId,
+        int ArmyX,
+        int ArmyY,
         Kind Kind,
         string? TargetCityId,
+        int TargetCityX,
+        int TargetCityY,
         string? TargetArmyId,
+        int TargetArmyX,
+        int TargetArmyY,
         long CityScore,
         long ArmyScore,
         int CityDistance,
@@ -465,10 +472,17 @@ public static class AiArmyTargetTree
         var resupply = ScoreResupplyCity(view, army, atWar);
         var decision = DecideFromScores(view.Ruleset.Ai, army, city, armyScore, resupply);
         _activeLog?.Add(new DecisionRecord(
+            army.Nation,
             army.Id,
+            army.X,
+            army.Y,
             decision.Selected,
             decision.TargetCity?.Id,
+            decision.TargetCity?.X ?? -1,
+            decision.TargetCity?.Y ?? -1,
             decision.TargetArmy?.Id,
+            decision.TargetArmy?.X ?? -1,
+            decision.TargetArmy?.Y ?? -1,
             city.Score,
             armyScore.Score,
             city.Distance,
