@@ -250,4 +250,31 @@ public sealed class RecruitTownGateTests
         var bareModel = IC2.Slice.UI.RecruitUnitDialogModel.ForActiveNation(bare, ruleset, RecruitmentTestbed.World);
         Assert.DoesNotContain(bareModel.ListedCities, c => string.Equals(c.Id, NonCapital, StringComparison.Ordinal));
     }
+
+    /// <summary>
+    /// The raw-word / decoded-level boundary: a pending order (word 360 = 3 points over 60%) lets the
+    /// town take an order (RecruitUnit compares the raw word), but the dialog lists by the decoded
+    /// current level, so it is not listed. 100 is a finished 100% (listed); 160 is 60% with a pending
+    /// order (not listed).
+    /// </summary>
+    [Theory]
+    [InlineData(360, false, true)]
+    [InlineData(160, false, true)]
+    [InlineData(100, true, true)]
+    public void The_dialog_lists_by_the_decoded_level_while_the_order_gate_reads_the_raw_word(
+        int word, bool listed, bool mayOrder)
+    {
+        var ruleset = RecruitmentTestbed.Ruleset;
+        var state = StateWithFort(NonCapital, word);
+        var city = state.CityById(NonCapital)!;
+        var nation = state.NationById(Nation)!;
+
+        Assert.Equal(listed, RecruitmentEligibility.IsListedInDialog(city, nation, ruleset));
+        Assert.Equal(mayOrder, RecruitmentEligibility.MayTakeOrder(city, nation, ruleset));
+
+        var model = IC2.Slice.UI.RecruitUnitDialogModel.ForActiveNation(state, ruleset, RecruitmentTestbed.World);
+        Assert.Equal(
+            listed,
+            model.ListedCities.Any(c => string.Equals(c.Id, NonCapital, StringComparison.Ordinal)));
+    }
 }

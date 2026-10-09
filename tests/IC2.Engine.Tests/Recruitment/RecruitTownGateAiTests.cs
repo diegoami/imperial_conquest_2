@@ -104,6 +104,7 @@ public sealed class RecruitTownGateAiTests
         var orders = RecruitCandidates(state);
 
         var atCapital = orders.Where(o => string.Equals(o.CityId, Capital, StringComparison.Ordinal)).ToList();
+        Assert.NotEmpty(atCapital);
         foreach (var order in atCapital)
         {
             Assert.True(RecruitmentTestbed.Dispatcher().Dispatch(state, order).IsAccepted);
@@ -111,24 +112,46 @@ public sealed class RecruitTownGateAiTests
     }
 
     /// <summary>
-    /// End to end, through the whole turn: a nation with only an ineligible non-capital town (its
-    /// capital lost — no city passes the gate) issues no recruitment at all, and the turn reports no
-    /// rejected command. T22 Done-when 1's zero, on the state that would break it.
+    /// The candidate-level proof for a state of only ineligible towns (capital moved off both north
+    /// towns, both at 60% with no pending order): with the filter the AI proposes no recruitment at
+    /// all; without it, the same economy phase would propose one at these towns (see the control
+    /// below), so the empty list is the filter's doing and not an AI that wanted nothing.
+    /// </summary>
+    [Fact]
+    public void The_ai_proposes_no_recruitment_in_a_state_of_only_ineligible_towns()
+    {
+        var ineligible = OnlyIneligibleTowns();
+        Assert.Empty(RecruitCandidates(ineligible));
+
+        // Control: the very same AI, with the capital restored at the same low fortification, does
+        // want to recruit — so the economy phase is willing in this state.
+        var control = RecruitmentTestbed.WithNation(
+            ineligible, ineligible.NationById(Nation)! with { CapitalCityId = Capital });
+        Assert.Contains(RecruitCandidates(control), o => string.Equals(o.CityId, Capital, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// End to end, through the whole turn: the same state issues no recruitment and reports no
+    /// rejected command. T22 Done-when 1's zero.
     /// </summary>
     [Fact]
     public void A_full_ai_turn_in_a_state_of_only_ineligible_towns_reports_no_rejected_command()
     {
-        // portus at 60% with no pending order, and arx at 60% too, with the capital moved off both
-        // (onto meridia, south's own city — a dangling-but-harmless capital pointer for north's own
-        // gate, which simply makes both north towns non-capitals).
-        var state = StateWithFort(NonCapital, 60);
-        state = RecruitmentTestbed.WithCity(state, state.CityById(Capital)! with { FortificationCode = 60 });
-        state = RecruitmentTestbed.WithNation(
-            state, state.NationById(Nation)! with { CapitalCityId = "meridia" });
-
-        var driven = IC2.Engine.Tests.Ai.AiScriptedStates.DriveOneTurn(state);
+        var driven = IC2.Engine.Tests.Ai.AiScriptedStates.DriveOneTurn(OnlyIneligibleTowns());
 
         Assert.Equal(0, driven.Outcome.CommandsRejected);
         Assert.DoesNotContain(driven.IssuedKinds, kind => string.Equals(kind, "recruitment.recruit-standing-unit", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// portus and arx both at 60% with no pending order, the capital pointer moved onto meridia
+    /// (south's own city), so neither north town is its nation's capital.
+    /// </summary>
+    private static GameState OnlyIneligibleTowns()
+    {
+        var state = StateWithFort(NonCapital, 60);
+        state = RecruitmentTestbed.WithCity(state, state.CityById(Capital)! with { FortificationCode = 60 });
+        return RecruitmentTestbed.WithNation(
+            state, state.NationById(Nation)! with { CapitalCityId = "meridia" });
     }
 }
