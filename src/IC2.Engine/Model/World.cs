@@ -309,8 +309,7 @@ public sealed record MercenaryTemplate(
     int Label,
     string UnitTypeId,
     int TroopsBase,
-    int QualityBase,
-    [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
+    int QualityBase);
 
 /// <summary>How a <see cref="TerrainGrid"/>'s cell codes are encoded in JSON.</summary>
 /// <remarks>

@@ -508,6 +508,90 @@ var startingNeighbours = ValueList.Of(nationTable.Nations
     .ToArray());
 
 // ============================================================================================
+// 7d. The mercenary template table (T56, bug #457) -- 201 records at DAT 0x1FCD6, the first 201 of
+//     the 251 x 12-byte block the loader reads into 0x0049D0A4 (the other 50 are the live pool slots,
+//     shipped empty as (0,0,0,0,-1,0)), plus the 52 Label names at 0x1F8C6, 20-byte NUL-terminated
+//     (decompiled-new-game-mercenary-fill.md §4). Parsed here with BinaryPrimitives rather than
+//     through an IC2.Data parser: this task's Owns grants only remarks in SaveMercenaryTable.cs /
+//     DatLayout.cs, not a new parser there, so the byte-level read lives in this script, the one file
+//     this task owns outright. Every offset below is [confirmed] by that report's
+//     count-backwards pin (0x1FCD6 + 0xBC4 + 0x1380 + 0x988 = 0x225A2, the DAT's length).
+// ============================================================================================
+const int MercenaryNamesOffset = 0x1F8C6;
+const int MercenaryNamesCount = 52;
+const int MercenaryNameRecordLength = 20;
+const int MercenaryBlockOffset = 0x1FCD6;
+const int MercenaryTemplateCount = 201;
+const int MercenaryRecordLength = 12;
+
+var mercenaryNames = new string[MercenaryNamesCount];
+for (var i = 0; i < MercenaryNamesCount; i++)
+{
+    var at = MercenaryNamesOffset + i * MercenaryNameRecordLength;
+    var nul = Array.IndexOf(datBytes, (byte)0, at, MercenaryNameRecordLength);
+    if (nul < 0)
+        throw new InvalidOperationException($"Mercenary Label name {i} at DAT 0x{at:X} has no NUL inside its 20-byte record.");
+    mercenaryNames[i] = System.Text.Encoding.ASCII.GetString(datBytes, at, nul - at);
+    if (mercenaryNames[i].Length == 0)
+        throw new InvalidOperationException($"Mercenary Label name {i} at DAT 0x{at:X} is empty.");
+}
+
+var mercenaryTemplates = new MercenaryTemplate[MercenaryTemplateCount];
+var templateCityTiles = new HashSet<(int X, int Y)>();
+for (var i = 0; i < MercenaryTemplateCount; i++)
+{
+    var at = MercenaryBlockOffset + i * MercenaryRecordLength;
+    int ReadWord(int o) => BinaryPrimitives.ReadInt16LittleEndian(datBytes.AsSpan(at + o, 2));
+    var x = ReadWord(0);
+    var y = ReadWord(2);
+    var label = ReadWord(4);
+    var typeCode = ReadWord(6);
+    var troopsBase = ReadWord(8);
+    var qualityBase = ReadWord(10);
+
+    if (label < 1 || label >= MercenaryNamesCount)
+        throw new InvalidOperationException($"Mercenary template {i} carries Label {label}, outside the 1..{MercenaryNamesCount - 1} range of the 52-name table.");
+    if (typeCode is < 0 or > 4)
+        throw new InvalidOperationException($"Mercenary template {i} carries unit type code {typeCode}, outside 0..4.");
+    if (troopsBase < 400 || troopsBase > 7000)
+        throw new InvalidOperationException($"Mercenary template {i} carries troops base {troopsBase}, outside the report's 400..7,000 range.");
+    if (qualityBase is < 5 or > 9)
+        throw new InvalidOperationException($"Mercenary template {i} carries quality base {qualityBase}, outside 5..9.");
+
+    mercenaryTemplates[i] = new MercenaryTemplate(
+        X: x,
+        Y: y,
+        Label: label,
+        UnitTypeId: UnitTypeIdFor((ushort)typeCode),
+        TroopsBase: troopsBase,
+        QualityBase: qualityBase);
+    templateCityTiles.Add((x, y));
+}
+
+// Every template's (x, y) is a city tile, and four (x, y, Label, type) keys appear twice -- both
+// [confirmed: DAT] by the report's own sweep. Checked here so a wrong offset cannot ship as a
+// plausible-looking table of countryside coordinates.
+var cityTiles = new HashSet<(int X, int Y)>(prefix.Cities.Select(c => ((int)c.X, (int)c.Y)));
+if (!templateCityTiles.IsSubsetOf(cityTiles))
+    throw new InvalidOperationException("Not every mercenary template (x, y) is a city tile -- the mercenary block offset must be wrong.");
+var duplicateKeys = mercenaryTemplates
+    .GroupBy(t => (t.X, t.Y, t.Label, t.UnitTypeId))
+    .Where(g => g.Count() > 1)
+    .ToList();
+if (duplicateKeys.Count != 4)
+    throw new InvalidOperationException($"Expected exactly 4 duplicated (x, y, Label, type) keys in the template table (report: 4); found {duplicateKeys.Count}.");
+for (var i = MercenaryTemplateCount; i < MercenaryTemplateCount + 50; i++)
+{
+    var at = MercenaryBlockOffset + i * MercenaryRecordLength;
+    var live = new int[6];
+    for (var w = 0; w < 6; w++)
+        live[w] = BinaryPrimitives.ReadInt16LittleEndian(datBytes.AsSpan(at + w * 2, 2));
+    if (live[0] != 0 || live[1] != 0 || live[2] != 0 || live[3] != 0 || live[4] != -1 || live[5] != 0)
+        throw new InvalidOperationException($"DAT live pool slot {i - MercenaryTemplateCount} is not the shipped (0,0,0,0,-1,0) empty record.");
+}
+Console.WriteLine($"Mercenary template table: {MercenaryTemplateCount} templates from DAT 0x{MercenaryBlockOffset:X}, all {templateCityTiles.Count} city tiles valid, 4 duplicated keys, {MercenaryNamesCount} Label names from DAT 0x{MercenaryNamesOffset:X}.");
+
+// ============================================================================================
 // 8. Assemble the World. TurnOrder is the DAT's own nation-table order: the original shuffles it
 //    at New Game (FUN_00448aa4), which this export does not reproduce -- [designed] default.
 // ============================================================================================
@@ -527,6 +611,7 @@ var world = new World(
     StartingRelations: startingRelations,
     StartingNews: startingNews,
     StartingNeighbours: startingNeighbours,
+    MercenaryTemplates: ValueList.Of(mercenaryTemplates),
     Provenance: ProvenanceMap.Of(
         ("width", "confirmed: WorldPrefix.MapWidth, T30's DAT parse -- 320x140, docs/investigations/dat-file-layout.md."),
         ("height", "confirmed: WorldPrefix.MapHeight, T30's DAT parse."),
@@ -539,7 +624,8 @@ var world = new World(
         ("turnOrder", "designed: the DAT's own nation-table order (0..15), used as a default. TPremierForm_NewGame's FUN_00448aa4 shuffles the 16-entry turn order at New Game -- docs/investigations/dat-file-layout.md -- which this export does not reproduce; not DAT-derived play state."),
         ("startingRelations", "confirmed: T73's DAT nation-table parse (IC2.Data.SaveNationTable.Parse's Relations field), DAT nation record +0x0B, 16x16 shorts -- decompiled-diplomacy-peace-terms-and-instant-battles.md's 2026-09-24 addition, \"the starting matrix\": symmetric, zero diagonal, 5 wars, 13 trades, 4 alliances, no cooldowns."),
         ("startingNews", "confirmed: T73's DAT news-seed parse (IC2.Data.SaveNewsLog.Parse), the DAT's last 2,440 bytes -- news-log-format-and-messages.md §Q1: slots 0-26 are the scripted 272-271 BC history, kept byte-for-byte verbatim (no trim, no re-render), with the newest index set to 26 exactly as FUN_00448AA4 sets it at New Game."),
-        ("startingNeighbours", "confirmed: T85's DAT nation-table parse (IC2.Data.NationRecord.NeighbourMask field), DAT nation record +0x2B (IC2.Data.DatLayout.NationNeighbourOffset), 16 words -- dat-neighbour-mask.md §2, \"The mask in the DAT\": symmetric, no self bit, 24 pairs across all 16 rows, matching all 101 local saves. Replaces the geometric derivation NeighbourGeography used before this field existed (dat-neighbour-mask.md §6/§7); that derivation reproduces all 24 of these pairs but adds 6 more (Rome-Greece, Thracia-Bithynia, Thracia-Seleucid, Seleucid-Macedonia, Seleucid-Greece, Ptolemaic-Greece) that this field does not carry.")));
+        ("startingNeighbours", "confirmed: T85's DAT nation-table parse (IC2.Data.NationRecord.NeighbourMask field), DAT nation record +0x2B (IC2.Data.DatLayout.NationNeighbourOffset), 16 words -- dat-neighbour-mask.md §2, \"The mask in the DAT\": symmetric, no self bit, 24 pairs across all 16 rows, matching all 101 local saves. Replaces the geometric derivation NeighbourGeography used before this field existed (dat-neighbour-mask.md §6/§7); that derivation reproduces all 24 of these pairs but adds 6 more (Rome-Greece, Thracia-Bithynia, Thracia-Seleucid, Seleucid-Macedonia, Seleucid-Greece, Ptolemaic-Greece) that this field does not carry."),
+        ("mercenaryTemplates", "confirmed: T56's read of the DAT's fixed mercenary template table (decompiled-new-game-mercenary-fill.md §4): 201 records of six signed 16-bit little-endian words at DAT 0x1FCD6 (the first 201 of the 251-record block the loader reads into 0x0049D0A4; records 201-250 are the 50 live pool slots, checked here to ship as the empty (0,0,0,0,-1,0)), in DAT order and keyed by index -- four (x, y, Label, type) keys appear twice, and template 200 (Vologesias, light cavalry) is data the restock's Random(200) draw never selects but is carried anyway so the indices match. Every (x, y) is checked to be a city tile. The 52 Label names the Label field indexes live at DAT 0x1F8C6, 20-byte NUL-terminated: " + string.Join("; ", mercenaryNames.Select((n, i) => $"{i}={n}")) + ". The names are recorded here rather than as world data: Label round-trips as a number, and this model deliberately carries no display string for it.")));
 
 Console.WriteLine($"World assembled: {world.Nations.Count} nations, {world.Cities.Count} cities, {world.StartingArmies.Count} armies, {world.StartingFleets.Count} fleets.");
 
@@ -1317,6 +1403,17 @@ internal static class RulesetCorpusMap
         // corpus id but no map row, so the exporter cited their values but never cross-checked them.
         // The values already agree (50, 4, 1); these rows make the cross-check real.
         ("recruitment.mercenaryAiHireMinMoney", "mercenary.aiHireMoneyThreshold"),
+        ("recruitment.mercenaryRestockEmptyRollDenominator", "mercenary.restock.emptyRollDenominator"),
+        ("recruitment.mercenaryRestockEmptyRollRefillCeiling", "mercenary.restock.emptyRollRefillCeiling"),
+        ("recruitment.mercenaryRestockReplaceRollDenominator", "mercenary.restock.replaceRollDenominator"),
+        ("recruitment.mercenaryRestockReplaceRollFloor", "mercenary.restock.replaceRollFloor"),
+        ("recruitment.mercenaryRestockTemplateDrawCount", "mercenary.restock.templateDrawCount"),
+        ("recruitment.mercenaryRestockTroopsScaleNumerator", "mercenary.restock.troopsScaleNumerator"),
+        ("recruitment.mercenaryRestockTroopsScaleDenominator", "mercenary.restock.troopsScaleDenominator"),
+        ("recruitment.mercenaryRestockQualityFloor", "mercenary.restock.qualityFloor"),
+        ("recruitment.mercenaryRestockQualityCeiling", "mercenary.restock.qualityCeiling"),
+        ("recruitment.mercenaryRestockQualityRaise", "mercenary.restock.qualityRaise"),
+        ("recruitment.mercenaryRestockQualityJitterSteps", "mercenary.restock.qualityJitterSteps"),
         ("recruitment.mercenaryHireRangeAiSeat", "mercenary.aiHireRadius"),
         ("recruitment.mercenaryHireRangeHumanSeat", "mercenary.playerHireRange"),
         ("recruitment.mercenaryHireTroopDivisor", "mercenary.hireCostFormula"),
