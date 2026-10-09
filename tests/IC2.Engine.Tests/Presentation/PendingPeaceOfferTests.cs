@@ -31,8 +31,16 @@ public sealed class PendingPeaceOfferTests
         var toy = CoreTestbed.Toy;
         var reserve = new StartingArmy(
             "north-reserve", "north", X: 2, Y: 1, Morale: 1, Money: 0, SupplyTons: 0, Moves: 5,
-            Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "heavy_infantry", Troops: 480000, Quality: 5, Name: "Reserve")));
-        var southArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with { X = 4, Y = 2 };
+            Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "heavy_infantry", Troops: 350_000, Quality: 5, Name: "Reserve")));
+        // T156: south's army is sized so FUN_0044a930 outweighs the reserve and the post-battle
+        // ArmyPower.Compute leaves the survivors below the reserve, raising the "human lost" peace offer.
+        var southArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with
+        {
+            X = 4,
+            Y = 2,
+            Morale = 100,
+            Units = ValueList.Of(new UnitSlot(MercenaryLabel: 1, "archers", Troops: 10_000, Quality: 7, Name: "1st Bowmen")),
+        };
         var world = toy.World with
         {
             StartingArmies = ValueList.From(
