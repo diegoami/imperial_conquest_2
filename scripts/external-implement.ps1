@@ -400,6 +400,10 @@ function Invoke-ImplementerSelfTest {
     $outsideRun = [pscustomobject]@{ Model = 'mimo-flash'; Run = [pscustomobject]@{ OutsidePathsKnown = $true; OutsidePaths = @('C:\Users\diego\AppData\Local\Temp\opencode') } }
     $leftWorkText = Get-LeftWorkExitText -Model 'mimo-flash' -Reason 'no session in 180 s' -Branch 'task/T99-x' -Log 'C:\work\ic2-work\T99.implementer.log' -OutsideRuns @($outsideRun)
     Add 'DW5 R3: the leftWork exit text carries the "Outside paths touched" report' ($leftWorkText -match 'Outside paths touched' -and $leftWorkText -like '*Temp\opencode (mimo-flash)*')
+    # Bug #934: the report lists the outside calls the guard denied, which no longer end the run.
+    $deniedRun = [pscustomobject]@{ Model = 'mm-m3'; Run = [pscustomobject]@{ OutsidePathsKnown = $true; OutsidePaths = @(); OutsideWritesDenied = @('edit {"filePath":"C:\\Users\\Users\\x.cs"}'); OutsideReadsDenied = @('Read C:/a') } }
+    $deniedText = Format-OutsidePathsReport @($deniedRun)
+    Add '#934: the outside-paths report lists a denied write and a denied read' ($deniedText -match 'denied write: edit' -and $deniedText -match 'denied read: Read C:/a')
     Add 'DW5 R3: the leftWork exit text keeps the original message and the log path' ($leftWorkText -like '*after committing, pushing or opening a PR*' -and $leftWorkText -like '*Log: C:\work\ic2-work\T99.implementer.log*')
     $leftWorkNone = Get-LeftWorkExitText -Model 'qwen-flash' -Reason 'exit 1' -Branch 'task/T99-x' -Log 'L' -OutsideRuns @()
     Add 'DW5 R3: no run at all still reports (unknown), never crashes' ($leftWorkNone -match 'unknown: no attempt returned a session')
@@ -486,6 +490,9 @@ function Format-OutsidePathsReport([object[]] $Runs) {
     foreach ($r in $Runs) {
         if (-not $r.Run.OutsidePathsKnown) { $lines += "- unknown for $($r.Model): the session export failed"; continue }
         foreach ($p in @($r.Run.OutsidePaths)) { $lines += "- $p ($($r.Model))" }
+        # Bug #934: the outside calls the guard denied, which no longer end the run.
+        foreach ($w in @($r.Run.OutsideWritesDenied)) { if ($w) { $lines += "- denied write: $w ($($r.Model))" } }
+        foreach ($d in @($r.Run.OutsideReadsDenied)) { if ($d) { $lines += "- denied read: $d ($($r.Model))" } }
     }
     if ($lines.Count -eq 0) { return 'none' }
     return ($lines -join "`n")

@@ -932,6 +932,12 @@ Write-Host "__exit:`$code"
     $ruleChecks += [pscustomobject]@{ Name = '#931: the export overrides a printed Read title (a bash write stays a write)'; Ok = ((Get-OpenCodeDeniedWrite $denyRead @($ed | Where-Object Tool -eq 'bash')) -like 'bash *') }
     $ruleChecks += [pscustomobject]@{ Name = '#931: export reads cannot hide a printed write (fail closed)'; Ok = ((Get-OpenCodeDeniedWrite $denyPatch @($ed | Where-Object Read)) -eq 'Patch') }
     $ruleChecks += [pscustomobject]@{ Name = '#931: a missing export is $null (the printed output is the fallback)'; Ok = ($null -eq (Get-OpenCodeExportDenials 'C:\no\such\export.json')) }
+    # Bug #934: a denied write no longer ends the run or fails the attempt; it is listed.
+    $ruleChecks += [pscustomobject]@{ Name = '#934: a denied write is not a permission rejection (the attempt does not fail)'; Ok = ($null -eq (Get-OpenCodePermissionRejection "$denyPatch`n$denyBash")) }
+    $ruleChecks += [pscustomobject]@{ Name = '#934: a legacy ask rejection still is one'; Ok = ((Get-OpenCodePermissionRejection "! permission requested: external_directory (C:/Windows/*); auto-rejecting") -eq 'external_directory (C:/Windows/*)') }
+    $dw = Get-OpenCodeDeniedWrites "$denyPatch`n$denyRead" @($ed | Where-Object Tool -eq 'bash')
+    $ruleChecks += [pscustomobject]@{ Name = "#934: the denied writes list both sources, the export's first (got $($dw -join ' | '))"; Ok = ($dw.Count -eq 2 -and $dw[0] -like 'bash *' -and $dw[1] -eq 'Patch') }
+    $ruleChecks += [pscustomobject]@{ Name = '#934: no denied write when only reads were denied'; Ok = (@(Get-OpenCodeDeniedWrites $denyRead @($ed | Where-Object Read)).Count -eq 0) }
     # PR #932's re-check R1: a parseable export that misses a printed denial must not drop a write.
     $none = [object[]]@()
     $ruleChecks += [pscustomobject]@{ Name = '#931 re-check R1: an export with no denial does not hide a printed write'; Ok = ((Get-OpenCodeDeniedWrite $denyPatch $none) -eq 'Patch') }
