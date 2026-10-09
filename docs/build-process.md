@@ -591,8 +591,9 @@ directory, so always pass `git -C <your worktree>` explicitly rather than relyin
 STAY INSIDE YOUR WORKTREE. Once it exists (the setup block above is the only exception, and an
 OpenCode run skips it), never read, list, write or run anything by a path outside it: not
 %TEMP% or $env:TEMP, not ~ or $env:USERPROFILE, not C:\Program Files, not the NuGet cache, not the
-main checkout, and not another worktree. OpenCode's permission guard auto-rejects such a call, and
-the rejection ENDS your run, stranding any unpushed work (issue #501). Invoke tools by name from
+main checkout, and not another worktree. OpenCode's permission guard denies such a call (issue #501). Since #931 a denied READ only
+fails that call and your run goes on, but a denied WRITE, edit, patch or shell command still ENDS
+your run and fails the attempt, stranding any unpushed work. Invoke tools by name from
 PATH (`dotnet`, `git`, `gh`, `python`, and `godot` in bash or `godot.cmd` in PowerShell), and never
 inspect their installs. Outside the worktree the guard allows only the tool shims in `C:\Users\diego\.local\bin\`
 (`godot`, `gh`, `jq`, …) and the TEMP folder (`%TEMP%`, `/tmp` under Git Bash), with any `..` path denied (T150; TEMP widened on 2026-10-08). A slip there no
@@ -605,7 +606,7 @@ runs in place and uncommitted: mutate, rebuild clean, test, then `git checkout -
 it, rebuild clean and test again (§4.2 gate 5).
 
 Your brief is the prompt you were given. Never re-read a brief file by a path outside your
-worktree: the main checkout's `rendered/` is outside it, and the guard ends the run there
+worktree: the main checkout's `rendered/` is outside it, and the guard denies the read there
 (T140, #854).
 
 Never use `git stash`: the stash is shared by every worktree in the repository, so another
@@ -706,8 +707,9 @@ Scratch files, a mutation copy included, go inside your own worktrees under
 C:\Users\diego\projects\ic2-work\ (the git-ignored `rendered/` is the place) or in TEMP (allowed since 2026-10-08, replacing the
 user's rule of 2026-09-29). An OpenCode reviewer (`scripts/external-review.ps1`) may not reach
 outside the worktree the script made for it, except the tool shims in `C:\Users\diego\.local\bin\` (the Godot
-shim among them) and the TEMP folder (`%TEMP%`, `/tmp` under Git Bash), with `..` paths denied (T150): its permission guard rejects
-any other call, and the rejection ends the review (issue #501).
+shim among them) and the TEMP folder (`%TEMP%`, `/tmp` under Git Bash), with `..` paths denied (T150): its permission guard denies
+any other call (issue #501): since #931 a denied read only fails that call, and a denied write,
+edit, patch or shell command ends the review.
 
 Never use `git stash`: the stash is shared by every worktree in the repository, so another
 agent's push or pop can swap entries with yours. To test the base without the change, in your own
