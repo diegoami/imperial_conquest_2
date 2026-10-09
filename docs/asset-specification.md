@@ -276,11 +276,11 @@ Two different code paths already exist, for two different moments, and they must
 > - **Cities and capitals** are bitmaps with each owner's colours baked in (`TUnitMap`'s `Cities1List` to `Cities4List` and
 >   `CapitalsList`, 16 images each). Each of the five variants is one fixed three-colour template for all 16 owners, and
 >   nothing is recoloured when a city is drawn: the 80 stored images equal the Wine drawing, 80 of 80
->   **[confirmed: resources + Wine, [`2026-10-09-city-marker-colours.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-city-marker-colours.md), research `cdffb27`, and [`2026-10-09-unit-icon-recolour-and-nation-glyphs.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-unit-icon-recolour-and-nation-glyphs.md), research `4ef90ec`]**.
+>   **[derived: resources; drawn in Wine, a candidate until the desktop check, [`2026-10-09-city-marker-colours.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-city-marker-colours.md), research `cdffb27`, and [`2026-10-09-unit-icon-recolour-and-nation-glyphs.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-unit-icon-recolour-and-nation-glyphs.md), research `4ef90ec`]**.
 > - **Armies and fleets** are three army and three fleet templates in Rome's colours (purple background, white outline, blue
 >   fill), recoloured at draw time by `FUN_0044a6c8` from the nation record's `+0x424`/`+0x428`/`+0x42C`. New-game setup
 >   (`FUN_00448aa4`) writes those three dwords for every nation as constants, and the save keeps them. The 96 drawn icons are
->   those six templates recoloured, 96 of 96 **[confirmed: decompile + resources + Wine, [`2026-10-09-unit-icon-recolour-and-nation-glyphs.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-unit-icon-recolour-and-nation-glyphs.md), research `4ef90ec`;
+>   those six templates recoloured, 96 of 96 **[confirmed: decompile + resources; the drawn match a Wine candidate, [`2026-10-09-unit-icon-recolour-and-nation-glyphs.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-unit-icon-recolour-and-nation-glyphs.md), research `4ef90ec`;
 >   [`2026-10-09-owner-colours-by-band.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-owner-colours-by-band.md), research `ba103a0`]**. The classical world's `battleColorsHex` equals the three dwords for all 16 nations.
 > - **The toolbar's 16 nation buttons** carry the capital glyphs' colours, all three roles, for all 16 owners (same report).
 > - **The two sources agree for 15 nations**: a city's (background, outline, fill) equals `battleColorsHex`. **Numidia** is
@@ -587,7 +587,7 @@ That is **four distinct building shapes**, not one uniform glyph and not three �
 confirmation (not merely a report citation) that the original's city iconography varies by more than
 colour, and a second, independent line of evidence for the same conclusion the five-variant map code
 already implies. **Which shape each variant draws** is settled by drawing all 80 city words and reading the stored images
-**[confirmed: Wine + resources, [`2026-10-09-city-marker-colours.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-city-marker-colours.md), research `cdffb27`; [`2026-10-09-unit-icon-recolour-and-nation-glyphs.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-unit-icon-recolour-and-nation-glyphs.md), research `4ef90ec`]**:
+**[derived: resources; drawn in Wine, a candidate until the desktop check, [`2026-10-09-city-marker-colours.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-city-marker-colours.md), research `cdffb27`; [`2026-10-09-unit-icon-recolour-and-nation-glyphs.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-unit-icon-recolour-and-nation-glyphs.md), research `4ef90ec`]**:
 variant 0 (under 25 thousand) is a small house, 1 (25–49) a house, 2 (50–99) a small castle, 3 (≥ 100) a large
 castle, and 4 (the capital) the columned temple. Each is a fixed three-colour template (§2); in the 28 × 28
 inset the background covers 673, 582, 446, 278 and 342 pixels for variants 0 to 4. The four shapes seen in the
@@ -781,7 +781,7 @@ section actually require:
     border is kept. The attacker's copies are images 0–14 and the defender's 15–29. The colours are each
     nation's `battleColorsHex`, the same dwords that recolour the unit map's army and fleet icons (§2).
     Rome, Gaul and an edited Numidian army were drawn in Wine, and every sprite equals its template
-    recoloured, pixel for pixel **[confirmed: decompile + Wine, [`2026-10-09-battle-map-units-use-the-nation-recolour.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-battle-map-units-use-the-nation-recolour.md), research `ef19e2c`;
+    recoloured, pixel for pixel **[confirmed: decompile; the drawn match a Wine candidate, [`2026-10-09-battle-map-units-use-the-nation-recolour.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-battle-map-units-use-the-nation-recolour.md), research `ef19e2c`;
     [`2026-10-09-numidian-battle-drawn-in-wine.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-numidian-battle-drawn-in-wine.md), research `ca08a33`]**. The templates are `BatMapList` images 0–14 of 17, with a lime frame
     that is not recoloured. Image 15 is the ground tile (lime, with green, olive, white and black). Image 16
     is not identified. Numidia's background colour is lime, so a Numidian unit is a flat lime square with a
