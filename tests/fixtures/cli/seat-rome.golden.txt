@@ -108,9 +108,9 @@ News:
 > end
 Rome (rome) ends its turn.
 Carthage (carthage) takes its turn: 1 order issued.
-Seleucid (seleucid) takes its turn: 3 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 0 orders issued.
-Macedonia (macedonia) takes its turn: 2 orders issued.
+Seleucid (seleucid) takes its turn: 1 order issued.
+Ptolemaic (ptolemaic) takes its turn: 1 order issued.
+Macedonia (macedonia) takes its turn: 1 order issued.
 Numidia (numidia) takes its turn: 2 orders issued.
 Gaul (gaul) takes its turn: 1 order issued.
 Greece (greece) takes its turn: 2 orders issued.
@@ -122,10 +122,10 @@ Galatia (galatia) takes its turn: 1 order issued.
 Armenia (armenia) takes its turn: 0 orders issued.
 Media (media) takes its turn: 0 orders issued.
 Thracia (thracia) takes its turn: 2 orders issued.
+  Weather: drought-reduces-supply (week 3).
+  Weather: drought-reduces-supply (week 3).
 Now: Week 5, Spring 270 BC. Active seat: Rome (rome).
 News:
-  Seleucid destroys army of Ptolemaic.
-  Macedonia declares war on Illyria.
    
   Week  5      Spring      270BC
 
@@ -200,8 +200,6 @@ News log:
   Pontica defects from Bithynia to Seleucid.
    
   Week  3      Spring      270BC
-  Seleucid destroys army of Ptolemaic.
-  Macedonia declares war on Illyria.
    
   Week  5      Spring      270BC
 

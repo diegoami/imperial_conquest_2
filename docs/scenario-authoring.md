@@ -56,6 +56,7 @@ A world file is stored under `data/worlds/` as a JSON file (e.g., `data/worlds/t
 | `startingRelations` | object or null | No | Diplomatic relations matrix at game start (see T75). See "Starting relations" below. If omitted, all nations start at peace. |
 | `startingNews` | object or null | No | News log entries at game start (see T75) — an object (`mostRecentSlot` + `slots`), not a plain array. See "Starting news" below. If omitted, the log is empty. |
 | `startingNeighbours` | array or null | No | Adjacency list of neighbours for each nation (see T85). See "Starting neighbours" below. If omitted, neighbours are computed from geography. |
+| `mercenaryTemplates` | array or null | No | The fixed mercenary template table the quarterly restock and the New Game fill draw from (see T56). See "Mercenary templates" below. If omitted, the restock and the fill have nothing to draw and change nothing. |
 | `_provenance` | object | No | Provenance map for fields that need explanation. |
 
 ### Terrain grid
@@ -242,6 +243,23 @@ own live game state uses for its relation matrix, reused here rather than invent
 |-------|------|----------|-------------|
 | `nationId` | string | Yes | The nation this entry is about. |
 | `neighbourIds` | array of strings | Yes | Every nation this one borders. An entry with an empty list, and an omitted entry, both mean "borders nobody" — the engine never falls back to geometric adjacency once a world carries `startingNeighbours` at all. |
+
+### Mercenary templates
+
+`mercenaryTemplates` (T56), when present, is an array of template records in the original's own DAT
+order, keyed by index — the index a restock draw selects. The shipped classical world carries all 201
+records exported from the DAT's table at `0x1FCD6`; four (x, y, `label`, `unitTypeId`) keys appear
+twice, so nothing may key templates by city and label. Template 200 is never drawn (the draw bound is
+200) but is carried so the indices match.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `x` | integer | Yes | The offer city's tile x; copied wholesale onto a refilled pool slot. Every template's (x, y) is a city tile. |
+| `y` | integer | Yes | The offer city's tile y. |
+| `label` | integer | Yes | The mercenary name-table index (1–51 against the DAT's 52 names). Round-trips as a number; the engine carries no display string for it. |
+| `unitTypeId` | string | Yes | The unit type the offer hires as. |
+| `troopsBase` | integer | troops | The troops *base*: an offer is 1.5×–3× this value, capped at the type's standard battalion size. |
+| `qualityBase` | integer | quality 5–9 | The quality base: an offer's quality is this value or one above it, clamped to 5–9. |
 
 ---
 
@@ -469,6 +487,17 @@ The `recruitment` object (`RecruitmentRules`) covers standing recruitment, mobil
 | `mercenaryHireRangeHumanSeat` | integer | tiles (Chebyshev, `==`) | Distance from the army at which a human seat's mercenary order finds a live offer's city — the original's `d == 1`, not "at most". |
 | `mercenaryHireRangeAiSeat` | integer | tiles (Chebyshev, `<=`) | The radius within which a computer nation's automatic hire reaches a city's offers — one smaller than `mobilizationReceivingArmyRangeAiSeat`. |
 | `mercenaryAiHireMinMoney` | integer | talents | The army purse an AI seat must hold more than before its automatic hire does anything; the hire itself charges nothing. |
+| `mercenaryRestockEmptyRollDenominator` | integer | exclusive bound (6) | The quarterly restock's first roll on an empty slot (`rand(6)`, `FUN_00449130`). |
+| `mercenaryRestockEmptyRollRefillCeiling` | integer | roll value (4) | An empty slot whose first-roll draw is at or below this refills immediately; above it, the slot falls through to the replace roll. |
+| `mercenaryRestockReplaceRollDenominator` | integer | exclusive bound (9) | The roll every live offer gets each quarter; at or above the floor below, the offer is replaced. |
+| `mercenaryRestockReplaceRollFloor` | integer | roll value (8) | The floor of the replace roll: a live offer is replaced with probability 1/9 per quarter. |
+| `mercenaryRestockTemplateDrawCount` | integer | exclusive bound (200) | The template draw's bound over the world's 201-entry template table — template 200 can never be drawn. |
+| `mercenaryRestockTroopsScaleNumerator` | integer | multiplier (3) | Numerator of the offer-size base `(numerator × templateTroopsBase) / denominator`; the offer is the base plus a roll under the base, capped at the type's standard battalion size. |
+| `mercenaryRestockTroopsScaleDenominator` | integer | divisor (2) | Denominator of that same base expression (1.5×–3× the template value). |
+| `mercenaryRestockQualityFloor` | integer | quality (5) | Low clamp of an offer's quality (always 5–9). |
+| `mercenaryRestockQualityCeiling` | integer | quality (9) | High clamp of that same expression. |
+| `mercenaryRestockQualityRaise` | integer | quality steps (1) | The `+1` of `qualityBase + raise − rand(steps)`: an offer's quality is the template's value or one above it. |
+| `mercenaryRestockQualityJitterSteps` | integer | exclusive bound (2) | The 50/50 roll of that same expression. |
 | `maxSlots` | integer | count (40 shipped) | Size of a nation's recruitment-slot table — a compacted list; occupying the last slot refuses further orders ("You have reached your limit of 40 units."). |
 | `mobilizationQualityDivisor` | integer | divisor | The permanent quality a mobilized recruit is born with = `stateCode / this`, truncating toward zero. |
 | `mobilizationMinStateCodeHumanSeat` | integer | state-code units | Lowest recruitment-slot state code a human seat may mobilize. |
