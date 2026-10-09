@@ -128,10 +128,29 @@ public sealed class GameSessionBattleResultsTests
     /// that test's own ruleset override (irrelevant here — this only needs a battle to resolve, not the
     /// auto-peace treaty to fire).
     /// </summary>
+    /// <remarks>
+    /// T156 (issue #925): the AI's army scorers read the original's <c>FUN_0044a930</c> strength (bowmen
+    /// triple-weighted, no <c>combatPowerWeight</c> per-unit divide), so a state where south's army
+    /// outweighs north's under the old <c>ArmyPower.Compute</c> formula may now sit *behind* it (archers
+    /// gain a factor of three). The fixture boosts <c>south-army-1</c> to a strength under the new
+    /// formula that clears the 100-threshold with margin, so the AI's tree selects
+    /// <c>AttackArmy</c> and the test still exercises "an AI seat attacks on its own initiative".
+    /// </remarks>
     private static GameSession BattleFixture()
     {
         var toy = CoreTestbed.Toy;
-        var southArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with { X = 4, Y = 2 };
+        var southArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with
+        {
+            X = 4,
+            Y = 2,
+            Units = ValueList.Of(
+                new UnitSlot(
+                    MercenaryLabel: 0,
+                    UnitTypeId: "heavy_infantry",
+                    Troops: 50_000,
+                    Quality: 6,
+                    Name: "1st Guards Battalion")),
+        };
         var customWorld = toy.World with
         {
             StartingArmies = ValueList.From(
