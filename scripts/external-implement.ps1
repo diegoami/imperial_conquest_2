@@ -43,7 +43,9 @@
     away (T151 Done-when 1, #854): before the reset that readies the tree for the next model, it
     is saved as rendered/attempts/<model>-<yyyyMMdd-HHmmss>.patch in the worktree (git-ignored,
     taken as `git add -A` then `git diff --cached --binary <start commit>`; no git stash), the
-    path is printed, and the patch survives the next attempt's reset. Two consecutive attempts
+    path is printed, and the patch survives the next attempt's reset. If that save fails, the
+    reset and clean are SKIPPED (R1): the attempt's state is left in the tree for diagnosis, the
+    script prints the cause and the log, and exits 4. Two consecutive attempts
     failing with the same cause (Get-OpenCodeFailureClass: two startup hangs, two idle kills,
     ...) mean OpenCode itself is the problem (operating-guide §3): the script stops and reports
     for diagnosis -- the failure class, both attempts' reasons, session ids and kept files, the
@@ -151,8 +153,8 @@
     Runs the offline checks (no network, no OpenCode): Format-ImplementerAttempt with
     canned /recommend meta proves the run log and the PR body's "Implementer attempts"
     section receive the same text (R3 rework); the T151 checks (Save-AttemptState
-    round-trip, the leftWork and same-cause exit texts) run git in a throwaway TEMP
-    repository. Does not perform a real run.
+    round-trip, the R1 failed-save-does-not-reset guard, the leftWork and same-cause exit
+    texts) run git in a throwaway TEMP repository. Does not perform a real run.
 #>
 [CmdletBinding()]
 param(
@@ -361,20 +363,33 @@ function Invoke-ImplementerSelfTest {
         Set-Content -LiteralPath (Join-Path $tmp 'untracked.txt') -Value 'untracked' -Encoding utf8
         Add 'DW1: the attempt really has a staged change before the save' ((git -C $tmp diff --cached --name-only).Trim() -eq 'base.txt')
         $patch = Save-AttemptState -Worktree $tmp -Model 'selftest-model' -StartSha $startSha
-        Add 'DW1: a dirty attempt saves a patch under rendered/attempts/' ($patch -and (Test-Path -LiteralPath $patch) -and $patch -like '*rendered\attempts\selftest-model-*.patch')
-        Add 'DW1: the patch holds the staged, the unstaged and the untracked change' ((Get-Content -Raw -LiteralPath $patch) -match 'staged change' -and (Get-Content -Raw -LiteralPath $patch) -match 'unstaged change' -and (Get-Content -Raw -LiteralPath $patch) -match 'untracked.txt')
+        Add 'DW1: a dirty attempt saves a patch under rendered/attempts/' ($patch.Status -eq 'saved' -and $patch.Patch -and (Test-Path -LiteralPath $patch.Patch) -and $patch.Patch -like '*rendered\attempts\selftest-model-*.patch')
+        Add 'DW1: the patch holds the staged, the unstaged and the untracked change' ((Get-Content -Raw -LiteralPath $patch.Patch) -match 'staged change' -and (Get-Content -Raw -LiteralPath $patch.Patch) -match 'unstaged change' -and (Get-Content -Raw -LiteralPath $patch.Patch) -match 'untracked.txt')
         # The reset the next attempt would run: the patch (under git-ignored rendered/) survives.
         git -C $tmp reset -q --hard $startSha
         git -C $tmp clean -q -fd
-        Add 'DW1: the reset and clean do not remove the saved patch' (Test-Path -LiteralPath $patch)
-        git -C $tmp apply --whitespace=nowarn $patch
+        Add 'DW1: the reset and clean do not remove the saved patch' (Test-Path -LiteralPath $patch.Patch)
+        git -C $tmp apply --whitespace=nowarn $patch.Patch
         Add 'DW1: git apply on the clean tree restores the staged change' ((Get-Content -Raw -LiteralPath (Join-Path $tmp 'base.txt')) -match 'staged change')
         Add 'DW1: git apply restores the unstaged change' ((Get-Content -Raw -LiteralPath (Join-Path $tmp 'other.txt')) -match 'unstaged change')
         Add 'DW1: git apply restores the untracked file' ((Get-Content -Raw -LiteralPath (Join-Path $tmp 'untracked.txt')) -match 'untracked')
         # A clean attempt saves nothing.
         git -C $tmp reset -q --hard $startSha; git -C $tmp clean -q -fd
         $cleanPatch = Save-AttemptState -Worktree $tmp -Model 'selftest-model' -StartSha $startSha
-        Add 'DW1: a clean attempt saves no patch' ($null -eq $cleanPatch)
+        Add 'DW1: a clean attempt reports Status clean and no patch' ($cleanPatch.Status -eq 'clean' -and $null -eq $cleanPatch.Patch)
+
+        # --- R1: a failed save must NOT reset or clean the tree --------------------------------
+        # Force the save to fail with a start commit git cannot resolve. Save-AttemptState must
+        # report Status failed, and Reset-AttemptWorktree must refuse, leaving the attempt's
+        # tracked and untracked state exactly as it is (the old code returned $null and reset).
+        Set-Content -LiteralPath (Join-Path $tmp 'base.txt') -Value 'failed save keeps this' -Encoding utf8
+        Set-Content -LiteralPath (Join-Path $tmp 'untracked-failure.txt') -Value 'untracked failure' -Encoding utf8
+        $failedSave = Save-AttemptState -Worktree $tmp -Model 'selftest-fail' -StartSha '0000000000000000000000000000000000000000'
+        Add 'R1: a failed save reports Status failed (not a clean tree)' ($failedSave.Status -eq 'failed')
+        $resetRan = Reset-AttemptWorktree -Worktree $tmp -StartSha $startSha -Save $failedSave
+        Add 'R1: a failed save refuses the reset (Reset-AttemptWorktree returns false)' (-not $resetRan)
+        Add 'R1: the failed attempt''s tracked change is still in the tree (no reset)' ((Get-Content -Raw -LiteralPath (Join-Path $tmp 'base.txt')) -match 'failed save keeps this')
+        Add 'R1: the failed attempt''s untracked file is still in the tree (no clean)' (Test-Path -LiteralPath (Join-Path $tmp 'untracked-failure.txt'))
     } catch {
         Add 'DW1: the Save-AttemptState round-trip ran without error' $false
     } finally {
@@ -439,23 +454,39 @@ function Save-AttemptState {
     # `git apply` on a clean tree at the start commit restores staged, unstaged and untracked work
     # alike. Never git stash (Appendix A: the stash is shared by every worktree). The patch lives
     # under rendered/attempts/ (git-ignored), so the next attempt's `git clean -fd` keeps it.
-    # Returns the patch's path, or $null when the tree was clean (nothing to keep).
+    # Returns a result object:
+    #   Status 'clean'  -> there was nothing to keep; the reset is safe;
+    #   Status 'saved'  -> Patch is the saved path; the reset is safe;
+    #   Status 'failed' -> the save failed (R1): the caller must NOT reset or clean.
     param([string] $Worktree, [string] $Model, [string] $StartSha)
     $dirty = git -C $Worktree status --porcelain
-    if (-not $dirty) { return $null }
+    if (-not $dirty) { return [pscustomobject]@{ Status = 'clean'; Patch = $null; Error = $null } }
     $dir = Join-Path $Worktree 'rendered/attempts'
-    New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    try { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+    catch { return [pscustomobject]@{ Status = 'failed'; Patch = $null; Error = "could not create $dir for the patch" } }
     $patch = Join-Path $dir "$Model-$(Get-Date -Format 'yyyyMMdd-HHmmss').patch"
     $n = 1
     while (Test-Path -LiteralPath $patch) { $patch = Join-Path $dir "$Model-$(Get-Date -Format 'yyyyMMdd-HHmmss')-$n.patch"; $n++ }
     git -C $Worktree add -A
     git -C $Worktree diff --cached --binary $StartSha "--output=$patch"
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $patch)) {
-        Write-Warning "could not save $Model's uncommitted work as a patch (git diff --cached --binary failed); the reset below discards it."
-        return $null
+        $msg = "could not save $Model's uncommitted work as a patch (git diff --cached --binary failed)"
+        Write-Warning "$msg; the worktree is left as it is (no reset, no clean)."
+        return [pscustomobject]@{ Status = 'failed'; Patch = $null; Error = $msg }
     }
     Write-Host "kept $Model's uncommitted work as patch: $patch"
-    return $patch
+    return [pscustomobject]@{ Status = 'saved'; Patch = $patch; Error = $null }
+}
+
+function Reset-AttemptWorktree {
+    # The reset and clean that ready the worktree for the next model after a failed attempt.
+    # R1: when Save-AttemptState failed, this refuses -- the failed attempt's state is left exactly
+    # as it is. Returns $true when the tree was reset, $false when it was deliberately kept.
+    param([string] $Worktree, [string] $StartSha, [object] $Save)
+    if ($Save -and $Save.Status -eq 'failed') { return $false }
+    git -C $Worktree reset -q --hard $StartSha
+    git -C $Worktree clean -q -fd
+    return $true
 }
 
 function Get-LeftWorkExitText {
@@ -905,8 +936,19 @@ foreach ($m in $chain) {
     }
     # T151 Done-when 1: keep the failed attempt's uncommitted work as a patch before the reset
     # (the patch lives under git-ignored rendered/attempts/, so the reset and clean below keep it).
-    $kept = Save-AttemptState -Worktree $worktree -Model $m -StartSha $startSha
-    $attempts += [pscustomobject]@{ Model = $m; Route = $resolved[$m].Route; Class = $class; Why = $reason; SessionId = $sessionId; KeptFiles = if ($kept) { $kept } else { 'none (the tree was clean)' } }
+    $save = Save-AttemptState -Worktree $worktree -Model $m -StartSha $startSha
+    $keptFiles = switch ($save.Status) {
+        'saved' { $save.Patch }
+        'failed' { "uncommitted work kept in the worktree ($worktree); the patch could not be saved" }
+        default { 'none (the tree was clean)' }
+    }
+    $attempts += [pscustomobject]@{ Model = $m; Route = $resolved[$m].Route; Class = $class; Why = $reason; SessionId = $sessionId; KeptFiles = $keptFiles }
+    if ($save.Status -eq 'failed') {
+        # R1: if the save failed, do NOT reset or clean. Stop the run with a clear message and a
+        # non-zero exit, leaving the tree exactly as it is for diagnosis.
+        [Console]::Error.WriteLine("$($save.Error); refusing to reset or clean $worktree -- the attempt's state is left as it is. The main session diagnoses. Log: $log")
+        exit 4
+    }
     if ($class -eq $lastClass) {
         # T151 Done-when 5 (bug #868 R4; the user's decision of 2026-10-08: "stop and diagnose
         # the problem"): a second consecutive attempt failed with the same class, so OpenCode
@@ -918,8 +960,7 @@ foreach ($m in $chain) {
         [Console]::Error.WriteLine((Get-SameCauseExitText -Class $class -First $prev -Second $curr -Log $log -OutsideRuns $outsideRuns))
         exit 3
     }
-    git -C $worktree reset -q --hard $startSha
-    git -C $worktree clean -q -fd
+    $null = Reset-AttemptWorktree -Worktree $worktree -StartSha $startSha -Save $save
     $lastClass = $class
 }
 Write-Host "run output: $log"
@@ -1000,10 +1041,19 @@ if (-not $implementedBy) {
                     }
                     # T151 Done-when 1: the substitute's failed attempt keeps its uncommitted work as a
                     # patch before the reset too.
-                    $subKept = Save-AttemptState -Worktree $worktree -Model $substitute -StartSha $startSha
-                    $attempts += [pscustomobject]@{ Model = $substitute; Route = $sr.Route; Class = (Get-OpenCodeFailureClass $reason); Why = $reason; SessionId = $subSessionId; KeptFiles = if ($subKept) { $subKept } else { 'none (the tree was clean)' } }
-                    git -C $worktree reset -q --hard $startSha
-                    git -C $worktree clean -q -fd
+                    $subSave = Save-AttemptState -Worktree $worktree -Model $substitute -StartSha $startSha
+                    $subKeptFiles = switch ($subSave.Status) {
+                        'saved' { $subSave.Patch }
+                        'failed' { "uncommitted work kept in the worktree ($worktree); the patch could not be saved" }
+                        default { 'none (the tree was clean)' }
+                    }
+                    $attempts += [pscustomobject]@{ Model = $substitute; Route = $sr.Route; Class = (Get-OpenCodeFailureClass $reason); Why = $reason; SessionId = $subSessionId; KeptFiles = $subKeptFiles }
+                    if ($subSave.Status -eq 'failed') {
+                        # R1: do not reset or clean when the substitute's save failed.
+                        [Console]::Error.WriteLine("$($subSave.Error); refusing to reset or clean $worktree -- the attempt's state is left as it is. The main session diagnoses. Log: $log")
+                        exit 4
+                    }
+                    $null = Reset-AttemptWorktree -Worktree $worktree -StartSha $startSha -Save $subSave
                 }
             }
         }
