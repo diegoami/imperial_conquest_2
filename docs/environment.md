@@ -59,7 +59,7 @@ Heavy models run at `medium` rather than `high`, or lighter when medium is not n
 
 - **MiniMax is a vendor of its own.** It can review work by GLM, DeepSeek, Qwen, OpenAI or Claude models independently. `/quota/minimax` has a `5h` and a `7d` window. A one-prompt check, which bills a little: in PowerShell, `$env:XDG_DATA_HOME = "$env:USERPROFILE\.local\share\ic2-opencode-1x\data"`, then `$null | opencode run -m minimax/MiniMax-M3 --variant thinking "Reply with just: ok"`.
 - **The `ali-*` names keep their model's family** (`vendors`), so `ali-glm` never reviews GLM's work and `ali-deepseek-*` never reviews DeepSeek's.
-- **`ali-deepseek-pro` uses the dated `deepseek-v4-pro-0813`**, because only the dated id gets the night discount. The scripts' Alibaba route for `deepseek-pro` (`-Route alibaba`, or `auto` when OpenCode Go is avoided) uses it too.
+- **`ali-deepseek-pro` uses the dated `deepseek-v4-pro-0813`**, because only the dated id gets the night discount. The scripts' Alibaba route for `deepseek-pro` (`-Route alibaba`, only when the user asks: #893) uses it too.
 - All five answered a probe on 2026-10-06, 19:43–19:44 CEST.
 
 Facts that affect availability:
@@ -103,7 +103,7 @@ The chooser's table, edited by the owner. `heavy` and `light` follow [Models per
 | `sol` | heavy | GPT-6 Sol; the complex tier's reviewer (§3.4) |
 | `luna` | light | GPT-5.6 Luna; the simple tier's reviewer; its own weekly window |
 | `glm` | heavy | GLM-5.3 on Z.ai |
-| `ali-glm` | heavy | GLM-5.3 on Alibaba, no discount; the Z.ai peak's alternative |
+| `ali-glm` | heavy | GLM-5.3 on Alibaba, no discount; only when the user asks (#893) |
 | `glm-flash` | light | GLM-5.3 Flash on Z.ai |
 | `deepseek-pro` | heavy | DeepSeek V4 Pro on Go (Alibaba when Go is avoided) |
 | `ali-deepseek-pro` | heavy | DeepSeek V4 Pro 0813 on Alibaba, night discount |
@@ -149,7 +149,7 @@ Adopted by the owner's decision of 2026-10-05, for three uses: the DeepSeek rout
 
 - **One pool.** Every model draws on one monthly credit pool: `curl -s localhost:8765/quota/alibaba`, window `month`; the provider is `alibaba` in `/avoid`, `/best` and `/quota`.
 - **Night discount**, 22:00–08:00 UTC+8 (14:00–00:00 UTC; 16:00–02:00 in European summer time, 15:00–01:00 in winter): `qwen3.8-max` and `qwen3.8-flash` cost 60% fewer credits, and `deepseek-v4-pro-0813` and `deepseek-v4.1-flash` 50% fewer. `glm-5.3` gets no discount. Prefer long, deferrable Qwen and DeepSeek runs on Alibaba while `pricing.discount_now` is true (CLAUDE.md rule 20).
-- **Z.ai's peak**, from 8 October 2026: `glm-5.3` costs 3× quota Mon–Fri 14:00–18:00 UTC+8 (08:00–12:00 in European summer time). While `/quota/zai`'s `pricing.peak_now` is true, prefer `ali-glm` or another provider for long runs.
+- **Z.ai's peak**, from 8 October 2026: `glm-5.3` costs 3× quota Mon–Fri 14:00–18:00 UTC+8 (08:00–12:00 in European summer time). While `/quota/zai`'s `pricing.peak_now` is true, prefer another provider for long runs (not `ali-glm` unless the user asks: #893).
 - **Never use** Kimi or MiniMax on Alibaba: they are Team-edition only and fail on this plan. MiniMax runs on its own provider, `minimax`.
 - **Routes.** `external-review.ps1` and `external-implement.ps1` take `-Route auto|go|zai|alibaba`. `auto` (the default) runs DeepSeek on OpenCode Go and GLM on Z.AI unless `/avoid` lists `opencode_go` or `zai`, and then the same model on Alibaba; when the tracker does not answer, the usual route. The name and the family do not change with the route. The route is printed, logged, and named on the posted review's signature line and the "implemented by:" line.
 - **The key** is the environment variable `ALIBABA_TOKEN_PLAN_API_KEY`, a Windows **user** variable. Both scripts copy it from the user environment into their own process when the process lacks it (a session started before it was set), never printing it. It never goes into any `auth.json`: a key there overrides the variable and can break the provider. A run on an `alibaba-token-plan/…` model gets its own OpenCode data folder, `%USERPROFILE%\.local\share\ic2-opencode-1x\data-alibaba` (beside the other providers' `data`; cache and state are shared), created when missing; nothing is copied into it, and a run that finds an `auth.json` there stops without reading it (the owner's decision of 2026-10-05). Runs on other providers keep `data` and its copied `auth.json` as before. An Alibaba run's session is read with `python scripts/read-opencode-session.py <ses_…> --alibaba`, and its OpenCode log is under `data-alibaba\opencode\log\`. Never print, copy or log it, and never read an `auth.json`.

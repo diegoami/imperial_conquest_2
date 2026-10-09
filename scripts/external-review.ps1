@@ -130,9 +130,10 @@
     OpenRouter models (see above): an extra, uncounted second opinion, never a tier's reviewer.
 .PARAMETER Route
     Which provider DeepSeek and GLM run through: auto (the default) takes the usual one (OpenCode Go
-    for deepseek and deepseek-pro, Z.AI for glm) unless quota-tracker's /avoid lists it
-    (opencode_go, zai), then the Alibaba Token Plan's id for the same model; when the tracker does not
-    answer, the usual route. go, zai or alibaba force one; a named reviewer that route does not serve
+    for deepseek and deepseek-pro, Z.AI for glm); when quota-tracker's /avoid lists it (opencode_go,
+    zai) the reviewer is dropped, never moved to the Alibaba Token Plan, which is used only when the
+    user asks (#893, the user's decision of 2026-10-09); when the tracker does not answer, the usual
+    route. go, zai or alibaba force one; a named reviewer that route does not serve
     is refused (exit 1). Qwen is always alibaba, luna and sol always openai, glm-flash always zai. The
     route is printed, and named in the posted review's signature line. A reviewer none of whose
     routes has quota (/avoid lists them all, or a forced -Route's provider) is skipped, and with none
@@ -615,9 +616,9 @@ function Invoke-ReviewParserSelfTest {
     $r = & $rt 'deepseek-pro' 'auto' $true @()
     $ruleChecks += [pscustomobject]@{ Name = 'route auto, nothing avoided: deepseek-pro stays on go'; Ok = ($r.Route -eq 'go' -and $r.Model -eq 'opencode-go/deepseek-v4-pro') }
     $r = & $rt 'deepseek-pro' 'auto' $true @('opencode_go')
-    $ruleChecks += [pscustomobject]@{ Name = 'route auto, opencode_go avoided: deepseek-pro moves to alibaba'; Ok = ($r.Route -eq 'alibaba' -and $r.Model -eq 'alibaba-token-plan/deepseek-v4-pro-0813' -and -not $r.Avoided) }
+    $ruleChecks += [pscustomobject]@{ Name = 'route auto, opencode_go avoided: deepseek-pro stays on go, Avoided (never moved to alibaba, #893)'; Ok = ($r.Route -eq 'go' -and $r.Model -eq 'opencode-go/deepseek-v4-pro' -and $r.Avoided) }
     $r = & $rt 'glm' 'auto' $true @('zai')
-    $ruleChecks += [pscustomobject]@{ Name = 'route auto, zai avoided: glm moves to alibaba glm-5.3'; Ok = ($r.Route -eq 'alibaba' -and $r.Model -eq 'alibaba-token-plan/glm-5.3') }
+    $ruleChecks += [pscustomobject]@{ Name = 'route auto, zai avoided: glm stays on zai, Avoided (never moved to alibaba, #893)'; Ok = ($r.Route -eq 'zai' -and $r.Avoided) }
     $r = & $rt 'glm' 'auto' $true @('zai', 'alibaba')
     $ruleChecks += [pscustomobject]@{ Name = 'route auto, zai and alibaba avoided: glm is Avoided on zai'; Ok = ($r.Route -eq 'zai' -and $r.Avoided) }
     $r = & $rt 'glm' 'auto' $false @()
@@ -663,7 +664,7 @@ function Invoke-ReviewParserSelfTest {
     $p = & $probe 'zai,alibaba' @('-Reviewer', 'glm')
     $ruleChecks += [pscustomobject]@{ Name = "-WhatIf -Reviewer glm with zai and alibaba avoided exits 3 (got $($p.Code))"; Ok = ($p.Code -eq 3) }
     $p = & $probe 'zai' @('-Reviewer', 'glm')
-    $ruleChecks += [pscustomobject]@{ Name = "-WhatIf -Reviewer glm with zai avoided runs alibaba-token-plan/glm-5.3 (got $($p.Code))"; Ok = ($p.Code -eq 0 -and $p.Out -like '*alibaba-token-plan/glm-5.3*') }
+    $ruleChecks += [pscustomobject]@{ Name = "-WhatIf -Reviewer glm with zai avoided exits 3, never moved to alibaba (#893) (got $($p.Code))"; Ok = ($p.Code -eq 3 -and $p.Out -notlike '*alibaba-token-plan/glm-5.3*') }
     Remove-Item -LiteralPath $probeBrief -Force -ErrorAction SilentlyContinue
     $ruleChecks += [pscustomobject]@{ Name = "-WhatIf -Reviewer luna -Route alibaba is refused with exit 1 (got $lunaRouteCode)"; Ok = ($lunaRouteCode -eq 1) }
     # Sol's round-2 review of PR 783, R3: OpenCode's own stderr error line stops an Alibaba run even at
@@ -1104,10 +1105,10 @@ if (-not $chain) {
     exit 3
 }
 # The route of each chain reviewer (the user's decision of 2026-10-05). quota-tracker's /avoid is read
-# once: -Route auto moves DeepSeek or GLM to the Alibaba Token Plan when its usual provider is
-# avoided, unless Alibaba is avoided too; a tracker that does not answer keeps the usual route. A
-# reviewer none of whose routes has quota (Qwen with alibaba avoided; GLM or DeepSeek with both its
-# provider and alibaba avoided; a forced -Route whose provider is avoided) is dropped, as Appendix C's
+# once: -Route auto keeps DeepSeek's or GLM's usual route, never moving it to the Alibaba Token Plan
+# (#893: Alibaba only when the user asks); a tracker that does not answer keeps the usual route. A
+# reviewer whose route is avoided (Qwen with alibaba avoided; GLM or DeepSeek with its usual provider
+# avoided; a forced -Route whose provider is avoided) is dropped, as Appendix C's
 # QUOTA FIRST skips it, and when none is left the script exits 3 with the cause, so the main session
 # takes the next reviewer. An explicit -Route that a named reviewer has no id for is refused (exit 1).
 if ($isAdvisory) {

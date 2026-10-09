@@ -844,7 +844,8 @@ the docs item applies only if the review named a claim.
      `pwsh scripts/external-implement.ps1 -Task T<nn> -Slug <slug> -Issue <n> -Model <alias>
      -BriefFile <file>` (`-Fix <issue>` for a fix; `-LocalOnly` where the label says), the alias taken
      from quota-tracker's `/recommend?tier=heavy` with CLAUDE.md rule 17's exclusions (the user's
-     decision of 2026-10-08; since T152 `-Model auto` makes the same choice). Log the chosen row's `reasons` on the issue. It creates
+     decision of 2026-10-08; `pwsh scripts/Choose-Model.ps1 -Role implementer`, or `-Role pair`, prints
+     it; there is no `-Model auto` since #893). Log the chosen row's `reasons` on the issue. It creates
      the worktree and branch, runs OpenCode there, and returns with the PR number or a warning;
      read its tail. Run it in the background and watch it (operating-guide §3): the session must
      start and keep making progress. On a failure, READ BEFORE RETRY (CLAUDE.md rule 19, the
@@ -914,8 +915,9 @@ the docs item applies only if the review named a claim.
         QWEN   pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer qwen -ExcludeModel <IMPL> -BriefFile rendered/review-tier/<pr>-qwen.md
         QWF    pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer qwen-flash -ExcludeModel <IMPL> -BriefFile rendered/review-tier/<pr>-qwen-flash.md
                (GLM, DSP and SUB glm/deepseek-pro take -Route auto by default: Z.AI or OpenCode
-               Go, or Alibaba's glm-5.3 / deepseek-v4-pro when /avoid lists zai or opencode_go;
-               pass -Route alibaba to force it. The route is printed and signed on the review.)
+               Go; when /avoid lists zai or opencode_go that reviewer is skipped, never moved to
+               Alibaba, which runs only when the user asks (#893): then pass -Route alibaba. The
+               route is printed and signed on the review.)
         SUB x  pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer x -ExcludeModel <IMPL> -BriefFile rendered/review-tier/<pr>-x-for-sol.md -Issue <n> -ApplyLabel
                (x is glm, deepseek-pro or qwen, never luna: Luna reviews only the simple tier, the
                user's decision of 2026-10-04; the brief is Sol's, unchanged except that its

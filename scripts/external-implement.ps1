@@ -22,20 +22,14 @@
       4. checks the outcome: a PR exists for the branch, the worktree is clean and pushed, and
          it is detached so the branch is free for the reviewer; saves the run's output next to
          the worktree as <name>.implementer.log and prints its tail.
-    With -Model auto (the default) the chain comes from quota-tracker's /recommend?tier=heavy
-    (T152; CLAUDE.md rule 17), through Choose-Model.ps1 (scripts/Choose-Model.ps1). Each model
-    is taken in the chooser's ranking order; an infrastructure failure advances to the next.
-    When every model fails, the chain stops that way, or OpenCode is not installed, it exits 3
-    ("OpenCode unavailable: ..."), and the task falls back to Claude Sonnet (operating-guide
-    §3). GLM left the implementer side on 2026-10-01 (issue #573): GLM-5.3 ended T99's
-    implementer run early, mid-exploration, with no error (#557), while DeepSeek V4.1 Flash
-    implemented T97 in one go. glm, glm-flash and luna stay valid as explicit -Model values, and
-    no default path picks them. An explicit -Model names that model alone (the same model the
-    main session passed). A chain model none of whose routes has quota is skipped, like before.
-    A chain model with no /recommend row is skipped too (the chooser ranks only what /recommend
-    ranks; a live /recommend response with fewer than the dispatch chain's old fixed models
-    shortens the chain, never lengthens it).
-    The next model runs ONLY on an infrastructure failure (no session in time, an idle session, no
+    Every run takes an explicit -Model, chosen by the main session from quota-tracker's
+    /recommend (CLAUDE.md rule 17; `pwsh scripts/Choose-Model.ps1 -Role implementer` or
+    `-Role pair`), whose reasons it logs on the task's issue. -Model auto and its chain were
+    removed by #893 (the user's request of 2026-10-09). A route that does not serve the model,
+    or has no quota for it, refuses the run (exit 1). When the model fails, or OpenCode is not
+    installed, the script exits 3 ("OpenCode unavailable: ...") unless the substitute below
+    runs, and the main session takes the next /recommend row (operating-guide §3).
+    A substitute runs ONLY on an infrastructure failure (no session in time, an idle session, no
     exit in time, a run that exits without a session, a non-zero exit, the fallback-to-default-agent
     guard, a tool call the permission guard rejected -- issue #501), and only when the failed run
     left nothing     behind: no new commit, locally or on origin, and no new PR. Otherwise the script
@@ -53,7 +47,7 @@
     Done-when 5, bug #868, the user's decision of 2026-10-08: "stop and diagnose the problem").
     An implementer that stops and reports has not failed: its OpenCode run exits 0, so it is
     never retried on another model; the script then exits 1 ("No open PR") and the main session
-    reads the report. Once every chain model has failed, the script asks Choose-Model.ps1 for an
+    reads the report. Once the model has failed, the script asks Choose-Model.ps1 for an
     implementer outside the failed families AND the OpenAI family (T150 Done-when 2; T152 Done-when
     6) and runs it once before exit 3; it writes the run's attempts and the allowed outside paths
     it touched into the PR body (Done-when 2, 3).
@@ -88,18 +82,18 @@
 .PARAMETER BriefFile
     The filled Appendix A brief.
 .PARAMETER Model
-    auto (default: deepseek-flash, then qwen-flash, then the main session runs Claude Sonnet), or
-    one model alone: qwen-flash (Qwen3.8 Flash at medium, `alibaba-token-plan/qwen3.8-flash`; it
+    Required (#893: there is no default and no `auto`; the main session chooses it from
+    /recommend). One model: qwen-flash (Qwen3.8 Flash at medium, `alibaba-token-plan/qwen3.8-flash`; it
     offers low, medium and xhigh), luna (GPT-5.6 Luna at
     high effort, `openai/gpt-5.6-luna`, direct OpenAI via the machine's OpenAI login), glm-flash
     (GLM-5.3 Flash at high), glm (GLM-5.3 at low, a heavy model run light; only selected explicitly), deepseek-flash (DeepSeek V4.1 Flash
     at high, proven on this repository in #279), mimo-pro, or mimo-flash.
 .PARAMETER Route
     Which provider deepseek-flash and glm run through: auto (the default) takes the usual one
-    (OpenCode Go, Z.AI) unless quota-tracker's /avoid lists it, then the Alibaba Token Plan's id for
-    the same model (`deepseek-v4.1-flash`, `glm-5.3`); when the tracker does not answer, the usual
-    route. go, zai or alibaba force one: an explicit -Model that route does not serve is refused (exit
-    1), and an auto chain drops such a model. The route is printed, logged and named on the
+    (OpenCode Go, Z.AI) and warns when quota-tracker's /avoid lists it; it never moves to the
+    Alibaba Token Plan, which is used only when the user asks (#893, the user's decision of
+    2026-10-09: -Route alibaba). go, zai or alibaba force one: an explicit -Model that route does not serve is refused (exit
+    1). The route is printed, logged and named on the
     "implemented by:" line.
 .PARAMETER LocalOnly
     Copy assets.local.ini from the main checkout into the worktree.
@@ -163,7 +157,7 @@ param(
     [string] $Slug,
     [int] $Issue,
     [string] $BriefFile,
-    [ValidateSet('auto', 'luna', 'glm-flash', 'glm', 'deepseek-flash', 'qwen-flash', 'mm-m3', 'mm-m2.7', 'ali-deepseek-flash', 'ali-deepseek-pro', 'ali-glm', 'mimo-pro', 'mimo-flash')] [string] $Model = 'auto',
+    [ValidateSet('luna', 'glm-flash', 'glm', 'deepseek-flash', 'qwen-flash', 'mm-m3', 'mm-m2.7', 'ali-deepseek-flash', 'ali-deepseek-pro', 'ali-glm', 'mimo-pro', 'mimo-flash')] [string] $Model,
     [ValidateSet('auto', 'go', 'zai', 'alibaba')] [string] $Route = 'auto',
     [switch] $LocalOnly,
     [string] $FixturesDir,
@@ -229,30 +223,6 @@ function Get-ChooserPick {
     $name = @($lines) | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -and ($_ -notlike 'CHOOSER_META=*') } | Select-Object -Last 1
     if (-not $name) { return $null }
     return [pscustomobject]@{ Name = $name; Meta = $meta }
-}
-
-function Get-ChooserChain {
-    # The chain of implementer aliases Choose-Model.ps1 returns for /recommend?tier=heavy.
-    # Iteratively picks the top alias and excludes its family, until the chooser exits 3
-    # (no candidate left). The chain takes the WHOLE mapped ranking: with a long
-    # recommendation (e.g. alibaba opens up under T152's relaxed exclusions) the chain
-    # grows to match it, never truncates an otherwise valid candidate (R5 rework). The
-    # loop terminates when Get-ChooserPick returns $null (the chooser exited 3) — there
-    # is no arbitrary count cap.
-    # The Claude Sonnet fallback (rule 17: Claude is the orchestrator, dropped while
-    # another positive exists; with nothing else, the script's exit-3 fallback) is a
-    # sentinel name the dispatch recognises and treats as exit-3 — there is no OpenCode
-    # model to dispatch.
-    param([string] $RecommendFile, [int] $RecommendRetryWaitSec)
-    $chain = @()
-    $excluded = @()
-    while ($true) {
-        $next = Get-ChooserPick -ExcludeFamily $excluded -RecommendFile $RecommendFile -RecommendRetryWaitSec $RecommendRetryWaitSec
-        if (-not $next) { break }
-        $chain += $next
-        if ($next.Meta -and $next.Meta.family) { $excluded += @([string]$next.Meta.family) }
-    }
-    return $chain
 }
 
 function Format-ImplementerAttempt {
@@ -610,31 +580,26 @@ if ($SelfTest) {
     if ($failed -gt 0) { exit 1 } else { exit 0 }
 }
 
-# T152 Done-when 3: `-Model auto`'s chain comes from quota-tracker's /recommend?tier=heavy
-# through Choose-Model.ps1, in the chooser's ranking order. Each entry also keeps the meta
-# the chooser emits (provider, model, score, confidence, reasons), for the run log and the
-# PR body's "Implementer attempts" section (Done-when 4). An explicit -Model names that
-# model alone and has no meta.
-$chainPicks = if ($Model -eq 'auto') { Get-ChooserChain -RecommendFile $RecommendFile -RecommendRetryWaitSec $RecommendRetryWaitSec } else { @() }
-$chain = if ($Model -eq 'auto') { @($chainPicks | ForEach-Object Name) } else { @($Model) }
-# $chainMeta: alias name -> meta object, populated from the chooser for -Model auto. Used
-# by the run log ("=== <m>: ran — chosen: <alias> (<model>, <route>): <reasons>") and the
-# "Implementer attempts" section. An explicit -Model leaves no meta: the main session's
-# narrative names the model and the entry's evidence narrates the choice.
+# #893: every run names its model; the main session chose it from /recommend and logged the
+# reasons on the task's issue (CLAUDE.md rule 17). There is no `auto` chain any more.
+if (-not $Model) {
+    throw 'Give -Model <alias>, chosen from quota-tracker''s /recommend: pwsh scripts/Choose-Model.ps1 -Role implementer (or -Role pair). -Model auto was removed by #893.'
+}
+$chain = @($Model)
+# $chainMeta: alias name -> /recommend meta. Only the substitute (Get-SubstituteModel) brings
+# meta now; the named model's reasons are on the task's issue.
 $chainMeta = @{}
-foreach ($p in $chainPicks) { if ($p.Meta) { $chainMeta[$p.Name] = $p.Meta } }
 # The Claude Sonnet fallback sentinel the chooser emits when nothing else has a positive
 # score (rule 17, the orchestrator). The dispatch recognises it and exits 3 with the
 # Claude Sonnet fallback message (the main session runs Claude Sonnet, operating-guide §3).
 $script:ChooserClaudeSentinel = '__CLAUDE_SONNET_FALLBACK__'
 # Each chain model's route: quota-tracker's /avoid is read once (-Route auto); a silent tracker keeps
-# the usual route. An auto chain drops a model with no route that has quota, or one an explicit
-# -Route does not serve; an explicit -Model the route does not serve is refused.
+# the usual route. A -Model the route does not serve is refused.
 $quota = Get-QuotaAvoid
 $resolved = @{}
 $kept = @()
 # Done-when 2: every model this run tried, with its route and its failure class, for the PR body's
-# "Implementer attempts" section. A model an auto chain drops for quota is recorded here too.
+# "Implementer attempts" section.
 $attempts = @()
 foreach ($m in $chain) {
     # T152 Done-when 3: the Claude Sonnet fallback sentinel (the chooser emits it when its
@@ -648,12 +613,7 @@ foreach ($m in $chain) {
         continue
     }
     $r = Resolve-OpenCodeRoute -Usual $models[$m] -Alibaba $alibabaIds[$m] -Route $Route -Answered $quota.Answered -Avoid $quota.Providers -UsableWhenExhausted $quota.Usable
-    if ($r.Refused -and $Model -ne 'auto') { [Console]::Error.WriteLine("Refused: ${m}: $($r.Why)."); exit 1 }
-    if ($r.Refused -or ($r.Avoided -and $Model -eq 'auto')) {
-        Write-Host "skipped: $m ($($r.Why))"
-        $attempts += [pscustomobject]@{ Model = $m; Route = '-'; Class = 'quota-skip'; Why = $r.Why }
-        continue
-    }
+    if ($r.Refused) { [Console]::Error.WriteLine("Refused: ${m}: $($r.Why)."); exit 1 }
     if ($r.Avoided) { Write-Warning "${m}: $($r.Why); it runs because -Model names it (the main session's choice)." }
     $resolved[$m] = $r
     $kept += $m
@@ -742,24 +702,6 @@ if ($WhatIf) {
         if ($subWithout -and $subWithout -ne $subPick) { Write-Host "without OpenAI exclusion, would have picked: $subWithout ($whyWithout)" }
         if ($subPick) { Write-Host "would substitute: $subPick ($subWhy)" }
         else { Write-Host "would substitute: none ($subWhy)" }
-    } else {
-        # Done-when 6 (with -RecommendFile, no -SimulateFailed): the model it would run and its
-        # reasons, showing the dispatch honours the chooser. For -Model auto, the first entry in
-        # the chain is what the real run would try first; the run log quotes its reasons.
-        # R3 rework: the same Format-ImplementerAttempt text reaches the run log and the
-        # PR body. -WhatIf prints it here so the offline check is independently
-        # reproducible without a real OpenCode run.
-        if ($Model -eq 'auto' -and $chain) {
-            $first = $chain[0]
-            $why = $chainMeta[$first]
-            $attemptText = Format-ImplementerAttempt $why
-            if ($attemptText) {
-                Write-Host "would attempt: $first"
-                Write-Host "  reasons: $attemptText"
-            } else {
-                Write-Host "would attempt: $first (no /recommend reasons: explicit -Model)"
-            }
-        }
     }
     $whatIfPrompt = Get-Content -Raw -LiteralPath $BriefFile
     foreach ($m in $chain) {

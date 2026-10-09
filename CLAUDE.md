@@ -95,7 +95,9 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
     - `gpt-5.6-luna` stays the simple-PR reviewer.
     - A reviewer is never of the implementer's family.
     - A negative score means that pool runs out before its reset: avoid it unless nothing else is left.
-    - Alibaba is not ranked: use it only occasionally, in its discount hours (rule 20).
+    - Alibaba is never used unless the user asks (the user's decision of 2026-10-09: its monthly
+      pool is 91% used until 2026-11-06). `/recommend` never ranks it, and the scripts neither
+      choose it nor move a route to it; with the user's say-so, `-AllowAlibaba` or `-Route alibaba`.
 
     Pass the choice explicitly (`-Model`/`-Reviewer`, or the Agent call's model) and log the chosen
     row's `reasons` on the task's issue or in the PR body. Right after a restart `note` says the
@@ -103,9 +105,12 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
     If the service does not answer, run `systemctl --user restart quota-tracker`, wait and retry; if
     it still fails, tell the user instead of guessing. Model ids come from the provider's live list
     (`opencode models <provider>`), never memory. Heavy models run at `medium` effort rather than
-    `high`, or lighter when medium is not needed (the user's decision of 2026-10-05). Since
-    [T152](docs/tasks/T152.md), `scripts/Choose-Model.ps1` and `-Model auto` rank by `/recommend` with these
-    exclusions and log the reasons themselves.
+    `high`, or lighter when medium is not needed (the user's decision of 2026-10-05).
+    `pwsh scripts/Choose-Model.ps1 -Role implementer` ranks by `/recommend` with these exclusions, and
+    `-Role pair` gives an implementer and a reviewer of another family from `pair` and `ranking`
+    (a null reviewer means no other family has quota: tell the user). Every
+    `external-implement.ps1` run takes the explicit `-Model` so chosen: `-Model auto` was removed
+    ([#893](https://github.com/diegoami/imperial_conquest_2/issues/893), the user's request of 2026-10-09).
 
 18. **The light OpenAI model, and the reviewer `luna`, is GPT-5.6 Luna** (harness_imperial L51) on
     the direct OpenAI route: `openai/gpt-5.6-luna`, effort `high`. It draws on OpenAI's main quota like
@@ -116,15 +121,15 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
     `Bad Request` in long agent loops.
 
 20. **Use the providers' pricing windows deliberately, not by chance** (the owner's decision of
-    2026-10-06). Before starting a run on an Alibaba Qwen or DeepSeek route (`ali-qwen-*`,
-    `ali-deepseek-*`; `-Route alibaba` or a `qwen*` model), read
+    2026-10-06). Alibaba runs only when the user asks (rule 17); when they do, for a Qwen or DeepSeek
+    route (`ali-qwen-*`, `ali-deepseek-*`; `-Route alibaba` or a `qwen*` model), read
     `curl -s localhost:8765/quota/alibaba | jq .pricing`: when `discount_now` is false, prefer
     another entry for a long run, or start it after `next_change_at`. Alibaba's GLM (`ali-glm`) has
     no discount, so the time does not matter for it. Likewise read
     `curl -s localhost:8765/quota/zai | jq .pricing`: when `peak_now` is true (Mon–Fri 14:00–18:00
     UTC+8; a promotion keeps it off-peak until the tracker's `promo_off_peak_until`, 2026-10-07 16:00
-    UTC, so peaks start on 8 October, as the owner's note says), `glm-5.3` costs 3× quota, so prefer `ali-glm` or another provider for a
-    long run then. If the tracker does not answer, run as usual; never block on it.
+    UTC, so peaks start on 8 October, as the owner's note says), `glm-5.3` costs 3× quota, so prefer another provider for a
+    long run then (not `ali-glm` unless the user asks). If the tracker does not answer, run as usual; never block on it.
 
 ---
 
