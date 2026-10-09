@@ -131,18 +131,22 @@ function Get-OpenCodePermissionRejection([string] $Text) {
 }
 
 function Get-OpenCodePermissionDenials([string] $Text) {
-    # Every tool call OpenCode's guard DENIED for a path outside the worktree, in order (bug #931).
-    # The agents deny outside paths (`external_directory: "*": deny`) instead of asking: OpenCode
-    # 1.18 ends the agent loop on a rejected ask, but a denied call only fails, and the run goes
-    # on. Probed 2026-10-09 (1.18.34, gpt-5.6-luna): each denied call prints its title on a line of
-    # its own and the error on the next, after colour codes:
+    # Every tool call OpenCode's guard DENIED for a path outside the worktree, read from the run's
+    # printed output, in order (bug #931). The agents deny outside paths (`external_directory:
+    # "*": deny`) instead of asking: OpenCode 1.18 ends the agent loop on a rejected ask, but a
+    # denied call only fails, and the run goes on. Probed 2026-10-09 (1.18.34, gpt-5.6-luna): a
+    # denied call prints its title on one line and the error on the next, after colour codes:
     #   ✗ Read C:/Windows/win.ini failed
     #   Error: The user has specified a rule which prevents you from using this specific tool call. Here are some of the relevant rules [{"permission":"external_directory",...}]
     # (`✗ Patch failed` for a write, `✗ cat C:/Windows/win.ini failed` for a shell command). The
     # error lists the rules of the denied permission, so a bash deny (`git stash`, a force push)
-    # names "bash" and is not counted here: those denies are not about outside paths and never end
-    # a run. Read is $true for the read-only tools (Read, Glob, Grep, List), which the watcher lets
-    # the run survive; any other tool, a shell command included, is a write and ends the run.
+    # names "bash" and is not counted: those denies are not about outside paths and never end a run.
+    # The printed title does not name the tool, so this is the LIVE heuristic only, and it errs
+    # toward a write (PR #932's review, R1 and R2): Read is $true only when the error's own title is
+    # the line right before it (blank lines aside) and starts with a read-only tool's display name,
+    # case-sensitively (Read, Glob, Grep or List, then a space). A shell command (`grep x > out`) or
+    # an unpaired error is a write. The session export, read after the run, is the authority on the
+    # tool (Get-OpenCodeExportDenials).
     if (-not $Text) { return @() }
     $clean = [regex]::Replace($Text, '\x1b\[[0-9;]*m', '')
     $lines = $clean -split '\r?\n'
@@ -153,24 +157,66 @@ function Get-OpenCodePermissionDenials([string] $Text) {
         if ($line -notmatch '^\s*Error: The user has specified a rule which prevents you from using this specific tool call') { continue }
         if ($line -notmatch '"permission"\s*:\s*"external_directory"') { continue }
         $call = $null
-        for ($j = $i - 1; $j -ge [Math]::Max(0, $i - 5); $j--) {
+        $j = $i - 1
+        while ($j -ge 0 -and -not $lines[$j].Trim()) { $j-- }
+        if ($j -ge 0) {
             $t = $lines[$j].Trim()
             if ($t.StartsWith($mark) -and $t.EndsWith(' failed')) {
                 $call = $t.Substring($mark.Length, $t.Length - $mark.Length - ' failed'.Length).Trim()
-                break
             }
         }
-        if (-not $call) { $call = '(unknown tool)' }
+        $isRead = [bool]($call -and ($call -cmatch '^(Read|Glob|Grep|List) '))
+        if (-not $call) { $call = '(unpaired denial)' }
         $tool = ($call -split '\s+')[0]
-        $found.Add([pscustomobject]@{ Call = $call; Tool = $tool; Read = ($tool -in @('Read', 'Glob', 'Grep', 'List')) })
+        $found.Add([pscustomobject]@{ Call = $call; Tool = $tool; Read = $isRead })
     }
     # ToArray, not @($found): @() over a List of PSObjects throws "Argument types do not match".
     return $found.ToArray()
 }
 
-function Get-OpenCodeDeniedWrite([string] $Text) {
-    # The first denied outside WRITE (any tool but the read-only four) as "<call>", or $null (bug #931).
-    $w = @(Get-OpenCodePermissionDenials $Text | Where-Object { -not $_.Read })
+function Get-OpenCodeExportDenials([string] $ExportFile) {
+    # The denied outside calls from the session export, the authority on which TOOL was denied
+    # (PR #932's review R1: for a shell call the printed title is the command text). A tool part
+    # whose state carries OpenCode's deny text and an external_directory rule. Read is $true for
+    # OpenCode's read-only tools only (read, glob, grep, list); bash, edit, write, apply_patch (the
+    # probe's write) and any other tool are writes. Returns $null when the export is missing or
+    # unreadable, so the caller falls back on the printed output.
+    if (-not $ExportFile -or -not (Test-Path -LiteralPath $ExportFile)) { return $null }
+    try { $doc = Get-Content -LiteralPath $ExportFile -Raw -Encoding UTF8 | ConvertFrom-Json -Depth 100 } catch { return $null }
+    $found = New-Object System.Collections.Generic.List[object]
+    # A queue, so the calls come out in the transcript's order.
+    $queue = New-Object System.Collections.Generic.Queue[object]
+    $queue.Enqueue($doc)
+    while ($queue.Count -gt 0) {
+        $node = $queue.Dequeue()
+        if ($null -eq $node -or $node -is [string] -or $node -is [ValueType]) { continue }
+        if ($node -is [System.Collections.IEnumerable]) {
+            foreach ($item in $node) { $queue.Enqueue($item) }
+            continue
+        }
+        $props = @($node.PSObject.Properties)
+        $toolProp = $props | Where-Object { $_.Name -eq 'tool' } | Select-Object -First 1
+        $stateProp = $props | Where-Object { $_.Name -eq 'state' } | Select-Object -First 1
+        if ($toolProp -and $stateProp -and $stateProp.Value -and $stateProp.Value.PSObject.Properties['error']) {
+            $err = [string]$stateProp.Value.error
+            if ($err -match 'prevents you from using this specific tool call' -and $err -match '"permission"\s*:\s*"external_directory"') {
+                $name = [string]$toolProp.Value
+                $inp = $stateProp.Value.input
+                $what = if ($inp) { ($inp | ConvertTo-Json -Compress -Depth 5) } else { '' }
+                if ($what.Length -gt 160) { $what = $what.Substring(0, 160) + '...' }
+                $found.Add([pscustomobject]@{ Call = "$name $what".Trim(); Tool = $name; Read = ($name -cin @('read', 'glob', 'grep', 'list')) })
+            }
+        }
+        foreach ($p in $props) { $queue.Enqueue($p.Value) }
+    }
+    return , $found.ToArray()
+}
+
+function Get-OpenCodeDeniedWrite([string] $Text, $Denials) {
+    # The first denied outside WRITE (anything not shown to be a read) as its call, or $null (bug
+    # #931). $Denials, when given (the export's, the authority), is used instead of parsing $Text.
+    $all = if ($null -ne $Denials) { @($Denials) } else { @(Get-OpenCodePermissionDenials $Text) }
+    $w = @($all | Where-Object { -not $_.Read })
     if ($w.Count -eq 0) { return $null }
     return $w[0].Call
 }
@@ -1043,6 +1089,8 @@ function Invoke-OpenCodeRun {
     # name, is the fallback when it cannot.
     $exported = Export-OpenCodeSession -Cli $Cli -WorkDir $WorkDir -SessionId $session.id -OutFile $exportFile -InFile $inFile
     if ($exported) { Write-Host "opencode: transcript export $exportFile" } else { Write-Host "opencode: the session export failed (no transcript kept)" }
+    # Bug #931: the denied outside calls, by tool, from the transcript ($null without one).
+    $denials = if ($exported) { Get-OpenCodeExportDenials $exportFile } else { $null }
     # T150 Done-when 3: the allowed outside paths this run touched, from the kept transcript.
     $outside = Get-OpenCodeOutsidePaths $exportFile
     $requestedAgent = if ($Agent) { $Agent } else { $null }
@@ -1064,13 +1112,14 @@ function Invoke-OpenCodeRun {
         SessionAgent  = $sessionAgent
         # What OpenCode's permission guard refused in a way that ends the attempt, or $null: an
         # auto-rejected ask (the rejection ended the run), or a denied outside write (bug #931: the
-        # watcher ended the run). A denied outside read does not count: the run went on.
+        # watcher ended the run, or the run went on past it). A denied outside read does not count:
+        # the run went on. The session export names the tool; the printed output is the fallback.
         PermissionRejected = $(
             $rej = Get-OpenCodePermissionRejection ($stdout + "`n" + $stderr)
             if ($rej) { $rej }
-            else { $w = Get-OpenCodeDeniedWrite ($stdout + "`n" + $stderr); if ($w) { "external_directory denied a write ($w)" } else { $null } })
-        # The denied outside reads the run survived (bug #931), as their call titles.
-        OutsideReadsDenied = @(Get-OpenCodePermissionDenials ($stdout + "`n" + $stderr) | Where-Object { $_.Read } | ForEach-Object { $_.Call })
+            else { $w = Get-OpenCodeDeniedWrite ($stdout + "`n" + $stderr) $denials; if ($w) { "external_directory denied a write ($w)" } else { $null } })
+        # The denied outside reads the run survived (bug #931), as their calls.
+        OutsideReadsDenied = @($(if ($null -ne $denials) { @($denials) } else { @(Get-OpenCodePermissionDenials ($stdout + "`n" + $stderr)) }) | Where-Object { $_.Read } | ForEach-Object { $_.Call })
         Files     = if ($p.ExitCode -eq 0) { @() } else { $files }
         # The kept transcript (JSON), or $null when the export failed.
         ExportFile = if ($exported) { $exportFile } else { $null }

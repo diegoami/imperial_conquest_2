@@ -905,6 +905,33 @@ Write-Host "__exit:`$code"
     $ruleChecks += [pscustomobject]@{ Name = '#931: a bash-rule deny (git stash) is not an outside denial'; Ok = (@(Get-OpenCodePermissionDenials $bashRule).Count -eq 0) }
     $ruleChecks += [pscustomobject]@{ Name = '#931: the error text quoted without the line start is not a denial'; Ok = (@(Get-OpenCodePermissionDenials ("echo '" + $err + $ext + "'")).Count -eq 0) }
     $ruleChecks += [pscustomobject]@{ Name = '#931: no denial in an empty text'; Ok = (@(Get-OpenCodePermissionDenials '').Count -eq 0) }
+    # PR #932's review R1: a shell command whose text starts with a read tool's name is not a read.
+    $ruleChecks += [pscustomobject]@{ Name = '#931 R1: a denied shell `grep x > outside` is a write'; Ok = ((Get-OpenCodeDeniedWrite "$x grep secret C:/x > C:/Users/diego/out.txt failed`n$err$ext") -eq 'grep secret C:/x > C:/Users/diego/out.txt') }
+    $ruleChecks += [pscustomobject]@{ Name = '#931 R1: the Grep tool (capitalised title) is a read'; Ok = ($null -eq (Get-OpenCodeDeniedWrite "$x Grep secret C:/x failed`n$err$ext")) }
+    # R2: an error whose own title is missing is never paired with an earlier read's title.
+    $ruleChecks += [pscustomobject]@{ Name = '#931 R2: an unpaired denial after a denied read is a write'; Ok = ((Get-OpenCodeDeniedWrite "$denyRead`nsome other output`n$err$ext") -eq '(unpaired denial)') }
+    $ruleChecks += [pscustomobject]@{ Name = '#931 R2: a title two lines up, with output between, is not paired'; Ok = ((Get-OpenCodeDeniedWrite "$x Read C:/a failed`nnoise`n$err$ext") -eq '(unpaired denial)') }
+    # The session export is the authority on the tool (R1): a fixture with the probe's part shape.
+    $exp = Join-Path ([System.IO.Path]::GetTempPath()) ("ic2-selftest-931-" + [guid]::NewGuid().ToString('N') + '.json')
+    $rule = '[{"permission":"external_directory","pattern":"*","action":"deny"}]'
+    $mk = { param($tool, $perm, $path) [ordered]@{ type = 'tool'; tool = $tool; state = [ordered]@{ status = 'error'; input = @{ filePath = $path }; error = ($err + 'Here are some of the relevant rules ' + $rule.Replace('external_directory', $perm)) } } }
+    $doc = [ordered]@{ messages = @([ordered]@{ parts = @(
+        (& $mk 'read' 'external_directory' 'C:/a'),
+        (& $mk 'grep' 'external_directory' 'C:/b'),
+        (& $mk 'bash' 'bash' 'git stash'),
+        (& $mk 'bash' 'external_directory' 'C:/c'),
+        (& $mk 'apply_patch' 'external_directory' 'C:/d'),
+        [ordered]@{ type = 'tool'; tool = 'read'; state = [ordered]@{ status = 'completed'; input = @{ filePath = 'inside.txt' } } }) }) }
+    [System.IO.File]::WriteAllText($exp, ($doc | ConvertTo-Json -Depth 10))
+    # Not @(...): the function returns its array whole (`return , ...`), so an empty one stays an
+    # array and only a missing export is $null.
+    $ed = Get-OpenCodeExportDenials $exp
+    Remove-Item -LiteralPath $exp -Force -ErrorAction SilentlyContinue
+    $ruleChecks += [pscustomobject]@{ Name = "#931: the export yields the 4 outside denials, not the bash-rule deny or the completed read (got $($ed.Count))"; Ok = ($ed.Count -eq 4) }
+    $ruleChecks += [pscustomobject]@{ Name = '#931: in the export, read and grep are reads; bash and apply_patch are writes'; Ok = ((($ed | Where-Object Read | ForEach-Object Tool) -join ',') -eq 'read,grep' -and (($ed | Where-Object { -not $_.Read } | ForEach-Object Tool) -join ',') -eq 'bash,apply_patch') }
+    $ruleChecks += [pscustomobject]@{ Name = '#931: the export overrides a printed Read title (a bash write stays a write)'; Ok = ((Get-OpenCodeDeniedWrite $denyRead @($ed | Where-Object Tool -eq 'bash')) -like 'bash *') }
+    $ruleChecks += [pscustomobject]@{ Name = '#931: export reads only means no write'; Ok = ($null -eq (Get-OpenCodeDeniedWrite $denyPatch @($ed | Where-Object Read))) }
+    $ruleChecks += [pscustomobject]@{ Name = '#931: a missing export is $null (the printed output is the fallback)'; Ok = ($null -eq (Get-OpenCodeExportDenials 'C:\no\such\export.json')) }
     foreach ($c in $ruleChecks) {
         $n++
         if (-not $c.Ok) { $failed++ }
