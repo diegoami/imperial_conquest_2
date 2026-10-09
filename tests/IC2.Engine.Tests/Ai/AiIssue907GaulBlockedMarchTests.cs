@@ -34,7 +34,7 @@ public sealed class AiIssue907GaulBlockedMarchTests
 {
     /// <summary>
     /// Gaul's army-9 sits one tile from Pisae. Before the fix the AI never moves it
-    /// (a fleet issue from the soak: "1 order issued" hides the stall); after the fix the
+    /// (an army issue from the soak: "1 order issued" hides the stall); after the fix the
     /// AI picks the next-best enemy city, and the army moves within one turn.
     /// </summary>
     [Fact]
