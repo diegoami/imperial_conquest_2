@@ -23,6 +23,14 @@ public sealed class AiArmyTargetTreeScorerTests
 
     private static Ruleset Ruleset => AiScriptedStates.Ruleset;
 
+    /// <summary>A 64 x 64 world of plain, so that the reachability rule never interferes with the scorer arithmetic.</summary>
+    private static readonly World OpenPlain = AiScriptedStates.World with
+    {
+        Width = 64,
+        Height = 64,
+        Terrain = new TerrainGrid(TerrainEncoding.RunLength, ValueList.Of(new TerrainRun(2, 64 * 64))),
+    };
+
     private static string Archer => BattleCommandRuleset.ArcherUnitTypeIdIn(Ruleset)!;
 
     /// <summary>
@@ -31,6 +39,13 @@ public sealed class AiArmyTargetTreeScorerTests
     /// read distances only, so coordinates outside its grid are fine.
     /// </summary>
     private static AiView ViewOf(
+        IEnumerable<CityState> cities,
+        IEnumerable<ArmyState> armies,
+        params (string CityId, int Region)[] regions) =>
+        ViewIn(OpenPlain, cities, armies, regions);
+
+    private static AiView ViewIn(
+        World world,
         IEnumerable<CityState> cities,
         IEnumerable<ArmyState> armies,
         params (string CityId, int Region)[] regions)
@@ -53,7 +68,7 @@ public sealed class AiArmyTargetTreeScorerTests
                 CityRegionById = ValueList.From(regions.Select(r => new AiCityRegionAssignment(r.CityId, r.Region))),
             },
         };
-        return new AiView(state, ruleset, AiScriptedStates.World, Us);
+        return new AiView(state, ruleset, world, Us);
     }
 
     private static CityState City(
@@ -285,6 +300,108 @@ public sealed class AiArmyTargetTreeScorerTests
         var scored = AiArmyTargetTree.ScoreArmyTarget(view, army);
 
         Assert.Equal(raw - (raw / 2), scored.Score);
+    }
+
+    // ---------- the reachability rule ([designed]: the user's decision of 2026-10-10 on #925) ----------
+
+    /// <summary>The 64 x 64 plain world with sea (code 0) on the given tiles.</summary>
+    private static World WorldWithSea(params (int X, int Y)[] sea)
+    {
+        var cells = Enumerable.Repeat(2, 64 * 64).ToArray();
+        foreach (var (x, y) in sea)
+        {
+            cells[(y * 64) + x] = 0;
+        }
+
+        var runs = new List<TerrainRun>();
+        foreach (var cell in cells)
+        {
+            if (runs.Count > 0 && runs[^1].Code == cell)
+            {
+                runs[^1] = runs[^1] with { Count = runs[^1].Count + 1 };
+            }
+            else
+            {
+                runs.Add(new TerrainRun(cell, 1));
+            }
+        }
+
+        return OpenPlain with { Terrain = new TerrainGrid(TerrainEncoding.RunLength, ValueList.From(runs)) };
+    }
+
+    /// <summary>A city across a sea tile on the straight line is skipped, and the next-best city is chosen.</summary>
+    [Fact]
+    public void Reachability_skips_a_city_whose_straight_line_crosses_the_sea_and_takes_the_next_best()
+    {
+        var army = Army("a", Us, 10, 10, 20_000);
+        var blocked = City("blocked", Them, 14, 10, loyalty: 10, fort: 10, pop: 10);
+        var open = City("open", Them, 10, 20);
+        var cities = new[] { City("us-capital", Us, 8, 10), blocked, open, City("them-capital", Them, 40, 40) };
+
+        var control = AiArmyTargetTree.ScoreCityTarget(ViewOf(cities, [army]), army);
+        var sea = AiArmyTargetTree.ScoreCityTarget(ViewIn(WorldWithSea((12, 10)), cities, [army]), army);
+
+        Assert.Equal("blocked", control.City!.Id);
+        Assert.Equal("open", sea.City!.Id);
+        Assert.Equal(1, sea.Skipped);
+    }
+
+    /// <summary>A city on the line, an army on the line and a fleet on the line each stop the walk; only the target's own tile is exempt.</summary>
+    [Fact]
+    public void Reachability_skips_a_target_whose_first_step_is_blocked_and_takes_the_next_best()
+    {
+        var army = Army("a", Us, 10, 10, 20_000);
+        var blockedTarget = Army("blocked", Them, 14, 10, 100);
+        var openTarget = Army("open", Them, 10, 16, 1_000);
+        var cities = new[] { City("us-capital", Us, 11, 10), City("them-capital", Them, 40, 40) };
+
+        var viewBlocked = ViewOf(cities, [army, blockedTarget, openTarget]);
+        var picked = AiArmyTargetTree.ScoreArmyTarget(viewBlocked, army);
+
+        Assert.Equal("open", picked.Army!.Id);
+        Assert.Equal(1, picked.Skipped);
+
+        // The same army target with the city moved off the line is reachable and wins.
+        var clear = ViewOf([City("us-capital", Us, 11, 12), City("them-capital", Them, 40, 40)], [army, blockedTarget, openTarget]);
+        Assert.Equal("blocked", AiArmyTargetTree.ScoreArmyTarget(clear, army).Army!.Id);
+
+        // An adjacent target is reachable even though its own tile is occupied.
+        var adjacent = Army("adjacent", Them, 11, 10, 100);
+        var adjacentView = ViewOf([City("us-capital", Us, 11, 12), City("them-capital", Them, 40, 40)], [army, adjacent]);
+        Assert.Equal("adjacent", AiArmyTargetTree.ScoreArmyTarget(adjacentView, army).Army!.Id);
+    }
+
+    /// <summary>An army standing on an intervening tile stops the walk; the target's own tile being the only obstacle does not.</summary>
+    [Fact]
+    public void Reachability_skips_a_target_behind_an_intervening_army_but_not_one_whose_own_tile_is_the_only_obstacle()
+    {
+        var army = Army("a", Us, 10, 10, 20_000);
+        var target = City("target", Them, 14, 10, loyalty: 10, fort: 10, pop: 10);
+        var fallback = City("fallback", Them, 10, 25);
+        var cities = new[] { City("us-capital", Us, 8, 10), target, fallback, City("them-capital", Them, 40, 40) };
+        var bystander = Army("bystander", Third, 12, 10, 100);
+
+        var behind = AiArmyTargetTree.ScoreCityTarget(ViewOf(cities, [army, bystander]), army);
+        var clear = AiArmyTargetTree.ScoreCityTarget(ViewOf(cities, [army]), army);
+
+        Assert.Equal("fallback", behind.City!.Id);
+        Assert.Equal(1, behind.Skipped);
+        Assert.Equal("target", clear.City!.Id);
+        Assert.Equal(0, clear.Skipped);
+    }
+
+    /// <summary>When every target of a kind is skipped there is no target, and the decision takes the next branch.</summary>
+    [Fact]
+    public void Reachability_leaves_no_target_and_the_decision_takes_the_next_branch()
+    {
+        var army = Army("a", Us, 10, 10, 20_000) with { SupplyTons = 0 };
+        var cities = new[] { City("us-capital", Us, 20, 20), City("them-capital", Them, 14, 10, loyalty: 10, fort: 10, pop: 10) };
+        var view = ViewIn(WorldWithSea((12, 10)), cities, [army]);
+
+        var decision = AiArmyTargetTree.Decide(view, army, atWar: true);
+
+        Assert.Null(decision.TargetCity);
+        Assert.Equal(AiArmyTargetTree.Kind.MoveToResupplyCity, decision.Selected);
     }
 
     // ---------- the resupply or defence city (FUN_0044e670) ----------

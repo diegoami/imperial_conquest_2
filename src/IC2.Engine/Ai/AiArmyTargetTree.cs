@@ -2,6 +2,7 @@ using IC2.Engine.Battle.Commands;
 using IC2.Engine.Cities.Capture;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
+using IC2.Engine.Movement;
 using IC2.Engine.Strength;
 using static IC2.Engine.Ai.AiFormat;
 
@@ -84,13 +85,13 @@ public static class AiArmyTargetTree
     /// <param name="City">The chosen city, or <see langword="null"/> when nothing qualifies.</param>
     /// <param name="Score">The <c>score + distance</c> term the city scorer returns on a hit.</param>
     /// <param name="Distance">The Chebyshev distance from the army to <paramref name="City"/>.</param>
-    public sealed record CityTarget(CityState? City, long Score, int Distance);
+    public sealed record CityTarget(CityState? City, long Score, int Distance, int Skipped = 0);
 
     /// <summary>One army's choice: the picked enemy army, the score the scorer produced, and the distance.</summary>
     /// <param name="Army">The chosen army, or <see langword="null"/> when nothing qualifies.</param>
     /// <param name="Score">The capped score the scorer returned on a hit.</param>
     /// <param name="Distance">The Chebyshev distance from the deciding army to <paramref name="Army"/>.</param>
-    public sealed record ArmyTarget(ArmyState? Army, long Score, int Distance);
+    public sealed record ArmyTarget(ArmyState? Army, long Score, int Distance, int Skipped = 0);
 
     /// <summary>One army's choice: the picked resupply/defence city, its raw score, and the distance.</summary>
     /// <param name="City">The chosen city, or <see langword="null"/> when nothing qualifies.</param>
@@ -130,6 +131,7 @@ public static class AiArmyTargetTree
         CityState? best = null;
         long bestScore = long.MinValue;
         var bestDistance = 0;
+        var skipped = 0;
 
         foreach (var city in view.State.Cities)
         {
@@ -148,6 +150,12 @@ public static class AiArmyTargetTree
             var distance = AiView.Distance(army.X, army.Y, city.X, city.Y);
             if (distance <= 0)
             {
+                continue;
+            }
+
+            if (!IsReachable(view, army, city.X, city.Y))
+            {
+                skipped++;
                 continue;
             }
 
@@ -185,7 +193,7 @@ public static class AiArmyTargetTree
             }
         }
 
-        return new CityTarget(best, bestScore == long.MinValue ? 0 : bestScore + bestDistance, bestDistance);
+        return new CityTarget(best, bestScore == long.MinValue ? 0 : bestScore + bestDistance, bestDistance, skipped);
     }
 
     /// <summary>
@@ -213,6 +221,7 @@ public static class AiArmyTargetTree
         ArmyState? best = null;
         long bestScore = long.MinValue;
         var bestDistance = 0;
+        var skipped = 0;
 
         foreach (var target in view.State.Armies)
         {
@@ -235,6 +244,12 @@ public static class AiArmyTargetTree
             var distance = AiView.Distance(army.X, army.Y, target.X, target.Y);
             if (distance <= 0)
             {
+                continue;
+            }
+
+            if (!IsReachable(view, army, target.X, target.Y))
+            {
+                skipped++;
                 continue;
             }
 
@@ -264,7 +279,7 @@ public static class AiArmyTargetTree
             }
         }
 
-        return new ArmyTarget(best, bestScore == long.MinValue ? 0 : bestScore, bestDistance);
+        return new ArmyTarget(best, bestScore == long.MinValue ? 0 : bestScore, bestDistance, skipped);
     }
 
     /// <summary>
@@ -438,7 +453,8 @@ public static class AiArmyTargetTree
         long CityScore,
         long ArmyScore,
         int CityDistance,
-        int ArmyDistance);
+        int ArmyDistance,
+        int Skipped);
 
     /// <summary>
     /// Installs and returns a fresh decision log for the calling thread. A game runs on one thread, so a
@@ -486,7 +502,8 @@ public static class AiArmyTargetTree
             city.Score,
             armyScore.Score,
             city.Distance,
-            armyScore.Distance));
+            armyScore.Distance,
+            city.Skipped + armyScore.Skipped));
         return decision;
     }
 
@@ -655,6 +672,55 @@ public static class AiArmyTargetTree
         }
 
         return (capital.X, capital.Y);
+    }
+
+    /// <summary>
+    /// <c>[designed]</c> reachability rule (the user's decision of 2026-10-10 on #925, the same idea as
+    /// #907's fix): a target is reachable when the existing walker's straight-line path to it is not
+    /// stopped before the target. The walker (<c>MoveArmyCommandHandler</c>) follows
+    /// <see cref="BresenhamPath"/> and stops at a tile armies cannot stand on (sea) or that holds a city, an
+    /// army or a fleet; the target's own tile is exempt, since the walk ends beside it and the attack
+    /// command takes over. The original routes around such obstacles or ships the army; the clone does
+    /// neither (no new mover), so such a target is skipped and the tree takes its next-best.
+    /// </summary>
+    public static bool IsReachable(AiView view, ArmyState army, int targetX, int targetY)
+    {
+        var path = BresenhamPath.Trace(new GridPoint(army.X, army.Y), new GridPoint(targetX, targetY));
+        for (var i = 1; i < path.Count - 1; i++)
+        {
+            var step = path[i];
+            if (!view.IsArmyPassable(step))
+            {
+                return false;
+            }
+
+            foreach (var city in view.State.Cities)
+            {
+                if (city.X == step.X && city.Y == step.Y)
+                {
+                    return false;
+                }
+            }
+
+            foreach (var other in view.State.Armies)
+            {
+                if (!string.Equals(other.Id, army.Id, StringComparison.Ordinal)
+                    && other.X == step.X && other.Y == step.Y)
+                {
+                    return false;
+                }
+            }
+
+            foreach (var fleet in view.State.Fleets)
+            {
+                if (!fleet.IsUnderConstruction && fleet.X == step.X && fleet.Y == step.Y)
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     /// <summary>
