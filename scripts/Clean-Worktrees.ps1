@@ -19,7 +19,11 @@
     A tree is safe only when ALL of these hold:
       (a) `git status --porcelain --ignored` shows nothing outside bin/, obj/, .godot/ and .vs/
           -- matched at any depth as whole path components, so src/IC2.Engine/bin/ is noise too
-          -- while a run's ignored diagnostics under rendered/ count as work and keep the tree;
+          -- plus .opencode/, assets.local.ini and rendered/ matched only as the FIRST path
+          -- component, i.e. at the tree root (src/rendered/x and docs/.opencode/y are work);
+          -- the run's ignored diagnostics under a ROOT rendered/ are disposable once (c) holds
+          -- (the user's decision of 2026-10-09, plan PR #894); uncommitted tracked changes and
+          -- untracked files elsewhere still keep the tree;
       (b) no commit on it is absent from origin (its HEAD is contained in a remote-tracking ref;
           local knowledge only, no fetch happens here, so a stale fetch errs towards "not safe");
       (c) its branch's PR is merged or closed, or -- for a detached review tree -- the PR it
@@ -49,12 +53,13 @@
 .PARAMETER SelfTest
     Offline checks (no network, no real gh, no real ic2-work): temporary git repos under the TEMP
     folder build one worktree in each state the rules describe (clean and merged; dirty; ignored
-    files under rendered/ only; an unpushed commit; a detached review tree of an open PR, old; a
-    detached review tree of a merged PR; a branch with a closed PR listed before an open one), and
-    the list and -Apply are shown to treat each as the rules say. It also covers nested build
-    output at src/IC2.Engine/bin/, godot/.godot/ and so on (R2), and that a path still present
-    after `git worktree remove` is reported and left in place (R4). gh is stubbed in-process;
-    nothing is billed.
+    files under a root rendered/ only, both merged and with an open PR; a root .opencode/ only; a
+    root assets.local.ini only; nested x/rendered/ and x/.opencode/ that still count as work; an
+    unpushed commit; a detached review tree of an open PR, old; a detached review tree of a merged
+    PR; a branch with a closed PR listed before an open one), and the list and -Apply are shown to
+    treat each as the rules say. It also covers nested build output at src/IC2.Engine/bin/,
+    godot/.godot/ and so on (R2), and that a path still present after `git worktree remove` is
+    reported and left in place (R4). gh is stubbed in-process; nothing is billed.
 
 .EXAMPLE
     pwsh scripts/Clean-Worktrees.ps1
@@ -139,12 +144,19 @@ function Format-Size([long] $Bytes) {
 }
 
 function Get-WorktreeNoise([string] $Path) {
-    # Rule (a): the `git status --porcelain --ignored` entries whose path is outside bin/, obj/,
-    # .godot/ and .vs/. Ignored diagnostics under rendered/ count as work and keep the tree.
+    # Rule (a), as amended by the user's decision of 2026-10-09 (plan PR #894): the
+    # `git status --porcelain --ignored` entries that are NOT allowed noise.
+    #   - bin/, obj/, .godot/ and .vs/ are noise at ANY depth, as whole path components (so
+    #     src/IC2.Engine/bin/ and godot/.godot/ are noise), never as substrings of a component.
+    #   - .opencode/, assets.local.ini and rendered/ are noise ONLY as the FIRST path component,
+    #     i.e. at the tree ROOT (so src/rendered/x and docs/.opencode/y still count as work).
+    # Rule (a) does not judge by PR state -- (c) does -- so anything under a root rendered/ is
+    # not work here: once the tree's PR is merged or closed, the run's ignored diagnostics there
+    # are disposable (a root rendered/ whose PR is still open is kept by (c), not by (a)).
+    # Uncommitted tracked changes and untracked files elsewhere still are work.
     # Returns the offending paths, empty when the tree holds nothing but allowed noise.
-    # R2: the permitted names are matched at ANY depth, as whole path components (so
-    # src/IC2.Engine/bin/ and godot/.godot/ are noise), never as substrings of a component.
-    $allowed = @('bin', 'obj', '.godot', '.vs')
+    $allowedAnyDepth = @('bin', 'obj', '.godot', '.vs')
+    $allowedRoot = @('.opencode', 'assets.local.ini', 'rendered')
     $bad = @()
     $lines = @()
     try { $lines = @(git -C $Path status --porcelain --ignored 2>$null) } catch { $lines = @() }
@@ -154,10 +166,12 @@ function Get-WorktreeNoise([string] $Path) {
         foreach ($side in @($body -split ' -> ')) {
             $p = $side.Trim().Trim('"')
             if (-not $p) { continue }
+            $parts = @($p -split '[\\/]' | Where-Object { $_ })
             $noise = $false
-            foreach ($part in @($p -split '[\\/]' | Where-Object { $_ })) {
-                if ($part -in $allowed) { $noise = $true; break }
+            foreach ($part in $parts) {
+                if ($part -in $allowedAnyDepth) { $noise = $true; break }
             }
+            if (-not $noise -and $parts.Count -ge 1 -and $parts[0] -in $allowedRoot) { $noise = $true }
             if (-not $noise) { $bad += $p }
         }
     }
@@ -313,7 +327,7 @@ function Invoke-CleanWorktreesSelfTest {
         git init -q -b main $main
         git -C $main config user.email selftest@local | Out-Null
         git -C $main config user.name selftest | Out-Null
-        Set-Content -LiteralPath (Join-Path $main '.gitignore') -Value "rendered/`nbin/`nobj/`n.godot/`n.vs/`n" -Encoding utf8
+        Set-Content -LiteralPath (Join-Path $main '.gitignore') -Value "rendered/`n.opencode/`nassets.local.ini`nbin/`nobj/`n.godot/`n.vs/`n" -Encoding utf8
         Set-Content -LiteralPath (Join-Path $main 'base.txt') -Value 'base' -Encoding utf8
         git -C $main add -A
         git -C $main commit -q -m base
@@ -360,7 +374,9 @@ function Invoke-CleanWorktreesSelfTest {
         Set-Content -LiteralPath (Join-Path $root 't2-dirty\base.txt') -Value 'dirty' -Encoding utf8
         & $ageTree (Join-Path $root 't2-dirty') 30
 
-        # 3. Ignored files under rendered/ only, merged branch, old: the diagnostics count as work.
+        # 3. Ignored files under a ROOT rendered/ only, merged branch, old. Amended 3(a) (plan PR
+        # #894): once the PR is merged or closed the run's diagnostics there are disposable, so
+        # this tree is SAFE now (it was work before the amendment).
         git -C $main worktree add -q (Join-Path $root 't3-rendered') -b task/t3
         git -C (Join-Path $root 't3-rendered') push -q -u origin task/t3
         New-Item -ItemType Directory -Force -Path (Join-Path $root 't3-rendered\rendered') | Out-Null
@@ -384,6 +400,45 @@ function Invoke-CleanWorktreesSelfTest {
         git -C (Join-Path $root 't7-closed-then-open') push -q -u origin task/t7
         & $ageTree (Join-Path $root 't7-closed-then-open') 30
 
+        # 8 (amended 3(a), plan PR #894): a root .opencode/ (the tooling's own) is noise only at
+        # the root. Clean, merged and old, so safe and old enough to remove.
+        git -C $main worktree add -q (Join-Path $root 't8-opencode') -b task/t8
+        New-Item -ItemType Directory -Force -Path (Join-Path $root 't8-opencode\.opencode') | Out-Null
+        Set-Content -LiteralPath (Join-Path $root 't8-opencode\.opencode\session.json') -Value '{}' -Encoding utf8
+        git -C (Join-Path $root 't8-opencode') push -q -u origin task/t8
+        & $ageTree (Join-Path $root 't8-opencode') 30
+
+        # 9 (amended 3(a), plan PR #894): a root assets.local.ini is noise only at the root.
+        git -C $main worktree add -q (Join-Path $root 't9-assets') -b task/t9
+        Set-Content -LiteralPath (Join-Path $root 't9-assets\assets.local.ini') -Value 'token=x' -Encoding utf8
+        git -C (Join-Path $root 't9-assets') push -q -u origin task/t9
+        & $ageTree (Join-Path $root 't9-assets') 30
+
+        # 10 (amended 3(a), plan PR #894): the root allowances do NOT reach into a subdirectory.
+        # This tree has allowed noise at the root (.opencode/, rendered/) AND a nested x/rendered/
+        # and x/.opencode/: only the nested ones are work. A tracked src/ file stops git collapsing
+        # the nested ignored directories to `src/`.
+        git -C $main worktree add -q (Join-Path $root 't10-nested') -b task/t10
+        New-Item -ItemType Directory -Force -Path (Join-Path $root 't10-nested\src\IC2.Engine'), (Join-Path $root 't10-nested\rendered'), (Join-Path $root 't10-nested\.opencode') | Out-Null
+        Set-Content -LiteralPath (Join-Path $root 't10-nested\src\IC2.Engine\Program.cs') -Value 'class P { }' -Encoding utf8
+        Set-Content -LiteralPath (Join-Path $root 't10-nested\rendered\ok.txt') -Value 'root noise' -Encoding utf8
+        Set-Content -LiteralPath (Join-Path $root 't10-nested\.opencode\ok.json') -Value '{}' -Encoding utf8
+        New-Item -ItemType Directory -Force -Path (Join-Path $root 't10-nested\src\rendered'), (Join-Path $root 't10-nested\src\.opencode') | Out-Null
+        Set-Content -LiteralPath (Join-Path $root 't10-nested\src\rendered\nested.txt') -Value 'work' -Encoding utf8
+        Set-Content -LiteralPath (Join-Path $root 't10-nested\src\.opencode\nested.json') -Value '{}' -Encoding utf8
+        git -C (Join-Path $root 't10-nested') add -A
+        git -C (Join-Path $root 't10-nested') commit -q -m t10
+        git -C (Join-Path $root 't10-nested') push -q -u origin task/t10
+        & $ageTree (Join-Path $root 't10-nested') 30
+
+        # 11 (amended 3(a), plan PR #894): a root rendered/ only, but its PR is OPEN. (a) is
+        # satisfied (root rendered/ is not work); (c) is not, so the open PR is the ONLY reason.
+        git -C $main worktree add -q (Join-Path $root 't3b-rendered-open') -b task/t3b
+        New-Item -ItemType Directory -Force -Path (Join-Path $root 't3b-rendered-open\rendered') | Out-Null
+        Set-Content -LiteralPath (Join-Path $root 't3b-rendered-open\rendered\diagnostics.txt') -Value 'diag' -Encoding utf8
+        git -C (Join-Path $root 't3b-rendered-open') push -q -u origin task/t3b
+        & $ageTree (Join-Path $root 't3b-rendered-open') 30
+
         # 5. A detached review tree of an open PR, old.
         git -C $main worktree add -q --detach (Join-Path $root '777-review-luna-20260101-000000') $t1Sha
         & $ageTree (Join-Path $root '777-review-luna-20260101-000000') 30
@@ -397,8 +452,12 @@ function Invoke-CleanWorktreesSelfTest {
             'task/t1' = 'MERGED'
             'task/t2' = 'MERGED'
             'task/t3' = 'MERGED'
+            'task/t3b' = 'OPEN'
             'task/t4' = 'MERGED'
             'task/t7' = '[{"number":700,"state":"CLOSED"},{"number":701,"state":"OPEN"}]'
+            'task/t8' = 'MERGED'
+            'task/t9' = 'MERGED'
+            'task/t10' = 'MERGED'
         }
         $script:PrStates = @{ '777' = 'OPEN'; '888' = 'MERGED' }
         $script:Gh = {
@@ -425,15 +484,24 @@ function Invoke-CleanWorktreesSelfTest {
         $lines = @($entries | ForEach-Object { Format-WorktreeLine $_ })
         $lines | ForEach-Object { Write-Host $_ }
         $listText = $lines -join "`n"
-        Add 'list: seven worktrees are listed, one line each' ($entries.Count -eq 7 -and $lines.Count -eq 7)
-        Add 'list: every line names the path, the branch or detached HEAD, the age, the PR and safety' (@($lines | Where-Object { $_ -match ' \| ' }).Count -eq 7)
+        Add 'list: eleven worktrees are listed, one line each' ($entries.Count -eq 11 -and $lines.Count -eq 11)
+        Add 'list: every line names the path, the branch or detached HEAD, the age, the PR and safety' (@($lines | Where-Object { $_ -match ' \| ' }).Count -eq 11)
         $t1 = $entries | Where-Object { $_.Path -like '*t1-merged' }
         Add 'clean and merged, recent: SAFE' ($t1.Safe -and $t1.PrState -eq 'MERGED' -and $t1.AgeDays -lt 7)
         Add 'R2: nested build output (src/.../bin, src/.../obj, godot/.godot, src/.vs) is noise, not work' ((Get-WorktreeNoise (Join-Path $root 't1-merged')).Count -eq 0)
         $t2 = $entries | Where-Object { $_.Path -like '*t2-dirty' }
         Add 'dirty: NOT safe, and the work is named' (-not $t2.Safe -and (($t2.Reasons -join '; ') -match 'base\.txt'))
         $t3 = $entries | Where-Object { $_.Path -like '*t3-rendered' }
-        Add 'ignored files under rendered/ only: NOT safe (rendered/ counts as work)' (-not $t3.Safe -and (($t3.Reasons -join '; ') -match 'rendered'))
+        Add 'amended 3(a): ignored files under a ROOT rendered/ only, merged PR: SAFE (disposable), no other reason' ($t3.Safe -and $t3.PrState -eq 'MERGED')
+        $t3b = $entries | Where-Object { $_.Path -like '*t3b-rendered-open*' }
+        Add 'amended 3(a): a ROOT rendered/ only with an OPEN PR: NOT safe, and the ONLY reason is the open PR (the rendered/ files are not work)' (-not $t3b.Safe -and $t3b.PrState -eq 'OPEN' -and (($t3b.Reasons -join '; ') -notmatch 'holds work') -and (($t3b.Reasons -join '; ') -match 'open'))
+        $t8 = $entries | Where-Object { $_.Path -like '*t8-opencode' }
+        Add 'amended 3(a): a ROOT .opencode/ only, merged PR: SAFE (the tooling''s own)' ($t8.Safe -and $t8.PrState -eq 'MERGED' -and (Get-WorktreeNoise (Join-Path $root 't8-opencode')).Count -eq 0)
+        $t9 = $entries | Where-Object { $_.Path -like '*t9-assets' }
+        Add 'amended 3(a): a ROOT assets.local.ini only, merged PR: SAFE' ($t9.Safe -and $t9.PrState -eq 'MERGED' -and (Get-WorktreeNoise (Join-Path $root 't9-assets')).Count -eq 0)
+        $t10 = $entries | Where-Object { $_.Path -like '*t10-nested' }
+        $t10Noise = @(Get-WorktreeNoise (Join-Path $root 't10-nested'))
+        Add 'amended 3(a): a nested x/rendered/ or x/.opencode/ still counts as work; the root allowances do not reach it' (-not $t10.Safe -and $t10Noise.Count -ge 1 -and (@($t10Noise | Where-Object { $_ -notmatch '^src[\\/]' }).Count -eq 0))
         $t4 = $entries | Where-Object { $_.Path -like '*t4-unpushed' }
         Add 'an unpushed commit: NOT safe (commits absent from origin)' (-not $t4.Safe -and (($t4.Reasons -join '; ') -match 'absent from origin'))
         $t5 = $entries | Where-Object { $_.Path -like '*777-review-luna*' }
@@ -445,18 +513,19 @@ function Invoke-CleanWorktreesSelfTest {
 
         # --- -Apply: the safe ones older than -OlderThanDays only ---
         $candidates = @($entries | Where-Object { $_.Safe -and $_.AgeDays -gt 7 })
-        Add 'apply candidates: exactly the old safe one (the merged review tree)' ($candidates.Count -eq 1 -and $candidates[0].Path -like '*888-review-sol*')
+        Add 'apply candidates: exactly the old safe ones (the merged review tree and the three amended-3(a) root-noise trees)' ($candidates.Count -eq 4 -and (@($candidates | Where-Object { $_.Path -like '*888-review-sol*' -or $_.Path -like '*t3-rendered' -or $_.Path -like '*t8-opencode' -or $_.Path -like '*t9-assets' }).Count -eq 4))
         $removedCount = 0
         foreach ($c in $candidates) {
             Write-Host "removing: $($c.Path)"
             if (Remove-Worktree $c.Path) { $removedCount++ } else { Add "apply: $($c.Path) could not be removed" $false }
         }
         Add 'apply: the merged review tree is gone' (-not (Test-Path (Join-Path $root '888-review-sol-20260101-000000')))
+        Add 'apply: the amended-3(a) root-noise trees are gone (rendered/, .opencode/, assets.local.ini)' (((@('t3-rendered', 't8-opencode', 't9-assets') | Where-Object { Test-Path (Join-Path $root $_) }).Count) -eq 0)
         Add 'apply: `git worktree list` no longer names the removed tree (remove then prune)' (@((git -C $main worktree list --porcelain) -like '*888-review-sol*').Count -eq 0)
-        Add 'apply: every other tree is kept' (((@('t1-merged', 't2-dirty', 't3-rendered', 't4-unpushed', '777-review-luna-20260101-000000', 't7-closed-then-open') | Where-Object { -not (Test-Path (Join-Path $root $_)) }).Count) -eq 0)
+        Add 'apply: every other tree is kept' (((@('t1-merged', 't2-dirty', 't4-unpushed', '777-review-luna-20260101-000000', 't7-closed-then-open', 't10-nested', 't3b-rendered-open') | Where-Object { -not (Test-Path (Join-Path $root $_)) }).Count) -eq 0)
         $summary = '{0} worktrees, {1} safe to remove, {2} removed' -f $entries.Count, $candidates.Count, $removedCount
         Write-Host $summary
-        Add 'summary: "N worktrees, S safe to remove, R removed"' ($summary -eq '7 worktrees, 1 safe to remove, 1 removed')
+        Add 'summary: "N worktrees, S safe to remove, R removed"' ($summary -eq '11 worktrees, 4 safe to remove, 4 removed')
 
         # --- -Force: one named tree, whatever its state ---
         $target = Join-Path $root 't2-dirty'
