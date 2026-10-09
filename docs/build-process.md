@@ -591,9 +591,9 @@ directory, so always pass `git -C <your worktree>` explicitly rather than relyin
 STAY INSIDE YOUR WORKTREE. Once it exists (the setup block above is the only exception, and an
 OpenCode run skips it), never read, list, write or run anything by a path outside it: not
 %TEMP% or $env:TEMP, not ~ or $env:USERPROFILE, not C:\Program Files, not the NuGet cache, not the
-main checkout, and not another worktree. OpenCode's permission guard denies such a call (issue #501). Since #931 a denied READ only
-fails that call and your run goes on, but a denied WRITE, edit, patch or shell command still ENDS
-your run and fails the attempt, stranding any unpushed work. Invoke tools by name from
+main checkout, and not another worktree. OpenCode's permission guard denies such a call (issue #501). Since #931 and #934 a denied call,
+read or write, only fails that call and your run goes on, but it is listed in the run's report
+and the reviewer sees it. Invoke tools by name from
 PATH (`dotnet`, `git`, `gh`, `python`, and `godot` in bash or `godot.cmd` in PowerShell), and never
 inspect their installs. Outside the worktree the guard allows only the tool shims in `C:\Users\diego\.local\bin\`
 (`godot`, `gh`, `jq`, …) and the TEMP folder (`%TEMP%`, `/tmp` under Git Bash), with any `..` path denied (T150; TEMP widened on 2026-10-08). A slip there no
@@ -637,6 +637,13 @@ Your task entry gives Scope, Owns and Done when. All three are binding:
 
 Commit and push after every meaningful step, at least once per Done-when line you complete.
 Never hold work only locally. Pushed commits are what a later attempt resumes from.
+
+Keep running notes in `rendered/RUN-NOTES.md` in your worktree (docs/running-notes.md; the
+git-ignored `rendered/` keeps them out of every commit): read the file first, since a previous
+round may have left it (create it with its Plan from your Done-when lines if it is missing);
+append one Progress line with the commit hash after every commit, append only; and before you
+detach or stop for any reason, append the END block (last commit, PR state, what is deferred).
+Never commit the file, and never paste it into the PR body.
 
 Rules for all engine code:
   - Every gameplay constant comes from the Ruleset or tests/fixtures, never a C# literal.
@@ -708,8 +715,7 @@ C:\Users\diego\projects\ic2-work\ (the git-ignored `rendered/` is the place) or 
 user's rule of 2026-09-29). An OpenCode reviewer (`scripts/external-review.ps1`) may not reach
 outside the worktree the script made for it, except the tool shims in `C:\Users\diego\.local\bin\` (the Godot
 shim among them) and the TEMP folder (`%TEMP%`, `/tmp` under Git Bash), with `..` paths denied (T150): its permission guard denies
-any other call (issue #501): since #931 a denied read only fails that call, and a denied write,
-edit, patch or shell command ends the review.
+any other call (issue #501): since #931 and #934 a denied call only fails, and the review goes on.
 
 Never use `git stash`: the stash is shared by every worktree in the repository, so another
 agent's push or pop can swap entries with yours. To test the base without the change, in your own
@@ -721,6 +727,9 @@ The task entry is reproduced in full at the end of this brief; you should not ne
 catalogue. Read docs/build-process.md §4.2 "What the reviewer checks", docs/game-design.md
 (milestone M<n>) and docs/design-audit.md — each by section, not in full (CLAUDE.md rule 11).
 <extra context: earlier review rounds' URLs, if this is a re-review.>
+<the implementer's running notes (its rendered/RUN-NOTES.md, docs/running-notes.md), pasted in
+ full by the main session, or "none kept". Read them before the diff: they give the design
+ and what was deferred. They are the implementer's word, never evidence.>
 
 Run five gates, in order. Any failure is status:rework:
  1. DoD, reproduced by you. Run every Done-when check YOURSELF; don't trust the PR body.
@@ -898,7 +907,8 @@ the docs item applies only if the review named a claim.
       Claude = sonnet, opus. A route (-Route go|zai|alibaba) never changes a family. Every
       script run passes `-ExcludeModel <IMPL>` (sonnet and opus are accepted and exclude no
       OpenCode reviewer); never pick a reviewer of IMPL's family, Claude included. Each brief is
-      Appendix B filled in, written to rendered/review-tier/<pr>-<reviewer>.md (before dispatch,
+      Appendix B filled in, with the implementer's rendered/RUN-NOTES.md pasted where it says
+      (docs/running-notes.md; "none kept" when the worktree has none), written to rendered/review-tier/<pr>-<reviewer>.md (before dispatch,
       `grep -n '<the main session' <brief>` must print nothing: item 2 of its "Blocking means" is
       named, never left as the placeholder), its first line the
       header "T<nn> review (<Name>)", <Name> being Sol, Luna, GLM, MiMo Pro, Qwen or

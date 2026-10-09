@@ -212,6 +212,33 @@ function Get-OpenCodeExportDenials([string] $ExportFile) {
     return , $found.ToArray()
 }
 
+function Get-OpenCodeDeniedReads([string] $Text, $Denials) {
+    # Every denied outside READ, from both sources (PR #935's review R1): the export's first, then
+    # any the printed output shows that the export does not, so a read either source shows is
+    # reported even when the run ended before the live watch's first poll.
+    $out = New-Object System.Collections.Generic.List[string]
+    if ($null -ne $Denials) { foreach ($d in @(@($Denials) | Where-Object { $_.Read })) { $out.Add([string]$d.Call) } }
+    foreach ($d in @(Get-OpenCodePermissionDenials $Text | Where-Object { $_.Read })) {
+        if (-not $out.Contains([string]$d.Call)) { $out.Add([string]$d.Call) }
+    }
+    # Unrolled: callers wrap it in @(), which gives an empty array when nothing was denied.
+    return $out.ToArray()
+}
+
+function Get-OpenCodeDeniedWrites([string] $Text, $Denials) {
+    # Every denied outside WRITE, from both sources (bug #934): the export's (which names the real
+    # tool) first, then the printed output's, so a write either source shows is listed. Neither ends
+    # the run any more: the deny already kept the write out, and the user's decision of 2026-10-09
+    # is that a denied write must not throw the run's work away. They are reported instead.
+    $out = New-Object System.Collections.Generic.List[string]
+    if ($null -ne $Denials) { foreach ($d in @(@($Denials) | Where-Object { -not $_.Read })) { $out.Add([string]$d.Call) } }
+    foreach ($d in @(Get-OpenCodePermissionDenials $Text | Where-Object { -not $_.Read })) {
+        if (-not $out.Contains([string]$d.Call)) { $out.Add([string]$d.Call) }
+    }
+    # Unrolled: callers wrap it in @(), which gives an empty array when nothing was denied.
+    return $out.ToArray()
+}
+
 function Get-OpenCodeDeniedWrite([string] $Text, $Denials) {
     # The first denied outside WRITE as its call, or $null (bug #931). It FAILS CLOSED: a write in
     # EITHER source counts (PR #932's re-checks). $Denials, when given, is the session export's
@@ -1038,7 +1065,7 @@ function Invoke-OpenCodeRun {
         $idleMs = [long]$IdleTimeoutSec * 1000
         $idlePollMs = [int]([Math]::Max($PollSec, [Math]::Min(60, [Math]::Ceiling($IdleTimeoutSec / 5))) * 1000)
         $lastUpdated = if ($session) { [long]$session.updated } else { $startedMs }
-        $deniedSeen = 0; $deniedWrite = $null
+        $deniedSeen = 0
         while ($true) {
             $remainingMs = [Math]::Max(0, $totalMs - $clock.ElapsedMilliseconds)
             $waitMs = if ($session -and $idleMs -gt 0) { [Math]::Min($idlePollMs, $remainingMs) } else { $remainingMs }
@@ -1050,16 +1077,15 @@ function Invoke-OpenCodeRun {
             $seen = Find-OpenCodeSession -Cli $Cli -WorkDir $WorkDir -Title $Title -StartedMs $startedMs -LogDir $LogDir `
                 -InFile $inFile -TimeoutMs ([int][Math]::Max(0, [Math]::Min(30000, $totalMs - $clock.ElapsedMilliseconds)))
             if ($p.HasExited) { break }
-            # Bug #931: a denied outside read is reported and the run goes on; a denied write ends it
-            # here, and the caller fails the attempt on PermissionRejected as it did for a rejection.
+            # Bugs #931 and #934: every denied outside call is reported as it happens, and the run goes
+            # on: the deny kept it out, so neither a read nor a write ends the run (the user's decision
+            # of 2026-10-09).
             $liveText = Read-OpenCodeSharedText $outFile
             foreach ($d in @(Get-OpenCodePermissionDenials $liveText | Select-Object -Skip $deniedSeen)) {
                 $deniedSeen++
-                if ($d.Read) { Write-Host "opencode: denied an outside read, the run goes on: $($d.Call)" }
-                else { Write-Host "opencode: denied an outside write, ending the run: $($d.Call)" }
+                $kind = if ($d.Read) { 'read' } else { 'write' }
+                Write-Host "opencode: denied an outside $kind, the run goes on: $($d.Call)"
             }
-            $deniedWrite = Get-OpenCodeDeniedWrite $liveText
-            if ($deniedWrite) { Stop-OpenCodeTree $p; break }
             if ($seen -and [long]$seen.updated -gt $lastUpdated) { $lastUpdated = [long]$seen.updated }
             $idleFor = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() - $lastUpdated
             if ($idleFor -ge $idleMs) {
@@ -1116,16 +1142,13 @@ function Invoke-OpenCodeRun {
         # True when OpenCode ran its default agent instead of the requested --agent.
         AgentFallback = $agentFallback
         SessionAgent  = $sessionAgent
-        # What OpenCode's permission guard refused in a way that ends the attempt, or $null: an
-        # auto-rejected ask (the rejection ended the run), or a denied outside write (bug #931: the
-        # watcher ended the run, or the run went on past it). A denied outside read does not count:
-        # the run went on. The session export names the tool; the printed output is the fallback.
-        PermissionRejected = $(
-            $rej = Get-OpenCodePermissionRejection ($stdout + "`n" + $stderr)
-            if ($rej) { $rej }
-            else { $w = Get-OpenCodeDeniedWrite ($stdout + "`n" + $stderr) $denials; if ($w) { "external_directory denied a write ($w)" } else { $null } })
-        # The denied outside reads the run survived (bug #931), as their calls.
-        OutsideReadsDenied = @($(if ($null -ne $denials) { @($denials) } else { @(Get-OpenCodePermissionDenials ($stdout + "`n" + $stderr)) }) | Where-Object { $_.Read } | ForEach-Object { $_.Call })
+        # What OpenCode's permission guard refused in a way that ends the attempt, or $null: only an
+        # auto-rejected ask, which OpenCode itself ends the run on. The agents deny instead of asking
+        # (#931), and a denied call, read or write, never ends the run or fails the attempt (#934).
+        PermissionRejected = Get-OpenCodePermissionRejection ($stdout + "`n" + $stderr)
+        # The denied outside calls the run went past (bugs #931, #934), for the run's report.
+        OutsideReadsDenied = @(Get-OpenCodeDeniedReads ($stdout + "`n" + $stderr) $denials)
+        OutsideWritesDenied = @(Get-OpenCodeDeniedWrites ($stdout + "`n" + $stderr) $denials)
         Files     = if ($p.ExitCode -eq 0) { @() } else { $files }
         # The kept transcript (JSON), or $null when the export failed.
         ExportFile = if ($exported) { $exportFile } else { $null }
