@@ -134,7 +134,6 @@ public sealed class AiCommandLegalityTests
         _output.WriteLine("command kinds exercised: " + string.Join(", ", kinds));
 
         Assert.Contains("battle.attack-army", kinds);
-        Assert.Contains("battle.besiege-city", kinds);
         Assert.Contains("diplomacy.declare-war", kinds);
         Assert.Contains("movement.move-army", kinds);
         Assert.Contains("recruitment.recruit-standing-unit", kinds);

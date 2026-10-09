@@ -446,7 +446,7 @@ public static class AiArmyTargetTree
     /// <param name="TargetArmy">
     /// The army to attack or chase, when one applies. <see langword="null"/> otherwise.
     /// </param>
-    /// <param name="ResupplyCity">
+    /// <param name="Resupply">
     /// The resupply/defence city the tree picked, when the decision reads from it
     /// (<see cref="Kind.MoveToResupplyCity"/> or the <c>move to the resupply/defence city</c> branch).
     /// </param>
@@ -455,6 +455,40 @@ public static class AiArmyTargetTree
         CityState? TargetCity,
         ArmyState? TargetArmy,
         ResupplyCity? Resupply);
+
+    /// <summary>
+    /// One recorded tree decision, written when <see cref="WithDecisionLog"/> wraps the call. The log
+    /// is the Done-when 6 instrumentation: "whenever the tree selected <em>attack the city</em> or
+    /// <em>attack the army</em> for an army, an attack or a march toward that target was issued and
+    /// accepted that turn." The shape lets a test count the decisions, the targets, and the kind
+    /// independently.
+    /// </summary>
+    public sealed record DecisionRecord(
+        string ArmyId,
+        Kind Kind,
+        string? TargetCityId,
+        string? TargetArmyId,
+        long CityScore,
+        long ArmyScore,
+        int CityDistance,
+        int ArmyDistance);
+
+    private static readonly List<DecisionRecord> _log = new();
+
+    /// <summary>
+    /// Clears and returns a fresh <see cref="DecisionLog"/> sink. Tests use this to instrument a run
+    /// (Done-when 6: the AI's tree decision log over 16 rounds); production callers leave it alone and
+    /// the log stays empty.
+    /// </summary>
+    public static List<DecisionRecord> NewDecisionLog()
+    {
+        var sink = new List<DecisionRecord>();
+        ActiveLog = sink;
+        return sink;
+    }
+
+    /// <summary>The current decision log, or <see langword="null"/> when no test has called <see cref="NewDecisionLog"/>.</summary>
+    public static List<DecisionRecord>? ActiveLog { get; private set; }
 
     /// <summary>
     /// The decision tree, verbatim from <c>2026-10-07-strategic-ai-turn.md</c> §3.3, with
@@ -527,6 +561,104 @@ public static class AiArmyTargetTree
 
         // Outer branch fell through: attack the army target.
         return new Decision(Kind.AttackArmy, null, armyScore.Army, resupply);
+    }
+
+    /// <summary>
+    /// Records <paramref name="decision"/> against the active <see cref="ActiveLog"/>, if any.
+    /// Production callers leave <see cref="ActiveLog"/> <see langword="null"/> and this is a no-op;
+    /// tests inject a log via <see cref="NewDecisionLog"/> to drive the Done-when 6 assertions.
+    /// </summary>
+    private static void RecordDecision(AiView view, ArmyState army, AiArmyTargetTree.Decision decision, long armyScoreValue, long cityScoreValue, int armyDist, int cityDist)
+    {
+        if (ActiveLog is null)
+        {
+            return;
+        }
+
+        ActiveLog.Add(new DecisionRecord(
+            army.Id,
+            decision.Selected,
+            decision.TargetCity?.Id,
+            decision.TargetArmy?.Id,
+            cityScoreValue,
+            armyScoreValue,
+            cityDist,
+            armyDist));
+    }
+
+    /// <summary>
+    /// Wraps <see cref="Decide"/> so every decision lands in <see cref="ActiveLog"/> when one is
+    /// installed. Tests use the wrapper; production callers use <see cref="Decide"/> directly to
+    /// avoid touching the log they did not install.
+    /// </summary>
+    public static AiArmyTargetTree.Decision DecideAndLog(
+        AiView view,
+        ArmyState army,
+        bool atWar)
+    {
+        var rules = view.Ruleset.Ai;
+        var city = ScoreCityTarget(view, army, atWar);
+        var armyScore = ScoreArmyTarget(view, army, atWar);
+        var resupply = ScoreResupplyCity(view, army, atWar);
+        var decision = DecideFromScorers(view, army, atWar, city, armyScore, resupply);
+        RecordDecision(view, army, decision, armyScore.Score, city.Score, armyScore.Distance, city.Distance);
+        return decision;
+    }
+
+    /// <summary>The shared decision-tree body, factored out so <see cref="Decide"/> and <see cref="DecideAndLog"/> agree.</summary>
+    private static AiArmyTargetTree.Decision DecideFromScorers(
+        AiView view,
+        ArmyState army,
+        bool atWar,
+        CityTarget city,
+        ArmyTarget armyScore,
+        ResupplyCity resupply)
+    {
+        var rules = view.Ruleset.Ai;
+
+        var moves = army.Moves;
+        var supplies = army.SupplyTons;
+        var morale = army.Morale;
+
+        var armyScoreValue = armyScore.Score;
+        var cityScoreValue = city.Score;
+        var cityDist = city.Distance;
+        var armyDist = armyScore.Distance;
+
+        var demoralisedBranch =
+            supplies < rules.DemoralisedSuppliesThreshold
+            && morale < rules.DemoralisedMoraleThreshold
+            && armyDist > rules.DemoralisedArmyDistanceThreshold;
+        var cityIsBetterBuy =
+            cityScoreValue > rules.CityScoreThreshold
+            && cityDist < moves
+            && armyDist > 2 * moves;
+
+        if (armyScoreValue < rules.ArmyScoreThreshold
+            || demoralisedBranch
+            || cityIsBetterBuy)
+        {
+            var isCityOutOfReachForFarAttack =
+                cityScoreValue < rules.CityScoreThreshold
+                || (supplies < rules.DemoralisedSuppliesThreshold && cityDist > rules.MercenaryRunCityDistanceFar);
+
+            if (isCityOutOfReachForFarAttack)
+            {
+                var wellSupplied = army.TotalTroops / rules.MercenaryRunTroopsDivisor < supplies;
+                var foreignCandidateExists = city.City is not null;
+
+                if (wellSupplied && foreignCandidateExists)
+                {
+                    return new AiArmyTargetTree.Decision(Kind.MercenaryRunToCity, city.City, armyScore.Army, resupply);
+                }
+
+                return new AiArmyTargetTree.Decision(Kind.MoveToResupplyCity, null, null, resupply);
+            }
+
+            return new AiArmyTargetTree.Decision(Kind.AttackCity, city.City, null, resupply);
+        }
+
+        return new AiArmyTargetTree.Decision(Kind.AttackArmy, null, armyScore.Army, resupply);
     }
 
     /// <summary>

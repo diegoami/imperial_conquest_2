@@ -108,13 +108,7 @@ public static class AiMilitaryPhase
                 continue;
             }
 
-            ProposeSieges(view, army, requiredRatio, progress, into, siegeGates);
-            ProposeArmyAttacks(view, army, requiredRatio, into);
-            if (!Contains(armiesAlreadyMarched, army.Id))
-            {
-                ProposeMarches(view, army, progress, into);
-            }
-
+            ProposeArmyTree(view, army, progress, into, siegeGates);
         }
 
         foreach (var fleet in view.OwnFleets())
@@ -278,10 +272,9 @@ public static class AiMilitaryPhase
         }
     }
 
-    private static void ProposeSieges(
+    private static void ProposeArmyTree(
         AiView view,
         ArmyState army,
-        long requiredRatio,
         long progress,
         List<AiCandidate> into,
         AiSiegeGateTally? siegeGates)
@@ -291,81 +284,199 @@ public static class AiMilitaryPhase
         if (archerUnitTypeId is null || fortifyOrder is null)
         {
             // AttackLegality refuses every siege under such a ruleset, so proposing one would be a
-            // guaranteed rejection.
+            // guaranteed rejection. T156's tree replaces the ratio gate with a tree decision, but a
+            // ruleset that cannot describe one still cannot propose any attack or march either.
             siegeGates?.RecordRulesetCannotSiege();
             return;
         }
 
-        foreach (var city in view.State.Cities)
+        var atWar = AnyAtWar(view);
+        var decision = AiArmyTargetTree.Decide(view, army, atWar);
+
+        // The tally counts every adjacent army/enemy-city pair the tree saw and how many of those the
+        // tree selected for attack. It mirrors the brief's "of N adjacent pairs, M attacked", for the
+        // per-seed log.
+        if (siegeGates is not null)
         {
-            if (string.Equals(city.Owner, army.Nation, StringComparison.Ordinal))
+            var cityScore = AiArmyTargetTree.ScoreCityTarget(view, army, atWar);
+            var armyScore = AiArmyTargetTree.ScoreArmyTarget(view, army, atWar);
+            foreach (var city in view.State.Cities)
             {
-                continue;
+                if (string.Equals(city.Owner, army.Nation, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (AiView.Distance(army.X, army.Y, city.X, city.Y) != 1)
+                {
+                    continue;
+                }
+
+                siegeGates.RecordAdjacentPair(army.Id, city.Id, cityScore.Score, armyScore.Score);
             }
-
-            // T82 (#359, bug #357): "AI armies and fleets never attack a nation they are not at war
-            // with... there is no implicit declaration by attack" (decompiled-ai-offers-to-human-seats.md
-            // §4/§5 [confirmed]). War itself is ProposeOwnWarDeclaration's own decision now; sieging no
-            // longer declares it. This early exit is redundant with, but cheaper than, the besiege
-            // command's own AttackLegality.IsLegal check below (the actual authority -- its WarCheck
-            // already refused a siege against a nation not at war, even before this task, which is
-            // exactly why the old code paired a DeclareWarCommand ahead of the siege to begin with): this
-            // just skips the power/ratio computation for a target the legality check would refuse anyway.
-            if (!view.IsAtWar(view.NationId, city.Owner))
-            {
-                continue;
-            }
-
-            if (!AttackLegality.AreAdjacent(army.X, army.Y, city.X, city.Y))
-            {
-                continue;
-            }
-
-            if (view.State.NationById(city.Owner) is not { } owner)
-            {
-                continue;
-            }
-
-            var besiege = new BesiegeCityCommand(view.NationId, army.Id, city.Id);
-            if (!AttackLegality.IsLegal(view.State, view.Ruleset, besiege))
-            {
-                siegeGates?.RecordLegalityRejection();
-                continue;
-            }
-
-            var attackerPower = SiegeStrength.Attacker(army.Units, army.Morale, view.Ruleset, archerUnitTypeId);
-            var defenderPower = Cities.Capture.CompleteDefenderStrength.Compute(
-                city,
-                fortifyOrder,
-                IsControllerCapital(view.State, city),
-                !string.Equals(city.Owner, city.Allegiance, StringComparison.Ordinal),
-                owner,
-                view.Ruleset);
-
-            var ratio = AiView.RatioPermille(attackerPower, defenderPower, view.Ruleset);
-            siegeGates?.RecordRatioGate(
-                ratio >= requiredRatio, army.Id, city.Id, attackerPower, defenderPower, ratio, requiredRatio);
-            if (ratio < requiredRatio)
-            {
-                continue;
-            }
-
-            var score = AiView.WithVictoryAwareness(
-                view.Ruleset.Ai.BesiegeCityBaseScore + AiView.RatioScoreContribution(ratio, view.Ruleset),
-                progress,
-                view.Ruleset);
-
-            into.Add(AiCandidate.Single(
-                AiPhase.Military,
-                "besiege",
-                besiege,
-                score,
-                Inv(
-                    "besiege {0} with {1}: siege strength {2} vs defender {3} "
-                    + "(ratio {4} permille, need {5}), victory progress {6} permille",
-                    city.Id, army.Id, attackerPower, defenderPower, ratio, requiredRatio, progress),
-                army.Id));
         }
+
+        switch (decision.Selected)
+        {
+            case AiArmyTargetTree.Kind.AttackCity:
+                if (decision.TargetCity is { } targetCity)
+                {
+                    AddCityTargetCandidate(view, army, targetCity, progress, into, siegeGates);
+                }
+                break;
+
+            case AiArmyTargetTree.Kind.AttackArmy:
+                if (decision.TargetArmy is { } targetArmy)
+                {
+                    AddArmyTargetCandidate(view, army, targetArmy, into);
+                }
+                break;
+
+            case AiArmyTargetTree.Kind.MercenaryRunToCity:
+                if (decision.TargetCity is { } mercCity)
+                {
+                    AddMarchCandidate(view, army, mercCity.X, mercCity.Y, AiCandidate.ApproachKind,
+                        "mercenary-run", view.Ruleset.Ai.ApproachCityBaseScore, progress, into);
+                }
+                break;
+
+            case AiArmyTargetTree.Kind.MoveToResupplyCity:
+                if (decision.Resupply?.City is { } resupplyCity)
+                {
+                    AddMarchCandidate(view, army, resupplyCity.X, resupplyCity.Y, AiCandidate.ApproachKind,
+                        "march at resupply", view.Ruleset.Ai.ReinforceCityBaseScore, progress, into);
+                }
+                break;
+
+            case AiArmyTargetTree.Kind.NoTarget:
+                break;
+        }
+    }
+
+    /// <summary>True when <paramref name="view"/>'s nation is at war with any other living nation.</summary>
+    private static bool AnyAtWar(AiView view)
+    {
+        foreach (var nation in view.State.Nations)
+        {
+            if (string.Equals(nation.Id, view.NationId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (nation.Eliminated)
+            {
+                continue;
+            }
+
+            if (view.IsAtWar(view.NationId, nation.Id))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Build a candidate for the tree's <c>AttackCity</c> branch: a <see cref="BesiegeCityCommand"/>
+    /// when adjacent, a <see cref="Movement.Commands.MoveArmyCommand"/> toward the city otherwise.
+    /// </summary>
+    private static void AddCityTargetCandidate(
+        AiView view,
+        ArmyState army,
+        CityState targetCity,
+        long progress,
+        List<AiCandidate> into,
+        AiSiegeGateTally? siegeGates)
+    {
+        if (AttackLegality.AreAdjacent(army.X, army.Y, targetCity.X, targetCity.Y))
+        {
+            var besiege = new BesiegeCityCommand(view.NationId, army.Id, targetCity.Id);
+            if (AttackLegality.IsLegal(view.State, view.Ruleset, besiege))
+            {
+                siegeGates?.RecordTreeSelection(army.Id, targetCity.Id);
+                var score = AiView.WithVictoryAwareness(
+                    view.Ruleset.Ai.BesiegeCityBaseScore, progress, view.Ruleset);
+                into.Add(AiCandidate.Single(
+                    AiPhase.Military,
+                    "besiege",
+                    besiege,
+                    score,
+                    Inv("besiege {0} with {1} (target tree)", targetCity.Id, army.Id),
+                    army.Id));
+            }
+
+            return;
+        }
+
+        AddMarchCandidate(view, army, targetCity.X, targetCity.Y, AiCandidate.ApproachKind,
+            "approach target city", view.Ruleset.Ai.ApproachCityBaseScore, progress, into);
+    }
+
+    /// <summary>
+    /// Build a candidate for the tree's <c>AttackArmy</c> branch: an <see cref="AttackArmyCommand"/>
+    /// when adjacent, a <see cref="Movement.Commands.MoveArmyCommand"/> toward the army's tile
+    /// otherwise.
+    /// </summary>
+    private static void AddArmyTargetCandidate(
+        AiView view,
+        ArmyState army,
+        ArmyState targetArmy,
+        List<AiCandidate> into)
+    {
+        if (AttackLegality.AreAdjacent(army.X, army.Y, targetArmy.X, targetArmy.Y))
+        {
+            var attack = new AttackArmyCommand(view.NationId, army.Id, targetArmy.Id);
+            if (AttackLegality.IsLegal(view.State, view.Ruleset, attack))
+            {
+                into.Add(AiCandidate.Single(
+                    AiPhase.Military,
+                    "attack-army",
+                    attack,
+                    view.Ruleset.Ai.AttackArmyBaseScore,
+                    Inv("attack {0} ({1}) with {2} (target tree)", targetArmy.Id, targetArmy.Nation, army.Id),
+                    army.Id));
+            }
+
+            return;
+        }
+
+        AddMarchCandidate(view, army, targetArmy.X, targetArmy.Y, AiCandidate.ApproachKind,
+            "approach target army", view.Ruleset.Ai.ApproachCityBaseScore, 0, into);
+    }
+
+    /// <summary>
+    /// Build a <see cref="Movement.Commands.MoveArmyCommand"/> candidate toward the chosen
+    /// destination, applying the original's passability and occupancy gates (<see cref="IsProposableMove"/>).
+    /// </summary>
+    private static void AddMarchCandidate(
+        AiView view,
+        ArmyState army,
+        int x,
+        int y,
+        string kind,
+        string why,
+        long baseScore,
+        long progress,
+        List<AiCandidate> into)
+    {
+        var command = new Movement.Commands.MoveArmyCommand(view.NationId, army.Id, x, y);
+        if (!IsProposableMove(view, army, command))
+        {
+            return;
+        }
+
+        var distance = AiView.Distance(army.X, army.Y, x, y);
+        var score = baseScore - (view.Ruleset.Ai.DistancePenaltyPerTile * distance);
+        score = AiView.WithVictoryAwareness(score, progress, view.Ruleset);
+
+        into.Add(AiCandidate.Single(
+            AiPhase.Military,
+            kind,
+            command,
+            score,
+            Inv("{0} ({1}, {2}) with {3}: {4} tiles away", why, x, y, army.Id, distance),
+            army.Id));
     }
 
     private static void ProposeArmyAttacks(
