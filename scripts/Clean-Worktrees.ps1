@@ -256,21 +256,11 @@ function Remove-Worktree([string] $Path, [switch] $ForceRemove) {
     git -C $repoRoot @gitArgs $Path
     if ($LASTEXITCODE -ne 0) { return $false }
     if (Test-Path -LiteralPath $Path) { Remove-Item -Recurse -Force -LiteralPath $Path -ErrorAction SilentlyContinue }
+    # `git worktree prune` after the removal (Done-when 3). The repository must be resolved BEFORE
+    # the tree goes: once the path is gone, `git -C $Path` no longer resolves, so pruning from the
+    # removed path (the earlier order) did nothing.
+    git -C $repoRoot worktree prune
     return (-not (Test-Path -LiteralPath $Path))
-}
-
-function Invoke-WorktreePrune([string[]] $RemovedPaths) {
-    # `git worktree prune` once per repository a removal touched.
-    $done = @()
-    foreach ($p in $RemovedPaths) {
-        $commonDir = $null
-        try { $commonDir = (git -C $p rev-parse --path-format=absolute --git-common-dir 2>$null) } catch { $commonDir = $null }
-        $repoRoot = if ($commonDir) { (Split-Path $commonDir.Trim() -Parent) } else { $null }
-        if ($repoRoot -and $repoRoot -notin $done) {
-            git -C $repoRoot worktree prune
-            $done += $repoRoot
-        }
-    }
 }
 
 function Invoke-CleanWorktreesSelfTest {
@@ -388,15 +378,15 @@ function Invoke-CleanWorktreesSelfTest {
         # --- -Apply: the safe ones older than -OlderThanDays only ---
         $candidates = @($entries | Where-Object { $_.Safe -and $_.AgeDays -gt 7 })
         Add 'apply candidates: exactly the old safe one (the merged review tree)' ($candidates.Count -eq 1 -and $candidates[0].Path -like '*888-review-sol*')
-        $removedPaths = @()
+        $removedCount = 0
         foreach ($c in $candidates) {
             Write-Host "removing: $($c.Path)"
-            if (Remove-Worktree $c.Path) { $removedPaths += $c.Path } else { Add "apply: $($c.Path) could not be removed" $false }
+            if (Remove-Worktree $c.Path) { $removedCount++ } else { Add "apply: $($c.Path) could not be removed" $false }
         }
-        if ($removedPaths) { Invoke-WorktreePrune $removedPaths }
-        Add 'apply: the merged review tree is gone, the worktree pruned' (-not (Test-Path (Join-Path $root '888-review-sol-20260101-000000')))
+        Add 'apply: the merged review tree is gone' (-not (Test-Path (Join-Path $root '888-review-sol-20260101-000000')))
+        Add 'apply: `git worktree list` no longer names the removed tree (remove then prune)' (@((git -C $main worktree list --porcelain) -like '*888-review-sol*').Count -eq 0)
         Add 'apply: every other tree is kept' (((@('t1-merged', 't2-dirty', 't3-rendered', 't4-unpushed', '777-review-luna-20260101-000000') | Where-Object { -not (Test-Path (Join-Path $root $_)) }).Count) -eq 0)
-        $summary = '{0} worktrees, {1} safe to remove, {2} removed' -f $entries.Count, $candidates.Count, $removedPaths.Count
+        $summary = '{0} worktrees, {1} safe to remove, {2} removed' -f $entries.Count, $candidates.Count, $removedCount
         Write-Host $summary
         Add 'summary: "N worktrees, S safe to remove, R removed"' ($summary -eq '6 worktrees, 1 safe to remove, 1 removed')
 
@@ -476,7 +466,7 @@ if ($Force) {
     } else {
         Write-Host 'what it holds: nothing (clean)'
     }
-    if (Remove-Worktree $target -ForceRemove) { $removed = 1; Invoke-WorktreePrune @($target) }
+    if (Remove-Worktree $target -ForceRemove) { $removed = 1 }
     else { [Console]::Error.WriteLine("could not remove $target") }
     $summary = '{0} worktrees, {1} safe to remove, {2} removed' -f $entries.Count, $candidates.Count, $removed
     Write-Host $summary
@@ -486,13 +476,11 @@ if ($Force) {
 foreach ($e in $entries) { Write-Host (Format-WorktreeLine $e) }
 
 if ($Apply) {
-    $removedPaths = @()
     foreach ($c in $candidates) {
         Write-Host "removing: $($c.Path) ($(Format-Size $c.Size), $($c.PrText))"
-        if (Remove-Worktree $c.Path) { $removedPaths += $c.Path; $removed++ }
+        if (Remove-Worktree $c.Path) { $removed++ }
         else { [Console]::Error.WriteLine("could not remove $($c.Path); left in place") }
     }
-    if ($removedPaths) { Invoke-WorktreePrune $removedPaths }
 }
 
 $summary = '{0} worktrees, {1} safe to remove, {2} removed' -f $entries.Count, $candidates.Count, $removed

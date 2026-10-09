@@ -1173,9 +1173,11 @@ function New-ReviewWorktree([string] $Name) {
     git -C $repo worktree add --detach $script:worktree $headSha 2>$null | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "git worktree add failed for $($script:worktree) at $headSha" }
     Write-Host "worktree: $($script:worktree) at $headSha (kept; scripts/Clean-Worktrees.ps1 removes it on a schedule)"
-    # The PR under review usually does not carry this agent file, and OpenCode silently falls back
-    # to its default, full-permission agent when --agent names one it cannot find. Copy the
-    # read-only agent into the review worktree (untracked; ignored by the cleanup's safety rule).
+    # OpenCode silently falls back to its default, full-permission agent when --agent names one it
+    # cannot find, so copy the read-only agent into the review worktree to make --agent always
+    # resolve (the PR head may predate the file). It is a tracked file: an identical copy leaves
+    # the tree clean, a differing one is uncommitted work, and Done-when 3 keeps any tree that
+    # holds uncommitted work.
     $agentDir = Join-Path $script:worktree '.opencode/agents'
     New-Item -ItemType Directory -Force -Path $agentDir | Out-Null
     Copy-Item -LiteralPath $agentFile -Destination (Join-Path $agentDir 'external-reviewer.md') -Force
