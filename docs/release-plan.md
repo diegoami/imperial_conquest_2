@@ -157,7 +157,7 @@ The user's decisions of 2026-10-04, recorded on [#690](https://github.com/diegoa
 
 The user's decision of 2026-10-09, after playing `v0.5.0` ("Publish v0.5.0, then v0.5.1"): the two recruitment bugs found in that play session, #515 and #903, ship as **`v0.5.1`** through [T155](tasks/T155.md) (#904), labelled `release:v0.5.1`. `v0.5.0` was published with them named as known gaps, because a tag is never moved ([§3.1](#31-naming-and-placement--decided)).
 
-- **`v0.5.1` is cut from `main`** when T155 merges, provided no tactical-battle work (`v0.6.0`'s T125–T130) has merged since `v0.5.0`. If any has, it is cut from a `release/0.5` maintenance branch instead, as [§2.2.2](#222-two-release-lines-a-maintenance-branch-per-patched-minor) does for `0.4`.
+- **`v0.5.1` is cut from `main`** when T155 merges, provided no tactical-battle work (`v0.6.0`'s T125–T130) has merged since `v0.5.0`. If any has, `v0.5.1` waits for a plan PR that opens the `release/0.5` maintenance line first, naming its branch, tags and labels and adapting the release-line instructions, as [§2.2.2](#222-two-release-lines-a-maintenance-branch-per-patched-minor) requires of every later line.
 - **The main session cuts and publishes it** once T155 has merged and [§5](#5-release-checklist)'s checklist passes, then installs the update on the user's machine, as for a v0.4.x patch ([§3.2](#32-who-cuts-the-tag--recommended-consistent-with-q-a)). Items the user lists after playing `v0.5.1` go to `v0.5.2`.
 
 ### 2.2.2 Two release lines: a maintenance branch per patched MINOR
