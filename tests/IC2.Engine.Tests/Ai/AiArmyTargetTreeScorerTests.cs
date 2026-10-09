@@ -390,6 +390,22 @@ public sealed class AiArmyTargetTreeScorerTests
         Assert.Equal(0, clear.Skipped);
     }
 
+    /// <summary>A city next to the army, and a city whose walk stops on the tile beside it, are reachable: the target's own tile is the only obstacle.</summary>
+    [Fact]
+    public void Reachability_keeps_a_city_beside_the_army_and_one_reached_through_the_tile_beside_it()
+    {
+        var army = Army("a", Us, 10, 10, 20_000);
+        var beside = AiArmyTargetTree.ScoreCityTarget(
+            ViewOf([City("us-capital", Us, 8, 10), City("t", Them, 11, 10), City("them-capital", Them, 40, 40)], [army]), army);
+        var twoAway = AiArmyTargetTree.ScoreCityTarget(
+            ViewOf([City("us-capital", Us, 8, 10), City("t", Them, 12, 10), City("them-capital", Them, 40, 40)], [army]), army);
+
+        Assert.Equal("t", beside.City!.Id);
+        Assert.Equal(0, beside.Skipped);
+        Assert.Equal("t", twoAway.City!.Id);
+        Assert.Equal(0, twoAway.Skipped);
+    }
+
     /// <summary>When every target of a kind is skipped there is no target, and the decision takes the next branch.</summary>
     [Fact]
     public void Reachability_leaves_no_target_and_the_decision_takes_the_next_branch()
