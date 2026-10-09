@@ -591,9 +591,9 @@ directory, so always pass `git -C <your worktree>` explicitly rather than relyin
 STAY INSIDE YOUR WORKTREE. Once it exists (the setup block above is the only exception, and an
 OpenCode run skips it), never read, list, write or run anything by a path outside it: not
 %TEMP% or $env:TEMP, not ~ or $env:USERPROFILE, not C:\Program Files, not the NuGet cache, not the
-main checkout, and not another worktree. OpenCode's permission guard denies such a call (issue #501). Since #931 a denied READ only
-fails that call and your run goes on, but a denied WRITE, edit, patch or shell command still ENDS
-your run and fails the attempt, stranding any unpushed work. Invoke tools by name from
+main checkout, and not another worktree. OpenCode's permission guard denies such a call (issue #501). Since #931 and #934 a denied call,
+read or write, only fails that call and your run goes on, but it is listed in the run's report
+and the reviewer sees it. Invoke tools by name from
 PATH (`dotnet`, `git`, `gh`, `python`, and `godot` in bash or `godot.cmd` in PowerShell), and never
 inspect their installs. Outside the worktree the guard allows only the tool shims in `C:\Users\diego\.local\bin\`
 (`godot`, `gh`, `jq`, …) and the TEMP folder (`%TEMP%`, `/tmp` under Git Bash), with any `..` path denied (T150; TEMP widened on 2026-10-08). A slip there no
@@ -708,8 +708,7 @@ C:\Users\diego\projects\ic2-work\ (the git-ignored `rendered/` is the place) or 
 user's rule of 2026-09-29). An OpenCode reviewer (`scripts/external-review.ps1`) may not reach
 outside the worktree the script made for it, except the tool shims in `C:\Users\diego\.local\bin\` (the Godot
 shim among them) and the TEMP folder (`%TEMP%`, `/tmp` under Git Bash), with `..` paths denied (T150): its permission guard denies
-any other call (issue #501): since #931 a denied read only fails that call, and a denied write,
-edit, patch or shell command ends the review.
+any other call (issue #501): since #931 and #934 a denied call only fails, and the review goes on.
 
 Never use `git stash`: the stash is shared by every worktree in the repository, so another
 agent's push or pop can swap entries with yours. To test the base without the change, in your own
