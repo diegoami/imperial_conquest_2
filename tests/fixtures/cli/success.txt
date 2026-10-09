@@ -36,6 +36,7 @@ move mac-sac-1 151 31
 end
 move mac-sac-1 151 31
 end
+accept-offer
 move mac-sac-1 151 31
 end
 attack-army mac-sac-1 army-14
@@ -46,7 +47,6 @@ end
 mobilize 0 mac-recruit-1
 join-units mac-marines 1 2
 end
-accept-offer
 move-fleet mac-fleet-1 149 40
 split-fleet mac-fleet-1 mac-fleet-2 10
 fleet-transfer mac-fleet-1 mac-fleet-2 1 1 0
@@ -90,6 +90,6 @@ move mac-merc 140 47
 end
 move mac-merc 141 48
 end
-move mac-merc 142 51
-hire-mercenary mac-merc 14
+move mac-merc 142 50
+hire-mercenary mac-merc 25
 quit

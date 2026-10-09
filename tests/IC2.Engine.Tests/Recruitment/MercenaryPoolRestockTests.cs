@@ -153,6 +153,23 @@ public sealed class MercenaryPoolRestockTests
     }
 
     [Fact]
+    public void An_empty_slot_refills_on_a_first_roll_exactly_at_the_ceiling()
+    {
+        // Rework round 1, N3: the scripted tests above use only first rolls 0 (below the ceiling) and
+        // 5 (the fall-through), so the <= boundary itself was pinned only indirectly, by the pinned
+        // pool count and the goldens. Roll 4 IS the ceiling: a pass that tested < would leave this
+        // slot empty and fail here directly.
+        var template = Classical.World.MercenaryTemplates![0]; // light_infantry, base 3000 -> 4500.
+        var state = RestockOneSlot(EmptyPoolState(), 0, 4, 0, 0, 0);
+
+        var slot = Assert.Single(state.MercenaryPool);
+        Assert.Equal(template.X, slot.X);
+        Assert.Equal(template.UnitTypeId, slot.UnitTypeId);
+        Assert.Equal(4500, slot.Troops); // 4500 + 0, under the 15000 cap.
+        Assert.Equal(8, slot.Quality); // clamp(7 + 1 - 0, 5, 9).
+    }
+
+    [Fact]
     public void An_empty_slot_falls_through_to_the_replace_roll_and_refills_only_at_its_floor()
     {
         var template = Classical.World.MercenaryTemplates![0]; // light_infantry, base 3000 -> 4500.

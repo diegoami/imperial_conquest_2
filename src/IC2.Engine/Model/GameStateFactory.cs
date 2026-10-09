@@ -184,18 +184,18 @@ public static class GameStateFactory
             PendingOffer: null,
             Neighbours: Diplomacy.NeighbourGeography.InitialAdjacency(world));
 
-        // T56 (bug #457): the New Game mercenary fill — the one place this factory draws anything, by
-        // the task's own Owns amendment. The original's FUN_00448AA4 calls the quarterly restock
-        // FUN_00449130 exactly once over the 50 slots the DAT reload just emptied, and that single
-        // pass is how every new game gets its starting offers [confirmed:
-        // decompiled-new-game-mercenary-fill.md §1]. The pool above starts empty (this engine's
-        // absent-slot convention, not a 50-entry sentinel table), so the fill is one restock pass
-        // through IRng, from the state's own seed via its own stream — the first New Game draw in the
-        // original's order, and independent of every other one here because each has its own named
-        // stream. A world without a template table draws nothing; a save import never calls this
-        // factory, so loading a SAV never re-fills (same report §3). Fully qualified for the same
-        // reason as NeighbourGeography above: Model otherwise depends on nothing else in the engine.
-        return IC2.Engine.Recruitment.MercenaryPoolRestock.FillNewGamePool(state, ruleset, world);
+        // T56 (bug #457), rework round 1 (R1): the New Game mercenary fill is NOT drawn here. This
+        // factory commits the scenario's own seed, and both New Game callers apply their effective
+        // seed only after CreateInitial returns (the CLI's --seed through GameSession, a soak through
+        // AiGameRunner), so a fill inside the factory would draw every starting pool from the
+        // scenario's seed and the game's own seed would never reach it. The fill is instead one call
+        // in each of those two callers, right after the seed is set and next to NewGameLeaders.Apply —
+        // MercenaryPoolRestock.FillNewGamePool, which draws from the state's (now effective) seed via
+        // its own named stream. The pool above therefore starts empty (this engine's absent-slot
+        // convention, not a 50-entry sentinel table), exactly as it did before T56; a world without a
+        // template table draws nothing; and a save import never calls this factory, so loading a SAV
+        // never re-fills (decompiled-new-game-mercenary-fill.md §1 and §3).
+        return state;
     }
 
     /// <summary>

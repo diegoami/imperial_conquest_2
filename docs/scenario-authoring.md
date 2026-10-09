@@ -258,8 +258,8 @@ twice, so nothing may key templates by city and label. Template 200 is never dra
 | `y` | integer | Yes | The offer city's tile y. |
 | `label` | integer | Yes | The mercenary name-table index (1–51 against the DAT's 52 names). Round-trips as a number; the engine carries no display string for it. |
 | `unitTypeId` | string | Yes | The unit type the offer hires as. |
-| `troopsBase` | integer | troops | The troops *base*: an offer is 1.5×–3× this value, capped at the type's standard battalion size. |
-| `qualityBase` | integer | quality 5–9 | The quality base: an offer's quality is this value or one above it, clamped to 5–9. |
+| `troopsBase` | integer | Yes | The troops *base*: an offer is 1.5×–3× this value, capped at the type's standard battalion size. |
+| `qualityBase` | integer | Yes | The quality base: an offer's quality is this value or one above it, clamped to 5–9. |
 
 ---
 

@@ -17,7 +17,8 @@ namespace IC2.Engine.Recruitment;
 /// <c>economy.quarterly-city-tick</c> (100), <c>economy.quarterly-nation-tick</c> (200) and
 /// <c>economy.ai-deposition</c> (300) — so "immediately after the quarterly economy" is expressed as
 /// the order position after all of them, before nothing in particular (the thaw at order 0 already
-/// ran). <c>MercenaryRestockRegistrationTests</c> asserts this handler's position among
+/// ran). <c>MercenaryPoolRestockTests.The_restock_is_registered_on_the_quarter_boundary_after_every_economy_handler</c>
+/// asserts this handler's position among
 /// <see cref="SystemRegistry.QuarterBoundaryHandlers"/> rather than only its effect.
 /// </para>
 /// <para>
