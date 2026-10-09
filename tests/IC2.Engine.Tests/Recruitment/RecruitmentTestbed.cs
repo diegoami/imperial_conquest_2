@@ -16,6 +16,9 @@ public static class RecruitmentTestbed
     /// <summary>The shipped toy ruleset. Every constant a Recruitment test needs comes from here.</summary>
     public static Ruleset Ruleset => CoreTestbed.Toy.Ruleset;
 
+    /// <summary>The shipped toy world, for the AiView and dispatcher seams that want it directly.</summary>
+    public static World World => CoreTestbed.Toy.World;
+
     /// <summary>The toy scenario's starting state.</summary>
     public static GameState InitialState() => CoreTestbed.InitialState();
 
