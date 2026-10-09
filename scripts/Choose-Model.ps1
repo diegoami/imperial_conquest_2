@@ -9,27 +9,44 @@
     every named family AND the whole OpenAI family (Luna and Sol), so the substitute is never
     OpenAI.
 
-    The mapping (per role, the owner's table):
+    The mapping (per role, the owner's table). DeepSeek is blacklisted (the user's decision of
+    2026-10-09): an opencode_go / alibaba row whose model is `deepseek-v4-pro` or
+    `deepseek-v4.1-flash` is excluded with the reason "DeepSeek is not used (the user's decision
+    of 2026-10-09)", never aliased. Every other row's alias is keyed by BOTH provider AND model
+    id (Done-when 4 of #908; closes #906):
       implementer (heavy):
-          minimax     → mm-m3
-          zai         → glm
-          opencode_go → deepseek-flash
-          claude      → Claude Sonnet (the script's exit-3 fallback, not an OpenCode alias;
-                       it stands in only when nothing else is left, per rule 17)
-          openai      → unmapped for implementer (OpenAI never implements; Sol/Luna stay
-                       free to review)
+          minimax                                  → mm-m3
+          zai                                      → glm
+          opencode_go + mimo-v2.6-pro              → mimo-pro
+          opencode_go + mimo-v2.6-flash            → mimo-flash
+          opencode_go + anything else              → unmapped for implementer (printed,
+                                                     never aliased; a DeepSeek row is excluded
+                                                     before the map with the blacklist reason)
+          claude                                   → Claude Sonnet (the script's exit-3
+                                                     fallback, not an OpenCode alias; it
+                                                     stands in only when nothing else is
+                                                     left, per rule 17)
+          openai                                   → unmapped for implementer (OpenAI never
+                                                     implements; Sol/Luna stay free to review)
       reviewer (light, Sol's substitutes):
-          zai         → glm
-          opencode_go → deepseek-pro
-          alibaba     → qwen (when it appears)
-          openai      → unmapped for reviewer (Luna and Sol reach a review through §3.4's
-                       tier rules, never through the ranking)
-          claude      → unmapped for reviewer (Claude reviews only when the main session
-                       passes -Reviewer <sonnet|opus> explicitly, and the &lt;complex&gt;
-                       tier rule sends the very-complex PR to a cold Claude Opus)
+          zai                                      → glm
+          opencode_go + mimo-v2.6-pro              → mimo-pro
+          opencode_go + mimo-v2.6-flash            → mimo-flash
+          opencode_go + anything else              → unmapped for reviewer (printed, never
+                                                     aliased)
+          alibaba                                  → qwen (when it appears)
+          openai                                   → unmapped for reviewer (Luna and Sol
+                                                     reach a review through §3.4's tier
+                                                     rules, never through the ranking)
+          claude                                   → unmapped for reviewer (Claude reviews
+                                                     only when the main session passes
+                                                     -Reviewer <sonnet|opus> explicitly,
+                                                     and the &lt;complex&gt; tier rule sends
+                                                     the very-complex PR to a cold Claude
+                                                     Opus)
 
-    A row's provider with no alias for the role is printed `unmapped for &lt;role&gt;: &lt;provider&gt;`
-    with score, confidence, and reasons; it is never picked.
+    A row whose provider+model has no alias for the role is printed `unmapped for &lt;role&gt;:
+    &lt;provider&gt;` with score, confidence, and reasons; it is never picked.
 
     Exclusions, in order (Done-when 2):
       1. -ExcludeFamily &lt;name&gt;[,&lt;name&gt;] drops every candidate whose family
@@ -117,7 +134,7 @@
     Runs the built-in checks on canned responses; no network is touched.
 
 .EXAMPLE
-    pwsh scripts/Choose-Model.ps1 -Role reviewer -Tier complex -ExcludeModel deepseek-flash
+    pwsh scripts/Choose-Model.ps1 -Role reviewer -Tier complex -ExcludeModel mimo-pro
 .EXAMPLE
     pwsh scripts/Choose-Model.ps1 -Role implementer -Pick
 .EXAMPLE
@@ -141,54 +158,83 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-# The owners' mapping tables, one per role (Done-when 1). A provider not in the table has
-# no alias for the role; the row is printed `unmapped for <role>: <provider>` and skipped.
-# `claude` in the implementer role is the script's exit-3 Claude Sonnet fallback, not an
-# OpenCode alias; the picker emits it only when nothing else is left.
-$ImplementerAliases = @{
-    'minimax'     = 'mm-m3'
-    'zai'         = 'glm'
-    'opencode_go' = 'deepseek-flash'
+# Per-(provider, model) map (Done-when 4 of #908; closes #906). The chooser keys an alias by
+# both the row's provider and the row's model id, never by provider alone, so a row whose
+# provider is known but whose model is not is "unmapped", never aliased to a model that
+# happens to share its provider. Every selectable row of /recommend is keyed here (R3 of PR
+# #930's rework: an unknown model on minimax, zai, alibaba or opencode_go is unmapped,
+# never aliased to whatever those providers happen to map to by model). The model ids are
+# the canonical ids from the dispatch scripts' $models tables (external-implement.ps1,
+# external-review.ps1); nothing invented. DeepSeek is blacklisted (the user's decision of
+# 2026-10-09) and not in this map; an opencode_go or alibaba + deepseek-v4-* row is
+# excluded before the map by $BlacklistedModelIds, below. `claude` in implementer is
+# handled separately by $ImplementerFallback (the script's exit-3 Claude Sonnet fallback);
+# reviewers see claude as unmapped (the main session never picks a Claude reviewer for that
+# PR). OpenAI is intentionally absent from $ModelAliases' Reviewer column: openai rows in
+# -Role reviewer are unmapped (Luna reviews only the simple tier, which §3.4 assigns, never
+# the ranking), and -Role pair gets them via $PairReviewerExtra, keyed by provider AND model.
+$ModelAliases = @{
+    # OpenCode Go (MiMo family, the user's decision of 2026-10-09).
+    'opencode_go|mimo-v2.6-pro'   = @{ Implementer = 'mimo-pro';   Reviewer = 'mimo-pro' }
+    'opencode_go|mimo-v2.6-flash' = @{ Implementer = 'mimo-flash'; Reviewer = 'mimo-flash' }
+    # MiniMax (minimax.io Token Plan, provider `minimax`).
+    'minimax|MiniMax-M3'          = @{ Implementer = 'mm-m3' }
+    'minimax|MiniMax-M2.7'        = @{ Implementer = 'mm-m2.7' }
+    # Z.AI Coding Plan (provider `zai`).
+    'zai|glm-5.3'                 = @{ Implementer = 'glm';       Reviewer = 'glm' }
+    'zai|glm-5.3-flash'           = @{ Implementer = 'glm-flash'; Reviewer = 'glm-flash' }
+    # Alibaba Token Plan (provider `alibaba`). Alibaba is used only when the user asks
+    # (the user's decision of 2026-10-09, #893: its monthly pool is nearly spent); the
+    # exclusion in Resolve-Chosen drops every alibaba row with -AllowAlibaba false. The
+    # per-(provider, model) map still keys them, so an alibaba row whose model is not one
+    # of these (with -AllowAlibaba true) is printed unmapped, never aliased to qwen.
+    'alibaba|qwen3.8-max'         = @{ Reviewer = 'qwen' }
+    'alibaba|qwen3.8-flash'       = @{ Reviewer = 'qwen-flash' }
+    'alibaba|glm-5.3'             = @{ Implementer = 'ali-glm' }
 }
-$ReviewerAliases = @{
-    'zai'         = 'glm'
-    'opencode_go' = 'deepseek-pro'
+# Models blacklisted everywhere (the user's decision of 2026-10-09): a /recommend row whose
+# model matches one of these is excluded with the blacklist reason, in both roles, regardless
+# of provider. Adding a model here also adds it to the validator the caller uses (scripts do not
+# accept it as a -Model / -Reviewer / -ExcludeModel value; the scripts in our Owns list refuse
+# naming it with exit 1).
+$BlacklistedModelIds = @{
+    'deepseek-v4-pro'      = $true
+    'deepseek-v4.1-flash'  = $true
+    'deepseek-v4-pro-0813' = $true
 }
-# Alibaba is used only when the user asks (the user's decision of 2026-10-09, #893: its
-# monthly pool is nearly spent). -AllowAlibaba puts its reviewer alias back; without it,
-# every alibaba row is excluded with that reason, in both roles.
-if ($AllowAlibaba) { $ReviewerAliases['alibaba'] = 'qwen' }
 # -Role pair maps a reviewer row to the alias external-review.ps1 takes. OpenAI's is Sol
-# (Luna reviews only the simple tier, which §3.4 assigns, never the ranking).
-$PairReviewerExtra = @{ 'openai' = 'sol' }
+# (Luna reviews only the simple tier, which §3.4 assigns, never the ranking). The map is
+# keyed by provider AND model so an unknown openai row (model other than gpt-5.6-luna or
+# gpt-6-sol) is unmapped, never aliased to sol (R3 rework).
+$PairReviewerExtra = @{
+    'openai|gpt-6-sol'    = @{ Alias = 'sol'  }
+    'openai|gpt-5.6-luna' = @{ Alias = 'luna' }
+}
 # `claude` in implementer is special. Any candidate's family an OpenCode dispatch map
 # drops: implementer `claude` falls back to Claude Sonnet (the main session), no OpenCode
 # alias; reviewer `claude` has no alias (it's not in the table, so it's "unmapped for
 # reviewer").
 $ImplementerFallback = '__CLAUDE_SONNET_FALLBACK__'
 
-# The family of each model name. For our provider → alias tables, the family is the
-# whole role's alias table plus OpenAI (the Luna / Sol pair), since the dispatch script
-# keys the family only by name (a reviewer "excludeModel deepseek-flash" excludes every
-# DeepSeek alias).
+# The family of each model name. For our per-(provider, model) and per-role tables, the family
+# is the whole role's alias set plus OpenAI (the Luna / Sol pair), since the dispatch script
+# keys the family only by name (a reviewer "excludeModel mimo-pro" excludes every MiMo alias).
+# Done-when 2 of #908: MiMo is a family of its own; DeepSeek has no entry here any more.
 $FamilyOfName = @{
-    'mm-m3'               = 'mm-m3'
-    'mm-m2.7'             = 'mm-m3'
-    'glm'                 = 'glm'
-    'glm-flash'           = 'glm'
-    'ali-glm'             = 'glm'
-    'deepseek-flash'      = 'deepseek-flash'
-    'ali-deepseek-flash'  = 'deepseek-flash'
-    'deepseek'            = 'deepseek-flash'
-    'ali-deepseek-pro'    = 'deepseek-flash'
-    'deepseek-pro'        = 'deepseek-flash'
-    'qwen'                = 'qwen'
-    'qwen-flash'          = 'qwen'
-    'claude'              = 'claude'      # the implementer `claude` row → fallback
-    'sonnet'              = 'claude'
-    'opus'                = 'claude'
-    'luna'                = 'openai'
-    'sol'                 = 'openai'
+    'mm-m3'       = 'mm-m3'
+    'mm-m2.7'     = 'mm-m3'
+    'glm'         = 'glm'
+    'glm-flash'   = 'glm'
+    'ali-glm'     = 'glm'
+    'mimo-pro'    = 'mimo'         # Done-when 2: MiMo is its own family
+    'mimo-flash'  = 'mimo'
+    'qwen'        = 'qwen'
+    'qwen-flash'  = 'qwen'
+    'claude'      = 'claude'       # the implementer `claude` row → fallback
+    'sonnet'      = 'claude'
+    'opus'        = 'claude'
+    'luna'        = 'openai'
+    'sol'         = 'openai'
 }
 
 function Get-FamilyForName([string] $Name) {
@@ -196,15 +242,27 @@ function Get-FamilyForName([string] $Name) {
     return $Name
 }
 
-function Get-ImplementerAlias([string] $Provider) {
-    if ($Provider -eq 'claude') { return $ImplementerFallback }
-    if ($ImplementerAliases.ContainsKey($Provider)) { return $ImplementerAliases[$Provider] }
+function Get-ModelRoleAlias([string] $Provider, [string] $Model, [string] $Role) {
+    # The alias $ModelAliases gives for a row of provider $Provider and model $Model, for the
+    # named role ('implementer' or 'reviewer'). The lookup is by joined key "<provider>|<model>"
+    # so an unknown model on a known provider is not aliased to whatever the provider happens to
+    # map to ($null, so the row is "unmapped for <role>" instead).
+    if (-not $Provider -or -not $Model) { return $null }
+    $key = "$Provider|$Model"
+    if ($ModelAliases.ContainsKey($key)) {
+        $row = $ModelAliases[$key]
+        if ($row -and $row.ContainsKey($Role)) { return [string]$row[$Role] }
+    }
     return $null
 }
 
-function Get-ReviewerAlias([string] $Provider) {
-    if ($ReviewerAliases.ContainsKey($Provider)) { return $ReviewerAliases[$Provider] }
-    return $null
+function Get-ImplementerAlias([string] $Provider, [string] $Model) {
+    if ($Provider -eq 'claude') { return $ImplementerFallback }
+    return (Get-ModelRoleAlias $Provider $Model 'implementer')
+}
+
+function Get-ReviewerAlias([string] $Provider, [string] $Model) {
+    return (Get-ModelRoleAlias $Provider $Model 'reviewer')
 }
 
 function Test-RecommendationLoading {
@@ -351,12 +409,13 @@ function Resolve-Chosen {
 # is 'claude' in both columns.
     $rows = foreach ($r in $recRanking) {
         $provider = [string]$r.provider
+        $model    = [string]$r.model
         $score    = if ($null -eq $r.score) { $null } else { [double]$r.score }
         $conf     = if ($null -eq $r.confidence) { '?' } else { [string]$r.confidence }
         $reasons  = @($r.reasons)
         $usable   = -not ($r.PSObject.Properties['usable'] -and -not [bool]$r.usable)
-        $alias    = if ($Role -eq 'implementer') { Get-ImplementerAlias $provider } else { Get-ReviewerAlias $provider }
-        $implAlias = Get-ImplementerAlias $provider
+        $alias    = if ($Role -eq 'implementer') { Get-ImplementerAlias $provider $model } else { Get-ReviewerAlias $provider $model }
+        $implAlias = Get-ImplementerAlias $provider $model
         $roleAlias = $alias
         # Role-side family: alias's family, or provider for unmapped-for-role.
         $roleFamily = if ($roleAlias -eq $ImplementerFallback) {
@@ -404,7 +463,13 @@ function Resolve-Chosen {
     #     automatically by the caller.
     foreach ($row in $rows) {
         $why = $null
-        if ($row.Provider -eq 'alibaba' -and -not $AllowAlibaba) {
+        if ($BlacklistedModelIds.ContainsKey($row.Model)) {
+            # Done-when 4 of #908: a DeepSeek row is excluded with the blacklist reason
+            # (the user's decision of 2026-10-09). Checked first so any other exclusion
+            # never sees the row, even when alibaba or the implementer's family would
+            # have done the same.
+            $why = "DeepSeek is not used (the user's decision of 2026-10-09)"
+        } elseif ($row.Provider -eq 'alibaba' -and -not $AllowAlibaba) {
             $why = "Alibaba is used only when the user asks (the user's decision of 2026-10-09; -AllowAlibaba)"
         } elseif ($row.Family -in $excludeModelFamilies) {
             $why = "the implementer's family ($($row.Family)) is excluded (-ExcludeModel $ExcludeModel)"
@@ -490,9 +555,14 @@ function Resolve-Chosen {
     }
 }
 
-function Get-PairReviewerAlias([string] $Provider) {
-    if ($PairReviewerExtra.ContainsKey($Provider)) { return $PairReviewerExtra[$Provider] }
-    return (Get-ReviewerAlias $Provider)
+function Get-PairReviewerAlias([string] $Provider, [string] $Model) {
+    # The pair alias for (provider, model). Keyed on both, so an openai row whose model is not
+    # in $PairReviewerExtra (e.g. an unknown future id) falls through to the regular reviewer
+    # lookup; if that is empty too, the row is unmapped (R3: a known provider with an unknown
+    # model is never aliased).
+    $key = "$Provider|$Model"
+    if ($PairReviewerExtra.ContainsKey($key)) { return $PairReviewerExtra[$key].Alias }
+    return (Get-ReviewerAlias $Provider $Model)
 }
 
 function Resolve-Pair {
@@ -533,17 +603,20 @@ function Resolve-Pair {
     foreach ($c in $candidates) {
         $r = $c.Row
         $provider = [string]$r.provider
-        $alias = Get-PairReviewerAlias $provider
+        $rModel   = [string]$r.model
+        # Done-when 4 of #908: a DeepSeek row never becomes a reviewer either.
+        if ($BlacklistedModelIds.ContainsKey($rModel)) { $passed.Add([pscustomobject]@{ Provider = $provider; Source = $c.Source; Why = 'DeepSeek is not used (the user''s decision of 2026-10-09)' }); continue }
+        $alias = Get-PairReviewerAlias $provider $rModel
         $why = $null
         if ($provider -eq 'alibaba' -and -not $AllowAlibaba) { $why = 'Alibaba is used only when the user asks' }
         elseif ($r.PSObject.Properties['usable'] -and -not [bool]$r.usable) { $why = 'the tracker marked it unusable' }
-        elseif (-not $alias) { $why = "no reviewer alias for $provider" }
+        elseif (-not $alias) { $why = "no reviewer alias for $provider/$rModel" }
         elseif ((Get-FamilyForName $alias) -in $skipFamilies) { $why = "family $(Get-FamilyForName $alias) is the implementer's or excluded" }
         if ($why) { $passed.Add([pscustomobject]@{ Provider = $provider; Source = $c.Source; Why = $why }); continue }
         $score = if ($null -eq $r.score) { $null } else { [double]$r.score }
         $conf = if ($null -eq $r.confidence) { '?' } else { [string]$r.confidence }
         $reviewer = [pscustomobject]@{
-            Alias = $alias; Family = (Get-FamilyForName $alias); Provider = $provider; Model = [string]$r.model
+            Alias = $alias; Family = (Get-FamilyForName $alias); Provider = $provider; Model = $rModel
             Score = $score; Confidence = $conf; Reasons = @($r.reasons); Source = $c.Source
         }
         break
@@ -679,9 +752,11 @@ function New-CannedSkipped {
 
 function Set-AllowAlibabaForTest([bool] $On) {
     # The self-test runs some cases with Alibaba allowed (the -AllowAlibaba path) and the rest
-    # with the default (excluded).
+    # with the default (excluded). The alibaba rows' aliases live in $ModelAliases, keyed by
+    # provider AND model (R3 of PR #930's rework), so the toggle is only the gate's flag now;
+    # Resolve-Chosen's alibaba exclusion branch is what drops the row when -AllowAlibaba
+    # is false.
     $script:AllowAlibaba = $On
-    if ($On) { $script:ReviewerAliases['alibaba'] = 'qwen' } else { $script:ReviewerAliases.Remove('alibaba') }
 }
 
 function Test-PickAlias([object] $Result, [string] $Expected) {
@@ -697,25 +772,25 @@ function Invoke-ChooserSelfTest {
     }
 
     # Case 1: per-role mapping plus an unmapped row.
-    # Implementer: minimax → mm-m3, zai → glm, opencode_go → deepseek-flash, openrouter unmapped.
+    # Implementer: minimax → mm-m3, zai → glm, opencode_go + mimo-v2.6-flash → mimo-flash, openrouter unmapped.
     $recImpl = Get-CannedRecommend -Ranking @(
-        (New-CannedRow -Provider 'minimax'     -Model 'MiniMax-M3'   -Score 1000),
-        (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'      -Score 80),
-        (New-CannedRow -Provider 'opencode_go' -Model 'ds-flash'     -Score 30),
-        (New-CannedRow -Provider 'openrouter'  -Model 'ds-flash'     -Score 0)
+        (New-CannedRow -Provider 'minimax'     -Model 'MiniMax-M3'      -Score 1000),
+        (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'         -Score 80),
+        (New-CannedRow -Provider 'opencode_go' -Model 'mimo-v2.6-flash' -Score 30),
+        (New-CannedRow -Provider 'openrouter'  -Model 'mimo-v2.6-flash' -Score 0)
     )
     $r = Resolve-Chosen -Role 'implementer' -Tier 'complex' -Recommend $recImpl
     Add-Check 'mapping (implementer): minimax → mm-m3 is first; openrouter is unmapped' (Test-PickAlias $r 'mm-m3')
     $unmapped = @($r.Ranking | Where-Object { -not $_.Alias })
     Add-Check 'mapping (implementer): openrouter is in the list of unmapped rows' (@($unmapped | Where-Object { $_.Provider -eq 'openrouter' }).Count -eq 1)
-    # Reviewer: zai → glm, opencode_go → deepseek-pro, alibaba → qwen; openai unmapped.
+    # Reviewer: zai → glm, opencode_go + mimo-v2.6-pro → mimo-pro, alibaba → qwen; openai/claude unmapped.
     $recRev = Get-CannedRecommend -Ranking @(
-        (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'     -Score 1000),
-        (New-CannedRow -Provider 'opencode_go' -Model 'ds-pro'      -Score 80),
-        (New-CannedRow -Provider 'alibaba'     -Model 'qwen-max'    -Score 60),
-        (New-CannedRow -Provider 'openai'      -Model 'gpt-6-sol'   -Score 50),
-        (New-CannedRow -Provider 'claude'      -Model 'sonnet'      -Score 40),
-        (New-CannedRow -Provider 'openrouter'  -Model 'ds-flash'    -Score 20)
+        (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'         -Score 1000),
+        (New-CannedRow -Provider 'opencode_go' -Model 'mimo-v2.6-pro'   -Score 80),
+        (New-CannedRow -Provider 'alibaba'     -Model 'qwen3.8-max'     -Score 60),
+        (New-CannedRow -Provider 'openai'      -Model 'gpt-6-sol'       -Score 50),
+        (New-CannedRow -Provider 'claude'      -Model 'sonnet'          -Score 40),
+        (New-CannedRow -Provider 'openrouter'  -Model 'mimo-v2.6-flash' -Score 20)
     )
     $r = Resolve-Chosen -Role 'reviewer' -Tier 'complex' -Recommend $recRev
     Add-Check 'mapping (reviewer): zai → glm is first; openai and claude are unmapped (Luna/Sol/Claude are not in the table)' (Test-PickAlias $r 'glm')
@@ -725,7 +800,7 @@ function Invoke-ChooserSelfTest {
     # Case 2: Claude dropped while another positive score exists; kept when alone.
     $recClaude = Get-CannedRecommend -Ranking @(
         (New-CannedRow -Provider 'claude'  -Model 'sonnet' -Score 2000),
-        (New-CannedRow -Provider 'minimax' -Model 'M3'      -Score 1000)
+        (New-CannedRow -Provider 'minimax' -Model 'MiniMax-M3'      -Score 1000)
     )
     $r = Resolve-Chosen -Role 'implementer' -Tier 'complex' -Recommend $recClaude
     Add-Check 'Claude dropped while another positive score exists' (-not $r.Chosen -or $r.Chosen.Provider -ne 'claude')
@@ -737,7 +812,7 @@ function Invoke-ChooserSelfTest {
     # any positive value, Claude is dropped (the rubric's "positive" reads as > 0).
     $recClaudeZeroOther = Get-CannedRecommend -Ranking @(
         (New-CannedRow -Provider 'claude'  -Model 'sonnet' -Score 100),
-        (New-CannedRow -Provider 'minimax' -Model 'M3'      -Score 0)
+        (New-CannedRow -Provider 'minimax' -Model 'MiniMax-M3'      -Score 0)
     )
     $r = Resolve-Chosen -Role 'implementer' -Tier 'complex' -Recommend $recClaudeZeroOther
     Add-Check 'R2: Claude positive, other at 0 -> Claude stands in (zero is not positive)' ($r.Chosen -and $r.Chosen.Provider -eq 'claude')
@@ -745,7 +820,7 @@ function Invoke-ChooserSelfTest {
 
     $recClaudeZeroSelf = Get-CannedRecommend -Ranking @(
         (New-CannedRow -Provider 'claude'  -Model 'sonnet' -Score 0),
-        (New-CannedRow -Provider 'minimax' -Model 'M3'      -Score 100)
+        (New-CannedRow -Provider 'minimax' -Model 'MiniMax-M3'      -Score 100)
     )
     $r = Resolve-Chosen -Role 'implementer' -Tier 'complex' -Recommend $recClaudeZeroSelf
     Add-Check 'R2: Claude at 0, other positive -> Claude dropped' (-not ($r.Chosen -and $r.Chosen.Provider -eq 'claude'))
@@ -754,7 +829,7 @@ function Invoke-ChooserSelfTest {
 
     $recClaudeAlone = Get-CannedRecommend -Ranking @(
         (New-CannedRow -Provider 'claude'  -Model 'sonnet' -Score 1500),
-        (New-CannedRow -Provider 'minimax' -Model 'M3'      -Score (-100))
+        (New-CannedRow -Provider 'minimax' -Model 'MiniMax-M3'      -Score (-100))
     )
     $r = Resolve-Chosen -Role 'implementer' -Tier 'complex' -Recommend $recClaudeAlone
     Add-Check 'Claude only-non-negative: it is the script fallback' ($r.Chosen -and $r.Chosen.Alias -eq $ImplementerFallback)
@@ -763,10 +838,10 @@ function Invoke-ChooserSelfTest {
     # alibaba row is ranked rather than excluded).
     Set-AllowAlibabaForTest $true
     $recNeg = Get-CannedRecommend -Ranking @(
-        (New-CannedRow -Provider 'opencode_go' -Model 'ds-flash' -Score (-500)),
-        (New-CannedRow -Provider 'minimax'     -Model 'M3'       -Score 1000),
-        (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'  -Score 80),
-        (New-CannedRow -Provider 'alibaba'     -Model 'qwen'     -Score (-100))
+        (New-CannedRow -Provider 'opencode_go' -Model 'mimo-v2.6-flash' -Score (-500)),
+        (New-CannedRow -Provider 'minimax'     -Model 'MiniMax-M3'      -Score 1000),
+        (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'         -Score 80),
+        (New-CannedRow -Provider 'alibaba'     -Model 'qwen3.8-max'     -Score (-100))
     )
     $r = Resolve-Chosen -Role 'reviewer' -Tier 'simple' -Recommend $recNeg
     $order = @($r.Ranking | ForEach-Object Provider)
@@ -774,10 +849,10 @@ function Invoke-ChooserSelfTest {
     $picked = Resolve-Chosen -Role 'reviewer' -Tier 'simple' -Recommend $recNeg
     Add-Check 'a negative score is chosen only when nothing else is left' (Test-PickAlias $picked 'glm')
     $recOnlyNegative = Get-CannedRecommend -Ranking @(
-        (New-CannedRow -Provider 'opencode_go' -Model 'ds-flash' -Score (-500))
+        (New-CannedRow -Provider 'opencode_go' -Model 'mimo-v2.6-flash' -Score (-500))
     )
     $rNeg = Resolve-Chosen -Role 'reviewer' -Tier 'simple' -Recommend $recOnlyNegative
-    Add-Check 'the only candidate is negative-scoring: it is still picked' (Test-PickAlias $rNeg 'deepseek-pro')
+    Add-Check 'the only candidate is negative-scoring: it is still picked' (Test-PickAlias $rNeg 'mimo-flash')
     Set-AllowAlibabaForTest $false
 
     # Case 4: ExcludeFamily drops the named family.
@@ -788,19 +863,19 @@ function Invoke-ChooserSelfTest {
 
     # Case 5: ExcludeModel on reviewer drops the implementer's whole family.
     $recDeepImpl = Get-CannedRecommend -Ranking @(
-        (New-CannedRow -Provider 'minimax' -Model 'M3'  -Score 1000),
-        (New-CannedRow -Provider 'zai'     -Model 'glm' -Score 80)
+        (New-CannedRow -Provider 'minimax' -Model 'MiniMax-M3' -Score 1000),
+        (New-CannedRow -Provider 'zai'     -Model 'glm-5.3'   -Score 80)
     )
     $rDeep = Resolve-Chosen -Role 'reviewer' -Tier 'complex' -ExcludeModel 'mm-m3' -Recommend $recDeepImpl
     Add-Check '-ExcludeModel on reviewer drops minimax (the implementer)' (@($rDeep.Excluded | Where-Object { $_.Provider -eq 'minimax' }).Count -gt 0)
-    Add-Check "-ExcludeModel mm-m3: reviewer passes the DeepSeek/GLM row only; implementer's family excluded message printed" ($rDeep.ExcludeModelFamilies -contains 'mm-m3')
+    Add-Check "-ExcludeModel mm-m3: reviewer passes the GLM row only; implementer's family excluded message printed" ($rDeep.ExcludeModelFamilies -contains 'mm-m3')
 
     # R1 rework: a reviewer row from alibaba is assigned family 'alibaba' by the
     # implementer-side alias table lookup, although its reviewer alias is qwen. The
     # fix uses the role-side alias for the family. With -ExcludeModel qwen, the
     # alibaba row must be dropped, and the chooser must NOT pick qwen.
     $recAlibaba = Get-CannedRecommend -Ranking @(
-        (New-CannedRow -Provider 'alibaba' -Model 'qwen-max' -Score 1000),
+        (New-CannedRow -Provider 'alibaba' -Model 'qwen3.8-max' -Score 1000),
         (New-CannedRow -Provider 'zai'     -Model 'glm-5.3' -Score 80)
     )
     Set-AllowAlibabaForTest $true
@@ -812,7 +887,7 @@ function Invoke-ChooserSelfTest {
     # Case 6: SubstituteFamilies drops each named family AND the OpenAI family.
     $recSub = Get-CannedRecommend -Ranking @(
         (New-CannedRow -Provider 'openai'      -Model 'gpt-6-sol' -Score 1500),
-        (New-CannedRow -Provider 'minimax'     -Model 'M3'         -Score 1000 -Usable $false), # failed
+        (New-CannedRow -Provider 'minimax'     -Model 'MiniMax-M3' -Score 1000 -Usable $false), # failed
         (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'   -Score 80)
     )
     $r = Resolve-Chosen -Role 'implementer' -Tier 'complex' -SubstituteFamilies @('mm-m3') -Recommend $recSub
@@ -824,29 +899,29 @@ function Invoke-ChooserSelfTest {
     # this is what the chain-spent substitute gets from Choose-Model: never OpenAI.
     $recSub2 = Get-CannedRecommend -Ranking @(
         (New-CannedRow -Provider 'openai'      -Model 'gpt-6-sol' -Score 1500),
-        (New-CannedRow -Provider 'minimax'     -Model 'M3'         -Score 1000),
+        (New-CannedRow -Provider 'minimax'     -Model 'MiniMax-M3'         -Score 1000),
         (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'   -Score 80)
     )
     $r2 = Resolve-Chosen -Role 'implementer' -Tier 'complex' -SubstituteFamilies @('mm-m3') -Recommend $recSub2
     Add-Check 'substitute filter on a healthy minimax: openai still dropped, minimax still dropped' (-not ($r2.Chosen -and $r2.Chosen.Provider -in @('openai', 'minimax')))
 
-    # Case 7: reviewer substitute order (GLM, DeepSeek Pro, Qwen) with a canned light
-    # ranking that puts zai first: prints DeepSeek Pro then Qwen, never GLM and never
+    # Case 7: reviewer substitute order (GLM, MiMo Pro, Qwen) with a canned light
+    # ranking that puts zai first: prints MiMo Pro then Qwen, never GLM and never
     # openai. The dispatch script does its own picking; this is what gets logged.
     $recRevSub = Get-CannedRecommend -Ranking @(
-        (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'  -Score 1000),
-        (New-CannedRow -Provider 'opencode_go' -Model 'ds-pro'   -Score 800),
-        (New-CannedRow -Provider 'alibaba'     -Model 'qwen'     -Score 200),
-        (New-CannedRow -Provider 'openai'      -Model 'gpt-6-sol' -Score 150)
+        (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'         -Score 1000),
+        (New-CannedRow -Provider 'opencode_go' -Model 'mimo-v2.6-pro'   -Score 800),
+        (New-CannedRow -Provider 'alibaba'     -Model 'qwen3.8-max'     -Score 200),
+        (New-CannedRow -Provider 'openai'      -Model 'gpt-6-sol'       -Score 150)
     )
     Set-AllowAlibabaForTest $true
     $r = Resolve-Chosen -Role 'reviewer' -Tier 'complex' -ExcludeModel 'glm' -Recommend $recRevSub
     Set-AllowAlibabaForTest $false
     $aliases = @($r.Ranking | Where-Object Alias | ForEach-Object Alias)
-    Add-Check 'reviewer substitute order (ExcludeModel glm, -AllowAlibaba): DeepSeek Pro and Qwen, never GLM, never an OpenAI model' ([string]($aliases -join ',') -eq 'deepseek-pro,qwen')
+    Add-Check 'reviewer substitute order (ExcludeModel glm, -AllowAlibaba): MiMo Pro and Qwen, never GLM, never an OpenAI model' ([string]($aliases -join ',') -eq 'mimo-pro,qwen')
     $rNoAli = Resolve-Chosen -Role 'reviewer' -Tier 'complex' -ExcludeModel 'glm' -Recommend $recRevSub
     $aliasesNoAli = @($rNoAli.Ranking | Where-Object Alias | ForEach-Object Alias)
-    Add-Check '#893: without -AllowAlibaba the reviewer order is DeepSeek Pro only (no Qwen)' ([string]($aliasesNoAli -join ',') -eq 'deepseek-pro')
+    Add-Check '#893: without -AllowAlibaba the reviewer order is MiMo Pro only (no Qwen)' ([string]($aliasesNoAli -join ',') -eq 'mimo-pro')
     Add-Check '#893: without -AllowAlibaba the alibaba row is excluded with the user-asks reason' (@($rNoAli.Excluded | Where-Object { $_.Provider -eq 'alibaba' -and $_.Why -match 'user asks' }).Count -eq 1)
     $unmapped = @($r.Ranking | Where-Object { -not $_.Alias } | ForEach-Object Provider)
     Add-Check 'reviewer substitute order: openai appears only in the unmapped-for-reviewer line' ([bool](@($unmapped | Where-Object { $_ -eq 'openai' }).Count -eq 1))
@@ -873,7 +948,7 @@ function Invoke-ChooserSelfTest {
 
     # Case 9: the skipped list is printed with "why".
     $recSk = Get-CannedRecommend -Ranking @(
-        (New-CannedRow -Provider 'minimax' -Model 'M3' -Score 1000)
+        (New-CannedRow -Provider 'minimax' -Model 'MiniMax-M3' -Score 1000)
     ) -Skipped @(
         (New-CannedSkipped -Provider 'openai' -Why 'OpenAI account out of quota')
     )
@@ -882,8 +957,8 @@ function Invoke-ChooserSelfTest {
 
     # Case 10: unusable rows are reported as excluded.
     $recUnu = Get-CannedRecommend -Ranking @(
-        (New-CannedRow -Provider 'minimax' -Model 'M3' -Score 1000 -Usable $false),
-        (New-CannedRow -Provider 'zai'     -Model 'glm' -Score 80)
+        (New-CannedRow -Provider 'minimax' -Model 'MiniMax-M3' -Score 1000 -Usable $false),
+        (New-CannedRow -Provider 'zai'     -Model 'glm-5.3' -Score 80)
     )
     $r = Resolve-Chosen -Role 'implementer' -Tier 'complex' -Recommend $recUnu
     Add-Check 'unusable rows are reported as excluded' (@($r.Excluded | Where-Object { $_.Provider -eq 'minimax' -and $_.Why -match 'unusable' }).Count -eq 1)
@@ -906,14 +981,14 @@ function Invoke-ChooserSelfTest {
     $pairRec = [pscustomobject]@{
         note = $null
         pair = [pscustomobject]@{
-            implementer = (New-CannedRow -Provider 'openai' -Model 'gpt-6.1-sol' -Score 450)
-            reviewer    = (New-CannedRow -Provider 'openai' -Model 'gpt-6.1-sol' -Score 450 -Reasons @('pair reviewer'))
+            implementer = (New-CannedRow -Provider 'openai' -Model 'gpt-6-sol' -Score 450)
+            reviewer    = (New-CannedRow -Provider 'openai' -Model 'gpt-6-sol' -Score 450 -Reasons @('pair reviewer'))
         }
         ranking = @(
-            (New-CannedRow -Provider 'openai'      -Model 'gpt-6.1-sol' -Score 450),
-            (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'     -Score 100),
-            (New-CannedRow -Provider 'opencode_go' -Model 'ds-pro'      -Score 50),
-            (New-CannedRow -Provider 'alibaba'     -Model 'qwen'        -Score 900)
+            (New-CannedRow -Provider 'openai'      -Model 'gpt-6-sol'  -Score 450),
+            (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'    -Score 100),
+            (New-CannedRow -Provider 'opencode_go' -Model 'ds-pro'     -Score 50),
+            (New-CannedRow -Provider 'alibaba'     -Model 'qwen3.8-max' -Score 900)
         )
         skipped = @()
     }
@@ -931,16 +1006,16 @@ function Invoke-ChooserSelfTest {
             reviewer    = (New-CannedRow -Provider 'zai' -Model 'glm-5.3' -Score 100)
         }
         ranking = @(
-            (New-CannedRow -Provider 'zai'         -Model 'glm-5.3' -Score 100),
-            (New-CannedRow -Provider 'minimax'     -Model 'M3'      -Score 80),
-            (New-CannedRow -Provider 'opencode_go' -Model 'ds-pro'  -Score 50)
+            (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'        -Score 100),
+            (New-CannedRow -Provider 'minimax'     -Model 'MiniMax-M3'             -Score 80),
+            (New-CannedRow -Provider 'opencode_go' -Model 'mimo-v2.6-pro'   -Score 50)
         )
         skipped = @()
     }
     $p2 = Resolve-Pair -Recommend $pairRec2
-    Add-Check '#893 pair: same-family pair reviewer is replaced by the next ranking row of another family (deepseek-pro)' ($p2.Implementer.Alias -eq 'glm' -and $p2.Reviewer -and $p2.Reviewer.Alias -eq 'deepseek-pro' -and $p2.Reviewer.Source -eq 'ranking')
-    $p2x = Resolve-Pair -Recommend $pairRec2 -ExcludeModel 'deepseek-pro'
-    Add-Check '#893 pair: with -ExcludeModel deepseek-pro too, no reviewer is left (null: tell the user)' ($null -eq $p2x.Reviewer)
+    Add-Check '#893 pair: same-family pair reviewer is replaced by the next ranking row of another family (mimo-pro)' ($p2.Implementer.Alias -eq 'glm' -and $p2.Reviewer -and $p2.Reviewer.Alias -eq 'mimo-pro' -and $p2.Reviewer.Source -eq 'ranking')
+    $p2x = Resolve-Pair -Recommend $pairRec2 -ExcludeModel 'mimo-pro'
+    Add-Check '#893 pair: with -ExcludeModel mimo-pro too, no reviewer is left (null: tell the user)' ($null -eq $p2x.Reviewer)
     $out = (& { Show-PairReport $p2x $pairRec2 } | Out-String)
     Add-Check '#893 pair: the report says "no other family has quota: tell the user"' ($out -match 'no other family has quota: tell the user')
 
@@ -949,19 +1024,131 @@ function Invoke-ChooserSelfTest {
     $pairRec4 = [pscustomobject]@{
         note = $null
         pair = [pscustomobject]@{
-            implementer = (New-CannedRow -Provider 'opencode_go' -Model 'ds-flash' -Score 50)
-            reviewer    = (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'  -Score 100)
+            implementer = (New-CannedRow -Provider 'opencode_go' -Model 'mimo-v2.6-flash' -Score 50)
+            reviewer    = (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'         -Score 100)
         }
         ranking = @(
-            (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'  -Score 100),
-            (New-CannedRow -Provider 'opencode_go' -Model 'ds-flash' -Score 50)
+            (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'         -Score 100),
+            (New-CannedRow -Provider 'opencode_go' -Model 'mimo-v2.6-flash' -Score 50)
         )
         skipped = @()
     }
     $p4 = Resolve-Pair -Recommend $pairRec4
-    Add-Check 'R1 (PR 896): the tracker pair is kept: deepseek-flash implements (from pair), glm reviews (from pair)' ($p4.Implementer.Alias -eq 'deepseek-flash' -and $p4.ImplementerSource -eq 'pair' -and $p4.Reviewer.Alias -eq 'glm' -and $p4.Reviewer.Source -eq 'pair')
-    $p4x = Resolve-Pair -Recommend $pairRec4 -ExcludeFamily @('deepseek-flash')
+    Add-Check 'R1 (PR 896): the tracker pair is kept: mimo-flash implements (from pair), glm reviews (from pair)' ($p4.Implementer.Alias -eq 'mimo-flash' -and $p4.ImplementerSource -eq 'pair' -and $p4.Reviewer.Alias -eq 'glm' -and $p4.Reviewer.Source -eq 'pair')
+    $p4x = Resolve-Pair -Recommend $pairRec4 -ExcludeFamily @('mimo-flash')
     Add-Check 'R1 (PR 896): a pair implementer our exclusions drop falls back to the ranking (glm), and the reviewer moves off glm' ($p4x.Implementer.Alias -eq 'glm' -and $p4x.ImplementerSource -eq 'ranking' -and (-not $p4x.Reviewer -or $p4x.Reviewer.Alias -ne 'glm'))
+
+    # Case 4 of fix #908: a /recommend row whose model is a blacklisted DeepSeek id is
+    # excluded with the blacklist reason, in both roles.
+    $recBlack = Get-CannedRecommend -Ranking @(
+        (New-CannedRow -Provider 'opencode_go' -Model 'deepseek-v4-pro'      -Score 100),
+        (New-CannedRow -Provider 'opencode_go' -Model 'mimo-v2.6-pro'       -Score 80),
+        (New-CannedRow -Provider 'opencode_go' -Model 'deepseek-v4.1-flash'  -Score 60),
+        (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'             -Score 50)
+    )
+    $rBlackImp = Resolve-Chosen -Role 'implementer' -Tier 'complex' -Recommend $recBlack
+    $blackExcluded = @($rBlackImp.Excluded | Where-Object { $_.Why -match 'DeepSeek is not used' })
+    Add-Check '#908: a DeepSeek row is excluded with the blacklist reason (implementer)' ($blackExcluded.Count -eq 2)
+    Add-Check '#908: an implementer blacklist excludes the DeepSeek rows; the MiMo row is still picked' (Test-PickAlias $rBlackImp 'mimo-pro')
+    $rBlackRev = Resolve-Chosen -Role 'reviewer' -Tier 'complex' -Recommend $recBlack
+    $blackRevExcluded = @($rBlackRev.Excluded | Where-Object { $_.Why -match 'DeepSeek is not used' })
+    Add-Check '#908: a DeepSeek row is excluded with the blacklist reason (reviewer)' ($blackRevExcluded.Count -eq 2)
+
+    # Case 5 of fix #908: the per-(provider, model) map keys alias by both. An opencode_go row
+    # whose model is mimo-v2.6-pro gets mimo-pro; one whose model is mimo-v2.6-flash gets
+    # mimo-flash. An opencode_go row whose model is unknown is unmapped, never aliased to a
+    # sibling.
+    $recMimo = Get-CannedRecommend -Ranking @(
+        (New-CannedRow -Provider 'opencode_go' -Model 'mimo-v2.6-pro'   -Score 200),
+        (New-CannedRow -Provider 'opencode_go' -Model 'mimo-v2.6-flash' -Score 150),
+        (New-CannedRow -Provider 'opencode_go' -Model 'unknown-model'   -Score 100)
+    )
+    $rMimoImpl = Resolve-Chosen -Role 'implementer' -Tier 'complex' -Recommend $recMimo
+    Add-Check '#908: opencode_go + mimo-v2.6-pro -> mimo-pro' (Test-PickAlias $rMimoImpl 'mimo-pro')
+    $unmappedMimo = @($rMimoImpl.Ranking | Where-Object { $_.Provider -eq 'opencode_go' -and -not $_.Alias })
+    Add-Check '#908: opencode_go + unknown model is unmapped (printed, never aliased to a sibling)' ($unmappedMimo.Count -eq 1 -and $unmappedMimo[0].Model -eq 'unknown-model')
+
+    # Case 6 of fix #908: a MiMo implementer excludes both MiMo reviewers and nothing else.
+    $rExclMiMo = Resolve-Chosen -Role 'reviewer' -Tier 'complex' -ExcludeModel 'mimo-pro' -Recommend $recMimo
+    $excludedMiMoImpl = @($rExclMiMo.Excluded | Where-Object { $_.Provider -eq 'opencode_go' })
+    Add-Check '#908: -ExcludeModel mimo-pro excludes both mimo-pro and mimo-flash (a MiMo implementer excludes both MiMo reviewers)' ($excludedMiMoImpl.Count -eq 2)
+    $exclMM = @($rExclMiMo.Excluded | Where-Object { $_.Why -match 'family \(mimo\) is excluded' })
+    Add-Check '#908: the MiMo exclusion message names the implementer family mimo, and only MiMo rows carry that message' ($exclMM.Count -eq 2)
+
+    # Case 7 of fix #908: -Role pair resolves an opencode_go mimo-v2.6-pro row to mimo-pro.
+    $pairRecMimo = [pscustomobject]@{
+        note = $null
+        pair = $null
+        ranking = @(
+            (New-CannedRow -Provider 'opencode_go' -Model 'mimo-v2.6-pro' -Score 200),
+            (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'        -Score 100)
+        )
+        skipped = @()
+    }
+    $pMimo = Resolve-Pair -Recommend $pairRecMimo
+    Add-Check '#908 pair: opencode_go + mimo-v2.6-pro resolves to mimo-pro' ($pMimo.Implementer -and $pMimo.Implementer.Alias -eq 'mimo-pro')
+
+    # R3 rework: every selectable row of /recommend is keyed by provider AND model
+    # (Done-when 4 of #908, the rework's blocking R3). An unknown model on minimax, zai,
+    # opencode_go or alibaba is printed unmapped and never aliased to whatever those
+    # providers happen to map to by model.
+    $recUnknowns = Get-CannedRecommend -Ranking @(
+        (New-CannedRow -Provider 'minimax'     -Model 'MiniMax-Future-X' -Score 1000),
+        (New-CannedRow -Provider 'zai'         -Model 'glm-99'           -Score 800),
+        (New-CannedRow -Provider 'opencode_go' -Model 'mimo-future-2.7'  -Score 600),
+        (New-CannedRow -Provider 'minimax'     -Model 'MiniMax-M3'       -Score 100),
+        (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'          -Score 80),
+        (New-CannedRow -Provider 'opencode_go' -Model 'mimo-v2.6-pro'    -Score 40)
+    )
+    $rUnknowns = Resolve-Chosen -Role 'implementer' -Tier 'complex' -Recommend $recUnknowns
+    Add-Check 'R3: minimax + MiniMax-Future-X is unmapped (never aliased to mm-m3)' (@($rUnknowns.Ranking | Where-Object { -not $_.Alias -and $_.Provider -eq 'minimax' -and $_.Model -eq 'MiniMax-Future-X' }).Count -eq 1)
+    Add-Check 'R3: zai + glm-99 is unmapped (never aliased to glm)'              (@($rUnknowns.Ranking | Where-Object { -not $_.Alias -and $_.Provider -eq 'zai'         -and $_.Model -eq 'glm-99' }).Count -eq 1)
+    Add-Check 'R3: opencode_go + mimo-future-2.7 is unmapped (never aliased to mimo-pro)' (@($rUnknowns.Ranking | Where-Object { -not $_.Alias -and $_.Provider -eq 'opencode_go' -and $_.Model -eq 'mimo-future-2.7' }).Count -eq 1)
+    Add-Check 'R3: the chosen row is the known minimax row (mm-m3), not any unknown model' ($rUnknowns.Chosen -and $rUnknowns.Chosen.Provider -eq 'minimax' -and $rUnknowns.Chosen.Alias -eq 'mm-m3' -and $rUnknowns.Chosen.Model -eq 'MiniMax-M3')
+    Add-Check 'R3: the known models on minimax, zai and opencode_go are still mapped (mm-m3, glm, mimo-pro)' (@($rUnknowns.Ranking | Where-Object { $_.Alias } | ForEach-Object { "$($_.Provider)|$($_.Alias)" } | Sort-Object) -join ',' -eq 'minimax|mm-m3,opencode_go|mimo-pro,zai|glm')
+
+    # R3 rework, alibaba path (with -AllowAlibaba): alibaba + qwen3.8-max maps to qwen,
+    # alibaba + qwen3.8-flash maps to qwen-flash (R3 also split the reviewer alias by model,
+    # not by provider), and alibaba + an unknown model is unmapped (never aliased to qwen).
+    Set-AllowAlibabaForTest $true
+    $recAliUnknown = Get-CannedRecommend -Ranking @(
+        (New-CannedRow -Provider 'alibaba' -Model 'unknown-ali-model' -Score 1000),
+        (New-CannedRow -Provider 'alibaba' -Model 'qwen3.8-max'       -Score 100),
+        (New-CannedRow -Provider 'alibaba' -Model 'qwen3.8-flash'     -Score 90),
+        (New-CannedRow -Provider 'zai'     -Model 'glm-5.3'           -Score 80)
+    )
+    $rAliUnknown = Resolve-Chosen -Role 'reviewer' -Tier 'complex' -Recommend $recAliUnknown
+    Set-AllowAlibabaForTest $false
+    Add-Check 'R3: alibaba + unknown model is unmapped, never aliased to qwen' (@($rAliUnknown.Ranking | Where-Object { -not $_.Alias -and $_.Provider -eq 'alibaba' -and $_.Model -eq 'unknown-ali-model' }).Count -eq 1)
+    Add-Check 'R3: alibaba + qwen3.8-max maps to qwen (with -AllowAlibaba)' (@($rAliUnknown.Ranking | Where-Object { $_.Provider -eq 'alibaba' -and $_.Alias -eq 'qwen' }).Count -eq 1)
+    Add-Check 'R3: alibaba + qwen3.8-flash maps to qwen-flash (with -AllowAlibaba, R3 also split the reviewer alias by model)' (@($rAliUnknown.Ranking | Where-Object { $_.Provider -eq 'alibaba' -and $_.Alias -eq 'qwen-flash' }).Count -eq 1)
+
+    # R3 rework, openai pair path: an openai row whose model is not gpt-5.6-luna or gpt-6-sol
+    # is unmapped (never aliased to sol or luna), and the pair role's $-by-provider alias
+    # (PairReviewerExtra) is keyed on (provider, model), not provider alone.
+    $pairOpenUnknown = [pscustomobject]@{
+        note = $null
+        pair = [pscustomobject]@{
+            implementer = (New-CannedRow -Provider 'openai' -Model 'gpt-6-sol' -Score 500 -Reasons @('pair'))
+            reviewer    = (New-CannedRow -Provider 'openai' -Model 'gpt-future' -Score 500 -Reasons @('pair reviewer'))
+        }
+        ranking = @(
+            (New-CannedRow -Provider 'openai'      -Model 'gpt-6-sol'         -Score 500),
+            (New-CannedRow -Provider 'openai'      -Model 'gpt-future'         -Score 400),
+            (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'           -Score 100),
+            (New-CannedRow -Provider 'opencode_go' -Model 'mimo-v2.6-flash'   -Score 80)
+        )
+        skipped = @()
+    }
+    $pOpenUnknown = Resolve-Pair -Recommend $pairOpenUnknown
+    Add-Check 'R3: pair reviewer (openai + gpt-future) is passed over with no reviewer alias, never aliased to sol on its own' ($pOpenUnknown.Reviewer -and $pOpenUnknown.Reviewer.Model -ne 'gpt-future')
+    $pSol = Resolve-Pair -Recommend $pairRec
+    Add-Check 'R3: pair reviewer (openai + gpt-6-sol) keeps its alias sol' ($pSol.Reviewer -and $pSol.Reviewer.Alias -eq 'sol')
+    # The chosen implementer is from the ranking (openai never implements).
+    $opencodeRank = @($pOpenUnknown.ImplementerResult.Ranking | Where-Object { $_.Provider -eq 'opencode_go' -and $_.Alias })
+    Add-Check 'R3: an unknown openai row (gpt-future) is unmapped, never aliased to sol in the pair path' (@($pOpenUnknown.ImplementerResult.Ranking | Where-Object { -not $_.Alias -and $_.Provider -eq 'openai' -and $_.Model -eq 'gpt-future' }).Count -eq 1)
+    # And the pair candidate list passed the unknown openai row through (passed-over logging).
+    Add-Check 'R3: the pair path records openai + gpt-future as passed-over with no reviewer alias' (@($pOpenUnknown.Passed | Where-Object { $_.Provider -eq 'openai' -and $_.Why -match 'no reviewer alias for openai/gpt-future' }).Count -eq 1)
 
     # Case 14 (#893): a null pair reviewer from the tracker with nothing else of another family.
     $pairRec3 = [pscustomobject]@{
