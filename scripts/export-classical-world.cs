@@ -1421,6 +1421,9 @@ internal static class RulesetCorpusMap
         ("recruitment.mercenaryUpkeepQualityDivisor", "mercenary.upkeepFormula"),
         // Review round 1 B2: a same-named scalar corpus id exists (100 == 100); genuinely diffed.
         ("recruitment.mobilizationCapPercent", "recruitment.mobilizationCapPercent"),
+        // T155 (#515, #904): the capital-or-75% recruitment gate's threshold (75); same-named scalar
+        // corpus id, genuinely diffed (75 == 75).
+        ("recruitment.recruitTownMinFortificationPercent", "recruitment.recruitTownMinFortificationPercent"),
         ("recruitment.troopsPerCostUnit", "recruitment.costFormula.initial"),
         ("siege.archerStrengthMultiplier", "capture.attackerSiegeStrengthArcherMultiplier"),
         ("siege.defenderFortificationWeight", "capture.siegeDefenderStrengthFormula"),

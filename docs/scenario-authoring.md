@@ -507,6 +507,7 @@ The `recruitment` object (`RecruitmentRules`) covers standing recruitment, mobil
 | `mobilizationRateOrderStep` | integer | percentage points | Flat amount a nation's mobilization rate rises when a recruitment order is placed (and falls when cancelled). |
 | `mobilizationRateWealthScale` | integer | divisor | Scales the mobilization-rate formula's troop term against the nation's wealth. |
 | `mobilizationCapPercent` | integer | 0–100 | Ceiling the mobilization rate is clamped to. |
+| `recruitTownMinFortificationPercent` | integer | 0–100 | T155 (#515): the raw fortification word at or above which a town that is **not** its nation's capital takes a new recruitment order (the capital always may). A pending fortify order (`points × inProgressEncodingRadix + current`, ≥ 100) therefore passes whatever the current level. The Recruit unit dialog's town list is the other predicate — it shows the capital, a town whose **current** level is at least this value, or a town with units in training. |
 | `_provenance` | object | No | Provenance map. |
 
 ### Army management rules

@@ -3,6 +3,7 @@
   "generatedAt": "2026-09-13",
   "generatedWith": "gh api repos/diegoami/imperial-conquest-2-research/contents/docs/reports",
   "reportFilenames": [
+    "2026-09-29-which-cities-may-recruit-and-troop-amounts.md",
     "2026-10-04-decompiled-tactical-battle-rules.md",
     "army-moves-field-signed-and-the-ffff-underflow.md",
     "army-records-and-roman-roster.md",
