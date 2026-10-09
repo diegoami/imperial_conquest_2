@@ -353,6 +353,19 @@ Why the lane exists: incident 12.
 
 ---
 
+### 4.11 Sizing a task: split by default
+
+The user's decision of 2026-10-09. A task whose parts can merge on their own is planned as separate tasks: smaller diffs get sharper reviews and fewer rework rounds, the quota-ranked OpenCode models finish bounded work more reliably than wide work, and a part blocked on a question or research no longer holds back a part that is ready (T151's patch-saving fix waited on its cleanup script's open questions; GLM stalled mid-run on its width).
+
+**Split** when the task has two or more parts that each leave `main` correct and shippable on their own, and any of these holds:
+1. the parts touch disjoint files or subsystems (an engine rule, the UI, tooling);
+2. one part has an open question or depends on research, and the other does not;
+3. the planned diff exceeds about 400 changed lines of non-generated code, or the entry needs more than about 6 Done-when lines.
+
+**Keep it whole** when the parts share a file that a reviewer would read for both anyway, or when one part is meaningless without the other (a rule without its refusal message, a dialog without the command it submits). Folding a small bug into a task that already owns its file stays preferred over a separate fix (T155 folded #903 this way): each task carries a fixed cost (a plan PR, an implementer run, a review, CI and a merge), and splits run one after another, since a machine runs one task at a time ([§7](#7-concurrency-single-instance-and-local-only)).
+
+**The plan PR says which:** it names the split, with each part's own entry and a merge-after edge where one part needs the other, or it states in one line why the task stays whole. A reviewer of the plan PR may ask for a split under these criteria.
+
 ## 5. Status lives on GitHub
 
 Labels are the only status. The documents say what each task is. GitHub says where it stands:
