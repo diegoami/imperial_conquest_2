@@ -222,38 +222,36 @@ public static class AiTurn
             rejected += execution.Rejected;
             mismatches += execution.Mismatches;
 
-            if (!changed)
+            // T156 (issue #925) Done-when 3: the original's garrison fallback
+            // (FUN_0044ebe8). When the chosen command was accepted but that army's tile is unchanged --
+            // compared directly, before and after the command, not through
+            // AiSubstantiveState.AreEquivalent's whole-state comparison -- the driver runs the fallback
+            // for that army, whether or not the command changed something else (a supply, a treasury).
+            // An army that moved takes no fallback; an army whose command was rejected was never on the
+            // hook for one; an army with no moves left (an attack zeroes them) takes none either, since
+            // a MoveArmyCommand would only be refused. The fallback is one more command, so it feeds the
+            // same counters as any other command this loop processed.
+            if (execution.Issued > 0
+                && execution.Rejected == 0
+                && beforeArmy is { } beforeTile
+                && subjectId is { } armyId
+                && state.ArmyById(armyId) is { } afterTile
+                && afterTile.Moves > 0
+                && beforeTile.X == afterTile.X
+                && beforeTile.Y == afterTile.Y)
             {
-                // The command was accepted and changed nothing the game can act on -- a blocked march,
-                // for instance. Re-proposing it would produce the same non-event, so the turn stops
-                // here rather than burning the action cap on it.
+                RunGarrisonFallback(view, armyId, ruleset, commands, events, ref state, log,
+                    ref issued, ref rejected, ref mismatches, marched);
+            }
+
+            if (AiSubstantiveState.AreEquivalent(before, state))
+            {
+                // The command (and any fallback after it) was accepted and changed nothing the game can
+                // act on -- a blocked march, for instance. Re-proposing it would produce the same
+                // non-event, so the turn stops here rather than burning the action cap on it.
                 log.Add("last action changed nothing substantive; turn ends");
                 hitCap = false;
                 break;
-            }
-
-            // T156 (issue #925) Done-when 3: the original's garrison fallback
-            // (<c>FUN_0044ebe8</c>). When the chosen command was accepted but that army's tile is
-            // unchanged -- directly, not via <see cref="AiSubstantiveState.AreEquivalent"/>'s whole-state
-            // comparison -- the driver runs the fallback for that army. An army that moved takes no
-            // fallback; an army whose command was rejected was never on the hook for one; an army with
-            // no moves left (the chosen command spent them all, e.g. on a battle that zeroes them) also
-            // takes no fallback, since <c>MoveArmyCommand</c> would only be refused. The fallback
-            // itself is one more command (a MoveArmyCommand), so its accepted/rejected path feeds the
-            // same counters as any other command this loop processed.
-            if (execution.Issued > 0
-                && beforeArmy is { } beforeTile
-                && subjectId is { } armyId)
-            {
-                var afterArmy = state.ArmyById(armyId);
-                if (afterArmy is { } afterTile
-                    && afterArmy.Moves > 0
-                    && beforeTile.X == afterTile.X
-                    && beforeTile.Y == afterTile.Y)
-                {
-                    RunGarrisonFallback(view, armyId, ruleset, commands, events, ref state, log,
-                        ref issued, ref rejected, ref mismatches, marched);
-                }
             }
         }
 
