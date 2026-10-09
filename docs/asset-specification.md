@@ -264,25 +264,38 @@ Two different code paths already exist, for two different moments, and they must
 
 ## 2. The sixteen-nation palette
 
-> **Superseded for nations by the original's own colours (T97, 2026-09-29).** The original draws each nation's
-> marker as a square in a **background** colour with the glyph in a **foreground** colour, one pair per nation, all
-> from the 16-colour Windows palette: the research report
+> **Superseded for nations by the original's own colours (T97, 2026-09-29).** The designed palette below optimised
+> distinctness but coloured the glyph alone, so its greens vanished on the green map (the user's visual review). Since T97
+> (PR #539), the game and the inspector draw each marker as a square in the nation's background colour (`colorHex`) with the
+> glyph tinted in one foreground colour (`glyphColorHex`), both from the research report
 > [`2026-09-29-nation-marker-colours.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-09-29-nation-marker-colours.md).
-> The designed palette below optimised distinctness but coloured the glyph alone, so its greens vanished on the green map
-> (the user's visual review). Since T97 (PR #539), the game and the inspector read the report's pairs (`colorHex` the background,
-> `glyphColorHex` the foreground). This section stays as the record of the designed alternative, including the Rome change
-> below, which T97 also supersedes: the original's Rome is purple with a blue glyph.
+> This section stays as the record of the designed alternative, including the Rome change below, which T97 also supersedes:
+> the original's Rome is purple, with a white outline and a blue fill.
 >
-> **The unit map's army and fleet icons use three colours, not the city marker's two.** Drawn for all 16 owners in the three
-> size bands, each icon is a background and two figure colours on fixed pixels, the same for every owner and band, 96 distinct
-> icons **[confirmed: Wine candidate, [`2026-10-09-owner-colours-by-band.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-owner-colours-by-band.md), research `ba103a0`]**. All 16 backgrounds, and the two shared
-> pairs (Carthage/Media red, Ptolemaic/Illyria navy), are the city markers' `colorHex`. The triple (background, figure A, figure B)
-> equals each nation's `battleColorsHex` in order for all 16 nations: the nation record's `+0x424`/`+0x428`/`+0x42C`, read from
-> the start save, which the battle icons substitute for purple, white and blue [derived: this comparison]. The figure colours
-> differ from the city-marker report's (outline, foreground) for five nations: Macedonia (blue and grey, swapped), Numidia (black
-> and grey, against teal), Gaul (cyan and grey), Illyria (olive and cyan) and Media (silver and purple). The game map tints its
-> unit markers with `colorHex` and `glyphColorHex` (`godot/Assets/MarkerTint.cs`), so for those five its unit glyph colour is not
-> one the original's unit icons use. The drawing is Wine-only; the city icons were not drawn in the same run.
+> **The original draws every marker in three colours per nation: a background, an outline and a fill.**
+> - **Cities and capitals** are bitmaps with each owner's colours baked in (`TUnitMap`'s `Cities1List` to `Cities4List` and
+>   `CapitalsList`, 16 images each). Each of the five variants is one fixed three-colour template for all 16 owners, and
+>   nothing is recoloured when a city is drawn: the 80 stored images equal the Wine drawing, 80 of 80
+>   **[confirmed: resources + Wine, [`2026-10-09-city-marker-colours.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-city-marker-colours.md), research `cdffb27`, and [`2026-10-09-unit-icon-recolour-and-nation-glyphs.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-unit-icon-recolour-and-nation-glyphs.md), research `4ef90ec`]**.
+> - **Armies and fleets** are three army and three fleet templates in Rome's colours (purple background, white outline, blue
+>   fill), recoloured at draw time by `FUN_0044a6c8` from the nation record's `+0x424`/`+0x428`/`+0x42C`. New-game setup
+>   (`FUN_00448aa4`) writes those three dwords for every nation as constants, and the save keeps them. The 96 drawn icons are
+>   those six templates recoloured, 96 of 96 **[confirmed: decompile + resources + Wine, [`2026-10-09-unit-icon-recolour-and-nation-glyphs.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-unit-icon-recolour-and-nation-glyphs.md), research `4ef90ec`;
+>   [`2026-10-09-owner-colours-by-band.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-owner-colours-by-band.md), research `ba103a0`]**. The classical world's `battleColorsHex` equals the three dwords for all 16 nations.
+> - **The toolbar's 16 nation buttons** carry the capital glyphs' colours, all three roles, for all 16 owners (same report).
+> - **The two sources agree for 15 nations**: a city's (background, outline, fill) equals `battleColorsHex`. **Numidia** is
+>   the exception: its city art's fill is teal `#008080`, its fill dword grey `#808080`. So its cities, capital and toolbar
+>   button are lime, black and teal, and its armies, fleets and battle units lime, black and grey. This inconsistency is in
+>   the original's own data, not in Wine.
+> - **The 2026-09-29 table** differs from the art for four nations: Macedonia (outline and fill swapped), Gaul (white and cyan
+>   against cyan and grey), Illyria (white and olive against olive and cyan) and Media (white and purple against silver and
+>   purple). For Gaul and Illyria, the stored glyphs explain it: the table took the glyph's white transparent margin for the
+>   outline, and the real outline for the foreground **[derived]**.
+> - **What the clone draws.** `glyphColorHex` is the art's fill for 13 nations and its outline for Macedonia, Gaul and Illyria
+>   (bug [#912](https://github.com/diegoami/imperial_conquest_2/issues/912)). One tint cannot show the outline colour at all.
+>   Unit markers are to take the `battleColorsHex` triple (the user's decision of 2026-10-09,
+>   [#891](https://github.com/diegoami/imperial_conquest_2/issues/891)).
+> - The drawings are Wine's. The resources use the standard 16 Windows colours, and the desktop palette was not checked.
 
 ### 2.1 Why this section exists: the current offenders
 
@@ -474,12 +487,11 @@ outline*, so the black is more plausibly the marker's own fill than the cursor's
 upper-quadrant masses flanking the mast read plausibly as **sails** — if they are, the "hull, mast
 with crossbar, anchor" enumeration above omits them; recorded here rather than guessed either way.
 **The corpus contains exactly one fleet marker, and it is the selected one**: nothing in this document's
-sources shows an *unselected* fleet, so its true field colour (presumably Carthage's own nation colour,
-by analogy with the army and city markers, but not directly observable here) and its border shape (a
-plain square, matching every other confirmed marker, or something else) are **not established** by this
-citation. Depict the ship silhouette itself — hull, mast with crossbar, the sail-like upper masses,
+sources shows an *unselected* fleet. Every owner's unselected fleets have since been drawn: an opaque
+32 × 32 square in the owner's background colour, with the ship in its outline and fill colours (§2)
+**[confirmed: Wine candidate, [`2026-10-09-owner-colours-by-band.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-owner-colours-by-band.md), research `ba103a0`]**. Depict the ship silhouette itself — hull, mast with crossbar, the sail-like upper masses,
 anchor — at increasing size/count
-across the three tiers (the original goes from a small sailboat to a galley with three shields and then a larger galley with four; that run drew unselected fleets, but its report describes neither their field colour nor their border, so both stay open), on the tier's own nation-coloured square background (matching the army and city
+across the three tiers (the original goes from a small sailboat to a galley with three shields and then a larger galley with four; every owner's fleets are the same three templates in the owner's three colours, §2), on the tier's own nation-coloured square background (matching the army and city
 convention, §1.2), **without** a diamond outline or a cursor halo, which belong to the game's selection
 UI, not to any one marker type.
 
@@ -574,17 +586,12 @@ three, because the "house" is actually two different sprites, not one house at a
 That is **four distinct building shapes**, not one uniform glyph and not three — direct, first-hand
 confirmation (not merely a report citation) that the original's city iconography varies by more than
 colour, and a second, independent line of evidence for the same conclusion the five-variant map code
-already implies. **What this does not establish**: which glyph shape the original draws for which
-variant. The variant *code's* meaning is now settled above (`2026-10-07-city-marker-variants.md`), but
-no screenshot or decompile cited here ties a specific sprite — small house, large house, temple, castle
-— to a specific tier or to the capital, so whether the purple temple-tile or the red castle-tile is that
-nation's *capital*, a large city, or simply a different nation's standard style is still not derivable
-by eye. So: **five confirmed variants with a confirmed meaning (four population tiers plus the
-capital), four confirmed distinct glyph shapes, the shape-to-variant mapping still open — this is not
-"three sizes," and the shapes are not yet assignable to tiers.** Four observed sprites against five
-confirmed variants leaves exactly one variant this document has not seen an example of; which of the
-observed shapes (if any) is the capital's, and which variant the unseen fifth shape belongs to, the
-corpus does not say.
+already implies. **Which shape each variant draws** is settled by drawing all 80 city words and reading the stored images
+**[confirmed: Wine + resources, [`2026-10-09-city-marker-colours.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-city-marker-colours.md), research `cdffb27`; [`2026-10-09-unit-icon-recolour-and-nation-glyphs.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-unit-icon-recolour-and-nation-glyphs.md), research `4ef90ec`]**:
+variant 0 (under 25 thousand) is a small house, 1 (25–49) a house, 2 (50–99) a small castle, 3 (≥ 100) a large
+castle, and 4 (the capital) the columned temple. Each is a fixed three-colour template (§2); in the 28 × 28
+inset the background covers 673, 582, 446, 278 and 342 pixels for variants 0 to 4. The four shapes seen in the
+corpus are the two houses, the temple and one of the castles; the purple temple tile above is a capital.
 
 **Depiction for an artist, kept deliberately general given the above**: draw at least the four shapes
 directly observed — a small house, a large house (the same motif, scaled up and given its denser
@@ -594,13 +601,9 @@ example of the kind of variety the five-variant code plausibly selects between, 
 32×32 and each distinct from the others in silhouette, not just colour, matching `MapViewer.cs`'s own
 synthetic `DrawCity` glyph shape (`:179-182`, three line segments forming a roofline-and-walls
 silhouette — the generic case, closest to the small house) as the baseline `city.tier1/2/3.icon` keys
-already draw from. **Do not assume `tier1`→small house, `tier2`→large house, `tier3`→temple/castle or
-any other specific mapping** — the tiers' *meaning* is now confirmed (population bands at 25/50/100
-thousand, per `2026-10-07-city-marker-variants.md`), but which glyph shape each variant draws is not,
-so an ordering of the shapes by tier would still be a guess. The capital draws its own variant (4), not
-a population tier; whether any of these four observed shapes is the capital's glyph is unknown, so
-giving `city.capital.icon` a distinguishing mark (a raised banner, a distinct roofline) remains this
-document's own `[designed]` fallback, stated as a fallback rather than as a finding about the original.
+already draw from. The original's order is `tier1` small house, `tier2` house, `tier3` small castle, a fourth tier large castle,
+and `city.capital.icon` the temple (above). The clone's pictures stay its own drawings. The packs ship three tier
+keys, so the large castle has no key yet (bug [#818](https://github.com/diegoami/imperial_conquest_2/issues/818)).
 
 ---
 
@@ -775,7 +778,14 @@ section actually require:
     These are not §4.1's five strategic icons: §4.1's roster is complete for the strategic map only.
   - **Three recolourable regions per icon**: purple `0x800080`, white and blue are replaced by the
     nation's three colours (nation `+0x424`, `+0x428`, `+0x42C`), once per side; the green dotted cell
-    border is kept. Which colours each nation has was not read.
+    border is kept. The attacker's copies are images 0–14 and the defender's 15–29. The colours are each
+    nation's `battleColorsHex`, the same dwords that recolour the unit map's army and fleet icons (§2).
+    Rome, Gaul and an edited Numidian army were drawn in Wine, and every sprite equals its template
+    recoloured, pixel for pixel **[confirmed: decompile + Wine, [`2026-10-09-battle-map-units-use-the-nation-recolour.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-battle-map-units-use-the-nation-recolour.md), research `ef19e2c`;
+    [`2026-10-09-numidian-battle-drawn-in-wine.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-numidian-battle-drawn-in-wine.md), research `ca08a33`]**. The templates are `BatMapList` images 0–14 of 17, with a lime frame
+    that is not recoloured. Image 15 is the ground tile (lime, with green, olive, white and black). Image 16
+    is not identified. Numidia's background colour is lime, so a Numidian unit is a flat lime square with a
+    black outline and a grey fill on the lime ground. Macedonia, Numidia and Gaul all have a grey fill.
   - **One ground tile** (grass with brown contour lines; the battlefield has no terrain) and **one
     selection cursor** (drawn with an erase raster op). There is no routed, selected or wounded image:
     a routed unit's cell becomes empty ground.
