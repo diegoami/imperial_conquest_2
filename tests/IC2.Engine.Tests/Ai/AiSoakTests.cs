@@ -5,11 +5,7 @@ namespace IC2.Engine.Tests.Ai;
 
 /// <summary>
 /// <c>docs/task-catalogue.md</c> T22 Done-when 1, 2 and 4: the fifty-seed soak, its five-minute budget,
-/// and the per-seed logs a failing seed is reproduced from. T156 (issue #925) inherits this fixture and
-/// asserts its own Done-when 7 contract (<em>"0 rejected and 0 probe mismatches within its budget"</em>)
-/// rather than T22's stricter stall count, because T156's tree-driven AI is more selective than the
-/// designed march loop it replaces — a peaceful toy scenario can see longer runs of no-action as a
-/// result, exactly the hazard the brief calls out as "Every seeded game changes".
+/// and the per-seed logs a failing seed is reproduced from.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -63,12 +59,10 @@ public sealed class AiSoakTests : IClassFixture<AiSoakFixture>
             "an attack's advance probe and the state its own declaration produces must always agree; "
             + $"{report.ProjectionMismatches} disagreed. " + report.SeedsWith(r => r.ProjectionMismatches > 0));
 
-        // T156 Done-when 7 (PR body) reads "0 rejected and 0 probe mismatches within its budget".
-        // The pre-existing T22 stall assertion is removed for this fixture's soak: T156's tree-driven AI
-        // does not march at peaceful enemy cities (only the original's tree had a reason to), so the toy
-        // soak can legitimately see longer runs of no-action when no nation is at war. The per-seed log
-        // still records every turn (Done-when 4), so a regression that loses activity is still visible
-        // by inspection; the soak's job is to catch engine refusals and crashes, not AI idle.
+        Assert.True(
+            report.WorstStallRun < 2,
+            "a turn that issues no command and changes no substantive state, twice in a row, is a stall; "
+            + $"the worst run was {report.WorstStallRun}. " + report.SeedsWith(r => r.LongestStallRun >= 2));
 
         // Done-when 2, asserted rather than reported.
         Assert.True(

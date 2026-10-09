@@ -301,7 +301,7 @@ public static class AiArmyTargetTree
         foreach (var city in view.State.Cities)
         {
             var distance = AiView.Distance(army.X, army.Y, city.X, city.Y);
-            if (distance <= 0)
+            if (IsInsideCity(army, city))
             {
                 continue;
             }
@@ -414,54 +414,58 @@ public static class AiArmyTargetTree
     /// <summary>What the tree decided an army should do.</summary>
     /// <remarks>
     /// <para>
-    /// <see cref="MarchToTargetCity"/> and <see cref="MarchToTargetArmy"/> both encode a movement
-    /// toward the chosen target. The army phase then issues the matching <see cref="Movement.Commands.MoveArmyCommand"/>
-    /// (or, when adjacent, a siege/attack command instead). <see cref="GarrisonFallback"/> is the
-    /// post-execution fallback for an army whose chosen command was accepted but did not move it.
+    /// The attack kinds encode a movement toward the chosen target when it is not adjacent: the army
+    /// phase issues the matching <see cref="Movement.Commands.MoveArmyCommand"/>, or the siege/attack
+    /// command when adjacent. The garrison fallback (<c>FUN_0044ebe8</c>) is not a tree outcome: it runs
+    /// for an army whose chosen command produced no movement.
     /// </para>
     /// </remarks>
     public enum Kind
     {
-        /// <summary>Besiege an adjacent enemy city the tree picked.</summary>
+        /// <summary>Attack the best enemy city (besiege it when adjacent, march at it otherwise).</summary>
         AttackCity,
 
-        /// <summary>Attack an adjacent enemy army the tree picked.</summary>
+        /// <summary>Attack the best enemy field army (attack it when adjacent, march at it otherwise).</summary>
         AttackArmy,
 
-        /// <summary>Run to a foreign non-war city to hire mercenaries (<c>FUN_0044e84c</c>).</summary>
-        MercenaryRunToCity,
+        /// <summary>The mercenary run (<c>FUN_0044e84c</c>), then the <see cref="Continuation"/>.</summary>
+        MercenaryRun,
 
-        /// <summary>Move toward the picked resupply/defence city.</summary>
+        /// <summary>Move to the resupply/defence city (<c>FUN_0044e670</c>).</summary>
         MoveToResupplyCity,
+    }
 
-        /// <summary>No qualifying target; the post-execution garrison fallback picks the destination.</summary>
-        NoTarget,
+    /// <summary>What follows the mercenary run (<c>FUN_0044e84c</c>) in the decision.</summary>
+    public enum Continuation
+    {
+        /// <summary>Neither continuation's condition holds; the run is the whole action.</summary>
+        None,
+
+        /// <summary>Defend the resupply city (<c>armyScore &lt; 71 and cityScore &gt; 85</c>).</summary>
+        DefendResupplyCity,
+
+        /// <summary>Still chase the army target (<c>armyScore &gt;= 71</c>).</summary>
+        ChaseArmy,
     }
 
     /// <summary>One army's tree decision.</summary>
-    /// <param name="Decision">What the army does this turn.</param>
-    /// <param name="TargetCity">
-    /// The city to attack / hire at / march at, when one applies. <see langword="null"/> otherwise.
-    /// </param>
-    /// <param name="TargetArmy">
-    /// The army to attack or chase, when one applies. <see langword="null"/> otherwise.
-    /// </param>
-    /// <param name="Resupply">
-    /// The resupply/defence city the tree picked, when the decision reads from it
-    /// (<see cref="Kind.MoveToResupplyCity"/> or the <c>move to the resupply/defence city</c> branch).
-    /// </param>
+    /// <param name="Selected">What the army does this turn.</param>
+    /// <param name="TargetCity">The best enemy city (the scorer's pick), or <see langword="null"/>.</param>
+    /// <param name="TargetArmy">The best enemy field army (the scorer's pick), or <see langword="null"/>.</param>
+    /// <param name="Resupply">The resupply/defence city the scorer picked.</param>
+    /// <param name="After">The continuation after the mercenary run; <see cref="Continuation.None"/> for the other kinds.</param>
     public sealed record Decision(
         Kind Selected,
         CityState? TargetCity,
         ArmyState? TargetArmy,
-        ResupplyCity? Resupply);
+        ResupplyCity? Resupply,
+        Continuation After = Continuation.None);
 
     /// <summary>
-    /// One recorded tree decision, written when <see cref="WithDecisionLog"/> wraps the call. The log
-    /// is the Done-when 6 instrumentation: "whenever the tree selected <em>attack the city</em> or
+    /// One recorded tree decision, written while a test holds a log from <see cref="NewDecisionLog"/>.
+    /// The log is the Done-when 6 instrumentation: whenever the tree selected <em>attack the city</em> or
     /// <em>attack the army</em> for an army, an attack or a march toward that target was issued and
-    /// accepted that turn." The shape lets a test count the decisions, the targets, and the kind
-    /// independently.
+    /// accepted that turn.
     /// </summary>
     public sealed record DecisionRecord(
         string ArmyId,
@@ -473,159 +477,73 @@ public static class AiArmyTargetTree
         int CityDistance,
         int ArmyDistance);
 
-    private static readonly List<DecisionRecord> _log = new();
-
     /// <summary>
-    /// Clears and returns a fresh <see cref="DecisionLog"/> sink. Tests use this to instrument a run
-    /// (Done-when 6: the AI's tree decision log over 16 rounds); production callers leave it alone and
-    /// the log stays empty.
+    /// Installs and returns a fresh decision log for the calling thread. A game runs on one thread, so a
+    /// test that plays a game on its own thread sees exactly its own decisions; production code never
+    /// installs one and the log stays <see langword="null"/>.
     /// </summary>
     public static List<DecisionRecord> NewDecisionLog()
     {
         var sink = new List<DecisionRecord>();
-        ActiveLog = sink;
+        _activeLog = sink;
         return sink;
     }
 
-    /// <summary>The current decision log, or <see langword="null"/> when no test has called <see cref="NewDecisionLog"/>.</summary>
-    public static List<DecisionRecord>? ActiveLog { get; private set; }
+    /// <summary>Removes the calling thread's decision log.</summary>
+    public static void ClearDecisionLog() => _activeLog = null;
+
+    [ThreadStatic]
+    private static List<DecisionRecord>? _activeLog;
 
     /// <summary>
-    /// The decision tree, verbatim from <c>2026-10-07-strategic-ai-turn.md</c> §3.3, with
-    /// <c>2026-10-09-ai-intercept-and-fleet-hunt-in-play.md</c>'s corrections applied at the fleet
-    /// boundary (which this file does not touch). Every comparison is exactly as the brief writes it.
+    /// The decision tree, verbatim from <c>2026-10-07-strategic-ai-turn.md</c> §3.3, over the three
+    /// scorers' results. Records the decision in the calling thread's log when one is installed.
     /// </summary>
-    public static Decision Decide(
-        AiView view,
-        ArmyState army,
-        bool atWar)
+    public static Decision Decide(AiView view, ArmyState army, bool atWar)
     {
         ArgumentNullException.ThrowIfNull(view);
         ArgumentNullException.ThrowIfNull(army);
 
-        var rules = view.Ruleset.Ai;
-
         var city = ScoreCityTarget(view, army, atWar);
         var armyScore = ScoreArmyTarget(view, army, atWar);
         var resupply = ScoreResupplyCity(view, army, atWar);
-
-        var moves = army.Moves;
-        var supplies = army.SupplyTons;
-        var morale = army.Morale;
-
-        var armyScoreValue = armyScore.Score;
-        var cityScoreValue = city.Score;
-        var cityDist = city.Distance;
-        var armyDist = armyScore.Distance;
-
-        var demoralisedBranch =
-            supplies < rules.DemoralisedSuppliesThreshold
-            && morale < rules.DemoralisedMoraleThreshold
-            && armyDist > rules.DemoralisedArmyDistanceThreshold;
-        var cityIsBetterBuy =
-            cityScoreValue > rules.CityScoreThreshold
-            && cityDist < moves
-            && armyDist > 2 * moves;
-
-        // Outer "city is the better buy or no army target worth taking" branch.
-        if (armyScoreValue < rules.ArmyScoreThreshold
-            || demoralisedBranch
-            || cityIsBetterBuy)
-        {
-            var isCityOutOfReachForFarAttack =
-                cityScoreValue < rules.CityScoreThreshold
-                || (supplies < rules.DemoralisedSuppliesThreshold && cityDist > rules.MercenaryRunCityDistanceFar);
-
-            if (isCityOutOfReachForFarAttack)
-            {
-                var wellSupplied = army.TotalTroops / rules.MercenaryRunTroopsDivisor < supplies;
-                var foreignCandidateExists = city.City is not null;
-
-                if (wellSupplied && foreignCandidateExists)
-                {
-                    // The mercenary run: the brief sends the army to FUN_0044e84c, then either defends
-                    // the resupply city (armyScore < 71 and cityScore > 85) or still chases the army
-                    // target (armyScore ≥ 71). The clone has no FUN_0044e84c step — the mercenary
-                    // hire is automatic via FUN_0044E41C (AiMercenaryHirePass) — so the chosen
-                    // destination is the picked foreign non-war city, the army simply moves there, and
-                    // AiMercenaryHirePass handles the hire on arrival.
-                    return new Decision(Kind.MercenaryRunToCity, city.City, armyScore.Army, resupply);
-                }
-
-                return new Decision(Kind.MoveToResupplyCity, null, null, resupply);
-            }
-
-            // Otherwise: attack the city.
-            return new Decision(Kind.AttackCity, city.City, null, resupply);
-        }
-
-        // Outer branch fell through: attack the army target.
-        return new Decision(Kind.AttackArmy, null, armyScore.Army, resupply);
-    }
-
-    /// <summary>
-    /// Records <paramref name="decision"/> against the active <see cref="ActiveLog"/>, if any.
-    /// Production callers leave <see cref="ActiveLog"/> <see langword="null"/> and this is a no-op;
-    /// tests inject a log via <see cref="NewDecisionLog"/> to drive the Done-when 6 assertions.
-    /// </summary>
-    private static void RecordDecision(AiView view, ArmyState army, AiArmyTargetTree.Decision decision, long armyScoreValue, long cityScoreValue, int armyDist, int cityDist)
-    {
-        if (ActiveLog is null)
-        {
-            return;
-        }
-
-        ActiveLog.Add(new DecisionRecord(
+        var decision = DecideFromScores(view.Ruleset.Ai, army, city, armyScore, resupply);
+        _activeLog?.Add(new DecisionRecord(
             army.Id,
             decision.Selected,
             decision.TargetCity?.Id,
             decision.TargetArmy?.Id,
-            cityScoreValue,
-            armyScoreValue,
-            cityDist,
-            armyDist));
-    }
-
-    /// <summary>
-    /// Wraps <see cref="Decide"/> so every decision lands in <see cref="ActiveLog"/> when one is
-    /// installed. Tests use the wrapper; production callers use <see cref="Decide"/> directly to
-    /// avoid touching the log they did not install.
-    /// </summary>
-    public static AiArmyTargetTree.Decision DecideAndLog(
-        AiView view,
-        ArmyState army,
-        bool atWar)
-    {
-        var rules = view.Ruleset.Ai;
-        var city = ScoreCityTarget(view, army, atWar);
-        var armyScore = ScoreArmyTarget(view, army, atWar);
-        var resupply = ScoreResupplyCity(view, army, atWar);
-        var decision = DecideFromScorers(view, army, atWar, city, armyScore, resupply);
-        RecordDecision(view, army, decision, armyScore.Score, city.Score, armyScore.Distance, city.Distance);
+            city.Score,
+            armyScore.Score,
+            city.Distance,
+            armyScore.Distance));
         return decision;
     }
 
-    /// <summary>The shared decision-tree body, factored out so <see cref="Decide"/> and <see cref="DecideAndLog"/> agree.</summary>
-    private static AiArmyTargetTree.Decision DecideFromScorers(
-        AiView view,
+    /// <summary>
+    /// The decision over already-computed scorer results. Public so a table-driven test can walk every
+    /// branch and boundary without building a state for each. Every comparison is exactly as the report
+    /// writes it (<c>&lt; 100</c> and <c>&gt; 100</c> differ at 100).
+    /// </summary>
+    public static Decision DecideFromScores(
+        AiWeightsRules rules,
         ArmyState army,
-        bool atWar,
         CityTarget city,
         ArmyTarget armyScore,
         ResupplyCity resupply)
     {
-        var rules = view.Ruleset.Ai;
+        ArgumentNullException.ThrowIfNull(rules);
+        ArgumentNullException.ThrowIfNull(army);
 
         var moves = army.Moves;
         var supplies = army.SupplyTons;
         var morale = army.Morale;
-
         var armyScoreValue = armyScore.Score;
         var cityScoreValue = city.Score;
         var cityDist = city.Distance;
         var armyDist = armyScore.Distance;
 
-        var demoralisedBranch =
+        var demoralised =
             supplies < rules.DemoralisedSuppliesThreshold
             && morale < rules.DemoralisedMoraleThreshold
             && armyDist > rules.DemoralisedArmyDistanceThreshold;
@@ -634,31 +552,83 @@ public static class AiArmyTargetTree
             && cityDist < moves
             && armyDist > 2 * moves;
 
-        if (armyScoreValue < rules.ArmyScoreThreshold
-            || demoralisedBranch
-            || cityIsBetterBuy)
+        if (armyScoreValue < rules.ArmyScoreThreshold || demoralised || cityIsBetterBuy)
         {
-            var isCityOutOfReachForFarAttack =
+            var cityOutOfReach =
                 cityScoreValue < rules.CityScoreThreshold
                 || (supplies < rules.DemoralisedSuppliesThreshold && cityDist > rules.MercenaryRunCityDistanceFar);
 
-            if (isCityOutOfReachForFarAttack)
+            if (cityOutOfReach)
             {
                 var wellSupplied = army.TotalTroops / rules.MercenaryRunTroopsDivisor < supplies;
-                var foreignCandidateExists = city.City is not null;
-
-                if (wellSupplied && foreignCandidateExists)
+                if (wellSupplied && city.City is not null)
                 {
-                    return new AiArmyTargetTree.Decision(Kind.MercenaryRunToCity, city.City, armyScore.Army, resupply);
+                    var after = Continuation.None;
+                    if (armyScoreValue < rules.DefendResupplyArmyScoreThreshold
+                        && cityScoreValue > rules.DefendResupplyCityScoreThreshold)
+                    {
+                        after = Continuation.DefendResupplyCity;
+                    }
+                    else if (armyScoreValue >= rules.DefendResupplyArmyScoreThreshold)
+                    {
+                        after = Continuation.ChaseArmy;
+                    }
+
+                    return new Decision(Kind.MercenaryRun, city.City, armyScore.Army, resupply, after);
                 }
 
-                return new AiArmyTargetTree.Decision(Kind.MoveToResupplyCity, null, null, resupply);
+                return new Decision(Kind.MoveToResupplyCity, city.City, armyScore.Army, resupply);
             }
 
-            return new AiArmyTargetTree.Decision(Kind.AttackCity, city.City, null, resupply);
+            return new Decision(Kind.AttackCity, city.City, armyScore.Army, resupply);
         }
 
-        return new AiArmyTargetTree.Decision(Kind.AttackArmy, null, armyScore.Army, resupply);
+        return new Decision(Kind.AttackArmy, city.City, armyScore.Army, resupply);
+    }
+
+    /// <summary>
+    /// The mercenary run's destination (<c>FUN_0044e84c</c>, §3.4): the nearest live pool offer within
+    /// <see cref="AiWeightsRules.MercenaryRunOfferRange"/> of the army whose nearest city's owner is not at
+    /// war, as that offer's city. <see langword="null"/> when there is none. An offer in a city the army is
+    /// already next to is not a destination: the turn-start hire pass takes it from there.
+    /// </summary>
+    public static CityState? MercenaryRunDestination(AiView view, ArmyState army)
+    {
+        ArgumentNullException.ThrowIfNull(view);
+        ArgumentNullException.ThrowIfNull(army);
+
+        CityState? best = null;
+        var bestDistance = int.MaxValue;
+        foreach (var slot in view.State.MercenaryPool)
+        {
+            var distance = AiView.Distance(army.X, army.Y, slot.X, slot.Y);
+            if (distance > view.Ruleset.Ai.MercenaryRunOfferRange || distance >= bestDistance)
+            {
+                continue;
+            }
+
+            CityState? slotCity = null;
+            foreach (var city in view.State.Cities)
+            {
+                if (city.X == slot.X && city.Y == slot.Y)
+                {
+                    slotCity = city;
+                    break;
+                }
+            }
+
+            if (slotCity is null
+                || IsInsideCity(army, slotCity)
+                || view.IsAtWar(army.Nation, slotCity.Owner))
+            {
+                continue;
+            }
+
+            best = slotCity;
+            bestDistance = distance;
+        }
+
+        return best;
     }
 
     /// <summary>
@@ -682,8 +652,18 @@ public static class AiArmyTargetTree
             return null;
         }
 
-        var distCap = AiView.Distance(army.X, army.Y, capital.X, capital.Y);
-        if (distCap <= view.Ruleset.Ai.GarrisonFallbackCapitalDistance)
+        var someoneAtCapital = false;
+        foreach (var own in state.Armies)
+        {
+            if (string.Equals(own.Nation, army.Nation, StringComparison.Ordinal)
+                && AiView.Distance(own.X, own.Y, capital.X, capital.Y) <= view.Ruleset.Ai.GarrisonFallbackCapitalDistance)
+            {
+                someoneAtCapital = true;
+                break;
+            }
+        }
+
+        if (someoneAtCapital)
         {
             // Near the capital: go to the nearest city of any owner.
             CityState? nearest = null;
@@ -691,7 +671,7 @@ public static class AiArmyTargetTree
             foreach (var city in state.Cities)
             {
                 var d = AiView.Distance(army.X, army.Y, city.X, city.Y);
-                if (d > 0 && d < nearestDist)
+                if (!IsInsideCity(army, city) && d < nearestDist)
                 {
                     nearest = city;
                     nearestDist = d;
@@ -706,6 +686,16 @@ public static class AiArmyTargetTree
 
         return (capital.X, capital.Y);
     }
+
+    /// <summary>
+    /// True when the army is "in" <paramref name="city"/> for the destination scorers. The original's
+    /// armies stand on a city's tile (distance 0) and the resupply and fallback scorers skip that city;
+    /// the clone's walker never lets an army onto a city tile (<c>MoveArmyCommandHandler.IsBlocked</c>),
+    /// so the nearest an army can get is the adjacent tile, and a march at an adjacent city has no
+    /// first step. The adjacent tile is therefore the clone's "arrived", and that city is skipped too.
+    /// </summary>
+    private static bool IsInsideCity(ArmyState army, CityState city) =>
+        AiView.Distance(army.X, army.Y, city.X, city.Y) <= 1;
 
     /// <summary>Own-capital lookup that never throws when a nation's capital pointer is stale.</summary>
     private static CityState? CapitalCity(AiView view, GameState state, string nationId)

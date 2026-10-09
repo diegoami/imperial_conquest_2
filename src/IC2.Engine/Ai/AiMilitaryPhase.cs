@@ -71,12 +71,13 @@ public static class AiMilitaryPhase
     /// <param name="rng">The turn's generator, used only to derive named estimate streams.</param>
     /// <param name="armiesAlreadyMarched">
     /// Army <em>and fleet</em> ids that have already been given a march order this turn, and are
-    /// therefore offered no second one. See <see cref="ProposeMarches"/> for why the ration exists.
+    /// therefore offered no second one (an army greedily re-marching between two destinations would spend
+    /// its moves oscillating); an army that has marched is still offered the attack its target allows.
     /// </param>
     /// <param name="into">The collecting list.</param>
     /// <param name="siegeGates">
-    /// Optional diagnostics. When supplied, <see cref="ProposeSieges"/> records what each of its gates
-    /// did into it — see <see cref="AiSiegeGateTally"/> for why that measurement exists and why it
+    /// Optional diagnostics. When supplied, <see cref="ProposeArmyTree"/> records what the tree selected
+    /// into it — see <see cref="AiSiegeGateTally"/> for why that measurement exists and why it
     /// cannot change what the AI decides.
     /// </param>
     /// <exception cref="ArgumentNullException">Any argument but <paramref name="siegeGates"/> is null.</exception>
@@ -108,7 +109,7 @@ public static class AiMilitaryPhase
                 continue;
             }
 
-            ProposeArmyTree(view, army, progress, into, siegeGates);
+            ProposeArmyTree(view, army, progress, armiesAlreadyMarched, into, siegeGates);
         }
 
         foreach (var fleet in view.OwnFleets())
@@ -272,42 +273,43 @@ public static class AiMilitaryPhase
         }
     }
 
+    /// <summary>
+    /// T156 (issue #925): the original's per-army target tree (<c>2026-10-07-strategic-ai-turn.md</c>
+    /// §3.3) decides each army's action in place of the designed siege-ratio gate and march weights. The
+    /// tree picks the target and the existing siege, attack and move commands carry it out; an army that
+    /// has already marched this turn is offered only the attack its target allows, never a second march.
+    /// </summary>
     private static void ProposeArmyTree(
         AiView view,
         ArmyState army,
         long progress,
+        IReadOnlyList<string> armiesAlreadyMarched,
         List<AiCandidate> into,
         AiSiegeGateTally? siegeGates)
     {
         var archerUnitTypeId = BattleCommandRuleset.ArcherUnitTypeIdIn(view.Ruleset);
-        var fortifyOrder = FortifyOrder(view.Ruleset);
+        var fortifyOrder = BattleCommandRuleset.FortificationOrderIdIn(view.Ruleset);
         if (archerUnitTypeId is null || fortifyOrder is null)
         {
             // AttackLegality refuses every siege under such a ruleset, so proposing one would be a
-            // guaranteed rejection. T156's tree replaces the ratio gate with a tree decision, but a
-            // ruleset that cannot describe one still cannot propose any attack or march either.
+            // guaranteed rejection. A ruleset that cannot describe a siege cannot be scored by the tree.
             siegeGates?.RecordRulesetCannotSiege();
             return;
         }
 
         var atWar = AnyAtWar(view);
         var decision = AiArmyTargetTree.Decide(view, army, atWar);
+        var mayMarch = !Contains(armiesAlreadyMarched, army.Id);
+        var candidatesBefore = into.Count;
 
-        // The tally counts every adjacent army/enemy-city pair the tree saw and how many of those the
-        // tree selected for attack. It mirrors the brief's "of N adjacent pairs, M attacked", for the
-        // per-seed log.
         if (siegeGates is not null)
         {
             var cityScore = AiArmyTargetTree.ScoreCityTarget(view, army, atWar);
             var armyScore = AiArmyTargetTree.ScoreArmyTarget(view, army, atWar);
             foreach (var city in view.State.Cities)
             {
-                if (string.Equals(city.Owner, army.Nation, StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                if (AiView.Distance(army.X, army.Y, city.X, city.Y) != 1)
+                if (string.Equals(city.Owner, army.Nation, StringComparison.Ordinal)
+                    || AiView.Distance(army.X, army.Y, city.X, city.Y) != 1)
                 {
                     continue;
                 }
@@ -321,35 +323,74 @@ public static class AiMilitaryPhase
             case AiArmyTargetTree.Kind.AttackCity:
                 if (decision.TargetCity is { } targetCity)
                 {
-                    AddCityTargetCandidate(view, army, targetCity, progress, into, siegeGates);
+                    AddCityTargetCandidate(view, army, targetCity, progress, mayMarch, into, siegeGates);
                 }
+
                 break;
 
             case AiArmyTargetTree.Kind.AttackArmy:
                 if (decision.TargetArmy is { } targetArmy)
                 {
-                    AddArmyTargetCandidate(view, army, targetArmy, into);
+                    AddArmyTargetCandidate(view, army, targetArmy, mayMarch, into);
                 }
+
                 break;
 
-            case AiArmyTargetTree.Kind.MercenaryRunToCity:
-                if (decision.TargetCity is { } mercCity)
+            case AiArmyTargetTree.Kind.MercenaryRun:
+                // The run itself (FUN_0044e84c): toward the nearest live offer. The hire happens in the
+                // next turn's start-of-turn pass, once the army is within the hire range. The
+                // continuation is the destination call the report lists after it; the one march a turn
+                // allows an army goes to the run while there is an offer to run to.
+                if (mayMarch && AiArmyTargetTree.MercenaryRunDestination(view, army) is { } offerCity)
                 {
-                    AddMarchCandidate(view, army, mercCity.X, mercCity.Y, AiCandidate.ApproachKind,
-                        "mercenary-run", view.Ruleset.Ai.ApproachCityBaseScore, progress, into);
+                    AddMarchCandidate(view, army, offerCity.X, offerCity.Y, AiCandidate.ApproachKind,
+                        "mercenary run", view.Ruleset.Ai.ApproachCityBaseScore, progress, into);
+                    break;
                 }
+
+                switch (decision.After)
+                {
+                    case AiArmyTargetTree.Continuation.DefendResupplyCity:
+                        if (mayMarch && decision.Resupply?.City is { } defendCity)
+                        {
+                            AddMarchCandidate(view, army, defendCity.X, defendCity.Y, AiCandidate.ApproachKind,
+                                "defend the resupply city", view.Ruleset.Ai.ReinforceCityBaseScore, progress, into);
+                        }
+
+                        break;
+
+                    case AiArmyTargetTree.Continuation.ChaseArmy:
+                        if (decision.TargetArmy is { } chaseArmy)
+                        {
+                            AddArmyTargetCandidate(view, army, chaseArmy, mayMarch, into);
+                        }
+
+                        break;
+                }
+
                 break;
 
             case AiArmyTargetTree.Kind.MoveToResupplyCity:
-                if (decision.Resupply?.City is { } resupplyCity)
+                if (mayMarch && decision.Resupply?.City is { } resupplyCity)
                 {
                     AddMarchCandidate(view, army, resupplyCity.X, resupplyCity.Y, AiCandidate.ApproachKind,
-                        "march at resupply", view.Ruleset.Ai.ReinforceCityBaseScore, progress, into);
+                        "move to the resupply city", view.Ruleset.Ai.ReinforceCityBaseScore, progress, into);
                 }
-                break;
 
-            case AiArmyTargetTree.Kind.NoTarget:
                 break;
+        }
+
+        // The original's tree always ends in an action for an army with moves: when the chosen branch
+        // produced no executable command (nothing proposable to march at, an adjacent target whose
+        // attack is not legal), the garrison fallback (FUN_0044ebe8) picks the destination. The
+        // post-execution fallback in AiTurn covers an accepted command that moved nothing; this covers
+        // the army that never got a command at all.
+        if (mayMarch
+            && into.Count == candidatesBefore
+            && AiArmyTargetTree.GarrisonFallback(view, army, view.State) is { } fallback)
+        {
+            AddMarchCandidate(view, army, fallback.X, fallback.Y, AiCandidate.ApproachKind,
+                "garrison fallback", view.Ruleset.Ai.ReinforceCityBaseScore, progress, into);
         }
     }
 
@@ -358,12 +399,7 @@ public static class AiMilitaryPhase
     {
         foreach (var nation in view.State.Nations)
         {
-            if (string.Equals(nation.Id, view.NationId, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            if (nation.Eliminated)
+            if (string.Equals(nation.Id, view.NationId, StringComparison.Ordinal) || nation.Eliminated)
             {
                 continue;
             }
@@ -378,14 +414,15 @@ public static class AiMilitaryPhase
     }
 
     /// <summary>
-    /// Build a candidate for the tree's <c>AttackCity</c> branch: a <see cref="BesiegeCityCommand"/>
-    /// when adjacent, a <see cref="Movement.Commands.MoveArmyCommand"/> toward the city otherwise.
+    /// The tree's <c>AttackCity</c> command: a <see cref="BesiegeCityCommand"/> when adjacent, a
+    /// <see cref="Movement.Commands.MoveArmyCommand"/> toward the city otherwise (when a march is allowed).
     /// </summary>
     private static void AddCityTargetCandidate(
         AiView view,
         ArmyState army,
         CityState targetCity,
         long progress,
+        bool mayMarch,
         List<AiCandidate> into,
         AiSiegeGateTally? siegeGates)
     {
@@ -409,19 +446,22 @@ public static class AiMilitaryPhase
             return;
         }
 
-        AddMarchCandidate(view, army, targetCity.X, targetCity.Y, AiCandidate.ApproachKind,
-            "approach target city", view.Ruleset.Ai.ApproachCityBaseScore, progress, into);
+        if (mayMarch)
+        {
+            AddMarchCandidate(view, army, targetCity.X, targetCity.Y, AiCandidate.ApproachKind,
+                "approach target city", view.Ruleset.Ai.ApproachCityBaseScore, progress, into);
+        }
     }
 
     /// <summary>
-    /// Build a candidate for the tree's <c>AttackArmy</c> branch: an <see cref="AttackArmyCommand"/>
-    /// when adjacent, a <see cref="Movement.Commands.MoveArmyCommand"/> toward the army's tile
-    /// otherwise.
+    /// The tree's <c>AttackArmy</c> command: an <see cref="AttackArmyCommand"/> when adjacent, a
+    /// <see cref="Movement.Commands.MoveArmyCommand"/> toward the army's tile otherwise (when a march is allowed).
     /// </summary>
     private static void AddArmyTargetCandidate(
         AiView view,
         ArmyState army,
         ArmyState targetArmy,
+        bool mayMarch,
         List<AiCandidate> into)
     {
         if (AttackLegality.AreAdjacent(army.X, army.Y, targetArmy.X, targetArmy.Y))
@@ -441,13 +481,17 @@ public static class AiMilitaryPhase
             return;
         }
 
-        AddMarchCandidate(view, army, targetArmy.X, targetArmy.Y, AiCandidate.ApproachKind,
-            "approach target army", view.Ruleset.Ai.ApproachCityBaseScore, 0, into);
+        if (mayMarch)
+        {
+            AddMarchCandidate(view, army, targetArmy.X, targetArmy.Y, AiCandidate.ApproachKind,
+                "approach target army", view.Ruleset.Ai.ApproachCityBaseScore, 0, into);
+        }
     }
 
     /// <summary>
-    /// Build a <see cref="Movement.Commands.MoveArmyCommand"/> candidate toward the chosen
-    /// destination, applying the original's passability and occupancy gates (<see cref="IsProposableMove"/>).
+    /// A <see cref="Movement.Commands.MoveArmyCommand"/> candidate toward the chosen destination, subject to
+    /// the passability and occupancy gates of <see cref="IsProposableMove"/> (a march whose first step is
+    /// blocked is a no-op the walker accepts).
     /// </summary>
     private static void AddMarchCandidate(
         AiView view,
@@ -477,69 +521,6 @@ public static class AiMilitaryPhase
             score,
             Inv("{0} ({1}, {2}) with {3}: {4} tiles away", why, x, y, army.Id, distance),
             army.Id));
-    }
-
-    private static void ProposeArmyAttacks(
-        AiView view, ArmyState army, long requiredRatio, List<AiCandidate> into)
-    {
-        var attackerPower = ArmyPower.Compute(army.Units, army.Morale, view.Ruleset);
-
-        foreach (var target in view.State.Armies)
-        {
-            if (string.Equals(target.Nation, army.Nation, StringComparison.Ordinal) || target.IsEmbarked)
-            {
-                continue;
-            }
-
-            // T84 (bug #366): every diplomatic targeting path in the original gates on the target's
-            // unity > 0 (report §5 [confirmed], the war/treaty picks, the Politics screen and the
-            // turn-start offer roll) -- the report does not establish the same for military targeting.
-            // Extending the gate to this AI's own attack proposers is [derived] (task entry's own tag):
-            // after this task an eliminated nation's armies/fleets no longer exist anyway, but a
-            // hand-built state could still name one, so this filter is explicit rather than relying on
-            // the list being empty.
-            if (view.State.NationById(target.Nation)?.Eliminated == true)
-            {
-                continue;
-            }
-
-            // T82 (#359, bug #357): attack only a nation already at war -- see ProposeSieges' own
-            // remark (including why this is a redundant-but-cheaper early exit, not the actual
-            // authority); the same report citation applies to every attack command in this file.
-            if (!view.IsAtWar(view.NationId, target.Nation))
-            {
-                continue;
-            }
-
-            if (!AttackLegality.AreAdjacent(army.X, army.Y, target.X, target.Y))
-            {
-                continue;
-            }
-
-            var attack = new AttackArmyCommand(view.NationId, army.Id, target.Id);
-            if (!AttackLegality.IsLegal(view.State, view.Ruleset, attack))
-            {
-                continue;
-            }
-
-            var defenderPower = ArmyPower.Compute(target.Units, target.Morale, view.Ruleset);
-            var ratio = AiView.RatioPermille(attackerPower, defenderPower, view.Ruleset);
-            if (ratio < requiredRatio)
-            {
-                continue;
-            }
-
-            into.Add(AiCandidate.Single(
-                AiPhase.Military,
-                "attack-army",
-                attack,
-                view.Ruleset.Ai.AttackArmyBaseScore + AiView.RatioScoreContribution(ratio, view.Ruleset),
-                Inv(
-                    "attack {0} ({1}) with {2}: field strength {3} vs {4} "
-                    + "(ratio {5} permille, need {6})",
-                    target.Id, target.Nation, army.Id, attackerPower, defenderPower, ratio, requiredRatio),
-                army.Id));
-        }
     }
 
     private static void ProposeFleetAttacks(
@@ -609,139 +590,6 @@ public static class AiMilitaryPhase
                     target.Id, target.Nation, fleet.Id, attackerPower, defenderPower, ratio, requiredRatio),
                 fleet.Id));
         }
-    }
-
-    /// <summary>
-    /// The "reinforce, hold" half: march at an enemy city worth taking, or at one of this nation's own
-    /// cities that a hostile army is standing next to.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <strong>The destination is the target's own tile, and that is deliberate.</strong> A city, an army
-    /// and a fleet each occupy a marker cell the movement walk refuses to enter
-    /// (<see cref="MoveArmyCommandHandler"/>'s blocked predicate, and
-    /// <c>terrain-move-cost-table-in-dat.md</c>'s "codes ≥ 12 are not steppable at all by this walk"), so
-    /// ordering a march <em>onto</em> a city walks the army up to the city and stops it in the adjacent
-    /// cell — precisely where <see cref="AttackLegality"/> needs it to stand to besiege next turn. The AI
-    /// does not compute that stopping point; the walker does.
-    /// </para>
-    /// <para>
-    /// <strong>One march per army per turn, and why that rule is here rather than emergent.</strong> The
-    /// score of a march is its objective's value minus a distance penalty, so an army standing between
-    /// two objectives is pulled toward whichever it is currently nearer — and, having stepped toward it,
-    /// is now nearer the other. Left alone the greedy loop oscillates: an army with ten moves spends all
-    /// ten walking back and forth between two cities and ends the turn where it started. That is not a
-    /// stall by <c>docs/task-catalogue.md</c> T22 Done-when 1's definition (commands were issued and the
-    /// state did change), which is exactly why it has to be designed out rather than caught: a test that
-    /// only watched for stalls would have passed on it. So an army is given one destination per turn and
-    /// the walker spends its moves getting there, which is also what a human seat does with one click.
-    /// Attacks are <em>not</em> rationed this way and do not need to be — an attack zeroes its attacker's
-    /// moves (<see cref="Battle.InstantBattleResolver"/>), so the engine already allows exactly one.
-    /// </para>
-    /// <para>
-    /// <strong>What is checked before proposing.</strong> Every gate
-    /// <see cref="MoveArmyCommandHandler"/> applies: the army exists and is ours (it came from
-    /// <see cref="AiView.OwnArmies"/>), it has moves, and the destination is on the map. Plus one the
-    /// handler does not apply and the AI wants anyway — that the first step of the traced path is a tile
-    /// an army can stand on (<see cref="AiView.IsArmyPassable"/>). That is not a legality check and is not
-    /// treated as one: it is the AI declining to walk into the sea. See this task's PR for the upstream
-    /// note.
-    /// </para>
-    /// </remarks>
-    private static void ProposeMarches(AiView view, ArmyState army, long progress, List<AiCandidate> into)
-    {
-        var archerUnitTypeId = BattleCommandRuleset.ArcherUnitTypeIdIn(view.Ruleset);
-        var fortifyOrder = FortifyOrder(view.Ruleset);
-
-        foreach (var city in view.State.Cities)
-        {
-            var isOwn = string.Equals(city.Owner, view.NationId, StringComparison.Ordinal);
-            var distance = AiView.Distance(army.X, army.Y, city.X, city.Y);
-            if (distance <= 1)
-            {
-                // Already in place: besieging it, or garrisoning it, is another candidate's job.
-                continue;
-            }
-
-            long baseScore;
-            long weakness = 0;
-            string why;
-            if (isOwn)
-            {
-                if (!view.IsThreatened(city))
-                {
-                    continue;
-                }
-
-                baseScore = view.Ruleset.Ai.ReinforceCityBaseScore + view.Ruleset.Ai.ThreatenedCityBonus;
-                why = "reinforce threatened";
-            }
-            else
-            {
-                baseScore = view.Ruleset.Ai.ApproachCityBaseScore;
-                weakness = SiegeRatioAgainst(view, army, city, archerUnitTypeId, fortifyOrder);
-                why = "march at";
-            }
-
-            var command = new MoveArmyCommand(view.NationId, army.Id, city.X, city.Y);
-            if (!IsProposableMove(view, army, command))
-            {
-                continue;
-            }
-
-            var score = baseScore + weakness - (view.Ruleset.Ai.DistancePenaltyPerTile * distance);
-            if (score < view.Ruleset.Ai.MinimumActionScore)
-            {
-                continue;
-            }
-
-            if (!isOwn)
-            {
-                score = AiView.WithVictoryAwareness(score, progress, view.Ruleset);
-            }
-
-            into.Add(AiCandidate.Single(
-                AiPhase.Military,
-                isOwn ? AiCandidate.ReinforceKind : AiCandidate.ApproachKind,
-                command,
-                score,
-                Inv(
-                    "{0} {1} with {2}: {3} tiles away, base score {4}, siege ratio {5} permille",
-                    why, city.Id, army.Id, distance, baseScore, weakness),
-                army.Id));
-        }
-    }
-
-    /// <summary>
-    /// How close this army is to being able to take this city, on the same permille scale the siege gate
-    /// uses and computed from the same two engine functions — so the city an army marches at is the one
-    /// it is nearest to taking, not merely the one it is nearest to.
-    /// </summary>
-    /// <remarks>
-    /// This is the term that stops the march scoring being a pure distance contest between two equally
-    /// unreachable objectives, which is what made an army oscillate between them: the weaker city keeps
-    /// the higher score from wherever the army happens to be standing. Zero when the ruleset does not
-    /// declare the two ids the siege path needs, or when the city's owner does not resolve — in which
-    /// case no siege could ever be proposed there either.
-    /// </remarks>
-    private static long SiegeRatioAgainst(
-        AiView view, ArmyState army, CityState city, string? archerUnitTypeId, CityOrderRule? fortifyOrder)
-    {
-        if (archerUnitTypeId is null || fortifyOrder is null || view.State.NationById(city.Owner) is not { } owner)
-        {
-            return 0;
-        }
-
-        var attackerPower = SiegeStrength.Attacker(army.Units, army.Morale, view.Ruleset, archerUnitTypeId);
-        var defenderPower = Cities.Capture.CompleteDefenderStrength.Compute(
-            city,
-            fortifyOrder,
-            IsControllerCapital(view.State, city),
-            !string.Equals(city.Owner, city.Allegiance, StringComparison.Ordinal),
-            owner,
-            view.Ruleset);
-
-        return AiView.RatioScoreContribution(AiView.RatioPermille(attackerPower, defenderPower, view.Ruleset), view.Ruleset);
     }
 
     /// <summary>

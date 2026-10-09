@@ -2024,6 +2024,10 @@ public sealed record VictoryRules(
 /// <param name="MercenaryRunCityDistanceFar">
 /// The <c>supplies &lt; 1 and cityDist &gt; N</c> far-city test in the same source; <c>N = 19</c>.
 /// </param>
+/// <param name="MercenaryRunOfferRange">
+/// The range of <c>FUN_0044e84c</c>'s mercenary run: only live pool offers within <c>N</c> of the army, whose
+/// nearest city's owner is not at war, are candidates (<c>2026-10-07-strategic-ai-turn.md</c> §3.4); <c>N = 20</c>.
+/// </param>
 /// <param name="DefendResupplyArmyScoreThreshold">
 /// The <c>armyScore &lt; N</c> continuation test the mercenary-run follow-up uses to decide between
 /// defending the resupply city and chasing the army target; <c>N = 71</c>.
@@ -2108,6 +2112,7 @@ public sealed record AiWeightsRules(
     int DemoralisedArmyDistanceThreshold,
     int MercenaryRunTroopsDivisor,
     int MercenaryRunCityDistanceFar,
+    int MercenaryRunOfferRange,
     int DefendResupplyArmyScoreThreshold,
     int DefendResupplyCityScoreThreshold,
     int ResupplyStrengthTroopsDivisor,
