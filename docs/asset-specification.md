@@ -272,6 +272,17 @@ Two different code paths already exist, for two different moments, and they must
 > (the user's visual review). Since T97 (PR #539), the game and the inspector read the report's pairs (`colorHex` the background,
 > `glyphColorHex` the foreground). This section stays as the record of the designed alternative, including the Rome change
 > below, which T97 also supersedes: the original's Rome is purple with a blue glyph.
+>
+> **The unit map's army and fleet icons use three colours, not the city marker's two.** Drawn for all 16 owners in the three
+> size bands, each icon is a background and two figure colours on fixed pixels, the same for every owner and band, 96 distinct
+> icons **[confirmed: Wine candidate, [`2026-10-09-owner-colours-by-band.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-owner-colours-by-band.md), research `ba103a0`]**. All 16 backgrounds, and the two shared
+> pairs (Carthage/Media red, Ptolemaic/Illyria navy), are the city markers' `colorHex`. The triple (background, figure A, figure B)
+> equals each nation's `battleColorsHex` in order for all 16 nations: the nation record's `+0x424`/`+0x428`/`+0x42C`, read from
+> the start save, which the battle icons substitute for purple, white and blue [derived: this comparison]. The figure colours
+> differ from the city-marker report's (outline, foreground) for five nations: Macedonia (blue and grey, swapped), Numidia (black
+> and grey, against teal), Gaul (cyan and grey), Illyria (olive and cyan) and Media (silver and purple). The game map tints its
+> unit markers with `colorHex` and `glyphColorHex` (`godot/Assets/MarkerTint.cs`), so for those five its unit glyph colour is not
+> one the original's unit icons use. The drawing is Wine-only; the city icons were not drawn in the same run.
 
 ### 2.1 Why this section exists: the current offenders
 
@@ -416,7 +427,7 @@ marker = owner + (t < 25 ? 200 : t < 50 ? 216 : 232)
 ```
 
 **[confirmed]** — `army.tier1.icon` = **under 25,000 troops**, `army.tier2.icon` = **25,000–49,999**,
-`army.tier3.icon` = **≥ 50,000**. The boundaries are also seen in play: armies of 24,999 / 25,000 / 49,999 / 50,000 troops leave map words owner + 200 / 216 / 216 / 232 **[confirmed: Wine candidate, [`2026-10-08-army-marker-size-band-on-the-map.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-08-army-marker-size-band-on-the-map.md), research `be0691a`]**. The original also draws a different icon per band: Rome's army is a small soldier with a spear at 200, a medium one at 216, and a large one with a bigger shield and a mace at 232, three pixel-different 32×32 tiles **[confirmed: Wine candidate, [`2026-10-08-army-icon-follows-the-size-band.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-08-army-icon-follows-the-size-band.md), research `bff6bff`; Rome's colours only]**. It picks the icon by the stored map word, not the troops; the clone draws the tier of the current troop count instead, a deliberate difference (the user's decision of 2026-10-08, [#874](https://github.com/diegoami/imperial_conquest_2/issues/874)). Depict the same army figure at increasing size and weight across the three tiers, as the original does (a larger figure, then a bigger shield and a heavier weapon; more
+`army.tier3.icon` = **≥ 50,000**. The boundaries are also seen in play: armies of 24,999 / 25,000 / 49,999 / 50,000 troops leave map words owner + 200 / 216 / 216 / 232 **[confirmed: Wine candidate, [`2026-10-08-army-marker-size-band-on-the-map.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-08-army-marker-size-band-on-the-map.md), research `be0691a`]**. The original also draws a different icon per band: Rome's army is a small soldier with a spear at 200, a medium one at 216, and a large one with a bigger shield and a mace at 232, three pixel-different 32×32 tiles **[confirmed: Wine candidate, [`2026-10-08-army-icon-follows-the-size-band.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-08-army-icon-follows-the-size-band.md), research `bff6bff`]**. Every owner's army and fleet icons have the same shapes, in that owner's three colours **[confirmed: Wine candidate, [`2026-10-09-owner-colours-by-band.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-owner-colours-by-band.md), research `ba103a0`]** (§2). It picks the icon by the stored map word, not the troops; the clone draws the tier of the current troop count instead, a deliberate difference (the user's decision of 2026-10-08, [#874](https://github.com/diegoami/imperial_conquest_2/issues/874)). Depict the same army figure at increasing size and weight across the three tiers, as the original does (a larger figure, then a bigger shield and a heavier weapon; more
 figures, a denser formation or a larger banner are equally in the family) — cite the original's own red/purple
 unit-map glyph for the shape family (`screenshots-processed/1_rome_270_summer_7_1.png`,
 `screenshots-processed/1_rome_270_autumn_7_1.png`: a small upright figure pictogram on a nation-coloured
