@@ -1967,6 +1967,104 @@ public sealed record VictoryRules(
 /// Score for the AI's own trade-partner-swap candidate (<see cref="AiDiplomacyPhase"/>'s
 /// <c>ProposeOwnTradeSwap</c>), slightly below <see cref="OwnTradeScore"/>.
 /// </param>
+/// <param name="ArmyTargetStrengthNumerator">
+/// The original's <c>FUN_0044ece4</c>/<c>FUN_0044ee60</c> city- and army-scorer numerator
+/// (<c>strength×N / cityDefense − distance</c>): <c>N = 110</c> per
+/// <c>2026-10-07-strategic-ai-turn.md</c> §3.3 [confirmed: decompile]. Read by
+/// <see cref="Ai.AiArmyTargetTree"/>'s own scorers. Not a literal in any call site.
+/// </param>
+/// <param name="CityScoreRegionHalvingDenominator">
+/// The <c>score −= score / N</c> divisor when a city sits in another region
+/// (<c>2026-10-07-strategic-ai-turn.md</c> §3.3 [confirmed: decompile]); <c>N = 2</c> (i.e. score is halved
+/// under truncating integer division). Read by <see cref="Ai.AiArmyTargetTree"/>'s own city scorer.
+/// </param>
+/// <param name="CityAttackDistanceThreshold">
+/// The <c>distance &lt; N</c> on which the city-scorer's <c>score × 2 if cityDefense &lt; strength</c>
+/// doubling gates, per <c>2026-10-07-strategic-ai-turn.md</c> §3.3 [confirmed: decompile]; <c>N = 7</c>.
+/// </param>
+/// <param name="CityAttackCapitalDefenseRatioNumerator">
+/// The <c>cityDefense × N / D &lt; strength</c> capital-doubling test from
+/// <c>2026-10-07-strategic-ai-turn.md</c> §3.3 (the doubling fires when the city's defence is below
+/// two-thirds of the army's strength and the city is a capital): <c>N = 2</c>.
+/// </param>
+/// <param name="CityAttackCapitalDefenseRatioDenominator">The denominator of that same test: <c>D = 3</c>.</param>
+/// <param name="ArmyScoreCap">
+/// The <c>score = min(1000, ...)</c> cap on the enemy-army scorer, per
+/// <c>2026-10-07-strategic-ai-turn.md</c> §3.3 [confirmed: decompile]; <c>1000</c>.
+/// </param>
+/// <param name="ArmyScoreWeakerWithinBonus">
+/// The <c>+ 1000</c> bonus the enemy-army scorer applies when the target is weaker and within
+/// <see cref="ArmyScoreWeakerDistanceThreshold"/> tiles, per
+/// <c>2026-10-07-strategic-ai-turn.md</c> §3.3 [confirmed: decompile]; <c>1000</c>.
+/// </param>
+/// <param name="ArmyScoreWeakerDistanceThreshold">
+/// The distance threshold for <see cref="ArmyScoreWeakerWithinBonus"/>; <c>7</c>.
+/// </param>
+/// <param name="CityScoreThreshold">
+/// The decision-tree threshold <c>cityScore &gt; 100</c> / <c>cityScore &lt; 100</c> boundary in
+/// <c>2026-10-07-strategic-ai-turn.md</c> §3.3; <c>100</c>.
+/// </param>
+/// <param name="ArmyScoreThreshold">
+/// The decision-tree threshold <c>armyScore &lt; 100</c> boundary in the same source; <c>100</c>.
+/// </param>
+/// <param name="DemoralisedMoraleThreshold">
+/// The <c>morale &lt; N</c> test in the decision tree's <c>(supplies &lt; 1 and morale &lt; N and armyDist &gt; 8)</c>
+/// branch (<c>2026-10-07-strategic-ai-turn.md</c> §3.3); <c>N = 60</c>.
+/// </param>
+/// <param name="DemoralisedSuppliesThreshold">
+/// The <c>supplies &lt; N</c> test in the decision tree; <c>N = 1</c>.
+/// </param>
+/// <param name="DemoralisedArmyDistanceThreshold">
+/// The <c>armyDist &gt; N</c> test in the decision tree; <c>N = 8</c>.
+/// </param>
+/// <param name="MercenaryRunTroopsDivisor">
+/// The <c>troops / N &lt; supplies</c> gate on the mercenary run, per
+/// <c>2026-10-07-strategic-ai-turn.md</c> §3.3; <c>N = 500</c>.
+/// </param>
+/// <param name="MercenaryRunCityDistanceFar">
+/// The <c>supplies &lt; 1 and cityDist &gt; N</c> far-city test in the same source; <c>N = 19</c>.
+/// </param>
+/// <param name="DefendResupplyArmyScoreThreshold">
+/// The <c>armyScore &lt; N</c> continuation test the mercenary-run follow-up uses to decide between
+/// defending the resupply city and chasing the army target; <c>N = 71</c>.
+/// </param>
+/// <param name="DefendResupplyCityScoreThreshold">
+/// The matching <c>cityScore &gt; N</c> test in the same source; <c>N = 85</c>.
+/// </param>
+/// <param name="ResupplyStrengthTroopsDivisor">
+/// The <c>troops / N</c> divisor the resupply/defence-city scorer compares the city's stock against
+/// (<c>FUN_0044e670</c>, <c>2026-10-07-strategic-ai-turn.md</c> §3.3); <c>N = 100</c>.
+/// </param>
+/// <param name="ResupplyForeignSupplyMargin">
+/// The <c>+ N</c> margin the resupply scorer requires a foreign non-war city's stock to exceed
+/// <c>strength</c> by before it qualifies; <c>N = 80</c>.
+/// </param>
+/// <param name="ResupplyForeignMoneyDivisor">
+/// The <c>money &gt; strength / N</c> gate on the same foreign-city path; <c>N = 5</c>.
+/// </param>
+/// <param name="ResupplyCapitalPenalty">
+/// The <c>− N</c> adjustment the resupply scorer applies to its own cities when one is a capital
+/// (<c>FUN_0044b8d0</c>); <c>N = 20</c>.
+/// </param>
+/// <param name="ResupplyForeignBonus">
+/// The <c>+ N</c> adjustment the resupply scorer applies to a qualifying foreign non-war city;
+/// <c>N = 20</c>.
+/// </param>
+/// <param name="ResupplyMaxForeignDistance">
+/// The <c>distance &gt; N</c> threshold at which the best qualifying foreign city is rejected in favour
+/// of the nearest own city; <c>N = 15</c>.
+/// </param>
+/// <param name="GarrisonFallbackCapitalDistance">
+/// The <c>within N</c> radius around the capital at which a garrison-fallback army instead aims for the
+/// nearest city of any owner (<c>FUN_0044ebe8</c>, <c>2026-10-07-strategic-ai-turn.md</c> §3.5); <c>N = 10</c>.
+/// </param>
+/// <param name="CityRegionById">
+/// The per-city region id the city scorer reads when it decides whether the target is in "another
+/// region" (<c>2026-10-07-strategic-ai-turn.md</c> §3.3, citing <c>FUN_0044eb18</c> for the boundary).
+/// Empty for a shipped world whose cities are all in region <c>0</c>, so the halving term never fires in
+/// play — and explicit per-city ids a fixture's tests can set to pin the term. Read by
+/// <see cref="Ai.AiArmyTargetTree"/> only.
+/// </param>
 public sealed record AiWeightsRules(
     int PermilleScale,
     int DefaultPersonalityPermille,
@@ -1995,7 +2093,47 @@ public sealed record AiWeightsRules(
     long OwnAllianceScore,
     long OwnTradeScore,
     long OwnTradeSwapScore,
+    int ArmyTargetStrengthNumerator,
+    int CityScoreRegionHalvingDenominator,
+    int CityAttackDistanceThreshold,
+    int CityAttackCapitalDefenseRatioNumerator,
+    int CityAttackCapitalDefenseRatioDenominator,
+    long ArmyScoreCap,
+    long ArmyScoreWeakerWithinBonus,
+    int ArmyScoreWeakerDistanceThreshold,
+    int CityScoreThreshold,
+    int ArmyScoreThreshold,
+    int DemoralisedMoraleThreshold,
+    int DemoralisedSuppliesThreshold,
+    int DemoralisedArmyDistanceThreshold,
+    int MercenaryRunTroopsDivisor,
+    int MercenaryRunCityDistanceFar,
+    int DefendResupplyArmyScoreThreshold,
+    int DefendResupplyCityScoreThreshold,
+    int ResupplyStrengthTroopsDivisor,
+    int ResupplyForeignSupplyMargin,
+    int ResupplyForeignMoneyDivisor,
+    int ResupplyCapitalPenalty,
+    int ResupplyForeignBonus,
+    int ResupplyMaxForeignDistance,
+    int GarrisonFallbackCapitalDistance,
+    ValueList<AiCityRegionAssignment> CityRegionById,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
+
+/// <summary>
+/// One city-to-region pin in <see cref="AiWeightsRules.CityRegionById"/>. The AI's
+/// <see cref="Ai.AiArmyTargetTree"/> reads this list to decide whether a target city sits in "another
+/// region" (<c>2026-10-07-strategic-ai-turn.md</c> §3.3, citing <c>FUN_0044eb18</c>) — a piece of the
+/// original's map-shape the clone has not transcribed, so a shipped world ships an empty list (every
+/// city implicitly in region <c>0</c>) and the halving term never fires in play. Tests populate the
+/// list to pin the scorer term.
+/// </summary>
+/// <param name="CityId">The city this row assigns a region id to.</param>
+/// <param name="Region">
+/// The region id, paired with the city's own. <c>CityState</c> is not in T156's Owns, so region ids live
+/// here rather than on the city itself.
+/// </param>
+public sealed record AiCityRegionAssignment(string CityId, int Region);
 
 /// <summary>
 /// The formula-variant selectors — <c>docs/game-design.md</c> §"Two shipped presets, not a pile of
