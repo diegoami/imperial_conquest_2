@@ -756,8 +756,8 @@ function Get-QuotaAvoid {
 
 function Resolve-OpenCodeRoute {
     # Which model id a name runs on. -Usual is its usual id, -Alibaba its Alibaba id when it has one.
-    # -Route auto takes the usual route unless quota-tracker's /avoid lists its provider, then the
-    # Alibaba id when Alibaba itself is not avoided; Avoided says no route of the model has quota.
+    # -Route auto takes the usual route; when quota-tracker's /avoid lists its provider it is
+    # marked Avoided (never moved to Alibaba: the user's decision of 2026-10-09, #893).
     # When the tracker did not answer (-Answered:$false) the usual route is kept. An explicit -Route
     # the model has no id for is Refused; an explicit -Route whose provider /avoid lists is Avoided.
     param([string] $Usual, [string] $Alibaba, [string] $Route = 'auto', [bool] $Answered = $false, [string[]] $Avoid = @(), [string[]] $UsableWhenExhausted = @())
@@ -774,8 +774,9 @@ function Resolve-OpenCodeRoute {
         if (-not $Answered) { return (& $out $usualRoute $Usual 'quota-tracker did not answer: the usual route' $false $false) }
         $provider = $script:OpenCodeRouteQuotaProvider[$usualRoute]
         if (-not $provider -or $Avoid -notcontains $provider) { return (& $out $usualRoute $Usual 'the usual route' $false $false) }
-        if ($Alibaba -and $usualRoute -ne 'alibaba' -and $Avoid -notcontains 'alibaba') { return (& $out 'alibaba' $Alibaba "$provider is avoided (quota-tracker)" $false $false) }
-        return (& $out $usualRoute $Usual "$provider is avoided (quota-tracker) and no other route of this model has quota" $true $false)
+        # #893 (the user's decision of 2026-10-09): Alibaba is used only when the user asks, so an
+        # avoided usual route is never moved there automatically; -Route alibaba still forces it.
+        return (& $out $usualRoute $Usual "$provider is avoided (quota-tracker); Alibaba is used only when the user asks (-Route alibaba)" $true $false)
     }
     $forced = if ($Route -eq $usualRoute) { $Usual } elseif ($Route -eq 'alibaba' -and $Alibaba) { $Alibaba } else { $null }
     if ($forced) {

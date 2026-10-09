@@ -59,7 +59,7 @@ Heavy models run at `medium` rather than `high`, or lighter when medium is not n
 
 - **MiniMax is a vendor of its own.** It can review work by GLM, DeepSeek, Qwen, OpenAI or Claude models independently. `/quota/minimax` has a `5h` and a `7d` window. A one-prompt check, which bills a little: in PowerShell, `$env:XDG_DATA_HOME = "$env:USERPROFILE\.local\share\ic2-opencode-1x\data"`, then `$null | opencode run -m minimax/MiniMax-M3 --variant thinking "Reply with just: ok"`.
 - **The `ali-*` names keep their model's family** (`vendors`), so `ali-glm` never reviews GLM's work and `ali-deepseek-*` never reviews DeepSeek's.
-- **`ali-deepseek-pro` uses the dated `deepseek-v4-pro-0813`**, because only the dated id gets the night discount. The scripts' Alibaba route for `deepseek-pro` (`-Route alibaba`, or `auto` when OpenCode Go is avoided) uses it too.
+- **`ali-deepseek-pro` uses the dated `deepseek-v4-pro-0813`**, because only the dated id gets the night discount. The scripts' Alibaba route for `deepseek-pro` (`-Route alibaba`, only when the user asks: #893) uses it too.
 - All five answered a probe on 2026-10-06, 19:43–19:44 CEST.
 
 Facts that affect availability:
@@ -71,28 +71,22 @@ Facts that affect availability:
 
 ### Choosing a model: no fixed order
 
-**Since T152 (2026-10-08, the user's decision, CLAUDE.md rule 17)** `scripts/Choose-Model.ps1` ranks by quota-tracker's `/recommend?tier=heavy|light`, never by headroom percentages: it maps each row's provider to an alias per role (an unmapped row is skipped), drops Claude while another candidate scores positive, keeps Luna and Sol out of implementation, puts a negative score last, prints each candidate's `score`, `confidence` and `reasons`, and stops with exit 3 when the tracker is loading too long or silent. `-RecommendFile` and `-RecommendUrl` make it testable offline (`-SelfTest`). The section below describes the pre-T152 chooser and is kept only for its history.
+`scripts/Choose-Model.ps1` chooses from quota-tracker's `/recommend`, never from headroom percentages (CLAUDE.md rule 17; T152, and #893 of 2026-10-09). It maps each row's provider to an alias per role (an unmapped row is printed and skipped) and keeps this repository's exclusions on top of the tracker's order:
 
-There is no fixed model order (the owner's decision of 2026-10-06). The main session chooses each run's model case by case, from live quota and the model's strength. `scripts/Choose-Model.ps1` does the mechanical half and chooses nothing:
+- OpenAI never implements; Luna and Sol reach a review only through the tier rules ([build-process.md §3.4](build-process.md#34-why-the-reviewers-model-differs-from-the-implementers)).
+- Claude, the orchestrator, is dropped while another candidate scores positive.
+- **Alibaba is never chosen unless the user asks** (the user's decision of 2026-10-09: its monthly pool is 91% used until 2026-11-06); `-AllowAlibaba` puts it back.
+- A negative score is ranked last and chosen only when nothing else is left; a row the tracker marks unusable is skipped.
 
-- `pwsh scripts/Choose-Model.ps1 -Role reviewer -Tier complex -ExcludeModel <implementer>` prints the candidates best first, each with its reasons.
-- `-Pick` prints the top name only.
-- `-SelfTest` checks the ranking on fixture quotas.
-- `-ExcludeFamily <name>[,<name>…]` (T150) drops every candidate of each named model's family, for either role. `external-implement.ps1` uses it for its substitute when the chain is spent: every failed family, plus `luna` (the whole OpenAI family), so the substitute is never OpenAI.
+Its modes:
 
-What it reads:
+- `pwsh scripts/Choose-Model.ps1 -Role implementer` (`/recommend?tier=heavy`) or `-Role reviewer` (`tier=light`, for Sol's substitutes) prints the candidates best first with `score`, `confidence` and `reasons`; `-Pick` prints the top alias only.
+- `-Role pair` gives one delegated task's implementer and reviewer from one `tier=heavy` response: the tracker's `pair.implementer` when it survives the exclusions (else the top ranked implementer), and `pair.reviewer` when it is of another family (else the next `ranking` row of another family). No reviewer left means no other family has quota: it says so and exits 3, and the main session tells the user. The tracker's `free_reviewer` is printed as advisory only.
+- `-ExcludeModel <implementer>` (reviewer and pair) and `-ExcludeFamily <name>[,<name>…]` drop whole families; `-SubstituteFamilies` is T150's chain-spent substitute filter (the failed families plus OpenAI).
+- `-RecommendFile` and `-RecommendUrl` make it testable offline; `-SelfTest` runs the canned cases.
+- A tracker still loading after `-RecommendRetryWaitSec`, or not answering, exits 3; the main session restarts the service (`systemctl --user restart quota-tracker` in WSL), retries, and tells the user if it still fails.
 
-- **Names, ids, variants and families:** from `external-review.ps1` and `external-implement.ps1` themselves, so it never drifts from them.
-- **Strength:** from the table below.
-- **Quota:** quota-tracker's `/quota`, including the Alibaba discount and the Z.ai peak.
-
-How it ranks:
-
-1. The fit to the tier. `complex` puts heavy models first, `simple` light ones. `very-complex` ranks as `complex` and notes [build-process.md §3.4](build-process.md#34-why-the-reviewers-model-differs-from-the-implementers)'s Claude Opus reviewer.
-2. Status: `ok` before `low`.
-3. Headroom divided by the cost factor now: Alibaba's discount, or Z.ai's peak or off-peak multiplier.
-
-An exhausted provider, or one an answering tracker does not report, makes a model unavailable, unless the model has an Alibaba route with quota or is `luna` (its own window). An unknown headroom is scored `?` and ranked after every measured one. The implementer's family is left out of a review. When the tracker is silent, the ranking is by strength alone. The scripts' `auto` defaults are unchanged; any other model is named explicitly.
+Every `external-implement.ps1` run takes the explicit `-Model` chosen this way; `-Model auto` was removed by #893. The main session logs the chosen row's `reasons` on the task's issue.
 
 ### Model strength
 
@@ -103,9 +97,9 @@ The chooser's table, edited by the owner. `heavy` and `light` follow [Models per
 | `sol` | heavy | GPT-6 Sol; the complex tier's reviewer (§3.4) |
 | `luna` | light | GPT-5.6 Luna; the simple tier's reviewer; its own weekly window |
 | `glm` | heavy | GLM-5.3 on Z.ai |
-| `ali-glm` | heavy | GLM-5.3 on Alibaba, no discount; the Z.ai peak's alternative |
+| `ali-glm` | heavy | GLM-5.3 on Alibaba, no discount; only when the user asks (#893) |
 | `glm-flash` | light | GLM-5.3 Flash on Z.ai |
-| `deepseek-pro` | heavy | DeepSeek V4 Pro on Go (Alibaba when Go is avoided) |
+| `deepseek-pro` | heavy | DeepSeek V4 Pro on Go (on Alibaba only with `-Route alibaba`, when the user asks: #893) |
 | `ali-deepseek-pro` | heavy | DeepSeek V4 Pro 0813 on Alibaba, night discount |
 | `deepseek` | light | DeepSeek V4.1 Flash, the reviewer name |
 | `deepseek-flash` | light | DeepSeek V4.1 Flash, the implementer name |
@@ -148,10 +142,10 @@ Adopted by the owner's decision of 2026-10-06, as a supplement only: for smaller
 Adopted by the owner's decision of 2026-10-05, for three uses: the DeepSeek route when OpenCode Go is low, Qwen as a model family of its own (implementer `qwen-flash`, reviewers `qwen` and `qwen-flash`), and GLM-5.3 when Z.AI is out.
 
 - **One pool.** Every model draws on one monthly credit pool: `curl -s localhost:8765/quota/alibaba`, window `month`; the provider is `alibaba` in `/avoid`, `/best` and `/quota`.
-- **Night discount**, 22:00–08:00 UTC+8 (14:00–00:00 UTC; 16:00–02:00 in European summer time, 15:00–01:00 in winter): `qwen3.8-max` and `qwen3.8-flash` cost 60% fewer credits, and `deepseek-v4-pro-0813` and `deepseek-v4.1-flash` 50% fewer. `glm-5.3` gets no discount. Prefer long, deferrable Qwen and DeepSeek runs on Alibaba while `pricing.discount_now` is true (CLAUDE.md rule 20).
-- **Z.ai's peak**, from 8 October 2026: `glm-5.3` costs 3× quota Mon–Fri 14:00–18:00 UTC+8 (08:00–12:00 in European summer time). While `/quota/zai`'s `pricing.peak_now` is true, prefer `ali-glm` or another provider for long runs.
+- **Night discount**, 22:00–08:00 UTC+8 (14:00–00:00 UTC; 16:00–02:00 in European summer time, 15:00–01:00 in winter): `qwen3.8-max` and `qwen3.8-flash` cost 60% fewer credits, and `deepseek-v4-pro-0813` and `deepseek-v4.1-flash` 50% fewer. `glm-5.3` gets no discount. When the user asks for an Alibaba run (#893: never otherwise), prefer a long, deferrable Qwen or DeepSeek one while `pricing.discount_now` is true (CLAUDE.md rule 20).
+- **Z.ai's peak**, from 8 October 2026: `glm-5.3` costs 3× quota Mon–Fri 14:00–18:00 UTC+8 (08:00–12:00 in European summer time). While `/quota/zai`'s `pricing.peak_now` is true, prefer another provider for long runs (not `ali-glm` unless the user asks: #893).
 - **Never use** Kimi or MiniMax on Alibaba: they are Team-edition only and fail on this plan. MiniMax runs on its own provider, `minimax`.
-- **Routes.** `external-review.ps1` and `external-implement.ps1` take `-Route auto|go|zai|alibaba`. `auto` (the default) runs DeepSeek on OpenCode Go and GLM on Z.AI unless `/avoid` lists `opencode_go` or `zai`, and then the same model on Alibaba; when the tracker does not answer, the usual route. The name and the family do not change with the route. The route is printed, logged, and named on the posted review's signature line and the "implemented by:" line.
+- **Routes.** `external-review.ps1` and `external-implement.ps1` take `-Route auto|go|zai|alibaba`. `auto` (the default) runs DeepSeek on OpenCode Go and GLM on Z.AI. When `/avoid` lists `opencode_go` or `zai` the model is marked avoided (a review drops it; an implementer run warns), and it is never moved to Alibaba, which runs only when the user asks, with `-Route alibaba` (#893). When the tracker does not answer, the usual route. The name and the family do not change with the route. The route is printed, logged, and named on the posted review's signature line and the "implemented by:" line.
 - **The key** is the environment variable `ALIBABA_TOKEN_PLAN_API_KEY`, a Windows **user** variable. Both scripts copy it from the user environment into their own process when the process lacks it (a session started before it was set), never printing it. It never goes into any `auth.json`: a key there overrides the variable and can break the provider. A run on an `alibaba-token-plan/…` model gets its own OpenCode data folder, `%USERPROFILE%\.local\share\ic2-opencode-1x\data-alibaba` (beside the other providers' `data`; cache and state are shared), created when missing; nothing is copied into it, and a run that finds an `auth.json` there stops without reading it (the owner's decision of 2026-10-05). Runs on other providers keep `data` and its copied `auth.json` as before. An Alibaba run's session is read with `python scripts/read-opencode-session.py <ses_…> --alibaba`, and its OpenCode log is under `data-alibaba\opencode\log\`. Never print, copy or log it, and never read an `auth.json`.
 
 Errors from it are never retried blind; the scripts stop (exit 1, not the chain's exit 3) with the cause:

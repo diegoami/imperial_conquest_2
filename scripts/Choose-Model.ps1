@@ -125,12 +125,13 @@
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('implementer', 'reviewer')] [string] $Role,
+    [ValidateSet('implementer', 'reviewer', 'pair')] [string] $Role,
     [ValidateSet('simple', 'complex', 'very-complex')] [string] $Tier,
     [string] $ExcludeModel,
     [string[]] $ExcludeFamily,
     [string[]] $SubstituteFamilies,
     [switch] $Pick,
+    [switch] $AllowAlibaba,
     [string] $RecommendFile,
     [string] $RecommendUrl = 'http://localhost:8765/recommend',
     [int] $RecommendRetryWaitSec = 180,
@@ -152,8 +153,14 @@ $ImplementerAliases = @{
 $ReviewerAliases = @{
     'zai'         = 'glm'
     'opencode_go' = 'deepseek-pro'
-    'alibaba'     = 'qwen'
 }
+# Alibaba is used only when the user asks (the user's decision of 2026-10-09, #893: its
+# monthly pool is nearly spent). -AllowAlibaba puts its reviewer alias back; without it,
+# every alibaba row is excluded with that reason, in both roles.
+if ($AllowAlibaba) { $ReviewerAliases['alibaba'] = 'qwen' }
+# -Role pair maps a reviewer row to the alias external-review.ps1 takes. OpenAI's is Sol
+# (Luna reviews only the simple tier, which §3.4 assigns, never the ranking).
+$PairReviewerExtra = @{ 'openai' = 'sol' }
 # `claude` in implementer is special. Any candidate's family an OpenCode dispatch map
 # drops: implementer `claude` falls back to Claude Sonnet (the main session), no OpenCode
 # alias; reviewer `claude` has no alias (it's not in the table, so it's "unmapped for
@@ -397,7 +404,9 @@ function Resolve-Chosen {
     #     automatically by the caller.
     foreach ($row in $rows) {
         $why = $null
-        if ($row.Family -in $excludeModelFamilies) {
+        if ($row.Provider -eq 'alibaba' -and -not $AllowAlibaba) {
+            $why = "Alibaba is used only when the user asks (the user's decision of 2026-10-09; -AllowAlibaba)"
+        } elseif ($row.Family -in $excludeModelFamilies) {
             $why = "the implementer's family ($($row.Family)) is excluded (-ExcludeModel $ExcludeModel)"
         } elseif ($row.RoleFamily -in $familyExcluded) {
             $why = "family $($row.RoleFamily) is excluded (-ExcludeFamily)"
@@ -478,6 +487,84 @@ function Resolve-Chosen {
         Chosen = $chosen; Ranking = $ranking; Excluded = $excluded
         Recommendation = $Recommend
         ClaudeDroppedReason = $claudeDroppedReason
+    }
+}
+
+function Get-PairReviewerAlias([string] $Provider) {
+    if ($PairReviewerExtra.ContainsKey($Provider)) { return $PairReviewerExtra[$Provider] }
+    return (Get-ReviewerAlias $Provider)
+}
+
+function Resolve-Pair {
+    # -Role pair (#893): the implementer and the reviewer for one delegated task, from one
+    # /recommend?tier=heavy response. The implementer is Resolve-Chosen's implementer pick
+    # (our exclusions on top: OpenAI never implements, Claude only when nothing else is
+    # positive, no Alibaba unless asked). The reviewer is the tracker's `pair.reviewer` when
+    # it maps to a reviewer alias and is of another family than the chosen implementer;
+    # otherwise the next `ranking` row of another family. $null when no other family is left:
+    # the caller tells the user.
+    param(
+        [Parameter(Mandatory)] $Recommend,
+        [string] $ExcludeModel,
+        [string[]] $ExcludeFamily
+    )
+    $impl = Resolve-Chosen -Role 'implementer' -Tier 'complex' -ExcludeFamily $ExcludeFamily -Recommend $Recommend
+    # The tracker's own pair.implementer comes first when it survives our exclusions (it is in
+    # Resolve-Chosen's filtered ranking with an alias); otherwise the top ranked implementer
+    # (Sol's R1 on PR 896).
+    $implementer = $impl.Chosen
+    $implSource = 'ranking'
+    $pairImpl = if ($Recommend.PSObject.Properties['pair'] -and $Recommend.pair) { $Recommend.pair.implementer } else { $null }
+    if ($pairImpl) {
+        $match = @($impl.Ranking | Where-Object { $_.Alias -and $_.Provider -eq [string]$pairImpl.provider -and $_.Model -eq [string]$pairImpl.model } | Select-Object -First 1)
+        if ($match) { $implementer = $match[0]; $implSource = 'pair' }
+    }
+    $implFamily = if ($implementer) { [string]$implementer.Family } else { $null }
+    $skipFamilies = @()
+    if ($implFamily) { $skipFamilies += $implFamily }
+    if ($ExcludeModel) { $skipFamilies += (Get-FamilyForName $ExcludeModel) }
+    if ($ExcludeFamily) { $skipFamilies += @(Get-FamiliesFromNames $ExcludeFamily) }
+    $candidates = @()
+    $pairReviewer = if ($Recommend.PSObject.Properties['pair'] -and $Recommend.pair) { $Recommend.pair.reviewer } else { $null }
+    if ($pairReviewer) { $candidates += [pscustomobject]@{ Row = $pairReviewer; Source = 'pair' } }
+    foreach ($r in @($Recommend.ranking)) { $candidates += [pscustomobject]@{ Row = $r; Source = 'ranking' } }
+    $passed = New-Object System.Collections.Generic.List[object]
+    $reviewer = $null
+    foreach ($c in $candidates) {
+        $r = $c.Row
+        $provider = [string]$r.provider
+        $alias = Get-PairReviewerAlias $provider
+        $why = $null
+        if ($provider -eq 'alibaba' -and -not $AllowAlibaba) { $why = 'Alibaba is used only when the user asks' }
+        elseif ($r.PSObject.Properties['usable'] -and -not [bool]$r.usable) { $why = 'the tracker marked it unusable' }
+        elseif (-not $alias) { $why = "no reviewer alias for $provider" }
+        elseif ((Get-FamilyForName $alias) -in $skipFamilies) { $why = "family $(Get-FamilyForName $alias) is the implementer's or excluded" }
+        if ($why) { $passed.Add([pscustomobject]@{ Provider = $provider; Source = $c.Source; Why = $why }); continue }
+        $score = if ($null -eq $r.score) { $null } else { [double]$r.score }
+        $conf = if ($null -eq $r.confidence) { '?' } else { [string]$r.confidence }
+        $reviewer = [pscustomobject]@{
+            Alias = $alias; Family = (Get-FamilyForName $alias); Provider = $provider; Model = [string]$r.model
+            Score = $score; Confidence = $conf; Reasons = @($r.reasons); Source = $c.Source
+        }
+        break
+    }
+    return [pscustomobject]@{ Implementer = $implementer; ImplementerSource = $implSource; ImplementerResult = $impl; Reviewer = $reviewer; Passed = $passed }
+}
+
+function Show-PairReport($Pair, $Recommend) {
+    "role pair, /recommend?tier=heavy"
+    if ($Pair.Implementer) { Show-ChosenModel $Pair.Implementer | ForEach-Object { if ($_ -like 'chosen:*') { ($_ -replace '^chosen:', 'implementer:') + ", from /recommend's $($Pair.ImplementerSource)" } else { $_ } } }
+    else { 'implementer: none (no candidate with an alias)' }
+    if ($Pair.Reviewer) {
+        $r = $Pair.Reviewer
+        "reviewer: $($r.Alias) ($($r.Provider), $($r.Model), score $(Format-Score $r.Score), confidence $($r.Confidence)), from /recommend's $($r.Source)"
+        "reasons:"
+        foreach ($x in $r.Reasons) { "  - $x" }
+    } else { 'reviewer: none -- no other family has quota: tell the user' }
+    foreach ($p in $Pair.Passed) { "passed over for reviewer ($($p.Source)): $($p.Provider) -- $($p.Why)" }
+    foreach ($e in $Pair.ImplementerResult.Excluded) { "excluded for implementer: $($e.Provider) -- $($e.Why)" }
+    if ($Recommend.PSObject.Properties['free_reviewer'] -and $Recommend.free_reviewer) {
+        "free reviewer offered: $($Recommend.free_reviewer.model) (advisory only, never counted, never for private code)"
     }
 }
 
@@ -590,6 +677,13 @@ function New-CannedSkipped {
     return [pscustomobject]@{ provider = $Provider; why = $Why }
 }
 
+function Set-AllowAlibabaForTest([bool] $On) {
+    # The self-test runs some cases with Alibaba allowed (the -AllowAlibaba path) and the rest
+    # with the default (excluded).
+    $script:AllowAlibaba = $On
+    if ($On) { $script:ReviewerAliases['alibaba'] = 'qwen' } else { $script:ReviewerAliases.Remove('alibaba') }
+}
+
 function Test-PickAlias([object] $Result, [string] $Expected) {
     if (-not $Result.Chosen) { return $false }
     return $Result.Chosen.Alias -eq $Expected
@@ -665,7 +759,9 @@ function Invoke-ChooserSelfTest {
     $r = Resolve-Chosen -Role 'implementer' -Tier 'complex' -Recommend $recClaudeAlone
     Add-Check 'Claude only-non-negative: it is the script fallback' ($r.Chosen -and $r.Chosen.Alias -eq $ImplementerFallback)
 
-    # Case 3: negative scores are ranked after non-negative ones.
+    # Case 3: negative scores are ranked after non-negative ones (with -AllowAlibaba, so the
+    # alibaba row is ranked rather than excluded).
+    Set-AllowAlibabaForTest $true
     $recNeg = Get-CannedRecommend -Ranking @(
         (New-CannedRow -Provider 'opencode_go' -Model 'ds-flash' -Score (-500)),
         (New-CannedRow -Provider 'minimax'     -Model 'M3'       -Score 1000),
@@ -682,6 +778,7 @@ function Invoke-ChooserSelfTest {
     )
     $rNeg = Resolve-Chosen -Role 'reviewer' -Tier 'simple' -Recommend $recOnlyNegative
     Add-Check 'the only candidate is negative-scoring: it is still picked' (Test-PickAlias $rNeg 'deepseek-pro')
+    Set-AllowAlibabaForTest $false
 
     # Case 4: ExcludeFamily drops the named family.
     $r = Resolve-Chosen -Role 'implementer' -Tier 'complex' -Recommend $recImpl -ExcludeFamily @('mm-m3')
@@ -706,7 +803,9 @@ function Invoke-ChooserSelfTest {
         (New-CannedRow -Provider 'alibaba' -Model 'qwen-max' -Score 1000),
         (New-CannedRow -Provider 'zai'     -Model 'glm-5.3' -Score 80)
     )
+    Set-AllowAlibabaForTest $true
     $rAli = Resolve-Chosen -Role 'reviewer' -Tier 'complex' -ExcludeModel 'qwen' -Recommend $recAlibaba
+    Set-AllowAlibabaForTest $false
     Add-Check 'R1: -ExcludeModel qwen drops the alibaba reviewer row' (@($rAli.Excluded | Where-Object { $_.Provider -eq 'alibaba' }).Count -gt 0)
     Add-Check 'R1: -ExcludeModel qwen: the chooser falls through to glm (never qwen)' (Test-PickAlias $rAli 'glm')
 
@@ -740,9 +839,15 @@ function Invoke-ChooserSelfTest {
         (New-CannedRow -Provider 'alibaba'     -Model 'qwen'     -Score 200),
         (New-CannedRow -Provider 'openai'      -Model 'gpt-6-sol' -Score 150)
     )
+    Set-AllowAlibabaForTest $true
     $r = Resolve-Chosen -Role 'reviewer' -Tier 'complex' -ExcludeModel 'glm' -Recommend $recRevSub
+    Set-AllowAlibabaForTest $false
     $aliases = @($r.Ranking | Where-Object Alias | ForEach-Object Alias)
-    Add-Check 'reviewer substitute order (ExcludeModel glm): DeepSeek Pro and Qwen, never GLM, never an OpenAI model' ([string]($aliases -join ',') -eq 'deepseek-pro,qwen')
+    Add-Check 'reviewer substitute order (ExcludeModel glm, -AllowAlibaba): DeepSeek Pro and Qwen, never GLM, never an OpenAI model' ([string]($aliases -join ',') -eq 'deepseek-pro,qwen')
+    $rNoAli = Resolve-Chosen -Role 'reviewer' -Tier 'complex' -ExcludeModel 'glm' -Recommend $recRevSub
+    $aliasesNoAli = @($rNoAli.Ranking | Where-Object Alias | ForEach-Object Alias)
+    Add-Check '#893: without -AllowAlibaba the reviewer order is DeepSeek Pro only (no Qwen)' ([string]($aliasesNoAli -join ',') -eq 'deepseek-pro')
+    Add-Check '#893: without -AllowAlibaba the alibaba row is excluded with the user-asks reason' (@($rNoAli.Excluded | Where-Object { $_.Provider -eq 'alibaba' -and $_.Why -match 'user asks' }).Count -eq 1)
     $unmapped = @($r.Ranking | Where-Object { -not $_.Alias } | ForEach-Object Provider)
     Add-Check 'reviewer substitute order: openai appears only in the unmapped-for-reviewer line' ([bool](@($unmapped | Where-Object { $_ -eq 'openai' }).Count -eq 1))
 
@@ -795,6 +900,79 @@ function Invoke-ChooserSelfTest {
     $out = (& { Show-ChooserReport (Resolve-Chosen -Role 'reviewer' -Tier 'simple' -Recommend $recNull) } | Out-String)
     Add-Check 'R6: a null-score row prints "score    ?" in the report, not "score 0"' ($out -match 'score\s+\?\s')
 
+    # Case 12 (#893): -Role pair. The tracker's pair suggests an OpenAI implementer (which we
+    # never use) and an OpenAI reviewer: the implementer falls to the ranking (glm), and the
+    # reviewer stays Sol, another family.
+    $pairRec = [pscustomobject]@{
+        note = $null
+        pair = [pscustomobject]@{
+            implementer = (New-CannedRow -Provider 'openai' -Model 'gpt-6.1-sol' -Score 450)
+            reviewer    = (New-CannedRow -Provider 'openai' -Model 'gpt-6.1-sol' -Score 450 -Reasons @('pair reviewer'))
+        }
+        ranking = @(
+            (New-CannedRow -Provider 'openai'      -Model 'gpt-6.1-sol' -Score 450),
+            (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'     -Score 100),
+            (New-CannedRow -Provider 'opencode_go' -Model 'ds-pro'      -Score 50),
+            (New-CannedRow -Provider 'alibaba'     -Model 'qwen'        -Score 900)
+        )
+        skipped = @()
+    }
+    $p = Resolve-Pair -Recommend $pairRec
+    Add-Check '#893 pair: an OpenAI implementer suggestion is overridden by our exclusion (glm)' ($p.Implementer -and $p.Implementer.Alias -eq 'glm')
+    Add-Check '#893 pair: the pair reviewer (openai -> sol) is kept, being of another family' ($p.Reviewer -and $p.Reviewer.Alias -eq 'sol' -and $p.Reviewer.Source -eq 'pair')
+    Add-Check '#893 pair: alibaba (score 900) is never the implementer without -AllowAlibaba' ($p.Implementer.Provider -ne 'alibaba')
+
+    # Case 13 (#893): the pair reviewer is of the implementer's family, so the next ranking
+    # row of another family is taken.
+    $pairRec2 = [pscustomobject]@{
+        note = $null
+        pair = [pscustomobject]@{
+            implementer = (New-CannedRow -Provider 'zai' -Model 'glm-5.3' -Score 100)
+            reviewer    = (New-CannedRow -Provider 'zai' -Model 'glm-5.3' -Score 100)
+        }
+        ranking = @(
+            (New-CannedRow -Provider 'zai'         -Model 'glm-5.3' -Score 100),
+            (New-CannedRow -Provider 'minimax'     -Model 'M3'      -Score 80),
+            (New-CannedRow -Provider 'opencode_go' -Model 'ds-pro'  -Score 50)
+        )
+        skipped = @()
+    }
+    $p2 = Resolve-Pair -Recommend $pairRec2
+    Add-Check '#893 pair: same-family pair reviewer is replaced by the next ranking row of another family (deepseek-pro)' ($p2.Implementer.Alias -eq 'glm' -and $p2.Reviewer -and $p2.Reviewer.Alias -eq 'deepseek-pro' -and $p2.Reviewer.Source -eq 'ranking')
+    $p2x = Resolve-Pair -Recommend $pairRec2 -ExcludeModel 'deepseek-pro'
+    Add-Check '#893 pair: with -ExcludeModel deepseek-pro too, no reviewer is left (null: tell the user)' ($null -eq $p2x.Reviewer)
+    $out = (& { Show-PairReport $p2x $pairRec2 } | Out-String)
+    Add-Check '#893 pair: the report says "no other family has quota: tell the user"' ($out -match 'no other family has quota: tell the user')
+
+    # Case 13b (Sol's R1 on PR 896): a valid tracker pair is kept as given, not re-derived from
+    # the ranking: opencode_go implements and zai reviews although zai ranks first.
+    $pairRec4 = [pscustomobject]@{
+        note = $null
+        pair = [pscustomobject]@{
+            implementer = (New-CannedRow -Provider 'opencode_go' -Model 'ds-flash' -Score 50)
+            reviewer    = (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'  -Score 100)
+        }
+        ranking = @(
+            (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'  -Score 100),
+            (New-CannedRow -Provider 'opencode_go' -Model 'ds-flash' -Score 50)
+        )
+        skipped = @()
+    }
+    $p4 = Resolve-Pair -Recommend $pairRec4
+    Add-Check 'R1 (PR 896): the tracker pair is kept: deepseek-flash implements (from pair), glm reviews (from pair)' ($p4.Implementer.Alias -eq 'deepseek-flash' -and $p4.ImplementerSource -eq 'pair' -and $p4.Reviewer.Alias -eq 'glm' -and $p4.Reviewer.Source -eq 'pair')
+    $p4x = Resolve-Pair -Recommend $pairRec4 -ExcludeFamily @('deepseek-flash')
+    Add-Check 'R1 (PR 896): a pair implementer our exclusions drop falls back to the ranking (glm), and the reviewer moves off glm' ($p4x.Implementer.Alias -eq 'glm' -and $p4x.ImplementerSource -eq 'ranking' -and (-not $p4x.Reviewer -or $p4x.Reviewer.Alias -ne 'glm'))
+
+    # Case 14 (#893): a null pair reviewer from the tracker with nothing else of another family.
+    $pairRec3 = [pscustomobject]@{
+        note = $null
+        pair = [pscustomobject]@{ implementer = (New-CannedRow -Provider 'zai' -Model 'glm-5.3' -Score 10); reviewer = $null }
+        ranking = @((New-CannedRow -Provider 'zai' -Model 'glm-5.3' -Score 10))
+        skipped = @()
+    }
+    $p3 = Resolve-Pair -Recommend $pairRec3
+    Add-Check '#893 pair: tracker reviewer null and nothing else -> reviewer null' ($p3.Implementer.Alias -eq 'glm' -and $null -eq $p3.Reviewer)
+
     # Report.
     $i = 0; $failed = 0
     foreach ($c in $checks) {
@@ -809,10 +987,10 @@ function Invoke-ChooserSelfTest {
 
 if ($MyInvocation.InvocationName -eq '.') { return }
 if ($SelfTest) { $code = Invoke-ChooserSelfTest; $code[0..($code.Count - 2)]; exit $code[-1] }
-if (-not $Role) { throw 'Give -Role implementer or -Role reviewer (or -SelfTest).' }
-if ($Role -ne 'implementer' -and $Role -ne 'reviewer') { throw "-Role must be implementer or reviewer; got '$Role'." }
+if (-not $Role) { throw 'Give -Role implementer, reviewer or pair (or -SelfTest).' }
+if ($Role -notin @('implementer', 'reviewer', 'pair')) { throw "-Role must be implementer, reviewer or pair; got '$Role'." }
 
-$tierForRecommend = if ($Role -eq 'implementer') { 'heavy' } else { 'light' }
+$tierForRecommend = if ($Role -eq 'reviewer') { 'light' } else { 'heavy' }
 
 try {
     $recommend = Get-Recommendation -RecommendFile $RecommendFile -RecommendUrl $RecommendUrl -RetryWaitSec $RecommendRetryWaitSec -PollSec $RecommendPollSec -Tier $tierForRecommend
@@ -827,6 +1005,14 @@ try {
         exit 3
     }
     throw
+}
+
+if ($Role -eq 'pair') {
+    $pairResult = Resolve-Pair -Recommend $recommend -ExcludeModel $ExcludeModel -ExcludeFamily $ExcludeFamily
+    Show-PairReport $pairResult $recommend
+    if (-not $pairResult.Implementer) { [Console]::Error.WriteLine('Choose-Model.ps1: no implementer candidate.'); exit 3 }
+    if (-not $pairResult.Reviewer) { [Console]::Error.WriteLine('Choose-Model.ps1: no reviewer of another family has quota: tell the user.'); exit 3 }
+    exit 0
 }
 
 $result = Resolve-Chosen -Role $Role -Tier $Tier -ExcludeModel $ExcludeModel -ExcludeFamily $ExcludeFamily -SubstituteFamilies $SubstituteFamilies -Recommend $recommend
