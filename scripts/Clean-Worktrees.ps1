@@ -18,7 +18,8 @@
 
     A tree is safe only when ALL of these hold:
       (a) `git status --porcelain --ignored` shows nothing outside bin/, obj/, .godot/ and .vs/
-          -- so a run's ignored diagnostics under rendered/ count as work and keep the tree;
+          -- matched at any depth as whole path components, so src/IC2.Engine/bin/ is noise too
+          -- while a run's ignored diagnostics under rendered/ count as work and keep the tree;
       (b) no commit on it is absent from origin (its HEAD is contained in a remote-tracking ref;
           local knowledge only, no fetch happens here, so a stale fetch errs towards "not safe");
       (c) its branch's PR is merged or closed, or -- for a detached review tree -- the PR it
@@ -49,8 +50,11 @@
     Offline checks (no network, no real gh, no real ic2-work): temporary git repos under the TEMP
     folder build one worktree in each state the rules describe (clean and merged; dirty; ignored
     files under rendered/ only; an unpushed commit; a detached review tree of an open PR, old; a
-    detached review tree of a merged PR), and the list and -Apply are shown to treat each as the
-    rules say. gh is stubbed in-process; nothing is billed.
+    detached review tree of a merged PR; a branch with a closed PR listed before an open one), and
+    the list and -Apply are shown to treat each as the rules say. It also covers nested build
+    output at src/IC2.Engine/bin/, godot/.godot/ and so on (R2), and that a path still present
+    after `git worktree remove` is reported and left in place (R4). gh is stubbed in-process;
+    nothing is billed.
 
 .EXAMPLE
     pwsh scripts/Clean-Worktrees.ps1
@@ -89,12 +93,20 @@ function Invoke-GhRepo {
 
 function Get-PrStateByBranch([string] $Branch) {
     # The branch's PR state (OPEN/MERGED/CLOSED), 'none' when it has no PR, $null when unknown.
+    # R3: a branch can have several PRs returned by `gh pr list --state all` (an old merged or
+    # closed one and a re-opened OPEN one). Read EVERY state: any open PR vetoes removal,
+    # whatever order the response lists them in. Only when none is open is the tree's PR
+    # MERGED/CLOSED (safe either way).
     $out = @()
     try { $out = @(Invoke-GhRepo @('pr', 'list', '--head', $Branch, '--state', 'all', '--json', 'number,state') | Where-Object { $_ }) } catch { $out = @() }
     $text = (($out | ForEach-Object { [string]$_ }) -join "`n").Trim()
     if (-not $text) { return $null }
     try { $prs = @($text | ConvertFrom-Json) } catch { return $null }
     if ($prs.Count -eq 0) { return 'none' }
+    $states = @($prs | ForEach-Object { ([string]$_.state).ToUpperInvariant() })
+    if ($states -contains 'OPEN') { return 'OPEN' }
+    if ($states -contains 'MERGED') { return 'MERGED' }
+    if ($states -contains 'CLOSED') { return 'CLOSED' }
     return ([string]$prs[0].state).ToUpperInvariant()
 }
 
@@ -130,6 +142,9 @@ function Get-WorktreeNoise([string] $Path) {
     # Rule (a): the `git status --porcelain --ignored` entries whose path is outside bin/, obj/,
     # .godot/ and .vs/. Ignored diagnostics under rendered/ count as work and keep the tree.
     # Returns the offending paths, empty when the tree holds nothing but allowed noise.
+    # R2: the permitted names are matched at ANY depth, as whole path components (so
+    # src/IC2.Engine/bin/ and godot/.godot/ are noise), never as substrings of a component.
+    $allowed = @('bin', 'obj', '.godot', '.vs')
     $bad = @()
     $lines = @()
     try { $lines = @(git -C $Path status --porcelain --ignored 2>$null) } catch { $lines = @() }
@@ -139,8 +154,11 @@ function Get-WorktreeNoise([string] $Path) {
         foreach ($side in @($body -split ' -> ')) {
             $p = $side.Trim().Trim('"')
             if (-not $p) { continue }
-            $first = ($p -split '[\\/]')[0]
-            if ($first -notin @('bin', 'obj', '.godot', '.vs')) { $bad += $p }
+            $noise = $false
+            foreach ($part in @($p -split '[\\/]' | Where-Object { $_ })) {
+                if ($part -in $allowed) { $noise = $true; break }
+            }
+            if (-not $noise) { $bad += $p }
         }
     }
     return @($bad | Select-Object -Unique)
@@ -231,6 +249,18 @@ function Get-WorktreeEntries([string] $RootPath) {
     return $entries
 }
 
+function Test-WorktreeRemainder([string] $Path) {
+    # R4: after `git worktree remove` and `git worktree prune`, a successful exit from git does NOT
+    # establish that anything still at $Path is disposable. This reports the remainder and leaves
+    # it -- it never recursively deletes it (that would be a second deletion mechanism outside the
+    # safety checks). Returns $true only when the path is truly gone.
+    if (Test-Path -LiteralPath $Path) {
+        [Console]::Error.WriteLine("git worktree remove reported success but $Path still exists; leaving it in place (this script never recursively deletes a remainder).")
+        return $false
+    }
+    return $true
+}
+
 function Remove-Worktree([string] $Path, [switch] $ForceRemove) {
     # Removes one worktree with `git worktree remove` (from its repository's main checkout, never
     # from the tree itself). Never the main checkout: a worktree's .git is a FILE, a main
@@ -255,12 +285,13 @@ function Remove-Worktree([string] $Path, [switch] $ForceRemove) {
     $gitArgs = @('worktree', 'remove') + $(if ($ForceRemove) { @('--force') })
     git -C $repoRoot @gitArgs $Path
     if ($LASTEXITCODE -ne 0) { return $false }
-    if (Test-Path -LiteralPath $Path) { Remove-Item -Recurse -Force -LiteralPath $Path -ErrorAction SilentlyContinue }
     # `git worktree prune` after the removal (Done-when 3). The repository must be resolved BEFORE
     # the tree goes: once the path is gone, `git -C $Path` no longer resolves, so pruning from the
     # removed path (the earlier order) did nothing.
     git -C $repoRoot worktree prune
-    return (-not (Test-Path -LiteralPath $Path))
+    # R4: no recursive-delete fallback. A remainder is reported and left; Test-WorktreeRemainder
+    # decides both the return value and the message.
+    return (Test-WorktreeRemainder $Path)
 }
 
 function Invoke-CleanWorktreesSelfTest {
@@ -282,7 +313,7 @@ function Invoke-CleanWorktreesSelfTest {
         git init -q -b main $main
         git -C $main config user.email selftest@local | Out-Null
         git -C $main config user.name selftest | Out-Null
-        Set-Content -LiteralPath (Join-Path $main '.gitignore') -Value "rendered/`nbin/`nobj/`n" -Encoding utf8
+        Set-Content -LiteralPath (Join-Path $main '.gitignore') -Value "rendered/`nbin/`nobj/`n.godot/`n.vs/`n" -Encoding utf8
         Set-Content -LiteralPath (Join-Path $main 'base.txt') -Value 'base' -Encoding utf8
         git -C $main add -A
         git -C $main commit -q -m base
@@ -302,12 +333,26 @@ function Invoke-CleanWorktreesSelfTest {
         # 1. Clean and merged, recent (safe, but too young for -Apply: it stays).
         git -C $main worktree add -q (Join-Path $root 't1-merged') -b task/t1
         Set-Content -LiteralPath (Join-Path $root 't1-merged\one.txt') -Value 'one' -Encoding utf8
+        # Tracked sources under src/ and godot/, so git reports the nested ignored build output
+        # individually (a wholly ignored parent directory would be collapsed to `src/`).
+        New-Item -ItemType Directory -Force -Path (Join-Path $root 't1-merged\src\IC2.Engine'), (Join-Path $root 't1-merged\godot') | Out-Null
+        Set-Content -LiteralPath (Join-Path $root 't1-merged\src\IC2.Engine\Program.cs') -Value 'class P { }' -Encoding utf8
+        Set-Content -LiteralPath (Join-Path $root 't1-merged\godot\project.godot') -Value '; project' -Encoding utf8
         git -C (Join-Path $root 't1-merged') add -A
         git -C (Join-Path $root 't1-merged') commit -q -m t1
         git -C (Join-Path $root 't1-merged') push -q -u origin task/t1
         git -C $main merge -q --ff-only task/t1
         git -C $main push -q origin main
         $t1Sha = (git -C $main rev-parse HEAD).Trim()
+        # R2: nested build output at any depth -- src/IC2.Engine/bin/, src/IC2.Engine/obj/,
+        # godot/.godot/ and src/.vs/ -- is allowed noise, not work. The permitted names are
+        # matched as whole path components, so only the first-component test (the old code)
+        # counted these as work.
+        foreach ($rel in @('src\IC2.Engine\bin\app.dll', 'src\IC2.Engine\obj\app.obj', 'godot\.godot\cache.db', 'src\.vs\project')) {
+            $artifact = Join-Path (Join-Path $root 't1-merged') $rel
+            New-Item -ItemType Directory -Force -Path (Split-Path $artifact -Parent) | Out-Null
+            Set-Content -LiteralPath $artifact -Value 'artifact' -Encoding utf8
+        }
 
         # 2. Dirty (a tracked file modified, uncommitted), merged branch, old.
         git -C $main worktree add -q (Join-Path $root 't2-dirty') -b task/t2
@@ -329,6 +374,16 @@ function Invoke-CleanWorktreesSelfTest {
         git -C (Join-Path $root 't4-unpushed') commit -q -m t4
         & $ageTree (Join-Path $root 't4-unpushed') 30
 
+        # 7. A branch whose `gh pr list --state all` response lists a CLOSED PR before an OPEN
+        # one (R3): any open PR makes the tree not safe, whatever the response order. Clean and
+        # pushed, so the open PR is the ONLY reason it is not safe.
+        git -C $main worktree add -q (Join-Path $root 't7-closed-then-open') -b task/t7
+        Set-Content -LiteralPath (Join-Path $root 't7-closed-then-open\seven.txt') -Value 'seven' -Encoding utf8
+        git -C (Join-Path $root 't7-closed-then-open') add -A
+        git -C (Join-Path $root 't7-closed-then-open') commit -q -m t7
+        git -C (Join-Path $root 't7-closed-then-open') push -q -u origin task/t7
+        & $ageTree (Join-Path $root 't7-closed-then-open') 30
+
         # 5. A detached review tree of an open PR, old.
         git -C $main worktree add -q --detach (Join-Path $root '777-review-luna-20260101-000000') $t1Sha
         & $ageTree (Join-Path $root '777-review-luna-20260101-000000') 30
@@ -338,14 +393,24 @@ function Invoke-CleanWorktreesSelfTest {
         & $ageTree (Join-Path $root '888-review-sol-20260101-000000') 30
 
         # gh is stubbed: no network, no real PRs.
-        $script:BranchStates = @{ 'task/t1' = 'MERGED'; 'task/t2' = 'MERGED'; 'task/t3' = 'MERGED'; 'task/t4' = 'MERGED' }
+        $script:BranchStates = @{
+            'task/t1' = 'MERGED'
+            'task/t2' = 'MERGED'
+            'task/t3' = 'MERGED'
+            'task/t4' = 'MERGED'
+            'task/t7' = '[{"number":700,"state":"CLOSED"},{"number":701,"state":"OPEN"}]'
+        }
         $script:PrStates = @{ '777' = 'OPEN'; '888' = 'MERGED' }
         $script:Gh = {
             param([string[]] $GhArgs)
             if ($GhArgs -contains '--head') {
                 $b = $GhArgs[($GhArgs.IndexOf('--head') + 1)]
                 $s = $script:BranchStates[$b]
-                if ($s) { return "[{`"number`":1,`"state`":`"$s`"}]" }
+                if ($s) {
+                    # A raw JSON response is passed through; a bare state is wrapped (R3).
+                    if ("$s".TrimStart().StartsWith('[')) { return $s }
+                    return "[{`"number`":1,`"state`":`"$s`"}]"
+                }
                 return '[]'
             }
             if ($GhArgs.Count -ge 2 -and $GhArgs[0] -eq 'pr' -and $GhArgs[1] -eq 'view') {
@@ -360,10 +425,11 @@ function Invoke-CleanWorktreesSelfTest {
         $lines = @($entries | ForEach-Object { Format-WorktreeLine $_ })
         $lines | ForEach-Object { Write-Host $_ }
         $listText = $lines -join "`n"
-        Add 'list: six worktrees are listed, one line each' ($entries.Count -eq 6 -and $lines.Count -eq 6)
-        Add 'list: every line names the path, the branch or detached HEAD, the age, the PR and safety' (@($lines | Where-Object { $_ -match ' \| ' }).Count -eq 6)
+        Add 'list: seven worktrees are listed, one line each' ($entries.Count -eq 7 -and $lines.Count -eq 7)
+        Add 'list: every line names the path, the branch or detached HEAD, the age, the PR and safety' (@($lines | Where-Object { $_ -match ' \| ' }).Count -eq 7)
         $t1 = $entries | Where-Object { $_.Path -like '*t1-merged' }
         Add 'clean and merged, recent: SAFE' ($t1.Safe -and $t1.PrState -eq 'MERGED' -and $t1.AgeDays -lt 7)
+        Add 'R2: nested build output (src/.../bin, src/.../obj, godot/.godot, src/.vs) is noise, not work' ((Get-WorktreeNoise (Join-Path $root 't1-merged')).Count -eq 0)
         $t2 = $entries | Where-Object { $_.Path -like '*t2-dirty' }
         Add 'dirty: NOT safe, and the work is named' (-not $t2.Safe -and (($t2.Reasons -join '; ') -match 'base\.txt'))
         $t3 = $entries | Where-Object { $_.Path -like '*t3-rendered' }
@@ -374,6 +440,8 @@ function Invoke-CleanWorktreesSelfTest {
         Add 'a detached review tree of an open PR, old: NOT safe (open PR), branch shown as detached' (-not $t5.Safe -and $t5.Detached -and (($t5.Reasons -join '; ') -match 'open') -and $t5.PrState -eq 'OPEN')
         $t6 = $entries | Where-Object { $_.Path -like '*888-review-sol*' }
         Add 'a detached review tree of a merged PR, old: SAFE' ($t6.Safe -and $t6.Detached -and $t6.PrState -eq 'MERGED' -and $t6.AgeDays -gt 7)
+        $t7 = $entries | Where-Object { $_.Path -like '*t7-closed-then-open*' }
+        Add 'R3: a CLOSED PR listed before an OPEN one: NOT safe (any open PR vetoes), state OPEN' (-not $t7.Safe -and $t7.PrState -eq 'OPEN' -and (($t7.Reasons -join '; ') -match 'open'))
 
         # --- -Apply: the safe ones older than -OlderThanDays only ---
         $candidates = @($entries | Where-Object { $_.Safe -and $_.AgeDays -gt 7 })
@@ -385,10 +453,10 @@ function Invoke-CleanWorktreesSelfTest {
         }
         Add 'apply: the merged review tree is gone' (-not (Test-Path (Join-Path $root '888-review-sol-20260101-000000')))
         Add 'apply: `git worktree list` no longer names the removed tree (remove then prune)' (@((git -C $main worktree list --porcelain) -like '*888-review-sol*').Count -eq 0)
-        Add 'apply: every other tree is kept' (((@('t1-merged', 't2-dirty', 't3-rendered', 't4-unpushed', '777-review-luna-20260101-000000') | Where-Object { -not (Test-Path (Join-Path $root $_)) }).Count) -eq 0)
+        Add 'apply: every other tree is kept' (((@('t1-merged', 't2-dirty', 't3-rendered', 't4-unpushed', '777-review-luna-20260101-000000', 't7-closed-then-open') | Where-Object { -not (Test-Path (Join-Path $root $_)) }).Count) -eq 0)
         $summary = '{0} worktrees, {1} safe to remove, {2} removed' -f $entries.Count, $candidates.Count, $removedCount
         Write-Host $summary
-        Add 'summary: "N worktrees, S safe to remove, R removed"' ($summary -eq '6 worktrees, 1 safe to remove, 1 removed')
+        Add 'summary: "N worktrees, S safe to remove, R removed"' ($summary -eq '7 worktrees, 1 safe to remove, 1 removed')
 
         # --- -Force: one named tree, whatever its state ---
         $target = Join-Path $root 't2-dirty'
@@ -403,6 +471,12 @@ function Invoke-CleanWorktreesSelfTest {
             $outsideOk = -not $resolved.StartsWith($rootFull, [System.StringComparison]::OrdinalIgnoreCase)
         } catch { $outsideOk = $false }
         Add 'force: a path outside the root is recognised and would be refused' ($outsideOk)
+
+        # --- R4: a remainder after `git worktree remove` is reported and left, never deleted ---
+        $leftover = Join-Path $root 'leftover-after-remove'
+        New-Item -ItemType Directory -Force -Path $leftover | Out-Null
+        Set-Content -LiteralPath (Join-Path $leftover 'keep.txt') -Value 'keep' -Encoding utf8
+        Add 'R4: a path still present after git worktree remove is reported and left in place, not recursively deleted' ((-not (Test-WorktreeRemainder $leftover)) -and (Test-Path -LiteralPath (Join-Path $leftover 'keep.txt')))
     } catch {
         Add 'the self-test ran without error' $false
         Write-Host "self-test error: $_"
