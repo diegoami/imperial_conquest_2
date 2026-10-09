@@ -81,7 +81,8 @@ follows is the contract; this file says how the run works.
 - Track your progress in `rendered/RUN-NOTES.md` in your worktree (docs/running-notes.md; the
   git-ignored `rendered/` keeps it out of every commit). Three rules: (1) read it first, since a
   previous round may have left it, and if it is missing create it with its Plan from the brief's
-  Done-when lines; (2) after every commit, append one Progress line with the commit hash, append
+  Done-when lines, then run `git check-ignore -q rendered/RUN-NOTES.md` and, if it exits 1 (the
+  file is not ignored), delete the file, stop and report; (2) after every commit, append one Progress line with the commit hash, append
   only, and a line that turned out wrong gets a new line saying it was reverted and why; (3) before
   `git checkout --detach`, or before you stop for any reason, append the END block: the last
   commit, the PR state, and what is deferred. Never commit it, and never paste it into the PR body.
