@@ -213,29 +213,18 @@ function Get-OpenCodeExportDenials([string] $ExportFile) {
 }
 
 function Get-OpenCodeDeniedWrite([string] $Text, $Denials) {
-    # The first denied outside WRITE (anything not shown to be a read) as its call, or $null (bug
-    # #931). $Denials, when given, is the session export's list, the authority on which tool was
-    # denied (a shell `grep x > out` prints like the Grep tool). It FAILS CLOSED (PR #932's re-check
-    # R1): the export decides only when it accounts for every denial the printed output shows. When
-    # the printed output shows more denials than the export holds (a part the export missed, an
-    # error that is not the expected string), any printed write counts, and so does each printed
-    # denial the export does not explain, so a denied write is never dropped.
-    $printed = @(Get-OpenCodePermissionDenials $Text)
-    if ($null -eq $Denials) { $all = $printed }
-    else {
-        $exp = @($Denials)
-        $all = $exp
-        if ($printed.Count -gt $exp.Count) {
-            $unexplained = @($printed | Where-Object { -not $_.Read })
-            if ($unexplained.Count -eq 0) {
-                $unexplained = @([pscustomobject]@{ Call = "(a printed denial the export does not hold: $($printed.Count) printed, $($exp.Count) in the export)"; Read = $false })
-            }
-            $all = @($exp) + $unexplained
-        }
-    }
-    $w = @($all | Where-Object { -not $_.Read })
-    if ($w.Count -eq 0) { return $null }
-    return $w[0].Call
+    # The first denied outside WRITE as its call, or $null (bug #931). It FAILS CLOSED: a write in
+    # EITHER source counts (PR #932's re-checks). $Denials, when given, is the session export's
+    # list, which names the real tool, so it can only ADD a write the printed output hides (a
+    # shell `Grep x > out` prints like the Grep tool, round-1 R1); it never removes one, because
+    # matching an export part to a printed title cannot be proved (re-check R1: equal counts do not
+    # mean the same calls). The printed heuristic already errs toward a write (an unpaired denial is
+    # a write), so the only cost is that an oddly printed read may end a run.
+    $exp = if ($null -ne $Denials) { @(@($Denials) | Where-Object { -not $_.Read }) } else { @() }
+    if ($exp.Count -gt 0) { return $exp[0].Call }
+    $printed = @(Get-OpenCodePermissionDenials $Text | Where-Object { -not $_.Read })
+    if ($printed.Count -gt 0) { return $printed[0].Call }
+    return $null
 }
 
 function Read-OpenCodeSharedText([string] $Path) {
