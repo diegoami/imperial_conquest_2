@@ -38,9 +38,17 @@
     The next model runs ONLY on an infrastructure failure (no session in time, an idle session, no
     exit in time, a run that exits without a session, a non-zero exit, the fallback-to-default-agent
     guard, a tool call the permission guard rejected -- issue #501), and only when the failed run
-    left nothing behind: no new commit, locally or on origin, and no new PR. Otherwise the script
-    exits 1 and the main session decides. Two consecutive attempts failing with the same cause
-    (Get-OpenCodeFailureClass: two startup hangs, two idle kills, ...) stop the chain early.
+    left nothing     behind: no new commit, locally or on origin, and no new PR. Otherwise the script
+    exits 1 and the main session decides. A failed attempt's uncommitted work is never thrown
+    away (T151 Done-when 1, #854): before the reset that readies the tree for the next model, it
+    is saved as rendered/attempts/<model>-<yyyyMMdd-HHmmss>.patch in the worktree (git-ignored,
+    taken as `git add -A` then `git diff --cached --binary <start commit>`; no git stash), the
+    path is printed, and the patch survives the next attempt's reset. Two consecutive attempts
+    failing with the same cause (Get-OpenCodeFailureClass: two startup hangs, two idle kills,
+    ...) mean OpenCode itself is the problem (operating-guide §3): the script stops and reports
+    for diagnosis -- the failure class, both attempts' reasons, session ids and kept files, the
+    run log and the outside-paths report -- and exits 3, WITHOUT running the substitute (T151
+    Done-when 5, bug #868, the user's decision of 2026-10-08: "stop and diagnose the problem").
     An implementer that stops and reports has not failed: its OpenCode run exits 0, so it is
     never retried on another model; the script then exits 1 ("No open PR") and the main session
     reads the report. Once every chain model has failed, the script asks Choose-Model.ps1 for an
@@ -109,8 +117,11 @@
     creating a worktree, starting a run or billing a model (it does start `opencode --version`, in its own scratch directories).
 .PARAMETER SimulateFailed
     With -WhatIf: the implementer model names (comma-separated or repeated) to treat as failed for
-    the check. The script prints the substitute Choose-Model.ps1 would pick with those models'
-    families excluded, and why, without running anything (Done-when 2's check).
+    the check. Each entry is a model name, or `model=class` to name the failure class
+    (Get-OpenCodeFailureClass's, e.g. deepseek-flash=no-session): two consecutive entries with one
+    class show the same-cause stop (T151 Done-when 5: the diagnosis text and exit 3, no
+    substitute); otherwise the script prints the substitute Choose-Model.ps1 would pick with those
+    models' families excluded, and why, without running anything (Done-when 2's check).
 .PARAMETER ModelIds
     Overrides of the model name -> model id map, e.g. @{ 'deepseek-flash' = 'opencode-go/deepseek-v4.2-flash' },
     for when `opencode models` shows a different id (or, in a test, a bad id to exercise the chain).
@@ -120,10 +131,15 @@
 .PARAMETER RecommendRetryWaitSec
     The seconds Choose-Model.ps1 waits / retries on a `loading` note (default 0 — the chooser
     uses its own default of 180 s; pass a small value to shorten a test's wait).
-.PARAMETER SelfTest
+.PARAMeter SelfTest
     Offline checks: Format-ImplementerAttempt with canned /recommend meta proves the run log
-    and the PR body's "Implementer attempts" section receive the same text (R3 rework). No
-    network, no OpenCode, no PR is opened.
+    and the PR body's "Implementer attempts" section receive the same text (R3 rework); T151
+    adds the Save-AttemptState round-trip (a staged change, an unstaged change and an untracked
+    file survive a reset as a patch, restored by git apply), the leftWork exit text carrying the
+    "Outside paths touched" report (bug #868 R3), and the same-cause exit text naming both
+    attempts' session ids and kept files and the run log (bug #868 R4). No network, no OpenCode,
+    no PR is opened; the only thing it runs is git, in a throwaway repository under the TEMP
+    folder.
 
 .EXAMPLE
     pwsh scripts/external-implement.ps1 -Task T71 -Slug persistence-hardening -Issue 308 -BriefFile C:\tmp\T71-brief.md
@@ -134,7 +150,9 @@
 .PARAMETER SelfTest
     Runs the offline checks (no network, no OpenCode): Format-ImplementerAttempt with
     canned /recommend meta proves the run log and the PR body's "Implementer attempts"
-    section receive the same text (R3 rework). Does not perform a real run.
+    section receive the same text (R3 rework); the T151 checks (Save-AttemptState
+    round-trip, the leftWork and same-cause exit texts) run git in a throwaway TEMP
+    repository. Does not perform a real run.
 #>
 [CmdletBinding()]
 param(
@@ -317,6 +335,70 @@ function Invoke-ImplementerSelfTest {
     $realAttempt = Format-ImplementerAttempt $rowMeta
     Add 'R3: canned heavy.json minimax row -> Format-ImplementerAttempt returns the reasons line' ($realAttempt -match '7d: about 7,080 spare calls')
 
+    # --- T151 Done-when 1: Save-AttemptState keeps a failed attempt's work as a patch ----------
+    # A throwaway git repository under the TEMP folder: an attempt with a staged change, an
+    # unstaged change and an untracked file; the patch is saved, the tree reset and cleaned, and
+    # the patch reapplied to the clean tree. No OpenCode, no network, no git stash.
+    $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("ic2-impl-selftest-" + [guid]::NewGuid().ToString('N').Substring(0, 8))
+    try {
+        git init -q $tmp
+        git -C $tmp config user.email selftest@local | Out-Null
+        git -C $tmp config user.name selftest | Out-Null
+        Set-Content -LiteralPath (Join-Path $tmp '.gitignore') -Value 'rendered/' -Encoding utf8
+        Set-Content -LiteralPath (Join-Path $tmp 'base.txt') -Value 'base' -Encoding utf8
+        git -C $tmp add -A
+        git -C $tmp commit -q -m base
+        $startSha = (git -C $tmp rev-parse HEAD).Trim()
+        # The attempt: a staged change, an unstaged change and an untracked file.
+        Set-Content -LiteralPath (Join-Path $tmp 'base.txt') -Value 'staged change' -Encoding utf8
+        git -C $tmp add base.txt
+        Set-Content -LiteralPath (Join-Path $tmp 'other.txt') -Value 'other committed' -Encoding utf8
+        git -C $tmp add other.txt; git -C $tmp commit -q -m other
+        Set-Content -LiteralPath (Join-Path $tmp 'other.txt') -Value 'unstaged change' -Encoding utf8
+        New-Item -ItemType Directory -Force -Path (Join-Path $tmp 'rendered') | Out-Null
+        Set-Content -LiteralPath (Join-Path $tmp 'untracked.txt') -Value 'untracked' -Encoding utf8
+        $patch = Save-AttemptState -Worktree $tmp -Model 'selftest-model' -StartSha $startSha
+        Add 'DW1: a dirty attempt saves a patch under rendered/attempts/' ($patch -and (Test-Path -LiteralPath $patch) -and $patch -like '*rendered\attempts\selftest-model-*.patch')
+        Add 'DW1: the patch holds the staged, the unstaged and the untracked change' ((Get-Content -Raw -LiteralPath $patch) -match 'staged change' -and (Get-Content -Raw -LiteralPath $patch) -match 'unstaged change' -and (Get-Content -Raw -LiteralPath $patch) -match 'untracked.txt')
+        # The reset the next attempt would run: the patch (under git-ignored rendered/) survives.
+        git -C $tmp reset -q --hard $startSha
+        git -C $tmp clean -q -fd
+        Add 'DW1: the reset and clean do not remove the saved patch' (Test-Path -LiteralPath $patch)
+        git -C $tmp apply --whitespace=nowarn $patch
+        Add 'DW1: git apply on the clean tree restores the staged change' ((Get-Content -Raw -LiteralPath (Join-Path $tmp 'base.txt')) -match 'staged change')
+        Add 'DW1: git apply restores the unstaged change' ((Get-Content -Raw -LiteralPath (Join-Path $tmp 'other.txt')) -match 'unstaged change')
+        Add 'DW1: git apply restores the untracked file' ((Get-Content -Raw -LiteralPath (Join-Path $tmp 'untracked.txt')) -match 'untracked')
+        # A clean attempt saves nothing.
+        git -C $tmp reset -q --hard $startSha; git -C $tmp clean -q -fd
+        $cleanPatch = Save-AttemptState -Worktree $tmp -Model 'selftest-model' -StartSha $startSha
+        Add 'DW1: a clean attempt saves no patch' ($null -eq $cleanPatch)
+    } catch {
+        Add 'DW1: the Save-AttemptState round-trip ran without error' $false
+    } finally {
+        Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    # --- T151 Done-when 5 (bug #868): the exit texts ------------------------------------------------
+    # R3: both leftWork exit-1 paths print the "Outside paths touched" report before exiting
+    # (Get-LeftWorkExitText is what they print), keeping their exit code.
+    $outsideRun = [pscustomobject]@{ Model = 'deepseek-flash'; Run = [pscustomobject]@{ OutsidePathsKnown = $true; OutsidePaths = @('C:\Users\diego\AppData\Local\Temp\opencode') } }
+    $leftWorkText = Get-LeftWorkExitText -Model 'deepseek-flash' -Reason 'no session in 180 s' -Branch 'task/T99-x' -Log 'C:\work\ic2-work\T99.implementer.log' -OutsideRuns @($outsideRun)
+    Add 'DW5 R3: the leftWork exit text carries the "Outside paths touched" report' ($leftWorkText -match 'Outside paths touched' -and $leftWorkText -like '*Temp\opencode (deepseek-flash)*')
+    Add 'DW5 R3: the leftWork exit text keeps the original message and the log path' ($leftWorkText -like '*after committing, pushing or opening a PR*' -and $leftWorkText -like '*Log: C:\work\ic2-work\T99.implementer.log*')
+    $leftWorkNone = Get-LeftWorkExitText -Model 'qwen-flash' -Reason 'exit 1' -Branch 'task/T99-x' -Log 'L' -OutsideRuns @()
+    Add 'DW5 R3: no run at all still reports (unknown), never crashes' ($leftWorkNone -match 'unknown: no attempt returned a session')
+    # R4: the same-cause exit names the class, both attempts' reasons, session ids and kept
+    # files, and the run log, and says the substitute is not run.
+    $a1 = [pscustomobject]@{ Model = 'mm-m3'; Why = 'no session in 180 s'; SessionId = 'ses_abc123'; KeptFiles = 'C:\w\rendered\attempts\mm-m3-20261009-120000.patch' }
+    $a2 = [pscustomobject]@{ Model = 'qwen-flash'; Why = 'no session in 180 s'; SessionId = $null; KeptFiles = 'none (the tree was clean)' }
+    $sameCauseText = Get-SameCauseExitText -Class 'no-session' -First $a1 -Second $a2 -Log 'C:\w\ic2-work\T99.implementer.log' -OutsideRuns @($outsideRun)
+    Add 'DW5 R4: the same-cause text names the failure class' ($sameCauseText -match 'same failure class twice: no-session')
+    Add 'DW5 R4: the same-cause text names both attempts and their reasons' ($sameCauseText -match 'mm-m3: no session in 180 s' -and $sameCauseText -match 'qwen-flash: no session in 180 s')
+    Add 'DW5 R4: the same-cause text names each session id (and says unknown when there is none)' ($sameCauseText -match 'ses_abc123' -and $sameCauseText -match 'unknown \(no session came back\)')
+    Add 'DW5 R4: the same-cause text names each attempt''s kept files' ($sameCauseText -match 'mm-m3-20261009-120000\.patch' -and $sameCauseText -match 'none \(the tree was clean\)')
+    Add 'DW5 R4: the same-cause text names the run log and says the substitute is NOT run' ($sameCauseText -like '*run log: C:\w\ic2-work\T99.implementer.log*' -and $sameCauseText -match 'substitute attempt is NOT run')
+    Add 'DW5 R4: the same-cause text carries the outside-paths report' ($sameCauseText -match 'Outside paths touched')
+
     # Report.
     $i = 0; $failed = 0
     foreach ($c in $checks) {
@@ -329,6 +411,78 @@ function Invoke-ImplementerSelfTest {
     # the count made the caller compare a string with 0 and exit 1 on a full pass.
     Write-Host "self-test: $($checks.Count - $failed)/$($checks.Count) passed"
     return [int]$failed
+}
+
+function Format-OutsidePathsReport([object[]] $Runs) {
+    # One line per allowed outside path any attempt touched, with the attempt's model. "none" when every
+    # attempt's export was read and none touched one. "unknown" is printed only for an attempt whose
+    # export failed, and names that attempt. With no run at all (every attempt failed before OpenCode
+    # returned one), the report says so instead of blaming an export.
+    if (-not $Runs -or $Runs.Count -eq 0) { return 'unknown: no attempt returned a session (each failed before OpenCode finished)' }
+    $lines = @()
+    foreach ($r in $Runs) {
+        if (-not $r.Run.OutsidePathsKnown) { $lines += "- unknown for $($r.Model): the session export failed"; continue }
+        foreach ($p in @($r.Run.OutsidePaths)) { $lines += "- $p ($($r.Model))" }
+    }
+    if ($lines.Count -eq 0) { return 'none' }
+    return ($lines -join "`n")
+}
+
+function Save-AttemptState {
+    # T151 Done-when 1 (#854: T140's round-2 work was lost to the reset between attempts): a failed
+    # attempt's uncommitted work is kept as a patch before the tree is reset for the next model.
+    # `git add -A` stages every tracked change and untracked file (the attempt's own staged changes
+    # included), then `git diff --cached --binary <start commit>` captures all of it, so
+    # `git apply` on a clean tree at the start commit restores staged, unstaged and untracked work
+    # alike. Never git stash (Appendix A: the stash is shared by every worktree). The patch lives
+    # under rendered/attempts/ (git-ignored), so the next attempt's `git clean -fd` keeps it.
+    # Returns the patch's path, or $null when the tree was clean (nothing to keep).
+    param([string] $Worktree, [string] $Model, [string] $StartSha)
+    $dirty = git -C $Worktree status --porcelain
+    if (-not $dirty) { return $null }
+    $dir = Join-Path $Worktree 'rendered/attempts'
+    New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    $patch = Join-Path $dir "$Model-$(Get-Date -Format 'yyyyMMdd-HHmmss').patch"
+    $n = 1
+    while (Test-Path -LiteralPath $patch) { $patch = Join-Path $dir "$Model-$(Get-Date -Format 'yyyyMMdd-HHmmss')-$n.patch"; $n++ }
+    git -C $Worktree add -A
+    git -C $Worktree diff --cached --binary $StartSha "--output=$patch"
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $patch)) {
+        Write-Warning "could not save $Model's uncommitted work as a patch (git diff --cached --binary failed); the reset below discards it."
+        return $null
+    }
+    Write-Host "kept $Model's uncommitted work as patch: $patch"
+    return $patch
+}
+
+function Get-LeftWorkExitText {
+    # T151 Done-when 5 (bug #868 R3): the two leftWork exit-1 paths (a model failed after
+    # committing, pushing or opening a PR) print the "Outside paths touched" report
+    # (Format-OutsidePathsReport) before they exit, keeping their exit code. Factored into a
+    # builder so the self-test can prove the report is part of what the exit prints.
+    param([string] $Model, [string] $Reason, [string] $Branch, [string] $Log, [object[]] $OutsideRuns)
+    $report = Format-OutsidePathsReport $OutsideRuns
+    return "$Model failed ($Reason) after committing, pushing or opening a PR on $Branch; not retrying on another model. The main session decides. Log: $Log`nOutside paths touched:`n$report"
+}
+
+function Get-SameCauseExitText {
+    # T151 Done-when 5 (bug #868 R4; the user's decision of 2026-10-08: "stop and diagnose the
+    # problem"): two consecutive attempts failed with one failure class, so OpenCode itself is the
+    # problem (operating-guide §3). The script stops for diagnosis -- it does NOT run T150's
+    # substitute (it fell through to one until T151) -- prints the failure class, both attempts'
+    # reasons, each attempt's session id and kept files, the run log and the outside-paths
+    # report, and exits 3.
+    param([string] $Class, [object] $First, [object] $Second, [string] $Log, [object[]] $OutsideRuns)
+    $report = Format-OutsidePathsReport $OutsideRuns
+    $sid = { param($a) if ($a.SessionId) { $a.SessionId } else { 'unknown (no session came back)' } }
+    $text = @(
+        "same failure class twice: $Class -- OpenCode itself is the problem (operating-guide §3).",
+        'Stopping for diagnosis; the substitute attempt is NOT run (the user''s decision of 2026-10-08); the main session diagnoses before any retry.',
+        "  $($First.Model): $($First.Why); session id: $(& $sid $First); kept files: $($First.KeptFiles)",
+        "  $($Second.Model): $($Second.Why); session id: $(& $sid $Second); kept files: $($Second.KeptFiles)",
+        "run log: $Log"
+    ) -join "`n"
+    return $text + "`nOutside paths touched:`n$report"
 }
 
 # T152 Done-when 2 / Done-when 6: the chain-spent substitute picks an implementer outside
@@ -519,8 +673,28 @@ if ($WhatIf) {
     if ($SimulateFailed) {
         # Done-when 2's check: treat the named models as failed and show the substitute, without
         # running anything. Commas are split because `pwsh -File ... -SimulateFailed a,b` binds the
-        # whole list as one string.
+        # whole list as one string. T151 Done-when 5: an entry may be `model=class` to name its
+        # failure class; two consecutive entries with one class are the same-cause stop, shown
+        # here (the diagnosis text and exit 3) with no substitute, exactly as the real run would.
         $failed = @($SimulateFailed | ForEach-Object { @([string]$_) -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+        $sim = @($failed | ForEach-Object {
+                $parts = @($_ -split '=', 2)
+                [pscustomobject]@{ Model = $parts[0]; Class = if ($parts.Count -gt 1) { $parts[1] } else { "simulated-$_" } }
+            })
+        $stopIdx = -1
+        for ($i = 1; $i -lt $sim.Count; $i++) { if ($sim[$i].Class -eq $sim[$i - 1].Class) { $stopIdx = $i; break } }
+        Write-Host "simulate failed: $($failed -join ', ')"
+        if ($stopIdx -ge 0) {
+            $simFirst = $sim[$stopIdx - 1]
+            $simSecond = $sim[$stopIdx]
+            $diag = Get-SameCauseExitText -Class $simSecond.Class `
+                -First ([pscustomobject]@{ Model = $simFirst.Model; Why = "simulated failure ($($simFirst.Class))"; SessionId = $null; KeptFiles = "the patch Save-AttemptState would write (simulated)" }) `
+                -Second ([pscustomobject]@{ Model = $simSecond.Model; Why = "simulated failure ($($simSecond.Class))"; SessionId = $null; KeptFiles = "the patch Save-AttemptState would write (simulated)" }) `
+                -Log $log -OutsideRuns @()
+            Write-Host $diag
+            Write-Host 'WhatIf: the run would stop here and exit 3 (same failure class twice; no substitute).'
+            exit 3
+        }
         # T150 Done-when 2 (the user's amendment of 2026-10-08), retold via T152: the substitute
         # is never from the OpenAI family. -SubstituteFamilies makes the chooser add the openai
         # family itself; the check here compares the substitute with and without that drop, so
@@ -531,7 +705,6 @@ if ($WhatIf) {
         $whyWithout = if ($subWithoutPick) { "-ExcludeFamily $($failed -join ',') on the implementer ranking picked $subWithout" } else { 'no implementer found' }
         $subWhy = $null
         $subPick = Get-SubstituteModel -ExcludeFamilies $failed -Why ([ref]$subWhy) -RecommendFile $RecommendFile -RecommendRetryWaitSec $RecommendRetryWaitSec
-        Write-Host "simulate failed: $($failed -join ', ')"
         if ($subWithout -and $subWithout -ne $subPick) { Write-Host "without OpenAI exclusion, would have picked: $subWithout ($whyWithout)" }
         if ($subPick) { Write-Host "would substitute: $subPick ($subWhy)" }
         else { Write-Host "would substitute: none ($subWhy)" }
@@ -636,7 +809,8 @@ if ($FixturesDir) { $env:IC2_FIXTURES_DIR = $FixturesDir }
 # output as UTF-8.
 # The next model runs only on an infrastructure failure (no session, idle, no exit, an exit
 # without a session, a non-zero exit, the fallback-agent guard, a permission-guard rejection), and only when the failed run left nothing
-# behind: no new commit, locally or on origin, and no new PR. Its uncommitted edits are discarded.
+# behind: no new commit, locally or on origin, and no new PR. Its uncommitted edits are saved
+# as a patch under rendered/attempts/ before the reset (T151 Done-when 1), never discarded.
 # An implementer that stops and reports is not a failure: its OpenCode run exits 0, so it is never
 # retried on another model; the script then exits 1 at "No open PR" and the main session reads the report.
 # "Nothing behind" is judged against the state before the first attempt, so a resumed branch
@@ -647,7 +821,8 @@ $startPr = gh pr list --head $branch --state open --json number --jq '.[0].numbe
 $failures = @()
 $output = $null
 $lastClass = $null
-$sameCause = $null
+# T151 Done-when 5: a same-cause pair no longer breaks the loop; it exits 3 from inside it
+# (Get-SameCauseExitText), so there is no $sameCause to carry to the bottom's exit 3.
 $implementedBy = $null
 # The finishing run's object, for the "Outside paths touched" section (Done-when 3).
 $finalRun = $null
@@ -655,20 +830,6 @@ $finalRun = $null
 # so a failed run's touched outside paths are reported and "unknown" means only a failed export.
 $outsideRuns = @()
 [System.IO.File]::WriteAllText($log, '')
-function Format-OutsidePathsReport([object[]] $Runs) {
-    # One line per allowed outside path any attempt touched, with the attempt's model. "none" when every
-    # attempt's export was read and none touched one. "unknown" is printed only for an attempt whose
-    # export failed, and names that attempt. With no run at all (every attempt failed before OpenCode
-    # returned one), the report says so instead of blaming an export.
-    if (-not $Runs -or $Runs.Count -eq 0) { return 'unknown: no attempt returned a session (each failed before OpenCode finished)' }
-    $lines = @()
-    foreach ($r in $Runs) {
-        if (-not $r.Run.OutsidePathsKnown) { $lines += "- unknown for $($r.Model): the session export failed"; continue }
-        foreach ($p in @($r.Run.OutsidePaths)) { $lines += "- $p ($($r.Model))" }
-    }
-    if ($lines.Count -eq 0) { return 'none' }
-    return ($lines -join "`n")
-}
 
 $attempt = 0
 foreach ($m in $chain) {
@@ -707,7 +868,7 @@ foreach ($m in $chain) {
     Add-Content -LiteralPath $log -Value "=== $m ($($resolved[$m].Model), route $($resolved[$m].Route)): $(if ($reason) { "failed: $reason" } else { 'ran' }) ===`n$output" -Encoding utf8
     if (-not $reason) {
         $implementedBy = $m
-        $attempts += [pscustomobject]@{ Model = $m; Route = $resolved[$m].Route; Class = 'ran'; Why = '' }
+        $attempts += [pscustomobject]@{ Model = $m; Route = $resolved[$m].Route; Class = 'ran'; Why = ''; SessionId = if ($run) { $run.SessionId } else { $null }; KeptFiles = '-' }
         $finalRun = $run
         # T152 Done-when 4: the run log and the PR body's "Implementer attempts" section name
         # the chosen model and quote its row's reasons. The same Format-ImplementerAttempt
@@ -723,18 +884,39 @@ foreach ($m in $chain) {
     Write-Warning "$m failed: $reason"
     $failures += "${m}: $reason"
     # Two consecutive attempts failing with one cause (two startup hangs, two idle kills) mean
-    # OpenCode itself is the problem, not the model: stop the chain (operating-guide §3).
+    # OpenCode itself is the problem, not the model (operating-guide §3).
     $class = Get-OpenCodeFailureClass $reason
-    $attempts += [pscustomobject]@{ Model = $m; Route = $resolved[$m].Route; Class = $class; Why = $reason }
+    $sessionId = if ($run) { $run.SessionId } else { $null }
     git -C $repo fetch -q origin
     $prNow = gh pr list --head $branch --state open --json number --jq '.[0].number' 2>$null
     $leftWork = (git -C $worktree rev-parse HEAD) -ne $startSha -or
         ((git -C $repo rev-parse "origin/$branch" 2>$null) -ne $startRemote) -or
         ($prNow -and $prNow -ne $startPr)
-    if ($leftWork) { [Console]::Error.WriteLine("$m failed ($reason) after committing, pushing or opening a PR on $branch; not retrying on another model. The main session decides. Log: $log"); exit 1 }
+    if ($leftWork) {
+        # T151: the attempt is recorded (session id and kept files) before the exit, and the exit
+        # prints the "Outside paths touched" report (bug #868 R3) while keeping its exit code.
+        # Nothing is reset here: the model left work behind, so the tree keeps it.
+        $attempts += [pscustomobject]@{ Model = $m; Route = $resolved[$m].Route; Class = $class; Why = $reason; SessionId = $sessionId; KeptFiles = "uncommitted work kept in the worktree ($worktree)" }
+        [Console]::Error.WriteLine((Get-LeftWorkExitText -Model $m -Reason $reason -Branch $branch -Log $log -OutsideRuns $outsideRuns))
+        exit 1
+    }
+    # T151 Done-when 1: keep the failed attempt's uncommitted work as a patch before the reset
+    # (the patch lives under git-ignored rendered/attempts/, so the reset and clean below keep it).
+    $kept = Save-AttemptState -Worktree $worktree -Model $m -StartSha $startSha
+    $attempts += [pscustomobject]@{ Model = $m; Route = $resolved[$m].Route; Class = $class; Why = $reason; SessionId = $sessionId; KeptFiles = if ($kept) { $kept } else { 'none (the tree was clean)' } }
+    if ($class -eq $lastClass) {
+        # T151 Done-when 5 (bug #868 R4; the user's decision of 2026-10-08: "stop and diagnose
+        # the problem"): a second consecutive attempt failed with the same class, so OpenCode
+        # itself is the problem. Stop for diagnosis: no substitute attempt (the script fell
+        # through to one until T151, restoring operating-guide §3's rule), no reset -- the
+        # failed attempt's work stays in the tree and in the patch above -- and exit 3.
+        $prev = $attempts[-2]
+        $curr = $attempts[-1]
+        [Console]::Error.WriteLine((Get-SameCauseExitText -Class $class -First $prev -Second $curr -Log $log -OutsideRuns $outsideRuns))
+        exit 3
+    }
     git -C $worktree reset -q --hard $startSha
     git -C $worktree clean -q -fd
-    if ($class -eq $lastClass) { $sameCause = $class; break }
     $lastClass = $class
 }
 Write-Host "run output: $log"
@@ -796,18 +978,27 @@ if (-not $implementedBy) {
                 if (-not $reason) {
                     $implementedBy = $substitute
                     $resolved[$substitute] = $sr
-                    $attempts += [pscustomobject]@{ Model = $substitute; Route = $sr.Route; Class = 'ran'; Why = '' }
+                    $attempts += [pscustomobject]@{ Model = $substitute; Route = $sr.Route; Class = 'ran'; Why = ''; SessionId = if ($run) { $run.SessionId } else { $null }; KeptFiles = '-' }
                     $finalRun = $run
                 } else {
                     Write-Warning "$substitute failed: $reason"
                     $failures += "${substitute}: $reason"
-                    $attempts += [pscustomobject]@{ Model = $substitute; Route = $sr.Route; Class = (Get-OpenCodeFailureClass $reason); Why = $reason }
+                    $subSessionId = if ($run) { $run.SessionId } else { $null }
                     git -C $repo fetch -q origin
                     $prNow = gh pr list --head $branch --state open --json number --jq '.[0].number' 2>$null
                     $leftWork = (git -C $worktree rev-parse HEAD) -ne $startSha -or
                         ((git -C $repo rev-parse "origin/$branch" 2>$null) -ne $startRemote) -or
                         ($prNow -and $prNow -ne $startPr)
-                    if ($leftWork) { [Console]::Error.WriteLine("$substitute failed ($reason) after committing, pushing or opening a PR on $branch; the main session decides. Log: $log"); exit 1 }
+                    if ($leftWork) {
+                        # T151 (bug #868 R3): record the attempt, print the outside-paths report, keep exit 1.
+                        $attempts += [pscustomobject]@{ Model = $substitute; Route = $sr.Route; Class = (Get-OpenCodeFailureClass $reason); Why = $reason; SessionId = $subSessionId; KeptFiles = "uncommitted work kept in the worktree ($worktree)" }
+                        [Console]::Error.WriteLine((Get-LeftWorkExitText -Model $substitute -Reason $reason -Branch $branch -Log $log -OutsideRuns $outsideRuns))
+                        exit 1
+                    }
+                    # T151 Done-when 1: the substitute's failed attempt keeps its uncommitted work as a
+                    # patch before the reset too.
+                    $subKept = Save-AttemptState -Worktree $worktree -Model $substitute -StartSha $startSha
+                    $attempts += [pscustomobject]@{ Model = $substitute; Route = $sr.Route; Class = (Get-OpenCodeFailureClass $reason); Why = $reason; SessionId = $subSessionId; KeptFiles = if ($subKept) { $subKept } else { 'none (the tree was clean)' } }
                     git -C $worktree reset -q --hard $startSha
                     git -C $worktree clean -q -fd
                 }
@@ -818,7 +1009,6 @@ if (-not $implementedBy) {
 if (-not $implementedBy) {
     # Not Write-Error: under ErrorActionPreference Stop it would end the script with exit 1, not 3.
     $why = if ($chainGoneReason) { $chainGoneReason }
-           elseif ($sameCause) { "same failure twice: $sameCause ($($failures -join '; '))" }
            elseif ($failures) { $failures -join '; ' }
            else { 'the chain and the substitute are both unavailable' }
     [Console]::Error.WriteLine("OpenCode unavailable: $why. The task falls back to Claude Sonnet (operating-guide §3). Log: $log")
