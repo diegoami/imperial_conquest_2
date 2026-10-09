@@ -212,6 +212,19 @@ function Get-OpenCodeExportDenials([string] $ExportFile) {
     return , $found.ToArray()
 }
 
+function Get-OpenCodeDeniedReads([string] $Text, $Denials) {
+    # Every denied outside READ, from both sources (PR #935's review R1): the export's first, then
+    # any the printed output shows that the export does not, so a read either source shows is
+    # reported even when the run ended before the live watch's first poll.
+    $out = New-Object System.Collections.Generic.List[string]
+    if ($null -ne $Denials) { foreach ($d in @(@($Denials) | Where-Object { $_.Read })) { $out.Add([string]$d.Call) } }
+    foreach ($d in @(Get-OpenCodePermissionDenials $Text | Where-Object { $_.Read })) {
+        if (-not $out.Contains([string]$d.Call)) { $out.Add([string]$d.Call) }
+    }
+    # Unrolled: callers wrap it in @(), which gives an empty array when nothing was denied.
+    return $out.ToArray()
+}
+
 function Get-OpenCodeDeniedWrites([string] $Text, $Denials) {
     # Every denied outside WRITE, from both sources (bug #934): the export's (which names the real
     # tool) first, then the printed output's, so a write either source shows is listed. Neither ends
@@ -1134,7 +1147,7 @@ function Invoke-OpenCodeRun {
         # (#931), and a denied call, read or write, never ends the run or fails the attempt (#934).
         PermissionRejected = Get-OpenCodePermissionRejection ($stdout + "`n" + $stderr)
         # The denied outside calls the run went past (bugs #931, #934), for the run's report.
-        OutsideReadsDenied = @($(if ($null -ne $denials) { @($denials) } else { @(Get-OpenCodePermissionDenials ($stdout + "`n" + $stderr)) }) | Where-Object { $_.Read } | ForEach-Object { $_.Call })
+        OutsideReadsDenied = @(Get-OpenCodeDeniedReads ($stdout + "`n" + $stderr) $denials)
         OutsideWritesDenied = @(Get-OpenCodeDeniedWrites ($stdout + "`n" + $stderr) $denials)
         Files     = if ($p.ExitCode -eq 0) { @() } else { $files }
         # The kept transcript (JSON), or $null when the export failed.

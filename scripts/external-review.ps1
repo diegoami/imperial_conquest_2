@@ -938,6 +938,9 @@ Write-Host "__exit:`$code"
     $dw = Get-OpenCodeDeniedWrites "$denyPatch`n$denyRead" @($ed | Where-Object Tool -eq 'bash')
     $ruleChecks += [pscustomobject]@{ Name = "#934: the denied writes list both sources, the export's first (got $($dw -join ' | '))"; Ok = ($dw.Count -eq 2 -and $dw[0] -like 'bash *' -and $dw[1] -eq 'Patch') }
     $ruleChecks += [pscustomobject]@{ Name = '#934: no denied write when only reads were denied'; Ok = (@(Get-OpenCodeDeniedWrites $denyRead @($ed | Where-Object Read)).Count -eq 0) }
+    $dr = @(Get-OpenCodeDeniedReads "$denyRead" @($ed | Where-Object Tool -eq 'bash'))
+    $ruleChecks += [pscustomobject]@{ Name = "#935 R1: a printed read the export omits is still reported (got $($dr -join ' | '))"; Ok = ($dr.Count -eq 1 -and $dr[0] -like 'Read C:/Users/diego/projects/ic2-work/ic2-work/*') }
+    $ruleChecks += [pscustomobject]@{ Name = '#935 R1: no denied read when nothing was denied'; Ok = (@(Get-OpenCodeDeniedReads '' @()).Count -eq 0) }
     # PR #932's re-check R1: a parseable export that misses a printed denial must not drop a write.
     $none = [object[]]@()
     $ruleChecks += [pscustomobject]@{ Name = '#931 re-check R1: an export with no denial does not hide a printed write'; Ok = ((Get-OpenCodeDeniedWrite $denyPatch $none) -eq 'Patch') }
