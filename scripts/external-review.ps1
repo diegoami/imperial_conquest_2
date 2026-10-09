@@ -2,7 +2,7 @@
 .SYNOPSIS
     Hands one pull request to the local OpenCode install for an external review (Luna alone on the
     direct OpenAI route by default, or the one reviewer the main session names for the PR's review
-    tier, build-process.md §3.4: `sol` for a complex PR, `luna` plus `glm` or `deepseek-pro` for the
+    tier, build-process.md §3.4: `sol` for a complex PR, `luna` plus `glm` or `mimo-pro` for the
     Luna pair; the main session runs a cold Claude Opus on the exit-3 failure), and posts the
     result as the one PR comment build-process.md §4.9 expects.
 
@@ -65,13 +65,14 @@
     exit, the fallback-to-default-agent guard, or no review at all. Any other error stops the
     script with a non-zero exit that is not 3.     The worktree is one per attempt, never reused or removed (T151). The
     posted header names the model that reviewed and the ones that failed before it, e.g. "Plan
-    review (Luna; DeepSeek failed: no session in 180 s)". Two consecutive attempts failing
+    review (Luna; MiMo Pro failed: no session in 180 s)". Two consecutive attempts failing
     with the same cause (Get-OpenCodeFailureClass) stop the chain early.
     The model family that implemented the PR never reviews it: -ExcludeModel (or, when that is not
     given, a model:<name> label on the PR or on -Issue naming an OpenCode model) drops every
-    reviewer of that family from the chain (OpenAI: luna, sol; GLM: glm, glm-flash; DeepSeek:
-    deepseek, deepseek-pro, deepseek-flash, ali-deepseek-pro, ali-deepseek-flash; GLM also ali-glm; Qwen:
-    qwen, qwen-flash; MiniMax: mm-m3, mm-m2.7), and an explicit -Reviewer of that family is refused with exit 1.
+    reviewer of that family from the chain (OpenAI: luna, sol; GLM: glm, glm-flash, ali-glm;
+    MiMo: mimo-pro, mimo-flash; Qwen: qwen, qwen-flash; MiniMax: mm-m3, mm-m2.7), and an explicit
+    -Reviewer of that family is refused with exit 1. DeepSeek is blacklisted (#908: the user's
+    decision of 2026-10-09) and not in any family any more.
     If every model fails, the chain stops early, the exclusion leaves no model, or OpenCode is not
     installed, nothing is posted and the script exits 3 ("OpenCode unavailable: ...");
     build-process.md §4.9 says what the main session does then. An explicit -Reviewer runs only
@@ -80,22 +81,25 @@
     commands, and this script is the only writer. A cut-off review (the 2026-09-25 #370 case) is
     posted with a note and no label and the script exits 4 (issue #575); it is never acted on.
 
-    Reviewer -> OpenCode model id. GLM Flash and DeepSeek are on the OpenCode Go list
-    (`opencode-go/deepseek-v4.1-flash`; GLM is on the Z.AI Coding Plan, `zai-coding-plan/glm-5.3` and `zai-coding-plan/glm-5.3-flash`, the user's decision of 2026-10-04); luna is the direct OpenAI
-    route, `openai/gpt-5.6-luna` (GPT-5.6 Luna, on its own weekly OpenAI pool; harness_imperial L51,
-    the user's decision of 2026-10-05), via the machine's OpenAI login (never a Luna on OpenCode Go:
-    Go's proxied `opencode-go/gpt-6-luna` returned Bad Request in long runs, #553); sol is
-    `openai/gpt-6-sol` on the same login; deepseek-pro is `opencode-go/deepseek-v4-pro`. An OpenAI
-    run that fails with "The usage limit has been reached" means that model's OpenAI quota is out.
-    GPT-5.6 Luna draws on OpenAI's main quota like Sol; when OpenAI is exhausted it still runs if
-    /quota/openai lists it under when_exhausted.usable_models (docs/environment.md).
-    `opencode models` shows what this machine has.
+    Reviewer -> OpenCode model id. MiMo Pro and MiMo Flash are on the OpenCode Go list
+    (`opencode-go/mimo-v2.6-pro` and `opencode-go/mimo-v2.6-flash`; both reviewed fine on
+    2026-10-09, the user's decision); GLM is on the Z.AI Coding Plan,
+    `zai-coding-plan/glm-5.3` and `zai-coding-plan/glm-5.3-flash` (the user's decision of
+    2026-10-04); luna is the direct OpenAI route, `openai/gpt-5.6-luna` (GPT-5.6 Luna, on its own
+    weekly OpenAI pool; harness_imperial L51, the user's decision of 2026-10-05), via the
+    machine's OpenAI login (never a Luna on OpenCode Go: Go's proxied `opencode-go/gpt-6-luna`
+    returned Bad Request in long runs, #553); sol is `openai/gpt-6-sol` on the same login.
+    DeepSeek is not used (#908: the user's decision of 2026-10-09) and has no entry here.
+    An OpenAI run that fails with "The usage limit has been reached" means that model's
+    OpenAI quota is out. GPT-5.6 Luna draws on OpenAI's main quota like Sol; when OpenAI is
+    exhausted it still runs if /quota/openai lists it under when_exhausted.usable_models
+    (docs/environment.md). `opencode models` shows what this machine has.
     The Alibaba Token Plan (`alibaba-token-plan/…`, the user's decision of 2026-10-05) carries the
-    Qwen family, qwen (`qwen3.8-max`) and qwen-flash (`qwen3.8-flash`), and a second route for
-    deepseek (`deepseek-v4.1-flash`), deepseek-pro (`deepseek-v4-pro`) and glm (`glm-5.3`); -Route
-    picks it. Its key is the user variable ALIBABA_TOKEN_PLAN_API_KEY, loaded into this process when
-    missing and never printed; "Invalid API-key" or "Provider not found" from it stops the script
-    (exit 1, not 3) with the cause, never a retry (docs/environment.md).
+    Qwen family, qwen (`qwen3.8-max`) and qwen-flash (`qwen3.8-flash`), and (with -Route alibaba,
+    only when the user asks, #893) glm (`glm-5.3`); -Route picks it. Its key is the user variable
+    ALIBABA_TOKEN_PLAN_API_KEY, loaded into this process when missing and never printed;
+    "Invalid API-key" or "Provider not found" from it stops the script (exit 1, not 3) with the
+    cause, never a retry (docs/environment.md).
     The free OpenRouter models are ADVISORY reviewers only (the owner's decision of 2026-10-06,
     build-process.md §3.4): nemotron (`openrouter/nvidia/nemotron-3-ultra-550b-a55b:free`, the
     stronger), north-mini (`openrouter/cohere/north-mini-code:free`, coding-focused, faster), inkling
@@ -117,30 +121,32 @@
 .PARAMETER Reviewer
     auto (default: Luna on openai/gpt-5.6-luna at high effort alone, then a cold Claude Opus by
     hand; issue #575 keeps one OpenCode model per role before Claude), or glm-flash, glm, luna,
-    sol, deepseek, deepseek-pro for that model alone. Light models run at high effort (luna,
-    glm-flash; deepseek has no variant). Heavy models run light (the user's decision of 2026-10-05:
+    sol, mimo-pro, mimo-flash for that model alone. Light models run at high effort (luna,
+    glm-flash, mimo-flash). Heavy models run light (the user's decision of 2026-10-05:
     medium rather than high, or light when medium is not needed): glm at low (GLM-5.3 offers only
-    low, high and max), deepseek-pro at high (DeepSeek V4 Pro offers only high and max), and sol at
-    low by default and medium with -Effort medium, never higher (the user's decision of 2026-10-03).
-    sol (GPT-6 Sol) is the complex tier's reviewer; luna with glm or deepseek-pro, in two runs, is the
-    Luna pair; glm, then deepseek-pro (DeepSeek V4 Pro, `opencode-go/deepseek-v4-pro`), then luna
-    are Sol's substitutes when it cannot review (build-process.md §3.4), then qwen (Qwen3.8 Max at
-    low). qwen-flash (Qwen3.8 Flash at medium; it offers low, medium and xhigh) is the last re-check
-    reviewer of named fixes. nemotron, north-mini, inkling and laguna are the advisory free
-    OpenRouter models (see above): an extra, uncounted second opinion, never a tier's reviewer.
+    low, high and max), mimo-pro at high (MiMo v2.6 Pro offers medium and high; high is the
+    tested pick), and sol at low by default and medium with -Effort medium, never higher (the user's
+    decision of 2026-10-03). sol (GPT-6 Sol) is the complex tier's reviewer; luna with glm or
+    mimo-pro, in two runs, is the Luna pair; glm, then mimo-pro (MiMo v2.6 Pro,
+    `opencode-go/mimo-v2.6-pro`), then luna are Sol's substitutes when it cannot review
+    (build-process.md §3.4), then qwen (Qwen3.8 Max at low). mimo-flash (MiMo v2.6 Flash) is
+    also a valid reviewer; deepseek is not used (#908: the user's decision of 2026-10-09). qwen-flash
+    (Qwen3.8 Flash at medium; it offers low, medium and xhigh) is the last re-check reviewer of
+    named fixes. nemotron, north-mini, inkling and laguna are the advisory free OpenRouter
+    models (see above): an extra, uncounted second opinion, never a tier's reviewer.
 .PARAMETER Route
-    Which provider DeepSeek and GLM run through: auto (the default) takes the usual one (OpenCode Go
-    for deepseek and deepseek-pro, Z.AI for glm); when quota-tracker's /avoid lists it (opencode_go,
+    Which provider MiMo and GLM run through: auto (the default) takes the usual one (OpenCode Go
+    for mimo-pro and mimo-flash, Z.AI for glm); when quota-tracker's /avoid lists it (opencode_go,
     zai) the reviewer is dropped, never moved to the Alibaba Token Plan, which is used only when the
     user asks (#893, the user's decision of 2026-10-09); when the tracker does not answer, the usual
     route. go, zai or alibaba force one; a named reviewer that route does not serve
-    is refused (exit 1). Qwen is always alibaba, luna and sol always openai, glm-flash always zai. The
-    route is printed, and named in the posted review's signature line. A reviewer none of whose
-    routes has quota (/avoid lists them all, or a forced -Route's provider) is skipped, and with none
-    left the script exits 3 with the cause.
+    is refused (exit 1). Qwen is always alibaba, luna and sol always openai, glm-flash always zai.
+    The route is printed, and named in the posted review's signature line. A reviewer none of
+    whose routes has quota (/avoid lists them all, or a forced -Route's provider) is skipped, and
+    with none left the script exits 3 with the cause.
 .PARAMETER BriefFile
     The filled reviewer brief. Its first line must be the review header the model is to print,
-    for example "Plan review (Luna)" or "T94 review (DeepSeek)". With -Reviewer auto, the text in
+    for example "Plan review (Luna)" or "T94 review (MiMo Pro)". With -Reviewer auto, the text in
     its final parentheses is replaced by the name of the model each attempt runs.
 .PARAMETER Issue
     The task's issue number, needed only with -ApplyLabel.
@@ -171,12 +177,13 @@
     runs or a reply streams, so this must exceed the longest single step of a review.
 .PARAMETER ExcludeModel
     The model that implemented the PR, as external-implement.ps1 names it on its "implemented by:"
-    line (deepseek-flash, glm-flash, glm, luna, qwen-flash, mimo-pro, mimo-flash; or a reviewer
-    name, sol and qwen included). Every reviewer of the same family is dropped from the chain (deepseek-flash is
-    DeepSeek, as are deepseek and deepseek-pro; luna and sol are both OpenAI). A deepseek-flash
-    implementer never collides with the Luna or Sol reviewer; a luna implementer excludes both, so -Reviewer auto leaves no OpenCode
-    reviewer, the script exits 3 and a cold Claude Opus reviews. sonnet and opus name a Claude
-    implementer (the Sonnet fallback, or Opus on an architecture task): accepted so that every run
+    line (mimo-pro, mimo-flash, glm-flash, glm, luna, qwen-flash; or a reviewer
+    name, sol, qwen, qwen-flash and mimo-pro included). Every reviewer of the same family is
+    dropped from the chain (mimo-pro is MiMo, as is mimo-flash; luna and sol are both OpenAI). A
+    mimo-pro implementer excludes both MiMo reviewers (mimo-pro and mimo-flash) and nothing
+    else; a luna implementer excludes both, so -Reviewer auto leaves no OpenCode reviewer, the
+    script exits 3 and a cold Claude Opus reviews. sonnet and opus name a Claude implementer
+    (the Sonnet fallback, or Opus on an architecture task): accepted so that every run
     can pass -ExcludeModel, they exclude no OpenCode reviewer, since this script has no Claude
     one (the main session never picks a Claude reviewer for that PR). Without it, a
     model:<name> label on the PR or on -Issue is used when one names an OpenCode model.
@@ -192,14 +199,14 @@
 .EXAMPLE
     pwsh scripts/external-review.ps1 -Pr 479 -BriefFile C:\tmp\479-brief.md
 .EXAMPLE
-    pwsh scripts/external-review.ps1 -Pr 640 -Reviewer sol -ExcludeModel deepseek-flash -BriefFile rendered\640-brief.md -Issue 600 -ApplyLabel
+    pwsh scripts/external-review.ps1 -Pr 640 -Reviewer sol -ExcludeModel mimo-pro -BriefFile rendered\640-brief.md -Issue 600 -ApplyLabel
 .EXAMPLE
-    pwsh scripts/external-review.ps1 -Pr 466 -Reviewer deepseek -BriefFile C:\tmp\466-brief.md -Issue 24 -ApplyLabel -FixturesDir C:\Users\diego\projects\ic2-test-fixtures
+    pwsh scripts/external-review.ps1 -Pr 466 -Reviewer mimo-flash -BriefFile C:\tmp\466-brief.md -Issue 24 -ApplyLabel -FixturesDir C:\Users\diego\projects\ic2-test-fixtures
 #>
 [CmdletBinding()]
 param(
     [int] $Pr,
-    [ValidateSet('auto', 'glm-flash', 'glm', 'luna', 'sol', 'deepseek', 'deepseek-pro', 'qwen', 'qwen-flash', 'mm-m3', 'mm-m2.7', 'ali-deepseek-pro', 'ali-deepseek-flash', 'ali-glm', 'nemotron', 'north-mini', 'inkling', 'laguna')] [string] $Reviewer = 'auto',
+    [ValidateSet('auto', 'glm-flash', 'glm', 'luna', 'sol', 'mimo-pro', 'mimo-flash', 'qwen', 'qwen-flash', 'mm-m3', 'mm-m2.7', 'ali-glm', 'nemotron', 'north-mini', 'inkling', 'laguna')] [string] $Reviewer = 'auto',
     [string] $BriefFile,
     [int] $Issue,
     [switch] $ApplyLabel,
@@ -210,11 +217,27 @@ param(
     [int] $StartupTimeoutSec = 180,
     [int] $TotalTimeoutSec = 3600,
     [int] $IdleTimeoutSec = 600,
-    [ValidateSet('deepseek-flash', 'glm-flash', 'glm', 'luna', 'sol', 'mimo-pro', 'mimo-flash', 'deepseek', 'deepseek-pro', 'qwen', 'qwen-flash', 'mm-m3', 'mm-m2.7', 'ali-deepseek-pro', 'ali-deepseek-flash', 'ali-glm', 'sonnet', 'opus')] [string] $ExcludeModel,
+    [ValidateSet('mimo-pro', 'mimo-flash', 'glm-flash', 'glm', 'luna', 'sol', 'qwen', 'qwen-flash', 'mm-m3', 'mm-m2.7', 'ali-glm', 'sonnet', 'opus')] [string] $ExcludeModel,
     [hashtable] $ModelIds,
     [ValidateSet('low', 'medium')] [string] $Effort,
     [ValidateSet('auto', 'go', 'zai', 'alibaba')] [string] $Route = 'auto'
 )
+
+# Refuse a DeepSeek alias before any PR fetch, worktree, brief parse or OpenCode call
+# (#908: the user's decision of 2026-10-09). The ValidateSet above already excludes DeepSeek
+# names from -Reviewer and -ExcludeModel, so a direct -Reviewer deepseek-pro reaches
+# PowerShell's binding error first (exit 1) with its own message; this guard catches the
+# -ModelIds override and any future path the ValidateSet cannot see, and prints the
+# blacklist reason that /recommend prints for a DeepSeek row (Choose-Model.ps1).
+$deepseekRejectMessage = 'DeepSeek is not used (the user''s decision of 2026-10-09)'
+if ($ModelIds) {
+    foreach ($k in @($ModelIds.Keys)) {
+        if ($k -match '^(deepseek|ali-deepseek)') {
+            [Console]::Error.WriteLine("Refused: -ModelId key '$k' names a DeepSeek alias; $deepseekRejectMessage.")
+            exit 1
+        }
+    }
+}
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Invoke-OpenCodeWatched.ps1')
@@ -522,7 +545,8 @@ function Invoke-ReviewParserSelfTest {
     # --- the review tiers (the user's decision of 2026-10-03, build-process.md §3.4) ---------------
     # Every -Reviewer value but auto has a model id, a variant entry and a display name; sol is GPT-6
     # Sol at low effort by default, medium at most; and the exclusion is by family: an OpenAI implementer
-    # (luna or sol) excludes both OpenAI reviewers, and a DeepSeek implementer excludes neither.
+    # (luna or sol) excludes both OpenAI reviewers, and a MiMo implementer excludes both MiMo
+    # reviewers (a done-with-DeepSeek change, #908: the user's decision of 2026-10-09).
     $reviewerSet = @((Get-Command $PSCommandPath).Parameters['Reviewer'].Attributes |
         Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] } |
         ForEach-Object { $_.ValidValues }) | Where-Object { $_ -ne 'auto' }
@@ -537,11 +561,11 @@ function Invoke-ReviewParserSelfTest {
     $ruleChecks += [pscustomobject]@{ Name = 'sol defaults to low effort'; Ok = ((Get-SolVariant '') -eq 'low') }
     $ruleChecks += [pscustomobject]@{ Name = '-Effort medium gives sol medium'; Ok = ((Get-SolVariant 'medium') -eq 'medium') }
     $ruleChecks += [pscustomobject]@{ Name = '-Effort admits only low and medium (high is refused)'; Ok = ((($effortSet | Sort-Object) -join ',') -eq 'low,medium') }
-    $ruleChecks += [pscustomobject]@{ Name = '-Effort changes no other reviewer (luna and deepseek-pro at high, glm at low)'; Ok = ($variants['luna'] -eq 'high' -and $variants['glm'] -eq 'low' -and $variants['deepseek-pro'] -eq 'high') }
+    $ruleChecks += [pscustomobject]@{ Name = '-Effort changes no other reviewer (luna and mimo-pro at high, glm at low)'; Ok = ($variants['luna'] -eq 'high' -and $variants['glm'] -eq 'low' -and $variants['mimo-pro'] -eq 'high') }
     $ruleChecks += [pscustomobject]@{ Name = 'luna is GPT-5.6 Luna on the direct OpenAI route (L51)'; Ok = ($models['luna'] -eq 'openai/gpt-5.6-luna') }
     $ruleChecks += [pscustomobject]@{ Name = 'a luna implementer excludes luna and sol'; Ok = ((@($reviewerOf['luna']) | Sort-Object) -join ',' -eq 'luna,sol') }
     $ruleChecks += [pscustomobject]@{ Name = 'a sol implementer excludes luna and sol'; Ok = ((@($reviewerOf['sol']) | Sort-Object) -join ',' -eq 'luna,sol') }
-    $ruleChecks += [pscustomobject]@{ Name = 'a deepseek-flash implementer excludes neither luna nor sol'; Ok = (@($reviewerOf['deepseek-flash']) -notcontains 'luna' -and @($reviewerOf['deepseek-flash']) -notcontains 'sol') }
+    $ruleChecks += [pscustomobject]@{ Name = 'a mimo-flash implementer excludes neither luna nor sol'; Ok = (@($reviewerOf['mimo-flash']) -notcontains 'luna' -and @($reviewerOf['mimo-flash']) -notcontains 'sol') }
     # PR #642 review R6: the family check uses one helper, and runs before -WhatIf returns.
     $ruleChecks += [pscustomobject]@{ Name = 'Get-ExcludedReviewers: a luna implementer excludes sol'; Ok = ((Get-ExcludedReviewers @('luna')) -contains 'sol') }
     $ruleChecks += [pscustomobject]@{ Name = 'Get-ExcludedReviewers: no implementer (-WhatIf without -ExcludeModel) excludes nothing'; Ok = (@(Get-ExcludedReviewers $null).Count -eq 0) }
@@ -583,12 +607,14 @@ function Invoke-ReviewParserSelfTest {
     foreach ($claude in 'sonnet', 'opus') {
         $ruleChecks += [pscustomobject]@{ Name = "-ExcludeModel $claude is accepted and excludes no OpenCode reviewer"; Ok = ($excludeSet -contains $claude -and $reviewerOf.ContainsKey($claude) -and @($reviewerOf[$claude]).Count -eq 0) }
     }
-    # Sol's substitutes (the user's policy of 2026-10-03): deepseek-pro is DeepSeek V4 Pro on Go, in
-    # the DeepSeek family.
-    $ruleChecks += [pscustomobject]@{ Name = 'deepseek-pro is opencode-go/deepseek-v4-pro at high, shown as DeepSeek Pro'; Ok = ($models['deepseek-pro'] -eq 'opencode-go/deepseek-v4-pro' -and $variants['deepseek-pro'] -eq 'high' -and $displayNames['deepseek-pro'] -eq 'DeepSeek Pro') }
-    $ruleChecks += [pscustomobject]@{ Name = 'a deepseek-flash implementer excludes deepseek, deepseek-pro and the ali-deepseek names'; Ok = ((@($reviewerOf['deepseek-flash']) | Sort-Object) -join ',' -eq 'ali-deepseek-flash,ali-deepseek-pro,deepseek,deepseek-pro') }
-    $ruleChecks += [pscustomobject]@{ Name = 'a glm implementer excludes neither deepseek-pro nor luna'; Ok = (@($reviewerOf['glm']) -notcontains 'deepseek-pro' -and @($reviewerOf['glm']) -notcontains 'luna') }
-    $ruleChecks += [pscustomobject]@{ Name = 'a deepseek-pro implementer is accepted and excludes its family'; Ok = ($excludeSet -contains 'deepseek-pro' -and (@($reviewerOf['deepseek-pro']) | Sort-Object) -join ',' -eq 'ali-deepseek-flash,ali-deepseek-pro,deepseek,deepseek-pro') }
+    # Sol's substitutes (the user's policy of 2026-10-03, 2026-10-09: DeepSeek is gone): mimo-pro is
+    # MiMo v2.6 Pro on OpenCode Go, in the MiMo family.
+    $ruleChecks += [pscustomobject]@{ Name = 'mimo-pro is opencode-go/mimo-v2.6-pro at high, shown as MiMo Pro'; Ok = ($models['mimo-pro'] -eq 'opencode-go/mimo-v2.6-pro' -and $variants['mimo-pro'] -eq 'high' -and $displayNames['mimo-pro'] -eq 'MiMo Pro') }
+    $ruleChecks += [pscustomobject]@{ Name = 'mimo-flash is opencode-go/mimo-v2.6-flash at high, shown as MiMo Flash (a valid reviewer, #908)'; Ok = ($models['mimo-flash'] -eq 'opencode-go/mimo-v2.6-flash' -and $variants['mimo-flash'] -eq 'high' -and $displayNames['mimo-flash'] -eq 'MiMo Flash') }
+    $ruleChecks += [pscustomobject]@{ Name = 'a mimo-pro implementer excludes mimo-pro and mimo-flash (a MiMo implementer excludes both MiMo reviewers, #908)'; Ok = ((@($reviewerOf['mimo-pro']) | Sort-Object) -join ',' -eq 'mimo-flash,mimo-pro') }
+    $ruleChecks += [pscustomobject]@{ Name = 'a mimo-flash implementer excludes mimo-pro and mimo-flash'; Ok = ((@($reviewerOf['mimo-flash']) | Sort-Object) -join ',' -eq 'mimo-flash,mimo-pro') }
+    $ruleChecks += [pscustomobject]@{ Name = 'a glm implementer excludes neither mimo-pro nor luna'; Ok = (@($reviewerOf['glm']) -notcontains 'mimo-pro' -and @($reviewerOf['glm']) -notcontains 'luna') }
+    $ruleChecks += [pscustomobject]@{ Name = 'a mimo-pro implementer is accepted and excludes its family'; Ok = ($excludeSet -contains 'mimo-pro' -and (@($reviewerOf['mimo-pro']) | Sort-Object) -join ',' -eq 'mimo-flash,mimo-pro') }
     # The Qwen family and the Alibaba routes (the user's decision of 2026-10-05).
     $ruleChecks += [pscustomobject]@{ Name = 'qwen is alibaba-token-plan/qwen3.8-max at low, shown as Qwen'; Ok = ($models['qwen'] -eq 'alibaba-token-plan/qwen3.8-max' -and $variants['qwen'] -eq 'low' -and $displayNames['qwen'] -eq 'Qwen') }
     $ruleChecks += [pscustomobject]@{ Name = 'qwen-flash is alibaba-token-plan/qwen3.8-flash at medium, shown as Qwen Flash'; Ok = ($models['qwen-flash'] -eq 'alibaba-token-plan/qwen3.8-flash' -and $variants['qwen-flash'] -eq 'medium' -and $displayNames['qwen-flash'] -eq 'Qwen Flash') }
@@ -596,27 +622,26 @@ function Invoke-ReviewParserSelfTest {
         $ruleChecks += [pscustomobject]@{ Name = "a $q implementer is accepted and excludes qwen and qwen-flash"; Ok = ($excludeSet -contains $q -and (@($reviewerOf[$q]) | Sort-Object) -join ',' -eq 'qwen,qwen-flash') }
     }
     $ruleChecks += [pscustomobject]@{ Name = 'no other family excludes a Qwen reviewer'; Ok = (@($reviewerOf.Keys | Where-Object { $_ -notlike 'qwen*' } | Where-Object { @($reviewerOf[$_]) -match '^qwen' }).Count -eq 0) }
-    $ruleChecks += [pscustomobject]@{ Name = 'Alibaba ids: deepseek-v4.1-flash, deepseek-v4-pro-0813, glm-5.3; none for glm-flash, luna, sol'; Ok = ($alibabaIds['deepseek'] -eq 'alibaba-token-plan/deepseek-v4.1-flash' -and $alibabaIds['deepseek-pro'] -eq 'alibaba-token-plan/deepseek-v4-pro-0813' -and $alibabaIds['glm'] -eq 'alibaba-token-plan/glm-5.3' -and -not $alibabaIds['glm-flash'] -and -not $alibabaIds['luna'] -and -not $alibabaIds['sol']) }
+    $ruleChecks += [pscustomobject]@{ Name = 'Alibaba ids: glm-5.3 only (the deepseek-v4.1-flash and deepseek-v4-pro-0813 routes are gone, #908); none for glm-flash, mimo-pro, mimo-flash, luna, sol'; Ok = ($alibabaIds['glm'] -eq 'alibaba-token-plan/glm-5.3' -and -not $alibabaIds['glm-flash'] -and -not $alibabaIds['luna'] -and -not $alibabaIds['sol'] -and -not $alibabaIds['mimo-pro'] -and -not $alibabaIds['mimo-flash']) }
     $rt = { param($name, $route, $answered, $avoid) Resolve-OpenCodeRoute -Usual $models[$name] -Alibaba $alibabaIds[$name] -Route $route -Answered $answered -Avoid $avoid }
-    # MiniMax and the ali-* names (the owner's decision of 2026-10-06).
+    # MiniMax and the ali-* names (the owner's decision of 2026-10-06; #908: ali-deepseek-* are gone).
     $ruleChecks += [pscustomobject]@{ Name = 'mm-m3 is minimax/MiniMax-M3 at thinking, mm-m2.7 minimax/MiniMax-M2.7 with no variant'; Ok = ($models['mm-m3'] -eq 'minimax/MiniMax-M3' -and $variants['mm-m3'] -eq 'thinking' -and $models['mm-m2.7'] -eq 'minimax/MiniMax-M2.7' -and $variants['mm-m2.7'] -eq '') }
-    $ruleChecks += [pscustomobject]@{ Name = 'ali-deepseek-pro is deepseek-v4-pro-0813 at high, ali-deepseek-flash deepseek-v4.1-flash at high, ali-glm glm-5.3 at low'; Ok = ($models['ali-deepseek-pro'] -eq 'alibaba-token-plan/deepseek-v4-pro-0813' -and $variants['ali-deepseek-pro'] -eq 'high' -and $models['ali-deepseek-flash'] -eq 'alibaba-token-plan/deepseek-v4.1-flash' -and $variants['ali-deepseek-flash'] -eq 'high' -and $models['ali-glm'] -eq 'alibaba-token-plan/glm-5.3' -and $variants['ali-glm'] -eq 'low') }
+    $ruleChecks += [pscustomobject]@{ Name = 'ali-glm is alibaba-token-plan/glm-5.3 at low (the only Alibaba alias left, #908)'; Ok = ($models['ali-glm'] -eq 'alibaba-token-plan/glm-5.3' -and $variants['ali-glm'] -eq 'low') }
     foreach ($m in 'mm-m3', 'mm-m2.7') {
         $ruleChecks += [pscustomobject]@{ Name = "a $m implementer is accepted and excludes mm-m3 and mm-m2.7 only"; Ok = ($excludeSet -contains $m -and (@($reviewerOf[$m]) | Sort-Object) -join ',' -eq 'mm-m2.7,mm-m3') }
     }
     $ruleChecks += [pscustomobject]@{ Name = 'no other family excludes a MiniMax reviewer'; Ok = (@($reviewerOf.Keys | Where-Object { $_ -notlike 'mm-*' } | Where-Object { @($reviewerOf[$_]) -match '^mm-' }).Count -eq 0) }
     $ruleChecks += [pscustomobject]@{ Name = 'a glm implementer excludes ali-glm, an ali-glm implementer glm and glm-flash'; Ok = (@($reviewerOf['glm']) -contains 'ali-glm' -and (@($reviewerOf['ali-glm']) | Sort-Object) -join ',' -eq 'ali-glm,glm,glm-flash') }
-    $ruleChecks += [pscustomobject]@{ Name = 'an ali-deepseek-flash implementer is accepted and excludes deepseek and deepseek-pro'; Ok = ($excludeSet -contains 'ali-deepseek-flash' -and @($reviewerOf['ali-deepseek-flash']) -contains 'deepseek' -and @($reviewerOf['ali-deepseek-flash']) -contains 'deepseek-pro') }
     $r = & $rt 'mm-m3' 'auto' $true @('minimax')
     $ruleChecks += [pscustomobject]@{ Name = 'route auto, minimax avoided: mm-m3 has no other route and is Avoided'; Ok = ($r.Route -eq 'minimax' -and $r.Avoided) }
     $r = & $rt 'mm-m3' 'auto' $true @('opencode_go', 'zai')
     $ruleChecks += [pscustomobject]@{ Name = 'route auto, minimax not avoided: mm-m3 runs minimax/MiniMax-M3'; Ok = ($r.Route -eq 'minimax' -and $r.Model -eq 'minimax/MiniMax-M3' -and -not $r.Avoided) }
     $r = & $rt 'ali-glm' 'auto' $true @('alibaba')
     $ruleChecks += [pscustomobject]@{ Name = 'route auto, alibaba avoided: ali-glm is Avoided'; Ok = ($r.Route -eq 'alibaba' -and $r.Avoided) }
-    $r = & $rt 'deepseek-pro' 'auto' $true @()
-    $ruleChecks += [pscustomobject]@{ Name = 'route auto, nothing avoided: deepseek-pro stays on go'; Ok = ($r.Route -eq 'go' -and $r.Model -eq 'opencode-go/deepseek-v4-pro') }
-    $r = & $rt 'deepseek-pro' 'auto' $true @('opencode_go')
-    $ruleChecks += [pscustomobject]@{ Name = 'route auto, opencode_go avoided: deepseek-pro stays on go, Avoided (never moved to alibaba, #893)'; Ok = ($r.Route -eq 'go' -and $r.Model -eq 'opencode-go/deepseek-v4-pro' -and $r.Avoided) }
+    $r = & $rt 'mimo-pro' 'auto' $true @()
+    $ruleChecks += [pscustomobject]@{ Name = 'route auto, nothing avoided: mimo-pro stays on go'; Ok = ($r.Route -eq 'go' -and $r.Model -eq 'opencode-go/mimo-v2.6-pro') }
+    $r = & $rt 'mimo-pro' 'auto' $true @('opencode_go')
+    $ruleChecks += [pscustomobject]@{ Name = 'route auto, opencode_go avoided: mimo-pro stays on go, Avoided (never moved to alibaba, #893)'; Ok = ($r.Route -eq 'go' -and $r.Model -eq 'opencode-go/mimo-v2.6-pro' -and $r.Avoided) }
     $r = & $rt 'glm' 'auto' $true @('zai')
     $ruleChecks += [pscustomobject]@{ Name = 'route auto, zai avoided: glm stays on zai, Avoided (never moved to alibaba, #893)'; Ok = ($r.Route -eq 'zai' -and $r.Avoided) }
     $r = & $rt 'glm' 'auto' $true @('zai', 'alibaba')
@@ -631,8 +656,6 @@ function Invoke-ReviewParserSelfTest {
     $ruleChecks += [pscustomobject]@{ Name = 'route auto, openai exhausted, only luna usable: sol stays Avoided'; Ok = ($r.Avoided) }
     $r = & $rt 'glm-flash' 'auto' $true @('zai')
     $ruleChecks += [pscustomobject]@{ Name = 'route auto, zai avoided: glm-flash has no Alibaba id and is Avoided'; Ok = ($r.Route -eq 'zai' -and $r.Avoided) }
-    $r = & $rt 'deepseek' 'alibaba' $false @()
-    $ruleChecks += [pscustomobject]@{ Name = '-Route alibaba: deepseek runs alibaba deepseek-v4.1-flash'; Ok = ($r.Model -eq 'alibaba-token-plan/deepseek-v4.1-flash') }
     $r = & $rt 'glm' 'go' $false @()
     $ruleChecks += [pscustomobject]@{ Name = '-Route go is refused for glm'; Ok = ($r.Refused) }
     $r = & $rt 'luna' 'alibaba' $false @()
@@ -646,10 +669,12 @@ function Invoke-ReviewParserSelfTest {
     $qwenCode = $LASTEXITCODE
     $null = & pwsh -NoProfile -File $PSCommandPath -Pr 1 -Reviewer luna -Route alibaba -BriefFile $probeBrief -WhatIf 2>&1
     $lunaRouteCode = $LASTEXITCODE
-    Remove-Item -LiteralPath $probeBrief -Force -ErrorAction SilentlyContinue
+    # #908: -WhatIf -Reviewer deepseek-pro is refused with exit 1 (PowerShell binding error); the
+    # guard at the param block prints the blacklist reason for a -ModelIds override.
+    $savedIds = $null; if ($PSBoundParameters.ContainsKey('ModelIds')) { $savedIds = $PSBoundParameters['ModelIds'] }
     $ruleChecks += [pscustomobject]@{ Name = "-WhatIf -Reviewer qwen -ExcludeModel qwen-flash is refused with exit 1 (got $qwenCode)"; Ok = ($qwenCode -eq 1) }
-    $r = & $rt 'deepseek-pro' 'alibaba' $true @('alibaba')
-    $ruleChecks += [pscustomobject]@{ Name = '-Route alibaba with alibaba avoided: deepseek-pro is Avoided'; Ok = ($r.Avoided -and -not $r.Refused) }
+    $r = & $rt 'ali-glm' 'alibaba' $true @('alibaba')
+    $ruleChecks += [pscustomobject]@{ Name = '-Route alibaba with alibaba avoided: ali-glm is Avoided'; Ok = ($r.Avoided -and -not $r.Refused) }
     # Sol's review of PR 783, R2 and R4: the reviewer path acts on /avoid (IC2_QUOTA_AVOID stands in
     # for the service), and a -WhatIf without -ExcludeModel succeeds.
     $probeBrief = Join-Path $probeDir "selftest-brief-$([guid]::NewGuid().ToString('N').Substring(0, 8)).md"
@@ -667,6 +692,49 @@ function Invoke-ReviewParserSelfTest {
     $ruleChecks += [pscustomobject]@{ Name = "-WhatIf -Reviewer glm with zai avoided exits 3, never moved to alibaba (#893) (got $($p.Code))"; Ok = ($p.Code -eq 3 -and $p.Out -notlike '*alibaba-token-plan/glm-5.3*') }
     Remove-Item -LiteralPath $probeBrief -Force -ErrorAction SilentlyContinue
     $ruleChecks += [pscustomobject]@{ Name = "-WhatIf -Reviewer luna -Route alibaba is refused with exit 1 (got $lunaRouteCode)"; Ok = ($lunaRouteCode -eq 1) }
+    # #908: a -ModelIds override keyed by a DeepSeek name is refused with the blacklist reason
+    # and exit 1, even though the ValidateSet does not name DeepSeek any more (it can't see a
+    # -ModelIds key). The probe writes a small helper that builds the hashtable in a child pwsh
+    # (so the script's [CmdletBinding()] binding sees a real hashtable, not a stringified "@{"),
+    # runs the script, prints "__exit:<n>" with the child's exit code, and emits whatever the
+    # script printed. The helper is removed after the probe.
+    $deepseekHelperDir = Join-Path $probeDir 'deepseek-helper'
+    New-Item -ItemType Directory -Force -Path $deepseekHelperDir | Out-Null
+    $deepseekHelper = Join-Path $deepseekHelperDir 'invoke.ps1'
+    $helperText = @"
+param([string] `$Key)
+`$f = `$args[0]; `$script = `$args[1]
+`$ids = @{ "`$Key" = 'opencode-go/mimo-v2.6-pro' }
+`$out = & `$script -Pr 1 -Reviewer mimo-pro -BriefFile `$f -ModelIds `$ids -WhatIf 2>&1
+`$code = `$LASTEXITCODE
+`$out | Out-String
+Write-Host "__exit:`$code"
+"@
+    [System.IO.File]::WriteAllText($deepseekHelper, $helperText, [System.Text.UTF8Encoding]::new($false))
+    $probeDeep = {
+        param([string] $Key)
+        $savedAvoid = $env:IC2_QUOTA_AVOID
+        $env:IC2_QUOTA_AVOID = 'none'
+        try {
+            $f = Join-Path $probeDir "selftest-brief-$([guid]::NewGuid().ToString('N').Substring(0, 8)).md"
+            Set-Content -LiteralPath $f -Value "T0 review (Luna)`nself-test probe brief" -Encoding utf8
+            $lines = & pwsh -NoProfile -File $deepseekHelper -Key $Key $f $PSCommandPath 2>&1
+            $code = if ($lines) {
+                $last = @($lines)[-1]
+                if ($last -match '^__exit:(\d+)$') { [int]$Matches[1] } else { $LASTEXITCODE }
+            } else { $LASTEXITCODE }
+            $o = ($lines | Where-Object { $_ -notmatch '^__exit:\d+$' }) -join "`n"
+            [pscustomobject]@{ Code = $code; Out = $o }
+        } finally {
+            if ($null -eq $savedAvoid) { Remove-Item Env:IC2_QUOTA_AVOID -ErrorAction SilentlyContinue } else { $env:IC2_QUOTA_AVOID = $savedAvoid }
+            Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue
+        }
+    }
+    foreach ($k in 'deepseek', 'deepseek-pro', 'deepseek-flash', 'ali-deepseek-pro', 'ali-deepseek-flash') {
+        $r = & $probeDeep $k
+        $ruleChecks += [pscustomobject]@{ Name = "-ModelIds override $k is refused with exit 1 and the blacklist reason (got $($r.Code))"; Ok = ($r.Code -eq 1 -and $r.Out -match 'DeepSeek is not used') }
+    }
+    Remove-Item -LiteralPath $deepseekHelperDir -Recurse -Force -ErrorAction SilentlyContinue
     # Sol's round-2 review of PR 783, R3: OpenCode's own stderr error line stops an Alibaba run even at
     # exit 0; the model's words (stdout, or a stderr line that is not OpenCode's "Error: " line) never do.
     $okRun = [pscustomobject]@{ ExitCode = 0; StdOut = 'review text'; StdErr = "`n> build · qwen3.8-flash`n`nError: Invalid API-key provided. For details, see the docs" }
@@ -802,33 +870,31 @@ function Invoke-ReviewParserSelfTest {
 # (issue #551), except the reviewer: it is Luna on the direct OpenAI route, `openai/gpt-5.6-luna`,
 # via the machine's OpenAI login (issue #575; Go's proxied `opencode-go/gpt-6-luna` upstream
 # returned Bad Request in long runs, #553). Luna at high effort is the review model (one OpenCode
-# model per role before Claude); glm-flash, glm and deepseek stay valid as explicit -Reviewer
-# values, and no default path picks them. sol (GPT-6 Sol, `openai/gpt-6-sol`, the same OpenAI login)
-# is the complex tier's reviewer and luna plus glm or deepseek-pro the Luna pair (the user's decision of
-# 2026-10-03, build-process.md §3.4); the main session passes them explicitly, so auto stays Luna.
+# model per role before Claude); glm-flash, glm, mimo-pro and mimo-flash stay valid as explicit
+# -Reviewer values, and no default path picks them. sol (GPT-6 Sol, `openai/gpt-6-sol`, the same
+# OpenAI login) is the complex tier's reviewer and luna plus glm or mimo-pro the Luna pair (the
+# user's decisions of 2026-10-03 and 2026-10-09, build-process.md §3.4); the main session passes
+# them explicitly, so auto stays Luna. DeepSeek is gone (#908).
 $models = @{
     'glm-flash' = 'zai-coding-plan/glm-5.3-flash'
     glm         = 'zai-coding-plan/glm-5.3'
     luna        = 'openai/gpt-5.6-luna'
     sol         = 'openai/gpt-6-sol'
-    deepseek    = 'opencode-go/deepseek-v4.1-flash'
-    # DeepSeek V4 Pro, Sol's second substitute (the user's policy of 2026-10-03, build-process.md
-    # §3.4 "When Sol cannot review"); `opencode models opencode-go --verbose` lists its variants as
-    # high and max, so it runs at high like the others.
-    'deepseek-pro' = 'opencode-go/deepseek-v4-pro'
+    # MiMo Pro and Flash, on OpenCode Go (#908: the user's decision of 2026-10-09; both tested on
+    # implement, fix and review tasks that day). They are in the same family (one of the user-
+    # maintained families), so a MiMo implementer excludes both from being reviewers.
+    'mimo-pro'  = 'opencode-go/mimo-v2.6-pro'
+    'mimo-flash' = 'opencode-go/mimo-v2.6-flash'
     # The Qwen family, on the Alibaba Token Plan only (the user's decision of 2026-10-05): qwen is
     # Qwen3.8 Max, a heavy reviewer; qwen-flash is Qwen3.8 Flash, the light re-check reviewer.
     qwen         = 'alibaba-token-plan/qwen3.8-max'
     'qwen-flash' = 'alibaba-token-plan/qwen3.8-flash'
-    # MiniMax, a vendor of its own on the minimax.io Token Plan (provider `minimax`, its key in the data
-    # folder's auth.json), and the Alibaba Token Plan's DeepSeek and GLM under names of their own (the
-    # owner's decision of 2026-10-06). The ali-* names are their model's family (below); ali-deepseek-pro
-    # is the dated deepseek-v4-pro-0813, the id Alibaba's night discount applies to.
-    'mm-m3'              = 'minimax/MiniMax-M3'
-    'mm-m2.7'            = 'minimax/MiniMax-M2.7'
-    'ali-deepseek-pro'   = 'alibaba-token-plan/deepseek-v4-pro-0813'
-    'ali-deepseek-flash' = 'alibaba-token-plan/deepseek-v4.1-flash'
-    'ali-glm'            = 'alibaba-token-plan/glm-5.3'
+    # MiniMax, a vendor of its own on the minimax.io Token Plan (provider `minimax`, its key in the
+    # data folder's auth.json), and the Alibaba Token Plan's GLM under a name of its own (the
+    # owner's decision of 2026-10-06; the ali-deepseek-* names are gone with DeepSeek, #908).
+    'mm-m3'   = 'minimax/MiniMax-M3'
+    'mm-m2.7' = 'minimax/MiniMax-M2.7'
+    'ali-glm' = 'alibaba-token-plan/glm-5.3'
     # The free OpenRouter models, ADVISORY ONLY (the owner's decision of 2026-10-06, build-process.md
     # §3.4): a second opinion next to a counted reviewer, never counted, never labelling, never a
     # family's reviewer. nemotron (Nemotron 3 Ultra) is the stronger one; north-mini (Cohere North
@@ -859,49 +925,46 @@ function Get-SolVariant([string] $Requested) { if ($Requested) { return $Request
 # The advisory models (`opencode models openrouter --verbose`, 2026-10-06): Nemotron 3 Ultra offers
 # medium and high, North Mini and Laguna low, medium and high, Inkling none to max. The heavy ones run at
 # medium; North Mini, light, at high, as the other light reviewers do.
-# MiniMax-M3 offers none and thinking (thinking); MiniMax-M2.7 none. deepseek-v4-pro-0813 offers high and
-# max, deepseek-v4.1-flash and glm-5.3 low, high and max (`opencode models --verbose`, 2026-10-06).
-$variants = @{ 'glm-flash' = 'high'; glm = 'low'; luna = 'high'; sol = (Get-SolVariant $Effort); deepseek = ''; 'deepseek-pro' = 'high'; qwen = 'low'; 'qwen-flash' = 'medium'; 'mm-m3' = 'thinking'; 'mm-m2.7' = ''; 'ali-deepseek-pro' = 'high'; 'ali-deepseek-flash' = 'high'; 'ali-glm' = 'low'; nemotron = 'medium'; 'north-mini' = 'high'; inkling = 'medium'; laguna = 'medium' }
-$displayNames = @{ 'glm-flash' = 'GLM Flash'; glm = 'GLM'; luna = 'Luna'; sol = 'Sol'; deepseek = 'DeepSeek'; 'deepseek-pro' = 'DeepSeek Pro'; qwen = 'Qwen'; 'qwen-flash' = 'Qwen Flash'; 'mm-m3' = 'MiniMax M3'; 'mm-m2.7' = 'MiniMax M2.7'; 'ali-deepseek-pro' = 'DeepSeek Pro (Alibaba)'; 'ali-deepseek-flash' = 'DeepSeek Flash (Alibaba)'; 'ali-glm' = 'GLM (Alibaba)'; nemotron = 'Nemotron'; 'north-mini' = 'North Mini'; inkling = 'Inkling'; laguna = 'Laguna' }
-# The Alibaba Token Plan route of the DeepSeek and GLM reviewers (the user's decision of 2026-10-05):
-# the same model, so the same name and family, on another provider. -Route picks it (auto: when
-# quota-tracker's /avoid lists the usual provider, opencode_go or zai). The variants are the same
-# (Alibaba's deepseek-v4-pro offers high and max, glm-5.3 low, high and max). No light GLM on Alibaba.
+# MiniMax-M3 offers none and thinking (thinking); MiniMax-M2.7 none. MiMo v2.6 Pro offers medium
+# and high (`opencode models --verbose`, 2026-10-09; MiMo Pro reviews at high, the tested pick); MiMo
+# v2.6 Flash and glm-5.3 low, high and max (`opencode models --verbose`, 2026-10-06).
+$variants = @{ 'glm-flash' = 'high'; glm = 'low'; luna = 'high'; sol = (Get-SolVariant $Effort); 'mimo-pro' = 'high'; 'mimo-flash' = 'high'; qwen = 'low'; 'qwen-flash' = 'medium'; 'mm-m3' = 'thinking'; 'mm-m2.7' = ''; 'ali-glm' = 'low'; nemotron = 'medium'; 'north-mini' = 'high'; inkling = 'medium'; laguna = 'medium' }
+$displayNames = @{ 'glm-flash' = 'GLM Flash'; glm = 'GLM'; luna = 'Luna'; sol = 'Sol'; 'mimo-pro' = 'MiMo Pro'; 'mimo-flash' = 'MiMo Flash'; qwen = 'Qwen'; 'qwen-flash' = 'Qwen Flash'; 'mm-m3' = 'MiniMax M3'; 'mm-m2.7' = 'MiniMax M2.7'; 'ali-glm' = 'GLM (Alibaba)'; nemotron = 'Nemotron'; 'north-mini' = 'North Mini'; inkling = 'Inkling'; laguna = 'Laguna' }
+# The Alibaba Token Plan route of the GLM reviewer (the user's decision of 2026-10-05; #908:
+# DeepSeek is gone, so the ali-deepseek-* ids are gone): the same model on another provider.
+# -Route picks it (auto: when quota-tracker's /avoid lists the usual provider, zai); the variant is
+# the same (Alibaba's glm-5.3 offers low, high and max). No light GLM on Alibaba.
 $alibabaIds = @{
-    deepseek       = 'alibaba-token-plan/deepseek-v4.1-flash'
-    # The dated id: only it gets the night discount (the owner's decision of 2026-10-06).
-    'deepseek-pro' = 'alibaba-token-plan/deepseek-v4-pro-0813'
     glm            = 'alibaba-token-plan/glm-5.3'
 }
 # The reviewer's model family is never the implementer's (build-process.md §3.4). The implementing
 # model comes from -ExcludeModel, else from a model:<name> label on the PR or its issue that names an
 # OpenCode model (model:opus and model:sonnet name Claude, which is not in this chain). Implementer
-# name -> the reviewer names of the same family; the MiMo models have no reviewer here. The families
-# (the user's decision of 2026-10-03): OpenAI is luna and sol, GLM is glm and glm-flash, DeepSeek is
-# deepseek, deepseek-pro and deepseek-flash. A luna or sol implementer excludes both OpenAI reviewers, so -Reviewer
-# auto leaves no OpenCode reviewer and the script exits 3 (a cold Claude Opus reviews), and -Reviewer
-# sol or luna is refused. A Claude implementer (sonnet, opus) excludes no OpenCode reviewer: the
-# Claude family has no reviewer here, and the main session keeps Claude off that PR's review.
+# name -> the reviewer names of the same family. The families (the user's decision of 2026-10-03,
+# extended 2026-10-09): OpenAI is luna and sol, GLM is glm, glm-flash and ali-glm, MiMo is
+# mimo-pro and mimo-flash, Qwen is qwen and qwen-flash, MiniMax is mm-m3 and mm-m2.7, Claude is
+# sonnet and opus (no reviewer here). A luna or sol implementer excludes both OpenAI reviewers, so
+# -Reviewer auto leaves no OpenCode reviewer and the script exits 3 (a cold Claude Opus reviews), and
+# -Reviewer sol or luna is refused. A MiMo implementer (Done-when 2 of #908) excludes both
+# MiMo reviewers, and nothing else.
 $reviewerOf = @{
-    'deepseek-flash'     = @('deepseek', 'deepseek-pro', 'ali-deepseek-pro', 'ali-deepseek-flash')
-    'deepseek'           = @('deepseek', 'deepseek-pro', 'ali-deepseek-pro', 'ali-deepseek-flash')
-    'deepseek-pro'       = @('deepseek', 'deepseek-pro', 'ali-deepseek-pro', 'ali-deepseek-flash')
-    'ali-deepseek-pro'   = @('deepseek', 'deepseek-pro', 'ali-deepseek-pro', 'ali-deepseek-flash')
-    'ali-deepseek-flash' = @('deepseek', 'deepseek-pro', 'ali-deepseek-pro', 'ali-deepseek-flash')
-    'glm-flash'          = @('glm-flash', 'glm', 'ali-glm')
-    'glm'                = @('glm-flash', 'glm', 'ali-glm')
-    'ali-glm'            = @('glm-flash', 'glm', 'ali-glm')
-    'luna'           = @('luna', 'sol')
-    'sol'            = @('luna', 'sol')
+    # MiMo is its own family (#908).
+    'mimo-pro'   = @('mimo-pro', 'mimo-flash')
+    'mimo-flash' = @('mimo-pro', 'mimo-flash')
+    'glm-flash'  = @('glm-flash', 'glm', 'ali-glm')
+    'glm'        = @('glm-flash', 'glm', 'ali-glm')
+    'ali-glm'    = @('glm-flash', 'glm', 'ali-glm')
+    'luna'       = @('luna', 'sol')
+    'sol'        = @('luna', 'sol')
     # Qwen is its own family (the user's decision of 2026-10-05): a Qwen implementer excludes both
     # Qwen reviewers, and Qwen reviews any other family's PR.
-    'qwen'           = @('qwen', 'qwen-flash')
-    'qwen-flash'     = @('qwen', 'qwen-flash')
+    'qwen'       = @('qwen', 'qwen-flash')
+    'qwen-flash' = @('qwen', 'qwen-flash')
     # MiniMax is its own family (the owner's decision of 2026-10-06): it reviews any other family's PR.
-    'mm-m3'          = @('mm-m3', 'mm-m2.7')
-    'mm-m2.7'        = @('mm-m3', 'mm-m2.7')
-    'sonnet'         = @()
-    'opus'           = @()
+    'mm-m3'      = @('mm-m3', 'mm-m2.7')
+    'mm-m2.7'    = @('mm-m3', 'mm-m2.7')
+    'sonnet'     = @()
+    'opus'       = @()
 }
 
 function Get-ExcludedReviewers([string[]] $Implementers) {
@@ -1090,7 +1153,7 @@ $implementers = if ($ExcludeModel) { @($ExcludeModel) } elseif ($WhatIf) { @() }
     $labels = @(gh pr view $Pr --json labels --jq '.labels[].name' 2>$null)
     if ($Issue) { $labels += @(gh issue view $Issue --json labels --jq '.labels[].name' 2>$null) }
     @($labels | Where-Object { $_ -match '^model:(.+)$' } | ForEach-Object { $_.Substring(6) } |
-        Where-Object { $_ -in 'deepseek-flash', 'glm-flash', 'glm', 'luna', 'sol', 'mimo-pro', 'mimo-flash', 'deepseek', 'deepseek-pro', 'qwen', 'qwen-flash', 'mm-m3', 'mm-m2.7', 'ali-deepseek-pro', 'ali-deepseek-flash', 'ali-glm' } | Select-Object -Unique)
+        Where-Object { $_ -in 'mimo-pro', 'mimo-flash', 'glm-flash', 'glm', 'luna', 'sol', 'qwen', 'qwen-flash', 'mm-m3', 'mm-m2.7', 'ali-glm' } | Select-Object -Unique)
 }
 if ($WhatIf -and -not $ExcludeModel) { Write-Host 'family not checked: pass -ExcludeModel <implemented by> to check it.' }
 $excluded = Get-ExcludedReviewers $implementers
@@ -1104,11 +1167,11 @@ if (-not $chain) {
     [Console]::Error.WriteLine("OpenCode unavailable: no reviewer model left after excluding the implementer's ($($implementers -join ', ')). Nothing posted.")
     exit 3
 }
-# The route of each chain reviewer (the user's decision of 2026-10-05). quota-tracker's /avoid is read
-# once: -Route auto keeps DeepSeek's or GLM's usual route, never moving it to the Alibaba Token Plan
-# (#893: Alibaba only when the user asks); a tracker that does not answer keeps the usual route. A
-# reviewer whose route is avoided (Qwen with alibaba avoided; GLM or DeepSeek with its usual provider
-# avoided; a forced -Route whose provider is avoided) is dropped, as Appendix C's
+# The route of each chain reviewer (the user's decision of 2026-10-05, 2026-10-09: DeepSeek is gone).
+# quota-tracker's /avoid is read once: -Route auto keeps MiMo's or GLM's usual route, never moving it
+# to the Alibaba Token Plan (#893: Alibaba only when the user asks); a tracker that does not answer
+# keeps the usual route. A reviewer whose route is avoided (Qwen with alibaba avoided; GLM or MiMo with
+# its usual provider avoided; a forced -Route whose provider is avoided) is dropped, as Appendix C's
 # QUOTA FIRST skips it, and when none is left the script exits 3 with the cause, so the main session
 # takes the next reviewer. An explicit -Route that a named reviewer has no id for is refused (exit 1).
 if ($isAdvisory) {
