@@ -26,7 +26,14 @@ namespace IC2.Slice.Checks;
 /// <item>the shipped-WAV loader puts the file's PCM data chunk — not the whole RIFF file — in
 /// <c>AudioStreamWav.Data</c> (R3);</item>
 /// <item>no blocking: a 2.0 s stream bound to <c>sfx.city_captured</c> starts playing and the
-/// <c>Submit</c> that triggered it returns within the budget (Sol's review of PR 793, R6).</item>
+/// <c>Submit</c> that triggered it returns within the budget (Sol's review of PR 793, R6);</item>
+/// <item>R1 (rework round 2, the user's decision of 2026-10-09): over time, the 3-tile move
+/// gives three <em>completed</em> plays of <c>sfx.unit_move</c> — three starts and three
+/// <c>Finished</c> signals, each start followed by its finish before the next start, no
+/// restart in between;</item>
+/// <item>R2: a second order whose step key is still playing (a 0.5 s stream bound to
+/// <c>sfx.unit_move</c>) does not restart it: the first play runs to its finish, and the
+/// queued step plays only after it.</item>
 /// </list>
 /// Run headless:
 /// <code>
@@ -58,6 +65,7 @@ public partial class SoundCuesCheck : Control
     private MainGameScreen _mainGame = null!;
     private MainGameScreen _moveMainGame = null!;
     private MainGameScreen _noBlockingMainGame = null!;
+    private MainGameScreen _restartMainGame = null!;
     private int _frame;
     private int _step;
 
@@ -65,6 +73,18 @@ public partial class SoundCuesCheck : Control
     private const string MoveArmyId = "sound-cues-move-army";
     private const string NoBlockingArmyId = "sound-cues-no-blocking-army";
     private const string NoBlockingCityId = "sound-cues-no-blocking-city";
+    private const string RestartArmyId = "sound-cues-restart-army";
+
+    /// <summary>Wall-clock tick (ms) of the 3-tile move's Submit, for the R1 completed-plays
+    /// wait; and of the R2 second order's Submit. Read with <c>Time.GetTicksMsec</c>.</summary>
+    private ulong _r1SubmitMs;
+    private ulong _r2SubmitMs;
+
+    /// <summary>Accumulated playback-log entries for the R1 move screen and the R2 restart
+    /// screen. <c>PlaybackLogForCheck</c> drains on every read, so each read appends here and
+    /// the counts are taken over the union, not the last slice.</summary>
+    private readonly List<SoundPlayer.PlaybackLogEntry> _r1Log = new();
+    private readonly List<SoundPlayer.PlaybackLogEntry> _r2Log = new();
 
     /// <summary>How many ms the no-blocking Submit may take, cue handling included, per Sol's
     /// review of PR 793 (R6). The original <c>PlaySoundA</c> with <c>SND_SYNC</c> blocked the
@@ -136,6 +156,17 @@ public partial class SoundCuesCheck : Control
                     MercenaryLabel: 0, UnitTypeId: "heavy_infantry", Troops: 30000, Quality: 8,
                     Name: "NoBlocking Army")));
 
+        // R2 (rework round 2): a fourth army on its own lane, far from the others, for the
+        // second-order step run whose key is still playing when it is dequeued.
+        var restartArmy = new IC2.Engine.Model.ArmyState(
+            Id: RestartArmyId, Nation: HumanNation,
+            X: 55, Y: 40, Moves: 99, Morale: 80, Money: 0, SupplyTons: 0,
+            CoveredTileCode: 4, AboardFleetId: null,
+            Units: IC2.Engine.Model.ValueList.Of(
+                new IC2.Engine.Model.UnitSlot(
+                    MercenaryLabel: 0, UnitTypeId: "heavy_infantry", Troops: 30000, Quality: 8,
+                    Name: "Restart Army")));
+
         // Add the city and army, and remove the shipped rome army so the cue list's human
         // filter sees only this one. Mark rome as the human seat so the GameSession's own
         // watch-mode gate recognises the seat.
@@ -149,7 +180,8 @@ public partial class SoundCuesCheck : Control
                 initial.Cities.Append(enemyCity).Append(noBlockingCity)),
             Armies = IC2.Engine.Model.ValueList.From(
                 initial.Armies.Where(a => a.Nation != HumanNation)
-                    .Append(captureArmy).Append(moveArmy).Append(noBlockingArmy)),
+                    .Append(captureArmy).Append(moveArmy).Append(noBlockingArmy)
+                    .Append(restartArmy)),
         };
 
         var save = new IC2.Engine.Model.SaveGame(
@@ -169,6 +201,7 @@ public partial class SoundCuesCheck : Control
         _mainGame = AddScreen(classical, save);
         _moveMainGame = AddScreen(classical, save);
         _noBlockingMainGame = AddScreen(classical, save);
+        _restartMainGame = AddScreen(classical, save);
 
         // The no-blocking half binds the check's synthesised 2.0 s stream to the production
         // player's sfx.city_captured key: the Submit below must return, cue handling included,
@@ -215,12 +248,16 @@ public partial class SoundCuesCheck : Control
 
                 case 1 when _frame >= OrderSettleFrames:
                     CheckCaptureCityCue();
+                    _r1SubmitMs = Time.GetTicksMsec();
                     _moveMainGame.SubmitForCheck($"move {MoveArmyId} 49 37");
                     _step = 2;
                     _frame = 0;
                     break;
 
-                case 2 when _frame >= OrderSettleFrames:
+                case 2 when _frame >= OrderSettleFrames && Time.GetTicksMsec() - _r1SubmitMs >= 400:
+                    // The 400 ms wall gate lets the three ~60 ms step plays (70 ms apart, done
+                    // by ~210 ms) run out BEFORE the Sound-off phase mutes the player — the
+                    // R1 completed-plays assertion below reads them from the playback log.
                     CheckMoveUnitMoveCues();
                     // Sound off: the production subscription reads SettingsScreen.SoundEnabled
                     // on every event and mutes the player -- the check flips the setting, not
@@ -242,6 +279,33 @@ public partial class SoundCuesCheck : Control
                     CheckMoveUnitMoveMuted();
                     SettingsScreen.SetSoundEnabledForCheck(true);
                     CheckNoBlocking();
+                    // R1: let the case-1 3-tile move's step plays run out on the audio thread
+                    // (three ~60 ms ticks at 70 ms spacing need ~210 ms; 800 ms is generous),
+                    // then read the player's playback log.
+                    _step = 5;
+                    _frame = 0;
+                    break;
+
+                case 5 when Time.GetTicksMsec() - _r1SubmitMs >= 800:
+                    CheckThreeCompletedStepPlays();
+                    // R2: bind a 0.5 s stream to sfx.unit_move so the second order's step
+                    // run meets a key that is still playing when its cue is due.
+                    _restartMainGame.SoundPlayerForCheck.BindStreamForTest(
+                        AssetKeys.SfxUnitMove, SynthesiseSilentWav(durationSeconds: 0.5));
+                    _r2SubmitMs = Time.GetTicksMsec();
+                    _restartMainGame.SubmitForCheck($"move {RestartArmyId} 55 38");
+                    _step = 6;
+                    _frame = 0;
+                    break;
+
+                case 6 when Time.GetTicksMsec() - _r2SubmitMs >= 200:
+                    CheckSecondOrderWaitsForPlayingKey();
+                    _step = 7;
+                    _frame = 0;
+                    break;
+
+                case 7 when Time.GetTicksMsec() - _r2SubmitMs >= 1500:
+                    CheckSecondOrderPlaysOutAfterFinish();
                     Finish();
                     break;
             }
@@ -408,6 +472,91 @@ public partial class SoundCuesCheck : Control
             MixRate = sampleRate,
             Data = data,
         };
+    }
+
+    /// <summary>
+    /// R1 (Sol's review of PR #886, rework round 2; the user's decision of 2026-10-09): the
+    /// 3-tile move submitted at case 1 must give three <em>completed</em> plays of
+    /// <c>sfx.unit_move</c> — not three enqueues that each restart and cut off the preceding
+    /// clip, which is what the old 0.96 s file under a 70 ms timer did. The player's
+    /// playback log (a start entry when <c>Play()</c> runs, a finish entry on the player's
+    /// own <c>Finished</c> signal) must show exactly three starts and three finishes, and
+    /// must alternate start/finish: two starts with no finish between them would be a
+    /// restart, a missing finish would be a cutoff.
+    /// </summary>
+    private void CheckThreeCompletedStepPlays()
+    {
+        _r1Log.AddRange(_moveMainGame.SoundPlayerForCheck.PlaybackLogForCheck);
+        var log = _r1Log.Where(e => e.Key == AssetKeys.SfxUnitMove).ToList();
+        var starts = log.Count(e => e.Started);
+        var finishes = log.Count(e => !e.Started);
+        var ok1 = Check(
+            starts == 3 && finishes == 3,
+            $"a 3-tile move gives three completed plays of sfx.unit_move over time "
+            + $"({starts} starts, {finishes} Finished signals; the queue alone proves nothing — R1)");
+        _ok &= ok1;
+        _ok &= Check(
+            AlternatesStartFinish(log),
+            "each sfx.unit_move start is followed by its Finished before the next start — no Stop, no restart in between (R1)");
+    }
+
+    /// <summary>
+    /// R2 (same review): a second order whose step key is still playing must not restart it.
+    /// A 0.5 s stream is bound to <c>sfx.unit_move</c> and a 2-cell move is submitted: 200 ms
+    /// in — after the 70 ms timer has dequeued the second step cue — exactly one play has
+    /// started, none has finished, and the log holds no second start. The old StepTick
+    /// dequeued and called <c>Play()</c> regardless, so it fails this by two starts.
+    /// </summary>
+    private void CheckSecondOrderWaitsForPlayingKey()
+    {
+        _r2Log.AddRange(_restartMainGame.SoundPlayerForCheck.PlaybackLogForCheck);
+        var log = _r2Log.Where(e => e.Key == AssetKeys.SfxUnitMove).ToList();
+        var starts = log.Count(e => e.Started);
+        var finishes = log.Count(e => !e.Started);
+        var ok = Check(
+            starts == 1 && finishes == 0,
+            $"200 ms into a second order over a still-playing sfx.unit_move key: exactly one play "
+            + $"started and none finished — the queued step waits, it does not restart the key "
+            + $"({starts} starts, {finishes} finishes; R2)");
+        _ok &= ok;
+    }
+
+    /// <summary>
+    /// R2, second half: the waiting cue is dropped, never lost. After the 0.5 s stream's own
+    /// finish, the queued second step plays out: two starts, two finishes, alternating.
+    /// </summary>
+    private void CheckSecondOrderPlaysOutAfterFinish()
+    {
+        _r2Log.AddRange(_restartMainGame.SoundPlayerForCheck.PlaybackLogForCheck);
+        var log = _r2Log.Where(e => e.Key == AssetKeys.SfxUnitMove).ToList();
+        var starts = log.Count(e => e.Started);
+        var finishes = log.Count(e => !e.Started);
+        var ok1 = Check(
+            starts == 2 && finishes == 2,
+            $"after the playing key finishes, the waiting step plays out: two completed plays "
+            + $"({starts} starts, {finishes} finishes; R2)");
+        _ok &= ok1;
+        _ok &= Check(
+            AlternatesStartFinish(log),
+            "the second order's sfx.unit_move plays alternate start/finish — the first play was never restarted (R2)");
+    }
+
+    /// <summary>True when the entries alternate started/finished — a restart or a cutoff shows
+    /// up as two consecutive entries of the same kind.</summary>
+    private static bool AlternatesStartFinish(List<SoundPlayer.PlaybackLogEntry> log)
+    {
+        var expectStart = true;
+        foreach (var entry in log)
+        {
+            if (entry.Started != expectStart)
+            {
+                return false;
+            }
+
+            expectStart = !expectStart;
+        }
+
+        return true;
     }
 
     private void Finish()

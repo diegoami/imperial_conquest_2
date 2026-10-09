@@ -23,6 +23,10 @@ namespace IC2.Slice.Audio;
 /// after the previous one finished). For the case where a same-key cue arrives while the previous
 /// is still playing — a fleet battle and a fleet scuttle in the same Submit, for example — the
 /// player drops the second cue. The original drops it too (it never restarts a sound mid-play).
+/// Step cues are stricter still (the user's decision on PR #886 R1/R2, 2026-10-09): a queued
+/// step whose key is mid-play <em>waits</em> for that key's player to finish, so nothing is
+/// ever restarted — the shipped step files are ~60 ms ticks, one audible step per tile at the
+/// 70 ms spacing, each played in full.
 /// </para>
 /// <para>
 /// <strong>Steps queue at 70 ms apart.</strong> The original plays the step sound once per tile as
@@ -49,9 +53,13 @@ public sealed partial class SoundPlayer : Node
     private readonly Queue<QueuedCue> _stepQueue = new();
     private readonly HashSet<string> _currentlyPlaying = new(StringComparer.Ordinal);
     private readonly List<string> _queuedForCheck = new();
+    private readonly List<PlaybackLogEntry> _playbackLog = new();
     private readonly Node _stepTimerParent;
     private SceneTreeTimer? _stepTimer;
     private bool _muted;
+
+    /// <summary>One playback event: a key's player started a stream, or finished one.</summary>
+    public readonly record struct PlaybackLogEntry(string Key, bool Started, ulong TickMs);
 
     /// <summary>Whether sound is on. Mirrors <see cref="SettingsScreen.SoundEnabled"/>.</summary>
     public bool Muted
@@ -81,6 +89,7 @@ public sealed partial class SoundPlayer : Node
         {
             var newPlayer = new AudioStreamPlayer { Name = key, Stream = stream, Bus = "Master" };
             AddChild(newPlayer);
+            WirePlayer(key, newPlayer);
             _players[key] = newPlayer;
         }
     }
@@ -147,6 +156,27 @@ public sealed partial class SoundPlayer : Node
     }
 
     /// <summary>
+    /// T149 rework round 2 (the user's decision on PR #886 R1/R2, 2026-10-09): every playback
+    /// start and finish, in order, as (key, started, tick-ms). The headless check reads this
+    /// to prove a 3-tile move gives three <em>completed</em> plays of <c>sfx.unit_move</c>
+    /// with no restart in between (each start is followed by its finish before the next
+    /// start), and that a second order's cue waits for a playing key rather than restarting
+    /// it. Drains as it reads, like <see cref="QueuedForCheck"/>.
+    /// </summary>
+    public IReadOnlyList<PlaybackLogEntry> PlaybackLogForCheck
+    {
+        get
+        {
+            lock (_playbackLog)
+            {
+                var snapshot = _playbackLog.ToArray();
+                _playbackLog.Clear();
+                return snapshot;
+            }
+        }
+    }
+
+    /// <summary>
     /// Creates a player over the given pack. The pack directory is read directly (it is the same
     /// <c>assets/packs/{authored,placeholder}</c> directory <see cref="GameMapView"/>'s own
     /// <see cref="AssetPackTextureLoader"/> reads from). Loads every <c>sfx.*</c> key the manifest
@@ -201,8 +231,28 @@ public sealed partial class SoundPlayer : Node
 
             var player = new AudioStreamPlayer { Name = key, Stream = stream, Bus = "Master" };
             AddChild(player);
+            WirePlayer(key, player);
             _players[key] = player;
         }
+    }
+
+    /// <summary>
+    /// Subscribes the player's <c>Finished</c> signal (Sol's review of PR #886, R1/R2 and the
+    /// user's decision of 2026-10-09): the end of a play is driven by Godot's own audio
+    /// thread, not by a scene-tree timer approximating the stream's length, and every start
+    /// and finish is appended to the playback log the headless check reads to prove plays
+    /// complete and are never restarted mid-play.
+    /// </summary>
+    private void WirePlayer(string key, AudioStreamPlayer player)
+    {
+        player.Finished += () =>
+        {
+            _currentlyPlaying.Remove(key);
+            lock (_playbackLog)
+            {
+                _playbackLog.Add(new PlaybackLogEntry(key, Started: false, Time.GetTicksMsec()));
+            }
+        };
     }
 
     private static AudioStreamWav? LoadWavStream(string fullPath)
@@ -320,7 +370,7 @@ public sealed partial class SoundPlayer : Node
         // A one-shot cue (everything except the two step keys). If a previous same-key cue is
         // still playing, drop the new one -- the original's PlaySoundA never restarted a sound
         // mid-play, so this matches its behaviour rather than overlap-stacking.
-        if (_currentlyPlaying.Contains(key))
+        if (_currentlyPlaying.Contains(key) || IsPlayerPlaying(player))
         {
             return;
         }
@@ -330,15 +380,14 @@ public sealed partial class SoundPlayer : Node
             _queuedForCheck.Add(key);
         }
         _currentlyPlaying.Add(key);
+        lock (_playbackLog)
+        {
+            _playbackLog.Add(new PlaybackLogEntry(key, Started: true, Time.GetTicksMsec()));
+        }
         player.Play();
-        // A one-shot cue plays out on Godot's own audio thread; we approximate the end with the
-        // stream's own length so a second same-key cue that arrives before the first finished
-        // is dropped, exactly as the original would. A still-playing player reports
-        // !_players[key].Playing == false (it is playing), so the check above handles that.
-        // The SetPlayingFalse timeout is therefore unnecessary; a finished cue simply leaves
-        // the set and the next arrival plays.
-        var endTimer = GetTree().CreateTimer(player.Stream?.GetLength() ?? 0.0);
-        endTimer.Timeout += () => _currentlyPlaying.Remove(key);
+        // The play's end is signalled by the player's own Finished signal (wired in
+        // WirePlayer): Godot's audio thread owns the timing, no scene-tree timer approximates
+        // it, and the log above lets the check see that no second cue restarted the key.
     }
 
     private void EnsureStepTimer()
@@ -354,17 +403,52 @@ public sealed partial class SoundPlayer : Node
 
     private void StepTick()
     {
-        if (_muted || _stepQueue.Count == 0)
+        if (_muted)
+        {
+            // Sound went off between two ticks: the pending steps are void, exactly like the
+            // cues a muted Play never enqueued. Clearing keeps a later order's timer from
+            // replaying stale steps.
+            _stepQueue.Clear();
+            return;
+        }
+
+        if (_stepQueue.Count == 0)
         {
             return;
         }
 
-        var next = _stepQueue.Dequeue();
+        // R1/R2 (the user's decision of 2026-10-09): a cue whose key is still playing is
+        // never restarted. Peek before dequeuing: while the head's key is mid-play the cue
+        // waits — the timer re-arms and the same cue is reconsidered on the next tick — and
+        // a later order's step run can therefore never cut a playing clip off either. With
+        // the shipped ~60 ms step ticks and the 70 ms gap, the wait never triggers in
+        // practice; the guard is what makes that true by construction rather than by luck.
+        var next = _stepQueue.Peek();
+        if (IsPlayerPlaying(next.Player))
+        {
+            EnsureStepTimer();
+            return;
+        }
+
+        _stepQueue.Dequeue();
+        lock (_playbackLog)
+        {
+            _playbackLog.Add(new PlaybackLogEntry(next.Key, Started: true, Time.GetTicksMsec()));
+        }
         next.Player.Play();
         if (_stepQueue.Count > 0)
         {
             EnsureStepTimer();
         }
+    }
+
+    private static bool IsPlayerPlaying(AudioStreamPlayer player)
+    {
+        // Same reflection read as IsPlayingForTest: AudioStreamPlayer.Playing is true while
+        // the stream is rendering on Godot's audio thread, and reading it through the
+        // property keeps both call sites identical.
+        var playingProperty = player.GetType().GetProperty("Playing");
+        return playingProperty?.GetValue(player) as bool? ?? false;
     }
 
     private static bool IsStepKey(string key) =>
