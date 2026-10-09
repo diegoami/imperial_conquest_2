@@ -349,14 +349,17 @@ function Invoke-ImplementerSelfTest {
         git -C $tmp add -A
         git -C $tmp commit -q -m base
         $startSha = (git -C $tmp rev-parse HEAD).Trim()
-        # The attempt: a staged change, an unstaged change and an untracked file.
-        Set-Content -LiteralPath (Join-Path $tmp 'base.txt') -Value 'staged change' -Encoding utf8
-        git -C $tmp add base.txt
+        # The attempt: a commit, then a staged change, an unstaged change and an untracked file.
+        # (The commit can come first: the previous order committed the staged base.txt with it, so
+        # there was no genuinely staged change left when Save-AttemptState ran.)
         Set-Content -LiteralPath (Join-Path $tmp 'other.txt') -Value 'other committed' -Encoding utf8
         git -C $tmp add other.txt; git -C $tmp commit -q -m other
+        Set-Content -LiteralPath (Join-Path $tmp 'base.txt') -Value 'staged change' -Encoding utf8
+        git -C $tmp add base.txt
         Set-Content -LiteralPath (Join-Path $tmp 'other.txt') -Value 'unstaged change' -Encoding utf8
         New-Item -ItemType Directory -Force -Path (Join-Path $tmp 'rendered') | Out-Null
         Set-Content -LiteralPath (Join-Path $tmp 'untracked.txt') -Value 'untracked' -Encoding utf8
+        Add 'DW1: the attempt really has a staged change before the save' ((git -C $tmp diff --cached --name-only).Trim() -eq 'base.txt')
         $patch = Save-AttemptState -Worktree $tmp -Model 'selftest-model' -StartSha $startSha
         Add 'DW1: a dirty attempt saves a patch under rendered/attempts/' ($patch -and (Test-Path -LiteralPath $patch) -and $patch -like '*rendered\attempts\selftest-model-*.patch')
         Add 'DW1: the patch holds the staged, the unstaged and the untracked change' ((Get-Content -Raw -LiteralPath $patch) -match 'staged change' -and (Get-Content -Raw -LiteralPath $patch) -match 'unstaged change' -and (Get-Content -Raw -LiteralPath $patch) -match 'untracked.txt')
