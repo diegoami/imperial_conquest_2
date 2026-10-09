@@ -169,6 +169,17 @@ def load_prompts() -> list[dict]:
     return prompts
 
 
+def _read_user_scope_key(winreg) -> str:
+    """The Windows user-scope ELEVENLABS_API_KEY. Raises FileNotFoundError when it is absent.
+
+    A separate function so --no-key-check can replace it and prove the no-key stop offline.
+    """
+    with winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER) as root:
+        with winreg.OpenKey(root, r"Environment") as key_handle:
+            value, _ = winreg.QueryValueEx(key_handle, "ELEVENLABS_API_KEY")
+    return value
+
+
 def get_api_key() -> str:
     """Read ELEVENLABS_API_KEY from the process environment, then the Windows user scope.
 
@@ -197,9 +208,7 @@ def get_api_key() -> str:
         ) from exc
 
     try:
-        with winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER) as root:
-            with winreg.OpenKey(root, r"Environment") as key_handle:
-                value, _ = winreg.QueryValueEx(key_handle, "ELEVENLABS_API_KEY")
+        value = _read_user_scope_key(winreg)
     except FileNotFoundError as exc:
         raise SystemExit(
             "ELEVENLABS_API_KEY is not set in the process or the user-scope environment. "
@@ -588,6 +597,53 @@ def self_check() -> int:
     return 0
 
 
+def no_key_check() -> int:
+    """Done-when 3's no-key stop, offline (Sol's round-2 re-check of PR 886, R1).
+
+    Runs the real `--key sfx.unit_move` path with both key sources made empty (the process
+    variable removed for this call, the user-scope read stubbed to "absent") and with
+    urllib's urlopen replaced by a tripwire, so no request can leave the machine and no credit
+    can be spent, even on a machine where the owner's key is set. Passes only when the run
+    stops with a message naming ELEVENLABS_API_KEY and the tripwire was never reached.
+    """
+    import urllib.request
+
+    calls: list[str] = []
+
+    def tripwire(*_args, **_kwargs):
+        calls.append("urlopen")
+        raise RuntimeError("no-key-check: a network request was attempted")
+
+    def absent(_winreg):
+        raise FileNotFoundError("stubbed: no user-scope ELEVENLABS_API_KEY")
+
+    global _read_user_scope_key
+    saved_env = os.environ.pop("ELEVENLABS_API_KEY", None)
+    saved_read, saved_urlopen = _read_user_scope_key, urllib.request.urlopen
+    _read_user_scope_key, urllib.request.urlopen = absent, tripwire
+    message = ""
+    try:
+        try:
+            main(["--key", "sfx.unit_move"])
+        except SystemExit as stop:
+            message = str(stop.code)
+        except RuntimeError as error:
+            message = str(error)
+    finally:
+        _read_user_scope_key, urllib.request.urlopen = saved_read, saved_urlopen
+        if saved_env is not None:
+            os.environ["ELEVENLABS_API_KEY"] = saved_env
+
+    if calls:
+        print("no-key-check FAILED: a network request was attempted without a key", file=sys.stderr)
+        return 1
+    if "ELEVENLABS_API_KEY" not in message:
+        print(f"no-key-check FAILED: the run did not stop naming ELEVENLABS_API_KEY (got: {message!r})", file=sys.stderr)
+        return 1
+    print("no-key-check OK: stopped naming ELEVENLABS_API_KEY; no request made")
+    return 0
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(
         description="Generate sfx.* WAVs through ElevenLabs' sound-effects API."
@@ -605,10 +661,19 @@ def main(argv: list[str]) -> int:
         action="store_true",
         help="run the conversion code path on a synthesised fixture; offline, no API request.",
     )
+    parser.add_argument(
+        "--no-key-check",
+        action="store_true",
+        help="prove offline that a run with no key stops before any request (both key sources "
+        "stubbed absent, network calls refused). Spends no credit even where the key is set.",
+    )
     args = parser.parse_args(argv)
 
     if args.self_check:
         return self_check()
+
+    if args.no_key_check:
+        return no_key_check()
 
     prompts = load_prompts()
 

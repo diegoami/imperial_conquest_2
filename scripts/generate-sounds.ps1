@@ -26,6 +26,10 @@ Generate every sfx.* key (forwards "--all").
 .PARAMETER SelfCheck
 Run the offline conversion self-test (forwards "--self-check").
 
+.PARAMETER NoKeyCheck
+Prove offline that a run with no key stops before any request (forwards "--no-key-check"); both
+key sources are stubbed absent and network calls are refused, so it spends no credit.
+
 .PARAMETER PostprocessOnly
 Re-postprocess one key offline from the kept raw response or the committed WAV (forwards
 "--postprocess-only <value>"); makes no API call and spends no credit.
@@ -43,6 +47,7 @@ param(
     [string]$Key,
     [switch]$All,
     [switch]$SelfCheck,
+    [switch]$NoKeyCheck,
     [string]$PostprocessOnly,
     [string]$PythonExe
 )
@@ -84,6 +89,9 @@ if ($All) {
 }
 if ($SelfCheck) {
     $forwarded += "--self-check"
+}
+if ($NoKeyCheck) {
+    $forwarded += "--no-key-check"
 }
 if ($PostprocessOnly) {
     $forwarded += @("--postprocess-only", $PostprocessOnly)
