@@ -156,7 +156,7 @@ public partial class RecruitUnitDialog : Control
         // recruitTownMinFortificationPercent, or a town with units in training (so they can still be
         // mobilized or disbanded from here). Recruit is then offered only where the order would be
         // accepted — see Refresh. The "All cities" entry is a recruitment convenience the clone does
-        // not model. The dropdown is built once from the model's list.
+        // not model. The dropdown is rebuilt from the model's list after each submit.
         _cityDropdown = new OptionButton();
         foreach (var city in _model.ListedCities)
         {
@@ -411,8 +411,41 @@ public partial class RecruitUnitDialog : Control
     /// order; rebuilding here makes each Recruit, Mobilize and Disband show at once, without
     /// reopening. The selected city, unit type and slot are dialog fields and survive the rebuild.
     /// </summary>
-    private void RebuildModel() =>
+    private void RebuildModel()
+    {
         _model = RecruitUnitDialogModel.ForActiveNation(Session.State, Session.Ruleset, Session.World);
+        RebuildCityDropdown();
+    }
+
+    /// <summary>
+    /// Re-lists the town dropdown from the rebuilt model, keeping the current selection when that
+    /// town is still listed: a town listed only for its training leaves the list once its last
+    /// regiment is mobilized or disbanded.
+    /// </summary>
+    private void RebuildCityDropdown()
+    {
+        var selectedId = SelectedCityIdForCheck;
+        _cityDropdown.Clear();
+        _cityIds.Clear();
+        foreach (var city in _model.ListedCities)
+        {
+            _cityDropdown.AddItem(city.Name);
+            _cityDropdown.SetItemMetadata(_cityDropdown.ItemCount - 1, city.Id);
+            _cityIds.Add(city.Id);
+        }
+
+        var keep = _cityIds.FindIndex(id => string.Equals(id, selectedId, StringComparison.Ordinal));
+        if (keep < 0 && _cityDropdown.ItemCount > 0)
+        {
+            keep = 0;
+            _selectedSlotIndex = null;
+        }
+
+        if (keep >= 0)
+        {
+            _cityDropdown.Select(keep);
+        }
+    }
 
     private void Ok() => Closed?.Invoke();
 

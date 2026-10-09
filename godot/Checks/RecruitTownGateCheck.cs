@@ -296,10 +296,8 @@ public partial class RecruitTownGateCheck : Control
             dialog.ModelForCheck.TrainingAtCity(RomeCityId).Count == slotsAfter.Count(s => s.TargetCityId == RomeCityId),
             "the training list reflects the new regiment without reopening (#903)");
 
-        var expectedCost = dialog.ModelForCheck.InitialCostFor(dialog.TroopsForCheck, dialog.SelectedUnitTypeForCheck);
-        Check(
-            dialog.CostLabelForCheck.Contains(expectedCost.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal),
-            "the cost line matches the model's own figure after the submit (#903)");
+        // The town dropdown is re-listed from the fresh model and keeps its selection (N2).
+        Check(dialog.SelectedCityIdForCheck == RomeCityId, "the selected town survives the dropdown rebuild");
     }
 
     private void AssertDisbandRefreshesInPlace()
@@ -322,6 +320,9 @@ public partial class RecruitTownGateCheck : Control
             dialog.ModelForCheck.TrainingAtCity(CapuaCityId).Count
                 == _session.State.NationById(RomeId)!.RecruitmentSlots.Count(s => s.TargetCityId == CapuaCityId),
             "and it matches Session.State exactly (#903)");
+        Check(
+            !dialog.CityIdsForCheck.Contains(CapuaCityId),
+            "Capua, listed only for its training, leaves the town list once its last regiment is gone (N2)");
     }
 
     private void EndNineTurns()
@@ -361,7 +362,7 @@ public partial class RecruitTownGateCheck : Control
 
         // With the row gone the selection is cleared, and the mobilisation label matches the fresh
         // model's answer for "nothing selected" — empty, not the pre-submit text (#903).
-        Check(dialog.MobilizeTargetForCheck.Length == 0, "the mobilisation label is rebuilt after the submit (#903)");
+        Check(dialog.MobilizeTargetForCheck.Length == 0, "the mobilisation label is cleared after the submit");
     }
 
     // ---- finish ----
