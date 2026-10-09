@@ -510,9 +510,13 @@ public static class AiMilitaryPhase
             return;
         }
 
+        // The tree chose this destination; the designed per-tile penalty (which sank a march at anything
+        // beyond ten tiles below the minimum score and left the army idle) does not apply to it. The
+        // floor keeps the chosen march from being dropped by the minimum-score cut.
         var distance = AiView.Distance(army.X, army.Y, x, y);
-        var score = baseScore - (view.Ruleset.Ai.DistancePenaltyPerTile * distance);
-        score = AiView.WithVictoryAwareness(score, progress, view.Ruleset);
+        var score = Math.Max(
+            AiView.WithVictoryAwareness(baseScore, progress, view.Ruleset),
+            view.Ruleset.Ai.MinimumActionScore);
 
         into.Add(AiCandidate.Single(
             AiPhase.Military,
