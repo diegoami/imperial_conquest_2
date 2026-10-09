@@ -217,4 +217,37 @@ public sealed class RecruitTownGateTests
         Assert.True(RecruitmentEligibility.IsListedInDialog(fortified.CityById(NonCapital)!, nation, ruleset));
         Assert.True(RecruitmentEligibility.MayTakeOrder(fortified.CityById(NonCapital)!, nation, ruleset));
     }
+
+    /// <summary>
+    /// Done-when 4's model half, without Godot: the Recruit unit dialog model's town list is
+    /// FUN_004544E0's, and its Recruit gate is the order's own — a town listed only for its units in
+    /// training carries the rule's reason instead of an offered order.
+    /// </summary>
+    [Fact]
+    public void The_dialog_models_town_list_follows_the_two_predicates()
+    {
+        var ruleset = RecruitmentTestbed.Ruleset;
+
+        // portus at 60% with one unit in training: listed, but no new order.
+        var initial = StateWithFort(NonCapital, 60);
+        var state = RecruitmentTestbed.WithNation(
+            initial,
+            initial.NationById(Nation)! with
+            {
+                RecruitmentSlots = ValueList.Of(new RecruitmentSlot(NonCapital, "archers", 3_500, 0)),
+            });
+        var model = IC2.Slice.UI.RecruitUnitDialogModel.ForActiveNation(state, ruleset, RecruitmentTestbed.World);
+
+        Assert.Contains(model.ListedCities, c => string.Equals(c.Id, NonCapital, StringComparison.Ordinal));
+        Assert.Contains(model.ListedCities, c => string.Equals(c.Id, Capital, StringComparison.Ordinal));
+        Assert.False(model.CanRecruitAt(NonCapital));
+        Assert.Contains("may not take a new recruitment order", model.RecruitRefusalReasonAt(NonCapital), StringComparison.Ordinal);
+        Assert.True(model.CanRecruitAt(Capital));
+        Assert.Null(model.RecruitRefusalReasonAt(Capital));
+
+        // With no unit in training the below-threshold town drops off the list entirely.
+        var bare = StateWithFort(NonCapital, 60);
+        var bareModel = IC2.Slice.UI.RecruitUnitDialogModel.ForActiveNation(bare, ruleset, RecruitmentTestbed.World);
+        Assert.DoesNotContain(bareModel.ListedCities, c => string.Equals(c.Id, NonCapital, StringComparison.Ordinal));
+    }
 }

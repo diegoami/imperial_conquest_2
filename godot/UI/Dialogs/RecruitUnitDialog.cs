@@ -15,12 +15,17 @@ namespace IC2.Slice.UI;
 /// <remarks>
 /// <para>
 /// <strong>All rules live in the Godot-free <see cref="RecruitUnitDialogModel"/>.</strong> This
-/// control owns only widgets and the three submit callbacks. The model reads the troop range from
+/// control owns only widgets and the three submit callbacks. The model reads the town list from
+/// <see cref="RecruitmentEligibility.IsListedInDialog"/> (T155: the original's <c>FUN_004544E0</c> —
+/// the capital, a town at the fortification threshold, or a town with units in training), the Recruit
+/// control's gate from <see cref="RecruitmentEligibility.MayTakeOrder"/>, the troop range from
 /// <see cref="RecruitTroopBounds"/> (fix #519), the costs from
 /// <see cref="IC2.Engine.Recruitment.StandingRecruitmentCost"/>, the training list from
 /// <see cref="RecruitmentPanelViewModel.TrainingAtCity"/>, and the mobilization target from
 /// <see cref="IC2.Engine.Armies.MobilizationReceivingArmy.Find"/> — so the dialog and the engine
-/// cannot disagree between them.
+/// cannot disagree between them. Bug #903: the model is rebuilt from the session's state after every
+/// submit (<see cref="RebuildModel"/>), so the training list, cost figures and mobilisation label
+/// never read a stale snapshot.
 /// </para>
 /// <para>
 /// <strong>Disband confirms first.</strong> The original's <c>TArmyRecruits_DisbandUnits</c> opens
@@ -102,6 +107,21 @@ public partial class RecruitUnitDialog : Control
     /// <summary>The Mobilize target line, exposed for the headless check.</summary>
     public string MobilizeTargetForCheck => _mobTargetLabel.Text;
 
+    /// <summary>The town list's city ids, in dropdown order — exposed for the headless check (T155).</summary>
+    public IReadOnlyList<string> CityIdsForCheck => _cityIds;
+
+    /// <summary>Whether the Recruit unit button is enabled — exposed for the headless check (T155).</summary>
+    public bool RecruitEnabledForCheck => !_recruitButton.Disabled;
+
+    /// <summary>
+    /// The rule's reason the Recruit unit button is disabled (its tooltip), or empty when it is
+    /// enabled — exposed for the headless check (T155).
+    /// </summary>
+    public string RecruitReasonForCheck => _recruitButton.TooltipText ?? string.Empty;
+
+    /// <summary>The Cost line's text — exposed for the headless check (bug #903).</summary>
+    public string CostLabelForCheck => _costLabel.Text;
+
     public override void _Ready()
     {
         _model = RecruitUnitDialogModel.ForActiveNation(Session.State, Session.Ruleset, Session.World);
@@ -131,11 +151,14 @@ public partial class RecruitUnitDialog : Control
 
         column.AddChild(UiKit.MakeLabel(StrategyDialogModels.RecruitUnitTitle, 18, UiKit.AccentColor));
 
-        // City dropdown: the original lists the active nation's own cities (the "All cities" entry
-        // is a recruitment convenience the clone does not yet model — see the task's own
-        // description). The dropdown is built once from the model's list.
+        // City dropdown: T155 (#515, #904) — the original's town list FUN_004544E0, not every owned
+        // city: the capital, a town whose current fortification level is at or above the ruleset's
+        // recruitTownMinFortificationPercent, or a town with units in training (so they can still be
+        // mobilized or disbanded from here). Recruit is then offered only where the order would be
+        // accepted — see Refresh. The "All cities" entry is a recruitment convenience the clone does
+        // not model. The dropdown is built once from the model's list.
         _cityDropdown = new OptionButton();
-        foreach (var city in _model.OwnedCities)
+        foreach (var city in _model.ListedCities)
         {
             _cityDropdown.AddItem(city.Name);
             _cityDropdown.SetItemMetadata(_cityDropdown.ItemCount - 1, city.Id);
@@ -278,6 +301,13 @@ public partial class RecruitUnitDialog : Control
 
         _mobilizeButton.Disabled = selectedRow is not { IsReady: true };
         _disbandButton.Disabled = selectedRow is null;
+
+        // T155 (#515): Recruit is offered only in a town the order accepts — the engine's own
+        // capital-or-threshold rule (RecruitUnit's raw word), with its reason on the button for the
+        // towns the list still shows (units in training) where a new order would be refused.
+        var recruitRefusal = _model.RecruitRefusalReasonAt(SelectedCityIdForCheck);
+        _recruitButton.Disabled = recruitRefusal is not null;
+        _recruitButton.TooltipText = recruitRefusal ?? string.Empty;
     }
 
     private void RefreshTrainingList()
@@ -323,6 +353,7 @@ public partial class RecruitUnitDialog : Control
         var line = _model.RecruitStandingLine(cityId, _selectedUnitTypeId, (int)_troops.Value);
         var lines = Submit(line);
         _replyLabel.Text = lines.Skip(1).FirstOrDefault(text => text.Length > 0) ?? string.Empty;
+        RebuildModel();
         Refresh();
     }
 
@@ -337,6 +368,7 @@ public partial class RecruitUnitDialog : Control
         var lines = Submit(line);
         _replyLabel.Text = lines.Skip(1).FirstOrDefault(text => text.Length > 0) ?? string.Empty;
         _selectedSlotIndex = null;
+        RebuildModel();
         Refresh();
     }
 
@@ -363,6 +395,7 @@ public partial class RecruitUnitDialog : Control
             var lines = Submit(line);
             _replyLabel.Text = lines.Skip(1).FirstOrDefault(text => text.Length > 0) ?? string.Empty;
             _selectedSlotIndex = null;
+            RebuildModel();
             Refresh();
         };
         prompt.Refused += prompt.QueueFree;
@@ -370,6 +403,16 @@ public partial class RecruitUnitDialog : Control
         AddChild(prompt);
         prompt.SetAnchorsPreset(LayoutPreset.FullRect);
     }
+
+    /// <summary>
+    /// Bug #903: rebuild the model from <see cref="GameSession.State"/> after every submit, before
+    /// <see cref="Refresh"/> reads it. The model holds the state it was built from, so one built at
+    /// open kept showing the training list, cost figures and mobilisation label from before the
+    /// order; rebuilding here makes each Recruit, Mobilize and Disband show at once, without
+    /// reopening. The selected city, unit type and slot are dialog fields and survive the rebuild.
+    /// </summary>
+    private void RebuildModel() =>
+        _model = RecruitUnitDialogModel.ForActiveNation(Session.State, Session.Ruleset, Session.World);
 
     private void Ok() => Closed?.Invoke();
 
