@@ -1,6 +1,7 @@
 using Godot;
 using IC2.Engine.Model;
 using IC2.Engine.Presentation;
+using IC2.Engine.Recruitment;
 
 namespace IC2.Slice.UI;
 
@@ -344,6 +345,17 @@ public partial class ContextPanel : Control
         {
             Note("Only the active seat's own cities can be ordered.");
             return;
+        }
+
+        // T155 (#515, #904): the city panel's Recruit control follows the eligibility predicate.
+        // T112 left this panel information only — it renders no Recruit button at all, so the control
+        // is absent in every town (that user decision is not reopened here) — and in a town that may
+        // not take a new recruitment order the rule's reason is the panel's own note: the capital or
+        // a fortification word >= the ruleset's recruitTownMinFortificationPercent. RecruitmentEligibility
+        // is the predicate's one home, the same one the engine, the AI and the Recruit unit dialog use.
+        if (owner is not null && !RecruitmentEligibility.MayTakeOrder(city, owner, Session.Ruleset))
+        {
+            Note(RecruitmentEligibility.RefusalReason(city, owner, Session.Ruleset));
         }
 
         // T112: the panel is information only — its last order buttons are gone (Order

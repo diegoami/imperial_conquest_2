@@ -646,6 +646,21 @@ public sealed record WeatherEffectRule(
 /// <c>recruitment.mobilizationCapPercent</c> and <c>error.mobilizationAlready100</c>)
 /// <strong>[confirmed: decompiled-mobilization-and-mercenary-restock.md §5]</strong>.
 /// </param>
+/// <param name="RecruitTownMinFortificationPercent">
+/// T155 (#515, #904): the fortification word at or above which a town that is <em>not</em> its nation's
+/// capital takes a new standing-recruitment order — <c>75</c>. The comparison is against the town's
+/// <strong>raw</strong> <see cref="CityState.FortificationCode"/> word, exactly as the original's
+/// <c>TArmyRecruits_RecruitUnit</c> (<c>0x454E78</c>) and its recruitment AI compare it with <c>74</c>
+/// (this value − 1), so a town with <em>any</em> pending fortify order (the word is
+/// <c>points × radix + current</c>, ≥ 100) passes whatever its current level, and the capital always
+/// passes. The Recruit unit dialog's town list (<c>FUN_004544E0</c>) is the other predicate: it decodes
+/// the word (current level) and lists the capital, a town whose current level is at least this value,
+/// or a town with units in training — see <see cref="Recruitment.RecruitmentEligibility"/> for both.
+/// A town that drops below this value keeps the units already in training
+/// <strong>[derived: code; #515's stage-2 comment item 1 and first research comment;
+/// <c>2026-09-29-which-cities-may-recruit-and-troop-amounts.md</c> (research <c>73b049e</c>); 118 of 118
+/// training towns in six saves satisfy it]</strong>.
+/// </param>
 /// <param name="MercenaryHireRangeHumanSeat">
 /// The Chebyshev distance from the army at which a human seat's mercenary order finds an offer —
 /// <c>1</c>, and the original's test is <c>d == 1</c>, not <c>d &lt;= 1</c>
@@ -733,6 +748,7 @@ public sealed record RecruitmentRules(
     int MobilizationRateOrderStep,
     int MobilizationRateWealthScale,
     int MobilizationCapPercent,
+    int RecruitTownMinFortificationPercent,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>Join/split caps and what a newly split army starts with.</summary>

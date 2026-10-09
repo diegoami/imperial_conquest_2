@@ -112,7 +112,7 @@ by a constant, which is why no adjustment to `SaveNationLayout.Locate` can reach
 | Not in the DAT | Bytes | Why |
 | --- | ---: | --- |
 | `+0x00b … +0x025` leader name | 27 | assigned at New Game — see below |
-| `+0x424 … +0x42f` | 12 | not read |
+| `+0x424 … +0x42f` | 12 | the three unit-icon colour dwords, which new-game setup `FUN_00448aa4` writes as constants ([`2026-10-09-unit-icon-recolour-and-nation-glyphs.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-unit-icon-recolour-and-nation-glyphs.md), research `4ef90ec`) |
 | `+0x434`, `+0x43c`, `+0x448` | 4+4+2 | duplicates the loader *copies* rather than reads |
 | `+0x450 … +0x493` trailer | 68 | includes the human-player flag at `+0x490` |
 

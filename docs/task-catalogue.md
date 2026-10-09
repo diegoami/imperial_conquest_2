@@ -215,6 +215,8 @@ graph TD
   T150 --> T152[T152 recommend]
   T151 --> T154[T154 review brief in worktree]
   T56 --> T155[T155 recruit-town gate]
+  T155 --> T157[T157 AI faithful economy]
+  T156[T156 AI army target tree]
   T23 --> T26[T26 scenario docs+examples]
   T29 --> T26
   T22 --> T28[T28 nightly soak gate]
@@ -1239,6 +1241,14 @@ Review brief in worktree (process tooling, the harness's L60, the user's decisio
 
 Recruit-town gate (the correction for #515, folding #903; found by the user playing `v0.5.0`, ships in `v0.5.1`, the user's decision of 2026-10-09; it merges after T56) → [full entry](tasks/T155.md) · [#904](https://github.com/diegoami/imperial_conquest_2/issues/904)
 
+#### T156 The AI's armies follow the original's target tree: attack an army or a city, resupply, or hire
+
+AI army target tree (part of #910, split from T157; both presets, the user's decisions of 2026-10-09; ships in `v0.5.2`; it merges after the #907 fix) → [full entry](tasks/T156.md) · [#925](https://github.com/diegoami/imperial_conquest_2/issues/925)
+
+#### T157 Under classical-faithful, the AI's economy follows the original: a threat budget, the week-11 tax, no fortifying
+
+AI faithful economy (part of #910, split from T156; ships in `v0.5.2`; it merges after T155) → [full entry](tasks/T157.md) · [#926](https://github.com/diegoami/imperial_conquest_2/issues/926)
+
 ---
 
 #### T25 Battle result, diplomacy, and hotseat handoff screens
@@ -1425,3 +1435,5 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T152](#t152-the-dispatch-scripts-take-the-model-from-quota-trackers-recommend) | Model choice from /recommend | none | Sonnet | Medium | Sol | T150 | [#866](https://github.com/diegoami/imperial_conquest_2/issues/866) |
 | [T154](#t154-a-review-run-reads-its-brief-from-inside-its-own-worktree) | Review brief in worktree | none | Sonnet | Low | Sol | T151 | [#884](https://github.com/diegoami/imperial_conquest_2/issues/884) |
 | [T155](#t155-only-the-capital-and-towns-fortified-to-75-take-a-recruitment-order) | Recruit-town gate | M4 | Sonnet | Medium | Sol | T56 | [#904](https://github.com/diegoami/imperial_conquest_2/issues/904) |
+| [T156](#t156-the-ais-armies-follow-the-originals-target-tree-attack-an-army-or-a-city-resupply-or-hire) | AI army target tree | M12 | Sonnet | High | Opus | #907's fix | [#925](https://github.com/diegoami/imperial_conquest_2/issues/925) |
+| [T157](#t157-under-classical-faithful-the-ais-economy-follows-the-original-a-threat-budget-the-week-11-tax-no-fortifying) | AI faithful economy | M12 | Sonnet | High | Sol | T155 | [#926](https://github.com/diegoami/imperial_conquest_2/issues/926) |

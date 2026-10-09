@@ -41,9 +41,11 @@ namespace IC2.Engine.Ai;
 /// <para>
 /// <strong>Every candidate here is gated on its handler's own refusals</strong>, read off
 /// <see cref="RecruitStandingUnitCommandHandler"/> and <see cref="OrderCityCommandHandler"/>: the city is
-/// ours, the unit type and the order id exist in the ruleset, the troop count and the point count are
-/// positive, the order is not already pending, the city is not already at the order's maximum, it is not
-/// under siege, and the treasury covers the cost. Nothing is proposed that any of those would refuse.
+/// ours, the city may take a recruitment order at all (T155's capital-or-threshold gate, via
+/// <see cref="Recruitment.RecruitmentEligibility.MayTakeOrder"/>), the unit type and the order id exist in
+/// the ruleset, the troop count and the point count are positive, the order is not already pending, the
+/// city is not already at the order's maximum, it is not under siege, and the treasury covers the cost.
+/// Nothing is proposed that any of those would refuse.
 /// </para>
 /// <para>
 /// <strong>T57 adds the other half of phase 1's own sentence.</strong> "<em>Recruit/build</em>" names two
@@ -254,6 +256,18 @@ public static class AiEconomyPhase
         long budget,
         List<AiCandidate> into)
     {
+        // T155 (#515, #904): the capital-or-75% gate. RecruitStandingUnitCommandHandler now refuses a
+        // new order outside the capital or a town at a fortification word >= the ruleset's threshold
+        // (recruitment.ineligible-town), and every candidate here is gated on its handler's own
+        // refusals -- T22's zero-rejected soak and T155 Done-when 3's "the AI never issues a
+        // recruitment the engine refuses" both depend on this filter landing before the candidate is
+        // built. RecruitmentEligibility.MayTakeOrder is the gate's one home: the same predicate the
+        // handler and the UI's Recruit controls call, never a second copy of the rule.
+        if (!RecruitmentEligibility.MayTakeOrder(city, view.Nation, view.Ruleset))
+        {
+            return;
+        }
+
         if (OpenOrdersAt(view.Nation, city.Id) >= view.Ruleset.Ai.MaxOpenRecruitmentOrdersPerCity)
         {
             return;

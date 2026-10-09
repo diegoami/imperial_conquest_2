@@ -16,6 +16,9 @@ public static class RecruitmentTestbed
     /// <summary>The shipped toy ruleset. Every constant a Recruitment test needs comes from here.</summary>
     public static Ruleset Ruleset => CoreTestbed.Toy.Ruleset;
 
+    /// <summary>The shipped toy world, for the AiView and dispatcher seams that want it directly.</summary>
+    public static World World => CoreTestbed.Toy.World;
+
     /// <summary>The toy scenario's starting state.</summary>
     public static GameState InitialState() => CoreTestbed.InitialState();
 
@@ -42,6 +45,14 @@ public static class RecruitmentTestbed
         {
             Armies = ValueList.From(state.Armies.Select(a =>
                 string.Equals(a.Id, updated.Id, StringComparison.Ordinal) ? updated : a)),
+        };
+
+    /// <summary>Returns <paramref name="state"/> with one city replaced by <paramref name="updated"/>.</summary>
+    public static GameState WithCity(GameState state, CityState updated) =>
+        state with
+        {
+            Cities = ValueList.From(state.Cities.Select(c =>
+                string.Equals(c.Id, updated.Id, StringComparison.Ordinal) ? updated : c)),
         };
 
     /// <summary>Returns <paramref name="state"/> with one nation replaced by <paramref name="updated"/>.</summary>

@@ -28,26 +28,23 @@ besiege-city army-8 phoenice
 end
 split-army army-8 mac-sac-1 0
 end
-move mac-sac-1 151 31
-end
-move mac-sac-1 151 31
-end
-move mac-sac-1 151 31
-end
-move mac-sac-1 151 31
-end
 accept-offer
 move mac-sac-1 151 31
 end
+move mac-sac-1 151 31
+end
+move mac-sac-1 151 31
+end
+move mac-sac-1 151 31
 attack-army mac-sac-1 army-14
 peace-yes
+end
 make-peace illyria
 mobilize 0 mac-recruit-0
 end
 mobilize 0 mac-recruit-1
 join-units mac-marines 1 2
 end
-move-fleet mac-fleet-1 149 40
 split-fleet mac-fleet-1 mac-fleet-2 10
 fleet-transfer mac-fleet-1 mac-fleet-2 1 1 0
 join-fleets mac-fleet-1 mac-fleet-2
@@ -75,6 +72,7 @@ end
 move army-8 142 42
 end
 move army-8 148 40
+move-fleet mac-fleet-keep 149 41
 embark-army army-8 mac-fleet-keep
 disembark-army army-8 148 40
 recruit-standing pella light_infantry 200
@@ -91,5 +89,5 @@ end
 move mac-merc 141 48
 end
 move mac-merc 142 50
-hire-mercenary mac-merc 25
+hire-mercenary mac-merc 19
 quit
