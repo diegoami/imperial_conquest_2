@@ -144,6 +144,8 @@
 param(
     [ValidateSet('implementer', 'reviewer', 'pair')] [string] $Role,
     [ValidateSet('simple', 'complex', 'very-complex')] [string] $Tier,
+    # The weight of the task (CLAUDE.md rule 17): which /recommend tier to read.
+    [ValidateSet('heavy', 'light')] [string] $Weight,
     [string] $ExcludeModel,
     [string[]] $ExcludeFamily,
     [string[]] $SubstituteFamilies,
@@ -178,8 +180,12 @@ $ModelAliases = @{
     'opencode_go|mimo-v2.6-pro'   = @{ Implementer = 'mimo-pro';   Reviewer = 'mimo-pro' }
     'opencode_go|mimo-v2.6-flash' = @{ Implementer = 'mimo-flash'; Reviewer = 'mimo-flash' }
     # MiniMax (minimax.io Token Plan, provider `minimax`).
-    'minimax|MiniMax-M3'          = @{ Implementer = 'mm-m3' }
-    'minimax|MiniMax-M2.7'        = @{ Implementer = 'mm-m2.7' }
+    'minimax|MiniMax-M3'          = @{ Implementer = 'mm-m3';     Reviewer = 'mm-m3' }
+    'minimax|MiniMax-M2.7'        = @{ Implementer = 'mm-m2.7';   Reviewer = 'mm-m2.7' }
+    # OpenAI follows rank too (the user's decision of 2026-10-10): Sol implements and reviews;
+    # Luna reviews only a simple PR (Resolve-Chosen drops it otherwise) and never implements.
+    'openai|gpt-6.1-sol'          = @{ Implementer = 'sol';       Reviewer = 'sol' }
+    'openai|gpt-5.6-luna'         = @{ Reviewer = 'luna' }
     # Z.AI Coding Plan (provider `zai`).
     'zai|glm-5.3'                 = @{ Implementer = 'glm';       Reviewer = 'glm' }
     'zai|glm-5.3-flash'           = @{ Implementer = 'glm-flash'; Reviewer = 'glm-flash' }
@@ -362,7 +368,10 @@ function Resolve-Chosen {
         [Parameter(Mandatory)] $Recommend
     )
 
-    $recRanking = @($Recommend.ranking)
+    # Follow `rank` as /recommend returns it (it already folds in quota, coverage, reserves and
+    # reliability): order by it, never re-sort by score or reliability (the user's rule of
+    # 2026-10-10). A row without a rank keeps its place after the ranked ones.
+    $recRanking = @(@($Recommend.ranking) | Sort-Object -Stable { if ($null -ne $_.PSObject.Properties['rank'] -and $null -ne $_.rank) { [int]$_.rank } else { [int]::MaxValue } })
     $recSkipped = @($Recommend.skipped)
     # -SubstituteFamilies: every named family's name plus luna and sol (the OpenAI family).
     # The dispatch script passes the failed families; we add the OpenAI family explicitly
@@ -370,7 +379,9 @@ function Resolve-Chosen {
     # 2026-10-08).
     $subFamilies = @()
     if ($SubstituteFamilies) {
-        $subFamilies = @(Get-FamiliesFromNames $SubstituteFamilies) + @('openai') | Select-Object -Unique
+        # Only the named (failed) families: OpenAI is no longer dropped wholesale (the user's
+        # decision of 2026-10-10, follow rank).
+        $subFamilies = @(Get-FamiliesFromNames $SubstituteFamilies) | Select-Object -Unique
     }
     $familyExcluded = @()
     if ($ExcludeFamily) {
@@ -445,6 +456,10 @@ function Resolve-Chosen {
             Provider  = $provider; Model = [string]$r.model; Score = $score; Confidence = $conf
             Reasons   = $reasons; Usable = [bool]$usable; Alias = $alias
             Family = $family; RoleFamily = $roleFamily
+            Rank = $(if ($r.PSObject.Properties['rank']) { $r.rank } else { $null })
+            Outlook = $(if ($r.PSObject.Properties['outlook']) { [string]$r.outlook } else { $null })
+            CoversPct = $(if ($r.PSObject.Properties['covers_pct']) { $r.covers_pct } else { $null })
+            ReliabilityFactor = $(if ($r.PSObject.Properties['reliability'] -and $r.reliability) { $r.reliability.factor } else { $null })
         }
     }
 
@@ -479,6 +494,8 @@ function Resolve-Chosen {
             $why = "family $($row.RoleFamily) is excluded (-ExcludeFamily)"
         } elseif ($row.RoleFamily -in $subFamilies) {
             $why = "family $($row.RoleFamily) is excluded (the chain-spent substitute filter)"
+        } elseif ($row.Alias -eq 'luna' -and -not ($Role -eq 'reviewer' -and $Tier -eq 'simple')) {
+            $why = 'Luna is only the simple-PR reviewer'
         }
         if ($why) {
             $excluded.Add([pscustomobject]@{ Provider = $row.Provider; Why = $why })
@@ -486,40 +503,9 @@ function Resolve-Chosen {
         }
         $filtered += $row
     }
-    # Pass 2: Claude is dropped when any other candidate has a positive score (strictly
-    # greater than zero — score 0 means an empty pool, not a positive spare-calls-per-day
-    # signal; Done-when 2's "positive" reads as the rubric's "spare calls per day" line, R2
-    # rework). When no other candidate has a positive score, Claude stands in (the script's
-    # exit-3 fallback).
-    if ($Role -eq 'implementer') {
-        $claudeRows = @($filtered | Where-Object { $_.Provider -eq 'claude' -and $_.Alias -eq $ImplementerFallback })
-        $nonClaudePositive = @($filtered | Where-Object { $_.Provider -ne 'claude' -and $_.Score -ne $null -and $_.Score -gt 0 } | Sort-Object Score -Descending | Select-Object -First 1)
-        $claudePositive    = @($claudeRows | Where-Object { $_.Score -ne $null -and $_.Score -gt 0 })
-        $claudeNegative    = @($claudeRows | Where-Object { $_.Score -ne $null -and $_.Score -lt 0 })
-        if ($nonClaudePositive) {
-            # Any positive non-Claude candidate is enough to drop Claude, regardless of
-            # Claude's own score: the rubric's "drop Claude while another has positive
-            # score" reads without a Claude-side condition.
-            $dropClaude = $true
-            $claudeDroppedReason = "Claude is the orchestrator and another candidate has a positive score ($($nonClaudePositive.Provider)), so Claude is dropped"
-        } elseif ($claudeNegative) {
-            # A negative-scoring Claude row is treated as a Claude row in the negative
-            # bucket, which already ranks last; drop it here without a "dropped because
-            # orchestrator" reason to avoid duplication.
-            $dropClaude = $false
-            foreach ($r in $claudeNegative) {
-                $excluded.Add([pscustomobject]@{ Provider = $r.Provider; Why = "Claude is the orchestrator; negative scores are ranked last" })
-                $filtered = @($filtered | Where-Object { $_ -ne $r })
-            }
-            $dropClaude = $false
-        } else { $dropClaude = $false }
-        if ($dropClaude) {
-            foreach ($r in $claudeRows) {
-                $excluded.Add([pscustomobject]@{ Provider = $r.Provider; Why = $claudeDroppedReason })
-                $filtered = @($filtered | Where-Object { $_ -ne $r })
-            }
-        }
-    }
+    # Claude is the orchestrator: it is used only where `rank` puts it, or when every other
+    # row is in `skipped`; never because the other rows are tight (the user's rule of
+    # 2026-10-10). Rank order already says that, so there is no Claude-specific pass.
     # Pass 3: unusable rows (the tracker reported usable: false) are skipped; a null score
     # is treated as unknown (the tracker has no spare_calls; rank it after every measured
     # one but before negative).
@@ -531,16 +517,9 @@ function Resolve-Chosen {
         }
         $usable += $r
     }
-    # Pass 4: ordering. Preserves the ranking order, except negative-score rows come last.
-    # Unknown-score (null) rows come after non-negative measured rows but before negative.
-    $ranking = @()
-    $nonNegative = @(); $unknown = @(); $negative = @()
-    foreach ($r in $usable) {
-        if ($null -eq $r.Score) { $unknown += $r }
-        elseif ($r.Score -ge 0) { $nonNegative += $r }
-        else { $negative += $r }
-    }
-    $ranking = $nonNegative + $unknown + $negative
+    # Pass 4: no re-ordering. `outlook: tight` (score 0) still has quota now, and nothing is
+    # negative any more: the rows stay in `rank` order.
+    $ranking = $usable
 
     # Pick the first row with an alias. claude fallback is a special alias.
     $chosen = $null
@@ -578,7 +557,8 @@ function Resolve-Pair {
     param(
         [Parameter(Mandatory)] $Recommend,
         [string] $ExcludeModel,
-        [string[]] $ExcludeFamily
+        [string[]] $ExcludeFamily,
+        [string] $Tier
     )
     $impl = Resolve-Chosen -Role 'implementer' -Tier 'complex' -ExcludeFamily $ExcludeFamily -Recommend $Recommend
     # The tracker's own pair.implementer comes first when it survives our exclusions (it is in
@@ -613,6 +593,7 @@ function Resolve-Pair {
         if ($provider -eq 'alibaba' -and -not $AllowAlibaba) { $why = 'Alibaba is used only when the user asks' }
         elseif ($r.PSObject.Properties['usable'] -and -not [bool]$r.usable) { $why = 'the tracker marked it unusable' }
         elseif (-not $alias) { $why = "no reviewer alias for $provider/$rModel" }
+        elseif ($alias -eq 'luna' -and $Tier -ne 'simple') { $why = 'Luna is only the simple-PR reviewer' }
         elseif ((Get-FamilyForName $alias) -in $skipFamilies) { $why = "family $(Get-FamilyForName $alias) is the implementer's or excluded" }
         if ($why) { $passed.Add([pscustomobject]@{ Provider = $provider; Source = $c.Source; Why = $why }); continue }
         $score = if ($null -eq $r.score) { $null } else { [double]$r.score }
@@ -620,6 +601,10 @@ function Resolve-Pair {
         $reviewer = [pscustomobject]@{
             Alias = $alias; Family = (Get-FamilyForName $alias); Provider = $provider; Model = $rModel
             Score = $score; Confidence = $conf; Reasons = @($r.reasons); Source = $c.Source
+            Rank = $(if ($r.PSObject.Properties['rank']) { $r.rank } else { $null })
+            Outlook = $(if ($r.PSObject.Properties['outlook']) { [string]$r.outlook } else { $null })
+            CoversPct = $(if ($r.PSObject.Properties['covers_pct']) { $r.covers_pct } else { $null })
+            ReliabilityFactor = $(if ($r.PSObject.Properties['reliability'] -and $r.reliability) { $r.reliability.factor } else { $null })
         }
         break
     }
@@ -627,20 +612,34 @@ function Resolve-Pair {
 }
 
 function Show-PairReport($Pair, $Recommend) {
-    "role pair, /recommend?tier=heavy"
+    "role pair, /recommend?tier=$script:TierForRecommend"
     if ($Pair.Implementer) { Show-ChosenModel $Pair.Implementer | ForEach-Object { if ($_ -like 'chosen:*') { ($_ -replace '^chosen:', 'implementer:') + ", from /recommend's $($Pair.ImplementerSource)" } else { $_ } } }
     else { 'implementer: none (no candidate with an alias)' }
     if ($Pair.Reviewer) {
         $r = $Pair.Reviewer
-        "reviewer: $($r.Alias) ($($r.Provider), $($r.Model), score $(Format-Score $r.Score), confidence $($r.Confidence)), from /recommend's $($r.Source)"
+        "reviewer: $($r.Alias) ($($r.Provider), $($r.Model), $(Format-RowFacts $r)), from /recommend's $($r.Source)"
         "reasons:"
         foreach ($x in $r.Reasons) { "  - $x" }
     } else { 'reviewer: none -- no other family has quota: tell the user' }
     foreach ($p in $Pair.Passed) { "passed over for reviewer ($($p.Source)): $($p.Provider) -- $($p.Why)" }
     foreach ($e in $Pair.ImplementerResult.Excluded) { "excluded for implementer: $($e.Provider) -- $($e.Why)" }
+    foreach ($s in @($Recommend.skipped)) { if ($s) { "skipped: $($s.provider)$(if ($s.model) { ' ' + $s.model }) -- $(Format-SkippedWhy $s)" } }
     if ($Recommend.PSObject.Properties['free_reviewer'] -and $Recommend.free_reviewer) {
         "free reviewer offered: $($Recommend.free_reviewer.model) (advisory only, never counted, never for private code)"
     }
+}
+
+function Format-RowFacts($Row) {
+    # rank, outlook, score, covers_pct and reliability.factor, as /recommend reported them
+    # (logged with every choice; the user's rule of 2026-10-10).
+    $f = { param($v) if ($null -eq $v -or "$v" -eq '') { '?' } else { "$v" } }
+    'rank {0}, outlook {1}, score {2}, covers {3}%, reliability {4}' -f (& $f $Row.Rank), (& $f $Row.Outlook), (Format-Score $Row.Score), (& $f $Row.CoversPct), (& $f $Row.ReliabilityFactor)
+}
+
+function Format-SkippedWhy($Skipped) {
+    $why = if ($Skipped.PSObject.Properties['why'] -and $Skipped.why) { @($Skipped.why) } elseif ($Skipped.PSObject.Properties['reasons']) { @($Skipped.reasons) } else { @() }
+    if (-not $why) { return 'no reason given' }
+    return ($why -join '; ')
 }
 
 function Format-Reasons([object[]] $Reasons) {
@@ -676,12 +675,13 @@ function Show-ChooserReport($Result) {
         $alias = if ($r.Alias) {
             if ($r.Alias -eq $ImplementerFallback) { '<Claude Sonnet fallback>' } else { $r.Alias }
         } else { '<unmapped>' }
-        '{0,2}. {1,-22} {2,-13} {3,-30} score {4,7} confidence {5,-5} reasons: {6}' -f $i, $alias, $r.Provider, $r.Model, (Format-Score $r.Score), $r.Confidence, (Format-Reasons $r.Reasons)
+        $rk = if ($null -ne $r.Rank) { $r.Rank } else { "($i)" }
+        '{0,4}. {1,-22} {2,-13} {3,-24} {4,-7} score {5,6}  covers {6,4}%  reliability {7,-5}  reasons: {8}' -f $rk, $alias, $r.Provider, $r.Model, $(if ($r.Outlook) { $r.Outlook } else { '?' }), (Format-Score $r.Score), $(if ($null -ne $r.CoversPct) { $r.CoversPct } else { '?' }), $(if ($null -ne $r.ReliabilityFactor) { $r.ReliabilityFactor } else { '?' }), (Format-Reasons $r.Reasons)
     }
     if (-not $Result.Ranking) { 'no candidate is available.' }
     foreach ($r in $Result.Excluded) { "excluded: $($r.Provider) -- $($r.Why)" }
     if ($Result.Recommendation -and $Result.Recommendation.skipped) {
-        foreach ($s in $Result.Recommendation.skipped) { "skipped: $($s.provider) -- $($s.why)" }
+        foreach ($s in $Result.Recommendation.skipped) { "skipped: $($s.provider)$(if ($s.model) { ' ' + $s.model }) -- $(Format-SkippedWhy $s)" }
     }
 }
 
@@ -697,6 +697,10 @@ function Format-PickLine($Row) {
         model      = $Row.Model
         score      = $Row.Score
         confidence = $Row.Confidence
+        rank       = $Row.Rank
+        outlook    = $Row.Outlook
+        covers_pct = $Row.CoversPct
+        reliability_factor = $Row.ReliabilityFactor
         reasons    = @($Row.Reasons)
     }
     return @(
@@ -711,7 +715,7 @@ function Show-ChosenModel {
     param($Row)
     if (-not $Row) { return }
     $name = if ($Row.Alias -eq $ImplementerFallback) { '<Claude Sonnet fallback>' } else { $Row.Alias }
-    "chosen: $name ($($Row.Provider), $($Row.Model), score $(Format-Score $Row.Score), confidence $($Row.Confidence))"
+    "chosen: $name ($($Row.Provider), $($Row.Model), $(Format-RowFacts $Row))"
     "reasons:"
     foreach ($r in $Row.Reasons) { "  - $r" }
 }
@@ -739,12 +743,21 @@ function New-CannedRow {
         $Score                 = 0,
         [string] $Confidence = 'ok',
         [string[]] $Reasons = @('test'),
-        [bool] $Usable = $true
+        [bool] $Usable = $true,
+        $Rank = $null,
+        [string] $Outlook = $null,
+        $CoversPct = $null,
+        $Reliability = $null
     )
-    return [pscustomobject]@{
+    $row = [pscustomobject]@{
         provider = $Provider; model = $Model; score = $Score
         confidence = $Confidence; reasons = $Reasons; usable = $Usable
     }
+    if ($null -ne $Rank) { $row | Add-Member rank $Rank }
+    if ($Outlook) { $row | Add-Member outlook $Outlook }
+    if ($null -ne $CoversPct) { $row | Add-Member covers_pct $CoversPct }
+    if ($null -ne $Reliability) { $row | Add-Member reliability ([pscustomobject]@{ factor = $Reliability; note = $null }) }
+    return $row
 }
 
 function New-CannedSkipped {
@@ -799,63 +812,67 @@ function Invoke-ChooserSelfTest {
     $unmappedProviders = @($r.Ranking | Where-Object { -not $_.Alias } | ForEach-Object Provider) | Sort-Object
     Add-Check "mapping (reviewer): unmapped providers are exactly claude, openai and openrouter" ([string]($unmappedProviders -join ',') -eq 'claude,openai,openrouter')
 
-    # Case 2: Claude dropped while another positive score exists; kept when alone.
-    $recClaude = Get-CannedRecommend -Ranking @(
-        (New-CannedRow -Provider 'claude'  -Model 'sonnet' -Score 2000),
-        (New-CannedRow -Provider 'minimax' -Model 'MiniMax-M3'      -Score 1000)
+    # Case 2 (the user's rule of 2026-10-10): follow `rank`. Every row tight, Claude ranked 3rd:
+    # rank 1 is picked, not Claude ("never because the other rows are tight").
+    $recTight = Get-CannedRecommend -Ranking @(
+        (New-CannedRow -Provider 'minimax' -Model 'MiniMax-M3' -Score 0 -Rank 1 -Outlook 'tight' -CoversPct 60 -Reliability 0.94),
+        (New-CannedRow -Provider 'opencode_go' -Model 'mimo-v2.6-pro' -Score 0 -Rank 2 -Outlook 'tight' -CoversPct 40 -Reliability 0.87),
+        (New-CannedRow -Provider 'claude' -Model 'opus' -Score 0 -Rank 3 -Outlook 'tight' -CoversPct 76 -Reliability 0.99)
     )
-    $r = Resolve-Chosen -Role 'implementer' -Tier 'complex' -Recommend $recClaude
-    Add-Check 'Claude dropped while another positive score exists' (-not $r.Chosen -or $r.Chosen.Provider -ne 'claude')
-    $claudeExcluded = @($r.Excluded | Where-Object { $_.Provider -eq 'claude' })
-    Add-Check 'Claude dropped: the excluded row mentions the orchestrator rule' ($claudeExcluded.Count -ge 1 -and $claudeExcluded[0].Why -match 'orchestrator')
-
-    # R2 boundary: a score of zero is NOT positive. With Claude positive and the only other
-    # candidate at 0, Claude stands in. With Claude at 0 and the only other candidate at
-    # any positive value, Claude is dropped (the rubric's "positive" reads as > 0).
-    $recClaudeZeroOther = Get-CannedRecommend -Ranking @(
-        (New-CannedRow -Provider 'claude'  -Model 'sonnet' -Score 100),
-        (New-CannedRow -Provider 'minimax' -Model 'MiniMax-M3'      -Score 0)
+    $r = Resolve-Chosen -Role 'implementer' -Tier 'complex' -Recommend $recTight
+    Add-Check 'rank: every row tight, Claude 3rd -> rank 1 (mm-m3) is picked, not Claude' (Test-PickAlias $r 'mm-m3')
+    Add-Check 'rank: Claude is not excluded, only ranked 3rd' (@($r.Ranking | ForEach-Object Provider) -join ',' -eq 'minimax,opencode_go,claude')
+    # Claude where rank puts it: ranked 1st, it is the pick (the script's Claude fallback alias).
+    $recClaudeFirst = Get-CannedRecommend -Ranking @(
+        (New-CannedRow -Provider 'claude' -Model 'opus' -Score 900 -Rank 1 -Outlook 'spare' -CoversPct 150 -Reliability 0.99),
+        (New-CannedRow -Provider 'minimax' -Model 'MiniMax-M3' -Score 800 -Rank 2 -Outlook 'spare' -CoversPct 140 -Reliability 0.94)
     )
-    $r = Resolve-Chosen -Role 'implementer' -Tier 'complex' -Recommend $recClaudeZeroOther
-    Add-Check 'R2: Claude positive, other at 0 -> Claude stands in (zero is not positive)' ($r.Chosen -and $r.Chosen.Provider -eq 'claude')
-    Add-Check 'R2: Claude positive, other at 0 -> Claude is the script fallback (alias)' ($r.Chosen -and $r.Chosen.Alias -eq $ImplementerFallback)
-
-    $recClaudeZeroSelf = Get-CannedRecommend -Ranking @(
-        (New-CannedRow -Provider 'claude'  -Model 'sonnet' -Score 0),
-        (New-CannedRow -Provider 'minimax' -Model 'MiniMax-M3'      -Score 100)
+    $r = Resolve-Chosen -Role 'implementer' -Tier 'complex' -Recommend $recClaudeFirst
+    Add-Check 'rank: Claude ranked 1st is picked where rank puts it' ($r.Chosen -and $r.Chosen.Alias -eq $ImplementerFallback)
+    # No re-sorting: a row with reliability 0.5 that /recommend ranked 2nd stays 2nd, even with a
+    # higher score than rank 1 and listed out of order.
+    $recRel = Get-CannedRecommend -Ranking @(
+        (New-CannedRow -Provider 'zai' -Model 'glm-5.3' -Score 900 -Rank 3 -Outlook 'spare' -CoversPct 200 -Reliability 0.98),
+        (New-CannedRow -Provider 'minimax' -Model 'MiniMax-M3' -Score 5000 -Rank 2 -Outlook 'spare' -CoversPct 300 -Reliability 0.5),
+        (New-CannedRow -Provider 'opencode_go' -Model 'mimo-v2.6-pro' -Score 0 -Rank 1 -Outlook 'tight' -CoversPct 57 -Reliability 0.87)
     )
-    $r = Resolve-Chosen -Role 'implementer' -Tier 'complex' -Recommend $recClaudeZeroSelf
-    Add-Check 'R2: Claude at 0, other positive -> Claude dropped' (-not ($r.Chosen -and $r.Chosen.Provider -eq 'claude'))
-    $claudeExcluded = @($r.Excluded | Where-Object { $_.Provider -eq 'claude' })
-    Add-Check 'R2: Claude at 0 dropped: the excluded row mentions the orchestrator rule' ($claudeExcluded.Count -ge 1 -and $claudeExcluded[0].Why -match 'orchestrator')
-
-    $recClaudeAlone = Get-CannedRecommend -Ranking @(
-        (New-CannedRow -Provider 'claude'  -Model 'sonnet' -Score 1500),
-        (New-CannedRow -Provider 'minimax' -Model 'MiniMax-M3'      -Score (-100))
+    $r = Resolve-Chosen -Role 'implementer' -Tier 'complex' -Recommend $recRel
+    Add-Check 'rank: the reliability-0.5 row ranked 2nd stays 2nd (no re-sorting by score or reliability)' (@($r.Ranking | ForEach-Object Provider) -join ',' -eq 'opencode_go,minimax,zai')
+    Add-Check 'rank: a tight rank 1 (score 0) is still the pick' (Test-PickAlias $r 'mimo-pro')
+    # All skipped: nothing returned, and the script exits 3.
+    $recAllSkipped = Get-CannedRecommend -Ranking @() -Skipped @(
+        (New-CannedSkipped -Provider 'zai' -Why 'status exhausted'),
+        (New-CannedSkipped -Provider 'openrouter' -Why 'not recommended')
     )
-    $r = Resolve-Chosen -Role 'implementer' -Tier 'complex' -Recommend $recClaudeAlone
-    Add-Check 'Claude only-non-negative: it is the script fallback' ($r.Chosen -and $r.Chosen.Alias -eq $ImplementerFallback)
-
-    # Case 3: negative scores are ranked after non-negative ones (with -AllowAlibaba, so the
-    # alibaba row is ranked rather than excluded).
-    Set-AllowAlibabaForTest $true
-    $recNeg = Get-CannedRecommend -Ranking @(
-        (New-CannedRow -Provider 'opencode_go' -Model 'mimo-v2.6-flash' -Score (-500)),
-        (New-CannedRow -Provider 'minimax'     -Model 'MiniMax-M3'      -Score 1000),
-        (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'         -Score 80),
-        (New-CannedRow -Provider 'alibaba'     -Model 'qwen3.8-max'     -Score (-100))
+    $r = Resolve-Chosen -Role 'implementer' -Tier 'complex' -Recommend $recAllSkipped
+    Add-Check 'all skipped: no candidate is returned' ($null -eq $r.Chosen)
+    $skFile = Join-Path ([System.IO.Path]::GetTempPath()) ("choose-model-allskipped-" + [guid]::NewGuid().ToString('N') + '.json')
+    try {
+        $recAllSkipped | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $skFile -Encoding utf8
+        & pwsh -NoProfile -File $PSCommandPath -Role implementer -RecommendFile $skFile *> $null
+        $skCode = $LASTEXITCODE
+    } finally { Remove-Item -LiteralPath $skFile -Force -ErrorAction SilentlyContinue }
+    Add-Check "all skipped: the script exits 3 (got $skCode)" ($skCode -eq 3)
+    # Luna only as the simple-PR reviewer.
+    $recLuna = Get-CannedRecommend -Ranking @(
+        (New-CannedRow -Provider 'openai' -Model 'gpt-5.6-luna' -Score 2800 -Rank 1 -Outlook 'spare' -CoversPct 260 -Reliability 0.98),
+        (New-CannedRow -Provider 'minimax' -Model 'MiniMax-M2.7' -Score 1900 -Rank 2 -Outlook 'spare' -CoversPct 240 -Reliability 0.94)
     )
-    $r = Resolve-Chosen -Role 'reviewer' -Tier 'simple' -Recommend $recNeg
-    $order = @($r.Ranking | ForEach-Object Provider)
-    Add-Check 'negative scores are ranked after every non-negative one' ($order -join ',' -eq 'minimax,zai,opencode_go,alibaba')
-    $picked = Resolve-Chosen -Role 'reviewer' -Tier 'simple' -Recommend $recNeg
-    Add-Check 'a negative score is chosen only when nothing else is left' (Test-PickAlias $picked 'glm')
-    $recOnlyNegative = Get-CannedRecommend -Ranking @(
-        (New-CannedRow -Provider 'opencode_go' -Model 'mimo-v2.6-flash' -Score (-500))
+    $r = Resolve-Chosen -Role 'reviewer' -Tier 'simple' -Recommend $recLuna
+    Add-Check 'Luna reviews a simple PR (rank 1)' (Test-PickAlias $r 'luna')
+    $r = Resolve-Chosen -Role 'reviewer' -Tier 'complex' -Recommend $recLuna
+    Add-Check 'Luna never reviews a complex PR: the next by rank (mm-m2.7)' (Test-PickAlias $r 'mm-m2.7')
+    $r = Resolve-Chosen -Role 'implementer' -Tier 'complex' -Recommend $recLuna
+    Add-Check 'Luna never implements: the next by rank (mm-m2.7)' (Test-PickAlias $r 'mm-m2.7')
+    # Sol implements where rank puts it (the user's decision of 2026-10-10).
+    $recSol = Get-CannedRecommend -Ranking @(
+        (New-CannedRow -Provider 'openai' -Model 'gpt-6.1-sol' -Score 2900 -Rank 1 -Outlook 'spare' -CoversPct 268 -Reliability 0.975),
+        (New-CannedRow -Provider 'minimax' -Model 'MiniMax-M3' -Score 1950 -Rank 2 -Outlook 'spare' -CoversPct 246 -Reliability 0.937)
     )
-    $rNeg = Resolve-Chosen -Role 'reviewer' -Tier 'simple' -Recommend $recOnlyNegative
-    Add-Check 'the only candidate is negative-scoring: it is still picked' (Test-PickAlias $rNeg 'mimo-flash')
-    Set-AllowAlibabaForTest $false
+    $r = Resolve-Chosen -Role 'implementer' -Tier 'complex' -Recommend $recSol
+    Add-Check 'Sol implements when ranked 1st' (Test-PickAlias $r 'sol')
+    $out = (& { Show-ChooserReport $r } | Out-String)
+    Add-Check 'the report prints rank, outlook, covers and reliability per row' ($out -match '1\. sol\s+openai\s+gpt-6\.1-sol\s+spare\s+score\s+2900\s+covers\s+268%\s+reliability 0\.975')
 
     # Case 4: ExcludeFamily drops the named family.
     $r = Resolve-Chosen -Role 'implementer' -Tier 'complex' -Recommend $recImpl -ExcludeFamily @('mm-m3')
@@ -886,26 +903,16 @@ function Invoke-ChooserSelfTest {
     Add-Check 'R1: -ExcludeModel qwen drops the alibaba reviewer row' (@($rAli.Excluded | Where-Object { $_.Provider -eq 'alibaba' }).Count -gt 0)
     Add-Check 'R1: -ExcludeModel qwen: the chooser falls through to glm (never qwen)' (Test-PickAlias $rAli 'glm')
 
-    # Case 6: SubstituteFamilies drops each named family AND the OpenAI family.
+    # Case 6: SubstituteFamilies drops only the named (failed) families; OpenAI is no longer
+    # dropped wholesale (the user's decision of 2026-10-10, follow rank).
     $recSub = Get-CannedRecommend -Ranking @(
-        (New-CannedRow -Provider 'openai'      -Model 'gpt-6-sol' -Score 1500),
-        (New-CannedRow -Provider 'minimax'     -Model 'MiniMax-M3' -Score 1000 -Usable $false), # failed
+        (New-CannedRow -Provider 'openai'      -Model 'gpt-6.1-sol' -Score 1500),
+        (New-CannedRow -Provider 'minimax'     -Model 'MiniMax-M3' -Score 1000),
         (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'   -Score 80)
     )
     $r = Resolve-Chosen -Role 'implementer' -Tier 'complex' -SubstituteFamilies @('mm-m3') -Recommend $recSub
-    $excludedProviders = @($r.Excluded | ForEach-Object Provider) | Sort-Object
-    Add-Check 'substitute filter: openai is dropped; minimax was marked unusable' (@($excludedProviders | Where-Object { $_ -in @('openai', 'minimax') }).Count -eq 2)
-    Add-Check 'substitute filter: zai / glm is the picked one' (Test-PickAlias $r 'glm')
-    # Without the failed minimax (usable), the openai row is still dropped by the
-    # substitute filter; the unmapped-for-implementer rule would already drop openai, so
-    # this is what the chain-spent substitute gets from Choose-Model: never OpenAI.
-    $recSub2 = Get-CannedRecommend -Ranking @(
-        (New-CannedRow -Provider 'openai'      -Model 'gpt-6-sol' -Score 1500),
-        (New-CannedRow -Provider 'minimax'     -Model 'MiniMax-M3'         -Score 1000),
-        (New-CannedRow -Provider 'zai'         -Model 'glm-5.3'   -Score 80)
-    )
-    $r2 = Resolve-Chosen -Role 'implementer' -Tier 'complex' -SubstituteFamilies @('mm-m3') -Recommend $recSub2
-    Add-Check 'substitute filter on a healthy minimax: openai still dropped, minimax still dropped' (-not ($r2.Chosen -and $r2.Chosen.Provider -in @('openai', 'minimax')))
+    Add-Check 'substitute filter: the failed family (minimax) is dropped' (@($r.Excluded | Where-Object { $_.Provider -eq 'minimax' }).Count -eq 1)
+    Add-Check 'substitute filter: OpenAI is not dropped; Sol, ranked first, is the substitute' (Test-PickAlias $r 'sol')
 
     # Case 7: reviewer substitute order (GLM, MiMo Pro, Qwen) with a canned light
     # ranking that puts zai first: prints MiMo Pro then Qwen, never GLM and never
@@ -1015,9 +1022,9 @@ function Invoke-ChooserSelfTest {
         skipped = @()
     }
     $p2 = Resolve-Pair -Recommend $pairRec2
-    Add-Check '#893 pair: same-family pair reviewer is replaced by the next ranking row of another family (mimo-pro)' ($p2.Implementer.Alias -eq 'glm' -and $p2.Reviewer -and $p2.Reviewer.Alias -eq 'mimo-pro' -and $p2.Reviewer.Source -eq 'ranking')
-    $p2x = Resolve-Pair -Recommend $pairRec2 -ExcludeModel 'mimo-pro'
-    Add-Check '#893 pair: with -ExcludeModel mimo-pro too, no reviewer is left (null: tell the user)' ($null -eq $p2x.Reviewer)
+    Add-Check '#893 pair: same-family pair reviewer is replaced by the next ranking row of another family (mm-m3, now a reviewer)' ($p2.Implementer.Alias -eq 'glm' -and $p2.Reviewer -and $p2.Reviewer.Alias -eq 'mm-m3' -and $p2.Reviewer.Source -eq 'ranking')
+    $p2x = Resolve-Pair -Recommend $pairRec2 -ExcludeFamily @('mm-m3', 'mimo-pro')
+    Add-Check '#893 pair: with MiniMax and MiMo excluded too, no reviewer is left (null: tell the user)' ($null -eq $p2x.Reviewer)
     $out = (& { Show-PairReport $p2x $pairRec2 } | Out-String)
     Add-Check '#893 pair: the report says "no other family has quota: tell the user"' ($out -match 'no other family has quota: tell the user')
 
@@ -1179,7 +1186,10 @@ if ($SelfTest) { $code = Invoke-ChooserSelfTest; $code[0..($code.Count - 2)]; ex
 if (-not $Role) { throw 'Give -Role implementer, reviewer or pair (or -SelfTest).' }
 if ($Role -notin @('implementer', 'reviewer', 'pair')) { throw "-Role must be implementer, reviewer or pair; got '$Role'." }
 
-$tierForRecommend = if ($Role -eq 'reviewer') { 'light' } else { 'heavy' }
+# The tier is the weight of the TASK (CLAUDE.md rule 17, the user's correction of 2026-10-10):
+# -Weight heavy|light. Without it, the old per-role default stays for callers not yet updated.
+$tierForRecommend = if ($Weight) { $Weight } elseif ($Role -eq 'reviewer') { 'light' } else { 'heavy' }
+$script:TierForRecommend = $tierForRecommend
 
 try {
     $recommend = Get-Recommendation -RecommendFile $RecommendFile -RecommendUrl $RecommendUrl -RetryWaitSec $RecommendRetryWaitSec -PollSec $RecommendPollSec -Tier $tierForRecommend
@@ -1197,7 +1207,7 @@ try {
 }
 
 if ($Role -eq 'pair') {
-    $pairResult = Resolve-Pair -Recommend $recommend -ExcludeModel $ExcludeModel -ExcludeFamily $ExcludeFamily
+    $pairResult = Resolve-Pair -Recommend $recommend -ExcludeModel $ExcludeModel -ExcludeFamily $ExcludeFamily -Tier $Tier
     Show-PairReport $pairResult $recommend
     if (-not $pairResult.Implementer) { [Console]::Error.WriteLine('Choose-Model.ps1: no implementer candidate.'); exit 3 }
     if (-not $pairResult.Reviewer) { [Console]::Error.WriteLine('Choose-Model.ps1: no reviewer of another family has quota: tell the user.'); exit 3 }
@@ -1223,4 +1233,8 @@ Show-ChooserReport $result
 if ($result.Chosen) {
     "---"
     Show-ChosenModel $result.Chosen
+} else {
+    # Nothing usable (every row skipped or excluded): no pick, exit 3.
+    [Console]::Error.WriteLine("Choose-Model.ps1: no candidate for $Role with the given exclusions.")
+    exit 3
 }

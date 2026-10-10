@@ -141,7 +141,8 @@ Models are chosen per task, in the task's entry, by what an error would cost:
    | The implementer is MiMo (`mimo-pro`, `mimo-flash`) | GLM-5.3, then Qwen3.8 Max | the same, when OpenAI is out of quota |
    | The implementer is Qwen (`qwen-flash`) | GLM-5.3, then MiMo v2.6 Pro | the same, when OpenAI is out of quota |
 
-   **Which substitute goes first** (the user's decision of 2026-10-08, CLAUDE.md rule 17): the table says *who* may substitute. The order among them is quota-tracker's `/recommend?tier=light` ranking, a skipped or negative-scoring one last, instead of the fixed order above. Since [T152](tasks/T152.md), `Choose-Model.ps1 -Role reviewer -ExcludeModel <implementer>` prints them in that order. OpenCode Go's light row is `mimo-v2.6-flash`, so `Choose-Model.ps1 -Role reviewer` may print it as `mimo-flash` (bug #908 maps by provider and model): the row only places OpenCode Go in the order, and the substitute dispatched for it is **MiMo Pro** (`-Reviewer mimo-pro`), as the table says, the way Alibaba's row stands for Qwen3.8 Max. The re-check order is unchanged (Luna, GLM-5.3, MiMo Pro, Qwen3.8 Flash): MiMo Flash is in no chain.
+   **Which substitute goes first** (the user's decisions of 2026-10-08 and 2026-10-10, CLAUDE.md rule 17): the table says *who* may substitute; the order among them is `/recommend`'s **`rank`**, for the task's weight (`tier=heavy` or `tier=light`), as returned and never re-sorted, instead of the fixed order above. A `tight` row (score 0) is taken in its rank like any other; only a row in `skipped` is passed over, and nothing is negative any more. Since [T152](tasks/T152.md), `Choose-Model.ps1 -Role reviewer -ExcludeModel <implementer>` prints them in that order.
+ OpenCode Go's light row is `mimo-v2.6-flash`, so `Choose-Model.ps1 -Role reviewer` may print it as `mimo-flash` (bug #908 maps by provider and model): the row only places OpenCode Go in the order, and the substitute dispatched for it is **MiMo Pro** (`-Reviewer mimo-pro`), as the table says, the way Alibaba's row stands for Qwen3.8 Max. The re-check order is unchanged (Luna, GLM-5.3, MiMo Pro, Qwen3.8 Flash): MiMo Flash is in no chain.
 
    Qwen3.8 Max was added after GLM-5.3 and DeepSeek V4 Pro by the user's decision of 2026-10-05; MiMo v2.6 Pro took DeepSeek's place on 2026-10-09. **Routes**: GLM-5.3 also runs on the Alibaba Token Plan, the same model under the same name and family, but only when the user asks (#893): `external-review.ps1 -Route auto` (the default) keeps Z.AI or OpenCode Go and marks an avoided provider's reviewer unavailable; `-Route alibaba` forces `alibaba-token-plan/glm-5.3`. The route is named in the posted review's signature line. Qwen runs only on Alibaba ([environment.md](environment.md)).
 
@@ -961,9 +962,9 @@ the docs item applies only if the review named a claim.
       several reviews.
       QUOTA FIRST (CLAUDE.md rule 17, the user's decision of 2026-10-08, which replaces the /avoid
       check of 2026-10-05): before choosing or dispatching any model, read quota-tracker's
-      `/recommend?tier=heavy` (implementers) or `tier=light` (Sol's substitutes), take its `ranking`
-      in order with rule 17's exclusions, pass the choice explicitly, and log the chosen row's
-      `reasons`. A provider in `skipped` is passed over as if it had exited 3, and the tier comment
+      `/recommend?tier=heavy` or `tier=light` by the task's weight, take its `pair` and then its rows
+      by `rank` (never re-sorted) with rule 17's exclusions, pass the choice explicitly, and log the
+      chosen row's `reasons`, `rank`, `outlook`, `covers_pct` and `reliability.factor`. A provider in `skipped` is passed over as if it had exited 3, and the tier comment
       or PR body says so. Luna stays the simple tier's reviewer on OpenAI's main window; when
       OpenAI is exhausted it still runs if `curl -s localhost:8765/quota/openai` lists `gpt-5.6-luna`
       under `when_exhausted.usable_models`. If the service does not answer,

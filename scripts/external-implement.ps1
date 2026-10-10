@@ -164,7 +164,7 @@ param(
     [string] $Slug,
     [int] $Issue,
     [string] $BriefFile,
-    [ValidateSet('luna', 'glm-flash', 'glm', 'qwen-flash', 'mm-m3', 'mm-m2.7', 'ali-glm', 'mimo-pro', 'mimo-flash')] [ValidateScript({ if ($_ -match 'deepseek') { throw "DeepSeek is not used (the user's decision of 2026-10-09)" }; $true })] [string] $Model,
+    [ValidateSet('sol', 'luna', 'glm-flash', 'glm', 'qwen-flash', 'mm-m3', 'mm-m2.7', 'ali-glm', 'mimo-pro', 'mimo-flash')] [ValidateScript({ if ($_ -match 'deepseek') { throw "DeepSeek is not used (the user's decision of 2026-10-09)" }; $true })] [string] $Model,
     [ValidateSet('auto', 'go', 'zai', 'alibaba')] [string] $Route = 'auto',
     [switch] $LocalOnly,
     [string] $FixturesDir,
@@ -678,6 +678,8 @@ function Set-PullRequestSection {
 # 2026-10-09). Confirm the ids with `opencode models` on first use; -ModelIds overrides any
 # of them.
 $models = @{
+    # Sol implements where /recommend ranks it (CLAUDE.md rule 17, the user's decision of 2026-10-10).
+    'sol'        = 'openai/gpt-6.1-sol'
     'luna'       = 'openai/gpt-5.6-luna'
     'glm-flash'  = 'zai-coding-plan/glm-5.3-flash'
     'glm'        = 'zai-coding-plan/glm-5.3'
@@ -703,7 +705,7 @@ if ($ModelIds) { foreach ($k in $ModelIds.Keys) { $models[$k] = $ModelIds[$k] } 
 # is overkill); luna was already high.
 # Heavy models run light (the user's decision of 2026-10-05): glm at low (GLM-5.3 has no medium).
 # qwen-flash at medium: Qwen3.8 Flash offers low, medium and xhigh, no high.
-$variants = @{ 'luna' = 'high'; 'glm-flash' = 'high'; 'glm' = 'low'; 'qwen-flash' = 'medium'; 'mm-m3' = 'thinking'; 'mm-m2.7' = ''; 'ali-glm' = 'low'; 'mimo-pro' = ''; 'mimo-flash' = '' }
+$variants = @{ 'sol' = 'medium'; 'luna' = 'high'; 'glm-flash' = 'high'; 'glm' = 'low'; 'qwen-flash' = 'medium'; 'mm-m3' = 'thinking'; 'mm-m2.7' = ''; 'ali-glm' = 'low'; 'mimo-pro' = ''; 'mimo-flash' = '' }
 
 # -SelfTest short-circuits the run path: offline checks only (R3 rework). No worktree, no
 # OpenCode, no PR. Use it to verify Format-ImplementerAttempt end-to-end without billing.

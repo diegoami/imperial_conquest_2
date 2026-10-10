@@ -70,18 +70,19 @@ Facts that affect availability:
 
 ### Choosing a model: no fixed order
 
-`scripts/Choose-Model.ps1` chooses from quota-tracker's `/recommend`, never from headroom percentages (CLAUDE.md rule 17; T152, and #893 of 2026-10-09). It maps each row's provider to an alias per role (an unmapped row is printed and skipped) and keeps this repository's exclusions on top of the tracker's order:
+`scripts/Choose-Model.ps1` chooses from quota-tracker's `/recommend`, never from headroom percentages (CLAUDE.md rule 17; T152, and #893 of 2026-10-09). It maps each row's provider and model to an alias per role (an unmapped row is printed and skipped), **follows `rank` as returned and never re-sorts** (the user's rule of 2026-10-10: `rank` already folds in quota, coverage, reserves and reliability), and keeps this repository's exclusions on top without reordering what is left; when one removes a row, the next by `rank` is taken:
 
-- OpenAI never implements; Luna and Sol reach a review only through the tier rules ([build-process.md §3.4](build-process.md#34-why-the-reviewers-model-differs-from-the-implementers)).
-- Claude, the orchestrator, is dropped while another candidate scores positive.
-- **Alibaba is never chosen unless the user asks** (the user's decision of 2026-10-09: its monthly pool is 91% used until 2026-11-06); `-AllowAlibaba` puts it back.
-- A negative score is ranked last and chosen only when nothing else is left; a row the tracker marks unusable is skipped.
+- Claude, the orchestrator, is used only where `rank` puts it, or when every other row is in `skipped`; never because the other rows are tight.
+- `outlook: tight` (score 0) still has quota now: the first row by `rank` is taken whatever its outlook. Only `skipped` rows are unusable; nothing is negative any more.
+- Luna (`gpt-5.6-luna`) is only the simple-PR reviewer; Sol (`gpt-6.1-sol`) implements and reviews where `rank` puts it.
+- A reviewer is never of the implementer's family; DeepSeek is never used.
+- **Alibaba is never chosen unless the user asks** (the user's decision of 2026-10-09); `-AllowAlibaba` puts it back.
 
 Its modes:
 
-- `pwsh scripts/Choose-Model.ps1 -Role implementer` (`/recommend?tier=heavy`) or `-Role reviewer` (`tier=light`, for Sol's substitutes) prints the candidates best first with `score`, `confidence` and `reasons`; `-Pick` prints the top alias only.
-- `-Role pair` gives one delegated task's implementer and reviewer from one `tier=heavy` response: the tracker's `pair.implementer` when it survives the exclusions (else the top ranked implementer), and `pair.reviewer` when it is of another family (else the next `ranking` row of another family). No reviewer left means no other family has quota: it says so and exits 3, and the main session tells the user. The tracker's `free_reviewer` is printed as advisory only.
-- `-ExcludeModel <implementer>` (reviewer and pair) and `-ExcludeFamily <name>[,<name>…]` drop whole families; `-SubstituteFamilies` is T150's chain-spent substitute filter (the failed families plus OpenAI).
+- `-Weight heavy|light` is the weight of the task, which decides the `/recommend` tier (without it, the old per-role default: implementer and pair heavy, reviewer light). `pwsh scripts/Choose-Model.ps1 -Role implementer|reviewer` prints, per row, rank, alias, provider, model, outlook, score, covers_pct, reliability.factor and reasons, then `skipped` with why; `-Pick` prints the top alias only; nothing usable exits 3.
+- `-Role pair` gives one delegated task's implementer and reviewer from one response: the tracker's `pair.implementer` when it survives the exclusions (else the top ranked implementer), and `pair.reviewer` when it is of another family (else the next `ranking` row of another family). No reviewer left means no other family has quota: it says so and exits 3, and the main session tells the user. The tracker's `free_reviewer` is printed as advisory only.
+- `-ExcludeModel <implementer>` (reviewer and pair) and `-ExcludeFamily <name>[,<name>…]` drop whole families; `-SubstituteFamilies` is T150's chain-spent substitute filter (the failed families only; OpenAI is no longer dropped, the user's decision of 2026-10-10).
 - `-RecommendFile` and `-RecommendUrl` make it testable offline; `-SelfTest` runs the canned cases.
 - A tracker still loading after `-RecommendRetryWaitSec`, or not answering, exits 3; the main session restarts the service (`systemctl --user restart quota-tracker` in WSL), retries, and tells the user if it still fails.
 
