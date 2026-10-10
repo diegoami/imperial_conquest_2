@@ -1258,7 +1258,7 @@
       "armyScoreCap": "confirmed: 2026-10-07-strategic-ai-turn.md §3.3 [confirmed: decompile] — the enemy-army scorer caps its score at 1000 before testing it against the 100-threshold decision.",
       "armyScoreWeakerWithinBonus": "confirmed: 2026-10-07-strategic-ai-turn.md §3.3 [confirmed: decompile] — the +1000 bonus the enemy-army scorer adds when the target is weaker and within 7 tiles.",
       "armyScoreWeakerDistanceThreshold": "confirmed: 2026-10-07-strategic-ai-turn.md §3.3 [confirmed: decompile] — the 'within 7' threshold for the +1000 weaker-enemy bonus.",
-      "cityScoreThreshold": "confirmed: 2026-10-07-strategic-ai-turn.md §3.3 [confirmed: decompile] — the 'cityScore > 100' / 'cityScore < 100' decision-tree boundary, expressed as a strict inequality: a cityScore of 100 does NOT pass 'cityScore > 100' and does pass 'cityScore < 100'.",
+      "cityScoreThreshold": "confirmed: 2026-10-07-strategic-ai-turn.md §3.3 [confirmed: decompile] — the 'cityScore > 100' / 'cityScore < 100' decision-tree boundary, expressed as a strict inequality: a cityScore of exactly 100 passes neither 'cityScore > 100' nor 'cityScore < 100', so it takes the 'attack the city' else-branch.",
       "armyScoreThreshold": "confirmed: 2026-10-07-strategic-ai-turn.md §3.3 [confirmed: decompile] — the matching 'armyScore < 100' boundary.",
       "demoralisedMoraleThreshold": "confirmed: 2026-10-07-strategic-ai-turn.md §3.3 [confirmed: decompile] — the 'morale < 60' test in the demoralised branch.",
       "demoralisedSuppliesThreshold": "confirmed: 2026-10-07-strategic-ai-turn.md §3.3 [confirmed: decompile] — the 'supplies < 1' test in the demoralised branch (the army has zero supplies).",
@@ -1274,7 +1274,7 @@
       "resupplyCapitalPenalty": "confirmed: 2026-10-07-strategic-ai-turn.md §3.3 [confirmed: decompile] — the '−20' an own city scores when it is also a capital (FUN_0044b8d0).",
       "resupplyForeignBonus": "confirmed: 2026-10-07-strategic-ai-turn.md §3.3 [confirmed: decompile] — the '+20' a qualifying foreign non-war city scores.",
       "resupplyMaxForeignDistance": "confirmed: 2026-10-07-strategic-ai-turn.md §3.3 [confirmed: decompile] — the 'beyond 15' threshold at which the best qualifying foreign city is rejected in favour of the nearest own city.",
-      "garrisonFallbackCapitalDistance": "confirmed: 2026-10-07-strategic-ai-turn.md §3.5 [confirmed: decompile] — FUN_0044ebe8's 'within 10' radius around the capital; an army whose chosen command produced no movement marches to the nearest city of any owner when it falls inside that radius, otherwise to the capital.",
+      "garrisonFallbackCapitalDistance": "confirmed: 2026-10-07-strategic-ai-turn.md §3.5 [confirmed: decompile] — FUN_0044ebe8's 'within 10' radius around the capital; an army whose chosen command produced no movement marches to the nearest city of any owner when some own army (the deciding army itself included) stands inside that radius around the capital, otherwise to the capital.",
       "cityRegionById": "[designed]: empty for the shipped world — the original's FUN_0044eb18 region/coast-box map was not transcribed into the clone, so every city is implicitly in region 0 and the 'city in another region' halving term in the city scorer never fires in play. Tests populate this list to pin the halving term in isolation."
     }
   },
