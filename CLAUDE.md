@@ -22,10 +22,12 @@ These outrank every other rule here when they conflict.
     and fix the cause before anything else. Fall back to another model only when the provider does
     not answer (quota, rate limit, 5xx, network); a flaw in our process, a missing login, a broken
     brief or a setup gap gets fixed, not routed around ([operating-guide §3](docs/operating-guide.md#3-standing-user-preferences)).
-22. **No delegated run loses its progress.** Every run commits and pushes as it goes, keeps
-    `rendered/RUN-NOTES.md`, and has its notes posted on the task's issue when it ends, so any
-    session on any machine can see where it is and resume it. A run that holds work only locally,
-    or a gap that lets it, is a defect to fix ([running-notes.md](docs/running-notes.md)).
+22. **No delegated run loses its progress.** An implementer, or any run that changes files,
+    commits and pushes as it goes and keeps `rendered/RUN-NOTES.md`; its notes are posted on the
+    task's issue when it ends (`scripts/external-implement.ps1` does it for an OpenCode run, the main
+    session for a Claude subagent), so any session on any machine can see where it is and resume
+    it. A read-only reviewer's progress is its review, which the review script posts. A run that
+    holds work only locally, or a gap that lets it, is a defect to fix ([running-notes.md](docs/running-notes.md)).
 23. **Keep watching every running agent and tell the user what it is doing, in plain language**:
     which step it is on, what it changed, what it found. Never raw log lines, byte counts or
     "signal changed".
