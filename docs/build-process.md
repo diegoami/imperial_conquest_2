@@ -96,6 +96,8 @@ Every system is written against these interfaces and registers itself, so no two
 
 ### 3.3 Model selection
 
+**Superseded for model choice** (the user's decision of 2026-10-11, CLAUDE.md rule 17): the user names the implementer (the main session, or a subagent and its model) before each task, and the OpenCode reviewer at every review; a PR gets one review unless the user asks for more. Where this section names a model for a role, or a tier, chain or substitute order that picks one, it is history, kept for the record.
+
 Models are chosen per task, in the task's entry, by what an error would cost:
 
 - **OpenCode, on the model the quota tracker chooses** (the user's decision of 2026-10-08, CLAUDE.md rule 17, replacing the fixed chain of 2026-10-05; Claude credit stays the scarce resource, and OpenCode Go has been `opencode-go/…` since fix #551). The main session reads `/recommend?tier=heavy` through `scripts/Choose-Model.ps1` (`-Role implementer`, or `-Role pair` for the implementer and a reviewer of another family), with rule 17's exclusions, and passes `-Model <alias>` explicitly; there is no `-Model auto` since #893, and a model whose route has no quota is refused, not skipped. GLM ended long implementer runs early (#557, #562), and Go's Luna failed long runs with `Bad Request` (#553). OpenCode runs use effort `high`, not `max`, except where a model offers no `high` or is heavy: Qwen3.8 Flash runs at `medium` (it offers `low`, `medium`, `xhigh`), and the heavy reviewers run light (GLM-5.3 and Qwen3.8 Max at `low`, Sol at `low`, MiMo v2.6 Pro at its default). No free or Zen model is used. An entry that still says Sonnet reads as the default.
@@ -105,6 +107,8 @@ Models are chosen per task, in the task's entry, by what an error would cost:
 - **Fable** for pure templates and configuration, never for anything that must compile against the domain model.
 
 ### 3.4 Why the reviewer's model differs from the implementer's
+
+**Superseded for model choice** (the user's decision of 2026-10-11, CLAUDE.md rule 17): the user names the implementer (the main session, or a subagent and its model) before each task, and the OpenCode reviewer at every review; a PR gets one review unless the user asks for more. Where this section names a model for a role, or a tier, chain or substitute order that picks one, it is history, kept for the record.
 
 1. **Independence.** A reviewer on the same model tends to repeat the implementer's misreading of the same report; `design-audit.md` §2.1 records this happening twice to the *same* claim. A different model reading the same evidence is the cheapest independent perspective available.
 2. **Cost asymmetry.** Reviewing a diff costs a fraction of producing it, so moving the reviewer up one tier is cheap leverage.
@@ -141,7 +145,8 @@ Models are chosen per task, in the task's entry, by what an error would cost:
    | The implementer is MiMo (`mimo-pro`, `mimo-flash`) | GLM-5.3, then Qwen3.8 Max | the same, when OpenAI is out of quota |
    | The implementer is Qwen (`qwen-flash`) | GLM-5.3, then MiMo v2.6 Pro | the same, when OpenAI is out of quota |
 
-   **Which substitute goes first** (the user's decision of 2026-10-08, CLAUDE.md rule 17): the table says *who* may substitute. The order among them is quota-tracker's `/recommend?tier=light` ranking, a skipped or negative-scoring one last, instead of the fixed order above. Since [T152](tasks/T152.md), `Choose-Model.ps1 -Role reviewer -ExcludeModel <implementer>` prints them in that order. OpenCode Go's light row is `mimo-v2.6-flash`, so `Choose-Model.ps1 -Role reviewer` may print it as `mimo-flash` (bug #908 maps by provider and model): the row only places OpenCode Go in the order, and the substitute dispatched for it is **MiMo Pro** (`-Reviewer mimo-pro`), as the table says, the way Alibaba's row stands for Qwen3.8 Max. The re-check order is unchanged (Luna, GLM-5.3, MiMo Pro, Qwen3.8 Flash): MiMo Flash is in no chain.
+   **Which substitute goes first** (the user's decision of 2026-10-08, CLAUDE.md rule 17): the table says *who* may substitute. The order among them is quota-tracker's `/recommend?tier=light` ranking, a skipped or negative-scoring one last, instead of the fixed order above. Since [T152](tasks/T152.md), `Choose-Model.ps1 -Role reviewer -ExcludeModel <implementer>` prints them in that order.
+ OpenCode Go's light row is `mimo-v2.6-flash`, so `Choose-Model.ps1 -Role reviewer` may print it as `mimo-flash` (bug #908 maps by provider and model): the row only places OpenCode Go in the order, and the substitute dispatched for it is **MiMo Pro** (`-Reviewer mimo-pro`), as the table says, the way Alibaba's row stands for Qwen3.8 Max. The re-check order is unchanged (Luna, GLM-5.3, MiMo Pro, Qwen3.8 Flash): MiMo Flash is in no chain.
 
    Qwen3.8 Max was added after GLM-5.3 and DeepSeek V4 Pro by the user's decision of 2026-10-05; MiMo v2.6 Pro took DeepSeek's place on 2026-10-09. **Routes**: GLM-5.3 also runs on the Alibaba Token Plan, the same model under the same name and family, but only when the user asks (#893): `external-review.ps1 -Route auto` (the default) keeps Z.AI or OpenCode Go and marks an avoided provider's reviewer unavailable; `-Route alibaba` forces `alibaba-token-plan/glm-5.3`. The route is named in the posted review's signature line. Qwen runs only on Alibaba ([environment.md](environment.md)).
 
@@ -862,171 +867,32 @@ the docs item applies only if the review named a claim.
    touches (the report's title or key terms match the task's), hold the task, tell the user why,
    and run /process-evidence first. A report that does not concern this task never holds it, and
    a failed script holds nothing: report the failure and go on.
-1. IMPLEMENT. Label status:in-progress. Fill build-process.md Appendix A from the task entry
-   (plus any review URLs from an earlier attempt). Then, by the entry's model (§3.3: Sonnet reads
-   as the default, and so do a non-architecture Opus and a High-effort entry; a fix or a Low-effort task
-   is the default too):
-   - an OpenCode model (luna, glm-flash, glm, qwen-flash, mimo-pro, mimo-flash, mm-m3): write the brief to a file and run
-     `pwsh scripts/external-implement.ps1 -Task T<nn> -Slug <slug> -Issue <n> -Model <alias>
-     -BriefFile <file>` (`-Fix <issue>` for a fix; `-LocalOnly` where the label says), the alias taken
-     from quota-tracker's `/recommend?tier=heavy` with CLAUDE.md rule 17's exclusions (the user's
-     decision of 2026-10-08; `pwsh scripts/Choose-Model.ps1 -Role implementer`, or `-Role pair`, prints
-     it; there is no `-Model auto` since #893). Log the chosen row's `reasons` on the issue. It creates
-     the worktree and branch, runs OpenCode there, and returns with the PR number or a warning;
-     read its tail. Run it in the background and watch it (operating-guide §3): the session must
-     start and keep making progress. On a failure, READ BEFORE RETRY (CLAUDE.md rule 19, the
-     owner's rule of 2026-10-05): before retrying the run, re-routing it to another model, or calling
-     it a failure, read its stderr, the OpenCode log and its final message, with
-     `python scripts/read-opencode-session.py <ses_…>` (add `--alibaba` for a run on an
-     alibaba-token-plan/… model, whose data folder is `data-alibaba`; the id is the
-     `opencode: session ses_… started` line that scripts/external-implement.ps1 and
-     scripts/external-review.ps1 print; for a Claude agent, read its hand-back in full). A run that
-     stopped and reported a blocker is not an early end: post its report on the task's issue and
-     answer it (amend the task, decide, or escalate) instead of re-running it on another model.
-     Only a run that really ended early or failed falls back: record the cause in one comment, then
-     fall back (exit 3: Claude Sonnet).
-   - a Claude model: Agent(general-purpose, model = the catalogue's, run_in_background, prompt =
-     the brief). Wait for its completion notification; don't poll.
-   If the implementer reports a defect in merged code, go to step 5 (bug).
-2. REVIEW. Check the PR exists and CI has run. Label status:in-review. Set the review tier, then
-   dispatch by it (build-process.md §3.4, the user's decision of 2026-10-03; a plan PR is
-   reviewed per §4.9, not here).
-   a. CLASSIFY. Build the state file and ask Jev (for a fix, write "PR kind: fix" and the bug
-      body, `gh issue view <issue> --json body --jq .body`, in place of the entry):
-        mkdir -p rendered/review-tier
-        git fetch -q origin pull/<pr>/head
-        { echo "PR kind: task"; cat docs/tasks/T<nn>.md; echo; echo "--- git diff --stat ---";
-          git diff --stat origin/main...FETCH_HEAD; } > rendered/review-tier/<pr>.txt
-        pwsh scripts/jev-ask.ps1 -StateFile rendered/review-tier/<pr>.txt -QuestionsFile scripts/jev/review-complexity.json
-   b. CONFIRM. Bucket act (probability 0.9 or above): take Jev's tier unless §3.4's criteria say
-      otherwise; bucket claude: decide by §3.4's criteria. A task or fix PR is never simple,
-      whatever Jev says. A failed Jev call blocks nothing: decide by the criteria. Record the tier,
-      Jev's answer and probability, and any override in one PR comment.
-   c. WHO IMPLEMENTED, AND PROBES. IMPL is the name on external-implement.ps1's "implemented by:"
-      line (mm-m3, glm, mimo-pro, luna, ...), or sonnet or opus when Claude implemented (the Sonnet
-      fallback, or Opus on an architecture task). Families: OpenAI = luna, sol; GLM = glm,
-      glm-flash; MiMo = mimo-pro, mimo-flash; MiniMax = mm-m3, mm-m2.7 (no reviewer); Qwen = qwen, qwen-flash;
-      Claude = sonnet, opus. A route (-Route go|zai|alibaba) never changes a family. Every
-      script run passes `-ExcludeModel <IMPL>` (sonnet and opus are accepted and exclude no
-      OpenCode reviewer); never pick a reviewer of IMPL's family, Claude included. Each brief is
-      Appendix B filled in, with the implementer's rendered/RUN-NOTES.md pasted where it says
-      (docs/running-notes.md; "none kept" when the worktree has none), written to rendered/review-tier/<pr>-<reviewer>.md (before dispatch,
-      `grep -n '<the main session' <brief>` must print nothing: item 2 of its "Blocking means" is
-      named, never left as the placeholder), its first line the
-      header "T<nn> review (<Name>)", <Name> being Sol, Luna, GLM, MiMo Pro, Qwen or
-      Qwen Flash
-      (always pass -Reviewer, never a -ModelIds override). A brief for GLM or MiMo is never
-      shortened (nor for Qwen): it always carries both sections in full, "Blocking means" written for this PR
-      and "Report every blocking finding in this one review", for a substitute, a pair member and
-      a re-check alike (the user's decision of 2026-10-04). Before a complex or very complex
-      review (not at session start; the user's decision of 2026-10-03), probe Sol's substitutes so
-      that one provider's quota cannot block it:
-        pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer sol -ExcludeModel <IMPL> -BriefFile rendered/review-tier/<pr>-sol.md -WhatIf
-        pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer glm -ExcludeModel <IMPL> -BriefFile rendered/review-tier/<pr>-sol.md -WhatIf
-        pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer mimo-pro -ExcludeModel <IMPL> -BriefFile rendered/review-tier/<pr>-sol.md -WhatIf
-        pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer qwen -ExcludeModel <IMPL> -BriefFile rendered/review-tier/<pr>-sol.md -WhatIf
-      They bill nothing (each reads quota-tracker's /avoid for its route and prints a "route:" line). -WhatIf runs the family check first: exit 1 "Refused" means that
-      reviewer is of IMPL's family and is skipped, which is not a red probe; exit 0 means the CLI,
-      the argument line and the family are fine, not that the provider will serve the run. Note
-      a red probe (any other failure) in the tier comment. Run every review
-      script in the background and watch it (operating-guide §3). While OpenCode is suspended for
-      reviews (two failures of the same cause), treat every script command below as exit 3.
-   d. DISPATCH. The commands:
-        SOL    pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer sol -Effort low -ExcludeModel <IMPL> -BriefFile rendered/review-tier/<pr>-sol.md -Issue <n> -ApplyLabel
-               (-Effort medium only for a very complex PR that Claude implemented, or a complex
-               PR whose earlier low-effort Sol review missed what a later review found; never
-               high: the user's decision of 2026-10-03, "Sol sparingly, at most medium")
-        LUNA   pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer luna -ExcludeModel <IMPL> -BriefFile rendered/review-tier/<pr>-luna.md
-        GLM    pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer glm -ExcludeModel <IMPL> -BriefFile rendered/review-tier/<pr>-glm.md
-        DSP    pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer mimo-pro -ExcludeModel <IMPL> -BriefFile rendered/review-tier/<pr>-mimo-pro.md
-        QWEN   pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer qwen -ExcludeModel <IMPL> -BriefFile rendered/review-tier/<pr>-qwen.md
-        QWF    pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer qwen-flash -ExcludeModel <IMPL> -BriefFile rendered/review-tier/<pr>-qwen-flash.md
-               (GLM, DSP and SUB glm/mimo-pro take -Route auto by default: Z.AI or OpenCode
-               Go; when /avoid lists zai or opencode_go that reviewer is skipped, never moved to
-               Alibaba, which runs only when the user asks (#893): then pass -Route alibaba. The
-               route is printed and signed on the review.)
-        SUB x  pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer x -ExcludeModel <IMPL> -BriefFile rendered/review-tier/<pr>-x-for-sol.md -Issue <n> -ApplyLabel
-               (x is glm, mimo-pro or qwen, never luna: Luna reviews only the simple tier, the
-               user's decision of 2026-10-04; the brief is Sol's, unchanged except that its
-               header names x, one sentence says it
-               reviews in Sol's place and why, and Sol's earlier reviews on the PR are linked so it
-               re-takes their attacks; probe x with -WhatIf first)
-        ADV x  pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer x -BriefFile rendered/review-tier/<pr>-x.md
-               (x is nemotron, north-mini, inkling or laguna: an ADVISORY review, optional, never
-               -Issue/-ApplyLabel; see ADVISORY below)
-        OPUS   Agent(model opus, prompt = Appendix B filled in): a cold reviewer, which applies the label
-        SONNET Agent(model sonnet, prompt = Appendix B filled in, plus "Do not apply a status label;
-               the main session applies it from every review.")
-      A trailing "-" (SOL-, SUB- x) means the same command without -Issue <n> -ApplyLabel: one of
-      several reviews.
-      QUOTA FIRST (CLAUDE.md rule 17, the user's decision of 2026-10-08, which replaces the /avoid
-      check of 2026-10-05): before choosing or dispatching any model, read quota-tracker's
-      `/recommend?tier=heavy` (implementers) or `tier=light` (Sol's substitutes), take its `ranking`
-      in order with rule 17's exclusions, pass the choice explicitly, and log the chosen row's
-      `reasons`. A provider in `skipped` is passed over as if it had exited 3, and the tier comment
-      or PR body says so. Luna stays the simple tier's reviewer on OpenAI's main window; when
-      OpenAI is exhausted it still runs if `curl -s localhost:8765/quota/openai` lists `gpt-5.6-luna`
-      under `when_exhausted.usable_models`. If the service does not answer,
-      restart it (`systemctl --user restart quota-tracker`), wait and retry; if it still fails, ask
-      the user instead of guessing.
-      DIAGNOSE, when SOL or LUNA exits 3: search the files the script kept and named, and the newest
-      log in %USERPROFILE%\.local\share\ic2-opencode-1x\data\opencode\log\, for "The usage limit has
-      been reached" (or "insufficient_quota", or Z.AI's "Usage limit reached for 5 hour"), and read
-      `curl -s localhost:8765/quota/openai?refresh`. Sol's 7d window at 95% or more, or the text
-      found, means QUOTA (Sol is out); otherwise SOL-ONLY. When OpenAI is exhausted, `when_exhausted.usable_models` decides whether Luna alone still runs.
-      SOL'S SUBSTITUTES, skipping any of IMPL's family, the next only on exit 3:
-        SOL-ONLY (or the user asked to avoid Sol's cost) and QUOTA alike: SUB glm, then SUB
-        mimo-pro, then SUB qwen (the user's decision of 2026-10-05). The diagnosis is recorded, and decides only the simple tier's fallback.
-      After the last one: OPUS when IMPL is not Claude; escalate (step 5) when it is (the user's
-      decision of 2026-10-03). Never wait for
-      Sol unless the user says to.
-      THE PAIR (the OpenCode pair, the Luna pair until the user's decision of 2026-10-04; no Luna):
-      two reviews from the order GLM, DSP, QWEN, SONNET (the user's decision of 2026-10-05), each
-      skipped when it is of IMPL's family (SONNET when IMPL is Claude); one that exits 3 is replaced
-      by the next in that order. The pair has failed when it cannot reach two reviews.
-      - complex, IMPL GLM, MiMo or MiniMax: SOL. Exit 3: DIAGNOSE, then SOL'S SUBSTITUTES, then
-        OPUS.
-      - complex, IMPL Claude: SOL. Exit 3: DIAGNOSE, then SOL'S SUBSTITUTES, then escalate.
-      - complex or very complex, IMPL OpenAI (luna): OPUS.
-      - very complex, IMPL not Claude: OPUS.
-      - very complex, IMPL Claude (the user's decision of 2026-10-03), in this order:
-        1. Run SOL- alone (with -Effort medium) and wait for its outcome. Start nothing else yet.
-        2. SOL- posted: run THE PAIR. Count: SOL- + the pair's two = three.
-        3. SOL- exits 3: DIAGNOSE (for the record). SOL-ONLY and QUOTA alike (under QUOTA Luna is
-           out with Sol): SUB- qwen stands in for Sol, beside GLM and DSP, each skipping IMPL's
-           family. Count: GLM + DSP + SUB- qwen = three (the owner's decision of 2026-10-05,
-           which replaces the two-review form of 2026-10-04).
-        4. Escalate (step 5) when the count cannot be reached: THE PAIR fails.
-      Labels: with one review, its reviewer labels (SOL, SUB x or OPUS). With two or three, the
-      main session labels: status:approved only when every review approves, status:rework when any
-      asks for rework (step 3 relays every review in full), and it escalates on any user decision.
-      ADVISORY (the owner's decision of 2026-10-06): on a small PR or a plan PR the main session
-      MAY add ADV x as a second opinion, after or beside the tier's reviews. It is never counted,
-      never labels, never replaces a family's review, and its brief carries nothing private (the
-      script refuses one naming ic2-test-fixtures, assets.local.ini, IC2_FIXTURES_DIR, a .dat or
-      .sav path, or anything key-like: docs/environment.md lists the rules). Its findings are weighed like any unreviewed contribution: verify a claimed defect
-      before relaying it as a finding. Exit 3 (free allowance at 50 or fewer, tracker silent, or
-      "rate-limited, skipped") means no advisory review: go on without it, never retry.
-      RECORD a substitute: for a task, commit on main a one-line note in docs/tasks/T<nn>.md's
-      Reviewer field ("2026-MM-DD: <substitute> reviewed in Sol's place: <reason>"), subject
-      "Docs: T<nn> reviewer", a routine doc claim; for a fix, put it in the tier comment. Append
-      one entry to the wiki page Model trials: the error, the probe results, the substitute, and
-      what it caught or missed against Sol's earlier rounds.
-   Exit 5 means GitHub did not take the comment (gh pr comment failed twice, or returned no
-   comment URL; bug #645): nothing was posted and no label was set; read the saved file the
-   script names (rendered\review-not-posted-pr<pr>-<reviewer>-<time>.md), post it by hand with
-   `gh pr comment <pr> --body-file <that file>`, and act on its verdict as if the script had.
-   Exit 4 means a review was posted flagged (cut off, verdict unreadable, or findings after the
-   closing verdict) and no label was set: read it on the PR and decide (count it by its content,
-   or run that path's next reviewer). Exit 1 with "Refused" means a reviewer of IMPL's family was
-   named: fix the command. A rework round's re-review keeps the tier and its reviewers, except
-   Sol, which runs only where the tier names it (the user's decision of 2026-10-03): a re-check
-   of named fixes (the one-line confirmation after "approve after named fixes", or a rework
-   re-review that only checks the named findings) goes, with the earlier reviews linked in its
-   brief, to LUNA on a simple PR, and on a complex or very complex PR to the first of GLM, DSP and
-   QWF that IMPL's family does not exclude (the user's decision of 2026-10-04; QWF added on
-   2026-10-05: the re-check order is Luna, GLM, MiMo Pro, Qwen Flash), and back to
-   SOL only when the fixes rewrote more than the named findings.
+1. IMPLEMENT. Label status:in-progress. ASK THE USER (CLAUDE.md rule 17, the user's decision of
+   2026-10-11), one question with the question tool: does the main session implement it, or a
+   subagent, and which model? Show `curl -s 'localhost:8765/recommend?tier=heavy'`'s pick as a
+   suggestion only. Log the answer on the issue. Fill build-process.md Appendix A from the task entry
+   (plus any review URLs from an earlier attempt), then:
+   - the main session: implement in its own worktree under ic2-work\ (never the main checkout),
+     keep rendered/RUN-NOTES.md, push after every commit, open the PR as Appendix A says;
+   - a subagent: Agent(general-purpose, model = the user's choice, run_in_background, prompt = the
+     brief), in its own worktree; or an OpenCode model: `pwsh scripts/external-implement.ps1
+     -Task T<nn> -Slug <slug> -Issue <n> -Model <alias> -BriefFile <file>` (`-Fix <issue>` for a
+     fix; `-LocalOnly` where the label says).
+   Watch it and tell the user in plain language what it is doing (CLAUDE.md rule 23). When it ends,
+   read its final report or session before acting (rule 19), and post its running notes on the issue
+   (rule 22; the script does it for an OpenCode run). A run that stopped and reported is answered,
+   not retried on another model; only a provider that does not answer means another model (rule 21),
+   and the user names it. If the implementer reports a defect in merged code, go to step 5 (bug).
+2. REVIEW. Check the PR exists and CI has run. Label status:in-review. ASK THE USER which OpenCode
+   model reviews (rule 17): one question, `/recommend`'s pick shown as a suggestion, never the
+   implementer's family. One review per PR unless the user asks for more. Fill Appendix B with the
+   task entry, the implementer's running notes and any earlier review URLs; its first line is the
+   header "T<nn> review (<model>)". Run it alone (one review at a time):
+     pwsh scripts/external-review.ps1 -Pr <pr> -Reviewer <alias> -BriefFile <file> -Issue <n>
+       -ApplyLabel -FixturesDir <this machine's ic2-test-fixtures clone> [-ExcludeModel <implementer>]
+   A review the watcher interrupts (an idle or total limit) is resumed, not restarted:
+   `-ResumeSession <ses_…> -ResumeWorktree <its kept worktree>`, with a longer limit. Relay its
+   findings to the user in full (rule 7).
 3. DECIDE on the label the reviewer applied:
    - Before acting on an approve that carries "not blocking" findings, read every one. If one is a
      proven way past what the brief's "Blocking means" item 2 names, treat the review as rework:

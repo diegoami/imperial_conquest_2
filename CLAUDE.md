@@ -100,39 +100,26 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
 
 ## Model choice
 
-17. **The quota tracker chooses the model** (harness_imperial L50; the user's decision of
-    2026-10-08). Before choosing, recommending or delegating to a model (an OpenCode implementer or
-    reviewer, a Claude agent or subagent), read `curl -s 'localhost:8765/recommend?tier=heavy'`
-    (implementation) or `tier=light` (small tasks and reviews) and take its `ranking` in order:
-    `pick` is the first, `score` is spare calls per day until the pool's reset after projected
-    demand and reserves, and `skipped` lists exhausted or failing providers. **Never rank providers
-    by `headroom_pct` or `pace_pct`**: the pools differ hugely in size, some are monthly and some
-    weekly, and Claude sessions draw on some as their main model. Map each row's provider and tier to
-    our alias (minimax + heavy → `mm-m3`) and keep our exclusions on top:
-    - Claude is the orchestrator, so it is not used for a delegated task unless nothing else has a
-      positive score.
-    - `gpt-5.6-luna` stays the simple-PR reviewer.
-    - A reviewer is never of the implementer's family.
-    - A negative score means that pool runs out before its reset: avoid it unless nothing else is left.
-    - **DeepSeek is never used**, on any route (the user's decision of 2026-10-09). OpenCode Go's
-      heavy and light models are `mimo-pro` (`opencode-go/mimo-v2.6-pro`) and `mimo-flash`
-      (`opencode-go/mimo-v2.6-flash`), and MiMo is a family of its own for the reviewer rule.
-    - Alibaba is never used unless the user asks (the user's decision of 2026-10-09: its monthly
-      pool is 91% used until 2026-11-06). `/recommend` never ranks it, and the scripts neither
-      choose it nor move a route to it; with the user's say-so, `-AllowAlibaba` or `-Route alibaba`.
+17. **The user chooses the models** (the user's decision of 2026-10-11, which replaces the quota-tracker
+    rules of 2026-10-08 and 2026-10-10 and issue #950). Two questions, asked with the question tool:
+    - **Before implementing**: does the main session implement it, or a subagent, and which model?
+      A subagent is the Agent tool with the model the user names (any model this session's backend
+      offers), or an OpenCode run, `scripts/external-implement.ps1 -Model <alias>`. Either way it
+      works in its own worktree under `ic2-work\`, keeps `rendered/RUN-NOTES.md`, pushes after every
+      commit and opens the PR. The main session implementing works in its own worktree too.
+    - **At every review** (a first review, a re-review, a re-check of named fixes): which OpenCode
+      model reviews? It runs as `scripts/external-review.ps1 -Reviewer <alias>`, one review at a time,
+      with `-FixturesDir` on this machine's fixtures clone. A PR gets one review unless the user asks
+      for more.
 
-    Pass the choice explicitly (`-Model`/`-Reviewer`, or the Agent call's model) and log the chosen
-    row's `reasons` on the task's issue or in the PR body. Right after a restart `note` says the
-    statistics are loading and `ranking` is empty: wait and retry, never fall back to percentages.
-    If the service does not answer, run `systemctl --user restart quota-tracker`, wait and retry; if
-    it still fails, tell the user instead of guessing. Model ids come from the provider's live list
-    (`opencode models <provider>`), never memory. Heavy models run at `medium` effort rather than
-    `high`, or lighter when medium is not needed (the user's decision of 2026-10-05).
-    `pwsh scripts/Choose-Model.ps1 -Role implementer` ranks by `/recommend` with these exclusions, and
-    `-Role pair` gives an implementer and a reviewer of another family from `pair` and `ranking`
-    (a null reviewer means no other family has quota: tell the user). Every
-    `external-implement.ps1` run takes the explicit `-Model` so chosen: `-Model auto` was removed
-    ([#893](https://github.com/diegoami/imperial_conquest_2/issues/893), the user's request of 2026-10-09).
+    `curl -s 'localhost:8765/recommend?tier=heavy'` (or `tier=light`) is shown with each question as
+    a **suggestion only**: its `pick` or `pair`, with rank, outlook and reliability. The few fixed
+    rules: the reviewer is never of the implementer's family; DeepSeek is never used; Alibaba only when
+    the user asks. Log each choice on the issue or PR. This works whatever model the orchestrator
+    itself runs on (Claude, GLM, MiniMax): nothing here names the orchestrator's own model. Model ids
+    come from the provider's live list (`opencode models <provider>`), never memory. Heavy models run
+    at `medium` effort rather than `high` (the user's decision of 2026-10-05). If the quota service
+    does not answer, ask without the suggestion.
 
 18. **The light OpenAI model, and the reviewer `luna`, is GPT-5.6 Luna** (harness_imperial L51) on
     the direct OpenAI route: `openai/gpt-5.6-luna`, effort `high`. It draws on OpenAI's main quota like
@@ -142,7 +129,7 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
     GPT-6 Luna (`openai/gpt-6-luna`), which is never the reviewer. Never use a Luna on OpenCode Go (`opencode-go/…`): a proxy behind it returns
     `Bad Request` in long agent loops.
 
-20. **Use the providers' pricing windows deliberately, not by chance** (the owner's decision of
+20. **Use the providers' pricing windows deliberately, not by chance** (advice the main session gives the user when they choose a model, rule 17) (the owner's decision of
     2026-10-06). Alibaba runs only when the user asks (rule 17); when they do, for a Qwen
     route (`ali-qwen-*`; `-Route alibaba` or a `qwen*` model), read
     `curl -s localhost:8765/quota/alibaba | jq .pricing`: when `discount_now` is false, prefer
