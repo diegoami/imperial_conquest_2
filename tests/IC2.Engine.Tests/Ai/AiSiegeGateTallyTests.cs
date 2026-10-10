@@ -10,25 +10,23 @@ using CaptureFixtures = IC2.Engine.Tests.Cities.Capture.CaptureTestbed;
 namespace IC2.Engine.Tests.Ai;
 
 /// <summary>
-/// <c>docs/task-catalogue.md</c> T60 Done-when 1: the three gates past ownership in
-/// <c>AiMilitaryPhase.ProposeSieges</c> are told apart by a counter rather than inferred from silence.
+/// T156's <see cref="AiSiegeGateTally"/>: how many army/enemy-city pairs stood adjacent, and of those,
+/// how many the target tree selected for attack. The tally exists for the per-seed soak's own
+/// diagnostics, and the unit tests here pin each of its counters so the soak's report is read as
+/// evidence rather than guessed.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>Why this file is unit tests and not only the soak.</strong>
-/// <see cref="AiSiegeDiagnosticsTests"/> reports the distribution across the fifty seeds, which is the
-/// deliverable; but a distribution is only worth reading if each counter means what it says. The soak's
-/// toy data happens to exercise exactly one of the three outcomes (the ratio gate), so these build the
-/// other two — an army that is never adjacent, and a siege the legality gate refuses — from scripted
-/// states, and assert the tally tells them apart.
+/// <strong>Why these are unit tests, not only the soak.</strong> The soak's report is the deliverable,
+/// but a soak that only exercises one outcome cannot tell its readers whether the others exist; these
+/// tests cover the unreachable, the too-weak, and the strong-enough cases from scripted states.
 /// </para>
 /// <para>
 /// <strong>And that the tally cannot change the game.</strong>
 /// <see cref="A_turn_played_with_a_tally_plays_the_same_game_as_one_without"/> runs the same seeded turn
 /// twice, once with the tally and once without, and asserts the two states are identical. That is the
 /// claim <see cref="AiSiegeGateTally"/>'s own remarks make, and it is what makes the instrumentation
-/// admissible at all: an observer that perturbed the decision would be measuring something other than
-/// the AI this task is diagnosing.
+/// admissible at all.
 /// </para>
 /// </remarks>
 public sealed class AiSiegeGateTallyTests
@@ -39,8 +37,8 @@ public sealed class AiSiegeGateTallyTests
     private static Ruleset Ruleset => AiScriptedStates.Ruleset;
 
     /// <summary>
-    /// Gate (c): the army is three tiles from the only enemy city, so the adjacency test short-circuits
-    /// and nothing downstream is measured at all. The tally has nothing to say, and says nothing.
+    /// The army is three tiles from the only enemy city, so the adjacency test short-circuits and
+    /// nothing downstream is measured at all. The tally has nothing to say, and says nothing.
     /// </summary>
     [Fact]
     public void An_army_that_never_reaches_adjacency_records_no_gate_at_all()
@@ -48,87 +46,70 @@ public sealed class AiSiegeGateTallyTests
         var tally = ProposeWith(ArmyBesideCity(armyX: 0, armyY: 4), out _);
 
         Assert.Equal(0, tally.Adjacent);
-        Assert.Equal(0, tally.RejectedByLegality);
-        Assert.Equal(0, tally.RejectedByRatio);
+        Assert.Equal(0, tally.TreeSelectedAttackCity);
         Assert.Equal(0, tally.Proposed);
         Assert.True(tally.IsEmpty, "nothing was observed, so there is no line to write");
         Assert.Null(tally.Describe());
     }
 
     /// <summary>
-    /// Gate (b), the soak's case: adjacent and legal, but the city is far too strong. The tally records
-    /// the rejection <em>and</em> the three numbers the gate compared, which is what turns "the AI did
-    /// not besiege" into a diagnosis.
+    /// The weak case: an adjacent army whose city score clears the tree's 100 threshold (so the tree
+    /// selects attack) and one whose score does not. The tally counts both as adjacent, and counts only
+    /// the first as tree-selected.
     /// </summary>
     [Fact]
-    public void An_adjacent_army_too_weak_to_win_is_recorded_against_the_ratio_gate()
+    public void An_adjacent_army_whose_city_score_clears_the_threshold_is_recorded_as_tree_selected()
     {
-        var tally = ProposeWith(ArmyBesideCity(troops: 1000), out var candidates);
+        var state = ArmyBesideCity(troops: 400000); // far over any threshold
+        var tally = ProposeWith(state, out var candidates);
 
         Assert.Equal(1, tally.Adjacent);
-        Assert.Equal(0, tally.RejectedByLegality);
-        Assert.Equal(1, tally.RejectedByRatio);
+        Assert.Equal(1, tally.TreeSelectedAttackCity);
+        Assert.Equal(1, tally.Proposed);
+        var kinds = string.Join(", ", candidates.Select(c => c.Kind));
+        Assert.True(candidates.Any(c => c.Kind == "besiege"), $"no besiege candidate; got: {kinds}");
+        Assert.True(tally.BestCityScore > 0);
+    }
+
+    /// <summary>
+    /// The too-weak case: the city is far too strong, the city score falls below the tree's 100
+    /// threshold, and the tree selects <c>MoveToResupplyCity</c> or <c>NoTarget</c> instead — the
+    /// tally records the adjacency but not a tree selection.
+    /// </summary>
+    [Fact]
+    public void An_adjacent_army_too_weak_is_recorded_as_adjacent_but_not_tree_selected()
+    {
+        var state = ArmyBesideCity(troops: 1000);
+        var tally = ProposeWith(state, out var candidates);
+
+        Assert.Equal(1, tally.Adjacent);
+        Assert.Equal(0, tally.TreeSelectedAttackCity);
         Assert.Equal(0, tally.Proposed);
         Assert.DoesNotContain(candidates, c => string.Equals(c.Kind, "besiege", StringComparison.Ordinal));
-
-        // The closest-attempt snapshot is the evidence, so it has to be the real comparison and not a
-        // placeholder: below the bar, naming the pair, on the same permille scale the gate used.
-        Assert.Equal("besieger", tally.BestArmyId);
-        Assert.Equal("defender-city", tally.BestCityId);
-        Assert.True(tally.BestAttackerPower > 0, "a real army has a real siege strength");
-        Assert.True(tally.BestDefenderPower > 0, "a real city has a real defender strength");
-        Assert.True(
-            tally.BestRatioPermille < tally.BestRequiredRatioPermille,
-            $"the gate rejected, so {tally.BestRatioPermille} must be under {tally.BestRequiredRatioPermille}");
-        Assert.Contains("below ratio", tally.Describe()!, StringComparison.Ordinal);
-    }
-
-    /// <summary>The same adjacency with an army strong enough: the gate passes and a candidate exists.</summary>
-    [Fact]
-    public void An_adjacent_army_strong_enough_is_recorded_as_a_proposal()
-    {
-        var tally = ProposeWith(ArmyBesideCity(troops: 400000), out var candidates);
-
-        Assert.Equal(1, tally.Adjacent);
-        Assert.Equal(0, tally.RejectedByRatio);
-        Assert.Equal(1, tally.Proposed);
-        Assert.Contains(candidates, c => string.Equals(c.Kind, "besiege", StringComparison.Ordinal));
-        Assert.True(tally.BestRatioPermille >= tally.BestRequiredRatioPermille);
     }
 
     /// <summary>
-    /// Gate (a) has a counter of its own, and the line it writes says so — which is what lets the
-    /// soak's report distinguish "the siege was illegal" from "the siege was too weak". The soak
-    /// reports gate (a) at zero, and a zero is only worth reporting if a non-zero would have shown.
+    /// The tally's write-line is best-pair-on-the-real-scale: the army and the city it scored highest
+    /// against, and the scores themselves.
     /// </summary>
     [Fact]
-    public void The_legality_gate_is_reported_separately_from_the_ratio_gate()
+    public void The_best_pair_is_recorded_with_the_real_scores()
     {
-        var tally = new AiSiegeGateTally();
-        tally.RecordLegalityRejection();
+        var tally = ProposeWith(ArmyBesideCity(troops: 400000), out _);
 
-        Assert.Equal(1, tally.Adjacent);
-        Assert.Equal(1, tally.RejectedByLegality);
-        Assert.Equal(0, tally.RejectedByRatio);
-        Assert.Equal(0, tally.Proposed);
-
-        var line = tally.Describe()!;
-        Assert.Contains("1 adjacent, 1 illegal, 0 below ratio, 0 proposed", line, StringComparison.Ordinal);
-
-        // No pair was measured, so no closest-attempt snapshot is claimed. A line that invented one
-        // would read as evidence.
-        Assert.DoesNotContain("closest", line, StringComparison.Ordinal);
-        Assert.Equal(-1, tally.BestRatioPermille);
+        Assert.Equal("besieger", tally.BestArmyId);
+        Assert.Equal("defender-city", tally.BestCityId);
+        Assert.True(tally.BestCityScore > 0, "a real army-city pair has a real score");
     }
 
     /// <summary>
-    /// An army with no moves is filtered out by <c>AiMilitaryPhase.Propose</c> before the siege gates
-    /// run at all, so it contributes neither a candidate nor an adjacency observation. Stated here
+    /// An army with no moves is filtered out by <c>AiMilitaryPhase.Propose</c> before the tree runs
+    /// at all, so it contributes neither a candidate nor an adjacency observation. Stated here
     /// because it is the one way an adjacent army can be invisible to the tally, and a reader of the
     /// soak's counts needs to know it.
     /// </summary>
     [Fact]
-    public void An_adjacent_army_with_no_moves_is_filtered_out_before_the_gates()
+    public void An_adjacent_army_with_no_moves_is_filtered_out_before_the_tree()
     {
         var state = ArmyBesideCity(troops: 400000);
         var spent = new ArmyState[state.Armies.Count];
@@ -172,14 +153,8 @@ public sealed class AiSiegeGateTallyTests
     /// <c>docs/task-catalogue.md</c> T22 Done-when 1, follow-up
     /// <see href="https://github.com/diegoami/imperial_conquest_2/issues/272">#272</see> N3:
     /// <see cref="AiTurn.Run"/> feeds <see cref="AiSiegeGateTally"/> on the turn's first proposal pass
-    /// only (<c>action == 0</c>). This drives a real, multi-action turn — two ready mobilization slots
-    /// force the action loop around several times, since <c>AiTurn</c> dispatches one candidate and
-    /// re-proposes rather than dispatching every candidate at once: the driven turn actually dispatches
-    /// four commands (two <c>mobilize</c>s, then the newly mobilized army's own <c>approach</c> march,
-    /// then a <c>propose-alliance</c>) over five proposal passes (review round 1, N1) — while a weak,
-    /// permanently adjacent besieger's siege situation never changes across any of them. If the tally
-    /// were fed on every pass rather than only the first, this one standing adjacency would be counted
-    /// five times over, not twice.
+    /// only. The tally's counters measure one observation per turn, not one per action, so re-feeding
+    /// it on every pass would inflate the report by however many actions the turn ran.
     /// </summary>
     [Fact]
     public void AiTurn_feeds_the_siege_gate_tally_on_the_first_proposal_pass_only()
@@ -208,9 +183,9 @@ public sealed class AiSiegeGateTallyTests
                 maxPopulationThousands: 200, tribute: 10),
         };
 
-        // The soak's own case: adjacent, and far too weak to win the ratio gate. Nothing about this
-        // army's situation changes across the turn, so it proposes no candidate on any pass -- it is
-        // pure tally bait, never chosen and never moved.
+        // The soak's case: adjacent and far too weak for the tree to select attack city (1000 troops
+        // vs the city's defender strength, so the city score sits well under 100). Pure tally bait,
+        // never chosen and never moved.
         var armies = new[]
         {
             CaptureFixtures.Army("weak-besieger", Acting, 6, 5, morale: 60,
@@ -218,40 +193,20 @@ public sealed class AiSiegeGateTallyTests
                 with { Moves = 5 },
         };
 
-        // T82 (#359, bug #357): a siege no longer declares war -- it now requires the two already being
-        // at war.
         var state = AiScriptedStates.WithActiveSeat(
             BattleCommandTestbed.AtWar(BattleCommandTestbed.StateWith(nations, cities, armies), Acting, Other),
             Acting);
 
         var driven = AiScriptedStates.DriveOneTurn(state);
 
-        // Sanity: the turn really did take more than one dispatched action -- both mobilize slots landed
-        // (whatever else the turn went on to do afterward, such as the newly mobilized army marching or
-        // a diplomacy candidate winning a later pass; see this test's own remarks and review round 1, N1).
         Assert.Equal(0, driven.Outcome.CommandsRejected);
         Assert.Equal(2, driven.Events.OfType<RecruitMobilized>().Count());
-        Assert.Empty(driven.Outcome.State.NationById(Acting)!.RecruitmentSlots);
 
         var gateLine = Assert.Single(
             driven.Outcome.Log, l => l.StartsWith("siege gates: ", StringComparison.Ordinal));
-        Assert.Contains(
-            "1 adjacent, 0 illegal, 1 below ratio, 0 proposed", gateLine, StringComparison.Ordinal);
-    }
-
-    private static bool HasBesiegeCandidate(GameState state)
-    {
-        var candidates = new List<AiCandidate>();
-        Propose(state, candidates, null);
-        foreach (var candidate in candidates)
-        {
-            if (string.Equals(candidate.Kind, "besiege", StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        Assert.Contains("1 adjacent", gateLine, StringComparison.Ordinal);
+        Assert.Contains("0 tree-selected for attack city", gateLine, StringComparison.Ordinal);
+        Assert.Contains("0 proposed", gateLine, StringComparison.Ordinal);
     }
 
     private static AiSiegeGateTally ProposeWith(GameState state, out List<AiCandidate> candidates)
@@ -311,8 +266,6 @@ public sealed class AiSiegeGateTallyTests
                 with { Moves = 5 },
         };
 
-        // T82 (#359, bug #357): a siege no longer declares war (decompiled-ai-offers-to-human-seats.md
-        // §4/§5, "no implicit declaration by attack") -- it now requires the two already being at war.
         return AiScriptedStates.WithActiveSeat(
             BattleCommandTestbed.AtWar(BattleCommandTestbed.StateWith(nations, cities, armies), Acting, Other),
             Acting);

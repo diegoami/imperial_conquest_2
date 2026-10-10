@@ -38,16 +38,20 @@ public sealed class AiMilitaryPhaseCapitalOwnershipTests
         var staleCapitalTally = ProposeAgainst(anotherNationsStaleCapitalNamesTheCity: true);
         var ordinaryTally = ProposeAgainst(anotherNationsStaleCapitalNamesTheCity: false);
 
-        Assert.True(staleCapitalTally.Proposed + staleCapitalTally.RejectedByRatio == 1,
-            "the ratio gate must have been evaluated exactly once for this to be a comparable measurement");
-        Assert.True(ordinaryTally.Proposed + ordinaryTally.RejectedByRatio == 1,
-            "the ratio gate must have been evaluated exactly once for this to be a comparable measurement");
+        Assert.True(staleCapitalTally.Adjacent == 1,
+            "the tree must have been evaluated exactly once for this to be a comparable measurement");
+        Assert.True(ordinaryTally.Adjacent == 1,
+            "the tree must have been evaluated exactly once for this to be a comparable measurement");
 
+        // The capital multiplier (×5/3) lifts a city's defender strength; the city scorer divides that
+        // strength into the army's own, so a higher defender strength means a *lower* city score. The
+        // stale-capital city therefore scores *less* than the ordinary one — and the test reads that
+        // inversion directly.
         Assert.True(
-            staleCapitalTally.BestDefenderPower > ordinaryTally.BestDefenderPower,
-            $"a city another nation's stale capital names ({staleCapitalTally.BestDefenderPower}) must "
-            + $"defend harder than the same city when nobody's capital names it ({ordinaryTally.BestDefenderPower}) "
-            + "-- otherwise #425's fix is not being read.");
+            staleCapitalTally.BestCityScore < ordinaryTally.BestCityScore,
+            $"a city another nation's stale capital names ({staleCapitalTally.BestCityScore}) must "
+            + $"score *less* on the tree's city scorer than the same city when nobody's capital names it "
+            + $"({ordinaryTally.BestCityScore}) -- otherwise #425's fix is not being read.");
     }
 
     /// <summary>
@@ -66,7 +70,7 @@ public sealed class AiMilitaryPhaseCapitalOwnershipTests
         var staleCapitalWeakness = ApproachWeaknessAgainstDefenderCity(anotherNationsStaleCapitalNamesTheCity: true);
         var ordinaryWeakness = ApproachWeaknessAgainstDefenderCity(anotherNationsStaleCapitalNamesTheCity: false);
 
-        Assert.True(ordinaryWeakness > 0, "the ordinary scenario's own siege-ratio term must be strictly positive for this comparison to mean anything");
+        Assert.True(ordinaryWeakness > 0, "the ordinary scenario's own city-score term must be strictly positive for this comparison to mean anything");
         Assert.True(
             staleCapitalWeakness < ordinaryWeakness,
             $"marching at a city another nation's stale capital names ({staleCapitalWeakness}) must score a "
@@ -110,10 +114,9 @@ public sealed class AiMilitaryPhaseCapitalOwnershipTests
 
         var armies = new[]
         {
-            // Chebyshev distance from (0, 0) to "defender-city" (7, 5) is 7 -- comfortably over the
-            // adjacency threshold ProposeSieges/ProposeArmyAttacks gate on, so this army's only military
-            // candidate against defender-city is an "approach" march, never a "besiege".
-            CaptureFixtures.Army("marcher", Acting, 0, 0, morale: 60, CaptureFixtures.Unit("archers", 40000))
+            // Adjacent to defender-city (Chebyshev distance 1) so the tally records an adjacent pair
+            // and the test reads the city's tree score directly off it.
+            CaptureFixtures.Army("marcher", Acting, 7, 4, morale: 60, CaptureFixtures.Unit("archers", 40000))
                 with { Moves = 5 },
         };
 
@@ -122,22 +125,21 @@ public sealed class AiMilitaryPhaseCapitalOwnershipTests
             Acting);
 
         var view = new AiView(state, ruleset, AiScriptedStates.World, Acting);
-        var candidates = new List<AiCandidate>();
+        var tally = new AiSiegeGateTally();
 
         AiMilitaryPhase.Propose(
             view,
             AiPersonalityProfile.For(state.NationById(Acting)!, ruleset),
             SplitMix64Rng.ForStream(1, "ai.turn"),
             Array.Empty<string>(),
-            candidates);
+            new List<AiCandidate>(),
+            tally);
 
-        var approach = Assert.Single(
-            candidates,
-            c => c.Kind == AiCandidate.ApproachKind && c.Rationale.Contains("defender-city", StringComparison.Ordinal));
-
-        // "{why} {city.Id} with {army.Id}: {distance} tiles away, base score {baseScore}, siege ratio {weakness} permille"
-        var weaknessText = approach.Rationale.Split("siege ratio ")[1].Split(" permille")[0];
-        return long.Parse(weaknessText);
+        // Post-T156: the AI's tree scorer reads the city's defender strength through
+        // CompleteDefenderStrength, and the tallied BestCityScore is the city's score from the tree's
+        // city scorer. A capital's ×5/3 multiplier lifts the city's defender strength, which divides
+        // the army's own score, so the stale-capital city scores *less* than the ordinary one.
+        return tally.BestCityScore;
     }
 
     private static AiSiegeGateTally ProposeAgainst(bool anotherNationsStaleCapitalNamesTheCity)

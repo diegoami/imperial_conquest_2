@@ -1,7 +1,7 @@
 Rome (rome) takes its turn: 16 orders issued.
 Carthage (carthage) takes its turn: 24 orders issued.
-Seleucid (seleucid) takes its turn: 14 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 15 orders issued.
+Seleucid (seleucid) takes its turn: 11 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 18 orders issued.
 
 > split-army army-8 mac-detached 0
 armies.split-army accepted.
@@ -41,38 +41,34 @@ diplomacy.declare-war accepted.
 
 > end
 Macedonia (macedonia) ends its turn.
-Numidia (numidia) takes its turn: 14 orders issued.
+Numidia (numidia) takes its turn: 11 orders issued.
 Gaul (gaul) takes its turn: 5 orders issued.
-Greece (greece) takes its turn: 10 orders issued.
-Celtiberia (celtiberia) takes its turn: 5 orders issued.
-Illyria (illyria) takes its turn: 10 orders issued.
+Greece (greece) takes its turn: 11 orders issued.
+Celtiberia (celtiberia) takes its turn: 4 orders issued.
+Illyria (illyria) takes its turn: 9 orders issued.
 Dacia (dacia) takes its turn: 7 orders issued.
 Bithynia (bithynia) takes its turn: 2 orders issued.
 Galatia (galatia) takes its turn: 1 order issued.
-Armenia (armenia) takes its turn: 6 orders issued.
+Armenia (armenia) takes its turn: 7 orders issued.
 Media (media) takes its turn: 5 orders issued.
 Thracia (thracia) takes its turn: 8 orders issued.
-  Weather: drought-reduces-supply (week 1).
+  Weather: storm-damages-fleet (week 1).
 Rome (rome) takes its turn: 3 orders issued.
-Carthage (carthage) takes its turn: 10 orders issued.
-Seleucid (seleucid) takes its turn: 3 orders issued.
+Carthage (carthage) takes its turn: 12 orders issued.
+Seleucid (seleucid) takes its turn: 12 orders issued.
 Ptolemaic (ptolemaic) takes its turn: 1 order issued.
 Now: Week 3, Spring 270 BC. Active seat: Macedonia (macedonia).
 News:
-  Sidon   (Ptolemaic)  falls to Seleucid.
-  Astacus   (Bithynia)  falls to Seleucid.
-  Calpe defects from Bithynia to Seleucid.
-  Pontica defects from Bithynia to Seleucid.
+  Ptolemaic sues Seleucid for peace and;
+      Ptolemaic ends all current trading agreements.
+      Ptolemaic  ends all current alliances.
+      Ptolemaic pays reparations of 2,946 talents.
+  Seleucid destroys army of Ptolemaic.
   Macedonia forms an alliance with Dacia.
   MACEDONIA DECLARES WAR ON ARMENIA.
   MACEDONIA DECLARES WAR ON MEDIA.
    
   Week  3      Spring      270BC
-  Ptolemaic sues Seleucid for peace and;
-      Ptolemaic ends all current trading agreements.
-      Ptolemaic  ends all current alliances.
-      Ptolemaic pays reparations of 2,552 talents.
-  Seleucid destroys army of Ptolemaic.
 
 > move mac-marines 144 42
 mac-marines moved from (146,40) to (144,42), spending 2 of 9 moves.
@@ -97,55 +93,67 @@ army-8 moved from (145,40) to (140,46), spending 8 of 10 moves.
 
 > end
 Macedonia (macedonia) ends its turn.
-Numidia (numidia) takes its turn: 4 orders issued.
-Gaul (gaul) takes its turn: 4 orders issued.
-Greece (greece) takes its turn: 3 orders issued.
-Celtiberia (celtiberia) takes its turn: 3 orders issued.
-Illyria (illyria) takes its turn: 4 orders issued.
+Numidia (numidia) takes its turn: 2 orders issued.
+Gaul (gaul) takes its turn: 1 order issued.
+Greece (greece) takes its turn: 0 orders issued.
+Celtiberia (celtiberia) takes its turn: 2 orders issued.
+Illyria (illyria) takes its turn: 3 orders issued.
 Dacia (dacia) takes its turn: 1 order issued.
-Bithynia (bithynia) takes its turn: 1 order issued.
-Galatia (galatia) takes its turn: 1 order issued.
-Armenia (armenia) takes its turn: 0 orders issued.
-Media (media) takes its turn: 0 orders issued.
-Thracia (thracia) takes its turn: 1 order issued.
+Bithynia (bithynia) takes its turn: 2 orders issued.
+Galatia (galatia) takes its turn: 2 orders issued.
+Armenia (armenia) takes its turn: 1 order issued.
+Media (media) takes its turn: 2 orders issued.
+Thracia (thracia) takes its turn: 3 orders issued.
+  Weather: drought-reduces-supply (week 3).
+  Weather: drought-reduces-supply (week 3).
+  Weather: drought-reduces-supply (week 3).
 Rome (rome) takes its turn: 2 orders issued.
-Carthage (carthage) takes its turn: 2 orders issued.
-Seleucid (seleucid) takes its turn: 14 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 1 order issued.
+Carthage (carthage) takes its turn: 12 orders issued.
+Seleucid (seleucid) takes its turn: 2 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 2 orders issued.
 Now: Week 5, Spring 270 BC. Active seat: Macedonia (macedonia).
 News:
+  Rome destroys army of Gaul.
+  Celtiberia sues Carthage for peace and;
+      Celtiberia ends all current trading agreements.
+      Celtiberia  ends all current alliances.
+      Celtiberia pays reparations of 438 talents.
+  Carthage destroys army of Celtiberia.
    
   Week  5      Spring      270BC
+  Carthage forms an alliance with Gaul.
+  Carthage declares war on Rome.
 
-> attack-army mac-detached army-14
-diplomacy.declare-war accepted (composed ahead of the attack).
-battle.attack-army accepted.
+> move mac-detached 155 29
+mac-detached moved from (154,34) to (155,29), spending 8 of 9 moves.
 
 > move army-8 135 52
 army-8 moved from (140,46) to (137,50), spending 10 of 10 moves.
 
 > end
 Macedonia (macedonia) ends its turn.
-Numidia (numidia) takes its turn: 2 orders issued.
-Gaul (gaul) takes its turn: 1 order issued.
-Greece (greece) takes its turn: 1 order issued.
-Celtiberia (celtiberia) takes its turn: 1 order issued.
-Illyria (illyria) takes its turn: 1 order issued.
+Numidia (numidia) takes its turn: 3 orders issued.
+Gaul (gaul) takes its turn: 0 orders issued.
+Greece (greece) takes its turn: 0 orders issued.
+Celtiberia (celtiberia) takes its turn: 0 orders issued.
+Illyria (illyria) takes its turn: 0 orders issued.
 Dacia (dacia) takes its turn: 0 orders issued.
 Bithynia (bithynia) takes its turn: 1 order issued.
 Galatia (galatia) takes its turn: 1 order issued.
 Armenia (armenia) takes its turn: 0 orders issued.
-Media (media) takes its turn: 0 orders issued.
-Thracia (thracia) takes its turn: 3 orders issued.
+Media (media) takes its turn: 1 order issued.
+Thracia (thracia) takes its turn: 1 order issued.
+  Weather: storm-damages-fleet (week 5).
   Weather: storm-damages-fleet (week 5).
 Rome (rome) takes its turn: 2 orders issued.
 Carthage (carthage) takes its turn: 2 orders issued.
 Seleucid (seleucid) takes its turn: 3 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 0 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 1 order issued.
 Now: Week 7, Spring 270 BC. Active seat: Macedonia (macedonia).
 News:
    
   Week  7      Spring      270BC
+  Bithynia destroys army of Seleucid.
 
 > move army-8 135 52
 army-8 moved from (137,50) to (136,51), spending 1 of 10 moves.
@@ -153,26 +161,32 @@ army-8 moved from (137,50) to (136,51), spending 1 of 10 moves.
 > end
 Macedonia (macedonia) ends its turn.
 Numidia (numidia) takes its turn: 0 orders issued.
-Gaul (gaul) takes its turn: 1 order issued.
-Greece (greece) takes its turn: 1 order issued.
-Celtiberia (celtiberia) takes its turn: 2 orders issued.
+Gaul (gaul) takes its turn: 0 orders issued.
+Greece (greece) takes its turn: 0 orders issued.
+Celtiberia (celtiberia) takes its turn: 0 orders issued.
 Illyria (illyria) takes its turn: 0 orders issued.
 Dacia (dacia) takes its turn: 0 orders issued.
-Bithynia (bithynia) takes its turn: 1 order issued.
+Bithynia (bithynia) takes its turn: 5 orders issued.
 Galatia (galatia) takes its turn: 1 order issued.
 Armenia (armenia) takes its turn: 0 orders issued.
-Media (media) takes its turn: 0 orders issued.
+Media (media) takes its turn: 1 order issued.
 Thracia (thracia) takes its turn: 1 order issued.
+  Weather: drought-reduces-supply (week 7).
 Rome (rome) takes its turn: 2 orders issued.
 Carthage (carthage) takes its turn: 2 orders issued.
-Seleucid (seleucid) takes its turn: 3 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 0 orders issued.
+Seleucid (seleucid) takes its turn: 1 order issued.
+Ptolemaic (ptolemaic) takes its turn: 1 order issued.
 Now: Week 9, Spring 270 BC. Active seat: Macedonia (macedonia).
 News:
-  Helice   (Carthage)  falls to Celtiberia.
-  A fleet belonging to ptolemaic is damaged in a storm.
    
   Week  9      Spring      270BC
+
+> move mac-detached 155 26
+mac-detached moved from (155,29) to (155,26), spending 3 of 9 moves.
+
+> attack-army mac-detached army-14
+diplomacy.declare-war accepted (composed ahead of the attack).
+battle.attack-army accepted.
 
 > besiege-city army-8 phoenice
 diplomacy.declare-war accepted (composed ahead of the attack).
@@ -180,26 +194,23 @@ battle.besiege-city accepted.
 
 > end
 Macedonia (macedonia) ends its turn.
-Numidia (numidia) takes its turn: 0 orders issued.
-Gaul (gaul) takes its turn: 1 order issued.
+Numidia (numidia) takes its turn: 1 order issued.
+Gaul (gaul) takes its turn: 0 orders issued.
 Greece (greece) takes its turn: 0 orders issued.
-Celtiberia (celtiberia) takes its turn: 1 order issued.
-Illyria (illyria) takes its turn: 0 orders issued.
+Celtiberia (celtiberia) takes its turn: 0 orders issued.
+Illyria (illyria) takes its turn: 1 order issued.
 Dacia (dacia) takes its turn: 0 orders issued.
-Bithynia (bithynia) takes its turn: 1 order issued.
+Bithynia (bithynia) takes its turn: 2 orders issued.
 Galatia (galatia) takes its turn: 1 order issued.
 Armenia (armenia) takes its turn: 0 orders issued.
-Media (media) takes its turn: 0 orders issued.
+Media (media) takes its turn: 1 order issued.
 Thracia (thracia) takes its turn: 1 order issued.
-  Weather: drought-reduces-supply (week 9).
-  Weather: storm-damages-fleet (week 9).
 Rome (rome) takes its turn: 2 orders issued.
 Carthage (carthage) takes its turn: 2 orders issued.
-Seleucid (seleucid) takes its turn: 3 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 0 orders issued.
+Seleucid (seleucid) takes its turn: 1 order issued.
+Ptolemaic (ptolemaic) takes its turn: 1 order issued.
 Now: Week 11, Spring 270 BC. Active seat: Macedonia (macedonia).
 News:
-  A fleet belonging to ptolemaic is lost at sea.
    
   Week  11      Spring      270BC
 
@@ -209,50 +220,47 @@ armies.split-army accepted.
 > end
 Macedonia (macedonia) ends its turn.
 Numidia (numidia) takes its turn: 1 order issued.
-Gaul (gaul) takes its turn: 1 order issued.
+Gaul (gaul) takes its turn: 0 orders issued.
 Greece (greece) takes its turn: 0 orders issued.
-Celtiberia (celtiberia) takes its turn: 1 order issued.
+Celtiberia (celtiberia) takes its turn: 0 orders issued.
 Illyria (illyria) takes its turn: 0 orders issued.
 Dacia (dacia) takes its turn: 0 orders issued.
 Bithynia (bithynia) takes its turn: 1 order issued.
 Galatia (galatia) takes its turn: 1 order issued.
 Armenia (armenia) takes its turn: 0 orders issued.
-Media (media) takes its turn: 0 orders issued.
-Thracia (thracia) takes its turn: 2 orders issued.
+Media (media) takes its turn: 1 order issued.
+Thracia (thracia) takes its turn: 1 order issued.
   Weather: drought-reduces-supply (week 11).
 Rome (rome) takes its turn: 9 orders issued.
-Carthage (carthage) takes its turn: 14 orders issued.
-Seleucid (seleucid) takes its turn: 12 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 0 orders issued.
+Carthage (carthage) takes its turn: 15 orders issued.
+Seleucid (seleucid) takes its turn: 10 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 8 orders issued.
 Now: Week 1, Summer 270 BC. Active seat: Macedonia (macedonia).
 News:
    
   Week  1      Summer      270BC
-
-> accept-offer
-diplomacy.accept-pending-offer accepted.
 
 > move mac-sac-1 151 31
 mac-sac-1 moved from (137,52) to (140,47), spending 8 of 9 moves.
 
 > end
 Macedonia (macedonia) ends its turn.
-Numidia (numidia) takes its turn: 8 orders issued.
-Gaul (gaul) takes its turn: 13 orders issued.
-Greece (greece) takes its turn: 14 orders issued.
-Celtiberia (celtiberia) takes its turn: 1 order issued.
-Illyria (illyria) takes its turn: 6 orders issued.
-Dacia (dacia) takes its turn: 3 orders issued.
-Bithynia (bithynia) takes its turn: 1 order issued.
-Galatia (galatia) takes its turn: 8 orders issued.
-Armenia (armenia) takes its turn: 4 orders issued.
-Media (media) takes its turn: 6 orders issued.
-Thracia (thracia) takes its turn: 4 orders issued.
+Numidia (numidia) takes its turn: 7 orders issued.
+Gaul (gaul) takes its turn: 12 orders issued.
+Greece (greece) takes its turn: 15 orders issued.
+Celtiberia (celtiberia) takes its turn: 0 orders issued.
+Illyria (illyria) takes its turn: 8 orders issued.
+Dacia (dacia) takes its turn: 1 order issued.
+Bithynia (bithynia) takes its turn: 4 orders issued.
+Galatia (galatia) takes its turn: 1 order issued.
+Armenia (armenia) takes its turn: 5 orders issued.
+Media (media) takes its turn: 10 orders issued.
+Thracia (thracia) takes its turn: 5 orders issued.
   Weather: drought-reduces-supply (week 1).
 Rome (rome) takes its turn: 2 orders issued.
 Carthage (carthage) takes its turn: 3 orders issued.
-Seleucid (seleucid) takes its turn: 4 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 0 orders issued.
+Seleucid (seleucid) takes its turn: 1 order issued.
+Ptolemaic (ptolemaic) takes its turn: 1 order issued.
 Now: Week 3, Summer 270 BC. Active seat: Macedonia (macedonia).
 News:
    
@@ -265,88 +273,83 @@ mac-sac-1 moved from (140,47) to (145,40), spending 9 of 9 moves.
 Macedonia (macedonia) ends its turn.
 Numidia (numidia) takes its turn: 3 orders issued.
 Gaul (gaul) takes its turn: 1 order issued.
-Greece (greece) takes its turn: 2 orders issued.
-Celtiberia (celtiberia) takes its turn: 1 order issued.
-Illyria (illyria) takes its turn: 0 orders issued.
-Dacia (dacia) takes its turn: 0 orders issued.
-Bithynia (bithynia) takes its turn: 1 order issued.
-Galatia (galatia) takes its turn: 2 orders issued.
-Armenia (armenia) takes its turn: 0 orders issued.
-Media (media) takes its turn: 1 order issued.
-Thracia (thracia) takes its turn: 2 orders issued.
-Rome (rome) takes its turn: 2 orders issued.
-Carthage (carthage) takes its turn: 2 orders issued.
-Seleucid (seleucid) takes its turn: 2 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 0 orders issued.
-Now: Week 5, Summer 270 BC. Active seat: Macedonia (macedonia).
-News:
-   
-  Week  5      Summer      270BC
-
-> move mac-sac-1 151 31
-mac-sac-1 moved from (145,40) to (147,37), spending 9 of 9 moves.
-
-> end
-Macedonia (macedonia) ends its turn.
-Numidia (numidia) takes its turn: 1 order issued.
-Gaul (gaul) takes its turn: 1 order issued.
 Greece (greece) takes its turn: 1 order issued.
-Celtiberia (celtiberia) takes its turn: 1 order issued.
-Illyria (illyria) takes its turn: 0 orders issued.
+Celtiberia (celtiberia) takes its turn: 0 orders issued.
+Illyria (illyria) takes its turn: 4 orders issued.
 Dacia (dacia) takes its turn: 0 orders issued.
 Bithynia (bithynia) takes its turn: 1 order issued.
 Galatia (galatia) takes its turn: 1 order issued.
 Armenia (armenia) takes its turn: 0 orders issued.
-Media (media) takes its turn: 0 orders issued.
+Media (media) takes its turn: 2 orders issued.
 Thracia (thracia) takes its turn: 1 order issued.
-Rome (rome) takes its turn: 2 orders issued.
-Carthage (carthage) takes its turn: 2 orders issued.
-Seleucid (seleucid) takes its turn: 2 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 0 orders issued.
-Now: Week 7, Summer 270 BC. Active seat: Macedonia (macedonia).
-News:
-  A fleet belonging to carthage is damaged in a storm.
-   
-  Week  7      Summer      270BC
-
-> move mac-sac-1 151 31
-mac-sac-1 moved from (147,37) to (150,32), spending 8 of 9 moves.
-
-> attack-army mac-sac-1 army-14
-battle.attack-army accepted.
 After defeating you in battle Thracia are willing to end their war with you, if you agree to the terms below.
 An honourable peace with no reparations or penalties
 If the peace terms are acceptable click YES.
 Otherwise to continue the war click NO.
 Type 'peace-yes' to accept or 'peace-no' to decline.
+Rome (rome) takes its turn: 2 orders issued.
+Carthage (carthage) takes its turn: 2 orders issued.
+Seleucid (seleucid) takes its turn: 1 order issued.
+Ptolemaic (ptolemaic) takes its turn: 1 order issued.
+Now: Week 5, Summer 270 BC. Active seat: Macedonia (macedonia).
+News:
+  Thracia destroys army of Macedonia.
+  A fleet belonging to carthage is damaged in a storm.
+   
+  Week  5      Summer      270BC
 
 > peace-yes
 diplomacy.accept-peace-treaty accepted.
 
 > end
 Macedonia (macedonia) ends its turn.
-Numidia (numidia) takes its turn: 0 orders issued.
-Gaul (gaul) takes its turn: 1 order issued.
+Numidia (numidia) takes its turn: 1 order issued.
+Gaul (gaul) takes its turn: 0 orders issued.
 Greece (greece) takes its turn: 1 order issued.
-Celtiberia (celtiberia) takes its turn: 1 order issued.
+Celtiberia (celtiberia) takes its turn: 0 orders issued.
 Illyria (illyria) takes its turn: 0 orders issued.
 Dacia (dacia) takes its turn: 0 orders issued.
 Bithynia (bithynia) takes its turn: 1 order issued.
-Galatia (galatia) takes its turn: 2 orders issued.
+Galatia (galatia) takes its turn: 1 order issued.
 Armenia (armenia) takes its turn: 0 orders issued.
-Media (media) takes its turn: 0 orders issued.
-Thracia (thracia) takes its turn: 2 orders issued.
-  Weather: storm-damages-fleet (week 7).
-  Weather: drought-reduces-supply (week 7).
+Media (media) takes its turn: 1 order issued.
+Thracia (thracia) takes its turn: 1 order issued.
+  Weather: storm-damages-fleet (week 5).
 Rome (rome) takes its turn: 2 orders issued.
 Carthage (carthage) takes its turn: 2 orders issued.
-Seleucid (seleucid) takes its turn: 2 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 0 orders issued.
-Now: Week 9, Summer 270 BC. Active seat: Macedonia (macedonia).
+Seleucid (seleucid) takes its turn: 1 order issued.
+Ptolemaic (ptolemaic) takes its turn: 1 order issued.
+Now: Week 7, Summer 270 BC. Active seat: Macedonia (macedonia).
 News:
   A fleet belonging to carthage is lost at sea.
+  A fleet belonging to ptolemaic is lost at sea.
+   
+  Week  7      Summer      270BC
+
+> end
+Macedonia (macedonia) ends its turn.
+Numidia (numidia) takes its turn: 0 orders issued.
+Gaul (gaul) takes its turn: 0 orders issued.
+Greece (greece) takes its turn: 0 orders issued.
+Celtiberia (celtiberia) takes its turn: 0 orders issued.
+Illyria (illyria) takes its turn: 0 orders issued.
+Dacia (dacia) takes its turn: 0 orders issued.
+Bithynia (bithynia) takes its turn: 1 order issued.
+Galatia (galatia) takes its turn: 1 order issued.
+Armenia (armenia) takes its turn: 0 orders issued.
+Media (media) takes its turn: 1 order issued.
+Thracia (thracia) takes its turn: 1 order issued.
+  Weather: storm-damages-fleet (week 7).
+  Weather: drought-reduces-supply (week 7).
+Rome (rome) takes its turn: 4 orders issued.
+Carthage (carthage) takes its turn: 2 orders issued.
+Seleucid (seleucid) takes its turn: 2 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 1 order issued.
+Now: Week 9, Summer 270 BC. Active seat: Macedonia (macedonia).
+News:
    
   Week  9      Summer      270BC
+  Vindobona   (Gaul)  falls to Rome.
 
 > make-peace illyria
 diplomacy.make-peace accepted.
@@ -357,17 +360,18 @@ recruitment.mobilize-recruit-slot accepted.
 > end
 Macedonia (macedonia) ends its turn.
 Numidia (numidia) takes its turn: 0 orders issued.
-Gaul (gaul) takes its turn: 1 order issued.
-Greece (greece) takes its turn: 0 orders issued.
-Celtiberia (celtiberia) takes its turn: 1 order issued.
+Gaul (gaul) takes its turn: 0 orders issued.
+Greece (greece) takes its turn: 1 order issued.
+Celtiberia (celtiberia) takes its turn: 0 orders issued.
 Illyria (illyria) takes its turn: 0 orders issued.
 Dacia (dacia) takes its turn: 0 orders issued.
 Bithynia (bithynia) takes its turn: 1 order issued.
 Galatia (galatia) takes its turn: 1 order issued.
 Armenia (armenia) takes its turn: 0 orders issued.
-Media (media) takes its turn: 0 orders issued.
+Media (media) takes its turn: 1 order issued.
 Thracia (thracia) takes its turn: 1 order issued.
-Rome (rome) takes its turn: 2 orders issued.
+  Weather: storm-damages-fleet (week 9).
+Rome (rome) takes its turn: 8 orders issued.
 Carthage (carthage) takes its turn: 2 orders issued.
 Seleucid (seleucid) takes its turn: 2 orders issued.
 Ptolemaic (ptolemaic) takes its turn: 1 order issued.
@@ -375,6 +379,7 @@ Now: Week 11, Summer 270 BC. Active seat: Macedonia (macedonia).
 News:
    
   Week  11      Summer      270BC
+  Seleucid destroys army of Galatia.
 
 > mobilize 0 mac-recruit-1
 recruitment.mobilize-recruit-slot accepted.
@@ -384,26 +389,27 @@ armies.join-units accepted.
 
 > end
 Macedonia (macedonia) ends its turn.
-Numidia (numidia) takes its turn: 0 orders issued.
-Gaul (gaul) takes its turn: 1 order issued.
-Greece (greece) takes its turn: 1 order issued.
-Celtiberia (celtiberia) takes its turn: 1 order issued.
+Numidia (numidia) takes its turn: 1 order issued.
+Gaul (gaul) takes its turn: 0 orders issued.
+Greece (greece) takes its turn: 0 orders issued.
+Celtiberia (celtiberia) takes its turn: 0 orders issued.
 Illyria (illyria) takes its turn: 0 orders issued.
 Dacia (dacia) takes its turn: 0 orders issued.
 Bithynia (bithynia) takes its turn: 1 order issued.
-Galatia (galatia) takes its turn: 1 order issued.
+Galatia (galatia) takes its turn: 0 orders issued.
 Armenia (armenia) takes its turn: 0 orders issued.
-Media (media) takes its turn: 0 orders issued.
+Media (media) takes its turn: 1 order issued.
 Thracia (thracia) takes its turn: 1 order issued.
-Rome (rome) takes its turn: 9 orders issued.
-Carthage (carthage) takes its turn: 17 orders issued.
-Seleucid (seleucid) takes its turn: 12 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 0 orders issued.
+Rome (rome) takes its turn: 10 orders issued.
+Carthage (carthage) takes its turn: 16 orders issued.
+Seleucid (seleucid) takes its turn: 11 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 10 orders issued.
 Now: Week 1, Autumn 270 BC. Active seat: Macedonia (macedonia).
 News:
   macedonia finishes a new fleet at Amphipolis.
    
   Week  1      Autumn      270BC
+  Iconium   (Galatia)  falls to Seleucid.
 
 > split-fleet mac-fleet-1 mac-fleet-2 10
 naval.split-fleet accepted.
@@ -425,446 +431,484 @@ naval.split-fleet accepted.
 
 > end
 Macedonia (macedonia) ends its turn.
-Numidia (numidia) takes its turn: 9 orders issued.
-Gaul (gaul) takes its turn: 14 orders issued.
+Numidia (numidia) takes its turn: 7 orders issued.
+Gaul (gaul) takes its turn: 13 orders issued.
 Greece (greece) takes its turn: 13 orders issued.
-Celtiberia (celtiberia) takes its turn: 1 order issued.
+Celtiberia (celtiberia) takes its turn: 0 orders issued.
 Illyria (illyria) takes its turn: 9 orders issued.
 Dacia (dacia) takes its turn: 0 orders issued.
-Bithynia (bithynia) takes its turn: 1 order issued.
-Galatia (galatia) takes its turn: 4 orders issued.
-Armenia (armenia) takes its turn: 5 orders issued.
-Media (media) takes its turn: 9 orders issued.
-Thracia (thracia) takes its turn: 5 orders issued.
+Bithynia (bithynia) takes its turn: 4 orders issued.
+Galatia (galatia) takes its turn: 0 orders issued.
+Armenia (armenia) takes its turn: 4 orders issued.
+Media (media) takes its turn: 10 orders issued.
+Thracia (thracia) takes its turn: 9 orders issued.
   Weather: drought-reduces-supply (week 1).
-  Weather: drought-reduces-supply (week 1).
-Rome (rome) takes its turn: 2 orders issued.
+Rome (rome) takes its turn: 5 orders issued.
 Carthage (carthage) takes its turn: 2 orders issued.
-Seleucid (seleucid) takes its turn: 3 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 0 orders issued.
+Seleucid (seleucid) takes its turn: 2 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 1 order issued.
 Now: Week 3, Autumn 270 BC. Active seat: Macedonia (macedonia).
 News:
-  Illyria forms an alliance with Gaul.
-  Illyria declares war on Rome.
    
   Week  3      Autumn      270BC
+  Taurasia   (Gaul)  falls to Rome.
+
+> end
+Macedonia (macedonia) ends its turn.
+Numidia (numidia) takes its turn: 2 orders issued.
+Gaul (gaul) takes its turn: 0 orders issued.
+Greece (greece) takes its turn: 1 order issued.
+Celtiberia (celtiberia) takes its turn: 0 orders issued.
+Illyria (illyria) takes its turn: 1 order issued.
+Dacia (dacia) takes its turn: 0 orders issued.
+Bithynia (bithynia) takes its turn: 1 order issued.
+Galatia (galatia) takes its turn: 0 orders issued.
+Armenia (armenia) takes its turn: 0 orders issued.
+Media (media) takes its turn: 3 orders issued.
+Thracia (thracia) takes its turn: 1 order issued.
+Rome (rome) takes its turn: 3 orders issued.
+Carthage (carthage) takes its turn: 2 orders issued.
+Seleucid (seleucid) takes its turn: 2 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 1 order issued.
+Now: Week 5, Autumn 270 BC. Active seat: Macedonia (macedonia).
+News:
+   
+  Week  5      Autumn      270BC
+
+> end
+Macedonia (macedonia) ends its turn.
+Numidia (numidia) takes its turn: 2 orders issued.
+Gaul (gaul) takes its turn: 0 orders issued.
+Greece (greece) takes its turn: 0 orders issued.
+Celtiberia (celtiberia) takes its turn: 0 orders issued.
+Illyria (illyria) takes its turn: 0 orders issued.
+Dacia (dacia) takes its turn: 0 orders issued.
+Bithynia (bithynia) takes its turn: 1 order issued.
+Galatia (galatia) takes its turn: 0 orders issued.
+Armenia (armenia) takes its turn: 0 orders issued.
+Media (media) takes its turn: 1 order issued.
+Thracia (thracia) takes its turn: 1 order issued.
+Rome (rome) takes its turn: 2 orders issued.
+Carthage (carthage) takes its turn: 2 orders issued.
+Seleucid (seleucid) takes its turn: 2 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 1 order issued.
+Now: Week 7, Autumn 270 BC. Active seat: Macedonia (macedonia).
+News:
+   
+  Week  7      Autumn      270BC
 
 > status
-Week 3, Autumn 270 BC (turn 13). Active seat: Macedonia (macedonia).
+Week 7, Autumn 270 BC (turn 15). Active seat: Macedonia (macedonia).
 
 Nations:
-  Rome (rome, ai): treasury 44, unity 851, tax 10%
-  Carthage (carthage, ai): treasury 32, unity 747, tax 5%
-  Seleucid (seleucid, ai): treasury 46, unity 743, tax 18%
-  Ptolemaic (ptolemaic, ai): treasury -76, unity 685, tax 13%
-  Macedonia (macedonia, human): treasury 1121, unity 817, tax 15%
-  Numidia (numidia, ai): treasury 111, unity 665, tax 5%
-  Gaul (gaul, ai): treasury 23, unity 608, tax 10%
-  Greece (greece, ai): treasury 43, unity 578, tax 5%
-  Celtiberia (celtiberia, ai): treasury -145, unity 752, tax 15%
-  Illyria (illyria, ai): treasury 50, unity 736, tax 5%
-  Dacia (dacia, ai): treasury 13, unity 653, tax 5%
-  Bithynia (bithynia, ai): treasury -48, unity 632, tax 12%
-  Galatia (galatia, ai): treasury 42, unity 759, tax 14%
-  Armenia (armenia, ai): treasury 58, unity 702, tax 8%
-  Media (media, ai): treasury 47, unity 715, tax 10%
-  Thracia (thracia, ai): treasury 55, unity 789, tax 9%
+  Rome (rome, ai): treasury 24, unity 895, tax 10%
+  Carthage (carthage, ai): treasury 31, unity 787, tax 5%
+  Seleucid (seleucid, ai): treasury 34, unity 729, tax 18%
+  Ptolemaic (ptolemaic, ai): treasury 67, unity 700, tax 13%
+  Macedonia (macedonia, human): treasury 1098, unity 817, tax 15%
+  Numidia (numidia, ai): treasury 28, unity 665, tax 5%
+  Gaul (gaul, ai): treasury 23, unity 555, tax 10%
+  Greece (greece, ai): treasury 30, unity 578, tax 5%
+  Celtiberia (celtiberia, ai): treasury -214, unity 718, tax 15%
+  Illyria (illyria, ai): treasury 24, unity 736, tax 5%
+  Dacia (dacia, ai): treasury -16, unity 653, tax 5%
+  Bithynia (bithynia, ai): treasury 39, unity 712, tax 12%
+  Galatia (galatia, ai): treasury -20, unity 719, tax 14%
+  Armenia (armenia, ai): treasury 70, unity 702, tax 8%
+  Media (media, ai): treasury 36, unity 715, tax 10%
+  Thracia (thracia, ai): treasury 42, unity 789, tax 9%
 
 Armies:
-  army-0 (Rome) @ (96,27): 23700 troops in 6 units, supply 19t (8%), morale 68, moves 7
-  army-1 (Rome) @ (120,54): 22000 troops in 6 units, supply 220t (100%), morale 70, moves 6
-  army-2 (Carthage) @ (34,63): 33900 troops in 8 units, supply 0t (0%), morale 53, moves 7
-  army-3 (Carthage) @ (84,88): 24818 troops in 7 units, supply 248t (99%), morale 70, moves 4
-  army-4 (Seleucid) @ (223,73): 36432 troops in 11 units, supply 364t (99%), morale 70, moves 6
-  army-5 (Seleucid) @ (172,43): 36624 troops in 9 units, supply 366t (99%), morale 70, moves 8
-  army-7 (Ptolemaic) @ (191,94): 56400 troops in 10 units, supply 564t (100%), morale 70, moves 8
-  army-8 (Macedonia) @ (136,51): 4556 troops in 2 units, supply 0t (0%), morale 52, moves 9
-  army-9 (Gaul) @ (99,37): 40500 troops in 8 units, supply 0t (0%), morale 59, moves 7
-  army-10 (Celtiberia) @ (47,62): 46356 troops in 8 units, supply 440t (94%), morale 70, moves 8
-  army-11 (Bithynia) @ (187,44): 33600 troops in 8 units, supply 320t (95%), morale 70, moves 9
-  army-12 (Galatia) @ (212,46): 19300 troops in 5 units, supply 0t (0%), morale 51, moves 9
-  army-13 (Media) @ (299,59): 37700 troops in 9 units, supply 359t (95%), morale 70, moves 9
-  army-14 (Thracia) @ (151,31): 11189 troops in 4 units, supply 106t (94%), morale 60, moves 10
+  army-0 (Rome) @ (119,7): 16696 troops in 5 units, supply 166t (99%), morale 70, moves 6
+  army-1 (Rome) @ (94,25): 26581 troops in 8 units, supply 265t (99%), morale 70, moves 0
+  army-2 (Carthage) @ (46,56): 27340 troops in 8 units, supply 273t (99%), morale 70, moves 3
+  army-3 (Carthage) @ (80,81): 24818 troops in 7 units, supply 248t (99%), morale 70, moves 8
+  army-4 (Seleucid) @ (190,43): 42629 troops in 12 units, supply 405t (95%), morale 70, moves 0
+  army-7 (Ptolemaic) @ (182,100): 56400 troops in 10 units, supply 564t (100%), morale 70, moves 5
+  army-8 (Macedonia) @ (136,51): 4542 troops in 2 units, supply 0t (0%), morale 51, moves 9
+  army-11 (Bithynia) @ (185,43): 28479 troops in 8 units, supply 256t (89%), morale 70, moves 9
+  army-13 (Media) @ (285,73): 37700 troops in 9 units, supply 359t (95%), morale 70, moves 9
+  army-14 (Thracia) @ (158,41): 15069 troops in 5 units, supply 143t (94%), morale 70, moves 10
   mac-marines (Macedonia) @ (144,42): 6400 troops in 2 units, supply 0t (0%), morale 51, moves 9
 
 Cities:
-  sala "Sala" @ (9,90), owner Carthage: supply 650t, loyalty 95, fortification 62%
-  olisipo "Olisipo" @ (10,54), owner Celtiberia: supply 180t, loyalty 91, fortification 50%
-  tudae "Tudae" @ (13,40), owner Celtiberia: supply 150t, loyalty 78, fortification 48%
+  sala "Sala" @ (9,90), owner Carthage: supply 650t, loyalty 95, fortification 70%
+  olisipo "Olisipo" @ (10,54), owner Celtiberia: supply 180t, loyalty 90, fortification 50%
+  tudae "Tudae" @ (13,40), owner Celtiberia: supply 150t, loyalty 77, fortification 48%
   ebora "Ebora" @ (14,62), owner Celtiberia: supply 160t, loyalty 78, fortification 52%
-  banasa "Banasa" @ (18,87), owner Carthage: supply 150t, loyalty 81, fortification 55%
-  gades "Gades" @ (19,75), owner Carthage: supply 810t, loyalty 92, fortification 86%
-  lixus "Lixus" @ (20,82), owner Carthage: supply 550t, loyalty 84, fortification 75%
+  banasa "Banasa" @ (18,87), owner Carthage: supply 150t, loyalty 79, fortification 59%
+  gades "Gades" @ (19,75), owner Carthage: supply 810t, loyalty 92, fortification 87%
+  lixus "Lixus" @ (20,82), owner Carthage: supply 550t, loyalty 84, fortification 81%
   igaeditani "Igaeditani" @ (21,50), owner Celtiberia: supply 100t, loyalty 87, fortification 61%
-  corduba "Corduba" @ (22,65), owner Celtiberia: supply 150t, loyalty 79, fortification 43%
-  volubilis "Volubilis" @ (22,90), owner Numidia: supply 200t, loyalty 58, fortification 71%
+  corduba "Corduba" @ (22,65), owner Celtiberia: supply 150t, loyalty 80, fortification 43%
+  volubilis "Volubilis" @ (22,90), owner Numidia: supply 200t, loyalty 55, fortification 66%
   gigia "Gigia" @ (25,32), owner Celtiberia: supply 130t, loyalty 77, fortification 50%
-  salmantica "Salmantica" @ (27,45), owner Celtiberia: supply 260t, loyalty 95, fortification 44%
+  salmantica "Salmantica" @ (27,45), owner Celtiberia: supply 260t, loyalty 94, fortification 44%
   astapa "Astapa" @ (27,68), owner Celtiberia: supply 320t, loyalty 81, fortification 30%
-  malaca "Malaca" @ (29,73), owner Carthage: supply 490t, loyalty 87, fortification 48%
-  segovia "Segovia" @ (31,44), owner Celtiberia: supply 190t, loyalty 94, fortification 60%
-  taletum "Taletum" @ (31,51), owner Celtiberia: supply 120t, loyalty 96, fortification 62%
-  rusaddir "Rusaddir" @ (31,84), owner Carthage: supply 210t, loyalty 61, fortification 60%
-  iliturgi "Iliturgi" @ (33,63), owner Celtiberia: supply 170t, loyalty 84, fortification 43%
-  sexi "Sexi" @ (33,73), owner Carthage: supply 230t, loyalty 78, fortification 51%
-  castulo "Castulo" @ (36,61), owner Celtiberia: supply 200t, loyalty 80, fortification 23%
+  malaca "Malaca" @ (29,73), owner Carthage: supply 490t, loyalty 87, fortification 52%
+  segovia "Segovia" @ (31,44), owner Celtiberia: supply 190t, loyalty 95, fortification 60%
+  taletum "Taletum" @ (31,51), owner Celtiberia: supply 120t, loyalty 95, fortification 62%
+  rusaddir "Rusaddir" @ (31,84), owner Carthage: supply 210t, loyalty 61, fortification 51%
+  iliturgi "Iliturgi" @ (33,63), owner Celtiberia: supply 190t, loyalty 85, fortification 43%
+  sexi "Sexi" @ (33,73), owner Carthage: supply 230t, loyalty 76, fortification 48%
+  castulo "Castulo" @ (36,61), owner Celtiberia: supply 210t, loyalty 79, fortification 23%
   orangis "Orangis" @ (37,65), owner Celtiberia: supply 390t, loyalty 94, fortification 66%
-  siga "Siga" @ (37,84), owner Numidia: supply 510t, loyalty 76, fortification 63%
+  siga "Siga" @ (37,84), owner Numidia: supply 510t, loyalty 72, fortification 61%
   segontia "Segontia" @ (40,47), owner Celtiberia: supply 220t, loyalty 92, fortification 57%
-  numantia "Numantia" @ (42,42), owner Celtiberia: supply 310t, loyalty 91, fortification 53%
-  quiza "Quiza" @ (44,82), owner Carthage: supply 290t, loyalty 77, fortification 62%
-  carthago-novo "Carthago Novo" @ (45,68), owner Carthage: supply 910t, loyalty 92, fortification 93%
-  helice "Helice" @ (46,65), owner Celtiberia: supply 132t, loyalty 89, fortification 18%
+  numantia "Numantia" @ (42,42), owner Celtiberia: supply 310t, loyalty 92, fortification 53%
+  quiza "Quiza" @ (44,82), owner Carthage: supply 290t, loyalty 80, fortification 64%
+  carthago-novo "Carthago Novo" @ (45,68), owner Carthage: supply 910t, loyalty 92, fortification 97%
+  helice "Helice" @ (46,65), owner Carthage: supply 210t, loyalty 70, fortification 26%
   bordeaux "Bordeaux" @ (47,29), owner Celtiberia: supply 260t, loyalty 66, fortification 42%
-  saguntum "Saguntum" @ (47,55), owner Celtiberia: supply 500t, loyalty 87, fortification 78%
-  hemeroscopium "Hemeroscopium" @ (47,59), owner Greece: supply 217t, loyalty 76, fortification 63%
-  akra-leuke "Akra Leuke" @ (47,63), owner Carthage: supply 84t, loyalty 88, fortification 100%
+  saguntum "Saguntum" @ (47,55), owner Celtiberia: supply 487t, loyalty 86, fortification 78%
+  hemeroscopium "Hemeroscopium" @ (47,59), owner Greece: supply 230t, loyalty 77, fortification 43%
+  akra-leuke "Akra Leuke" @ (47,63), owner Carthage: supply 120t, loyalty 88, fortification 100%
   osca "Osca" @ (49,41), owner Celtiberia: supply 120t, loyalty 70, fortification 31%
-  rotomagus "Rotomagus" @ (51,3), owner Gaul: supply 180t, loyalty 82, fortification 28%
-  icosium "Icosium" @ (51,78), owner Carthage: supply 340t, loyalty 82, fortification 67%
-  lemovicci "Lemovicci" @ (53,23), owner Gaul: supply 260t, loyalty 71, fortification 47%
-  cissa "Cissa" @ (53,46), owner Carthage: supply 320t, loyalty 69, fortification 40%
-  avaricum "Avaricum" @ (56,16), owner Gaul: supply 210t, loyalty 81, fortification 34%
-  gergovia "Gergovia" @ (58,25), owner Gaul: supply 230t, loyalty 83, fortification 60%
-  alesia "Alesia" @ (60,15), owner Gaul: supply 200t, loyalty 82, fortification 27%
-  bibracte "Bibracte" @ (60,18), owner Gaul: supply 160t, loyalty 85, fortification 19%
+  rotomagus "Rotomagus" @ (51,3), owner Gaul: supply 180t, loyalty 81, fortification 28%
+  icosium "Icosium" @ (51,78), owner Carthage: supply 340t, loyalty 82, fortification 62%
+  lemovicci "Lemovicci" @ (53,23), owner Gaul: supply 260t, loyalty 73, fortification 49%
+  cissa "Cissa" @ (53,46), owner Carthage: supply 320t, loyalty 66, fortification 52%
+  avaricum "Avaricum" @ (56,16), owner Gaul: supply 210t, loyalty 81, fortification 35%
+  gergovia "Gergovia" @ (58,25), owner Gaul: supply 230t, loyalty 82, fortification 59%
+  alesia "Alesia" @ (60,15), owner Gaul: supply 200t, loyalty 81, fortification 24%
+  bibracte "Bibracte" @ (60,18), owner Gaul: supply 160t, loyalty 85, fortification 29%
   palma "Palma" @ (60,57), owner Celtiberia: supply 110t, loyalty 90, fortification 71%
-  lutetia "Lutetia" @ (62,7), owner Gaul: supply 140t, loyalty 82, fortification 37%
-  lyon "Lyon" @ (62,33), owner Gaul: supply 210t, loyalty 81, fortification 46%
-  emporiae "Emporiae" @ (63,39), owner Greece: supply 270t, loyalty 81, fortification 68%
-  dimmidi "Dimmidi" @ (63,96), owner Numidia: supply 200t, loyalty 63, fortification 81%
+  lutetia "Lutetia" @ (62,7), owner Gaul: supply 140t, loyalty 82, fortification 41%
+  lyon "Lyon" @ (62,33), owner Gaul: supply 210t, loyalty 81, fortification 55%
+  emporiae "Emporiae" @ (63,39), owner Greece: supply 270t, loyalty 76, fortification 52%
+  dimmidi "Dimmidi" @ (63,96), owner Numidia: supply 200t, loyalty 65, fortification 73%
   nimes "Nimes" @ (67,33), owner Gaul: supply 400t, loyalty 84, fortification 60%
-  saldae "Saldae" @ (67,79), owner Carthage: supply 350t, loyalty 73, fortification 68%
-  gemellae "Gemellae" @ (69,89), owner Numidia: supply 300t, loyalty 66, fortification 57%
-  massilia "Massilia" @ (71,36), owner Greece: supply 470t, loyalty 82, fortification 77%
-  andematunum "Andematunum" @ (73,12), owner Gaul: supply 210t, loyalty 80, fortification 48%
-  tinurtium "Tinurtium" @ (73,23), owner Gaul: supply 200t, loyalty 72, fortification 40%
-  axima "Axima" @ (79,25), owner Gaul: supply 150t, loyalty 81, fortification 55%
-  cirta "Cirta" @ (79,82), owner Numidia: supply 568t, loyalty 78, fortification 65%
-  nicaea "Nicaea" @ (80,34), owner Greece: supply 190t, loyalty 70, fortification 37%
-  rufiana "Rufiana" @ (81,2), owner Gaul: supply 100t, loyalty 87, fortification 25%
-  hippo-regius "Hippo Regius" @ (82,79), owner Carthage: supply 730t, loyalty 81, fortification 76%
-  theveste "Theveste" @ (83,85), owner Carthage: supply 750t, loyalty 77, fortification 80%
-  taurasia "Taurasia" @ (84,27), owner Gaul: supply 210t, loyalty 55, fortification 23%
-  capsa "Capsa" @ (85,89), owner Numidia: supply 300t, loyalty 71, fortification 48%
-  vindonissa "Vindonissa" @ (87,17), owner Gaul: supply 180t, loyalty 72, fortification 42%
-  ghadames "Ghadames" @ (87,119), owner Numidia: supply 100t, loyalty 68, fortification 39%
-  corales "Corales" @ (88,61), owner Carthage: supply 270t, loyalty 82, fortification 65%
-  thugga "Thugga" @ (88,80), owner Carthage: supply 660t, loyalty 86, fortification 70%
-  genua "Genua" @ (89,30), owner Greece: supply 300t, loyalty 69, fortification 60%
-  olbia "Olbia" @ (89,53), owner Carthage: supply 150t, loyalty 81, fortification 65%
-  aleria "Aleria" @ (90,44), owner Carthage: supply 230t, loyalty 77, fortification 60%
-  hippo-dirhytu "Hippo Dirhytu" @ (90,75), owner Carthage: supply 510t, loyalty 87, fortification 83%
-  mediolanum "Mediolanum" @ (91,27), owner Gaul: supply 370t, loyalty 79, fortification 66%
-  loreh "Loreh" @ (92,4), owner Gaul: supply 120t, loyalty 81, fortification 24%
-  utica "Utica" @ (92,76), owner Carthage: supply 850t, loyalty 80, fortification 72%
-  thenae "Thenae" @ (92,86), owner Carthage: supply 820t, loyalty 84, fortification 94%
-  pisae "Pisae" @ (93,35), owner Rome: supply 230t, loyalty 75, fortification 70%
-  carthago "Carthago" @ (93,78), owner Carthage: supply 1630t, loyalty 88, fortification 88%
-  brixia "Brixia" @ (94,27), owner Gaul: supply 190t, loyalty 81, fortification 57%
+  saldae "Saldae" @ (67,79), owner Carthage: supply 350t, loyalty 75, fortification 77%
+  gemellae "Gemellae" @ (69,89), owner Numidia: supply 300t, loyalty 66, fortification 56%
+  massilia "Massilia" @ (71,36), owner Greece: supply 470t, loyalty 80, fortification 85%
+  andematunum "Andematunum" @ (73,12), owner Gaul: supply 210t, loyalty 81, fortification 56%
+  tinurtium "Tinurtium" @ (73,23), owner Gaul: supply 200t, loyalty 70, fortification 48%
+  axima "Axima" @ (79,25), owner Gaul: supply 150t, loyalty 81, fortification 52%
+  cirta "Cirta" @ (79,82), owner Numidia: supply 568t, loyalty 80, fortification 61%
+  nicaea "Nicaea" @ (80,34), owner Greece: supply 190t, loyalty 71, fortification 55%
+  rufiana "Rufiana" @ (81,2), owner Gaul: supply 100t, loyalty 87, fortification 30%
+  hippo-regius "Hippo Regius" @ (82,79), owner Carthage: supply 730t, loyalty 81, fortification 82%
+  theveste "Theveste" @ (83,85), owner Carthage: supply 750t, loyalty 77, fortification 76%
+  taurasia "Taurasia" @ (84,27), owner Rome: supply 137t, loyalty 58, fortification 17%
+  capsa "Capsa" @ (85,89), owner Numidia: supply 300t, loyalty 66, fortification 43%
+  vindonissa "Vindonissa" @ (87,17), owner Gaul: supply 180t, loyalty 74, fortification 46%
+  ghadames "Ghadames" @ (87,119), owner Numidia: supply 100t, loyalty 71, fortification 44%
+  corales "Corales" @ (88,61), owner Carthage: supply 270t, loyalty 82, fortification 68%
+  thugga "Thugga" @ (88,80), owner Carthage: supply 660t, loyalty 86, fortification 72%
+  genua "Genua" @ (89,30), owner Greece: supply 300t, loyalty 75, fortification 60%
+  olbia "Olbia" @ (89,53), owner Carthage: supply 150t, loyalty 79, fortification 54%
+  aleria "Aleria" @ (90,44), owner Carthage: supply 230t, loyalty 77, fortification 57%
+  hippo-dirhytu "Hippo Dirhytu" @ (90,75), owner Carthage: supply 510t, loyalty 87, fortification 72%
+  mediolanum "Mediolanum" @ (91,27), owner Gaul: supply 370t, loyalty 80, fortification 66%
+  loreh "Loreh" @ (92,4), owner Gaul: supply 120t, loyalty 79, fortification 24%
+  utica "Utica" @ (92,76), owner Carthage: supply 850t, loyalty 79, fortification 71%
+  thenae "Thenae" @ (92,86), owner Carthage: supply 820t, loyalty 84, fortification 87%
+  pisae "Pisae" @ (93,35), owner Rome: supply 230t, loyalty 77, fortification 78%
+  carthago "Carthago" @ (93,78), owner Carthage: supply 1630t, loyalty 88, fortification 87%
+  brixia "Brixia" @ (94,27), owner Gaul: supply 200t, loyalty 78, fortification 37%
   leptis-minor "Leptis Minor" @ (94,83), owner Carthage: supply 210t, loyalty 80, fortification 31%
-  modena "Modena" @ (95,30), owner Gaul: supply 200t, loyalty 69, fortification 51%
-  clupea "Clupea" @ (95,77), owner Carthage: supply 220t, loyalty 90, fortification 70%
-  submuntorium "Submuntorium" @ (96,12), owner Gaul: supply 120t, loyalty 96, fortification 47%
-  verona "Verona" @ (97,27), owner Gaul: supply 190t, loyalty 73, fortification 45%
-  felsina "Felsina" @ (98,31), owner Gaul: supply 260t, loyalty 82, fortification 68%
-  tarquinii "Tarquinii" @ (98,39), owner Rome: supply 270t, loyalty 80, fortification 69%
+  modena "Modena" @ (95,30), owner Gaul: supply 200t, loyalty 64, fortification 53%
+  clupea "Clupea" @ (95,77), owner Carthage: supply 220t, loyalty 90, fortification 84%
+  submuntorium "Submuntorium" @ (96,12), owner Gaul: supply 120t, loyalty 96, fortification 39%
+  verona "Verona" @ (97,27), owner Gaul: supply 220t, loyalty 73, fortification 45%
+  felsina "Felsina" @ (98,31), owner Gaul: supply 260t, loyalty 81, fortification 68%
+  tarquinii "Tarquinii" @ (98,39), owner Rome: supply 270t, loyalty 81, fortification 57%
   arretium "Arretium" @ (99,36), owner Rome: supply 330t, loyalty 95, fortification 72%
-  caere "Caere" @ (99,42), owner Rome: supply 340t, loyalty 80, fortification 61%
-  veldidena "Veldidena" @ (100,19), owner Gaul: supply 180t, loyalty 84, fortification 46%
-  lilybaeum "Lilybaeum" @ (100,65), owner Carthage: supply 260t, loyalty 66, fortification 45%
+  caere "Caere" @ (99,42), owner Rome: supply 340t, loyalty 79, fortification 62%
+  veldidena "Veldidena" @ (100,19), owner Gaul: supply 180t, loyalty 84, fortification 57%
+  lilybaeum "Lilybaeum" @ (100,65), owner Carthage: supply 260t, loyalty 69, fortification 43%
   rome "Rome" @ (101,43), owner Rome: supply 1810t, loyalty 95, fortification 78%
-  altinum "Altinum" @ (102,24), owner Gaul: supply 200t, loyalty 73, fortification 30%
-  ariminum "Ariminum" @ (102,33), owner Rome: supply 240t, loyalty 79, fortification 53%
-  carsioli "Carsioli" @ (102,41), owner Rome: supply 220t, loyalty 95, fortification 56%
+  altinum "Altinum" @ (102,24), owner Gaul: supply 200t, loyalty 70, fortification 21%
+  ariminum "Ariminum" @ (102,33), owner Rome: supply 240t, loyalty 78, fortification 53%
+  carsioli "Carsioli" @ (102,41), owner Rome: supply 220t, loyalty 96, fortification 59%
   antium "Antium" @ (102,46), owner Rome: supply 330t, loyalty 92, fortification 75%
-  alba-fucens "Alba Fucens" @ (104,42), owner Rome: supply 230t, loyalty 92, fortification 62%
-  fregellae "Fregellae" @ (104,44), owner Rome: supply 230t, loyalty 81, fortification 65%
-  panormus "Panormus" @ (104,64), owner Carthage: supply 280t, loyalty 56, fortification 49%
-  sabratha "Sabratha" @ (104,93), owner Carthage: supply 420t, loyalty 80, fortification 61%
-  virunum "Virunum" @ (106,21), owner Gaul: supply 210t, loyalty 81, fortification 58%
-  tergeste "Tergeste" @ (106,25), owner Illyria: supply 210t, loyalty 74, fortification 45%
-  hadria "Hadria" @ (106,39), owner Rome: supply 210t, loyalty 89, fortification 69%
-  cales "Cales" @ (106,46), owner Rome: supply 280t, loyalty 80, fortification 52%
-  agrigentum "Agrigentum" @ (106,67), owner Carthage: supply 420t, loyalty 52, fortification 76%
-  ovilava "Ovilava" @ (107,13), owner Gaul: supply 90t, loyalty 84, fortification 29%
-  capua "Capua" @ (108,49), owner Rome: supply 270t, loyalty 79, fortification 57%
-  neapolis "Neapolis" @ (109,52), owner Rome: supply 340t, loyalty 76, fortification 40%
-  mylae "Mylae" @ (109,63), owner Carthage: supply 210t, loyalty 60, fortification 51%
-  leptis-magna "Leptis Magna" @ (110,94), owner Carthage: supply 1080t, loyalty 81, fortification 76%
-  syracusae "Syracusae" @ (111,69), owner Greece: supply 560t, loyalty 81, fortification 91%
-  vegia "Vegia" @ (113,31), owner Illyria: supply 160t, loyalty 85, fortification 70%
-  paestum "Paestum" @ (113,54), owner Rome: supply 189t, loyalty 95, fortification 60%
-  messana "Messana" @ (113,63), owner Greece: supply 210t, loyalty 65, fortification 79%
-  ghirza "Ghirza" @ (113,110), owner Numidia: supply 140t, loyalty 82, fortification 44%
-  misurata "Misurata" @ (114,96), owner Carthage: supply 550t, loyalty 80, fortification 54%
-  luceria "Luceria" @ (115,48), owner Rome: supply 390t, loyalty 95, fortification 80%
-  rhegium "Rhegium" @ (115,63), owner Rome: supply 270t, loyalty 71, fortification 45%
-  siscia "Siscia" @ (116,26), owner Illyria: supply 170t, loyalty 78, fortification 47%
-  teanum-apulum "Teanum Apulum" @ (116,45), owner Rome: supply 240t, loyalty 82, fortification 58%
-  salona "Salona" @ (117,34), owner Illyria: supply 260t, loyalty 87, fortification 85%
-  venusia "Venusia" @ (118,51), owner Rome: supply 310t, loyalty 95, fortification 65%
-  locri "Locri" @ (118,63), owner Rome: supply 220t, loyalty 66, fortification 31%
-  vindobona "Vindobona" @ (119,8), owner Gaul: supply 100t, loyalty 68, fortification 20%
-  sala-2 "Sala" @ (120,17), owner Gaul: supply 120t, loyalty 79, fortification 20%
-  thurii "Thurii" @ (120,56), owner Rome: supply 270t, loyalty 67, fortification 51%
-  heraclea "Heraclea" @ (121,53), owner Rome: supply 340t, loyalty 53, fortification 56%
-  narona "Narona" @ (122,36), owner Illyria: supply 170t, loyalty 86, fortification 57%
-  croton "Croton" @ (122,60), owner Rome: supply 330t, loyalty 73, fortification 45%
-  tarrentum "Tarrentum" @ (124,52), owner Rome: supply 520t, loyalty 55, fortification 62%
-  charax "Charax" @ (124,105), owner Carthage: supply 440t, loyalty 75, fortification 62%
-  brundisium "Brundisium" @ (127,52), owner Rome: supply 290t, loyalty 79, fortification 38%
-  scodra "Scodra" @ (128,39), owner Illyria: supply 480t, loyalty 87, fortification 76%
-  solva "Solva" @ (129,12), owner Dacia: supply 150t, loyalty 80, fortification 43%
-  epidamnus "Epidamnus" @ (129,43), owner Illyria: supply 450t, loyalty 71, fortification 67%
-  lissus "Lissus" @ (130,46), owner Illyria: supply 190t, loyalty 66, fortification 60%
-  dimale "Dimale" @ (131,50), owner Illyria: supply 120t, loyalty 81, fortification 56%
-  mursa "Mursa" @ (132,25), owner Dacia: supply 200t, loyalty 82, fortification 55%
-  phoenice "Phoenice" @ (135,52), owner Greece: supply 159t, loyalty 75, fortification 65%
-  sirmium "Sirmium" @ (136,16), owner Dacia: supply 260t, loyalty 66, fortification 42%
-  ambracia "Ambracia" @ (138,55), owner Greece: supply 210t, loyalty 83, fortification 60%
+  alba-fucens "Alba Fucens" @ (104,42), owner Rome: supply 230t, loyalty 92, fortification 64%
+  fregellae "Fregellae" @ (104,44), owner Rome: supply 230t, loyalty 81, fortification 72%
+  panormus "Panormus" @ (104,64), owner Carthage: supply 280t, loyalty 58, fortification 47%
+  sabratha "Sabratha" @ (104,93), owner Carthage: supply 420t, loyalty 80, fortification 51%
+  virunum "Virunum" @ (106,21), owner Gaul: supply 210t, loyalty 81, fortification 65%
+  tergeste "Tergeste" @ (106,25), owner Illyria: supply 210t, loyalty 77, fortification 56%
+  hadria "Hadria" @ (106,39), owner Rome: supply 210t, loyalty 89, fortification 65%
+  cales "Cales" @ (106,46), owner Rome: supply 280t, loyalty 80, fortification 51%
+  agrigentum "Agrigentum" @ (106,67), owner Carthage: supply 420t, loyalty 53, fortification 76%
+  ovilava "Ovilava" @ (107,13), owner Gaul: supply 90t, loyalty 84, fortification 42%
+  capua "Capua" @ (108,49), owner Rome: supply 270t, loyalty 77, fortification 62%
+  neapolis "Neapolis" @ (109,52), owner Rome: supply 340t, loyalty 75, fortification 40%
+  mylae "Mylae" @ (109,63), owner Carthage: supply 210t, loyalty 58, fortification 61%
+  leptis-magna "Leptis Magna" @ (110,94), owner Carthage: supply 1080t, loyalty 81, fortification 75%
+  syracusae "Syracusae" @ (111,69), owner Greece: supply 560t, loyalty 81, fortification 92%
+  vegia "Vegia" @ (113,31), owner Illyria: supply 160t, loyalty 85, fortification 69%
+  paestum "Paestum" @ (113,54), owner Rome: supply 200t, loyalty 95, fortification 59%
+  messana "Messana" @ (113,63), owner Greece: supply 210t, loyalty 64, fortification 75%
+  ghirza "Ghirza" @ (113,110), owner Numidia: supply 140t, loyalty 81, fortification 43%
+  misurata "Misurata" @ (114,96), owner Carthage: supply 550t, loyalty 81, fortification 64%
+  luceria "Luceria" @ (115,48), owner Rome: supply 390t, loyalty 95, fortification 81%
+  rhegium "Rhegium" @ (115,63), owner Rome: supply 270t, loyalty 67, fortification 51%
+  siscia "Siscia" @ (116,26), owner Illyria: supply 170t, loyalty 78, fortification 50%
+  teanum-apulum "Teanum Apulum" @ (116,45), owner Rome: supply 240t, loyalty 78, fortification 58%
+  salona "Salona" @ (117,34), owner Illyria: supply 260t, loyalty 87, fortification 83%
+  venusia "Venusia" @ (118,51), owner Rome: supply 310t, loyalty 94, fortification 62%
+  locri "Locri" @ (118,63), owner Rome: supply 220t, loyalty 65, fortification 32%
+  vindobona "Vindobona" @ (119,8), owner Rome: supply 71t, loyalty 43, fortification 17%
+  sala-2 "Sala" @ (120,17), owner Gaul: supply 120t, loyalty 80, fortification 27%
+  thurii "Thurii" @ (120,56), owner Rome: supply 270t, loyalty 66, fortification 52%
+  heraclea "Heraclea" @ (121,53), owner Rome: supply 340t, loyalty 53, fortification 57%
+  narona "Narona" @ (122,36), owner Illyria: supply 170t, loyalty 86, fortification 80%
+  croton "Croton" @ (122,60), owner Rome: supply 330t, loyalty 71, fortification 50%
+  tarrentum "Tarrentum" @ (124,52), owner Rome: supply 520t, loyalty 54, fortification 62%
+  charax "Charax" @ (124,105), owner Carthage: supply 440t, loyalty 73, fortification 64%
+  brundisium "Brundisium" @ (127,52), owner Rome: supply 290t, loyalty 78, fortification 38%
+  scodra "Scodra" @ (128,39), owner Illyria: supply 480t, loyalty 87, fortification 75%
+  solva "Solva" @ (129,12), owner Dacia: supply 150t, loyalty 78, fortification 44%
+  epidamnus "Epidamnus" @ (129,43), owner Illyria: supply 450t, loyalty 73, fortification 72%
+  lissus "Lissus" @ (130,46), owner Illyria: supply 190t, loyalty 68, fortification 62%
+  dimale "Dimale" @ (131,50), owner Illyria: supply 120t, loyalty 79, fortification 56%
+  mursa "Mursa" @ (132,25), owner Dacia: supply 200t, loyalty 81, fortification 54%
+  phoenice "Phoenice" @ (135,52), owner Greece: supply 159t, loyalty 77, fortification 64%
+  sirmium "Sirmium" @ (136,16), owner Dacia: supply 260t, loyalty 64, fortification 42%
+  ambracia "Ambracia" @ (138,55), owner Greece: supply 210t, loyalty 83, fortification 57%
   euhesperides "Euhesperides" @ (138,97), owner Ptolemaic: supply 630t, loyalty 78, fortification 57%
-  maluesa "Maluesa" @ (139,32), owner Macedonia: supply 310t, loyalty 69, fortification 45%
-  ptolemais "Ptolemais" @ (140,95), owner Ptolemaic: supply 490t, loyalty 53, fortification 57%
-  singidunum "Singidunum" @ (141,20), owner Dacia: supply 160t, loyalty 65, fortification 36%
+  maluesa "Maluesa" @ (139,32), owner Macedonia: supply 310t, loyalty 70, fortification 45%
+  ptolemais "Ptolemais" @ (140,95), owner Ptolemaic: supply 490t, loyalty 53, fortification 61%
+  singidunum "Singidunum" @ (141,20), owner Dacia: supply 160t, loyalty 63, fortification 34%
   edessa "Edessa" @ (141,41), owner Macedonia: supply 390t, loyalty 74, fortification 65%
-  porolissum "Porolissum" @ (142,5), owner Dacia: supply 130t, loyalty 69, fortification 51%
-  stobi "Stobi" @ (142,36), owner Macedonia: supply 270t, loyalty 68, fortification 58%
+  porolissum "Porolissum" @ (142,5), owner Dacia: supply 130t, loyalty 69, fortification 50%
+  stobi "Stobi" @ (142,36), owner Macedonia: supply 270t, loyalty 69, fortification 58%
   larissa "Larissa" @ (142,49), owner Macedonia: supply 320t, loyalty 73, fortification 66%
-  barca "Barca" @ (142,96), owner Ptolemaic: supply 590t, loyalty 81, fortification 61%
+  barca "Barca" @ (142,96), owner Ptolemaic: supply 590t, loyalty 80, fortification 61%
   pella "Pella" @ (143,41), owner Macedonia: supply 690t, loyalty 94, fortification 75%
   pynda "Pynda" @ (143,44), owner Macedonia: supply 570t, loyalty 96, fortification 64%
-  pharsalos "Pharsalos" @ (143,52), owner Macedonia: supply 230t, loyalty 69, fortification 41%
-  naupactus "Naupactus" @ (143,59), owner Greece: supply 300t, loyalty 81, fortification 52%
-  viminacium "Viminacium" @ (144,26), owner Dacia: supply 160t, loyalty 71, fortification 47%
-  aegium "Aegium" @ (144,62), owner Greece: supply 310t, loyalty 96, fortification 65%
-  messene "Messene" @ (144,67), owner Greece: supply 220t, loyalty 83, fortification 58%
-  cyrene "Cyrene" @ (145,94), owner Ptolemaic: supply 1330t, loyalty 69, fortification 79%
+  pharsalos "Pharsalos" @ (143,52), owner Macedonia: supply 230t, loyalty 68, fortification 41%
+  naupactus "Naupactus" @ (143,59), owner Greece: supply 300t, loyalty 81, fortification 68%
+  viminacium "Viminacium" @ (144,26), owner Dacia: supply 160t, loyalty 74, fortification 49%
+  aegium "Aegium" @ (144,62), owner Greece: supply 310t, loyalty 96, fortification 68%
+  messene "Messene" @ (144,67), owner Greece: supply 220t, loyalty 83, fortification 55%
+  cyrene "Cyrene" @ (145,94), owner Ptolemaic: supply 1330t, loyalty 69, fortification 69%
   thessalonica "Thessalonica" @ (146,42), owner Macedonia: supply 420t, loyalty 88, fortification 68%
   naissus "Naissus" @ (147,31), owner Macedonia: supply 210t, loyalty 71, fortification 56%
-  demetrias "Demetrias" @ (147,53), owner Macedonia: supply 410t, loyalty 65, fortification 89%
-  argos "Argos" @ (147,65), owner Greece: supply 650t, loyalty 79, fortification 86%
-  sparta "Sparta" @ (147,69), owner Greece: supply 770t, loyalty 91, fortification 67%
-  ulpia-traiana "Ulpia Traiana" @ (148,24), owner Dacia: supply 130t, loyalty 74, fortification 48%
-  corinth "Corinth" @ (148,62), owner Greece: supply 590t, loyalty 84, fortification 73%
-  amphipolis "Amphipolis" @ (149,40), owner Macedonia: supply 510t, loyalty 77, fortification 96%
-  thebes "Thebes" @ (149,59), owner Greece: supply 520t, loyalty 87, fortification 61%
-  serdica "Serdica" @ (150,31), owner Macedonia: supply 310t, loyalty 74, fortification 42%
-  darnis "Darnis" @ (150,95), owner Ptolemaic: supply 730t, loyalty 66, fortification 59%
+  demetrias "Demetrias" @ (147,53), owner Macedonia: supply 410t, loyalty 64, fortification 89%
+  argos "Argos" @ (147,65), owner Greece: supply 650t, loyalty 82, fortification 72%
+  sparta "Sparta" @ (147,69), owner Greece: supply 770t, loyalty 91, fortification 68%
+  ulpia-traiana "Ulpia Traiana" @ (148,24), owner Dacia: supply 130t, loyalty 76, fortification 49%
+  corinth "Corinth" @ (148,62), owner Greece: supply 590t, loyalty 84, fortification 66%
+  amphipolis "Amphipolis" @ (149,40), owner Macedonia: supply 510t, loyalty 78, fortification 96%
+  thebes "Thebes" @ (149,59), owner Greece: supply 520t, loyalty 87, fortification 65%
+  serdica "Serdica" @ (150,31), owner Macedonia: supply 310t, loyalty 75, fortification 42%
+  darnis "Darnis" @ (150,95), owner Ptolemaic: supply 730t, loyalty 68, fortification 63%
   philippi "Philippi" @ (151,39), owner Macedonia: supply 280t, loyalty 88, fortification 93%
-  chalcis "Chalcis" @ (151,57), owner Macedonia: supply 270t, loyalty 77, fortification 61%
-  salinae "Salinae" @ (152,18), owner Dacia: supply 140t, loyalty 75, fortification 41%
+  chalcis "Chalcis" @ (151,57), owner Macedonia: supply 270t, loyalty 76, fortification 61%
+  salinae "Salinae" @ (152,18), owner Dacia: supply 140t, loyalty 77, fortification 39%
   athens "Athens" @ (152,62), owner Greece: supply 980t, loyalty 89, fortification 64%
-  philippopolis "Philippopolis" @ (153,33), owner Macedonia: supply 510t, loyalty 88, fortification 90%
-  abdera "Abdera" @ (153,40), owner Macedonia: supply 420t, loyalty 69, fortification 51%
-  buridava "Buridava" @ (154,26), owner Thracia: supply 200t, loyalty 81, fortification 52%
-  maronea "Maronea" @ (156,41), owner Thracia: supply 440t, loyalty 80, fortification 58%
-  gortyna "Gortyna" @ (156,80), owner Ptolemaic: supply 250t, loyalty 73, fortification 47%
-  poiana "Poiana" @ (158,22), owner Thracia: supply 190t, loyalty 81, fortification 64%
-  aenus "Aenus" @ (158,42), owner Thracia: supply 480t, loyalty 80, fortification 67%
-  sestos "Sestos" @ (158,46), owner Thracia: supply 460t, loyalty 70, fortification 50%
-  cnossus "Cnossus" @ (158,78), owner Greece: supply 330t, loyalty 69, fortification 65%
-  assos "Assos" @ (159,50), owner Seleucid: supply 440t, loyalty 61, fortification 50%
-  ephesus "Ephesus" @ (160,58), owner Seleucid: supply 1840t, loyalty 93, fortification 68%
-  smyrna "Smyrna" @ (161,56), owner Seleucid: supply 540t, loyalty 65, fortification 43%
-  pergamum "Pergamum" @ (162,54), owner Greece: supply 510t, loyalty 82, fortification 77%
+  philippopolis "Philippopolis" @ (153,33), owner Macedonia: supply 510t, loyalty 87, fortification 90%
+  abdera "Abdera" @ (153,40), owner Macedonia: supply 420t, loyalty 70, fortification 51%
+  buridava "Buridava" @ (154,26), owner Thracia: supply 200t, loyalty 79, fortification 57%
+  maronea "Maronea" @ (156,41), owner Thracia: supply 440t, loyalty 80, fortification 55%
+  gortyna "Gortyna" @ (156,80), owner Ptolemaic: supply 250t, loyalty 74, fortification 50%
+  poiana "Poiana" @ (158,22), owner Thracia: supply 190t, loyalty 82, fortification 54%
+  aenus "Aenus" @ (158,42), owner Thracia: supply 480t, loyalty 80, fortification 68%
+  sestos "Sestos" @ (158,46), owner Thracia: supply 460t, loyalty 73, fortification 51%
+  cnossus "Cnossus" @ (158,78), owner Greece: supply 330t, loyalty 70, fortification 64%
+  assos "Assos" @ (159,50), owner Seleucid: supply 440t, loyalty 61, fortification 51%
+  ephesus "Ephesus" @ (160,58), owner Seleucid: supply 1840t, loyalty 94, fortification 65%
+  smyrna "Smyrna" @ (161,56), owner Seleucid: supply 540t, loyalty 65, fortification 44%
+  pergamum "Pergamum" @ (162,54), owner Greece: supply 510t, loyalty 80, fortification 74%
   miletus "Miletus" @ (162,60), owner Seleucid: supply 960t, loyalty 69, fortification 89%
-  ammonium "Ammonium" @ (162,111), owner Ptolemaic: supply 740t, loyalty 86, fortification 23%
-  lampsacus "Lampsacus" @ (163,45), owner Seleucid: supply 840t, loyalty 71, fortification 63%
-  odessus "Odessus" @ (165,26), owner Thracia: supply 350t, loyalty 71, fortification 65%
-  thyatira "Thyatira" @ (165,55), owner Seleucid: supply 1180t, loyalty 83, fortification 60%
-  sardis "Sardis" @ (165,57), owner Seleucid: supply 1340t, loyalty 77, fortification 69%
-  apollonia "Apollonia" @ (166,32), owner Thracia: supply 470t, loyalty 81, fortification 58%
-  perinthus "Perinthus" @ (166,39), owner Thracia: supply 440t, loyalty 73, fortification 52%
-  rhodus "Rhodus" @ (166,67), owner Greece: supply 650t, loyalty 86, fortification 70%
-  cyzicus "Cyzicus" @ (167,45), owner Seleucid: supply 620t, loyalty 73, fortification 24%
-  telmessus "Telmessus" @ (169,65), owner Seleucid: supply 760t, loyalty 68, fortification 51%
-  tomi "Tomi" @ (170,19), owner Thracia: supply 240t, loyalty 72, fortification 40%
-  byzantium "Byzantium" @ (170,38), owner Thracia: supply 494t, loyalty 72, fortification 75%
+  ammonium "Ammonium" @ (162,111), owner Ptolemaic: supply 740t, loyalty 87, fortification 25%
+  lampsacus "Lampsacus" @ (163,45), owner Seleucid: supply 840t, loyalty 72, fortification 63%
+  odessus "Odessus" @ (165,26), owner Thracia: supply 350t, loyalty 70, fortification 71%
+  thyatira "Thyatira" @ (165,55), owner Seleucid: supply 1180t, loyalty 83, fortification 66%
+  sardis "Sardis" @ (165,57), owner Seleucid: supply 1340t, loyalty 76, fortification 68%
+  apollonia "Apollonia" @ (166,32), owner Thracia: supply 470t, loyalty 81, fortification 61%
+  perinthus "Perinthus" @ (166,39), owner Thracia: supply 440t, loyalty 76, fortification 51%
+  rhodus "Rhodus" @ (166,67), owner Greece: supply 650t, loyalty 86, fortification 83%
+  cyzicus "Cyzicus" @ (167,45), owner Seleucid: supply 620t, loyalty 72, fortification 24%
+  telmessus "Telmessus" @ (169,65), owner Seleucid: supply 760t, loyalty 67, fortification 51%
+  tomi "Tomi" @ (170,19), owner Thracia: supply 240t, loyalty 71, fortification 41%
+  byzantium "Byzantium" @ (170,38), owner Thracia: supply 530t, loyalty 73, fortification 75%
   paraetonium "Paraetonium" @ (170,99), owner Ptolemaic: supply 770t, loyalty 78, fortification 52%
-  istrus "Istrus" @ (171,13), owner Thracia: supply 220t, loyalty 80, fortification 58%
-  chalcedon "Chalcedon" @ (173,39), owner Bithynia: supply 700t, loyalty 64, fortification 55%
-  cius "Cius" @ (172,44), owner Bithynia: supply 500t, loyalty 77, fortification 41%
-  myra "Myra" @ (172,68), owner Seleucid: supply 460t, loyalty 63, fortification 47%
-  celaenae "Celaenae" @ (175,52), owner Seleucid: supply 720t, loyalty 72, fortification 39%
-  ophiusa "Ophiusa" @ (176,3), owner Thracia: supply 280t, loyalty 74, fortification 46%
-  phaselis "Phaselis" @ (176,64), owner Seleucid: supply 820t, loyalty 62, fortification 43%
-  calpe "Calpe" @ (177,37), owner Seleucid: supply 270t, loyalty 50, fortification 68%
-  astacus "Astacus" @ (177,41), owner Seleucid: supply 180t, loyalty 90, fortification 30%
-  sagalassus "Sagalassus" @ (177,56), owner Seleucid: supply 980t, loyalty 82, fortification 43%
-  comarum "Comarum" @ (181,100), owner Ptolemaic: supply 550t, loyalty 77, fortification 46%
-  pontica "Pontica" @ (182,33), owner Seleucid: supply 410t, loyalty 81, fortification 50%
-  isaura "Isaura" @ (186,58), owner Seleucid: supply 1360t, loyalty 79, fortification 76%
+  istrus "Istrus" @ (171,13), owner Thracia: supply 220t, loyalty 81, fortification 67%
+  chalcedon "Chalcedon" @ (173,39), owner Bithynia: supply 700t, loyalty 63, fortification 55%
+  cius "Cius" @ (172,44), owner Bithynia: supply 500t, loyalty 78, fortification 41%
+  myra "Myra" @ (172,68), owner Seleucid: supply 460t, loyalty 63, fortification 56%
+  celaenae "Celaenae" @ (175,52), owner Seleucid: supply 720t, loyalty 72, fortification 40%
+  ophiusa "Ophiusa" @ (176,3), owner Thracia: supply 280t, loyalty 77, fortification 46%
+  phaselis "Phaselis" @ (176,64), owner Seleucid: supply 820t, loyalty 60, fortification 43%
+  calpe "Calpe" @ (177,37), owner Bithynia: supply 270t, loyalty 59, fortification 64%
+  astacus "Astacus" @ (177,41), owner Bithynia: supply 200t, loyalty 59, fortification 23%
+  sagalassus "Sagalassus" @ (177,56), owner Seleucid: supply 980t, loyalty 81, fortification 47%
+  comarum "Comarum" @ (181,100), owner Ptolemaic: supply 522t, loyalty 77, fortification 56%
+  pontica "Pontica" @ (182,33), owner Bithynia: supply 410t, loyalty 58, fortification 49%
+  isaura "Isaura" @ (186,58), owner Seleucid: supply 1360t, loyalty 78, fortification 76%
   syedra "Syedra" @ (186,64), owner Seleucid: supply 820t, loyalty 76, fortification 36%
-  taposiris "Taposiris" @ (186,98), owner Ptolemaic: supply 520t, loyalty 78, fortification 35%
-  synnada "Synnada" @ (187,45), owner Galatia: supply 180t, loyalty 63, fortification 31%
-  tieum "Tieum" @ (188,28), owner Bithynia: supply 180t, loyalty 73, fortification 48%
-  pessinus "Pessinus" @ (188,41), owner Galatia: supply 180t, loyalty 72, fortification 34%
-  moeris "Moeris" @ (189,118), owner Ptolemaic: supply 830t, loyalty 84, fortification 42%
-  amastris "Amastris" @ (190,27), owner Bithynia: supply 350t, loyalty 70, fortification 58%
-  alexandria "Alexandria" @ (190,94), owner Ptolemaic: supply 1942t, loyalty 92, fortification 77%
-  acroinon "Acroinon" @ (191,48), owner Galatia: supply 180t, loyalty 59, fortification 35%
-  aremurium "Aremurium" @ (191,66), owner Seleucid: supply 660t, loyalty 70, fortification 29%
-  oxyrhynchus "Oxyrhynchus" @ (191,115), owner Ptolemaic: supply 1020t, loyalty 79, fortification 31%
-  ancyra "Ancyra" @ (192,38), owner Galatia: supply 840t, loyalty 85, fortification 40%
-  marium "Marium" @ (192,74), owner Ptolemaic: supply 390t, loyalty 57, fortification 59%
-  paphos "Paphos" @ (192,77), owner Greece: supply 130t, loyalty 79, fortification 52%
-  laranda "Laranda" @ (193,57), owner Seleucid: supply 720t, loyalty 75, fortification 53%
+  taposiris "Taposiris" @ (186,98), owner Ptolemaic: supply 520t, loyalty 77, fortification 35%
+  synnada "Synnada" @ (187,45), owner Galatia: supply 180t, loyalty 62, fortification 30%
+  tieum "Tieum" @ (188,28), owner Bithynia: supply 180t, loyalty 73, fortification 53%
+  pessinus "Pessinus" @ (188,41), owner Galatia: supply 180t, loyalty 72, fortification 31%
+  moeris "Moeris" @ (189,118), owner Ptolemaic: supply 830t, loyalty 84, fortification 43%
+  amastris "Amastris" @ (190,27), owner Bithynia: supply 350t, loyalty 70, fortification 59%
+  alexandria "Alexandria" @ (190,94), owner Ptolemaic: supply 1970t, loyalty 92, fortification 77%
+  acroinon "Acroinon" @ (191,48), owner Galatia: supply 180t, loyalty 59, fortification 34%
+  aremurium "Aremurium" @ (191,66), owner Seleucid: supply 660t, loyalty 69, fortification 29%
+  oxyrhynchus "Oxyrhynchus" @ (191,115), owner Ptolemaic: supply 1020t, loyalty 79, fortification 33%
+  ancyra "Ancyra" @ (192,38), owner Galatia: supply 840t, loyalty 86, fortification 40%
+  marium "Marium" @ (192,74), owner Ptolemaic: supply 390t, loyalty 57, fortification 52%
+  paphos "Paphos" @ (192,77), owner Greece: supply 130t, loyalty 80, fortification 55%
+  laranda "Laranda" @ (193,57), owner Seleucid: supply 720t, loyalty 74, fortification 53%
   naucratis "Naucratis" @ (193,97), owner Ptolemaic: supply 1320t, loyalty 84, fortification 53%
   caranis "Caranis" @ (193,105), owner Ptolemaic: supply 1050t, loyalty 77, fortification 43%
-  tebtunis "Tebtunis" @ (193,109), owner Ptolemaic: supply 1230t, loyalty 84, fortification 40%
-  hermopolis "Hermopolis" @ (193,121), owner Ptolemaic: supply 780t, loyalty 87, fortification 54%
+  tebtunis "Tebtunis" @ (193,109), owner Ptolemaic: supply 1230t, loyalty 84, fortification 42%
+  hermopolis "Hermopolis" @ (193,121), owner Ptolemaic: supply 780t, loyalty 88, fortification 54%
   arsinoe "Arsinoe" @ (194,107), owner Ptolemaic: supply 740t, loyalty 82, fortification 35%
-  gordium "Gordium" @ (195,43), owner Galatia: supply 230t, loyalty 66, fortification 59%
+  gordium "Gordium" @ (195,43), owner Galatia: supply 230t, loyalty 66, fortification 54%
   soli "Soli" @ (195,73), owner Ptolemaic: supply 390t, loyalty 70, fortification 46%
   memphis "Memphis" @ (195,104), owner Ptolemaic: supply 1230t, loyalty 84, fortification 28%
-  sesamus "Sesamus" @ (196,25), owner Bithynia: supply 200t, loyalty 74, fortification 35%
+  sesamus "Sesamus" @ (196,25), owner Bithynia: supply 200t, loyalty 74, fortification 41%
   heliopolis "Heliopolis" @ (196,102), owner Ptolemaic: supply 1150t, loyalty 87, fortification 42%
-  gangra "Gangra" @ (197,34), owner Galatia: supply 150t, loyalty 63, fortification 46%
-  iconium "Iconium" @ (197,47), owner Galatia: supply 190t, loyalty 52, fortification 59%
+  gangra "Gangra" @ (197,34), owner Galatia: supply 150t, loyalty 62, fortification 43%
+  iconium "Iconium" @ (197,47), owner Seleucid: supply 130t, loyalty 60, fortification 45%
   seleucia "Seleucia" @ (197,63), owner Seleucid: supply 1140t, loyalty 91, fortification 68%
-  busiris "Busiris" @ (197,98), owner Ptolemaic: supply 1080t, loyalty 85, fortification 31%
-  citium "Citium" @ (198,76), owner Ptolemaic: supply 300t, loyalty 60, fortification 62%
+  busiris "Busiris" @ (197,98), owner Ptolemaic: supply 1080t, loyalty 85, fortification 26%
+  citium "Citium" @ (198,76), owner Ptolemaic: supply 300t, loyalty 59, fortification 55%
   tenis "Tenis" @ (198,127), owner Ptolemaic: supply 520t, loyalty 68, fortification 36%
   luxor "Luxor" @ (198,132), owner Ptolemaic: supply 880t, loyalty 76, fortification 45%
-  nyssa "Nyssa" @ (200,40), owner Galatia: supply 280t, loyalty 76, fortification 54%
-  tanis "Tanis" @ (200,97), owner Ptolemaic: supply 1220t, loyalty 84, fortification 43%
-  syene "Syene" @ (200,135), owner Ptolemaic: supply 680t, loyalty 77, fortification 33%
-  halys "Halys" @ (201,36), owner Galatia: supply 190t, loyalty 70, fortification 59%
+  nyssa "Nyssa" @ (200,40), owner Galatia: supply 280t, loyalty 76, fortification 48%
+  tanis "Tanis" @ (200,97), owner Ptolemaic: supply 1220t, loyalty 85, fortification 44%
+  syene "Syene" @ (200,135), owner Ptolemaic: supply 680t, loyalty 76, fortification 33%
+  halys "Halys" @ (201,36), owner Galatia: supply 190t, loyalty 71, fortification 56%
   salamis "Salamis" @ (201,73), owner Ptolemaic: supply 570t, loyalty 65, fortification 57%
   cytorus "Cytorus" @ (202,24), owner Bithynia: supply 330t, loyalty 87, fortification 54%
-  pelusium "Pelusium" @ (203,96), owner Ptolemaic: supply 1010t, loyalty 92, fortification 62%
-  soli-2 "Soli" @ (204,59), owner Seleucid: supply 1300t, loyalty 86, fortification 77%
-  tyana "Tyana" @ (208,49), owner Seleucid: supply 880t, loyalty 86, fortification 70%
-  tarsus "Tarsus" @ (208,57), owner Seleucid: supply 1700t, loyalty 79, fortification 69%
-  casium "Casium" @ (208,94), owner Ptolemaic: supply 480t, loyalty 73, fortification 49%
-  sinope "Sinope" @ (209,22), owner Bithynia: supply 520t, loyalty 85, fortification 61%
-  adana "Adana" @ (211,56), owner Seleucid: supply 980t, loyalty 82, fortification 67%
-  mazaca "Mazaca" @ (213,45), owner Seleucid: supply 1460t, loyalty 86, fortification 62%
-  clysma "Clysma" @ (215,99), owner Ptolemaic: supply 1010t, loyalty 85, fortification 42%
-  phanagoria "Phanagoria" @ (217,4), owner Armenia: supply 270t, loyalty 71, fortification 41%
-  amisus "Amisus" @ (218,28), owner Bithynia: supply 360t, loyalty 74, fortification 44%
-  myos-hormus "Myos Hormus" @ (219,115), owner Ptolemaic: supply 560t, loyalty 72, fortification 59%
-  zela "Zela" @ (220,35), owner Bithynia: supply 220t, loyalty 58, fortification 31%
-  issus "Issus" @ (220,54), owner Seleucid: supply 1060t, loyalty 77, fortification 50%
-  antioch "Antioch" @ (220,59), owner Seleucid: supply 1040t, loyalty 87, fortification 52%
-  gaza "Gaza" @ (220,87), owner Ptolemaic: supply 340t, loyalty 69, fortification 58%
-  aradus "Aradus" @ (221,65), owner Seleucid: supply 500t, loyalty 60, fortification 49%
+  pelusium "Pelusium" @ (203,96), owner Ptolemaic: supply 1010t, loyalty 91, fortification 62%
+  soli-2 "Soli" @ (204,59), owner Seleucid: supply 1300t, loyalty 86, fortification 76%
+  tyana "Tyana" @ (208,49), owner Seleucid: supply 880t, loyalty 86, fortification 48%
+  tarsus "Tarsus" @ (208,57), owner Seleucid: supply 1700t, loyalty 78, fortification 68%
+  casium "Casium" @ (208,94), owner Ptolemaic: supply 480t, loyalty 74, fortification 49%
+  sinope "Sinope" @ (209,22), owner Bithynia: supply 520t, loyalty 86, fortification 62%
+  adana "Adana" @ (211,56), owner Seleucid: supply 980t, loyalty 81, fortification 67%
+  mazaca "Mazaca" @ (213,45), owner Seleucid: supply 1460t, loyalty 85, fortification 62%
+  clysma "Clysma" @ (215,99), owner Ptolemaic: supply 1010t, loyalty 84, fortification 43%
+  phanagoria "Phanagoria" @ (217,4), owner Armenia: supply 270t, loyalty 74, fortification 38%
+  amisus "Amisus" @ (218,28), owner Bithynia: supply 360t, loyalty 73, fortification 44%
+  myos-hormus "Myos Hormus" @ (219,115), owner Ptolemaic: supply 560t, loyalty 72, fortification 49%
+  zela "Zela" @ (220,35), owner Bithynia: supply 220t, loyalty 58, fortification 33%
+  issus "Issus" @ (220,54), owner Seleucid: supply 1060t, loyalty 76, fortification 50%
+  antioch "Antioch" @ (220,59), owner Seleucid: supply 1040t, loyalty 87, fortification 53%
+  gaza "Gaza" @ (220,87), owner Ptolemaic: supply 340t, loyalty 68, fortification 52%
+  aradus "Aradus" @ (221,65), owner Seleucid: supply 500t, loyalty 59, fortification 43%
   byblos "Byblos" @ (221,68), owner Seleucid: supply 840t, loyalty 63, fortification 48%
-  sidon "Sidon" @ (221,71), owner Seleucid: supply 460t, loyalty 89, fortification 28%
-  tyre "Tyre" @ (222,73), owner Ptolemaic: supply 572t, loyalty 68, fortification 70%
-  samaria "Samaria" @ (222,81), owner Ptolemaic: supply 430t, loyalty 71, fortification 52%
+  sidon "Sidon" @ (221,71), owner Ptolemaic: supply 540t, loyalty 56, fortification 38%
+  tyre "Tyre" @ (222,73), owner Ptolemaic: supply 590t, loyalty 68, fortification 78%
+  samaria "Samaria" @ (222,81), owner Ptolemaic: supply 430t, loyalty 71, fortification 53%
   jerusalem "Jerusalem" @ (223,86), owner Ptolemaic: supply 800t, loyalty 44, fortification 63%
-  masada "Masada" @ (223,88), owner Ptolemaic: supply 110t, loyalty 63, fortification 100%
-  hemesa "Hemesa" @ (224,66), owner Seleucid: supply 720t, loyalty 62, fortification 72%
-  aila "Aila" @ (224,100), owner Ptolemaic: supply 560t, loyalty 80, fortification 22%
+  masada "Masada" @ (223,88), owner Ptolemaic: supply 110t, loyalty 61, fortification 100%
+  hemesa "Hemesa" @ (224,66), owner Seleucid: supply 720t, loyalty 62, fortification 77%
+  aila "Aila" @ (224,100), owner Ptolemaic: supply 560t, loyalty 81, fortification 22%
   cotyora "Cotyora" @ (225,30), owner Bithynia: supply 290t, loyalty 72, fortification 30%
-  petra "Petra" @ (226,94), owner Ptolemaic: supply 870t, loyalty 68, fortification 55%
-  damascus "Damascus" @ (227,71), owner Ptolemaic: supply 1350t, loyalty 52, fortification 55%
-  arsamosata "Arsamosata" @ (229,42), owner Seleucid: supply 460t, loyalty 87, fortification 47%
-  berenice "Berenice" @ (230,136), owner Ptolemaic: supply 500t, loyalty 76, fortification 44%
-  zeugma "Zeugma" @ (231,53), owner Seleucid: supply 820t, loyalty 81, fortification 57%
-  pityus "Pityus" @ (232,13), owner Armenia: supply 270t, loyalty 66, fortification 56%
-  melite "Melite" @ (234,44), owner Seleucid: supply 1040t, loyalty 81, fortification 63%
-  thapsacus "Thapsacus" @ (234,60), owner Seleucid: supply 800t, loyalty 83, fortification 55%
-  palmyra "Palmyra" @ (234,66), owner Seleucid: supply 1020t, loyalty 60, fortification 62%
-  erzerum "Erzerum" @ (236,37), owner Armenia: supply 380t, loyalty 72, fortification 64%
-  harran "Harran" @ (236,55), owner Seleucid: supply 680t, loyalty 79, fortification 61%
-  trapezus "Trapezus" @ (237,30), owner Armenia: supply 330t, loyalty 85, fortification 65%
+  petra "Petra" @ (226,94), owner Ptolemaic: supply 870t, loyalty 67, fortification 57%
+  damascus "Damascus" @ (227,71), owner Ptolemaic: supply 1350t, loyalty 51, fortification 54%
+  arsamosata "Arsamosata" @ (229,42), owner Seleucid: supply 460t, loyalty 86, fortification 42%
+  berenice "Berenice" @ (230,136), owner Ptolemaic: supply 500t, loyalty 75, fortification 41%
+  zeugma "Zeugma" @ (231,53), owner Seleucid: supply 820t, loyalty 80, fortification 57%
+  pityus "Pityus" @ (232,13), owner Armenia: supply 270t, loyalty 66, fortification 55%
+  melite "Melite" @ (234,44), owner Seleucid: supply 1040t, loyalty 81, fortification 76%
+  thapsacus "Thapsacus" @ (234,60), owner Seleucid: supply 800t, loyalty 84, fortification 55%
+  palmyra "Palmyra" @ (234,66), owner Seleucid: supply 1020t, loyalty 60, fortification 69%
+  erzerum "Erzerum" @ (236,37), owner Armenia: supply 380t, loyalty 68, fortification 63%
+  harran "Harran" @ (236,55), owner Seleucid: supply 680t, loyalty 78, fortification 52%
+  trapezus "Trapezus" @ (237,30), owner Armenia: supply 330t, loyalty 85, fortification 63%
   dedan "Dedan" @ (240,114), owner Ptolemaic: supply 350t, loyalty 69, fortification 28%
-  gymnias "Gymnias" @ (242,35), owner Armenia: supply 320t, loyalty 82, fortification 48%
-  tema "Tema" @ (242,109), owner Ptolemaic: supply 390t, loyalty 82, fortification 27%
-  dioscurias "Dioscurias" @ (243,18), owner Armenia: supply 280t, loyalty 77, fortification 60%
-  yatrib "Yatrib" @ (245,121), owner Ptolemaic: supply 380t, loyalty 59, fortification 17%
-  carona "Carona" @ (246,34), owner Armenia: supply 410t, loyalty 72, fortification 49%
-  hatra "Hatra" @ (246,59), owner Seleucid: supply 480t, loyalty 73, fortification 50%
-  phasis "Phasis" @ (247,22), owner Armenia: supply 360t, loyalty 82, fortification 53%
-  nisibis "Nisibis" @ (249,50), owner Seleucid: supply 1420t, loyalty 84, fortification 70%
+  gymnias "Gymnias" @ (242,35), owner Armenia: supply 320t, loyalty 82, fortification 44%
+  tema "Tema" @ (242,109), owner Ptolemaic: supply 390t, loyalty 82, fortification 32%
+  dioscurias "Dioscurias" @ (243,18), owner Armenia: supply 280t, loyalty 79, fortification 60%
+  yatrib "Yatrib" @ (245,121), owner Ptolemaic: supply 380t, loyalty 58, fortification 24%
+  carona "Carona" @ (246,34), owner Armenia: supply 410t, loyalty 74, fortification 49%
+  hatra "Hatra" @ (246,59), owner Seleucid: supply 480t, loyalty 72, fortification 53%
+  phasis "Phasis" @ (247,22), owner Armenia: supply 360t, loyalty 82, fortification 56%
+  nisibis "Nisibis" @ (249,50), owner Seleucid: supply 1420t, loyalty 85, fortification 68%
   dura-europus "Dura-Europus" @ (250,65), owner Seleucid: supply 720t, loyalty 92, fortification 86%
   van "Van" @ (255,46), owner Seleucid: supply 840t, loyalty 78, fortification 60%
-  bezabde "Bezabde" @ (257,50), owner Seleucid: supply 760t, loyalty 79, fortification 51%
-  mtskheta "Mtskheta" @ (260,23), owner Armenia: supply 320t, loyalty 78, fortification 43%
-  nineveh "Nineveh" @ (260,60), owner Seleucid: supply 1580t, loyalty 84, fortification 44%
-  erivan "Erivan" @ (262,34), owner Armenia: supply 640t, loyalty 94, fortification 54%
-  assur "Assur" @ (263,72), owner Seleucid: supply 780t, loyalty 71, fortification 41%
-  arbela "Arbela" @ (264,65), owner Seleucid: supply 1160t, loyalty 87, fortification 60%
-  opis "Opis" @ (266,74), owner Seleucid: supply 1120t, loyalty 91, fortification 61%
-  shapur "Shapur" @ (267,45), owner Seleucid: supply 680t, loyalty 79, fortification 48%
-  ctesiphon "Ctesiphon" @ (267,82), owner Seleucid: supply 740t, loyalty 90, fortification 65%
+  bezabde "Bezabde" @ (257,50), owner Seleucid: supply 760t, loyalty 79, fortification 54%
+  mtskheta "Mtskheta" @ (260,23), owner Armenia: supply 320t, loyalty 77, fortification 47%
+  nineveh "Nineveh" @ (260,60), owner Seleucid: supply 1580t, loyalty 84, fortification 46%
+  erivan "Erivan" @ (262,34), owner Armenia: supply 640t, loyalty 94, fortification 56%
+  assur "Assur" @ (263,72), owner Seleucid: supply 780t, loyalty 71, fortification 50%
+  arbela "Arbela" @ (264,65), owner Seleucid: supply 1160t, loyalty 87, fortification 61%
+  opis "Opis" @ (266,74), owner Seleucid: supply 1120t, loyalty 91, fortification 55%
+  shapur "Shapur" @ (267,45), owner Seleucid: supply 680t, loyalty 80, fortification 47%
+  ctesiphon "Ctesiphon" @ (267,82), owner Seleucid: supply 740t, loyalty 89, fortification 65%
   babylon "Babylon" @ (267,90), owner Seleucid: supply 2200t, loyalty 71, fortification 52%
-  calah "Calah" @ (268,79), owner Seleucid: supply 1380t, loyalty 65, fortification 48%
-  nippur "Nippur" @ (271,91), owner Seleucid: supply 760t, loyalty 66, fortification 40%
-  kars "Kars" @ (272,31), owner Media: supply 420t, loyalty 82, fortification 56%
-  uruk "Uruk" @ (276,100), owner Seleucid: supply 500t, loyalty 50, fortification 42%
-  tabriz "Tabriz" @ (279,50), owner Media: supply 880t, loyalty 80, fortification 64%
-  ur "Ur" @ (279,104), owner Seleucid: supply 820t, loyalty 65, fortification 36%
+  calah "Calah" @ (268,79), owner Seleucid: supply 1380t, loyalty 65, fortification 49%
+  nippur "Nippur" @ (271,91), owner Seleucid: supply 760t, loyalty 67, fortification 40%
+  kars "Kars" @ (272,31), owner Media: supply 420t, loyalty 81, fortification 59%
+  uruk "Uruk" @ (276,100), owner Seleucid: supply 500t, loyalty 50, fortification 41%
+  tabriz "Tabriz" @ (279,50), owner Media: supply 880t, loyalty 80, fortification 65%
+  ur "Ur" @ (279,104), owner Seleucid: supply 820t, loyalty 64, fortification 38%
   nehardea "Nehardea" @ (280,91), owner Seleucid: supply 750t, loyalty 55, fortification 22%
-  tiflis "Tiflis" @ (281,19), owner Media: supply 440t, loyalty 70, fortification 83%
-  ani "Ani" @ (282,33), owner Media: supply 190t, loyalty 73, fortification 47%
-  bisitun "Bisitun" @ (282,69), owner Seleucid: supply 920t, loyalty 74, fortification 54%
-  al-hira "Al Hira" @ (284,92), owner Seleucid: supply 580t, loyalty 61, fortification 42%
-  artaxata "Artaxata" @ (286,26), owner Media: supply 380t, loyalty 75, fortification 96%
-  vologesias "Vologesias" @ (287,77), owner Seleucid: supply 610t, loyalty 70, fortification 44%
-  phraata "Phraata" @ (289,42), owner Media: supply 310t, loyalty 65, fortification 42%
-  astrabad "Astrabad" @ (289,102), owner Seleucid: supply 550t, loyalty 65, fortification 52%
-  bardaa "Bardaa" @ (291,20), owner Media: supply 220t, loyalty 79, fortification 23%
-  adhur "Adhur" @ (298,46), owner Media: supply 360t, loyalty 81, fortification 40%
-  laodicea "Laodicea" @ (298,63), owner Media: supply 620t, loyalty 64, fortification 39%
-  charax-2 "Charax" @ (298,102), owner Seleucid: supply 1200t, loyalty 60, fortification 44%
-  kangavar "Kangavar" @ (300,58), owner Media: supply 570t, loyalty 79, fortification 54%
-  bahman "Bahman" @ (302,105), owner Seleucid: supply 720t, loyalty 64, fortification 32%
-  derbend "Derbend" @ (303,12), owner Media: supply 180t, loyalty 65, fortification 65%
-  ivanikarkh "Ivanikarkh" @ (303,86), owner Seleucid: supply 460t, loyalty 67, fortification 54%
-  nahr-tire "Nahr Tire" @ (303,101), owner Seleucid: supply 810t, loyalty 54, fortification 45%
-  susa "Susa" @ (304,90), owner Seleucid: supply 970t, loyalty 80, fortification 65%
-  apologos "Apologos" @ (304,109), owner Seleucid: supply 700t, loyalty 62, fortification 38%
-  ecbatana "Ecbatana" @ (306,57), owner Media: supply 940t, loyalty 85, fortification 69%
-  ardabil "Ardabil" @ (309,37), owner Media: supply 350t, loyalty 80, fortification 56%
+  tiflis "Tiflis" @ (281,19), owner Media: supply 440t, loyalty 69, fortification 81%
+  ani "Ani" @ (282,33), owner Media: supply 190t, loyalty 71, fortification 56%
+  bisitun "Bisitun" @ (282,69), owner Seleucid: supply 920t, loyalty 75, fortification 54%
+  al-hira "Al Hira" @ (284,92), owner Seleucid: supply 580t, loyalty 62, fortification 40%
+  artaxata "Artaxata" @ (286,26), owner Media: supply 380t, loyalty 74, fortification 93%
+  vologesias "Vologesias" @ (287,77), owner Seleucid: supply 610t, loyalty 71, fortification 45%
+  phraata "Phraata" @ (289,42), owner Media: supply 310t, loyalty 67, fortification 51%
+  astrabad "Astrabad" @ (289,102), owner Seleucid: supply 550t, loyalty 63, fortification 53%
+  bardaa "Bardaa" @ (291,20), owner Media: supply 220t, loyalty 80, fortification 37%
+  adhur "Adhur" @ (298,46), owner Media: supply 360t, loyalty 82, fortification 39%
+  laodicea "Laodicea" @ (298,63), owner Media: supply 620t, loyalty 66, fortification 46%
+  charax-2 "Charax" @ (298,102), owner Seleucid: supply 1200t, loyalty 59, fortification 41%
+  kangavar "Kangavar" @ (300,58), owner Media: supply 570t, loyalty 80, fortification 52%
+  bahman "Bahman" @ (302,105), owner Seleucid: supply 720t, loyalty 63, fortification 35%
+  derbend "Derbend" @ (303,12), owner Media: supply 180t, loyalty 60, fortification 75%
+  ivanikarkh "Ivanikarkh" @ (303,86), owner Seleucid: supply 460t, loyalty 66, fortification 61%
+  nahr-tire "Nahr Tire" @ (303,101), owner Seleucid: supply 810t, loyalty 55, fortification 40%
+  susa "Susa" @ (304,90), owner Seleucid: supply 970t, loyalty 78, fortification 66%
+  apologos "Apologos" @ (304,109), owner Seleucid: supply 700t, loyalty 63, fortification 42%
+  ecbatana "Ecbatana" @ (306,57), owner Media: supply 940t, loyalty 85, fortification 70%
+  ardabil "Ardabil" @ (309,37), owner Media: supply 350t, loyalty 81, fortification 56%
   andiokh "Andiokh" @ (311,91), owner Seleucid: supply 770t, loyalty 57, fortification 36%
-  rhagae "Rhagae" @ (317,49), owner Media: supply 530t, loyalty 86, fortification 50%
+  rhagae "Rhagae" @ (317,49), owner Media: supply 530t, loyalty 86, fortification 52%
 
 > news
 News log:
-  Seleucid destroys army of Ptolemaic.
+  Bithynia destroys army of Seleucid.
    
-  Week  5      Spring      270BC
+  Week  9      Spring      270BC
   MACEDONIA DECLARES WAR ON THRACIA.
   MACEDONIA DECLARES WAR ON DACIA.
   Thracia destroys army of Macedonia.
-   
-  Week  7      Spring      270BC
-  Helice   (Carthage)  falls to Celtiberia.
-  A fleet belonging to ptolemaic is damaged in a storm.
-   
-  Week  9      Spring      270BC
   MACEDONIA DECLARES WAR ON GREECE.
   Macedonia fails to capture Phoenice   (Greece).
-  A fleet belonging to ptolemaic is lost at sea.
    
   Week  11      Spring      270BC
    
   Week  1      Summer      270BC
    
   Week  3      Summer      270BC
-   
-  Week  5      Summer      270BC
+  Thracia destroys army of Macedonia.
   A fleet belonging to carthage is damaged in a storm.
    
-  Week  7      Summer      270BC
-  Thracia destroys army of Macedonia.
+  Week  5      Summer      270BC
   Thracia and Macedonia have agreed to end their war.
   A fleet belonging to carthage is lost at sea.
+  A fleet belonging to ptolemaic is lost at sea.
+   
+  Week  7      Summer      270BC
    
   Week  9      Summer      270BC
+  Vindobona   (Gaul)  falls to Rome.
    
   Week  11      Summer      270BC
+  Seleucid destroys army of Galatia.
   macedonia finishes a new fleet at Amphipolis.
    
   Week  1      Autumn      270BC
-  Illyria forms an alliance with Gaul.
-  Illyria declares war on Rome.
+  Iconium   (Galatia)  falls to Seleucid.
    
   Week  3      Autumn      270BC
+  Taurasia   (Gaul)  falls to Rome.
+   
+  Week  5      Autumn      270BC
+   
+  Week  7      Autumn      270BC
 
 > set-tax 20
 economy.set-tax accepted.
@@ -910,55 +954,59 @@ armies.disband-unit accepted.
 
 > end
 Macedonia (macedonia) ends its turn.
-Numidia (numidia) takes its turn: 3 orders issued.
-Gaul (gaul) takes its turn: 1 order issued.
-Greece (greece) takes its turn: 1 order issued.
-Celtiberia (celtiberia) takes its turn: 1 order issued.
-Illyria (illyria) takes its turn: 1 order issued.
+Numidia (numidia) takes its turn: 0 orders issued.
+Gaul (gaul) takes its turn: 0 orders issued.
+Greece (greece) takes its turn: 0 orders issued.
+Celtiberia (celtiberia) takes its turn: 0 orders issued.
+Illyria (illyria) takes its turn: 0 orders issued.
 Dacia (dacia) takes its turn: 0 orders issued.
 Bithynia (bithynia) takes its turn: 1 order issued.
-Galatia (galatia) takes its turn: 2 orders issued.
+Galatia (galatia) takes its turn: 0 orders issued.
 Armenia (armenia) takes its turn: 0 orders issued.
-Media (media) takes its turn: 0 orders issued.
-Thracia (thracia) takes its turn: 2 orders issued.
+Media (media) takes its turn: 1 order issued.
+Thracia (thracia) takes its turn: 1 order issued.
 Rome (rome) takes its turn: 2 orders issued.
 Carthage (carthage) takes its turn: 2 orders issued.
-Seleucid (seleucid) takes its turn: 5 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 0 orders issued.
-Now: Week 5, Autumn 270 BC. Active seat: Macedonia (macedonia).
+Seleucid (seleucid) takes its turn: 2 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 1 order issued.
+Now: Week 9, Autumn 270 BC. Active seat: Macedonia (macedonia).
 News:
    
-  Week  5      Autumn      270BC
+  Week  9      Autumn      270BC
+  Bithynia destroys army of Seleucid.
 
 > move army-8 142 42
 army-8 moved from (136,43) to (142,42), spending 8 of 9 moves.
 
 > end
 Macedonia (macedonia) ends its turn.
-Numidia (numidia) takes its turn: 2 orders issued.
-Gaul (gaul) takes its turn: 1 order issued.
+Numidia (numidia) takes its turn: 1 order issued.
+Gaul (gaul) takes its turn: 0 orders issued.
 Greece (greece) takes its turn: 0 orders issued.
-Celtiberia (celtiberia) takes its turn: 1 order issued.
+Celtiberia (celtiberia) takes its turn: 0 orders issued.
 Illyria (illyria) takes its turn: 0 orders issued.
 Dacia (dacia) takes its turn: 0 orders issued.
 Bithynia (bithynia) takes its turn: 1 order issued.
-Galatia (galatia) takes its turn: 1 order issued.
+Galatia (galatia) takes its turn: 0 orders issued.
 Armenia (armenia) takes its turn: 0 orders issued.
-Media (media) takes its turn: 0 orders issued.
+Media (media) takes its turn: 1 order issued.
 Thracia (thracia) takes its turn: 1 order issued.
+  Weather: drought-reduces-supply (week 9).
+  Weather: drought-reduces-supply (week 9).
+  Weather: storm-damages-fleet (week 9).
 Rome (rome) takes its turn: 2 orders issued.
 Carthage (carthage) takes its turn: 2 orders issued.
-Seleucid (seleucid) takes its turn: 3 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 0 orders issued.
-Now: Week 7, Autumn 270 BC. Active seat: Macedonia (macedonia).
+Seleucid (seleucid) takes its turn: 1 order issued.
+Ptolemaic (ptolemaic) takes its turn: 1 order issued.
+Now: Week 11, Autumn 270 BC. Active seat: Macedonia (macedonia).
 News:
    
-  Week  7      Autumn      270BC
+  Week  11      Autumn      270BC
 
 > move army-8 148 40
 army-8 moved from (142,42) to (148,40), spending 6 of 9 moves.
 
-> move-fleet mac-fleet-keep 149 41
+> move-fleet mac-fleet-keep 148 41
 naval.move-fleet accepted.
 
 > embark-army army-8 mac-fleet-keep
@@ -976,54 +1024,260 @@ recruitment.disband-recruitment-slot accepted.
 > end
 Macedonia (macedonia) ends its turn.
 Numidia (numidia) takes its turn: 0 orders issued.
-Gaul (gaul) takes its turn: 1 order issued.
+Gaul (gaul) takes its turn: 0 orders issued.
 Greece (greece) takes its turn: 0 orders issued.
-Celtiberia (celtiberia) takes its turn: 1 order issued.
+Celtiberia (celtiberia) takes its turn: 0 orders issued.
 Illyria (illyria) takes its turn: 0 orders issued.
 Dacia (dacia) takes its turn: 0 orders issued.
-Bithynia (bithynia) takes its turn: 1 order issued.
-Galatia (galatia) takes its turn: 1 order issued.
+Bithynia (bithynia) takes its turn: 3 orders issued.
+Galatia (galatia) takes its turn: 0 orders issued.
 Armenia (armenia) takes its turn: 0 orders issued.
-Media (media) takes its turn: 0 orders issued.
+Media (media) takes its turn: 1 order issued.
 Thracia (thracia) takes its turn: 1 order issued.
-Rome (rome) takes its turn: 2 orders issued.
-Carthage (carthage) takes its turn: 2 orders issued.
-Seleucid (seleucid) takes its turn: 2 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 0 orders issued.
-Now: Week 9, Autumn 270 BC. Active seat: Macedonia (macedonia).
+Rome (rome) takes its turn: 11 orders issued.
+Carthage (carthage) takes its turn: 14 orders issued.
+Seleucid (seleucid) takes its turn: 9 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 9 orders issued.
+Now: Week 1, Winter 270 BC. Active seat: Macedonia (macedonia).
 News:
-  Galatia and Seleucid have agreed to end their war.
-  Galatia destroys army of Seleucid.
+  Iconium   (Seleucid)  falls to Bithynia.
    
-  Week  9      Autumn      270BC
+  Week  1      Winter      270BC
+  Altinum   (Gaul)  falls to Rome.
 
 > move mac-marines 143 42
 mac-marines moved from (137,42) to (143,42), spending 7 of 9 moves.
 
 > end
 Macedonia (macedonia) ends its turn.
-Numidia (numidia) takes its turn: 0 orders issued.
-Gaul (gaul) takes its turn: 1 order issued.
-Greece (greece) takes its turn: 0 orders issued.
-Celtiberia (celtiberia) takes its turn: 1 order issued.
+Numidia (numidia) takes its turn: 8 orders issued.
+Gaul (gaul) takes its turn: 13 orders issued.
+Greece (greece) takes its turn: 14 orders issued.
+Celtiberia (celtiberia) takes its turn: 0 orders issued.
+Illyria (illyria) takes its turn: 7 orders issued.
+Dacia (dacia) takes its turn: 0 orders issued.
+Bithynia (bithynia) takes its turn: 5 orders issued.
+Galatia (galatia) takes its turn: 0 orders issued.
+Armenia (armenia) takes its turn: 5 orders issued.
+Media (media) takes its turn: 10 orders issued.
+Thracia (thracia) takes its turn: 8 orders issued.
+  Weather: storm-damages-fleet (week 1).
+  Weather: drought-reduces-supply (week 1).
+Rome (rome) takes its turn: 2 orders issued.
+Carthage (carthage) takes its turn: 2 orders issued.
+Seleucid (seleucid) takes its turn: 0 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 1 order issued.
+Now: Week 3, Winter 270 BC. Active seat: Macedonia (macedonia).
+News:
+   
+  Week  3      Winter      270BC
+
+> end
+Macedonia (macedonia) ends its turn.
+Numidia (numidia) takes its turn: 3 orders issued.
+Gaul (gaul) takes its turn: 0 orders issued.
+Greece (greece) takes its turn: 1 order issued.
+Celtiberia (celtiberia) takes its turn: 0 orders issued.
+Illyria (illyria) takes its turn: 2 orders issued.
+Dacia (dacia) takes its turn: 0 orders issued.
+Bithynia (bithynia) takes its turn: 1 order issued.
+Galatia (galatia) takes its turn: 0 orders issued.
+Armenia (armenia) takes its turn: 0 orders issued.
+Media (media) takes its turn: 3 orders issued.
+Thracia (thracia) takes its turn: 2 orders issued.
+  Weather: storm-damages-fleet (week 3).
+  Weather: drought-reduces-supply (week 3).
+  Weather: storm-damages-fleet (week 3).
+  Weather: drought-reduces-supply (week 3).
+Rome (rome) takes its turn: 2 orders issued.
+Carthage (carthage) takes its turn: 2 orders issued.
+Seleucid (seleucid) takes its turn: 0 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 1 order issued.
+Now: Week 5, Winter 270 BC. Active seat: Macedonia (macedonia).
+News:
+   
+  Week  5      Winter      270BC
+
+> end
+Macedonia (macedonia) ends its turn.
+Numidia (numidia) takes its turn: 2 orders issued.
+Gaul (gaul) takes its turn: 0 orders issued.
+Greece (greece) takes its turn: 1 order issued.
+Celtiberia (celtiberia) takes its turn: 0 orders issued.
 Illyria (illyria) takes its turn: 0 orders issued.
 Dacia (dacia) takes its turn: 0 orders issued.
 Bithynia (bithynia) takes its turn: 1 order issued.
-Galatia (galatia) takes its turn: 1 order issued.
+Galatia (galatia) takes its turn: 0 orders issued.
 Armenia (armenia) takes its turn: 0 orders issued.
-Media (media) takes its turn: 0 orders issued.
+Media (media) takes its turn: 1 order issued.
+Thracia (thracia) takes its turn: 1 order issued.
+  Weather: drought-reduces-supply (week 5).
+  Weather: drought-reduces-supply (week 5).
+  Weather: drought-reduces-supply (week 5).
+  Weather: storm-damages-fleet (week 5).
+  Weather: storm-damages-fleet (week 5).
+Rome (rome) takes its turn: 2 orders issued.
+Carthage (carthage) takes its turn: 2 orders issued.
+Seleucid (seleucid) takes its turn: 0 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 1 order issued.
+Now: Week 7, Winter 270 BC. Active seat: Macedonia (macedonia).
+News:
+   
+  Week  7      Winter      270BC
+
+> end
+Macedonia (macedonia) ends its turn.
+Numidia (numidia) takes its turn: 1 order issued.
+Gaul (gaul) takes its turn: 0 orders issued.
+Greece (greece) takes its turn: 2 orders issued.
+Celtiberia (celtiberia) takes its turn: 0 orders issued.
+Illyria (illyria) takes its turn: 0 orders issued.
+Dacia (dacia) takes its turn: 0 orders issued.
+Bithynia (bithynia) takes its turn: 1 order issued.
+Galatia (galatia) takes its turn: 0 orders issued.
+Armenia (armenia) takes its turn: 0 orders issued.
+Media (media) takes its turn: 1 order issued.
+Thracia (thracia) takes its turn: 1 order issued.
+  Weather: storm-damages-fleet (week 7).
+  Weather: storm-damages-fleet (week 7).
+  Weather: storm-damages-fleet (week 7).
+  Weather: storm-damages-fleet (week 7).
+  Weather: storm-damages-fleet (week 7).
+Rome (rome) takes its turn: 3 orders issued.
+Carthage (carthage) takes its turn: 2 orders issued.
+Seleucid (seleucid) takes its turn: 0 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 1 order issued.
+Now: Week 9, Winter 270 BC. Active seat: Macedonia (macedonia).
+News:
+  Greece destroys army of Macedonia.
+   
+  Week  9      Winter      270BC
+  Sala   (Gaul)  falls to Rome.
+
+> end
+Macedonia (macedonia) ends its turn.
+Numidia (numidia) takes its turn: 0 orders issued.
+Gaul (gaul) takes its turn: 0 orders issued.
+Greece (greece) takes its turn: 2 orders issued.
+Celtiberia (celtiberia) takes its turn: 0 orders issued.
+Illyria (illyria) takes its turn: 0 orders issued.
+Dacia (dacia) takes its turn: 0 orders issued.
+Bithynia (bithynia) takes its turn: 1 order issued.
+Galatia (galatia) takes its turn: 0 orders issued.
+Armenia (armenia) takes its turn: 0 orders issued.
+Media (media) takes its turn: 1 order issued.
+Thracia (thracia) takes its turn: 1 order issued.
+  Weather: drought-reduces-supply (week 9).
+  Weather: drought-reduces-supply (week 9).
+  Weather: drought-reduces-supply (week 9).
+  Weather: drought-reduces-supply (week 9).
+  Weather: storm-damages-fleet (week 9).
+Rome (rome) takes its turn: 2 orders issued.
+Carthage (carthage) takes its turn: 2 orders issued.
+Seleucid (seleucid) takes its turn: 0 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 1 order issued.
+Now: Week 11, Winter 270 BC. Active seat: Macedonia (macedonia).
+News:
+  Macedonia destroys army of Greece.
+   
+  Week  11      Winter      270BC
+
+> end
+Macedonia (macedonia) ends its turn.
+Numidia (numidia) takes its turn: 0 orders issued.
+Gaul (gaul) takes its turn: 0 orders issued.
+Greece (greece) takes its turn: 0 orders issued.
+Celtiberia (celtiberia) takes its turn: 0 orders issued.
+Illyria (illyria) takes its turn: 0 orders issued.
+Dacia (dacia) takes its turn: 0 orders issued.
+Bithynia (bithynia) takes its turn: 9 orders issued.
+Galatia (galatia) takes its turn: 0 orders issued.
+Armenia (armenia) takes its turn: 0 orders issued.
+Media (media) takes its turn: 1 order issued.
+Thracia (thracia) takes its turn: 1 order issued.
+  Weather: drought-reduces-supply (week 11).
+  Weather: drought-reduces-supply (week 11).
+  Weather: storm-damages-fleet (week 11).
+Rome (rome) takes its turn: 5 orders issued.
+Carthage (carthage) takes its turn: 15 orders issued.
+Seleucid (seleucid) takes its turn: 9 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 11 orders issued.
+Now: Week 1, Spring 269 BC. Active seat: Macedonia (macedonia).
+News:
+   
+  Week  1      Spring      269BC
+
+> end
+Macedonia (macedonia) ends its turn.
+Numidia (numidia) takes its turn: 8 orders issued.
+Gaul (gaul) takes its turn: 13 orders issued.
+Greece (greece) takes its turn: 11 orders issued.
+Celtiberia (celtiberia) takes its turn: 6 orders issued.
+Illyria (illyria) takes its turn: 8 orders issued.
+Dacia (dacia) takes its turn: 0 orders issued.
+Bithynia (bithynia) takes its turn: 5 orders issued.
+Galatia (galatia) takes its turn: 2 orders issued.
+Armenia (armenia) takes its turn: 4 orders issued.
+Media (media) takes its turn: 9 orders issued.
+Thracia (thracia) takes its turn: 4 orders issued.
+  Weather: drought-reduces-supply (week 1).
+Rome (rome) takes its turn: 3 orders issued.
+Carthage (carthage) takes its turn: 2 orders issued.
+Seleucid (seleucid) takes its turn: 0 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 1 order issued.
+Now: Week 3, Spring 269 BC. Active seat: Macedonia (macedonia).
+News:
+   
+  Week  3      Spring      269BC
+
+> end
+Macedonia (macedonia) ends its turn.
+Numidia (numidia) takes its turn: 2 orders issued.
+Gaul (gaul) takes its turn: 0 orders issued.
+Greece (greece) takes its turn: 0 orders issued.
+Celtiberia (celtiberia) takes its turn: 0 orders issued.
+Illyria (illyria) takes its turn: 1 order issued.
+Dacia (dacia) takes its turn: 0 orders issued.
+Bithynia (bithynia) takes its turn: 1 order issued.
+Galatia (galatia) takes its turn: 0 orders issued.
+Armenia (armenia) takes its turn: 1 order issued.
+Media (media) takes its turn: 1 order issued.
+Thracia (thracia) takes its turn: 1 order issued.
+  Weather: storm-damages-fleet (week 3).
+  Weather: storm-damages-fleet (week 3).
+Rome (rome) takes its turn: 2 orders issued.
+Carthage (carthage) takes its turn: 2 orders issued.
+Seleucid (seleucid) takes its turn: 0 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 1 order issued.
+Now: Week 5, Spring 269 BC. Active seat: Macedonia (macedonia).
+News:
+   
+  Week  5      Spring      269BC
+
+> end
+Macedonia (macedonia) ends its turn.
+Numidia (numidia) takes its turn: 1 order issued.
+Gaul (gaul) takes its turn: 0 orders issued.
+Greece (greece) takes its turn: 0 orders issued.
+Celtiberia (celtiberia) takes its turn: 0 orders issued.
+Illyria (illyria) takes its turn: 0 orders issued.
+Dacia (dacia) takes its turn: 0 orders issued.
+Bithynia (bithynia) takes its turn: 1 order issued.
+Galatia (galatia) takes its turn: 0 orders issued.
+Armenia (armenia) takes its turn: 0 orders issued.
+Media (media) takes its turn: 1 order issued.
 Thracia (thracia) takes its turn: 1 order issued.
 Rome (rome) takes its turn: 2 orders issued.
 Carthage (carthage) takes its turn: 2 orders issued.
-Seleucid (seleucid) takes its turn: 2 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 0 orders issued.
-Now: Week 11, Autumn 270 BC. Active seat: Macedonia (macedonia).
+Seleucid (seleucid) takes its turn: 0 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 1 order issued.
+Now: Week 7, Spring 269 BC. Active seat: Macedonia (macedonia).
 News:
    
-  Week  11      Autumn      270BC
+  Week  7      Spring      269BC
 
 > buy mac-marines pella 5000
-mac-marines bought 61 tons of supply at pella, free at your own city.
+mac-marines bought 51 tons of supply at pella, free at your own city.
 
 > split-unit mac-marines 1 200
 armies.split-unit accepted.
@@ -1034,91 +1288,35 @@ armies.split-army accepted.
 > end
 Macedonia (macedonia) ends its turn.
 Numidia (numidia) takes its turn: 0 orders issued.
-Gaul (gaul) takes its turn: 1 order issued.
-Greece (greece) takes its turn: 1 order issued.
-Celtiberia (celtiberia) takes its turn: 1 order issued.
+Gaul (gaul) takes its turn: 0 orders issued.
+Greece (greece) takes its turn: 0 orders issued.
+Celtiberia (celtiberia) takes its turn: 0 orders issued.
 Illyria (illyria) takes its turn: 0 orders issued.
 Dacia (dacia) takes its turn: 0 orders issued.
 Bithynia (bithynia) takes its turn: 1 order issued.
-Galatia (galatia) takes its turn: 1 order issued.
+Galatia (galatia) takes its turn: 0 orders issued.
 Armenia (armenia) takes its turn: 0 orders issued.
-Media (media) takes its turn: 0 orders issued.
-Thracia (thracia) takes its turn: 1 order issued.
-  Weather: storm-damages-fleet (week 11).
-Rome (rome) takes its turn: 12 orders issued.
-Carthage (carthage) takes its turn: 13 orders issued.
-Seleucid (seleucid) takes its turn: 11 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 8 orders issued.
-Now: Week 1, Winter 270 BC. Active seat: Macedonia (macedonia).
+Media (media) takes its turn: 1 order issued.
+Thracia (thracia) takes its turn: 2 orders issued.
+Rome (rome) takes its turn: 2 orders issued.
+Carthage (carthage) takes its turn: 2 orders issued.
+Seleucid (seleucid) takes its turn: 0 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 1 order issued.
+Now: Week 9, Spring 269 BC. Active seat: Macedonia (macedonia).
 News:
    
-  Week  1      Winter      270BC
+  Week  9      Spring      269BC
+
+> accept-offer
+diplomacy.accept-pending-offer accepted.
 
 > move mac-merc 140 47
 mac-merc moved from (144,42) to (140,47), spending 6 of 10 moves.
 
-> end
-Macedonia (macedonia) ends its turn.
-Numidia (numidia) takes its turn: 8 orders issued.
-Gaul (gaul) takes its turn: 16 orders issued.
-Greece (greece) takes its turn: 14 orders issued.
-Celtiberia (celtiberia) takes its turn: 2 orders issued.
-Illyria (illyria) takes its turn: 7 orders issued.
-Dacia (dacia) takes its turn: 1 order issued.
-Bithynia (bithynia) takes its turn: 1 order issued.
-Galatia (galatia) takes its turn: 4 orders issued.
-Armenia (armenia) takes its turn: 4 orders issued.
-Media (media) takes its turn: 6 orders issued.
-Thracia (thracia) takes its turn: 5 orders issued.
-  Weather: drought-reduces-supply (week 1).
-  Weather: drought-reduces-supply (week 1).
-  Weather: storm-damages-fleet (week 1).
-Rome (rome) takes its turn: 3 orders issued.
-Carthage (carthage) takes its turn: 6 orders issued.
-Seleucid (seleucid) takes its turn: 3 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 2 orders issued.
-Now: Week 3, Winter 270 BC. Active seat: Macedonia (macedonia).
-News:
-   
-  Week  3      Winter      270BC
-  Gaul sues Rome for peace and;
-      Gaul ends all current trading agreements.
-      Gaul  ends all current alliances.
-      Gaul pays reparations of 460 talents.
-  Rome destroys army of Gaul.
-
 > move mac-merc 141 48
-mac-merc moved from (140,47) to (141,48), spending 2 of 10 moves.
+mac-merc moved from (140,47) to (141,48), spending 2 of 4 moves.
 
-> end
-Macedonia (macedonia) ends its turn.
-Numidia (numidia) takes its turn: 5 orders issued.
-Gaul (gaul) takes its turn: 3 orders issued.
-Greece (greece) takes its turn: 1 order issued.
-Celtiberia (celtiberia) takes its turn: 1 order issued.
-Illyria (illyria) takes its turn: 1 order issued.
-Dacia (dacia) takes its turn: 0 orders issued.
-Bithynia (bithynia) takes its turn: 1 order issued.
-Galatia (galatia) takes its turn: 2 orders issued.
-Armenia (armenia) takes its turn: 0 orders issued.
-Media (media) takes its turn: 1 order issued.
-Thracia (thracia) takes its turn: 2 orders issued.
-  Weather: drought-reduces-supply (week 3).
-  Weather: storm-damages-fleet (week 3).
-  Weather: storm-damages-fleet (week 3).
-Rome (rome) takes its turn: 4 orders issued.
-Carthage (carthage) takes its turn: 2 orders issued.
-Seleucid (seleucid) takes its turn: 3 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 0 orders issued.
-Now: Week 5, Winter 270 BC. Active seat: Macedonia (macedonia).
-News:
-   
-  Week  5      Winter      270BC
-
-> move mac-merc 142 50
-mac-merc moved from (141,48) to (141,48), spending 0 of 10 moves.
-
-> hire-mercenary mac-merc 19
+> hire-mercenary mac-merc 25
 recruitment.hire-mercenary accepted.
 
 > quit

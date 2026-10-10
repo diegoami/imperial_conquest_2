@@ -19,25 +19,23 @@ disband-army mac-spare
 move mac-detached 157 31
 move army-8 135 52
 end
+move mac-detached 155 29
+move army-8 135 52
+end
+move army-8 135 52
+end
+move mac-detached 155 26
 attack-army mac-detached army-14
-move army-8 135 52
-end
-move army-8 135 52
-end
 besiege-city army-8 phoenice
 end
 split-army army-8 mac-sac-1 0
 end
-accept-offer
 move mac-sac-1 151 31
 end
 move mac-sac-1 151 31
 end
-move mac-sac-1 151 31
-end
-move mac-sac-1 151 31
-attack-army mac-sac-1 army-14
 peace-yes
+end
 end
 make-peace illyria
 mobilize 0 mac-recruit-0
@@ -51,6 +49,8 @@ join-fleets mac-fleet-1 mac-fleet-2
 buy-fleet-supply mac-fleet-1 amphipolis 5
 repair-fleet mac-fleet-1 1
 split-fleet mac-fleet-1 mac-fleet-keep 10
+end
+end
 end
 status
 news
@@ -72,7 +72,7 @@ end
 move army-8 142 42
 end
 move army-8 148 40
-move-fleet mac-fleet-keep 149 41
+move-fleet mac-fleet-keep 148 41
 embark-army army-8 mac-fleet-keep
 disembark-army army-8 148 40
 recruit-standing pella light_infantry 200
@@ -80,14 +80,20 @@ disband-slot 0
 end
 move mac-marines 143 42
 end
+end
+end
+end
+end
+end
+end
+end
+end
 buy mac-marines pella 5000
 split-unit mac-marines 1 200
 split-army mac-marines mac-merc 2 supply=50 money=80
 end
+accept-offer
 move mac-merc 140 47
-end
 move mac-merc 141 48
-end
-move mac-merc 142 50
-hire-mercenary mac-merc 19
+hire-mercenary mac-merc 25
 quit

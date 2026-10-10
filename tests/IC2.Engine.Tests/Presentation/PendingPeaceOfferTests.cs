@@ -29,10 +29,24 @@ public sealed class PendingPeaceOfferTests
     private static GameSession HumanLosesFixture()
     {
         var toy = CoreTestbed.Toy;
+        // T156: the AI's tree scores armies with FUN_0044a930, ((troops, archers counted three times) / 80)
+        // * morale. South as archers 10,000 at morale 100 is (10,000 * 3 / 80) * 100 = 37,500; north-army-1
+        // is ((15,000 + 3,500 * 3) / 80) * 68 = 21,624, so south scores it 37,500 * 110 / 21,624 - 1 = 189
+        // (the shipped heavy_infantry 6,000 at morale 59, 4,425, would score 22 - 1 = 21, under the 100
+        // threshold). The reserve (heavy_infantry 350,000 at morale 40: 350,000 / 80 * 40 = 175,000) scores
+        // 37,500 * 110 / 175,000 - 2 = 21, so south attacks north-army-1 and leaves the reserve alone. The
+        // reserve's field power (ArmyPower.Compute: 175,000) stays above south's survivors (archers weight
+        // 40: 5,000), which raises the "human lost" peace offer.
         var reserve = new StartingArmy(
-            "north-reserve", "north", X: 2, Y: 1, Morale: 1, Money: 0, SupplyTons: 0, Moves: 5,
-            Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "heavy_infantry", Troops: 480000, Quality: 5, Name: "Reserve")));
-        var southArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with { X = 4, Y = 2 };
+            "north-reserve", "north", X: 2, Y: 1, Morale: 40, Money: 0, SupplyTons: 0, Moves: 5,
+            Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "heavy_infantry", Troops: 350_000, Quality: 5, Name: "Reserve")));
+        var southArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with
+        {
+            X = 4,
+            Y = 2,
+            Morale = 100,
+            Units = ValueList.Of(new UnitSlot(MercenaryLabel: 1, "archers", Troops: 10_000, Quality: 7, Name: "1st Bowmen")),
+        };
         var world = toy.World with
         {
             StartingArmies = ValueList.From(
@@ -72,10 +86,23 @@ public sealed class PendingPeaceOfferTests
     private static GameSession HotseatFixture()
     {
         var toy = CoreTestbed.Toy;
+        // T156: the reserve (heavy_infantry 480,000 at morale 40: 480,000 / 80 * 40 = 240,000 under
+        // FUN_0044a930) is the stronger side against south's archers 10,000 at morale 100 (37,500), so
+        // south scores it 37,500 * 110 / 240,000 - 2 = 15, under the 100 threshold, and no +1000 fires (the
+        // reserve is not weaker). North-army-1 ((15,000 + 3,500 * 3) / 80 * 68 = 21,624) scores 189, so south
+        // attacks it and leaves the reserve at its capital.
         var reserve = new StartingArmy(
-            "north-reserve", "north", X: 2, Y: 1, Morale: 1, Money: 0, SupplyTons: 0, Moves: 5,
+            "north-reserve", "north", X: 2, Y: 1, Morale: 40, Money: 0, SupplyTons: 0, Moves: 5,
             Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "heavy_infantry", Troops: 480000, Quality: 5, Name: "Reserve")));
-        var southArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with { X = 4, Y = 2 };
+        // T156: south-army-1 is sized so FUN_0044a930 outweighs north-army-1 (so the AI's tree clears
+        // the 100 army-score threshold and selects AttackArmy) while still winning the field battle.
+        var southArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with
+        {
+            X = 4,
+            Y = 2,
+            Morale = 100,
+            Units = ValueList.Of(new UnitSlot(MercenaryLabel: 1, "archers", Troops: 10_000, Quality: 7, Name: "1st Bowmen")),
+        };
         var eastNation = new NationDefinition(
             Id: "east", Name: "Eastern League", ColorHex: "#2e7d32", LeaderName: "Toy Leader of the East",
             CapitalCityId: "portus", Treasury: 400, Unity: 600, Wealth: 300, TaxBase: 100, TaxRatePercent: 15,
@@ -85,7 +112,11 @@ public sealed class PendingPeaceOfferTests
             "east-siege", "east", X: 1, Y: 1, Morale: 60, Money: 0, SupplyTons: 0, Moves: 5,
             Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "heavy_infantry", Troops: 500000, Quality: 6, Name: "Siege Host")));
         var eastWeak = new StartingArmy(
-            "east-weak", "east", X: 5, Y: 2, Morale: 68, Money: 0, SupplyTons: 0, Moves: 5,
+            // T156 (issue #925): placed at (3, 2), where north-army-1 starts and the AI's first attack
+            // empties it. south's later AI turns march toward arx (now east's) for foreign resupply
+            // and stop at (2, 2); (3, 2) is the tile east-weak needs to be on so this attack is still
+            // adjacent when the rotation returns to east.
+            "east-weak", "east", X: 3, Y: 2, Morale: 68, Money: 0, SupplyTons: 0, Moves: 5,
             Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "light_infantry", Troops: 15000, Quality: 6, Name: "2nd Foot Battalion")));
         var world = toy.World with
         {

@@ -33,8 +33,11 @@ namespace IC2.Engine.Ai;
 /// </remarks>
 /// <param name="NationId">The nation these parameters belong to.</param>
 /// <param name="AggressionPermille">
-/// <c>0..1000</c>. Sets how favourable a strength ratio an attack, siege or naval attack must show before
-/// the AI will place it — see <see cref="AiView.RequiredAttackRatioPermille"/>.
+/// <c>0..1000</c>. Sets how favourable a strength ratio a naval attack must show before the AI will place
+/// it — see <see cref="AiView.RequiredAttackRatioPermille"/>. The army path's chosen action no longer reads
+/// this ratio: T156 (issue #925) routes each army's decision through the original's target tree, and
+/// <see cref="AiMilitaryPhase"/>'s army-branch executes the tree's call without consulting aggression.
+/// Only the fleet half (<see cref="AiMilitaryPhase.ProposeFleetAttacks"/>) still gates the ratio.
 /// </param>
 /// <param name="ExpansionDrivePermille">
 /// <c>0..1000</c>. Sets what share of the treasury the economy phase is willing to commit in one turn,
