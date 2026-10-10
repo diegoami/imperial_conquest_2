@@ -331,7 +331,7 @@ public static class AiMilitaryPhase
             case AiArmyTargetTree.Kind.AttackArmy:
                 if (decision.TargetArmy is { } targetArmy)
                 {
-                    AddArmyTargetCandidate(view, army, targetArmy, mayMarch, into);
+                    AddArmyTargetCandidate(view, army, targetArmy, progress, mayMarch, into);
                 }
 
                 break;
@@ -362,7 +362,7 @@ public static class AiMilitaryPhase
                     case AiArmyTargetTree.Continuation.ChaseArmy:
                         if (decision.TargetArmy is { } chaseArmy)
                         {
-                            AddArmyTargetCandidate(view, army, chaseArmy, mayMarch, into);
+                            AddArmyTargetCandidate(view, army, chaseArmy, progress, mayMarch, into);
                         }
 
                         break;
@@ -470,6 +470,7 @@ public static class AiMilitaryPhase
         AiView view,
         ArmyState army,
         ArmyState targetArmy,
+        long progress,
         bool mayMarch,
         List<AiCandidate> into)
     {
@@ -492,8 +493,13 @@ public static class AiMilitaryPhase
 
         if (mayMarch)
         {
+            // T156 rework round 1 N2: the other marches pass `progress` so the WithVictoryAwareness
+            // multiplier tracks the actor's own progress toward its victory condition. The
+            // minimum-score floor in AddMarchCandidate still masks the difference (the chosen
+            // score sits at or above the floor in every preset), so this matches pass-through
+            // behaviour and is the do-not-change-the-rules correction.
             AddMarchCandidate(view, army, targetArmy.X, targetArmy.Y, AiCandidate.ApproachKind,
-                "approach target army", view.Ruleset.Ai.ApproachCityBaseScore, 0, into);
+                "approach target army", view.Ruleset.Ai.ApproachCityBaseScore, progress, into);
         }
     }
 

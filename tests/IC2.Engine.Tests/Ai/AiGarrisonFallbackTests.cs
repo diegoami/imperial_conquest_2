@@ -187,7 +187,7 @@ public sealed class AiGarrisonFallbackTests
         });
 
         var moves = MovesOf(seen).ToList();
-                var purchase = Assert.Single(seen.Purchases);
+        var purchase = Assert.Single(seen.Purchases);
         Assert.True(purchase.SupplyAfter > purchase.SupplyBefore, "the purchase must change the army's supply");
         Assert.Equal(purchase.TileBefore, purchase.TileAfter);
         Assert.Single(moves);

@@ -142,7 +142,7 @@ public sealed class AiSiegeGateTally
 
         return head + string.Format(
             CultureInfo.InvariantCulture,
-            " | best pair {0} vs {1}: city score {2}, army score {3}",
+            " | best pair {0} vs {1}: city score {2} (the army's best city-target score across all candidates; this adjacent city may not be the highest-scoring target), army score {3}",
             BestArmyId, BestCityId, BestCityScore, BestArmyScore);
     }
 }

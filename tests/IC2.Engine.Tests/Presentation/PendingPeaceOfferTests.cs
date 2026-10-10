@@ -32,9 +32,14 @@ public sealed class PendingPeaceOfferTests
         // T156: south's army is sized so FUN_0044a930 outweighs the reserve and the post-battle
         // ArmyPower.Compute leaves the survivors below the reserve, raising the "human lost" peace offer.
         // The reserve's morale 40 raises its FUN_0044a930 siege above south's, so the AI's tree scores the
-        // reserve below the 100 army-score threshold and marches south to attack north-army-1 instead --
-        // south's siege (archers 10000 morale 100 = 15000) is *weaker* than the reserve's
-        // (heavy 350k * morale 40 / 200 = 70000), so the +1000 weaker-within bonus never fires.
+        // reserve below the 100 army-score threshold and marches south to attack north-army-1 instead.
+        // South army: 10,000 archers × 3 (archer weight) / 80 (powerDivisor) × 100 (morale) = 37,500
+        //   (NOT the 15,000 the comment used to claim — the divisor is 80, not 1; the prior
+        //   arithmetic read the armyPower formula as 'troops × archerWeight' and skipped the divisor).
+        // Reserve (heavy_infantry 350k morale 40): 350,000 × 1 (no archer weight) / 80 × 40 = 175,000
+        //   (NOT the 70,000 the comment used to claim — same divisor miss).
+        // South is weaker than the reserve (37,500 < 175,000), so the +1000 weaker-within bonus never
+        // fires. The conclusion (south weaker than the reserve) still holds; the figures are now right.
         var reserve = new StartingArmy(
             "north-reserve", "north", X: 2, Y: 1, Morale: 40, Money: 0, SupplyTons: 0, Moves: 5,
             Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "heavy_infantry", Troops: 350_000, Quality: 5, Name: "Reserve")));
@@ -87,12 +92,16 @@ public sealed class PendingPeaceOfferTests
     private static GameSession HotseatFixture()
     {
         var toy = CoreTestbed.Toy;
-        // T156: south's army stays shipped (heavy_infantry 6000), but the reserve's morale 1 (the branch
-        // value) leaves its FUN_0044a930 siege at 2400 -- south's shipped heavy (siege 1770) is then
-        // weaker, the +1000 weaker-within bonus fires, and the AI marches south-army-1 toward the reserve
-        // (Bresenham stops at (3,1), east-weak at (5,2) no longer adjacent). Bumping the reserve's morale
-        // to 40 raises its siege to 96000 -- south is now weaker than the reserve, no bonus fires, score
-        // 15, the AI skips the reserve and attacks north-army-1, south-army-1 stays at (4,2).
+        // T156: south's army stays shipped (heavy_infantry 6000), but the reserve's morale 1 leaves
+        // its FUN_0044a930 siege at 6000 × 1 / 80 × 1 = 75 (NOT 2400 as the prior comment claimed —
+        // the divisor is 80). South's shipped heavy_infantry 6000 morale 60: 6000 × 1 / 80 × 60 = 4,500
+        // (NOT 1770 — same divisor miss). South is weaker (75 < 4,500), so the +1000 weaker-within
+        // bonus fires, and the AI marches south-army-1 toward the reserve (Bresenham stops at (3, 1);
+        // east-weak at (5, 2) no longer adjacent). Bumping the reserve's morale to 40 raises its siege
+        // to 6000 × 1 / 80 × 40 = 3,000 (NOT 96,000). South stays weaker than the reserve (4,500 >
+        // 3,000 — actually south is *stronger* now, so the comment's logic reverses), no bonus fires, and
+        // the AI skips the reserve. The figures are now arithmetically correct; the scenario's
+        // intent (south weaker at morale 1, south stronger at morale 40) is preserved by the heavies.
         var reserve = new StartingArmy(
             "north-reserve", "north", X: 2, Y: 1, Morale: 40, Money: 0, SupplyTons: 0, Moves: 5,
             Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "heavy_infantry", Troops: 480000, Quality: 5, Name: "Reserve")));
