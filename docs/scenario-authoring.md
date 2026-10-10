@@ -932,6 +932,34 @@ one shared scale, so the AI's determinism guarantee never depends on floating-po
 | `ownAllianceScore` | long | score | Score for the AI's own alliance-proposal candidate. |
 | `ownTradeScore` | long | score | Score for the AI's own trade-proposal candidate. |
 | `ownTradeSwapScore` | long | score | Score for the AI's own trade-partner-swap candidate, slightly below `ownTradeScore`. |
+| `armyTargetStrengthNumerator` | int | factor | Numerator of the army target tree's scores: `strength x N / targetStrength - distance` (`FUN_0044ece4`, `FUN_0044ee60`); 110. |
+| `cityScoreRegionHalvingDenominator` | int | divisor | A target in another region loses `score / N`; 2 halves it. Needs `cityRegionById`. |
+| `cityAttackDistanceThreshold` | int | tiles | The city score doubles when the defence is below the strength and the distance is below N; 7. |
+| `cityAttackCapitalDefenseRatioNumerator` | int | factor | Numerator of the capital doubling test `defence x N / D < strength`; 2. |
+| `cityAttackCapitalDefenseRatioDenominator` | int | divisor | Denominator D of the same test; 3. |
+| `armyScoreCap` | long | score | The army score is capped at N before the weaker bonus; 1000. |
+| `armyScoreWeakerWithinBonus` | long | score | Added to the army score when the enemy is weaker and within the threshold below; 1000. |
+| `armyScoreWeakerDistanceThreshold` | int | tiles | The `within N` of that bonus; 7. |
+| `cityScoreThreshold` | int | score | The decision's city boundary: `cityScore < N` resupplies or hires, `cityScore > N` can make the city the better buy; 100. |
+| `armyScoreThreshold` | int | score | The decision's army boundary: `armyScore < N` leaves the army target; 100. |
+| `demoralisedMoraleThreshold` | int | morale | An army with morale below N, no supplies and a far target is demoralised; 60. |
+| `demoralisedSuppliesThreshold` | int | tons | Supplies below N count as none in the same test and in the far-city test; 1. |
+| `demoralisedArmyDistanceThreshold` | int | tiles | The army target must be farther than N for the demoralised test; 8. |
+| `mercenaryRunTroopsDivisor` | int | divisor | The mercenary run needs `troops / N < supplies`; 500. |
+| `mercenaryRunCityDistanceFar` | int | tiles | With no supplies, a city farther than N is not attacked; 19. |
+| `mercenaryRunOfferRange` | int | tiles | The mercenary run considers pool offers within N of the army (`FUN_0044e84c`); 20. |
+| `defendResupplyArmyScoreThreshold` | int | score | After the mercenary run: `armyScore < N` (with the city threshold below) defends the resupply city, otherwise `armyScore >= N` chases the army; 71. |
+| `defendResupplyCityScoreThreshold` | int | score | The `cityScore > N` half of the defend-the-resupply-city test; 85. |
+| `resupplyStrengthTroopsDivisor` | int | divisor | The resupply scorer's strength is `troops / N`; 100. |
+| `resupplyForeignSupplyMargin` | int | tons | A foreign city needs stock above `strength + N`; 80. |
+| `resupplyForeignMoneyDivisor` | int | divisor | A foreign city needs the army's money above `strength / N`; 5. |
+| `resupplyCapitalPenalty` | int | score | An own capital scores minus N as a resupply city; 20. |
+| `resupplyForeignBonus` | int | score | A qualifying foreign city scores plus N; 20. |
+| `resupplyMaxForeignDistance` | int | tiles | A best foreign city beyond N is dropped for the nearest own city; 15. |
+| `garrisonFallbackCapitalDistance` | int | tiles | The garrison fallback sends an army to the nearest city when some own army is within N of the capital, else to the capital; 10. |
+| `cityRegionById` | list | region assignments | Pins cities to region ids (`cityId`, `region`); a coordinate takes the region of the nearest pinned city. Empty in the shipped data: the original's region boxes are not transcribed, so every city is in region 0 and the halving term never fires. |
+| `cityId` | string | city id | A `cityRegionById` row's city. |
+| `region` | int | region id | A `cityRegionById` row's region. |
 | `_provenance` | object | No | Provenance map. |
 
 ### End turn warnings

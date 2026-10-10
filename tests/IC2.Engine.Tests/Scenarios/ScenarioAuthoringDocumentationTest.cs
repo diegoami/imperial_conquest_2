@@ -20,45 +20,6 @@ namespace IC2.Engine.Tests.Scenarios;
 /// </remarks>
 public class ScenarioAuthoringDocumentationTest
 {
-    /// <summary>
-    /// Fields the model exposes but <c>docs/scenario-authoring.md</c> does not yet name. Empty by
-    /// default; each entry is the responsibility of the PR that added the field to keep it small.
-    /// T156 (issue #925) carries the 28 AI tree keys here because its brief told the implementer to
-    /// list the rows under "Docs affected" instead of editing the doc, and the main session applies
-    /// them post-merge.
-    /// </summary>
-    private static readonly IReadOnlyCollection<string> PendingDocumentation = new[]
-    {
-        "armyScoreCap",
-        "armyScoreThreshold",
-        "armyScoreWeakerDistanceThreshold",
-        "armyScoreWeakerWithinBonus",
-        "armyTargetStrengthNumerator",
-        "cityAttackCapitalDefenseRatioDenominator",
-        "cityAttackCapitalDefenseRatioNumerator",
-        "cityAttackDistanceThreshold",
-        "cityId",
-        "cityRegionById",
-        "cityScoreRegionHalvingDenominator",
-        "cityScoreThreshold",
-        "defendResupplyArmyScoreThreshold",
-        "defendResupplyCityScoreThreshold",
-        "demoralisedArmyDistanceThreshold",
-        "demoralisedMoraleThreshold",
-        "demoralisedSuppliesThreshold",
-        "garrisonFallbackCapitalDistance",
-        "mercenaryRunCityDistanceFar",
-        "mercenaryRunOfferRange",
-        "mercenaryRunTroopsDivisor",
-        "region",
-        "resupplyCapitalPenalty",
-        "resupplyForeignBonus",
-        "resupplyForeignMoneyDivisor",
-        "resupplyForeignSupplyMargin",
-        "resupplyMaxForeignDistance",
-        "resupplyStrengthTroopsDivisor",
-    };
-
     [Fact]
     public void ScenarioAuthoringDocNamesEveryModelField()
     {
@@ -88,11 +49,6 @@ public class ScenarioAuthoringDocumentationTest
         var missing = new List<string>();
         foreach (var fieldName in fieldNames)
         {
-            if (PendingDocumentation.Contains(fieldName))
-            {
-                continue;
-            }
-
             // Matches the field name in a markdown code span (`fieldName`), a table cell
             // (| fieldName |), or plain prose -- any context where the doc names the field at all.
             if (!Regex.IsMatch(docContent, @"[`|\s]" + Regex.Escape(fieldName) + @"[`|\s]"))
