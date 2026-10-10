@@ -77,6 +77,14 @@ public static class AiEconomyPhase
         // rule watches the treasury, which this never touches.
         ProposeMobilization(view, into);
 
+        // T157 (#926): under the original's economy (classical-faithful) recruitment and the tax belong to
+        // AiFaithfulEconomy, which AiTurn runs once a turn before the army phase, and the original never
+        // orders a fortification, so nothing below is proposed. Mobilisation above is unchanged.
+        if (view.Ruleset.Flags.AiEconomy == AiEconomyModel.Original)
+        {
+            return;
+        }
+
         var budget = TurnBudget(view.Nation.Treasury, personality.ExpansionDrivePermille, view.Ruleset);
         if (budget <= 0)
         {

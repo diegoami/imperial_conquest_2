@@ -780,6 +780,12 @@ rulesetNode["flags"]!["humanMoveResupply"] = "never";
 ((JsonObject)rulesetNode["flags"]!["_provenance"]!)["humanMoveResupply"] =
     "bug #756, the user's decision of 2026-10-05 (comment on #756), research report 2026-10-05-army-purse-writes-and-the-1000-cap.md 'Reachability of row 10' (research 9ae8924, provisional): in the original only the AI resupplies an army (FUN_0044F6D8 is called by the AI's per-army pass FUN_0044E41C and by the walk's tail FUN_0044D734, which a human click on a city marker never reaches) [derived: code]. classical-faithful runs no automatic resupply on a human army's move (never); improved keeps it against the first non-hostile adjacent city (againstNonHostileCity) [designed: a convenience, T23 Done-when 2]. Only GameSession's move reads this flag; the AI's resupply pass, buying supply and the Supply army dialog do not.";
 
+// ---- T157 (#926): the toy ruleset keeps the designed AI economy ("designed"); classical-faithful plays the
+// original's ("original"), so the exporter owns this value and its note and never copies the toy's.
+rulesetNode["flags"]!["aiEconomy"] = "original";
+((JsonObject)rulesetNode["flags"]!["_provenance"]!)["aiEconomy"] =
+    "T157 (#926), the user's decisions of 2026-10-01 on 515 and 2026-10-09 on 910: the AI's economy is the original's (2026-10-07-strategic-ai-turn.md sections 2.1-2.3 [confirmed: decompile]): a threat budget, the week-11 tax policy, and no fortification orders. improved keeps the designed economy. Read only by the AI's economy phase.";
+
 // ---- Review round 1 B1, corrected by round 2 R1-B1: _provenance.id is the one provenance key
 // that describes the file itself -- what ruleset this is and why it exists -- so, unlike every
 // other provenance string, it genuinely cannot be written preset-neutrally: toy-ruleset.json's own

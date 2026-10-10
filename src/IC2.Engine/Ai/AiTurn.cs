@@ -167,6 +167,16 @@ public static class AiTurn
         var hitCap = true;
         var marched = new List<string>();
 
+        // T157 (#926): the original's economy phase runs once, before the army phase (FUN_0044fa20's
+        // order). Under the designed economy this is skipped and AiEconomyPhase proposes as before.
+        if (ruleset.Flags.AiEconomy == AiEconomyModel.Original)
+        {
+            var economy = AiFaithfulEconomy.Run(state, ruleset, commands, events, rng, nationId, log);
+            state = economy.State;
+            issued += economy.Issued;
+            rejected += economy.Rejected;
+        }
+
         // T60 Done-when 1: one siege-gate sample per turn, taken on the first proposal pass only. Later
         // passes see the same standing adjacencies again, so feeding them in too would count situations
         // once per action rather than once per turn. See AiSiegeGateTally.
