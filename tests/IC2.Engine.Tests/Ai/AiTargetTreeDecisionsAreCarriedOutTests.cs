@@ -47,6 +47,8 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
             var checkedDecisions = 0;
             var carriedOut = 0;
             var skipped = 0;
+            var allDecisions = 0;
+            var allSkipped = 0;
             var captures = 0;
             var exceptions = new List<string>();
             var seatName = resolved.World.Nations.Single(n => string.Equals(n.Id, seat, StringComparison.Ordinal)).Name;
@@ -59,6 +61,10 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
 
                 captures += round.OfType<CityFallsToNation>().Count(c => c.NewOwner != seatName);
                 var turns = SplitByNationTurn(round);
+                // The whole-run measure (the final review's R5): every decision the log records, whatever its
+                // kind, with the candidates the reachability rule skipped while making it.
+                allDecisions += log.Count;
+                allSkipped += log.Sum(d => d.Skipped);
                 attackDecisions += log.Count(d => d.Kind is AiArmyTargetTree.Kind.AttackCity or AiArmyTargetTree.Kind.AttackArmy);
 
                 // EVERY attack decision the log records is owed a carried-out attack or march toward its
@@ -83,7 +89,9 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
 
             output.WriteLine(
                 $"seat {seat} seed {(seed is null ? "default" : seed.ToString())}: "
-                + $"{attackDecisions} attack decisions, {checkedDecisions} checked, {captures} AI captures, {carriedOut} carried out, {skipped} candidates skipped by the reachability rule, "
+                + $"{attackDecisions} attack decisions, {checkedDecisions} checked, {captures} AI captures, {carriedOut} carried out, "
+                + $"{allSkipped} candidates skipped by the reachability rule across all {allDecisions} logged decisions "
+                + $"({skipped} of them in attack decisions), "
                 + $"{exceptions.Count} exceptions");
             foreach (var exception in exceptions.Take(12))
             {
