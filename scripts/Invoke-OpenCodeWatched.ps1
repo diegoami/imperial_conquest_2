@@ -502,7 +502,7 @@ function Get-OpenCodeCli {
 }
 
 function Get-OpenCodeRunArguments {
-    param([int] $Major, [string] $WorkDir, [string] $Agent, [string] $Model, [string] $Variant, [string] $Title)
+    param([int] $Major, [string] $WorkDir, [string] $Agent, [string] $Model, [string] $Variant, [string] $Title, [string] $SessionId)
     # The `opencode run` arguments before the message, by major version.
     #   1.x: run --dir <dir> [--agent a] --model provider/model [--variant v] --title t
     #   2.x: run --standalone [--agent a] --model provider/model#variant --title t
@@ -514,7 +514,10 @@ function Get-OpenCodeRunArguments {
     if ($Agent) { $a += @('--agent', $Agent) }
     if ($Major -ge 2) { $a += @('--model', $(if ($Variant) { "$Model#$Variant" } else { $Model })) }
     else { $a += @('--model', $Model); if ($Variant) { $a += @('--variant', $Variant) } }
-    if ($Title) { $a += @('--title', $Title) }
+    # A resumed run (the user's decision of 2026-10-10, CLAUDE.md rule 22) continues an existing
+    # session by id with its whole context; it keeps that session's title, so none is passed.
+    if ($SessionId) { $a += @('--session', $SessionId) }
+    elseif ($Title) { $a += @('--title', $Title) }
     return $a
 }
 
@@ -625,7 +628,8 @@ function Get-OpenCodeTail([string] $Path, [int] $Lines = 30) {
 }
 
 function Find-OpenCodeSession {
-    param($Cli, [string] $WorkDir, [string] $Title, [long] $StartedMs, [string] $LogDir, [int] $TimeoutMs, [string] $InFile)
+    param($Cli, [string] $WorkDir, [string] $Title, [long] $StartedMs, [string] $LogDir, [int] $TimeoutMs, [string] $InFile,
+        [string] $SessionId = $script:OpenCodeResumeSessionId)
     # `session list` is scoped to the project of its working directory, so it runs in -WorkDir.
     # It bootstraps OpenCode too, so it is bounded by the caller's time left and killed if it
     # overruns. Its files are deleted once read. Under 2.x it passes --standalone (see
@@ -648,6 +652,15 @@ function Find-OpenCodeSession {
     # This run's session: its unique title, in its directory, created after it started.
     $dir = $WorkDir.TrimEnd('\', '/')
     foreach ($s in $sessions) {
+        if ($SessionId) {
+            # A resumed session is found by its id; it counts as this run's once it has advanced
+            # since the run started (its creation time is the original run's).
+            $updated = Get-OpenCodeEpochMs $s.updated
+            if ($s.id -ceq $SessionId -and $null -ne $updated -and $updated -ge $StartedMs - 1000) {
+                return [pscustomobject]@{ id = $s.id; title = $s.title; directory = $s.directory; created = (Get-OpenCodeEpochMs $s.created); updated = $updated }
+            }
+            continue
+        }
         $created = Get-OpenCodeEpochMs $s.created
         if ($s.title -ceq $Title -and $s.directory -and $s.directory.TrimEnd('\', '/') -ieq $dir -and $null -ne $created -and $created -ge $StartedMs - 1000) {
             $updated = Get-OpenCodeEpochMs $s.updated
@@ -972,6 +985,9 @@ function Invoke-OpenCodeWatched {
         # The callers pass their own default (external-implement.ps1 900, external-review.ps1 600).
         [int] $IdleTimeoutSec = 600,
         [int] $PollSec = 10,
+        # Continue this existing OpenCode session (`--session`) instead of starting a new one: the
+        # run keeps the session's context (CLAUDE.md rule 22). Empty starts a new session.
+        [string] $ResumeSessionId,
         # Where the run's files go; deleted after an exit 0, kept for diagnosis otherwise. The
         # session's transcript export is KEPT here, <title>.export.json, after any run whose session started.
         [string] $LogDir = (Join-Path ([System.IO.Path]::GetTempPath()) 'ic2-opencode'),
@@ -984,7 +1000,8 @@ function Invoke-OpenCodeWatched {
     $cli = Get-OpenCodeCli
     $titleToken = [guid]::NewGuid().ToString('N').Substring(0, 12)
     $fullTitle = "$Title-$titleToken"
-    $ocArgs = Get-OpenCodeRunArguments -Major $cli.Major -WorkDir $WorkDir -Agent $Agent -Model $Model -Variant $Variant -Title $fullTitle
+    $script:OpenCodeResumeSessionId = $ResumeSessionId
+    $ocArgs = Get-OpenCodeRunArguments -Major $cli.Major -WorkDir $WorkDir -Agent $Agent -Model $Model -Variant $Variant -Title $fullTitle -SessionId $ResumeSessionId
     if ($WhatIf) {
         $inv = Get-OpenCodeRunInvocation -RunArguments $ocArgs -Prompt $Prompt
         Write-Host "opencode $($cli.Version) ($($cli.Exe); $($cli.Why)), working directory $WorkDir"
