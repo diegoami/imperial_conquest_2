@@ -132,19 +132,24 @@ public sealed class AiReachableFallbackTests
     }
 
     /// <summary>
-    /// Forest costs 2. With 1 move left the army cannot pay for the forest at (5, 4), the tile nearest
-    /// the capital at (5, 0), so it takes a plain neighbour at the same distance from the capital:
-    /// (4, 4) and (6, 4) tie (distance 4 from the capital, 1 from the army, Y 4), and X ascending gives (4, 4).
+    /// Forest costs 2. With 1 move left the army at (5, 5) cannot pay for the forest at (6, 4), the tile
+    /// nearest the capital at (9, 1) (distance 3, where every other neighbour is 4 or more). It takes the
+    /// next best: (5, 4) and (6, 5) tie at distance 4 from the capital and 1 from the army, and Y
+    /// ascending gives (5, 4).
     /// </summary>
     [Fact]
     public void The_emergency_move_does_not_pick_a_forest_it_cannot_pay_for()
     {
-        var world = Terrain(cells => cells[(4 * 32) + 5] = Forest);
+        var world = Terrain(cells => cells[(4 * 32) + 6] = Forest);
         var army = Army(5, 5, moves: 1);
-        var state = State([City("n-cap", Us, 5, 0, supply: 5_000), City("s-cap", Them, 30, 30)], army);
+        var state = State([City("n-cap", Us, 9, 1, supply: 5_000), City("s-cap", Them, 30, 30)], army);
         var view = View(state, world);
 
-        Assert.Equal((4, 4), AiArmyTargetTree.EmergencyMoveDestination(view, army, state));
+        Assert.Equal((5, 4), AiArmyTargetTree.EmergencyMoveDestination(view, army, state));
+
+        // With 2 moves the forest is affordable and is the nearest tile to the capital.
+        var richer = army with { Moves = 2 };
+        Assert.Equal((6, 4), AiArmyTargetTree.EmergencyMoveDestination(view, richer, state));
     }
 
     // ---- R3: no reachable resupply city means no resupply destination ----
