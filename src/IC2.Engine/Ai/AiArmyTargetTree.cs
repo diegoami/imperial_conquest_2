@@ -362,9 +362,10 @@ public static class AiArmyTargetTree
                 score = -distance + rules.ResupplyForeignBonus;
             }
 
+            // Equal scores break by city id ascending, never by distance (the amended Hazards: "every
+            // tie breaks by city id ascending"; Sol's R2 on PR #933). Distance is already in the score.
             if (score > bestScore
-                || (score == bestScore && distance < bestDistance)
-                || (score == bestScore && distance == bestDistance && string.CompareOrdinal(city.Id, best!.Id) < 0))
+                || (score == bestScore && string.CompareOrdinal(city.Id, best!.Id) < 0))
             {
                 best = city;
                 bestScore = score;
@@ -462,12 +463,7 @@ public static class AiArmyTargetTree
                 return cmp;
             }
 
-            cmp = a.Distance.CompareTo(b.Distance);
-            if (cmp != 0)
-            {
-                return cmp;
-            }
-
+            // Equal scores: city id ascending (Sol's R2 on PR #933), as in ScoreResupplyCity.
             return string.CompareOrdinal(a.City.Id, b.City.Id);
         });
 
@@ -998,6 +994,21 @@ public static class AiArmyTargetTree
     /// over so the chain continues with the next candidate and then the emergency move. The mover itself
     /// is unchanged.
     /// </summary>
+    /// <summary>
+    /// Whether a march toward (<paramref name="x"/>, <paramref name="y"/>) enters at least one tile this
+    /// turn, priced by the real walker and the ruleset's terrain costs. Every march the military phase
+    /// proposes is checked with it (Sol's R1 on PR #933: an attack march whose first step costs more than
+    /// the army's remaining moves was accepted and parked the army with its moves zeroed), so a march
+    /// that cannot progress is never proposed and the fallback chain takes over. The mover is unchanged.
+    /// </summary>
+    internal static bool MarchMakesProgress(AiView view, ArmyState army, int x, int y)
+    {
+        ArgumentNullException.ThrowIfNull(view);
+        ArgumentNullException.ThrowIfNull(army);
+        var terrainCells = view.World.Terrain.Decode(view.World.Width, view.World.Height);
+        return WalkTowards(view, army, x, y, terrainCells) is { Moved: true };
+    }
+
     private static bool IsUsableDestination(AiView view, ArmyState army, int x, int y, int[] terrainCells) =>
         IsReachable(view, army, x, y)
         && WalkTowards(view, army, x, y, terrainCells) is { Moved: true };

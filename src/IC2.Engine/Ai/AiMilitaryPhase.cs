@@ -542,7 +542,10 @@ public static class AiMilitaryPhase
         List<AiCandidate> into)
     {
         var command = new Movement.Commands.MoveArmyCommand(view.NationId, army.Id, x, y);
-        if (!IsProposableMove(view, army, command))
+        // The march must also make progress this turn: a first step dearer than the army's moves would
+        // be accepted and park the army with its moves zeroed (Sol's R1 on PR #933). Not proposing it
+        // lets the caller's fallback chain (garrison, then the emergency move) take over.
+        if (!IsProposableMove(view, army, command) || !AiArmyTargetTree.MarchMakesProgress(view, army, x, y))
         {
             return;
         }

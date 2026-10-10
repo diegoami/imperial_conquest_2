@@ -122,6 +122,50 @@ public sealed class AiFirstStepAndTieBreakTests
         Assert.Equal((5, 7), (after.X, after.Y));
     }
 
+    /// <summary>
+    /// Sol's R1 on PR #933: the same rule for ATTACK marches. A mountain column at x = 6, the army at
+    /// (5, 5) with 2 moves (40,000 light infantry; 400,000 against the city), well supplied, at war, and a weak target at (8, 5): an enemy city
+    /// or a weaker enemy field army. The tree selects the attack, but the march toward (8, 5) would enter
+    /// the mountain first (cost 4), be accepted, and park the army with its moves zeroed. The march is
+    /// not proposed, the fallback chain runs, and the army ends the turn on another tile.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void An_attack_march_whose_first_step_is_unaffordable_does_not_park_the_army(bool cityTarget)
+    {
+        var world = MountainColumnAtSix();
+        // The city case needs a stronger army for its city score to clear 100 against the fixture city.
+        var army = Fx.Army(5, 5, moves: 2, troops: cityTarget ? 400_000 : 40_000) with { SupplyTons = 50_000 };
+        var cities = new List<CityState> { Fx.City("n-cap", Us, 2, 20, supply: 5_000), Fx.City("s-cap", Them, 30, 30) };
+        if (cityTarget)
+        {
+            cities.Add(Fx.City("s-weak", Them, 8, 5));
+        }
+
+        var state = Fx.State(cities, army);
+        if (!cityTarget)
+        {
+            var enemy = CaptureFixtures.Army("s-army", Them, 8, 5, 60, CaptureFixtures.Unit("light_infantry", 1_000));
+            state = state with { Armies = ValueList.From(state.Armies.Append(enemy)) };
+        }
+
+        state = state with
+        {
+            Relations = state.Relations.WithRelation(Us, Them, Ruleset.Diplomacy.StateCodes.War),
+        };
+        var view = View(state, world);
+        var decision = AiArmyTargetTree.Decide(view, state.ArmyById(ArmyId)!, atWar: true);
+        Assert.Equal(cityTarget ? AiArmyTargetTree.Kind.AttackCity : AiArmyTargetTree.Kind.AttackArmy, decision.Selected);
+
+        var seen = new List<ICommand>();
+        var outcome = RunTurn(state, world, seen);
+
+        Assert.DoesNotContain(seen.OfType<MoveArmyCommand>(), m => m.ArmyId == ArmyId && m.X == 8 && m.Y == 5);
+        var after = outcome.State.ArmyById(ArmyId)!;
+        Assert.NotEqual((5, 5), (after.X, after.Y));
+    }
+
     /// <summary>The same rule for the garrison fallback, in both of its branches.</summary>
     [Fact]
     public void The_garrison_fallback_passes_over_a_destination_whose_first_step_is_unaffordable()
@@ -179,6 +223,29 @@ public sealed class AiFirstStepAndTieBreakTests
         var view = View(state, Fx.Terrain());
 
         Assert.Equal("a-city", AiArmyTargetTree.ScoreResupplyCity(view, army, atWar: true).City!.Id);
+        Assert.Equal("a-city", AiArmyTargetTree.ResolveResupplyCity(view, army, atWar: true).City!.Id);
+    }
+
+    /// <summary>
+    /// Equal resupply scores at DIFFERENT distances still break by city id, not by distance (Sol's R2 on
+    /// PR #933, MiMo's N2): the own capital z-cap at distance 3 scores −3 − 20 = −23, the own a-city at
+    /// distance 23 scores −23, and a-city wins on its id. Both are on plain, so both can make progress.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Equal_resupply_scores_at_different_distances_tie_break_by_city_id(bool greaterIdFirst)
+    {
+        var army = Fx.Army(5, 5, moves: 2);
+        var z = Fx.City("z-cap", Us, 8, 5, supply: 0);
+        var a = Fx.City("a-city", Us, 5, 28, supply: 0);
+        var cities = new List<CityState>(greaterIdFirst ? [z, a] : [a, z]) { Fx.City("s-cap", Them, 30, 30) };
+        var state = Fx.State(cities, army, capital: "z-cap");
+        var view = View(state, Fx.Terrain());
+
+        var scored = AiArmyTargetTree.ScoreResupplyCity(view, army, atWar: true);
+        Assert.Equal("a-city", scored.City!.Id);
+        Assert.Equal(-23, scored.Score);
         Assert.Equal("a-city", AiArmyTargetTree.ResolveResupplyCity(view, army, atWar: true).City!.Id);
     }
 

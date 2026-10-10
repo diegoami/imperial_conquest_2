@@ -1984,8 +1984,8 @@ public sealed record VictoryRules(
 /// </param>
 /// <param name="CityAttackCapitalDefenseRatioNumerator">
 /// The <c>cityDefense × N / D &lt; strength</c> capital-doubling test from
-/// <c>2026-10-07-strategic-ai-turn.md</c> §3.3 (the doubling fires when the city's defence is below
-/// two-thirds of the army's strength and the city is a capital): <c>N = 2</c>.
+/// <c>2026-10-07-strategic-ai-turn.md</c> §3.3 (the doubling fires when two-thirds of the city's
+/// defence is below the army's strength and the city is a capital): <c>N = 2</c>.
 /// </param>
 /// <param name="CityAttackCapitalDefenseRatioDenominator">The denominator of that same test: <c>D = 3</c>.</param>
 /// <param name="ArmyScoreCap">
