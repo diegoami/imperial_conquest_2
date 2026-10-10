@@ -44,6 +44,13 @@ public sealed class AiArmyTargetTreeScorerTests
         params (string CityId, int Region)[] regions) =>
         ViewIn(OpenPlain, cities, armies, regions);
 
+    /// <summary>Variant of <see cref="ViewOf"/> that also takes a fleet list.</summary>
+    private static AiView ViewWithFleet(
+        IEnumerable<CityState> cities,
+        IEnumerable<ArmyState> armies,
+        IEnumerable<FleetState> fleets) =>
+        ViewIn(OpenPlain, cities, armies, fleets, null);
+
     private static AiView ViewIn(
         World world,
         IEnumerable<CityState> cities,
@@ -66,6 +73,38 @@ public sealed class AiArmyTargetTreeScorerTests
             Ai = Ruleset.Ai with
             {
                 CityRegionById = ValueList.From(regions.Select(r => new AiCityRegionAssignment(r.CityId, r.Region))),
+            },
+        };
+        return new AiView(state, ruleset, world, Us);
+    }
+
+    /// <summary>Variant of <see cref="ViewIn"/> that also takes a fleet list (no region overrides).</summary>
+    private static AiView ViewIn(
+        World world,
+        IEnumerable<CityState> cities,
+        IEnumerable<ArmyState> armies,
+        IEnumerable<FleetState> fleets,
+        (string CityId, int Region)[]? regions)
+    {
+        var nations = new[]
+        {
+            CaptureFixtures.Nation(Us, capitalCityId: "us-capital"),
+            CaptureFixtures.Nation(Them, capitalCityId: "them-capital"),
+            CaptureFixtures.Nation(Third, capitalCityId: "third-capital"),
+        };
+        var state = BattleCommandTestbed.StateWith(
+            nations, cities, armies, fleets is null ? null : (IEnumerable<FleetState>)fleets);
+        state = state with
+        {
+            Relations = state.Relations.WithRelation(Us, Them, Ruleset.Diplomacy.StateCodes.War),
+        };
+        var ruleset = Ruleset with
+        {
+            Ai = Ruleset.Ai with
+            {
+                CityRegionById = ValueList.From(
+                    (regions ?? Array.Empty<(string CityId, int Region)>())
+                        .Select(r => new AiCityRegionAssignment(r.CityId, r.Region))),
             },
         };
         return new AiView(state, ruleset, world, Us);
@@ -369,6 +408,41 @@ public sealed class AiArmyTargetTreeScorerTests
         var adjacent = Army("adjacent", Them, 11, 10, 100);
         var adjacentView = ViewOf([City("us-capital", Us, 11, 12), City("them-capital", Them, 40, 40)], [army, adjacent]);
         Assert.Equal("adjacent", AiArmyTargetTree.ScoreArmyTarget(adjacentView, army).Army!.Id);
+    }
+
+    /// <summary>
+    /// T156 (issue #925) rework round 1, R4 (Hazards' "intervening fleet" coverage): a non-construction
+    /// fleet on the Bresenham path stops the walk, exactly as a city or other army does. The Hazards
+    /// require "tests show … a target behind an intervening city, army or fleet are skipped"; the city
+    /// case is already pinned by <see cref="Reachability_skips_a_target_behind_an_intervening_army_but_not_one_whose_own_tile_is_the_only_obstacle"/>
+    /// and the army case by <see cref="Reachability_skips_a_target_whose_first_step_is_blocked_and_takes_the_next_best"/>
+    /// above; this row pins the fleet case explicitly, plus the construction-site fleet case that does
+    /// <em>not</em> block.
+    /// </summary>
+    [Fact]
+    public void Reachability_skips_a_target_behind_an_intervening_fleet_but_not_a_construction_site_one()
+    {
+        var army = Army("a", Us, 10, 10, 20_000);
+        var behindFleet = City("behind-fleet", Them, 14, 10, loyalty: 10, fort: 10, pop: 10);
+        var clearCity = City("clear", Them, 10, 25);
+        var cities = new[] { City("us-capital", Us, 8, 10), behindFleet, clearCity, City("them-capital", Them, 40, 40) };
+
+        var liveFleet = new FleetState(
+            Id: "fleet-blocker", Nation: "east", X: 12, Y: 10, Moves: 9, Ships: 5,
+            ConditionPercent: 100, Money: 0, SupplyTons: 0, ConstructionTicksRemaining: null,
+            BuildCityId: null, CarriedArmyId: null, CoveredTileCode: null);
+
+        var viewBlocked = ViewWithFleet(cities, [army], [liveFleet]);
+        var picked = AiArmyTargetTree.ScoreCityTarget(viewBlocked, army);
+        Assert.Equal("clear", picked.City!.Id);
+        Assert.Equal(1, picked.Skipped);
+
+        // The same setup with the fleet a construction site (ConstructionTicksRemaining != null)
+        // does not count as an obstacle: ships under construction do not block the walker any more
+        // than a sea tile would. The blocked city wins.
+        var constructionFleet = liveFleet with { ConstructionTicksRemaining = 3 };
+        var clearView = ViewWithFleet(cities, [army], [constructionFleet]);
+        Assert.Equal("behind-fleet", AiArmyTargetTree.ScoreCityTarget(clearView, army).City!.Id);
     }
 
     /// <summary>An army standing on an intervening tile stops the walk; the target's own tile being the only obstacle does not.</summary>

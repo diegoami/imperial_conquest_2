@@ -312,7 +312,8 @@ public static class AiTurn
     /// T156 (issue #925) Done-when 3: the original's garrison fallback
     /// (<c>FUN_0044ebe8</c>). When the chosen command was accepted but that army's tile is unchanged --
     /// directly, not via <see cref="AiSubstantiveState.AreEquivalent"/>'s whole-state comparison -- the
-    /// driver runs the fallback for that army: if some other own army is already within
+    /// driver runs the fallback for that army: if some own army (the army itself included, on the
+    /// report's "if *some own army*" reading) is already within
     /// <see cref="AiWeightsRules.GarrisonFallbackCapitalDistance"/> tiles of the capital, head for the
     /// nearest city of any owner; otherwise head for the capital. The fallback is one more command
     /// (<c>MoveArmyCommand</c>), so its accepted/rejected path feeds the same counters as any other
