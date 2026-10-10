@@ -560,6 +560,12 @@ function Invoke-ReviewParserSelfTest {
     foreach ($name in $reviewerSet) {
         $ruleChecks += [pscustomobject]@{ Name = "reviewer $name has a model, a variant and a display name"; Ok = ($models.ContainsKey($name) -and $variants.ContainsKey($name) -and $displayNames.ContainsKey($name)) }
     }
+    # The output rules are built after this attempt's worktree exists, so they name it (2026-10-10).
+    $selfSrc = Get-Content -Raw -LiteralPath $PSCommandPath
+    $attemptAt = $selfSrc.LastIndexOf('function Invoke-ReviewAttempt')  # the definition, after this check's own text
+    $treeAt = $selfSrc.IndexOf('New-ReviewWorktree $Name', $attemptAt)
+    $rulesAt = $selfSrc.IndexOf('Get-ReviewOutputRules -Header $header', $attemptAt)
+    $ruleChecks += [pscustomobject]@{ Name = 'the output rules are built after New-ReviewWorktree, so they name this attempt''s tree'; Ok = ($attemptAt -ge 0 -and $treeAt -gt $attemptAt -and $rulesAt -gt $treeAt) }
     $ruleChecks += [pscustomobject]@{ Name = 'sol is openai/gpt-6.1-sol, shown as Sol'; Ok = ($models['sol'] -eq 'openai/gpt-6.1-sol' -and $displayNames['sol'] -eq 'Sol') }
     # The user's rule of 2026-10-10: only a provider outage falls back; the classifier reads
     # OpenCode's error output, never the model's prose, and a missing key is not an outage.
@@ -1369,11 +1375,14 @@ function Invoke-ReviewAttempt([string] $Name) {
     $variant = $variants[$Name]
     # An advisory model is told the plain "(<Name>)" header; the posted one says advisory (below).
     $header = if ($Reviewer -eq 'auto' -or $isAdvisory) { $briefHeader -replace '\([^()]*\)\s*$', "($($displayNames[$Name]))" } else { $briefHeader }
-    $rules = Get-ReviewOutputRules -Header $header -Worktree $worktree -HeadSha $headSha
-    $prompt = $header + "`n" + $briefRest + $rules
     $fail = { param($reason, $detail, $outage) [pscustomobject]@{ Ok = $false; Name = $Name; Model = $model; Route = $route; Header = $header; Reason = $reason; Detail = $detail; Outage = $outage } }
 
     New-ReviewWorktree $Name
+    # The rules name THIS attempt's worktree, so they are built only once it exists: built before
+    # it (as from T151 until 2026-10-10), the first attempt's rules named no path at all and a later
+    # attempt's named the previous attempt's tree, and a reviewer that checks its tree stopped.
+    $rules = Get-ReviewOutputRules -Header $header -Worktree $worktree -HeadSha $headSha
+    $prompt = $header + "`n" + $briefRest + $rules
     # 2. Run OpenCode in the worktree, watched. `opencode run [message..]` is non-interactive;
     #    The directory it runs in is the worktree (1.x `--dir`, 2.x the process's own working
     #    directory), `--agent` and `--model provider/model` are the documented flags, and the
