@@ -2,12 +2,14 @@
 .SYNOPSIS
     Picks the model the OpenCode dispatcher should run, by quota-tracker's /recommend.
 .DESCRIPTION
-    Quota-tracker (/recommend?tier=heavy|light) ranks the live candidates for one tier. This
-    chooser maps each row's provider to an alias the dispatch script accepts, applies the
-    family's and the orchestrator's exclusions (CLAUDE.md rule 17), and prints the ordered
-    list with reasons. T150's chain-spent substitute uses it too: -SubstituteFamilies drops
-    every named family AND the whole OpenAI family (Luna and Sol), so the substitute is never
-    OpenAI.
+    Quota-tracker (/recommend?tier=heavy|light, the tier being the TASK's weight) ranks the live
+    candidates: every usable row has `rank` (1 = best, with quota, coverage, reserves and
+    reliability already folded in). This chooser follows `rank` as returned and never re-sorts
+    (CLAUDE.md rule 17, the user's specification of 2026-10-10), maps each row's provider and
+    model to an alias the dispatch script accepts, applies this repository's exclusions on top
+    without reordering what is left, and prints the list with rank, outlook, score, covers_pct,
+    reliability and reasons, then `skipped` with why. T150's chain-spent substitute uses it too:
+    -SubstituteFamilies drops the named (failed) families only.
 
     The mapping (per role, the owner's table). DeepSeek is blacklisted (the user's decision of
     2026-10-09): an opencode_go / alibaba row whose model is `deepseek-v4-pro` or
@@ -15,7 +17,8 @@
     of 2026-10-09)", never aliased. Every other row's alias is keyed by BOTH provider AND model
     id (Done-when 4 of #908; closes #906):
       implementer (heavy):
-          minimax                                  → mm-m3
+          minimax + MiniMax-M3 / MiniMax-M2.7      → mm-m3 / mm-m2.7
+          openai + gpt-6.1-sol                     → sol (Sol implements where rank puts it)
           zai                                      → glm
           opencode_go + mimo-v2.6-pro              → mimo-pro
           opencode_go + mimo-v2.6-flash            → mimo-flash
@@ -23,21 +26,21 @@
                                                      never aliased; a DeepSeek row is excluded
                                                      before the map with the blacklist reason)
           claude                                   → Claude Sonnet (the script's exit-3
-                                                     fallback, not an OpenCode alias; it
-                                                     stands in only when nothing else is
-                                                     left, per rule 17)
-          openai                                   → unmapped for implementer (OpenAI never
-                                                     implements; Sol/Luna stay free to review)
-      reviewer (light, Sol's substitutes):
+                                                     fallback, not an OpenCode alias): picked
+                                                     only where `rank` puts it, or when every
+                                                     other row is skipped (rule 17)
+          openai + gpt-5.6-luna                    → never an implementer (Luna is only the
+                                                     simple-PR reviewer)
+      reviewer:
+          minimax + MiniMax-M3 / MiniMax-M2.7      → mm-m3 / mm-m2.7
+          openai + gpt-6.1-sol                     → sol
+          openai + gpt-5.6-luna                    → luna, for a simple PR only (-Tier simple)
           zai                                      → glm
           opencode_go + mimo-v2.6-pro              → mimo-pro
           opencode_go + mimo-v2.6-flash            → mimo-flash
           opencode_go + anything else              → unmapped for reviewer (printed, never
                                                      aliased)
           alibaba                                  → qwen (when it appears)
-          openai                                   → unmapped for reviewer (Luna and Sol
-                                                     reach a review through §3.4's tier
-                                                     rules, never through the ranking)
           claude                                   → unmapped for reviewer (Claude reviews
                                                      only when the main session passes
                                                      -Reviewer <sonnet|opus> explicitly,
@@ -55,15 +58,15 @@
       2. -ExcludeModel &lt;name&gt;: for a reviewer role, drops the implementer's whole
          family (a reviewer is never of the implementer's family, §3.4). -ExcludeModel on
          an implementer role is a no-op; the chain is the implementer's own family.
-      3. claude (sonnet, opus) is dropped while any other candidate has a positive score
-         (rule 17: Claude is the orchestrator). When Claude is the only candidate left,
-         the chooser returns the script's exit-3 fallback.
-      4. The substitute filter (-SubstituteFamilies &lt;name&gt;[,&lt;name&gt;]) drops
-         every named family AND the whole OpenAI family (luna, sol), whether or not they
-         failed. This is T150's chain-spent substitute rule.
-      5. A row whose score is negative is ranked after every non-negative one and is chosen
-         only when nothing else is left. A row whose `usable` is false (the tracker
-         reported it unusable) is skipped.
+      3. Luna is dropped unless the role is reviewer and -Tier is simple (Luna is only the
+         simple-PR reviewer).
+      4. The substitute filter (-SubstituteFamilies &lt;name&gt;[,&lt;name&gt;]) drops the
+         named (failed) families only. This is T150's chain-spent substitute rule.
+      5. Nothing else reorders: Claude stays where `rank` puts it (never dropped because
+         others are tight), an `outlook: tight` row (score 0) is taken in its rank, and
+         nothing is negative any more. A row whose `usable` is false is skipped; `skipped`
+         rows never reach the ranking. When an exclusion removes a row, the next by `rank`
+         is taken; nothing usable exits 3.
 
     Quota-tracker (Done-when 5):
       - The /recommend call is the only network call. -RecommendFile &lt;json&gt; replaces
@@ -77,8 +80,9 @@
       - The service does not answer: exit 3 immediately with the WSL restart command.
         Never fall back to percentages.
 
-    The tier (Done-when 1): -Role implementer always queries &tier=heavy; -Role reviewer
-    always queries &tier=light. -Tier remains accepted and printed so the log records it
+    The tier: -Weight heavy|light, the weight of the task (rule 17). Without -Weight, the
+    old per-role default remains (implementer and pair heavy, reviewer light). -Tier is the
+    PR's review tier (simple, complex, very-complex): it decides Luna's rule and is printed
     (e.g. "very-complex: §3.4 sends this tier to a cold Claude Opus reviewer; the
     ranking is for the OpenCode reviews beside it").
 
@@ -373,10 +377,8 @@ function Resolve-Chosen {
     # 2026-10-10). A row without a rank keeps its place after the ranked ones.
     $recRanking = @(@($Recommend.ranking) | Sort-Object -Stable { if ($null -ne $_.PSObject.Properties['rank'] -and $null -ne $_.rank) { [int]$_.rank } else { [int]::MaxValue } })
     $recSkipped = @($Recommend.skipped)
-    # -SubstituteFamilies: every named family's name plus luna and sol (the OpenAI family).
-    # The dispatch script passes the failed families; we add the OpenAI family explicitly
-    # here so the chooser owns the rule (T150 Done-when 2, the user's amendment of
-    # 2026-10-08).
+    # -SubstituteFamilies: the named (failed) families only. The OpenAI family was added here
+    # from T150 until the user's decision of 2026-10-10 (follow rank).
     $subFamilies = @()
     if ($SubstituteFamilies) {
         # Only the named (failed) families: OpenAI is no longer dropped wholesale (the user's
