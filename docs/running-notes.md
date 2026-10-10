@@ -8,6 +8,7 @@ The user's decision of 2026-10-10, adopting the convention landed on the goal2-a
   - **Why not the worktree root:** the goal2 form excludes the root file in `.git/info/exclude`. In a linked worktree that file lives in the main checkout's shared git directory, which is outside the worktree, so the OpenCode guard denies the write ([#931](https://github.com/diegoami/imperial_conquest_2/issues/931)).
 - **Who creates it:** the implementer, on its first step. A fresh worktree has none, and that is normal.
 - **A rework round** runs in the same worktree (`scripts/external-implement.ps1` resumes the branch there), so it finds the file and continues it. A Claude agent taking over a run is pointed at it by its brief.
+- **It survives the run and the machine:** `scripts/external-implement.ps1` posts it on the task's issue at every exit, whatever the outcome (the user's rule of 2026-10-10), and says so when it is missing. Another machine restores it from the newest such comment.
 - **Never commit it, and never paste it into the PR body:** the PR carries the result; the notes carry the narrative of getting there.
 
 ## Its shape

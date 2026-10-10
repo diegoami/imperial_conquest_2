@@ -58,7 +58,7 @@
     one OpenCode model per role before Claude), the simple tier's reviewer; on its failure the
     script exits 3 and the main session runs a cold Claude Opus reviewer. The main session picks
     the tier (build-process.md §3.4) and passes every other tier's reviewer explicitly: -Reviewer
-    sol (GPT-6 Sol, `openai/gpt-6-sol`) for a complex PR, and one run per reviewer for the Luna
+    sol (GPT-6.1 Sol, `openai/gpt-6.1-sol`) for a complex PR, and one run per reviewer for the Luna
     pair; auto never picks sol. The next model runs ONLY on an infrastructure
     failure: no session
     in time, an idle session, no exit in time, a run that exits without a session, a non-zero
@@ -88,7 +88,7 @@
     2026-10-04); luna is the direct OpenAI route, `openai/gpt-5.6-luna` (GPT-5.6 Luna, on its own
     weekly OpenAI pool; harness_imperial L51, the user's decision of 2026-10-05), via the
     machine's OpenAI login (never a Luna on OpenCode Go: Go's proxied `opencode-go/gpt-6-luna`
-    returned Bad Request in long runs, #553); sol is `openai/gpt-6-sol` on the same login.
+    returned Bad Request in long runs, #553); sol is `openai/gpt-6.1-sol` on the same login.
     DeepSeek is not used (#908: the user's decision of 2026-10-09) and has no entry here.
     An OpenAI run that fails with "The usage limit has been reached" means that model's
     OpenAI quota is out. GPT-5.6 Luna draws on OpenAI's main quota like Sol; when OpenAI is
@@ -126,7 +126,7 @@
     medium rather than high, or light when medium is not needed): glm at low (GLM-5.3 offers only
     low, high and max), mimo-pro at high (MiMo v2.6 Pro offers medium and high; high is the
     tested pick), and sol at low by default and medium with -Effort medium, never higher (the user's
-    decision of 2026-10-03). sol (GPT-6 Sol) is the complex tier's reviewer; luna with glm or
+    decision of 2026-10-03). sol (GPT-6.1 Sol) is the complex tier's reviewer; luna with glm or
     mimo-pro, in two runs, is the Luna pair; glm, then mimo-pro (MiMo v2.6 Pro,
     `opencode-go/mimo-v2.6-pro`), then luna are Sol's substitutes when it cannot review
     (build-process.md §3.4), then qwen (Qwen3.8 Max at low). mimo-flash (MiMo v2.6 Flash) is
@@ -560,7 +560,15 @@ function Invoke-ReviewParserSelfTest {
     foreach ($name in $reviewerSet) {
         $ruleChecks += [pscustomobject]@{ Name = "reviewer $name has a model, a variant and a display name"; Ok = ($models.ContainsKey($name) -and $variants.ContainsKey($name) -and $displayNames.ContainsKey($name)) }
     }
-    $ruleChecks += [pscustomobject]@{ Name = 'sol is openai/gpt-6-sol, shown as Sol'; Ok = ($models['sol'] -eq 'openai/gpt-6-sol' -and $displayNames['sol'] -eq 'Sol') }
+    $ruleChecks += [pscustomobject]@{ Name = 'sol is openai/gpt-6.1-sol, shown as Sol'; Ok = ($models['sol'] -eq 'openai/gpt-6.1-sol' -and $displayNames['sol'] -eq 'Sol') }
+    # The user's rule of 2026-10-10: only a provider outage falls back; the classifier reads
+    # OpenCode's error output, never the model's prose, and a missing key is not an outage.
+    $ruleChecks += [pscustomobject]@{ Name = 'outage: Z.AI quota exhausted (stdout Error: line)'; Ok = [bool](Get-OpenCodeProviderOutage -StdOut "> build`nError: Weekly/Monthly Limit Exhausted. Your limit will reset at 2026-10-13 19:12:59") }
+    $ruleChecks += [pscustomobject]@{ Name = 'outage: OpenAI usage limit on stderr'; Ok = [bool](Get-OpenCodeProviderOutage -StdErr 'Error: The usage limit has been reached') }
+    $ruleChecks += [pscustomobject]@{ Name = 'outage: HTTP 503 on stderr'; Ok = [bool](Get-OpenCodeProviderOutage -StdErr 'Error: 503 Service Unavailable') }
+    $ruleChecks += [pscustomobject]@{ Name = 'not an outage: missing API key (setup flaw)'; Ok = -not (Get-OpenCodeProviderOutage -StdOut 'Error: Missing API key.') }
+    $ruleChecks += [pscustomobject]@{ Name = 'not an outage: a review that mentions a rate limit in prose'; Ok = -not (Get-OpenCodeProviderOutage -StdOut "R1. The retry loop ignores the rate limit (429) header.") }
+    $ruleChecks += [pscustomobject]@{ Name = 'not an outage: an idle kill'; Ok = -not (Get-OpenCodeProviderOutage -StdErr 'session idle for 600 s; killed') }
     # The user's decision of 2026-10-03: Sol at low by default, medium at most, never high.
     $effortSet = @((Get-Command $PSCommandPath).Parameters['Effort'].Attributes |
         Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] } |
@@ -841,7 +849,7 @@ Write-Host "__exit:`$code"
     $bigPrompt = 'Header — "quoted" text.' + "`n" + ('x' * 40000) + "`nThe last line is the instruction."
     $deliveryOk = $true
     foreach ($major in 1, 2) {
-        $runArgs = Get-OpenCodeRunArguments -Major $major -WorkDir 'C:\w' -Agent 'external-reviewer' -Model 'openai/gpt-6-sol' -Variant 'low' -Title 'ic2-pr1-sol-abc'
+        $runArgs = Get-OpenCodeRunArguments -Major $major -WorkDir 'C:\w' -Agent 'external-reviewer' -Model 'openai/gpt-6.1-sol' -Variant 'low' -Title 'ic2-pr1-sol-abc'
         $inv = Get-OpenCodeRunInvocation -RunArguments $runArgs -Prompt $bigPrompt
         if ($inv.StdIn -cne $bigPrompt -or $inv.ArgumentLine.Length -gt 400 -or $inv.ArgumentLine.Contains('xxxx') -or $inv.Delivery -notlike 'stdin*') { $deliveryOk = $false }
     }
@@ -965,7 +973,7 @@ Write-Host "__exit:`$code"
 # via the machine's OpenAI login (issue #575; Go's proxied `opencode-go/gpt-6-luna` upstream
 # returned Bad Request in long runs, #553). Luna at high effort is the review model (one OpenCode
 # model per role before Claude); glm-flash, glm, mimo-pro and mimo-flash stay valid as explicit
-# -Reviewer values, and no default path picks them. sol (GPT-6 Sol, `openai/gpt-6-sol`, the same
+# -Reviewer values, and no default path picks them. sol (GPT-6.1 Sol, `openai/gpt-6.1-sol`, the same
 # OpenAI login) is the complex tier's reviewer and luna plus glm or mimo-pro the Luna pair (the
 # user's decisions of 2026-10-03 and 2026-10-09, build-process.md §3.4); the main session passes
 # them explicitly, so auto stays Luna. DeepSeek is gone (#908).
@@ -973,7 +981,7 @@ $models = @{
     'glm-flash' = 'zai-coding-plan/glm-5.3-flash'
     glm         = 'zai-coding-plan/glm-5.3'
     luna        = 'openai/gpt-5.6-luna'
-    sol         = 'openai/gpt-6-sol'
+    sol         = 'openai/gpt-6.1-sol'
     # MiMo Pro and Flash, on OpenCode Go (#908: the user's decision of 2026-10-09; both tested on
     # implement, fix and review tasks that day). They are in the same family (one of the user-
     # maintained families), so a MiMo implementer excludes both from being reviewers.
@@ -1352,7 +1360,7 @@ function Invoke-ReviewAttempt([string] $Name) {
     $header = if ($Reviewer -eq 'auto' -or $isAdvisory) { $briefHeader -replace '\([^()]*\)\s*$', "($($displayNames[$Name]))" } else { $briefHeader }
     $rules = Get-ReviewOutputRules -Header $header -Worktree $worktree -HeadSha $headSha
     $prompt = $header + "`n" + $briefRest + $rules
-    $fail = { param($reason, $detail) [pscustomobject]@{ Ok = $false; Name = $Name; Model = $model; Route = $route; Header = $header; Reason = $reason; Detail = $detail } }
+    $fail = { param($reason, $detail, $outage) [pscustomobject]@{ Ok = $false; Name = $Name; Model = $model; Route = $route; Header = $header; Reason = $reason; Detail = $detail; Outage = $outage } }
 
     New-ReviewWorktree $Name
     # 2. Run OpenCode in the worktree, watched. `opencode run [message..]` is non-interactive;
@@ -1374,20 +1382,21 @@ function Invoke-ReviewAttempt([string] $Name) {
         # An advisory run that hit the free models' rate limit is skipped, never retried.
         $limit = if ($isAdvisory) { Get-OpenCodeRateLimit $_.Exception.Message }
         if ($limit) { return (& $fail 'rate-limited, skipped' $limit) }
-        return (& $fail $_.Exception.Data['Reason'] $_.Exception.Message)
+        return (& $fail $_.Exception.Data['Reason'] $_.Exception.Message (Get-OpenCodeProviderOutage -StdErr $_.Exception.Message))
     }
     $output = $run.Output
+    $runOutage = Get-OpenCodeProviderOutage -StdErr $run.StdErr -StdOut $run.StdOut
     if ($isAdvisory) {
         $limit = Get-AdvisoryRunSkip $run
         if ($limit) { return (& $fail 'rate-limited, skipped' $limit) }
     }
     # A rejected tool call ends the run (issue #501): exit 0 under 1.x, exit 1 under 2.x. It is named by its
     # path, and checked first so the 2.x exit 1 does not hide it as a plain "exit 1".
-    if ($run.PermissionRejected) { return (& $fail "permission rejected: $($run.PermissionRejected)" "OpenCode's permission guard auto-rejected a tool call ($($run.PermissionRejected)), which ended the run. For external_directory, the reviewer reached outside its worktree. Output:`n$output") }
-    if ($run.ExitCode -ne 0) { return (& $fail "exit $($run.ExitCode)" $output) }
+    if ($run.PermissionRejected) { return (& $fail "permission rejected: $($run.PermissionRejected)" "OpenCode's permission guard auto-rejected a tool call ($($run.PermissionRejected)), which ended the run. For external_directory, the reviewer reached outside its worktree. Output:`n$output" $runOutage) }
+    if ($run.ExitCode -ne 0) { return (& $fail "exit $($run.ExitCode)" $output $runOutage) }
     # OpenCode's own evidence (its stderr warning, the session's recorded agent), never the model's
     # words: a reviewer reading these scripts quotes the warning text (PR #482, 2026-09-28).
-    if ($run.AgentFallback) { return (& $fail 'fell back to the default agent' "OpenCode did not load the external-reviewer agent (it fell back to its default, full-permission agent). Output:`n$output") }
+    if ($run.AgentFallback) { return (& $fail 'fell back to the default agent' "OpenCode did not load the external-reviewer agent (it fell back to its default, full-permission agent). Output:`n$output" $runOutage) }
 
     # 3. Completeness (issue #575). No header line anywhere in the output is the only failure:
     #    the next model runs, or the chain exits 3. Anything with a header is never thrown away: a
@@ -1395,7 +1404,7 @@ function Invoke-ReviewAttempt([string] $Name) {
     #    cut off, is flagged, posted with a note and applied no label (exit 4). A closing keyword is
     #    rewritten rather than thrown on.
     $parsed = Read-ReviewOutput -Text $run.StdOut -Header $header
-    if (-not $parsed.Ok) { return (& $fail $parsed.Reason "The run's output has no header line '$header'. Output:`n$output") }
+    if (-not $parsed.Ok) { return (& $fail $parsed.Reason "The run's output has no header line '$header'. Output:`n$output" $runOutage) }
     $review = $parsed.Review
     # Never discard a review for a closing keyword: rewrite every form and note it (issue #575
     # rework R4). The posting path and the self-test share Remove-ClosingKeywordHash.
@@ -1407,6 +1416,7 @@ function Invoke-ReviewAttempt([string] $Name) {
 $result = $null
 $failures = @()
 $sameCause = $null
+$processStop = $null
 try {
     if ($FixturesDir) { $env:IC2_FIXTURES_DIR = $FixturesDir }
     # An advisory run's OpenCode gets no fixtures variable (restored in the finally below).
@@ -1421,6 +1431,10 @@ try {
         Write-Host "attempt $n/$($chain.Count): $($displayNames[$name]) failed: $($attempt.Reason)"
         Write-Host ((($attempt.Detail -split "`r?`n") | Select-Object -Last 20) -join "`n")
         $failures += $attempt
+        # The user's rule of 2026-10-10: only a provider that does not answer falls back to the
+        # next reviewer. Any other failure stops the chain for diagnosis (exit 6); an advisory
+        # run's rate-limit skip keeps its own path.
+        if (-not $attempt.Outage -and $attempt.Reason -ne 'rate-limited, skipped') { $processStop = $attempt; break }
         # Two consecutive attempts failing with one cause stop the chain (operating-guide §3).
         if ($failures.Count -ge 2 -and (Get-OpenCodeFailureClass $failures[-1].Reason) -eq (Get-OpenCodeFailureClass $failures[-2].Reason)) {
             $sameCause = Get-OpenCodeFailureClass $attempt.Reason
@@ -1498,6 +1512,10 @@ finally {
     if ($isAdvisory -and $null -ne $savedFixtures) { $env:IC2_FIXTURES_DIR = $savedFixtures }
 }
 
+if (-not $result -and $processStop) {
+    [Console]::Error.WriteLine("$($displayNames[$processStop.Name]) failed with a process failure, not a provider outage: $($processStop.Reason). No other reviewer was tried: a review falls back only when its provider does not answer (the user's rule of 2026-10-10). Fix the cause, then re-run. Nothing posted, no label (exit 6). Record it on the wiki's Agent-failures page.")
+    exit 6
+}
 if (-not $result) {
     $noReview = Get-NoReviewExit $failures $isAdvisory $sameCause
     [Console]::Error.WriteLine($noReview.Message)
