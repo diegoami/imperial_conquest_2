@@ -129,12 +129,13 @@ public sealed class GameSessionBattleResultsTests
     /// auto-peace treaty to fire).
     /// </summary>
     /// <remarks>
-    /// T156 (issue #925): the AI's army scorers read the original's <c>FUN_0044a930</c> strength (bowmen
-    /// triple-weighted, no <c>combatPowerWeight</c> per-unit divide), so a state where south's army
-    /// outweighs north's under the old <c>ArmyPower.Compute</c> formula may now sit *behind* it (archers
-    /// gain a factor of three). The fixture boosts <c>south-army-1</c> to a strength under the new
-    /// formula that clears the 100-threshold with margin, so the AI's tree selects
-    /// <c>AttackArmy</c> and the test still exercises "an AI seat attacks on its own initiative".
+    /// T156 (issue #925): the AI's army scorers read the original's <c>FUN_0044a930</c> strength
+    /// (((troops, archers counted three times) / 80) * morale). The shipped south-army-1 (heavy_infantry
+    /// 6,000 at morale 59: 4,425) scored 4,425 * 110 / 21,624 - 1 = 21 against north-army-1 (21,624),
+    /// under the 100 threshold, so the AI would not attack. The fixture's south is heavy_infantry
+    /// 50,000 at morale 59: 50,000 / 80 * 59 = 36,875, which scores 36,875 * 110 / 21,624 - 1 = 186, so
+    /// the AI's tree selects <c>AttackArmy</c> and the test still exercises "an AI seat attacks on its
+    /// own initiative".
     /// </remarks>
     private static GameSession BattleFixture()
     {
@@ -172,17 +173,17 @@ public sealed class GameSessionBattleResultsTests
     private static GameSession TwoAiBattlesFixture()
     {
         var toy = CoreTestbed.Toy;
-        // T156 (issue #925): both south armies now archers 10000 morale 100 so FUN_0044a930 clears the
-        // 100 army-score threshold for both targets (north-army-1's mixed force and north-army-2's
-        // pure light), letting the AI's own attack-army command fire for each within the same end
-        // call -- the shipped heavy 6000 sat below the threshold, so the old assertion couldn't be
-        // satisfied against the new tree.
+        // T156 (issue #925): both south armies are archers 10,000 at morale 100: FUN_0044a930 strength
+        // (10,000 * 3 / 80) * 100 = 37,500. North-army-1 is ((15,000 + 3,500 * 3) / 80) * 68 = 21,624
+        // (score 37,500 * 110 / 21,624 - 1 = 189) and north-army-2 (light 15,000 at morale 68) is
+        // (15,000 / 80) * 68 = 12,716 (score 37,500 * 110 / 12,716 - 1 = 323 from the adjacent tile), so
+        // the AI's own attack-army command fires for each within the same end call. The shipped heavy
+        // 6,000 at morale 59 (4,425) scored 21 and 38 - 1 = 37 against them, under the 100 threshold.
         var southArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with
         {
             X = 4,
             Y = 2,
             Morale = 100,
-            Moves = 1,
             Units = ValueList.Of(new UnitSlot(MercenaryLabel: 1, "archers", Troops: 10_000, Quality: 7, Name: "1st Bowmen")),
         };
 
@@ -191,7 +192,7 @@ public sealed class GameSessionBattleResultsTests
             Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "light_infantry", Troops: 15000, Quality: 6, Name: "2nd Battalion")));
 
         var southArmy2 = new StartingArmy(
-            "south-army-2", "south", X: 1, Y: 0, Morale: 100, Money: 0, SupplyTons: 0, Moves: 1,
+            "south-army-2", "south", X: 1, Y: 0, Morale: 100, Money: 0, SupplyTons: 0, Moves: 5,
             Units: ValueList.Of(new UnitSlot(MercenaryLabel: 1, "archers", Troops: 10_000, Quality: 7, Name: "1st Bowmen")));
 
         var customWorld = toy.World with

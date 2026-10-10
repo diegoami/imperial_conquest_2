@@ -29,28 +29,22 @@ public sealed class PendingPeaceOfferTests
     private static GameSession HumanLosesFixture()
     {
         var toy = CoreTestbed.Toy;
-        // T156: south's army is sized so FUN_0044a930 outweighs the reserve and the post-battle
-        // ArmyPower.Compute leaves the survivors below the reserve, raising the "human lost" peace offer.
-        // The reserve's morale 40 raises its FUN_0044a930 siege above south's, so the AI's tree scores the
-        // reserve below the 100 army-score threshold and marches south to attack north-army-1 instead.
-        // South army: 10,000 archers × 3 (archer weight) / 80 (powerDivisor) × 100 (morale) = 37,500
-        //   (NOT the 15,000 the comment used to claim — the divisor is 80, not 1; the prior
-        //   arithmetic read the armyPower formula as 'troops × archerWeight' and skipped the divisor).
-        // Reserve (heavy_infantry 350k morale 40): 350,000 × 1 (no archer weight) / 80 × 40 = 175,000
-        //   (NOT the 70,000 the comment used to claim — same divisor miss).
-        // South is weaker than the reserve (37,500 < 175,000), so the +1000 weaker-within bonus never
-        // fires. The conclusion (south weaker than the reserve) still holds; the figures are now right.
+        // T156: the AI's tree scores armies with FUN_0044a930, ((troops, archers counted three times) / 80)
+        // * morale. South as archers 10,000 at morale 100 is (10,000 * 3 / 80) * 100 = 37,500; north-army-1
+        // is ((15,000 + 3,500 * 3) / 80) * 68 = 21,624, so south scores it 37,500 * 110 / 21,624 - 1 = 189
+        // (the shipped heavy_infantry 6,000 at morale 59, 4,425, would score 22 - 1 = 21, under the 100
+        // threshold). The reserve (heavy_infantry 350,000 at morale 40: 350,000 / 80 * 40 = 175,000) scores
+        // 37,500 * 110 / 175,000 - 2 = 21, so south attacks north-army-1 and leaves the reserve alone. The
+        // reserve's field power (ArmyPower.Compute: 175,000) stays above south's survivors (archers weight
+        // 40: 5,000), which raises the "human lost" peace offer.
         var reserve = new StartingArmy(
             "north-reserve", "north", X: 2, Y: 1, Morale: 40, Money: 0, SupplyTons: 0, Moves: 5,
             Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "heavy_infantry", Troops: 350_000, Quality: 5, Name: "Reserve")));
-        // T156: south's army is sized so FUN_0044a930 outweighs the reserve and the post-battle
-        // ArmyPower.Compute leaves the survivors below the reserve, raising the "human lost" peace offer.
         var southArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with
         {
             X = 4,
             Y = 2,
             Morale = 100,
-            Moves = 1,
             Units = ValueList.Of(new UnitSlot(MercenaryLabel: 1, "archers", Troops: 10_000, Quality: 7, Name: "1st Bowmen")),
         };
         var world = toy.World with
@@ -92,16 +86,11 @@ public sealed class PendingPeaceOfferTests
     private static GameSession HotseatFixture()
     {
         var toy = CoreTestbed.Toy;
-        // T156: south's army stays shipped (heavy_infantry 6000), but the reserve's morale 1 leaves
-        // its FUN_0044a930 siege at 6000 × 1 / 80 × 1 = 75 (NOT 2400 as the prior comment claimed —
-        // the divisor is 80). South's shipped heavy_infantry 6000 morale 60: 6000 × 1 / 80 × 60 = 4,500
-        // (NOT 1770 — same divisor miss). South is weaker (75 < 4,500), so the +1000 weaker-within
-        // bonus fires, and the AI marches south-army-1 toward the reserve (Bresenham stops at (3, 1);
-        // east-weak at (5, 2) no longer adjacent). Bumping the reserve's morale to 40 raises its siege
-        // to 6000 × 1 / 80 × 40 = 3,000 (NOT 96,000). South stays weaker than the reserve (4,500 >
-        // 3,000 — actually south is *stronger* now, so the comment's logic reverses), no bonus fires, and
-        // the AI skips the reserve. The figures are now arithmetically correct; the scenario's
-        // intent (south weaker at morale 1, south stronger at morale 40) is preserved by the heavies.
+        // T156: the reserve (heavy_infantry 480,000 at morale 40: 480,000 / 80 * 40 = 240,000 under
+        // FUN_0044a930) is the stronger side against south's archers 10,000 at morale 100 (37,500), so
+        // south scores it 37,500 * 110 / 240,000 - 2 = 15, under the 100 threshold, and no +1000 fires (the
+        // reserve is not weaker). North-army-1 ((15,000 + 3,500 * 3) / 80 * 68 = 21,624) scores 189, so south
+        // attacks it and leaves the reserve at its capital.
         var reserve = new StartingArmy(
             "north-reserve", "north", X: 2, Y: 1, Morale: 40, Money: 0, SupplyTons: 0, Moves: 5,
             Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "heavy_infantry", Troops: 480000, Quality: 5, Name: "Reserve")));
@@ -112,7 +101,6 @@ public sealed class PendingPeaceOfferTests
             X = 4,
             Y = 2,
             Morale = 100,
-            Moves = 1,
             Units = ValueList.Of(new UnitSlot(MercenaryLabel: 1, "archers", Troops: 10_000, Quality: 7, Name: "1st Bowmen")),
         };
         var eastNation = new NationDefinition(

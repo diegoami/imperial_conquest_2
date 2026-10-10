@@ -46,37 +46,28 @@ public sealed class PeaceTreatyOfferTests
             },
         };
 
-        // T156 (issue #925): south's army is archers 10000 morale 100, so FUN_0044a930 (the formula the
-        // AI's tree now reads, bowmen triple-weighted, no per-unit combatPowerWeight divide) gives south
-        // a high siege. The reserve's siege is also raised above south's (heavy 350k * morale 40 / 200)
-        // so the AI's tree scores the reserve *below* the 100 army-score threshold -- south is weaker
-        // than the reserve, no +1000 weaker-within bonus fires, and the AI marches past the reserve to
-        // attack north-army-1 instead. The reserve still survives the AI's turn untouched at its
-        // capital, and its much-higher field-battle power (heavy's combatPowerWeight 100 vs archers' 40)
-        // keeps armies(loser=north) > armies(winner=south) for the offer gate.
+        // T156 (issue #925): the AI's tree scores armies with FUN_0044a930, ((troops, archers counted
+        // three times) / 80) * morale, with no per-unit weight. The shipped south-army-1 (heavy_infantry
+        // 6,000, morale 59: 6,000 / 80 * 59 = 4,425) against north-army-1 (((15,000 + 3,500 * 3) / 80)
+        // * 68 = 21,624) scores 4,425 * 110 / 21,624 - 1 = 21, under the 100 threshold, so the tree
+        // would not attack. South as archers 10,000 at morale 100 is (10,000 * 3 / 80) * 100 = 37,500,
+        // which scores 37,500 * 110 / 21,624 - 1 = 189 (1,189 with the +1000 for a weaker enemy within
+        // 7), so south attacks north-army-1. The reserve (heavy_infantry 350,000 at morale 40:
+        // 350,000 / 80 * 40 = 175,000) scores 37,500 * 110 / 175,000 - 2 = 21, so south leaves it at
+        // its capital. In the field battle (ArmyPower.Compute, (sum of weight * troops / 100) / 80 *
+        // morale) the reserve is 175,000 and south's archers 5,000 (weight 40), which keeps
+        // armies(loser=north) > armies(winner=south) for the offer gate.
         var reserve = new StartingArmy(
             "north-reserve", "north", X: 2, Y: 1, Morale: 40, Money: 0, SupplyTons: 0, Moves: 5,
             Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "heavy_infantry", Troops: 350_000, Quality: 5, Name: "Reserve")));
 
         // south-army-1's shipped position (4,4) is not adjacent to north-army-1's (3,2) -- moved to (4,2),
         // one tile from north-army-1, so attack-army's own adjacency gate passes without an extra move.
-        // T156 (issue #925): south's army is heavy_infantry sized so FUN_0044a930 (the formula the
-        // AI's tree now reads, no per-unit combatPowerWeight divide) outweighs the reserve's
-        // (so the tree selects attack), while keeping the post-battle ArmyPower.Compute (which
-        // uses combatPowerWeight and morale) of the survivors low enough that north-army-1's
-        // untouched ArmyPower outweighs them -- the "After defeating you in battle" peace offer
-        // fires. Pre-T156 the shipped 6,000-troop heavy_infantry alone satisfied the older
-        // ArmyPower.Compute ratio gate; the new tree's FUN_0044a930 weight on bowmen means a
-        // slightly larger troop count is the smallest change that satisfies both gates.
-        // T156 (issue #925): Moves = 1 caps the AI's action count on this army -- the new tree's
-        // attack zeros the attacker's moves, so the army has none left for the post-attack march the
-        // tests don't expect.
         var southArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with
         {
             X = 4,
             Y = 2,
             Morale = 100,
-            Moves = 1,
             Units = ValueList.Of(new UnitSlot(MercenaryLabel: 1, "archers", Troops: 10_000, Quality: 7, Name: "1st Bowmen")),
         };
         var customWorld = toy.World with
@@ -281,45 +272,44 @@ public sealed class PeaceTreatyOfferTests
         Assert.Equal(expected, GameSession.PeaceTreatyOfferDialogLines(session.State.NationById("north")!, loser));
     }
 
-/// <summary>
-/// Rework round 1 (B4): the offer's other capture site — <c>PlayUntilOneFullLapOrRepeat</c>'s own call
-/// to <c>CapturePeaceTreatyOfferIfAny</c> (GameSession.cs:644), reached only when a battle resolves
-/// inside an AI seat's own turn rather than from a human-issued command. Before this, deleting that
-/// call left every test green (mutation M3): the only battle any test raised went through
-/// <c>IssueCommand</c>'s own site instead. Here the human only declares war; <c>south</c>'s own AI
-/// turn (on <c>end</c>) then attacks the adjacent, weaker <c>north-army-1</c> on its own initiative and
-/// wins, so the offer this test observes could only have come from the AI-turn capture site.
-/// </summary>
-/// <remarks>
-/// T156 (issue #925): south-army-1's troop count is boosted so the AI's tree-selected army score
-/// clears the 100-threshold under <c>FUN_0044a930</c> (the formula the tree now reads, bowmen
-/// triple-weighted, no per-unit <c>combatPowerWeight</c> divide). Pre-T156 the <c>ArmyPower.Compute</c>
-/// formula let the shipped 6,000-troop heavy_infantry outweigh north's mixed force, so the AI
-/// attacked; the new formula reverses that, and the fixture widens the gap to keep the attack.
-/// </remarks>
-[Fact]
-public void ABattleInsideAnAiSeatsOwnTurn_AlsoCapturesTheOffer()
-{
-    var session = OfferFixture();
-    session.Submit("declare-war south");
-    Assert.Equal(session.Ruleset.Diplomacy.StateCodes.War, session.State.Relations.Get("north", "south"));
+    /// <summary>
+    /// Rework round 1 (B4): the offer's other capture site — <c>PlayUntilOneFullLapOrRepeat</c>'s own call
+    /// to <c>CapturePeaceTreatyOfferIfAny</c> (GameSession.cs:644), reached only when a battle resolves
+    /// inside an AI seat's own turn rather than from a human-issued command. Before this, deleting that
+    /// call left every test green (mutation M3): the only battle any test raised went through
+    /// <c>IssueCommand</c>'s own site instead. Here the human only declares war; <c>south</c>'s own AI
+    /// turn (on <c>end</c>) then attacks the adjacent, weaker <c>north-army-1</c> on its own initiative and
+    /// wins, so the offer this test observes could only have come from the AI-turn capture site.
+    /// </summary>
+    /// <remarks>
+    /// T156 (issue #925): the AI's tree scores armies with <c>FUN_0044a930</c> (see <c>OfferFixture</c>):
+    /// the shipped south-army-1 scored 4,425 * 110 / 21,624 - 1 = 21 against north-army-1, under the
+    /// 100 threshold, so the AI would not attack. The fixture's south is archers 10,000 at morale 100
+    /// (37,500, score 189), so it does.
+    /// </remarks>
+    [Fact]
+    public void ABattleInsideAnAiSeatsOwnTurn_AlsoCapturesTheOffer()
+    {
+        var session = OfferFixture();
+        session.Submit("declare-war south");
+        Assert.Equal(session.Ruleset.Diplomacy.StateCodes.War, session.State.Relations.Get("north", "south"));
 
-    var afterAiTurn = session.Submit("end");
+        var afterAiTurn = session.Submit("end");
 
-    Assert.Contains(
-        afterAiTurn.Lines,
-        l => l.Contains("After defeating you in battle", StringComparison.Ordinal)
-             && l.Contains("willing to end their war with you", StringComparison.Ordinal));
-    Assert.Contains(
-        afterAiTurn.Lines,
-        l => l.Contains("peace-yes", StringComparison.Ordinal) && l.Contains("peace-no", StringComparison.Ordinal));
+        Assert.Contains(
+            afterAiTurn.Lines,
+            l => l.Contains("After defeating you in battle", StringComparison.Ordinal)
+                 && l.Contains("willing to end their war with you", StringComparison.Ordinal));
+        Assert.Contains(
+            afterAiTurn.Lines,
+            l => l.Contains("peace-yes", StringComparison.Ordinal) && l.Contains("peace-no", StringComparison.Ordinal));
 
-    // Rework round 2, R2: the review's own mutation (moving HandleEnd's lapse block to after
-    // HandleEndSeated()) lapses this exact offer before the human ever sees the prompt, leaving every
-    // pre-existing assertion here green -- printing the dialog is not the same as it surviving to be
-    // answered. north is active again now (the loop paused there), so it can still answer it.
-    Assert.Equal("north", session.State.ActiveNationId);
-    var answer = session.Submit("peace-yes");
+        // Rework round 2, R2: the review's own mutation (moving HandleEnd's lapse block to after
+        // HandleEndSeated()) lapses this exact offer before the human ever sees the prompt, leaving every
+        // pre-existing assertion here green -- printing the dialog is not the same as it surviving to be
+        // answered. north is active again now (the loop paused there), so it can still answer it.
+        Assert.Equal("north", session.State.ActiveNationId);
+        var answer = session.Submit("peace-yes");
         Assert.Contains(
             answer.Lines, l => l.Contains("diplomacy.accept-peace-treaty accepted", StringComparison.Ordinal));
         Assert.Equal(
@@ -347,14 +337,10 @@ public void ABattleInsideAnAiSeatsOwnTurn_AlsoCapturesTheOffer()
             },
         };
 
-        // T156 (issue #925): south's army is archers 10000 morale 100, so FUN_0044a930 (the formula the
-        // AI's tree now reads, bowmen triple-weighted, no per-unit combatPowerWeight divide) gives south
-        // a high siege. The reserve's siege is also raised above south's (heavy 350k * morale 40 / 200)
-        // so the AI's tree scores the reserve *below* the 100 army-score threshold -- south is weaker
-        // than the reserve, no +1000 weaker-within bonus fires, and the AI marches past the reserve to
-        // attack north-army-1 instead. The reserve still survives the AI's turn untouched at its
-        // capital, and its much-higher field-battle power (heavy's combatPowerWeight 100 vs archers' 40)
-        // keeps armies(loser=north) > armies(winner=south) for the offer gate.
+        // T156 (issue #925): south as archers 10,000 at morale 100 (strength 37,500 under FUN_0044a930)
+        // attacks north-army-1 (21,624: score 189) and leaves the reserve (350,000 heavy_infantry at
+        // morale 40: 175,000, score 21) alone; see OfferFixture for the arithmetic. The reserve's
+        // field power (175,000) against south's (5,000) keeps armies(loser=north) > armies(winner=south).
         var reserve = new StartingArmy(
             "north-reserve", "north", X: 2, Y: 1, Morale: 40, Money: 0, SupplyTons: 0, Moves: 5,
             Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "heavy_infantry", Troops: 350_000, Quality: 5, Name: "Reserve")));
@@ -364,7 +350,6 @@ public void ABattleInsideAnAiSeatsOwnTurn_AlsoCapturesTheOffer()
             X = 4,
             Y = 2,
             Morale = 100,
-            Moves = 1,
             Units = ValueList.Of(new UnitSlot(MercenaryLabel: 1, "archers", Troops: 10_000, Quality: 7, Name: "1st Bowmen")),
         };
 
@@ -420,14 +405,10 @@ public void ABattleInsideAnAiSeatsOwnTurn_AlsoCapturesTheOffer()
             },
         };
 
-        // T156 (issue #925): south's army is archers 10000 morale 100, so FUN_0044a930 (the formula the
-        // AI's tree now reads, bowmen triple-weighted, no per-unit combatPowerWeight divide) gives south
-        // a high siege. The reserve's siege is also raised above south's (heavy 350k * morale 40 / 200)
-        // so the AI's tree scores the reserve *below* the 100 army-score threshold -- south is weaker
-        // than the reserve, no +1000 weaker-within bonus fires, and the AI marches past the reserve to
-        // attack north-army-1 instead. The reserve still survives the AI's turn untouched at its
-        // capital, and its much-higher field-battle power (heavy's combatPowerWeight 100 vs archers' 40)
-        // keeps armies(loser=north) > armies(winner=south) for the offer gate.
+        // T156 (issue #925): south as archers 10,000 at morale 100 (strength 37,500 under FUN_0044a930)
+        // attacks north-army-1 (21,624: score 189) and leaves the reserve (350,000 heavy_infantry at
+        // morale 40: 175,000, score 21) alone; see OfferFixture for the arithmetic. The reserve's
+        // field power (175,000) against south's (5,000) keeps armies(loser=north) > armies(winner=south).
         var reserve = new StartingArmy(
             "north-reserve", "north", X: 2, Y: 1, Morale: 40, Money: 0, SupplyTons: 0, Moves: 5,
             Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "heavy_infantry", Troops: 350_000, Quality: 5, Name: "Reserve")));
@@ -437,7 +418,6 @@ public void ABattleInsideAnAiSeatsOwnTurn_AlsoCapturesTheOffer()
             X = 4,
             Y = 2,
             Morale = 100,
-            Moves = 1,
             Units = ValueList.Of(new UnitSlot(MercenaryLabel: 1, "archers", Troops: 10_000, Quality: 7, Name: "1st Bowmen")),
         };
 
@@ -640,14 +620,10 @@ public void ABattleInsideAnAiSeatsOwnTurn_AlsoCapturesTheOffer()
 
         var debtAdjacentUnity = customRuleset.Economy.DebtUnityThreshold + customRuleset.Combat.UnitySwing - 5;
 
-        // T156 (issue #925): south's army is archers 10000 morale 100, so FUN_0044a930 (the formula the
-        // AI's tree now reads, bowmen triple-weighted, no per-unit combatPowerWeight divide) gives south
-        // a high siege. The reserve's siege is also raised above south's (heavy 350k * morale 40 / 200)
-        // so the AI's tree scores the reserve *below* the 100 army-score threshold -- south is weaker
-        // than the reserve, no +1000 weaker-within bonus fires, and the AI marches past the reserve to
-        // attack north-army-1 instead. The reserve still survives the AI's turn untouched at its
-        // capital, and its much-higher field-battle power (heavy's combatPowerWeight 100 vs archers' 40)
-        // keeps armies(loser=north) > armies(winner=south) for the offer gate.
+        // T156 (issue #925): south as archers 10,000 at morale 100 (strength 37,500 under FUN_0044a930)
+        // attacks north-army-1 (21,624: score 189) and leaves the reserve (350,000 heavy_infantry at
+        // morale 40: 175,000, score 21) alone; see OfferFixture for the arithmetic. The reserve's
+        // field power (175,000) against south's (5,000) keeps armies(loser=north) > armies(winner=south).
         var reserve = new StartingArmy(
             "north-reserve", "north", X: 2, Y: 1, Morale: 40, Money: 0, SupplyTons: 0, Moves: 5,
             Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "heavy_infantry", Troops: 350_000, Quality: 5, Name: "Reserve")));
@@ -657,7 +633,6 @@ public void ABattleInsideAnAiSeatsOwnTurn_AlsoCapturesTheOffer()
             X = 4,
             Y = 2,
             Morale = 100,
-            Moves = 1,
             Units = ValueList.Of(new UnitSlot(MercenaryLabel: 1, "archers", Troops: 10_000, Quality: 7, Name: "1st Bowmen")),
         };
 
