@@ -100,47 +100,27 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
 
 ## Model choice
 
-17. **The quota tracker chooses the models, as a pair** (harness_imperial L50; the user's decisions of
-    2026-10-08 and 2026-10-10). The tier is **the weight of the task**, not the role: read
-    `curl -s 'localhost:8765/recommend?tier=heavy'` for a heavy task or `tier=light` for a light one.
-    Its `pair` names **both** roles: `pair.implementer` implements and `pair.reviewer` reviews.
-    **Follow `rank`; don't re-sort.** Every usable row has `rank` (1 = best), which already includes
-    quota, coverage, reserves and each model's reliability. `outlook` is `spare` (room until its reset;
-    `score` = spare calls per day) or `tight` (forecast to run short before its reset at today's pace;
-    `score` is 0); `covers_pct` is the share of its forecast demand it can still meet. `reliability`
-    (`factor` 0-1, with a `note` for a low one; models with little history are on probation at 0.9)
-    is already in the ranking: never apply it again. Nothing is negative any more. `skipped` lists the
-    **only** rows that cannot be used, each with why; `how_to_use` repeats these rules. **Never rank
-    providers by `headroom_pct` or `pace_pct`.** Where build-process §3.4 or the operating guide name a
-    model for a role, the pair and `rank` decide; the review tier still sets how many reviews a PR
-    gets. Our exclusions apply on top, without reordering what is left; when one removes a row, take
-    the next by `rank`:
-    - Claude is the orchestrator: use it for a delegated task only where `rank` puts it, or when every
-      other row is in `skipped`. Never because the other rows are tight.
-    - `outlook: tight` (score 0) still has quota now; take the first row by `rank` whatever its
-      outlook. Only `skipped` rows are unusable.
-    - `gpt-5.6-luna` is only the simple-PR reviewer: it never implements and never reviews a harder PR.
-    - A reviewer is never of the implementer's family.
-    - **DeepSeek is never used**, on any route (the user's decision of 2026-10-09). OpenCode Go's
-      heavy and light models are `mimo-pro` (`opencode-go/mimo-v2.6-pro`) and `mimo-flash`
-      (`opencode-go/mimo-v2.6-flash`), and MiMo is a family of its own.
-    - Alibaba is never used unless the user asks (the user's decision of 2026-10-09). `/recommend`
-      never ranks it; with the user's say-so, `-AllowAlibaba` or `-Route alibaba`.
+### Rule 17 — Choosing models
 
-    Map each row's provider and model to our alias (openai + gpt-6.1-sol → `sol`, minimax +
-    MiniMax-M3 → `mm-m3`), pass the choice explicitly (`-Model`/`-Reviewer`, or the Agent call's
-    model) and log the chosen row's `reasons`, `rank`, `outlook`, `covers_pct` and
-    `reliability.factor` on the task's issue or in the PR body. Right after a restart `note` says the
-    statistics are loading and the ranking is empty: wait and retry, never fall back to percentages.
-    If the service does not answer, run `systemctl --user restart quota-tracker`, wait and retry; if
-    it still fails, tell the user instead of guessing. Model ids come from the provider's live list
-    (`opencode models <provider>`), never memory. Heavy models run at `medium` effort rather than
-    `high`, or lighter when medium is not needed (the user's decision of 2026-10-05).
-    `pwsh scripts/Choose-Model.ps1 -Role pair -Weight heavy|light` applies all of this and prints
-    rank, alias, provider, model, outlook, score, covers_pct, reliability and reasons per row, and
-    `skipped` with why. Every `external-implement.ps1` run takes the explicit `-Model` so chosen
-    (`sol` included): `-Model auto` was removed
-    ([#893](https://github.com/diegoami/imperial_conquest_2/issues/893), the user's request of 2026-10-09).
+1. Ask the quota service with the tier the work needs:
+   - `tier=heavy`: implementation work, and hard reviews
+   - `tier=light`: small tasks, and simple reviews
+   e.g. `curl.exe -s "http://localhost:8765/recommend?tier=heavy"`
+2. A task that needs an implementer and a reviewer: one call. The implementer is
+   `pair.implementer` and the reviewer is `pair.reviewer` (same tier as the call; for a simple
+   review of heavy work, add `&review_tier=light`). Run each one's `command`.
+3. A review on its own (the implementation was done earlier): add
+   `&exclude_family=<the implementer's family>` and use `pick`.
+4. Any other single model: use `pick`.
+5. If a chosen model can't run, use the next row of `ranking` (in `rank` order). For a
+   reviewer chosen in rule 2, skip rows with the same `family` as the implementer.
+6. Nothing else decides which model to use: no lists, chains, exclusions, score thresholds
+   or percentages of your own. Every row in `ranking` is usable; rows in `skipped` are not.
+7. Record the rows you used and their `reasons` with the run.
+8. If the service doesn't answer: run `systemctl --user restart quota-tracker` in WSL and
+   retry. If it still doesn't answer, tell the owner; don't choose a model yourself.
+
+For a failed run, rule 5's "can't run" means a provider outage under rule 21, not a process failure.
 
 18. **The light OpenAI model, and the reviewer `luna`, is GPT-5.6 Luna** (harness_imperial L51) on
     the direct OpenAI route: `openai/gpt-5.6-luna`, effort `high`. It draws on OpenAI's main quota like
@@ -150,16 +130,7 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
     GPT-6 Luna (`openai/gpt-6-luna`), which is never the reviewer. Never use a Luna on OpenCode Go (`opencode-go/…`): a proxy behind it returns
     `Bad Request` in long agent loops.
 
-20. **Use the providers' pricing windows deliberately, not by chance** (the owner's decision of
-    2026-10-06). Alibaba runs only when the user asks (rule 17); when they do, for a Qwen
-    route (`ali-qwen-*`; `-Route alibaba` or a `qwen*` model), read
-    `curl -s localhost:8765/quota/alibaba | jq .pricing`: when `discount_now` is false, prefer
-    another entry for a long run, or start it after `next_change_at`. Alibaba's GLM (`ali-glm`) has
-    no discount, so the time does not matter for it. Likewise read
-    `curl -s localhost:8765/quota/zai | jq .pricing`: when `peak_now` is true (Mon–Fri 14:00–18:00
-    UTC+8; a promotion keeps it off-peak until the tracker's `promo_off_peak_until`, 2026-10-07 16:00
-    UTC, so peaks start on 8 October, as the owner's note says), `glm-5.3` costs 3× quota, so prefer another provider for a
-    long run then (not `ali-glm` unless the user asks). If the tracker does not answer, run as usual; never block on it.
+20. **Pricing windows are accounted for by the quota tracker.** They are not a second model-choice rule.
 
 ---
 
