@@ -29,10 +29,11 @@
     or has no quota for it, refuses the run (exit 1). When the model fails, or OpenCode is not
     installed, the script exits 3 ("OpenCode unavailable: ...") unless the substitute below
     runs, and the main session takes the next /recommend row (operating-guide §3).
-    A substitute runs ONLY on an infrastructure failure (no session in time, an idle session, no
-    exit in time, a run that exits without a session, a non-zero exit, the fallback-to-default-agent
-    guard, a tool call the permission guard rejected -- issue #501), and only when the failed run
-    left nothing     behind: no new commit, locally or on origin, and no new PR. Otherwise the script
+    A substitute runs ONLY when the provider did not answer (quota, rate limit, a 5xx, no network:
+    Get-OpenCodeProviderOutage on stderr; the user's rule of 2026-10-10). Every other failure (no
+    session in time, an idle session, no exit in time, a non-zero exit, the fallback-to-default-agent
+    guard, a rejected tool call, an exception that is not OpenCode's) stops with exit 6, the work
+    kept and the running notes posted. And a substitute runs only when the failed run left nothing behind: no new commit, locally or on origin, and no new PR. Otherwise the script
     exits 1 and the main session decides. A failed attempt's uncommitted work is never thrown
     away (T151 Done-when 1, #854): before the reset that readies the tree for the next model, it
     is saved as rendered/attempts/<model>-<yyyyMMdd-HHmmss>.patch in the worktree (git-ignored,
@@ -976,7 +977,7 @@ foreach ($m in $chain) {
         # OpenCode's own evidence (its stderr warning, the session's recorded agent), never the model's words.
         elseif ($run.AgentFallback) { $reason = 'fell back to the default agent' }
     } catch {
-        # Only OpenCode's own failures advance the chain; anything else is rethrown (exit 1).
+        # Only OpenCode's own failures go on to the outage check below; anything else stops (exit 6).
         if (-not (Test-OpenCodeInfraFailure $_)) { Stop-ProcessFailure -Model $m -Reason "not an OpenCode failure: $($_.Exception.Message)" -SessionId $null }
         $reason = $_.Exception.Data['Reason']; $output = $_.Exception.Message
     }
