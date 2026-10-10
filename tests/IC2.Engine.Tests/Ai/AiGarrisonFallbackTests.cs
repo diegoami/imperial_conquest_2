@@ -1,4 +1,5 @@
 using IC2.Engine.Ai;
+using IC2.Engine.Battle.Commands;
 using IC2.Engine.Core;
 using IC2.Engine.Economy.Commands;
 using IC2.Engine.Model;
@@ -85,22 +86,6 @@ public sealed class AiGarrisonFallbackTests
         var outcome = AiTurn.Run(state, Ruleset, world, seen, SplitMix64Rng.ForStream(1UL, "ai.turn"), sink);
         return (outcome, seen);
     }
-
-    /// <summary>
-    /// A controlled 32-by-32 plain world with explicit tile types. <c>code 2</c> is plain and
-    /// <see cref="IC2.Engine.Model.TileType.PassableByArmies"/>; every other cell is treated as
-    /// impassable by <see cref="IC2.Engine.Model.TerrainGrid.Decode"/> + <c>TileTypeByCode</c>. The
-    /// placeholders below are filled by each test's own shape: cities and armies go where the test
-    /// wants them, the rest is plain.
-    /// </summary>
-    private static World EmptyPlain { get; } = AiScriptedStates.World with
-    {
-        Width = 32,
-        Height = 32,
-        Terrain = new TerrainGrid(
-            TerrainEncoding.RunLength,
-            ValueList.Of(new TerrainRun(2, 32 * 32))),
-    };
 
     private static (AiTurnOutcome Outcome, ReplacingDispatch Seen) DriveIn(
         GameState state,
@@ -196,154 +181,179 @@ public sealed class AiGarrisonFallbackTests
         Assert.Equal(0, outcome.CommandsRejected);
     }
 
+    // ---- Done-when 3, fourth and fifth rows: the Hazards' reachable fallback, through a full AI turn ----
+
+    private const int Sea = 0;
+
     /// <summary>
-    /// T156 (issue #925) Done-when 3 fourth row: the Hazards' reachable-fallback chain still moves the
-    /// army when both the resupply destinations and the garrison fallback are unreachable, with at
-    /// least one distinct tile attainable this turn. The plain world wraps the army with own cities
-    /// on every Bresenham line so that <see cref="AiArmyTargetTree.ResolveResupplyCity"/> and
-    /// <see cref="AiArmyTargetTree.GarrisonFallback"/> both see unreachable destinations, and the
-    /// Hazards' emergency tier <see cref="AiArmyTargetTree.EmergencyMoveDestination"/> picks the one
-    /// open tile (3, 3) is still walking-distance from. Mutating the test by stubbing the helper
-    /// out flips its outcome; the in-test assertion on the helper's return below is the do-not-
-    /// weaken pin.
+    /// North's army at (5, 5) with 3 moves inside a ring of sea tiles at Chebyshev distance 2: its eight
+    /// neighbours are plain, and every straight line out of the ring crosses a sea tile. North's capital
+    /// (20, 5) and its supply-starved city (5, 18) lie outside, so the resupply candidate and the
+    /// garrison fallback (the capital alone: the army is 15 tiles from it) are both unreachable.
+    /// </summary>
+    private static (GameState State, World World) InsideARing()
+    {
+        var world = AiReachableFallbackTests.Terrain(cells => AiReachableFallbackTests.SeaRing(cells, 5, 5, 2));
+        var army = AiReachableFallbackTests.Army(5, 5, moves: 3);
+        var state = AiReachableFallbackTests.State(
+            [
+                AiReachableFallbackTests.City("n-cap", Us, 20, 5, supply: 5_000),
+                AiReachableFallbackTests.City("r-city", Us, 5, 18, supply: 0),
+                AiReachableFallbackTests.City("s-cap", Them, 30, 30),
+            ],
+            army);
+        return (state, world);
+    }
+
+    private static void AssertEveryResupplyAndGarrisonCandidateIsUnreachable(GameState state, World world)
+    {
+        var view = new AiView(state, Ruleset, world, Us);
+        var army = state.ArmyById(ArmyId)!;
+        Assert.Null(AiArmyTargetTree.ResolveResupplyCity(view, army, atWar: false).City);
+        Assert.Null(AiArmyTargetTree.GarrisonFallback(view, army, state));
+    }
+
+    /// <summary>
+    /// The fourth row, before the turn's first command: the tree can give the army no command, the
+    /// emergency move names the attainable tile nearest the army's nearest own city, (4, 6) (the three
+    /// southern neighbours tie at distance 12 from (5, 18) and 1 from the army, and X ascending
+    /// decides), and the army moves there that turn. Fails when the emergency move is removed.
     /// </summary>
     [Fact]
     public void An_army_with_every_resupply_and_garrison_candidate_unreachable_moves_to_the_emergency_tile()
     {
-        // Plain 16-by-16 world. Army at (5, 5). The four cardinal neighbours are own cities; the
-        // (5, 5) -> (3, 3) Bresenham line is (5, 5), (4, 4), (3, 3) — plain, no cities on the path —
-        // the only candidate the emergency tier offers is a tile south-west of the army where the
-        // walker can land this turn. We test the helper chain directly rather than the full turn: the
-        // helper values are what the post-execution fallback consults to pick its command.
-        var cities = new[]
-        {
-            City("n-cap", Us, 5, 4) with { SupplyTons = 5_000 },
-            City("e-wall", Us, 6, 5) with { SupplyTons = 5_000 },
-            City("s-wall", Us, 5, 6) with { SupplyTons = 5_000 },
-            City("w-wall", Us, 4, 5) with { SupplyTons = 5_000 },
-            City("far", Us, 0, 0),
-        };
-        var army = CaptureFixtures.Army(ArmyId, Us, 5, 5, 60, CaptureFixtures.Unit("light_infantry", 10_000))
-            with { Moves = 9, Money = 500, SupplyTons = 0 };
-        var state = AiScriptedStates.WithActiveSeat(
-            BattleCommandTestbed.StateWith(
-                [
-                    CaptureFixtures.Nation(Us, treasury: 1_000, capitalCityId: "n-cap") with { Personality = AiScriptedStates.DefaultPersonality },
-                    CaptureFixtures.Nation(Them, capitalCityId: "far") with { Personality = AiScriptedStates.DefaultPersonality },
-                ],
-                cities,
-                [army]),
-            Us);
+        var (state, world) = InsideARing();
+        AssertEveryResupplyAndGarrisonCandidateIsUnreachable(state, world);
+        var view = new AiView(state, Ruleset, world, Us);
+        Assert.Equal((4, 6), AiArmyTargetTree.EmergencyMoveDestination(view, state.ArmyById(ArmyId)!, state));
 
-        var view = new AiView(state, Ruleset, EmptyPlain, Us);
+        var (outcome, seen) = DriveIn(state, world, (command, _) => command);
 
-        // Garrison fallback: n-cap is at (5, 4), distance 1 — IsInsideCity, excluded. Then the
-        // nearest-of-any-owner branch picks the nearest reachable. (0, 0) is reachable (line
-        // (5, 5), (4, 4), (3, 3), (2, 2), (1, 1), (0, 0) — plain), so GarrisonFallback is non-null.
-        // We exclude (0, 0) by turning "far" into a south capital and parking the army well past
-        // its garrison distance, then removing the north wall so capital-only fires (only one
-        // candidate). When that candidate is itself blocked, GarrisonFallback returns null.
-        // That geometry is reproduced below by extending the wall to enclose the capital
-        // and replacing the (0, 0) far city with another blocker.
-        var capitalOnlyArmy = army with { Y = 15 }; // 11 tiles from n-cap — outside GarrisonFallbackCapitalDistance
-        // Just verify (with the original layout) the third-tier helper picks something reachable
-        // even when the helpers above it don't.
-        var garrison = AiArmyTargetTree.GarrisonFallback(view, army, state);
-        var resupply = AiArmyTargetTree.ResolveResupplyCity(view, army, atWar: false);
-        var emergency = AiArmyTargetTree.EmergencyMoveDestination(view, army, state);
-
-        Assert.NotNull(emergency);
-        var emergencyTile = emergency!.Value;
-        Assert.NotEqual((5, 5), (emergencyTile.X, emergencyTile.Y));
-        Assert.True(emergencyTile.X >= 0 && emergencyTile.X < 16);
-        Assert.True(emergencyTile.Y >= 0 && emergencyTile.Y < 16);
-        // The reachable candidate must be on land, not the army's tile, and within the army's
-        // remaining moves (the helper's own contract — see IsEmergencyReachable).
-        Assert.True(
-            AiArmyTargetTree.IsReachable(
-                view, army, emergencyTile.X, emergencyTile.Y)
-            || BresenhamReachableWithoutCityBlock(view, army, emergencyTile.X, emergencyTile.Y));
-
-        // The garrison + resupply helpers may or may not be null in this geometry (a (0, 0) Bresenham
-        // is clear), so the test asserts only that EmergencyMoveDestination is non-null — the
-        // assertion above is the do-not-weaken pin on the chain's third tier.
-        _ = garrison;
-        _ = resupply;
-    }
-
-    private static bool BresenhamReachableWithoutCityBlock(
-        AiView view, ArmyState army, int x, int y)
-    {
-        // A loose re-check: the Bresenham path's interior is army-passable and has no city/fleet/
-        // other-army marker. (IsReachable exempts the target, so the test's destination check is
-        // the helper's own output.) Used only as a "the tile is plausible" smoke test — the helper
-        // already enforces the invariant.
-        var path = BresenhamPath.Trace(
-            new GridPoint(army.X, army.Y), new GridPoint(x, y));
-        for (var i = 1; i < path.Count - 1; i++)
-        {
-            if (!view.IsArmyPassable(path[i])) return false;
-        }
-        return true;
+        var army = outcome.State.ArmyById(ArmyId)!;
+        Assert.Equal((4, 6), (army.X, army.Y));
+        var firstMove = MovesOf(seen).First();
+        Assert.Equal((4, 6), (firstMove.X, firstMove.Y));
+        Assert.Contains(outcome.Log, line => line.Contains("emergency move", StringComparison.Ordinal));
+        Assert.DoesNotContain(outcome.Log, line => line.Contains("no reachable move", StringComparison.Ordinal));
+        Assert.Equal(0, outcome.CommandsRejected);
     }
 
     /// <summary>
-    /// T156 (issue #925) Done-when 3 fifth row: a boxed-in army — moves left, every resupply and
-    /// garrison candidate unreachable, and no emergency tile the walker can reach this turn — does
-    /// not move and the log records <c>"no reachable move"</c>. The plain world wraps the army with
-    /// its own four cardinal cities (matching the Hazards' "boxed in" shape), and the three cities
-    /// immediately beyond on every Chebyshev diagonal, so every Bresenham line out of the army's
-    /// tile passes through a city. With moves=1 the walker can only reach the army's own adjacent
-    /// tiles, which are all cities: the emergency tier's tile list is empty and it returns null.
+    /// The fourth row, after the turn's first command: the command the tree chose is swapped for an
+    /// accepted order that leaves the army's tile as it was, so the driver's post-execution fallback
+    /// runs, finds no garrison destination, and moves the army to the emergency tile. Fails when the
+    /// driver's emergency tier is removed.
     /// </summary>
     [Fact]
-    public void A_boxed_in_army_does_not_move_and_logs_no_reachable_move()
+    public void The_post_execution_fallback_takes_the_emergency_move_when_no_garrison_destination_is_reachable()
     {
-        // Army at (5, 5). Every cell within Chebyshev distance 1 (the 8 neighbours) is one of our
-        // cities, and the cells at distance 2 land on a city via Bresenham. With moves = 1, no tile
-        // besides the army's own (excluded by the helpers) is walk-reachable — the Hazard's boxed-in
-        // shape.
-        var cities = new[]
+        var (state, world) = InsideARing();
+        AssertEveryResupplyAndGarrisonCandidateIsUnreachable(state, world);
+
+        var swapped = false;
+        var (outcome, seen) = DriveIn(state, world, (command, _) =>
         {
-            City("n", Us, 5, 4) with { SupplyTons = 5_000 },
-            City("ne", Us, 6, 4) with { SupplyTons = 5_000 },
-            City("e", Us, 6, 5) with { SupplyTons = 5_000 },
-            City("se", Us, 6, 6) with { SupplyTons = 5_000 },
-            City("s", Us, 5, 6) with { SupplyTons = 5_000 },
-            City("sw", Us, 4, 6) with { SupplyTons = 5_000 },
-            City("w", Us, 4, 5) with { SupplyTons = 5_000 },
-            City("nw", Us, 4, 4) with { SupplyTons = 5_000 },
-            // South capital far enough away that the garrison capital-only branch fires (the army is
-            // outside GarrisonFallbackCapitalDistance from it). We use a FOREIGN capital so the
-            // resupply scorer excludes it (not at war → no foreign resupply). Foreign has no rule
-            // about "between" because the test removes every non-(5,5) plain cell on the line.
-            City("s-cap", Them, 0, 0),
+            if (command is MoveArmyCommand move && move.ArmyId == ArmyId && !swapped)
+            {
+                swapped = true;
+                return new MoveArmyCommand(move.IssuingNationId, ArmyId, 5, 5);
+            }
+
+            return command;
+        });
+
+        Assert.True(swapped, "the tree must have offered the army a march to swap");
+        var moves = MovesOf(seen).ToList();
+        Assert.Equal(2, moves.Count);
+        Assert.Equal((5, 5), (moves[0].X, moves[0].Y));
+        Assert.Equal((4, 6), (moves[1].X, moves[1].Y));
+        var army = outcome.State.ArmyById(ArmyId)!;
+        Assert.Equal((4, 6), (army.X, army.Y));
+        Assert.Contains(outcome.Log, line => line.Contains("emergency move moved", StringComparison.Ordinal));
+        Assert.DoesNotContain(outcome.Log, line => line.Contains("no reachable move", StringComparison.Ordinal));
+        Assert.Equal(0, outcome.CommandsRejected);
+    }
+
+    /// <summary>
+    /// The fifth row: a boxed-in army. All eight neighbours of (5, 5) are sea, so with moves left there
+    /// is no distinct tile to reach. The turn runs, the army does not move, and the log says
+    /// <c>no reachable move</c> (written once). Fails when the log line is removed.
+    /// </summary>
+    [Fact]
+    public void A_boxed_in_army_does_not_move_and_the_turn_logs_no_reachable_move()
+    {
+        var world = AiReachableFallbackTests.Terrain(cells => AiReachableFallbackTests.SeaRing(cells, 5, 5, 1));
+        var army = AiReachableFallbackTests.Army(5, 5, moves: 3);
+        var state = AiReachableFallbackTests.State(
+            [
+                AiReachableFallbackTests.City("n-cap", Us, 20, 5, supply: 5_000),
+                AiReachableFallbackTests.City("r-city", Us, 5, 18, supply: 0),
+                AiReachableFallbackTests.City("s-cap", Them, 30, 30),
+            ],
+            army);
+        AssertEveryResupplyAndGarrisonCandidateIsUnreachable(state, world);
+        var view = new AiView(state, Ruleset, world, Us);
+        Assert.Null(AiArmyTargetTree.EmergencyMoveDestination(view, state.ArmyById(ArmyId)!, state));
+
+        var (outcome, seen) = DriveIn(state, world, (command, _) => command);
+
+        Assert.Empty(MovesOf(seen));
+        var after = outcome.State.ArmyById(ArmyId)!;
+        Assert.Equal((5, 5), (after.X, after.Y));
+        Assert.Equal(1, outcome.Log.Count(line => line.Contains("no reachable move for a1", StringComparison.Ordinal)));
+        Assert.Equal(0, outcome.CommandsRejected);
+    }
+
+    /// <summary>
+    /// The fifth row's other path: the army does have a command (an attack on the weak army beside it,
+    /// the only land neighbour), the command is swapped for an accepted order that leaves its tile as it
+    /// was, and the driver's post-execution fallback finds neither a garrison destination nor an
+    /// emergency tile (the sea ring and the enemy army fill every neighbour). The army stays and the log
+    /// says <c>no reachable move</c>. Fails when that log line is removed from the driver.
+    /// </summary>
+    [Fact]
+    public void A_boxed_in_army_found_after_its_command_also_logs_no_reachable_move()
+    {
+        var world = AiReachableFallbackTests.Terrain(cells =>
+        {
+            AiReachableFallbackTests.SeaRing(cells, 5, 5, 1);
+            cells[(5 * 32) + 6] = 2;
+        });
+        var army = AiReachableFallbackTests.Army(5, 5, moves: 3);
+        var enemy = CaptureFixtures.Army("e1", Them, 6, 5, 60, CaptureFixtures.Unit("light_infantry", 1_000))
+            with { Moves = 3 };
+        var baseState = AiReachableFallbackTests.State(
+            [
+                AiReachableFallbackTests.City("n-cap", Us, 20, 5, supply: 5_000),
+                AiReachableFallbackTests.City("r-city", Us, 5, 18, supply: 0),
+                AiReachableFallbackTests.City("s-cap", Them, 30, 30),
+            ],
+            army);
+        var state = baseState with
+        {
+            Armies = ValueList.From(baseState.Armies.Append(enemy)),
+            Relations = baseState.Relations.WithRelation(Us, Them, Ruleset.Diplomacy.StateCodes.War),
         };
-        var army = CaptureFixtures.Army(ArmyId, Us, 5, 5, 60, CaptureFixtures.Unit("light_infantry", 10_000))
-            with { Moves = 1, Money = 500 };
-        var state = AiScriptedStates.WithActiveSeat(
-            BattleCommandTestbed.StateWith(
-                [
-                    CaptureFixtures.Nation(Us, treasury: 1_000, capitalCityId: "n") with { Personality = AiScriptedStates.DefaultPersonality },
-                    CaptureFixtures.Nation(Them, capitalCityId: "s-cap") with { Personality = AiScriptedStates.DefaultPersonality },
-                ],
-                cities,
-                [army]),
-            Us);
+        AssertEveryResupplyAndGarrisonCandidateIsUnreachable(state, world);
+        var view = new AiView(state, Ruleset, world, Us);
+        Assert.Null(AiArmyTargetTree.EmergencyMoveDestination(view, state.ArmyById(ArmyId)!, state));
 
-        var view = new AiView(state, Ruleset, EmptyPlain, Us);
+        var swapped = false;
+        var (outcome, seen) = DriveIn(state, world, (command, _) =>
+        {
+            if (command is AttackArmyCommand attack && attack.AttackerArmyId == ArmyId && !swapped)
+            {
+                swapped = true;
+                return new MoveArmyCommand(attack.IssuingNationId, ArmyId, 5, 5);
+            }
 
-        // Boxed-in: GarrisonFallback cannot find any reachable city to march at, and
-        // EmergencyMoveDestination's tile list is empty — the Hazards' third tier returns null,
-        // which the AiTurn post-execution fallback reports as "no reachable move" and leaves the
-        // army parked on its own tile. To guarantee both helpers return null we place the army at
-        // moves = 1 (EmergencyMoveDestination's checks key off Chebyshev ball size; with only one
-        // remaining move the walker has nothing walk-reachable to pick), and surround it with eight
-        // own cities (every Bresenham line out of the (5, 5)-box therefore passes one of them).
-        var capitalOnlyArmy = CaptureFixtures.Army(ArmyId, Us, 5, 5, 60,
-            CaptureFixtures.Unit("light_infantry", 10_000)) with { Moves = 1, Money = 500 };
+            return command;
+        });
 
-        Assert.Null(AiArmyTargetTree.GarrisonFallback(view, capitalOnlyArmy, state));
-        Assert.Null(AiArmyTargetTree.EmergencyMoveDestination(view, capitalOnlyArmy, state));
+        Assert.True(swapped, "the tree must have chosen to attack the army beside it");
+        var after = outcome.State.ArmyById(ArmyId)!;
+        Assert.Equal((5, 5), (after.X, after.Y));
+        Assert.Equal(1, outcome.Log.Count(line => line.Contains("no reachable move for a1", StringComparison.Ordinal)));
+        Assert.Equal(0, outcome.CommandsRejected);
     }
 }
