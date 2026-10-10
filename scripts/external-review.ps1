@@ -220,6 +220,11 @@ param(
     [ValidateSet('mimo-pro', 'mimo-flash', 'glm-flash', 'glm', 'luna', 'sol', 'qwen', 'qwen-flash', 'mm-m3', 'mm-m2.7', 'ali-glm', 'sonnet', 'opus')] [ValidateScript({ if ($_ -match 'deepseek') { throw "DeepSeek is not used (the user's decision of 2026-10-09)" }; $true })] [string] $ExcludeModel,
     [hashtable] $ModelIds,
     [ValidateSet('low', 'medium')] [string] $Effort,
+    # Resume an interrupted review instead of starting over (the user's decision of 2026-10-10,
+    # CLAUDE.md rule 22): continue OpenCode session -ResumeSession in its kept worktree
+    # -ResumeWorktree, which must still be at the PR head. One reviewer only; posting and labels as usual.
+    [string] $ResumeSession,
+    [string] $ResumeWorktree,
     [ValidateSet('auto', 'go', 'zai', 'alibaba')] [string] $Route = 'auto'
 )
 
@@ -566,6 +571,10 @@ function Invoke-ReviewParserSelfTest {
     $treeAt = $selfSrc.IndexOf('New-ReviewWorktree $Name', $attemptAt)
     $rulesAt = $selfSrc.IndexOf('Get-ReviewOutputRules -Header $header', $attemptAt)
     $ruleChecks += [pscustomobject]@{ Name = 'the output rules are built after New-ReviewWorktree, so they name this attempt''s tree'; Ok = ($attemptAt -ge 0 -and $treeAt -gt $attemptAt -and $rulesAt -gt $treeAt) }
+    # Resume (CLAUDE.md rule 22): --session replaces --title; a new run keeps --title.
+    $resumeArgs = Get-OpenCodeRunArguments -Major 1 -WorkDir 'C:\w' -Agent 'external-reviewer' -Model 'openai/gpt-6.1-sol' -Title 'ic2-pr1-sol-abc' -SessionId 'ses_x'
+    $newArgs = Get-OpenCodeRunArguments -Major 1 -WorkDir 'C:\w' -Agent 'external-reviewer' -Model 'openai/gpt-6.1-sol' -Title 'ic2-pr1-sol-abc'
+    $ruleChecks += [pscustomobject]@{ Name = 'a resumed run passes --session and no --title; a new run passes --title'; Ok = (($resumeArgs -join ' ') -match '--session ses_x' -and ($resumeArgs -notcontains '--title') -and ($newArgs -contains '--title') -and ($newArgs -notcontains '--session')) }
     $ruleChecks += [pscustomobject]@{ Name = 'sol is openai/gpt-6.1-sol, shown as Sol'; Ok = ($models['sol'] -eq 'openai/gpt-6.1-sol' -and $displayNames['sol'] -eq 'Sol') }
     # The user's rule of 2026-10-10: only a provider outage falls back; the classifier reads
     # OpenCode's error output, never the model's prose, and a missing key is not an outage.
@@ -1213,6 +1222,8 @@ function Get-ReviewWorktreePath {
 }
 
 if ($SelfTest) { exit (Invoke-ReviewParserSelfTest) }
+if ($ResumeSession -and -not $ResumeWorktree) { throw '-ResumeSession needs -ResumeWorktree (the interrupted attempt''s kept worktree).' }
+if ($ResumeSession -and $Reviewer -eq 'auto') { throw '-ResumeSession needs the explicit -Reviewer that ran the interrupted session.' }
 if (-not $Pr) { throw '-Pr is required (or use -SelfTest).' }
 if (-not $BriefFile) { throw '-BriefFile is required.' }
 
@@ -1337,7 +1348,7 @@ if ($WhatIf) {
     foreach ($name in $chain) {
         Write-Host "would attempt: $($displayNames[$name])"
         $null = Invoke-OpenCodeWatched -WhatIf -Agent 'external-reviewer' -Model $resolved[$name].Model -Variant $variants[$name] -Prompt $brief `
-            -WorkDir (Get-Location).Path -Title "ic2-pr$Pr-$name"
+            -WorkDir $(if ($ResumeWorktree) { $ResumeWorktree } else { (Get-Location).Path }) -Title "ic2-pr$Pr-$name" -ResumeSessionId $ResumeSession
     }
     exit 0
 }
@@ -1377,12 +1388,24 @@ function Invoke-ReviewAttempt([string] $Name) {
     $header = if ($Reviewer -eq 'auto' -or $isAdvisory) { $briefHeader -replace '\([^()]*\)\s*$', "($($displayNames[$Name]))" } else { $briefHeader }
     $fail = { param($reason, $detail, $outage) [pscustomobject]@{ Ok = $false; Name = $Name; Model = $model; Route = $route; Header = $header; Reason = $reason; Detail = $detail; Outage = $outage } }
 
-    New-ReviewWorktree $Name
+    if ($ResumeSession) {
+        # The interrupted attempt's tree, kept by T151: reused so the reviewer finds its own state.
+        $script:worktree = (Resolve-Path -LiteralPath $ResumeWorktree).Path
+        $at = (git -C $script:worktree rev-parse HEAD).Trim()
+        if ($at -ne $headSha) { throw "-ResumeWorktree $($script:worktree) is at $at, not the PR head $headSha; start a new review instead." }
+        Write-Host "worktree: $($script:worktree) at $headSha (resumed, session $ResumeSession)"
+    } else {
+        New-ReviewWorktree $Name
+    }
     # The rules name THIS attempt's worktree, so they are built only once it exists: built before
     # it (as from T151 until 2026-10-10), the first attempt's rules named no path at all and a later
     # attempt's named the previous attempt's tree, and a reviewer that checks its tree stopped.
     $rules = Get-ReviewOutputRules -Header $header -Worktree $worktree -HeadSha $headSha
     $prompt = $header + "`n" + $briefRest + $rules
+    if ($ResumeSession) {
+        # The session already holds the brief: tell it why it stopped and to finish the same review.
+        $prompt = "$header`nYour review was interrupted by the watcher (a single step ran past its idle limit, not a fault of yours). Continue the SAME review from where you stopped, in this same worktree. First restore anything you left mutated (git checkout -- <file>, then a clean rebuild), and remove any probe file you added. Then finish, and end with your complete final review exactly as the output rules below require: it replaces anything you wrote before." + $rules
+    }
     # 2. Run OpenCode in the worktree, watched. `opencode run [message..]` is non-interactive;
     #    The directory it runs in is the worktree (1.x `--dir`, 2.x the process's own working
     #    directory), `--agent` and `--model provider/model` are the documented flags, and the
@@ -1394,7 +1417,7 @@ function Invoke-ReviewAttempt([string] $Name) {
     # The helper appends a random token to the title, so the session found is this run's.
     try {
         $run = Invoke-OpenCodeWatched -Agent 'external-reviewer' -Model $model -Variant $variant -Prompt $prompt -WorkDir $worktree -Title "ic2-pr$Pr-$Name" `
-            -StartupTimeoutSec $StartupTimeoutSec -TotalTimeoutSec $TotalTimeoutSec -IdleTimeoutSec $IdleTimeoutSec
+            -StartupTimeoutSec $StartupTimeoutSec -TotalTimeoutSec $TotalTimeoutSec -IdleTimeoutSec $IdleTimeoutSec -ResumeSessionId $ResumeSession
     } catch {
         # Only OpenCode's own failures (not found, no session, idle, no exit, exited without a session)
         # advance the chain. Anything else is a defect here: rethrown, exit non-zero, not 3.
