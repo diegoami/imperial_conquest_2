@@ -212,7 +212,17 @@ public partial class AiPhaseBattleCheck : Node
     private static GameSession ToyBattleSession()
     {
         var toy = GameDataContext.Repository.Resolve("toy-3city");
-        var southArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with { X = 4, Y = 2 };
+        // T156 scenario input (troops): the tree's army score is the original's FUN_0044a930 strength
+        // (archers tripled, no per-unit divide), so south's shipped force no longer scores 100 against
+        // north-army-1. A bigger south force restores the situation this check exists for: the AI's own
+        // turn attacks and fights one battle.
+        var southArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with
+        {
+            X = 4,
+            Y = 2,
+            Units = ValueList.Of(
+                new UnitSlot(0, "heavy_infantry", Troops: 50_000, Quality: 6, Name: "1st Guards Battalion")),
+        };
         var world = toy.World with
         {
             StartingArmies = ValueList.From(
@@ -294,6 +304,16 @@ public partial class AiPhaseBattleCheck : Node
     /// <see cref="LoserFate.Scattered"/>. Same unit type as the defender, so the power gap is the troops
     /// and morale gap alone.
     /// </summary>
+    /// <remarks>
+    /// T156 scenario input (troops, 7,000 to 10,000): the army target tree scores a target by strength
+    /// ratio, and a defender that scatters after the first battle is, at 30% of its old strength, a
+    /// better target for the next carthage army than the weak army beside it, so that army marched after
+    /// the scattered one instead of attacking. With 7,000 troops the run fought one battle. At 10,000 the
+    /// first battle (army-2 against army-0) is a rout, nothing scatters to be chased, and each carthage
+    /// army attacks the weak army beside it: two battles against rome and one against seleucid. Measured
+    /// in the engine: 9,400 to 9,800 troops fought one battle, 10,000 and 10,200 fought three (the first
+    /// a destroyed loser, the other two scattered), and 10,500 and above fought three destroyed losers.
+    /// </remarks>
     private static StartingArmy AttackerArmy(StartingArmy army, int x, int y) => army with
     {
         X = x,
@@ -303,7 +323,7 @@ public partial class AiPhaseBattleCheck : Node
     };
 
     private static ValueList<UnitSlot> CarthageCheckUnits() =>
-        ValueList.Of(new UnitSlot(0, "light_infantry", Troops: 7000, Quality: 6, Name: "Check Warband"));
+        ValueList.Of(new UnitSlot(0, "light_infantry", Troops: 10_000, Quality: 6, Name: "Check Warband"));
 
     // ---- helpers ----
 

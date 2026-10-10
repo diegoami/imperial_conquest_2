@@ -128,10 +128,30 @@ public sealed class GameSessionBattleResultsTests
     /// that test's own ruleset override (irrelevant here — this only needs a battle to resolve, not the
     /// auto-peace treaty to fire).
     /// </summary>
+    /// <remarks>
+    /// T156 (issue #925): the AI's army scorers read the original's <c>FUN_0044a930</c> strength
+    /// (((troops, archers counted three times) / 80) * morale). The shipped south-army-1 (heavy_infantry
+    /// 6,000 at morale 59: 4,425) scored 4,425 * 110 / 21,624 - 1 = 21 against north-army-1 (21,624),
+    /// under the 100 threshold, so the AI would not attack. The fixture's south is heavy_infantry
+    /// 50,000 at morale 59: 50,000 / 80 * 59 = 36,875, which scores 36,875 * 110 / 21,624 - 1 = 186, so
+    /// the AI's tree selects <c>AttackArmy</c> and the test still exercises "an AI seat attacks on its
+    /// own initiative".
+    /// </remarks>
     private static GameSession BattleFixture()
     {
         var toy = CoreTestbed.Toy;
-        var southArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with { X = 4, Y = 2 };
+        var southArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with
+        {
+            X = 4,
+            Y = 2,
+            Units = ValueList.Of(
+                new UnitSlot(
+                    MercenaryLabel: 0,
+                    UnitTypeId: "heavy_infantry",
+                    Troops: 50_000,
+                    Quality: 6,
+                    Name: "1st Guards Battalion")),
+        };
         var customWorld = toy.World with
         {
             StartingArmies = ValueList.From(
@@ -153,15 +173,27 @@ public sealed class GameSessionBattleResultsTests
     private static GameSession TwoAiBattlesFixture()
     {
         var toy = CoreTestbed.Toy;
-        var southArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with { X = 4, Y = 2 };
+        // T156 (issue #925): both south armies are archers 10,000 at morale 100: FUN_0044a930 strength
+        // (10,000 * 3 / 80) * 100 = 37,500. North-army-1 is ((15,000 + 3,500 * 3) / 80) * 68 = 21,624
+        // (score 37,500 * 110 / 21,624 - 1 = 189) and north-army-2 (light 15,000 at morale 68) is
+        // (15,000 / 80) * 68 = 12,716 (score 37,500 * 110 / 12,716 - 1 = 323 from the adjacent tile), so
+        // the AI's own attack-army command fires for each within the same end call. The shipped heavy
+        // 6,000 at morale 59 (4,425) scored 21 and 38 - 1 = 37 against them, under the 100 threshold.
+        var southArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with
+        {
+            X = 4,
+            Y = 2,
+            Morale = 100,
+            Units = ValueList.Of(new UnitSlot(MercenaryLabel: 1, "archers", Troops: 10_000, Quality: 7, Name: "1st Bowmen")),
+        };
 
         var northArmy2 = new StartingArmy(
             "north-army-2", "north", X: 0, Y: 0, Morale: 68, Money: 0, SupplyTons: 0, Moves: 5,
             Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "light_infantry", Troops: 15000, Quality: 6, Name: "2nd Battalion")));
 
         var southArmy2 = new StartingArmy(
-            "south-army-2", "south", X: 1, Y: 0, Morale: 59, Money: 0, SupplyTons: 0, Moves: 5,
-            Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "heavy_infantry", Troops: 6000, Quality: 6, Name: "2nd Guards Battalion")));
+            "south-army-2", "south", X: 1, Y: 0, Morale: 100, Money: 0, SupplyTons: 0, Moves: 5,
+            Units: ValueList.Of(new UnitSlot(MercenaryLabel: 1, "archers", Troops: 10_000, Quality: 7, Name: "1st Bowmen")));
 
         var customWorld = toy.World with
         {

@@ -234,7 +234,7 @@ Nations:
 
 Armies:
   north-army-1 (Northern League) @ (4,3): 18500 troops in 2 units, supply 0t (0%), morale 66, moves 9
-  south-army-1 (Southern League) @ (3,1): 6000 troops in 1 units, supply 48t (80%), morale 65, moves 10
+  south-army-1 (Southern League) @ (4,4): 6000 troops in 1 units, supply 48t (80%), morale 65, moves 10
 
 Cities:
   arx "Arx" @ (2,1), owner Northern League: supply 1493t, loyalty 90, fortification 60%
@@ -271,7 +271,7 @@ Nations:
 
 Armies:
   north-army-1 (Northern League) @ (4,3): 18500 troops in 2 units, supply 100t (54%), morale 66, moves 9
-  south-army-1 (Southern League) @ (3,1): 6000 troops in 1 units, supply 48t (80%), morale 65, moves 10
+  south-army-1 (Southern League) @ (4,4): 6000 troops in 1 units, supply 48t (80%), morale 65, moves 10
 
 Cities:
   arx "Arx" @ (2,1), owner Northern League: supply 1493t, loyalty 90, fortification 60%

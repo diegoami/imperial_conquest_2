@@ -494,15 +494,21 @@ public partial class ScreensCheck : Node
     private static GameSession TwoAiBattlesReadySession()
     {
         var toy = GameDataContext.Repository.Resolve("toy-3city");
-        var southArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with { X = 4, Y = 2 };
+        var southArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with
+        {
+            X = 4,
+            Y = 2,
+            Morale = 100,
+            Units = ValueList.Of(new UnitSlot(MercenaryLabel: 1, "archers", Troops: 10_000, Quality: 7, Name: "1st Bowmen")),
+        };
 
         var northArmy2 = new StartingArmy(
             "north-army-2", "north", X: 0, Y: 0, Morale: 68, Money: 0, SupplyTons: 0, Moves: 5,
             Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "light_infantry", Troops: 15000, Quality: 6, Name: "2nd Battalion")));
 
         var southArmy2 = new StartingArmy(
-            "south-army-2", "south", X: 1, Y: 0, Morale: 59, Money: 0, SupplyTons: 0, Moves: 5,
-            Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "heavy_infantry", Troops: 6000, Quality: 6, Name: "2nd Guards Battalion")));
+            "south-army-2", "south", X: 1, Y: 0, Morale: 100, Money: 0, SupplyTons: 0, Moves: 5,
+            Units: ValueList.Of(new UnitSlot(MercenaryLabel: 1, "archers", Troops: 10_000, Quality: 7, Name: "1st Bowmen")));
 
         var customWorld = toy.World with
         {

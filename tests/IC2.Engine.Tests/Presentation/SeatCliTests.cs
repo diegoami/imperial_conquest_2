@@ -236,7 +236,7 @@ public sealed class SeatCliTests
     /// line; the old transcript only ever produced it because the pre-T82 code let an AI ally directly
     /// with a human seat, which is precisely the bug this task removes. The test's own claim (prelude
     /// news reaches the first <c>end</c>'s footer) does not depend on which news line proves it, so this
-    /// asserts a line the prelude reliably writes instead: "Sidon (Ptolemaic) falls to Seleucid." is the
+    /// asserts a line the prelude reliably writes instead: "Seleucid destroys army of Ptolemaic." (T156: the army target tree changed which events the prelude writes; Sidon's capture no longer falls in it) is the
     /// prelude's own last entry on this fixed seed (confirmed directly against
     /// <c>session.State.NewsLog.Slots</c> before the first <c>end</c> is even submitted) and reappears in
     /// that first <c>end</c>'s own footer only because <c>_pendingNewsBaseline</c> carries it forward --
@@ -252,14 +252,13 @@ public sealed class SeatCliTests
         // prelude-produced, not something the first `end` itself goes on to write.
         Assert.Contains(
             session.State.NewsLog.Slots,
-            s => s.Text.Contains("Sidon", StringComparison.Ordinal)
-                && s.Text.Contains("falls to Seleucid.", StringComparison.Ordinal));
+            s => s.Text.Contains("Seleucid destroys army of Ptolemaic.", StringComparison.Ordinal));
 
         var output = session.Submit("end");
 
         Assert.Contains(
             output.Lines,
-            l => l.Contains("Sidon", StringComparison.Ordinal) && l.Contains("falls to Seleucid.", StringComparison.Ordinal));
+            l => l.Contains("Seleucid destroys army of Ptolemaic.", StringComparison.Ordinal));
     }
 
     // ---- Done-when 3: all-AI without --seat is watch mode ----
@@ -1255,10 +1254,10 @@ public sealed class SeatCliTests
         // 1's own genuine news used to include an alliance-formation line on this fixed seed, but that
         // line is now structurally impossible -- an AI never writes an alliance directly to a human seat
         // (bug #357's own fix), and Rome is the human here. This checks a real, non-filler city-capture
-        // line the unpadded seat-rome golden also shows for round 1 on this same fixed seed instead; #386
+        // line the unpadded seat-rome golden also shows for round 1 on this same fixed seed instead (T156: the tree's new choices replaced the earlier city-capture line with a battle line); #386
         // requires the mechanism under test to still fail when removed, which the baseline-restoring fix
         // above (R1(b)) is what actually proves, mutation-tested below.
-        Assert.Contains(output.Lines, line => line.Contains("falls to Seleucid.", StringComparison.Ordinal));
+        Assert.Contains(output.Lines, line => line.Contains("Seleucid destroys army of Ptolemaic.", StringComparison.Ordinal));
 
         // Rework round 2, R1(b): restored. The buffer's own oldest slots -- 13 filler, appended after
         // the 27 real DAT-history entries -- must not survive into the footer once _pendingNewsBaseline

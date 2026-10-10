@@ -43,7 +43,7 @@ public sealed class AiBlockedMarchProposalsTests
     [Fact]
     public void A_march_whose_first_step_holds_an_enemy_city_is_not_proposed()
     {
-        // The march under test is to "target-city" at (7,4); Bresenham's first step is (2,2), which
+        // The march under test is to "target-city" at (6,2); Bresenham's first step is (2,2), which
         // is the enemy city "blocker-city". The rationale format is "march at {city.Id} ...", so
         // "target-city" names the proposal and "blocker-city" names nothing — the assertion must
         // be on the proposal's own city id. The previous wording asserted on "blocker-city", which
@@ -55,7 +55,7 @@ public sealed class AiBlockedMarchProposalsTests
         Assert.DoesNotContain(
             candidates,
             c => c.Kind == AiCandidate.ApproachKind
-                 && c.Rationale.Contains("target-city", StringComparison.Ordinal));
+                 && MarchesAtTargetCity(c));
     }
 
     [Fact]
@@ -66,7 +66,7 @@ public sealed class AiBlockedMarchProposalsTests
         Assert.DoesNotContain(
             candidates,
             c => c.Kind == AiCandidate.ApproachKind
-                 && c.Rationale.Contains("target-city", StringComparison.Ordinal));
+                 && MarchesAtTargetCity(c));
     }
 
     [Fact]
@@ -77,7 +77,7 @@ public sealed class AiBlockedMarchProposalsTests
         Assert.DoesNotContain(
             candidates,
             c => c.Kind == AiCandidate.ApproachKind
-                 && c.Rationale.Contains("target-city", StringComparison.Ordinal));
+                 && MarchesAtTargetCity(c));
     }
 
     /// <summary>
@@ -93,7 +93,7 @@ public sealed class AiBlockedMarchProposalsTests
         var march = Assert.Single(
             candidates,
             c => c.Kind == AiCandidate.ApproachKind
-                 && c.Rationale.Contains("target-city", StringComparison.Ordinal));
+                 && MarchesAtTargetCity(c));
         Assert.True(march.Score > 0, $"the unobstructed march should score positive, got {march.Score}");
     }
 
@@ -112,7 +112,7 @@ public sealed class AiBlockedMarchProposalsTests
         Assert.DoesNotContain(
             candidates,
             c => c.Kind == AiCandidate.ApproachKind
-                 && c.Rationale.Contains("target-city", StringComparison.Ordinal));
+                 && MarchesAtTargetCity(c));
     }
 
     /// <summary>
@@ -136,8 +136,17 @@ public sealed class AiBlockedMarchProposalsTests
             candidates,
             c => c.Kind == AiCandidate.ApproachKind
                  && c.SubjectId == "ours-army"
-                 && c.Rationale.Contains("target-city", StringComparison.Ordinal));
+                 && MarchesAtTargetCity(c));
     }
+
+    /// <summary>
+    /// True when <paramref name="candidate"/> is a move of <c>ours-army</c> to the target city's tile,
+    /// <c>(6,2)</c>. T156: the tree's march rationale names coordinates rather than the city id, so the
+    /// destination is read off the candidate's own command.
+    /// </summary>
+    private static bool MarchesAtTargetCity(AiCandidate candidate) =>
+        candidate.Commands.OfType<IC2.Engine.Movement.Commands.MoveArmyCommand>().Any(
+            m => m.ArmyId == "ours-army" && m.X == 6 && m.Y == 2);
 
     private static List<AiCandidate> MarchCandidates(GameState state)
     {
@@ -156,7 +165,7 @@ public sealed class AiBlockedMarchProposalsTests
 
     /// <summary>
     /// One own army at <c>(1,2)</c>, an enemy city at <c>(2,2)</c> on Bresenham's first step toward
-    /// <c>(7,4)</c>, and the target city at <c>(7,4)</c>. The own capital at <c>(5,5)</c> sits
+    /// <c>(6,2)</c>, and the target city at <c>(6,2)</c>. The own capital at <c>(5,5)</c> sits
     /// inland and unthreatened so no reinforce candidate competes. Both nations are at war so the
     /// <c>target-city</c> march is the natural approach pick.
     /// </summary>
@@ -179,15 +188,15 @@ public sealed class AiBlockedMarchProposalsTests
                 "blocker-city", "Blocker", 2, 2, Other, Other, loyalty: 90, fortificationCode: 100,
                 populationThousands: 100, maxPopulationThousands: 100, tribute: 10),
             CaptureFixtures.City(
-                "target-city", "Target", 7, 4, Other, Other, loyalty: 90, fortificationCode: 100,
-                populationThousands: 200, maxPopulationThousands: 200, tribute: 10),
+                "target-city", "Target", 6, 2, Other, Other, loyalty: 90, fortificationCode: 100,
+                populationThousands: 20, maxPopulationThousands: 20, tribute: 10),
         };
 
         var armies = new[]
         {
             CaptureFixtures.Army(
                     "ours-army", Acting, 1, 2, morale: 60,
-                    CaptureFixtures.Unit("light_infantry", 15000))
+                    CaptureFixtures.Unit("light_infantry", 60000))
                 with { Moves = 8 },
         };
 
@@ -221,19 +230,19 @@ public sealed class AiBlockedMarchProposalsTests
                 "ours", "Ours", 5, 5, Acting, Acting, loyalty: 90, fortificationCode: 100,
                 populationThousands: 200, maxPopulationThousands: 200, tribute: 10),
             CaptureFixtures.City(
-                "target-city", "Target", 7, 4, Other, Other, loyalty: 90, fortificationCode: 100,
-                populationThousands: 200, maxPopulationThousands: 200, tribute: 10),
+                "target-city", "Target", 6, 2, Other, Other, loyalty: 90, fortificationCode: 100,
+                populationThousands: 20, maxPopulationThousands: 20, tribute: 10),
         };
 
         var armies = new[]
         {
             CaptureFixtures.Army(
                     "ours-army", Acting, 1, 2, morale: 60,
-                    CaptureFixtures.Unit("light_infantry", 15000))
+                    CaptureFixtures.Unit("light_infantry", 60000))
                 with { Moves = 8 },
             CaptureFixtures.Army(
                     "blocker-army", Other, 2, 2, morale: 60,
-                    CaptureFixtures.Unit("light_infantry", 5000))
+                    CaptureFixtures.Unit("light_infantry", 400000))
                 with { Moves = 5, CoveredTileCode = 2 },
         };
 
@@ -266,15 +275,15 @@ public sealed class AiBlockedMarchProposalsTests
                 "ours", "Ours", 5, 5, Acting, Acting, loyalty: 90, fortificationCode: 100,
                 populationThousands: 200, maxPopulationThousands: 200, tribute: 10),
             CaptureFixtures.City(
-                "target-city", "Target", 7, 4, Other, Other, loyalty: 90, fortificationCode: 100,
-                populationThousands: 200, maxPopulationThousands: 200, tribute: 10),
+                "target-city", "Target", 6, 2, Other, Other, loyalty: 90, fortificationCode: 100,
+                populationThousands: 20, maxPopulationThousands: 20, tribute: 10),
         };
 
         var armies = new[]
         {
             CaptureFixtures.Army(
                     "ours-army", Acting, 1, 2, morale: 60,
-                    CaptureFixtures.Unit("light_infantry", 15000))
+                    CaptureFixtures.Unit("light_infantry", 60000))
                 with { Moves = 8 },
         };
 
@@ -292,7 +301,7 @@ public sealed class AiBlockedMarchProposalsTests
     }
 
     /// <summary>
-    /// Bresenham from <c>(1,2)</c> to <c>(7,4)</c> puts the first step at <c>(2,2)</c>; that tile is
+    /// Bresenham from <c>(1,2)</c> to <c>(6,2)</c> puts the first step at <c>(2,2)</c>; that tile is
     /// plain terrain with no occupant, so the march at <c>"target-city"</c> is unobstructed. A unit
     /// test of the unobstructed path is the regression control for the new occupancy gate.
     /// </summary>
@@ -312,15 +321,15 @@ public sealed class AiBlockedMarchProposalsTests
                 "ours", "Ours", 5, 5, Acting, Acting, loyalty: 90, fortificationCode: 100,
                 populationThousands: 200, maxPopulationThousands: 200, tribute: 10),
             CaptureFixtures.City(
-                "target-city", "Target", 7, 4, Other, Other, loyalty: 90, fortificationCode: 100,
-                populationThousands: 200, maxPopulationThousands: 200, tribute: 10),
+                "target-city", "Target", 6, 2, Other, Other, loyalty: 90, fortificationCode: 100,
+                populationThousands: 20, maxPopulationThousands: 20, tribute: 10),
         };
 
         var armies = new[]
         {
             CaptureFixtures.Army(
                     "ours-army", Acting, 1, 2, morale: 60,
-                    CaptureFixtures.Unit("light_infantry", 15000))
+                    CaptureFixtures.Unit("light_infantry", 60000))
                 with { Moves = 8 },
         };
 
@@ -350,7 +359,7 @@ public sealed class AiBlockedMarchProposalsTests
         var cities = new[]
         {
             // "ours" at (5,5) is the own capital; the own blocker-city sits at (2,2) on Bresenham's
-            // first step toward "target-city" at (7,4). All are active-owned.
+            // first step toward "target-city" at (6,2). All are active-owned.
             CaptureFixtures.City(
                 "ours", "Ours", 5, 5, Acting, Acting, loyalty: 90, fortificationCode: 100,
                 populationThousands: 200, maxPopulationThousands: 200, tribute: 10),
@@ -358,15 +367,15 @@ public sealed class AiBlockedMarchProposalsTests
                 "blocker-city", "Blocker", 2, 2, Acting, Acting, loyalty: 90, fortificationCode: 100,
                 populationThousands: 100, maxPopulationThousands: 100, tribute: 10),
             CaptureFixtures.City(
-                "target-city", "Target", 7, 4, Other, Other, loyalty: 90, fortificationCode: 100,
-                populationThousands: 200, maxPopulationThousands: 200, tribute: 10),
+                "target-city", "Target", 6, 2, Other, Other, loyalty: 90, fortificationCode: 100,
+                populationThousands: 20, maxPopulationThousands: 20, tribute: 10),
         };
 
         var armies = new[]
         {
             CaptureFixtures.Army(
                     "ours-army", Acting, 1, 2, morale: 60,
-                    CaptureFixtures.Unit("light_infantry", 15000))
+                    CaptureFixtures.Unit("light_infantry", 60000))
                 with { Moves = 8 },
         };
 
@@ -400,15 +409,15 @@ public sealed class AiBlockedMarchProposalsTests
                 "ours", "Ours", 5, 5, Acting, Acting, loyalty: 90, fortificationCode: 100,
                 populationThousands: 200, maxPopulationThousands: 200, tribute: 10),
             CaptureFixtures.City(
-                "target-city", "Target", 7, 4, Other, Other, loyalty: 90, fortificationCode: 100,
-                populationThousands: 200, maxPopulationThousands: 200, tribute: 10),
+                "target-city", "Target", 6, 2, Other, Other, loyalty: 90, fortificationCode: 100,
+                populationThousands: 20, maxPopulationThousands: 20, tribute: 10),
         };
 
         var armies = new[]
         {
             CaptureFixtures.Army(
                     "ours-army", Acting, 1, 2, morale: 60,
-                    CaptureFixtures.Unit("light_infantry", 15000))
+                    CaptureFixtures.Unit("light_infantry", 60000))
                 with { Moves = 8 },
             // The blocking army belongs to Acting (its id is "blocker-army-ours", distinct from
             // "ours-army"), so the IsProposableMove scan sees it as a real occupant.
