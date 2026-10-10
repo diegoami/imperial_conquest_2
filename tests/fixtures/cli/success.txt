@@ -80,6 +80,14 @@ disband-slot 0
 end
 move mac-marines 143 42
 end
+end
+end
+end
+end
+end
+end
+end
+end
 buy mac-marines pella 5000
 split-unit mac-marines 1 200
 split-army mac-marines mac-merc 2 supply=50 money=80
