@@ -172,15 +172,27 @@ public sealed class GameSessionBattleResultsTests
     private static GameSession TwoAiBattlesFixture()
     {
         var toy = CoreTestbed.Toy;
-        var southArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with { X = 4, Y = 2 };
+        // T156 (issue #925): both south armies now archers 10000 morale 100 so FUN_0044a930 clears the
+        // 100 army-score threshold for both targets (north-army-1's mixed force and north-army-2's
+        // pure light), letting the AI's own attack-army command fire for each within the same end
+        // call -- the shipped heavy 6000 sat below the threshold, so the old assertion couldn't be
+        // satisfied against the new tree.
+        var southArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with
+        {
+            X = 4,
+            Y = 2,
+            Morale = 100,
+            Moves = 1,
+            Units = ValueList.Of(new UnitSlot(MercenaryLabel: 1, "archers", Troops: 10_000, Quality: 7, Name: "1st Bowmen")),
+        };
 
         var northArmy2 = new StartingArmy(
             "north-army-2", "north", X: 0, Y: 0, Morale: 68, Money: 0, SupplyTons: 0, Moves: 5,
             Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "light_infantry", Troops: 15000, Quality: 6, Name: "2nd Battalion")));
 
         var southArmy2 = new StartingArmy(
-            "south-army-2", "south", X: 1, Y: 0, Morale: 59, Money: 0, SupplyTons: 0, Moves: 5,
-            Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "heavy_infantry", Troops: 6000, Quality: 6, Name: "2nd Guards Battalion")));
+            "south-army-2", "south", X: 1, Y: 0, Morale: 100, Money: 0, SupplyTons: 0, Moves: 1,
+            Units: ValueList.Of(new UnitSlot(MercenaryLabel: 1, "archers", Troops: 10_000, Quality: 7, Name: "1st Bowmen")));
 
         var customWorld = toy.World with
         {

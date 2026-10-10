@@ -46,8 +46,16 @@ public sealed class PeaceTreatyOfferTests
             },
         };
 
+        // T156 (issue #925): south's army is archers 10000 morale 100, so FUN_0044a930 (the formula the
+        // AI's tree now reads, bowmen triple-weighted, no per-unit combatPowerWeight divide) gives south
+        // a high siege. The reserve's siege is also raised above south's (heavy 350k * morale 40 / 200)
+        // so the AI's tree scores the reserve *below* the 100 army-score threshold -- south is weaker
+        // than the reserve, no +1000 weaker-within bonus fires, and the AI marches past the reserve to
+        // attack north-army-1 instead. The reserve still survives the AI's turn untouched at its
+        // capital, and its much-higher field-battle power (heavy's combatPowerWeight 100 vs archers' 40)
+        // keeps armies(loser=north) > armies(winner=south) for the offer gate.
         var reserve = new StartingArmy(
-            "north-reserve", "north", X: 2, Y: 1, Morale: 1, Money: 0, SupplyTons: 0, Moves: 5,
+            "north-reserve", "north", X: 2, Y: 1, Morale: 40, Money: 0, SupplyTons: 0, Moves: 5,
             Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "heavy_infantry", Troops: 350_000, Quality: 5, Name: "Reserve")));
 
         // south-army-1's shipped position (4,4) is not adjacent to north-army-1's (3,2) -- moved to (4,2),
@@ -60,11 +68,15 @@ public sealed class PeaceTreatyOfferTests
         // fires. Pre-T156 the shipped 6,000-troop heavy_infantry alone satisfied the older
         // ArmyPower.Compute ratio gate; the new tree's FUN_0044a930 weight on bowmen means a
         // slightly larger troop count is the smallest change that satisfies both gates.
+        // T156 (issue #925): Moves = 1 caps the AI's action count on this army -- the new tree's
+        // attack zeros the attacker's moves, so the army has none left for the post-attack march the
+        // tests don't expect.
         var southArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with
         {
             X = 4,
             Y = 2,
             Morale = 100,
+            Moves = 1,
             Units = ValueList.Of(new UnitSlot(MercenaryLabel: 1, "archers", Troops: 10_000, Quality: 7, Name: "1st Bowmen")),
         };
         var customWorld = toy.World with
@@ -72,9 +84,6 @@ public sealed class PeaceTreatyOfferTests
             StartingArmies = ValueList.From(
                 toy.World.StartingArmies.Select(a => a.Id == "south-army-1" ? southArmy : a).Append(reserve)),
         };
-
-        var initialState = GameStateFactory.CreateInitial(customWorld, customRuleset, toy.Scenario);
-        System.Console.WriteLine($"DEBUG OfferFixture: south army at ({initialState.ArmyById("south-army-1")!.X},{initialState.ArmyById("south-army-1")!.Y}), moves={initialState.ArmyById("south-army-1")!.Moves}, units={initialState.ArmyById("south-army-1")!.Units.Count}, morale={initialState.ArmyById("south-army-1")!.Morale}");
 
         return new GameSession(customWorld, customRuleset, toy.Scenario);
     }
@@ -124,12 +133,13 @@ public sealed class PeaceTreatyOfferTests
             "south-army-2", "south", X: 1, Y: 0, Morale: 59, Money: 0, SupplyTons: 0, Moves: 0,
             Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "heavy_infantry", Troops: 6000, Quality: 6, Name: "2nd Guards Battalion")));
 
-        var southArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with
-        {
-            X = 4,
-            Y = 2,
-            Units = ValueList.Of(new UnitSlot(MercenaryLabel: 0, "light_infantry", Troops: 15000, Quality: 6, Name: "2nd Foot Battalion")),
-        };
+        // T156 (issue #925): south-army-1 stays at its shipped heavy_infantry 6000 troops here -- this
+        // fixture's own first battle is the human-issued attack-army north-army-1 south-army-1 (no AI
+        // turn precedes it), so the AI's tree never runs and its scoring is irrelevant. The shipped
+        // heavy beats north-army-1's mixed light+archers under the field-battle formula (4425 vs 3740)
+        // so south wins and the offer fires for the loser (north); the reserve at (2,1) keeps
+        // armies(loser) > armies(winner) for that gate.
+        var southArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with { X = 4, Y = 2 };
         var customWorld = toy.World with
         {
             StartingArmies = ValueList.From(
@@ -337,8 +347,16 @@ public void ABattleInsideAnAiSeatsOwnTurn_AlsoCapturesTheOffer()
             },
         };
 
+        // T156 (issue #925): south's army is archers 10000 morale 100, so FUN_0044a930 (the formula the
+        // AI's tree now reads, bowmen triple-weighted, no per-unit combatPowerWeight divide) gives south
+        // a high siege. The reserve's siege is also raised above south's (heavy 350k * morale 40 / 200)
+        // so the AI's tree scores the reserve *below* the 100 army-score threshold -- south is weaker
+        // than the reserve, no +1000 weaker-within bonus fires, and the AI marches past the reserve to
+        // attack north-army-1 instead. The reserve still survives the AI's turn untouched at its
+        // capital, and its much-higher field-battle power (heavy's combatPowerWeight 100 vs archers' 40)
+        // keeps armies(loser=north) > armies(winner=south) for the offer gate.
         var reserve = new StartingArmy(
-            "north-reserve", "north", X: 2, Y: 1, Morale: 1, Money: 0, SupplyTons: 0, Moves: 5,
+            "north-reserve", "north", X: 2, Y: 1, Morale: 40, Money: 0, SupplyTons: 0, Moves: 5,
             Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "heavy_infantry", Troops: 350_000, Quality: 5, Name: "Reserve")));
 
         var southArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with
@@ -346,6 +364,7 @@ public void ABattleInsideAnAiSeatsOwnTurn_AlsoCapturesTheOffer()
             X = 4,
             Y = 2,
             Morale = 100,
+            Moves = 1,
             Units = ValueList.Of(new UnitSlot(MercenaryLabel: 1, "archers", Troops: 10_000, Quality: 7, Name: "1st Bowmen")),
         };
 
@@ -401,8 +420,16 @@ public void ABattleInsideAnAiSeatsOwnTurn_AlsoCapturesTheOffer()
             },
         };
 
+        // T156 (issue #925): south's army is archers 10000 morale 100, so FUN_0044a930 (the formula the
+        // AI's tree now reads, bowmen triple-weighted, no per-unit combatPowerWeight divide) gives south
+        // a high siege. The reserve's siege is also raised above south's (heavy 350k * morale 40 / 200)
+        // so the AI's tree scores the reserve *below* the 100 army-score threshold -- south is weaker
+        // than the reserve, no +1000 weaker-within bonus fires, and the AI marches past the reserve to
+        // attack north-army-1 instead. The reserve still survives the AI's turn untouched at its
+        // capital, and its much-higher field-battle power (heavy's combatPowerWeight 100 vs archers' 40)
+        // keeps armies(loser=north) > armies(winner=south) for the offer gate.
         var reserve = new StartingArmy(
-            "north-reserve", "north", X: 2, Y: 1, Morale: 1, Money: 0, SupplyTons: 0, Moves: 5,
+            "north-reserve", "north", X: 2, Y: 1, Morale: 40, Money: 0, SupplyTons: 0, Moves: 5,
             Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "heavy_infantry", Troops: 350_000, Quality: 5, Name: "Reserve")));
 
         var southArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with
@@ -410,6 +437,7 @@ public void ABattleInsideAnAiSeatsOwnTurn_AlsoCapturesTheOffer()
             X = 4,
             Y = 2,
             Morale = 100,
+            Moves = 1,
             Units = ValueList.Of(new UnitSlot(MercenaryLabel: 1, "archers", Troops: 10_000, Quality: 7, Name: "1st Bowmen")),
         };
 
@@ -425,7 +453,11 @@ public void ABattleInsideAnAiSeatsOwnTurn_AlsoCapturesTheOffer()
             Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "heavy_infantry", Troops: 500000, Quality: 6, Name: "Siege Host")));
 
         var eastWeak = new StartingArmy(
-            "east-weak", "east", X: 5, Y: 2, Morale: 68, Money: 0, SupplyTons: 0, Moves: 5,
+            // T156 (issue #925): placed at (3, 2), where north-army-1 starts and the AI's first attack
+            // empties it. south's later AI turns march toward arx (now east's) for foreign resupply
+            // and stop at (2, 2); (3, 2) is the tile east-weak needs to be on so this attack is still
+            // adjacent when the rotation returns to east.
+            "east-weak", "east", X: 3, Y: 2, Morale: 68, Money: 0, SupplyTons: 0, Moves: 5,
             Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "light_infantry", Troops: 15000, Quality: 6, Name: "2nd Foot Battalion")));
 
         var customWorld = toy.World with
@@ -608,8 +640,16 @@ public void ABattleInsideAnAiSeatsOwnTurn_AlsoCapturesTheOffer()
 
         var debtAdjacentUnity = customRuleset.Economy.DebtUnityThreshold + customRuleset.Combat.UnitySwing - 5;
 
+        // T156 (issue #925): south's army is archers 10000 morale 100, so FUN_0044a930 (the formula the
+        // AI's tree now reads, bowmen triple-weighted, no per-unit combatPowerWeight divide) gives south
+        // a high siege. The reserve's siege is also raised above south's (heavy 350k * morale 40 / 200)
+        // so the AI's tree scores the reserve *below* the 100 army-score threshold -- south is weaker
+        // than the reserve, no +1000 weaker-within bonus fires, and the AI marches past the reserve to
+        // attack north-army-1 instead. The reserve still survives the AI's turn untouched at its
+        // capital, and its much-higher field-battle power (heavy's combatPowerWeight 100 vs archers' 40)
+        // keeps armies(loser=north) > armies(winner=south) for the offer gate.
         var reserve = new StartingArmy(
-            "north-reserve", "north", X: 2, Y: 1, Morale: 1, Money: 0, SupplyTons: 0, Moves: 5,
+            "north-reserve", "north", X: 2, Y: 1, Morale: 40, Money: 0, SupplyTons: 0, Moves: 5,
             Units: ValueList.Of(new UnitSlot(MercenaryLabel: 0, "heavy_infantry", Troops: 350_000, Quality: 5, Name: "Reserve")));
 
         var southArmy = toy.World.StartingArmies.Single(a => a.Id == "south-army-1") with
@@ -617,6 +657,7 @@ public void ABattleInsideAnAiSeatsOwnTurn_AlsoCapturesTheOffer()
             X = 4,
             Y = 2,
             Morale = 100,
+            Moves = 1,
             Units = ValueList.Of(new UnitSlot(MercenaryLabel: 1, "archers", Troops: 10_000, Quality: 7, Name: "1st Bowmen")),
         };
 
