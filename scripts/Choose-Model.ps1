@@ -208,6 +208,8 @@ $BlacklistedModelIds = @{
 # gpt-6-sol) is unmapped, never aliased to sol (R3 rework).
 $PairReviewerExtra = @{
     'openai|gpt-6-sol'    = @{ Alias = 'sol'  }
+    # Sol is GPT-6.1 Sol since the user's decision of 2026-10-10 (the tracker ranks gpt-6.1-sol).
+    'openai|gpt-6.1-sol'  = @{ Alias = 'sol'  }
     'openai|gpt-5.6-luna' = @{ Alias = 'luna' }
 }
 # `claude` in implementer is special. Any candidate's family an OpenCode dispatch map

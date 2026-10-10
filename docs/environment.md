@@ -40,7 +40,7 @@ The scripts' names are `-Reviewer` / `-Model` values for `scripts/external-revie
 | Provider | Heavy | Light |
 | --- | --- | --- |
 | claude | Claude Opus (an Agent's `opus`) | Claude Sonnet (`sonnet`) |
-| openai | `sol`: `openai/gpt-6-sol`, effort `low`, or `medium` where it earns it ([build-process.md §3.4](build-process.md#34-why-the-reviewers-model-differs-from-the-implementers)) | `luna`: `openai/gpt-5.6-luna`, effort `high` (CLAUDE.md rule 18) |
+| openai | `sol`: `openai/gpt-6.1-sol`, effort `low`, or `medium` where it earns it ([build-process.md §3.4](build-process.md#34-why-the-reviewers-model-differs-from-the-implementers)) | `luna`: `openai/gpt-5.6-luna`, effort `high` (CLAUDE.md rule 18) |
 | zai | `glm`: `zai-coding-plan/glm-5.3`, effort `low` (it offers only `low`, `high` and `max`) | `glm-flash`: `zai-coding-plan/glm-5.3-flash`, effort `high` |
 | opencode_go | `mimo-pro`: `opencode-go/mimo-v2.6-pro` | `mimo-flash`: `opencode-go/mimo-v2.6-flash` |
 | alibaba | `qwen`: `alibaba-token-plan/qwen3.8-max`, effort `low` (it offers `low`, `medium`, `xhigh`); and, as the second route of the same name, `glm`: `alibaba-token-plan/glm-5.3` (`low`) | `qwen-flash`: `alibaba-token-plan/qwen3.8-flash`, effort `medium` (no `high`). No light GLM (Z.AI has `glm-5.3-flash`) |

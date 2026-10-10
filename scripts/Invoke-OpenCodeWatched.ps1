@@ -95,6 +95,25 @@ function Get-OpenCodeFailureClass([string] $Reason) {
     }
 }
 
+function Get-OpenCodeProviderOutage([string] $StdErr) {
+    # The user's rule of 2026-10-10: a failed attempt falls back to another model ONLY when the
+    # provider did not answer (out of quota, rate limited, any 5xx, no network). Every other
+    # failure (an idle kill, a startup hang, a guard rejection, the wrong agent, no review, a missing
+    # login) is a flaw in our process, stops the run, and is fixed before anything is re-dispatched.
+    # Returns the provider's error line, or $null. Only stderr's "Error:" lines are read: OpenCode
+    # prints a provider's refusal there ("> build · <model>", then "Error: ...", checked on IT13 on
+    # 2026-10-10 with Z.AI out of quota and stdout empty), while stdout carries the model's reply,
+    # which may quote an error line (Sol's R2 on PR #941), so stdout is not a parameter at all. A
+    # missing or rejected key is a setup flaw, never an outage.
+    $outage = 'usage limit has been reached|limit exhausted|insufficient_quota|exceeded your current quota|rate.?limit|too many requests|\b429\b|\b5\d\d\b|service unavailable|bad gateway|gateway time-?out|overloaded|ECONNREFUSED|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|fetch failed|socket hang up|network error'
+    foreach ($line in ((Get-OpenCodeErrorLines ([string]$StdErr)) -split "`r?`n")) {
+        $l = ($line -replace '\x1b\[[0-9;]*m', '').Trim()
+        if (-not $l -or $l -match 'missing api key|invalid api.?key|unauthori[sz]ed|provider not found') { continue }
+        if ($l -match $outage) { return $l }
+    }
+    return $null
+}
+
 function Test-OpenCodeAgentWarning([string] $StdErr, [string] $Agent) {
     # OpenCode's own warning when --agent names an agent it cannot find, as OpenCode 1.18 prints it
     # on stderr (checked 2026-09-28 with --agent no-such-agent-xyz):
@@ -756,7 +775,15 @@ function Test-OpenCodeGoLogin {
             -NoNewWindow -PassThru -RedirectStandardInput $InFile -RedirectStandardOutput $out -RedirectStandardError $err
         if (-not $p.WaitForExit(60000)) { Stop-OpenCodeTree $p; return $true }
         $text = [System.IO.File]::ReadAllText($err, [System.Text.Encoding]::UTF8) + [System.IO.File]::ReadAllText($out, [System.Text.Encoding]::UTF8)
-        return -not ($p.ExitCode -ne 0 -and $text -match 'Provider not found: opencode-go')
+        if ($p.ExitCode -ne 0 -and $text -match 'Provider not found: opencode-go') { return $false }
+        # A root that knows the provider but has no console login lists the models anyway, and the
+        # run then dies with "Error: Missing API key." (found on IT13, 2026-10-10). `console orgs`
+        # answers "No accounts found" there; only that exact answer counts as missing.
+        $p = Start-Process -FilePath $Cli.Exe -ArgumentList 'console orgs' -WorkingDirectory $WorkDir `
+            -NoNewWindow -PassThru -RedirectStandardInput $InFile -RedirectStandardOutput $out -RedirectStandardError $err
+        if (-not $p.WaitForExit(60000)) { Stop-OpenCodeTree $p; return $true }
+        $text = [System.IO.File]::ReadAllText($err, [System.Text.Encoding]::UTF8) + [System.IO.File]::ReadAllText($out, [System.Text.Encoding]::UTF8)
+        return -not ($text -match 'No accounts found')
     } catch { return $true }
     finally { Remove-Item -LiteralPath $out, $err -Force -ErrorAction SilentlyContinue }
 }
@@ -977,7 +1004,7 @@ function Invoke-OpenCodeWatched {
         $goOk = try { Test-OpenCodeGoLogin -Cli $cli -WorkDir $WorkDir -Root $state.Root -InFile $goIn } finally { Remove-Item -LiteralPath $goIn -Force -ErrorAction SilentlyContinue }
         if (-not $goOk) {
             Restore-OpenCodeDataHome $state
-            throw (New-OpenCodeFailure 'no authentication' "No authentication: the data directory $($state.Root)\data has no opencode-go login (OpenCode: 'Provider not found: opencode-go'), so $Model cannot run. The Go console login is stored in that directory's database, not in auth.json: run 'opencode console login' with XDG_DATA_HOME=$($state.Root)\data (each root, one per major version, needs its own login). Nothing was started.")
+            throw (New-OpenCodeFailure 'no authentication' "No authentication: the data directory $($state.Root)\data has no opencode-go login (OpenCode: 'Provider not found: opencode-go', or 'console orgs' found no account), so $Model cannot run. The Go console login is stored in that directory's database, not in auth.json: run 'opencode console login' with XDG_DATA_HOME=$($state.Root)\data (each root, one per major version, needs its own login). Nothing was started.")
         }
     }
     # OpenCode 2.x takes its working directory from the PWD environment variable when one is set, not

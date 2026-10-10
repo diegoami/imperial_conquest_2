@@ -29,10 +29,11 @@
     or has no quota for it, refuses the run (exit 1). When the model fails, or OpenCode is not
     installed, the script exits 3 ("OpenCode unavailable: ...") unless the substitute below
     runs, and the main session takes the next /recommend row (operating-guide §3).
-    A substitute runs ONLY on an infrastructure failure (no session in time, an idle session, no
-    exit in time, a run that exits without a session, a non-zero exit, the fallback-to-default-agent
-    guard, a tool call the permission guard rejected -- issue #501), and only when the failed run
-    left nothing     behind: no new commit, locally or on origin, and no new PR. Otherwise the script
+    A substitute runs ONLY when the provider did not answer (quota, rate limit, a 5xx, no network:
+    Get-OpenCodeProviderOutage on stderr; the user's rule of 2026-10-10). Every other failure (no
+    session in time, an idle session, no exit in time, a non-zero exit, the fallback-to-default-agent
+    guard, a rejected tool call, an exception that is not OpenCode's) stops with exit 6, the work
+    kept and the running notes posted. And a substitute runs only when the failed run left nothing behind: no new commit, locally or on origin, and no new PR. Otherwise the script
     exits 1 and the main session decides. A failed attempt's uncommitted work is never thrown
     away (T151 Done-when 1, #854): before the reset that readies the tree for the next model, it
     is saved as rendered/attempts/<model>-<yyyyMMdd-HHmmss>.patch in the worktree (git-ignored,
@@ -541,6 +542,57 @@ function Reset-AttemptWorktree {
     return $true
 }
 
+function Publish-RunNotes([string] $Outcome) {
+    # The user's rule of 2026-10-10: a run's progress must survive the run and the machine. The
+    # implementer's rendered/RUN-NOTES.md is git-ignored and lives only in this worktree, so every
+    # exit after the worktree exists posts it on the task's issue, whatever the outcome; the next
+    # round, session or machine restores it from there (docs/running-notes.md). Never fails the run.
+    if (-not $Issue -or -not $script:worktree) { return }
+    $notes = Join-Path $script:worktree 'rendered/RUN-NOTES.md'
+    $body = if (Test-Path -LiteralPath $notes) {
+        "**Running notes** after the implementer run ended ($Outcome), from ``$($script:worktree)`` on machine ``$($env:IC2_MACHINE)``. To resume elsewhere, save the block as ``rendered/RUN-NOTES.md`` in the task's worktree.`n`n````````markdown`n$((Get-Content -Raw -LiteralPath $notes).TrimEnd())`n````````"
+    } else {
+        "**No running notes**: the implementer run ended ($Outcome) without writing ``rendered/RUN-NOTES.md`` in ``$($script:worktree)``. That is a process failure (docs/running-notes.md): read the session before re-dispatching."
+    }
+    $tmp = Join-Path $script:worktree 'rendered/run-notes-comment.md'
+    try {
+        [System.IO.File]::WriteAllText($tmp, $body, [System.Text.UTF8Encoding]::new($false))
+        gh issue comment $Issue --body-file $tmp 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) { Write-Warning "could not post the running notes on issue #$Issue; they are at $notes" }
+    } catch { Write-Warning "could not post the running notes on issue #${Issue}: $_" }
+    finally { Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue }
+}
+
+function Stop-Run([int] $Code, [string] $Outcome) {
+    $script:stopping = $true
+    Publish-RunNotes $Outcome
+    exit $Code
+}
+
+function Stop-ProcessFailure([string] $Model, [string] $Reason, [string] $SessionId) {
+    # Exit 6: keep the attempt's uncommitted work as a patch (no reset, no other model), say why,
+    # post the running notes. Used for every attempt failure that is not a provider outage,
+    # including an exception that is not OpenCode's own (Sol's R1 on PR #941).
+    $save = Save-AttemptState -Worktree $script:worktree -Model $Model -StartSha $script:startSha
+    $kept = switch ($save.Status) { 'saved' { $save.Patch } 'failed' { "uncommitted work left in the worktree ($($script:worktree))" } default { 'none (the tree was clean)' } }
+    $kept += "; commits on $($script:branch)"
+    [Console]::Error.WriteLine((Get-ProcessFailureExitText -Model $Model -Reason $Reason -SessionId $SessionId -KeptFiles $kept -Log $script:log))
+    Stop-Run 6 "$Model stopped by a process failure: $Reason"
+}
+
+function Get-ProcessFailureExitText([string] $Model, [string] $Reason, [string] $SessionId, [string] $KeptFiles, [string] $Log) {
+    # Exit 6 (the user's rule of 2026-10-10): the attempt failed for a reason other than its
+    # provider not answering, so no other model is tried. The fault is ours to fix.
+    return @"
+$Model failed with a process failure, not a provider outage: $Reason
+No fallback was tried: a model falls back only when its provider does not answer (the user's rule of 2026-10-10). Fix the cause, then re-run the same command; the branch and the worktree resume where this run stopped.
+  session:    $(if ($SessionId) { "$SessionId  (python scripts/read-opencode-session.py $SessionId)" } else { 'none' })
+  kept:       $KeptFiles
+  log:        $Log
+Record it on the wiki's Agent-failures page.
+"@
+}
+
 function Get-LeftWorkExitText {
     # T151 Done-when 5 (bug #868 R3): the two leftWork exit-1 paths (a model failed after
     # committing, pushing or opening a PR) print the "Outside paths touched" report
@@ -792,7 +844,7 @@ if ($WhatIf) {
         }
         Write-Host "would attempt: $m"
         $null = Invoke-OpenCodeWatched -WhatIf -Agent 'external-implementer' -Model $resolved[$m].Model -Variant $variants[$m] -Prompt $whatIfPrompt `
-            -WorkDir (Get-Location).Path -Title "ic2-$(if ($Task) { $Task } else { "fix-$Fix" })-$m"
+            -WorkDir $worktree -Title "ic2-$(if ($Task) { $Task } else { "fix-$Fix" })-$m"
     }
     exit 0
 }
@@ -810,6 +862,14 @@ if (Test-Path $worktree) {
     git -C $worktree push -q -u origin $branch
 }
 if ($remoteHas) { git -C $worktree merge -q --ff-only "origin/$branch" }
+# From here on every way out, a terminating error included, goes through Stop-Run, so the running
+# notes are posted whatever ends the run (the user's rule of 2026-10-10; Sol's R1 on PR #941).
+$script:worktreeReady = $true
+trap {
+    if (-not $script:worktreeReady -or $script:stopping) { break }
+    [Console]::Error.WriteLine("external-implement.ps1 stopped on an error after the worktree existed: $($_.Exception.Message)`n$($_.InvocationInfo.PositionMessage)")
+    Stop-Run 1 "the script stopped on an error: $($_.Exception.Message)"
+}
 if ($LocalOnly) {
     $ini = Join-Path $repo 'assets.local.ini'
     if (-not (Test-Path $ini)) { throw "-LocalOnly, but $ini is missing." }
@@ -917,8 +977,8 @@ foreach ($m in $chain) {
         # OpenCode's own evidence (its stderr warning, the session's recorded agent), never the model's words.
         elseif ($run.AgentFallback) { $reason = 'fell back to the default agent' }
     } catch {
-        # Only OpenCode's own failures advance the chain; anything else is rethrown (exit 1).
-        if (-not (Test-OpenCodeInfraFailure $_)) { throw }
+        # Only OpenCode's own failures go on to the outage check below; anything else stops (exit 6).
+        if (-not (Test-OpenCodeInfraFailure $_)) { Stop-ProcessFailure -Model $m -Reason "not an OpenCode failure: $($_.Exception.Message)" -SessionId $null }
         $reason = $_.Exception.Data['Reason']; $output = $_.Exception.Message
     }
     if ($run) { $outsideRuns += [pscustomobject]@{ Model = $m; Run = $run } }
@@ -944,6 +1004,12 @@ foreach ($m in $chain) {
     # OpenCode itself is the problem, not the model (operating-guide §3).
     $class = Get-OpenCodeFailureClass $reason
     $sessionId = if ($run) { $run.SessionId } else { $null }
+    # The user's rule of 2026-10-10: only a provider that does not answer falls back to the next
+    # model. Anything else stops here, nothing reset, the uncommitted work kept as a patch (exit 6).
+    $outage = Get-OpenCodeProviderOutage -StdErr $(if ($run) { $run.StdErr } else { $output })
+    if (-not $outage) { Stop-ProcessFailure -Model $m -Reason $reason -SessionId $sessionId }
+    $reason = "provider unavailable ($outage): $reason"
+    Write-Host "$m's provider did not answer ($outage): falling back is allowed"
     git -C $repo fetch -q origin
     $prNow = gh pr list --head $branch --state open --json number --jq '.[0].number' 2>$null
     $leftWork = (git -C $worktree rev-parse HEAD) -ne $startSha -or
@@ -955,7 +1021,7 @@ foreach ($m in $chain) {
         # Nothing is reset here: the model left work behind, so the tree keeps it.
         $attempts += [pscustomobject]@{ Model = $m; Route = $resolved[$m].Route; Class = $class; Why = $reason; SessionId = $sessionId; KeptFiles = "uncommitted work kept in the worktree ($worktree)" }
         [Console]::Error.WriteLine((Get-LeftWorkExitText -Model $m -Reason $reason -Branch $branch -Log $log -OutsideRuns $outsideRuns))
-        exit 1
+        Stop-Run 1 "$m failed after leaving work on the branch: $reason"
     }
     # T151 Done-when 1: keep the failed attempt's uncommitted work as a patch before the reset
     # (the patch lives under git-ignored rendered/attempts/, so the reset and clean below keep it).
@@ -970,7 +1036,7 @@ foreach ($m in $chain) {
         # R1: if the save failed, do NOT reset or clean. Stop the run with a clear message and a
         # non-zero exit, leaving the tree exactly as it is for diagnosis.
         [Console]::Error.WriteLine("$($save.Error); refusing to reset or clean $worktree -- the attempt's state is left as it is. The main session diagnoses. Log: $log")
-        exit 4
+        Stop-Run 4 "the failed attempt's patch could not be saved"
     }
     if ($class -eq $lastClass) {
         # T151 Done-when 5 (bug #868 R4; the user's decision of 2026-10-08: "stop and diagnose
@@ -981,7 +1047,7 @@ foreach ($m in $chain) {
         $prev = $attempts[-2]
         $curr = $attempts[-1]
         [Console]::Error.WriteLine((Get-SameCauseExitText -Class $class -First $prev -Second $curr -Log $log -OutsideRuns $outsideRuns))
-        exit 3
+        Stop-Run 3 "the same failure twice: $class"
     }
     $null = Reset-AttemptWorktree -Worktree $worktree -StartSha $startSha -Save $save
     $lastClass = $class
@@ -1032,7 +1098,7 @@ if (-not $implementedBy) {
                     elseif ($run.ExitCode -ne 0) { $reason = "exit $($run.ExitCode)" }
                     elseif ($run.AgentFallback) { $reason = 'fell back to the default agent' }
                 } catch {
-                    if (-not (Test-OpenCodeInfraFailure $_)) { throw }
+                    if (-not (Test-OpenCodeInfraFailure $_)) { Stop-ProcessFailure -Model $substitute -Reason "not an OpenCode failure: $($_.Exception.Message)" -SessionId $null }
                     $reason = $_.Exception.Data['Reason']; $output = $_.Exception.Message
                 }
                 if ($run) { $outsideRuns += [pscustomobject]@{ Model = $substitute; Run = $run } }
@@ -1051,6 +1117,9 @@ if (-not $implementedBy) {
                     Write-Warning "$substitute failed: $reason"
                     $failures += "${substitute}: $reason"
                     $subSessionId = if ($run) { $run.SessionId } else { $null }
+                    # The user's rule of 2026-10-10, as for the chain above: a process failure stops (exit 6).
+                    $subOutage = Get-OpenCodeProviderOutage -StdErr $(if ($run) { $run.StdErr } else { $output })
+                    if (-not $subOutage) { Stop-ProcessFailure -Model $substitute -Reason $reason -SessionId $subSessionId }
                     git -C $repo fetch -q origin
                     $prNow = gh pr list --head $branch --state open --json number --jq '.[0].number' 2>$null
                     $leftWork = (git -C $worktree rev-parse HEAD) -ne $startSha -or
@@ -1060,7 +1129,7 @@ if (-not $implementedBy) {
                         # T151 (bug #868 R3): record the attempt, print the outside-paths report, keep exit 1.
                         $attempts += [pscustomobject]@{ Model = $substitute; Route = $sr.Route; Class = (Get-OpenCodeFailureClass $reason); Why = $reason; SessionId = $subSessionId; KeptFiles = "uncommitted work kept in the worktree ($worktree)" }
                         [Console]::Error.WriteLine((Get-LeftWorkExitText -Model $substitute -Reason $reason -Branch $branch -Log $log -OutsideRuns $outsideRuns))
-                        exit 1
+                        Stop-Run 1 "$substitute failed after leaving work on the branch: $reason"
                     }
                     # T151 Done-when 1: the substitute's failed attempt keeps its uncommitted work as a
                     # patch before the reset too.
@@ -1074,7 +1143,7 @@ if (-not $implementedBy) {
                     if ($subSave.Status -eq 'failed') {
                         # R1: do not reset or clean when the substitute's save failed.
                         [Console]::Error.WriteLine("$($subSave.Error); refusing to reset or clean $worktree -- the attempt's state is left as it is. The main session diagnoses. Log: $log")
-                        exit 4
+                        Stop-Run 4 "the substitute's patch could not be saved"
                     }
                     $null = Reset-AttemptWorktree -Worktree $worktree -StartSha $startSha -Save $subSave
                 }
@@ -1155,7 +1224,7 @@ if ($prNumber -gt 0) {
 }
 
 # Exit codes: unchanged from before.
-if ($openCodeUnavailable) { exit 3 }
+if ($openCodeUnavailable) { Stop-Run 3 "no model could run: $($failures -join "; ")" }
 if ($failures) { Write-Host "fell back: $($failures -join '; ')" }
 if ($implementedBy) {
     # The reviewer must not be this model: pass it to external-review.ps1 as -ExcludeModel.
@@ -1167,6 +1236,6 @@ if ($implementedBy) {
     }
     Write-Host $implLine
 }
-if (-not $pr) { Write-Error "No open PR for $branch. Read $log; resume with the same command once the cause is known."; exit 1 }
+if (-not $pr) { [Console]::Error.WriteLine("No open PR for $branch. Read $log; resume with the same command once the cause is known."); Stop-Run 1 "ended with no open PR" }
 Write-Host "PR: $pr"
-exit 0
+Stop-Run 0 "finished, PR $pr"
