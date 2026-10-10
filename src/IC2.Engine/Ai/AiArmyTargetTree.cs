@@ -185,7 +185,8 @@ public static class AiArmyTargetTree
                 score *= 2;
             }
 
-            if (score > bestScore)
+            if (score > bestScore
+                || (score == bestScore && string.CompareOrdinal(city.Id, best!.Id) < 0))
             {
                 best = city;
                 bestScore = score;
@@ -271,7 +272,8 @@ public static class AiArmyTargetTree
                 clamped += weakerBonus;
             }
 
-            if (clamped > bestScore)
+            if (clamped > bestScore
+                || (clamped == bestScore && string.CompareOrdinal(target.Id, best!.Id) < 0))
             {
                 best = target;
                 bestScore = clamped;
@@ -329,7 +331,8 @@ public static class AiArmyTargetTree
             long score;
             if (isOwn)
             {
-                if (distance < nearestOwnDistance)
+                if (distance < nearestOwnDistance
+                    || (distance == nearestOwnDistance && string.CompareOrdinal(city.Id, nearestOwn!.Id) < 0))
                 {
                     nearestOwn = city;
                     nearestOwnDistance = distance;
@@ -359,7 +362,9 @@ public static class AiArmyTargetTree
                 score = -distance + rules.ResupplyForeignBonus;
             }
 
-            if (score > bestScore || (score == bestScore && distance < bestDistance))
+            if (score > bestScore
+                || (score == bestScore && distance < bestDistance)
+                || (score == bestScore && distance == bestDistance && string.CompareOrdinal(city.Id, best!.Id) < 0))
             {
                 best = city;
                 bestScore = score;
@@ -399,7 +404,8 @@ public static class AiArmyTargetTree
         ArgumentNullException.ThrowIfNull(army);
 
         var original = ScoreResupplyCity(view, army, atWar);
-        if (original.City is { } picked && IsReachable(view, army, picked.X, picked.Y))
+        var terrainCells = view.World.Terrain.Decode(view.World.Width, view.World.Height);
+        if (original.City is { } picked && IsUsableDestination(view, army, picked.X, picked.Y, terrainCells))
         {
             return original;
         }
@@ -477,7 +483,7 @@ public static class AiArmyTargetTree
                 continue;
             }
 
-            if (IsReachable(view, army, candidate.City.X, candidate.City.Y))
+            if (IsUsableDestination(view, army, candidate.City.X, candidate.City.Y, terrainCells))
             {
                 return new ResupplyCity(candidate.City, candidate.Score, candidate.Distance);
             }
@@ -729,7 +735,7 @@ public static class AiArmyTargetTree
         foreach (var slot in view.State.MercenaryPool)
         {
             var distance = AiView.Distance(army.X, army.Y, slot.X, slot.Y);
-            if (distance > view.Ruleset.Ai.MercenaryRunOfferRange || distance >= bestDistance)
+            if (distance > view.Ruleset.Ai.MercenaryRunOfferRange || distance > bestDistance)
             {
                 continue;
             }
@@ -746,7 +752,8 @@ public static class AiArmyTargetTree
 
             if (slotCity is null
                 || IsInsideCity(army, slotCity)
-                || view.IsAtWar(army.Nation, slotCity.Owner))
+                || view.IsAtWar(army.Nation, slotCity.Owner)
+                || (distance == bestDistance && string.CompareOrdinal(slotCity.Id, best!.Id) >= 0))
             {
                 continue;
             }
@@ -801,8 +808,9 @@ public static class AiArmyTargetTree
             return FirstReachableCity(view, army, state);
         }
 
-        // Otherwise the capital alone is the candidate. If reachable, that's the destination.
-        return IsReachable(view, army, capital.X, capital.Y) ? (capital.X, capital.Y) : null;
+        // Otherwise the capital alone is the candidate. If usable, that is the destination.
+        var cells = view.World.Terrain.Decode(view.World.Width, view.World.Height);
+        return IsUsableDestination(view, army, capital.X, capital.Y, cells) ? (capital.X, capital.Y) : null;
     }
 
     /// <summary>
@@ -890,6 +898,7 @@ public static class AiArmyTargetTree
         (int X, int Y)? best = null;
         var bestDistance = int.MaxValue;
         string? bestId = null;
+        var terrainCells = view.World.Terrain.Decode(view.World.Width, view.World.Height);
 
         foreach (var city in state.Cities)
         {
@@ -899,7 +908,7 @@ public static class AiArmyTargetTree
             }
 
             var distance = AiView.Distance(army.X, army.Y, city.X, city.Y);
-            if (!IsReachable(view, army, city.X, city.Y))
+            if (!IsUsableDestination(view, army, city.X, city.Y, terrainCells))
             {
                 continue;
             }
@@ -929,7 +938,7 @@ public static class AiArmyTargetTree
             }
 
             var d = AiView.Distance(army.X, army.Y, city.X, city.Y);
-            if (d < bestDistance)
+            if (d < bestDistance || (d == bestDistance && string.CompareOrdinal(city.Id, best!.Id) < 0))
             {
                 best = city;
                 bestDistance = d;
@@ -951,7 +960,7 @@ public static class AiArmyTargetTree
             }
 
             var d = AiView.Distance(army.X, army.Y, city.X, city.Y);
-            if (d < bestDistance)
+            if (d < bestDistance || (d == bestDistance && string.CompareOrdinal(city.Id, best!.Id) < 0))
             {
                 best = city;
                 bestDistance = d;
@@ -972,10 +981,38 @@ public static class AiArmyTargetTree
     /// </summary>
     private static bool IsEmergencyReachable(AiView view, ArmyState army, int x, int y, int[] terrainCells)
     {
+        var walk = WalkTowards(view, army, x, y, terrainCells);
+        return walk is not null
+            && walk.StopReason == MovementStopReason.ReachedDestination
+            && walk.FinalPosition.X == x
+            && walk.FinalPosition.Y == y;
+    }
+
+    /// <summary>
+    /// A resupply or garrison destination the AI may march at: the reachability rule does not skip it
+    /// (<see cref="IsReachable"/>) <em>and</em> the existing move command makes progress toward it this
+    /// turn, which the real <see cref="MovementWalker"/>, priced by the ruleset's terrain table, decides
+    /// (the user's decision of 2026-10-10 on #925, after the final review's R1). A first step dearer than
+    /// the army's remaining moves (a forest, a mountain, a river) would make the handler abort the
+    /// order and zero the army's moves with the army still on its tile; such a destination is passed
+    /// over so the chain continues with the next candidate and then the emergency move. The mover itself
+    /// is unchanged.
+    /// </summary>
+    private static bool IsUsableDestination(AiView view, ArmyState army, int x, int y, int[] terrainCells) =>
+        IsReachable(view, army, x, y)
+        && WalkTowards(view, army, x, y, terrainCells) is { Moved: true };
+
+    /// <summary>
+    /// The movement walker run from the army toward (<paramref name="x"/>, <paramref name="y"/>) with
+    /// the army's remaining moves, the ruleset's terrain costs and every city, army, fleet and impassable
+    /// tile as a blocker; <see langword="null"/> for a destination off the map.
+    /// </summary>
+    private static MovementWalkResult? WalkTowards(AiView view, ArmyState army, int x, int y, int[] terrainCells)
+    {
         var world = view.World;
         if ((uint)x >= (uint)world.Width || (uint)y >= (uint)world.Height)
         {
-            return false;
+            return null;
         }
 
         string? TileTypeIdAt(GridPoint point) =>
@@ -1018,18 +1055,14 @@ public static class AiArmyTargetTree
             return false;
         }
 
-        var destination = new GridPoint(x, y);
-        var walk = MovementWalker.Walk(
+        return MovementWalker.Walk(
             new GridPoint(army.X, army.Y),
-            destination,
+            new GridPoint(x, y),
             army.Moves,
             view.Ruleset.Terrain,
             TileTypeIdAt,
             IsBlocked,
             NullEventSink.Instance);
-        return walk.StopReason == MovementStopReason.ReachedDestination
-            && walk.FinalPosition.X == x
-            && walk.FinalPosition.Y == y;
     }
 
     /// <summary>
