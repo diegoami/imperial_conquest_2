@@ -13,6 +13,25 @@ Read [`docs/operating-guide.md`](docs/operating-guide.md) before doing anything.
 9. **Commit and push research-repo work without asking.**
 10. **At session start**, check the triage queue (`gh issue list --label triage:needed --state open`) and any task left in flight (`status:in-progress`, `in-review`, `rework`, `escalated`), and tell the user where things stand. A task carrying another machine's `machine:*` label is that machine's: report it, never resume it ([build-process.md §8](docs/build-process.md#8-two-machines)). Also count the **unevaluated research reports** with `bash scripts/unevaluated-reports.sh` ([evidence-pipeline.md](docs/evidence-pipeline.md#what-triggers-it)). Report the count in the session-start message only, never in a document, and offer to run `/process-evidence` when it is not zero. If the script fails, report the failure and go on: it blocks nothing.
 
+
+### Highest priority (the user's rules of 2026-10-10)
+
+These outrank every other rule here when they conflict.
+
+21. **A failure on our side is fixed first.** A failed delegated run is never normal: diagnose it
+    and fix the cause before anything else. Fall back to another model only when the provider does
+    not answer (quota, rate limit, 5xx, network); a flaw in our process, a missing login, a broken
+    brief or a setup gap gets fixed, not routed around ([operating-guide §3](docs/operating-guide.md#3-standing-user-preferences)).
+22. **No delegated run loses its progress.** An implementer, or any run that changes files,
+    commits and pushes as it goes and keeps `rendered/RUN-NOTES.md`; its notes are posted on the
+    task's issue when it ends (`scripts/external-implement.ps1` does it for an OpenCode run, the main
+    session for a Claude subagent), so any session on any machine can see where it is and resume
+    it. A read-only reviewer's progress is its review, which the review script posts. A run that
+    holds work only locally, or a gap that lets it, is a defect to fix ([running-notes.md](docs/running-notes.md)).
+23. **Keep watching every running agent and tell the user what it is doing, in plain language**:
+    which step it is on, what it changed, what it found. Never raw log lines, byte counts or
+    "signal changed".
+
 ---
 
 ## Token economy
