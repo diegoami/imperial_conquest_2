@@ -563,12 +563,23 @@ function Invoke-ReviewParserSelfTest {
     $ruleChecks += [pscustomobject]@{ Name = 'sol is openai/gpt-6.1-sol, shown as Sol'; Ok = ($models['sol'] -eq 'openai/gpt-6.1-sol' -and $displayNames['sol'] -eq 'Sol') }
     # The user's rule of 2026-10-10: only a provider outage falls back; the classifier reads
     # OpenCode's error output, never the model's prose, and a missing key is not an outage.
-    $ruleChecks += [pscustomobject]@{ Name = 'outage: Z.AI quota exhausted (stdout Error: line)'; Ok = [bool](Get-OpenCodeProviderOutage -StdOut "> build`nError: Weekly/Monthly Limit Exhausted. Your limit will reset at 2026-10-13 19:12:59") }
+    $ruleChecks += [pscustomobject]@{ Name = 'outage: Z.AI quota exhausted, as OpenCode printed it on stderr'; Ok = [bool](Get-OpenCodeProviderOutage -StdErr "> build · glm-5.3-flash`n`nError: Weekly/Monthly Limit Exhausted. Your limit will reset at 2026-10-13 19:12:59") }
     $ruleChecks += [pscustomobject]@{ Name = 'outage: OpenAI usage limit on stderr'; Ok = [bool](Get-OpenCodeProviderOutage -StdErr 'Error: The usage limit has been reached') }
     $ruleChecks += [pscustomobject]@{ Name = 'outage: HTTP 503 on stderr'; Ok = [bool](Get-OpenCodeProviderOutage -StdErr 'Error: 503 Service Unavailable') }
-    $ruleChecks += [pscustomobject]@{ Name = 'not an outage: missing API key (setup flaw)'; Ok = -not (Get-OpenCodeProviderOutage -StdOut 'Error: Missing API key.') }
-    $ruleChecks += [pscustomobject]@{ Name = 'not an outage: a review that mentions a rate limit in prose'; Ok = -not (Get-OpenCodeProviderOutage -StdOut "R1. The retry loop ignores the rate limit (429) header.") }
+    $ruleChecks += [pscustomobject]@{ Name = 'outage: any 5xx, a bare HTTP 529 (R3)'; Ok = [bool](Get-OpenCodeProviderOutage -StdErr 'Error: HTTP 529') }
+    $ruleChecks += [pscustomobject]@{ Name = 'not an outage: missing API key (setup flaw)'; Ok = -not (Get-OpenCodeProviderOutage -StdErr 'Error: Missing API key.') }
     $ruleChecks += [pscustomobject]@{ Name = 'not an outage: an idle kill'; Ok = -not (Get-OpenCodeProviderOutage -StdErr 'session idle for 600 s; killed') }
+    $ruleChecks += [pscustomobject]@{ Name = 'not an outage: a non-Error stderr line mentioning 429'; Ok = -not (Get-OpenCodeProviderOutage -StdErr 'retrying after a 429 from the tool') }
+    # R2: stdout (the model's reply, which may quote "Error: 429 Too Many Requests") is never read.
+    $ruleChecks += [pscustomobject]@{ Name = 'R2: the classifier takes no stdout parameter'; Ok = -not (Get-Command Get-OpenCodeProviderOutage).Parameters.ContainsKey('StdOut') }
+    $ruleChecks += [pscustomobject]@{ Name = 'R2: neither script passes stdout to the classifier'; Ok = -not (@('external-review.ps1', 'external-implement.ps1') | Where-Object { (Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot $_)) -match '(?m)^(?![^\r\n]*\$ruleChecks)[^\r\n]*Get-OpenCodeProviderOutage[^\r\n]*(-StdOut|\.StdOut|\.Output\b)' }) }
+    # R1: after the worktree exists, external-implement.ps1 has no bare exit and no rethrow, and a
+    # trap routes terminating errors through Stop-Run, so the running notes are posted on every way out.
+    $implText = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'external-implement.ps1')
+    $afterWorktree = $implText.Substring($implText.IndexOf('$script:worktreeReady = $true'))
+    $ruleChecks += [pscustomobject]@{ Name = 'R1: no bare exit after the worktree exists'; Ok = -not ($afterWorktree -match '(?m)^[^#\r\n]*\bexit\s+\d') }
+    $ruleChecks += [pscustomobject]@{ Name = 'R1: no rethrow of a non-OpenCode exception after the worktree exists'; Ok = -not ($afterWorktree -match 'Test-OpenCodeInfraFailure \$_\)\) \{ throw \}') }
+    $ruleChecks += [pscustomobject]@{ Name = 'R1: a trap routes terminating errors through Stop-Run'; Ok = ($afterWorktree -match '(?s)^\$script:worktreeReady = \$true\s*\r?\n(#[^\r\n]*\r?\n)*trap \{.*?Stop-Run 1') }
     # The user's decision of 2026-10-03: Sol at low by default, medium at most, never high.
     $effortSet = @((Get-Command $PSCommandPath).Parameters['Effort'].Attributes |
         Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] } |
@@ -1378,14 +1389,14 @@ function Invoke-ReviewAttempt([string] $Name) {
     } catch {
         # Only OpenCode's own failures (not found, no session, idle, no exit, exited without a session)
         # advance the chain. Anything else is a defect here: rethrown, exit non-zero, not 3.
-        if (-not (Test-OpenCodeInfraFailure $_)) { throw }
+        if (-not (Test-OpenCodeInfraFailure $_)) { return (& $fail "not an OpenCode failure: $($_.Exception.Message)" $_.Exception.Message $null) }
         # An advisory run that hit the free models' rate limit is skipped, never retried.
         $limit = if ($isAdvisory) { Get-OpenCodeRateLimit $_.Exception.Message }
         if ($limit) { return (& $fail 'rate-limited, skipped' $limit) }
         return (& $fail $_.Exception.Data['Reason'] $_.Exception.Message (Get-OpenCodeProviderOutage -StdErr $_.Exception.Message))
     }
     $output = $run.Output
-    $runOutage = Get-OpenCodeProviderOutage -StdErr $run.StdErr -StdOut $run.StdOut
+    $runOutage = Get-OpenCodeProviderOutage -StdErr $run.StdErr
     if ($isAdvisory) {
         $limit = Get-AdvisoryRunSkip $run
         if ($limit) { return (& $fail 'rate-limited, skipped' $limit) }

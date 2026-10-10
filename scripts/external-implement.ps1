@@ -563,8 +563,20 @@ function Publish-RunNotes([string] $Outcome) {
 }
 
 function Stop-Run([int] $Code, [string] $Outcome) {
+    $script:stopping = $true
     Publish-RunNotes $Outcome
     exit $Code
+}
+
+function Stop-ProcessFailure([string] $Model, [string] $Reason, [string] $SessionId) {
+    # Exit 6: keep the attempt's uncommitted work as a patch (no reset, no other model), say why,
+    # post the running notes. Used for every attempt failure that is not a provider outage,
+    # including an exception that is not OpenCode's own (Sol's R1 on PR #941).
+    $save = Save-AttemptState -Worktree $script:worktree -Model $Model -StartSha $script:startSha
+    $kept = switch ($save.Status) { 'saved' { $save.Patch } 'failed' { "uncommitted work left in the worktree ($($script:worktree))" } default { 'none (the tree was clean)' } }
+    $kept += "; commits on $($script:branch)"
+    [Console]::Error.WriteLine((Get-ProcessFailureExitText -Model $Model -Reason $Reason -SessionId $SessionId -KeptFiles $kept -Log $script:log))
+    Stop-Run 6 "$Model stopped by a process failure: $Reason"
 }
 
 function Get-ProcessFailureExitText([string] $Model, [string] $Reason, [string] $SessionId, [string] $KeptFiles, [string] $Log) {
@@ -849,6 +861,14 @@ if (Test-Path $worktree) {
     git -C $worktree push -q -u origin $branch
 }
 if ($remoteHas) { git -C $worktree merge -q --ff-only "origin/$branch" }
+# From here on every way out, a terminating error included, goes through Stop-Run, so the running
+# notes are posted whatever ends the run (the user's rule of 2026-10-10; Sol's R1 on PR #941).
+$script:worktreeReady = $true
+trap {
+    if (-not $script:worktreeReady -or $script:stopping) { break }
+    [Console]::Error.WriteLine("external-implement.ps1 stopped on an error after the worktree existed: $($_.Exception.Message)`n$($_.InvocationInfo.PositionMessage)")
+    Stop-Run 1 "the script stopped on an error: $($_.Exception.Message)"
+}
 if ($LocalOnly) {
     $ini = Join-Path $repo 'assets.local.ini'
     if (-not (Test-Path $ini)) { throw "-LocalOnly, but $ini is missing." }
@@ -957,7 +977,7 @@ foreach ($m in $chain) {
         elseif ($run.AgentFallback) { $reason = 'fell back to the default agent' }
     } catch {
         # Only OpenCode's own failures advance the chain; anything else is rethrown (exit 1).
-        if (-not (Test-OpenCodeInfraFailure $_)) { throw }
+        if (-not (Test-OpenCodeInfraFailure $_)) { Stop-ProcessFailure -Model $m -Reason "not an OpenCode failure: $($_.Exception.Message)" -SessionId $null }
         $reason = $_.Exception.Data['Reason']; $output = $_.Exception.Message
     }
     if ($run) { $outsideRuns += [pscustomobject]@{ Model = $m; Run = $run } }
@@ -985,15 +1005,8 @@ foreach ($m in $chain) {
     $sessionId = if ($run) { $run.SessionId } else { $null }
     # The user's rule of 2026-10-10: only a provider that does not answer falls back to the next
     # model. Anything else stops here, nothing reset, the uncommitted work kept as a patch (exit 6).
-    $outage = if ($run) { Get-OpenCodeProviderOutage -StdErr $run.StdErr -StdOut $run.StdOut } else { Get-OpenCodeProviderOutage -StdErr $output }
-    if (-not $outage) {
-        $save = Save-AttemptState -Worktree $worktree -Model $m -StartSha $startSha
-        $kept = switch ($save.Status) { 'saved' { $save.Patch } 'failed' { "uncommitted work left in the worktree ($worktree)" } default { 'none (the tree was clean)' } }
-        $kept += "; commits on $branch"
-        $attempts += [pscustomobject]@{ Model = $m; Route = $resolved[$m].Route; Class = $class; Why = $reason; SessionId = $sessionId; KeptFiles = $kept }
-        [Console]::Error.WriteLine((Get-ProcessFailureExitText -Model $m -Reason $reason -SessionId $sessionId -KeptFiles $kept -Log $log))
-        Stop-Run 6 "$m stopped by a process failure: $reason"
-    }
+    $outage = Get-OpenCodeProviderOutage -StdErr $(if ($run) { $run.StdErr } else { $output })
+    if (-not $outage) { Stop-ProcessFailure -Model $m -Reason $reason -SessionId $sessionId }
     $reason = "provider unavailable ($outage): $reason"
     Write-Host "$m's provider did not answer ($outage): falling back is allowed"
     git -C $repo fetch -q origin
@@ -1084,7 +1097,7 @@ if (-not $implementedBy) {
                     elseif ($run.ExitCode -ne 0) { $reason = "exit $($run.ExitCode)" }
                     elseif ($run.AgentFallback) { $reason = 'fell back to the default agent' }
                 } catch {
-                    if (-not (Test-OpenCodeInfraFailure $_)) { throw }
+                    if (-not (Test-OpenCodeInfraFailure $_)) { Stop-ProcessFailure -Model $substitute -Reason "not an OpenCode failure: $($_.Exception.Message)" -SessionId $null }
                     $reason = $_.Exception.Data['Reason']; $output = $_.Exception.Message
                 }
                 if ($run) { $outsideRuns += [pscustomobject]@{ Model = $substitute; Run = $run } }
@@ -1104,14 +1117,8 @@ if (-not $implementedBy) {
                     $failures += "${substitute}: $reason"
                     $subSessionId = if ($run) { $run.SessionId } else { $null }
                     # The user's rule of 2026-10-10, as for the chain above: a process failure stops (exit 6).
-                    $subOutage = if ($run) { Get-OpenCodeProviderOutage -StdErr $run.StdErr -StdOut $run.StdOut } else { Get-OpenCodeProviderOutage -StdErr $output }
-                    if (-not $subOutage) {
-                        $subSave = Save-AttemptState -Worktree $worktree -Model $substitute -StartSha $startSha
-                        $kept = switch ($subSave.Status) { 'saved' { $subSave.Patch } 'failed' { "uncommitted work left in the worktree ($worktree)" } default { 'none (the tree was clean)' } }
-                        $kept += "; commits on $branch"
-                        [Console]::Error.WriteLine((Get-ProcessFailureExitText -Model $substitute -Reason $reason -SessionId $subSessionId -KeptFiles $kept -Log $log))
-                        Stop-Run 6 "$substitute stopped by a process failure: $reason"
-                    }
+                    $subOutage = Get-OpenCodeProviderOutage -StdErr $(if ($run) { $run.StdErr } else { $output })
+                    if (-not $subOutage) { Stop-ProcessFailure -Model $substitute -Reason $reason -SessionId $subSessionId }
                     git -C $repo fetch -q origin
                     $prNow = gh pr list --head $branch --state open --json number --jq '.[0].number' 2>$null
                     $leftWork = (git -C $worktree rev-parse HEAD) -ne $startSha -or

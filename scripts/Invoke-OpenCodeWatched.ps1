@@ -95,16 +95,18 @@ function Get-OpenCodeFailureClass([string] $Reason) {
     }
 }
 
-function Get-OpenCodeProviderOutage([string] $StdErr, [string] $StdOut) {
+function Get-OpenCodeProviderOutage([string] $StdErr) {
     # The user's rule of 2026-10-10: a failed attempt falls back to another model ONLY when the
-    # provider did not answer (out of quota, rate limited, a server error, no network). Every other
+    # provider did not answer (out of quota, rate limited, any 5xx, no network). Every other
     # failure (an idle kill, a startup hang, a guard rejection, the wrong agent, no review, a missing
     # login) is a flaw in our process, stops the run, and is fixed before anything is re-dispatched.
-    # Returns the provider's error line, or $null. Only OpenCode's own "Error:" lines are read
-    # (Get-OpenCodeErrorLines, as Get-OpenCodeRateLimit does), never the model's words, so a review
-    # quoting "rate limit" is never an outage. A missing or rejected key is a setup flaw, not an outage.
-    $outage = 'usage limit has been reached|limit exhausted|insufficient_quota|exceeded your current quota|rate.?limit|too many requests|\b429\b|\b50[0234]\b|service unavailable|bad gateway|gateway time-?out|overloaded|ECONNREFUSED|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|fetch failed|socket hang up|network error'
-    foreach ($line in ((Get-OpenCodeErrorLines ("$StdErr`n$StdOut")) -split "`r?`n")) {
+    # Returns the provider's error line, or $null. Only stderr's "Error:" lines are read: OpenCode
+    # prints a provider's refusal there ("> build · <model>", then "Error: ...", checked on IT13 on
+    # 2026-10-10 with Z.AI out of quota and stdout empty), while stdout carries the model's reply,
+    # which may quote an error line (Sol's R2 on PR #941), so stdout is not a parameter at all. A
+    # missing or rejected key is a setup flaw, never an outage.
+    $outage = 'usage limit has been reached|limit exhausted|insufficient_quota|exceeded your current quota|rate.?limit|too many requests|\b429\b|\b5\d\d\b|service unavailable|bad gateway|gateway time-?out|overloaded|ECONNREFUSED|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|fetch failed|socket hang up|network error'
+    foreach ($line in ((Get-OpenCodeErrorLines ([string]$StdErr)) -split "`r?`n")) {
         $l = ($line -replace '\x1b\[[0-9;]*m', '').Trim()
         if (-not $l -or $l -match 'missing api key|invalid api.?key|unauthori[sz]ed|provider not found') { continue }
         if ($l -match $outage) { return $l }
