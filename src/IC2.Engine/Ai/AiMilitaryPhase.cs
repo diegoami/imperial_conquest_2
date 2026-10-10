@@ -384,13 +384,22 @@ public static class AiMilitaryPhase
         // produced no executable command (nothing proposable to march at, an adjacent target whose
         // attack is not legal), the garrison fallback (FUN_0044ebe8) picks the destination. The
         // post-execution fallback in AiTurn covers an accepted command that moved nothing; this covers
-        // the army that never got a command at all.
-        if (mayMarch
-            && into.Count == candidatesBefore
-            && AiArmyTargetTree.GarrisonFallback(view, army, view.State) is { } fallback)
+        // the army that never got a command at all. Hazards' three-tier fallback (reachable garrison
+        // candidates first, then the emergency move the walker can actually reach, then "stay put"
+        // with the log message) handles the case the review proved: an army boxed in by obstacles
+        // behind both the resupply and the garrison destination.
+        if (mayMarch && into.Count == candidatesBefore)
         {
-            AddMarchCandidate(view, army, fallback.X, fallback.Y, AiCandidate.ApproachKind,
-                "garrison fallback", view.Ruleset.Ai.ReinforceCityBaseScore, progress, into);
+            var fallbackDest = AiArmyTargetTree.GarrisonFallback(view, army, view.State)
+                ?? AiArmyTargetTree.EmergencyMoveDestination(view, army, view.State);
+            if (fallbackDest is { } dest)
+            {
+                var why = AiArmyTargetTree.GarrisonFallback(view, army, view.State) is null
+                    ? "emergency move (no garrison destination is reachable)"
+                    : "garrison fallback";
+                AddMarchCandidate(view, army, dest.X, dest.Y, AiCandidate.ApproachKind,
+                    why, view.Ruleset.Ai.ReinforceCityBaseScore, progress, into);
+            }
         }
     }
 

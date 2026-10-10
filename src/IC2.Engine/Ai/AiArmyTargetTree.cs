@@ -283,25 +283,21 @@ public static class AiArmyTargetTree
     }
 
     /// <summary>
-    /// The original's <c>FUN_0044e670</c> — the resupply or defence city for this army.
+    /// The original's <c>FUN_0044e670</c> — the resupply or defence city for this army. With
+    /// <c>strength = troops / 100</c> (the report's own definition in the same sentence), a city qualifies
+    /// when it is an own city whose supply stock is below <c>strength</c>, or — only while at war — a
+    /// foreign city of a nation not at war with this one whose stock is above <c>strength + 80</c> while
+    /// the army holds more than <c>strength / 5</c> in money. An own capital scores −20 and a foreign city
+    /// +20 on top of a base of minus the distance. The report names the two adjustments and no base;
+    /// <em>minus the distance</em> is the reading under which the nearer city wins, and it is the one
+    /// [designed] term here. The best score wins; when nothing qualifies, or the winner is a foreign city
+    /// beyond <see cref="AiWeightsRules.ResupplyMaxForeignDistance"/>, the nearest own city is the answer.
+    /// <see cref="ResupplyCity.City"/> is <see langword="null"/> only when the nation has no own city the
+    /// army is not already beside.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// With <c>strength = troops / 100</c> (the report's own definition in the same sentence), a city
-    /// qualifies when it is an own city whose supply stock is below <c>strength</c>, or — only while at war
-    /// — a foreign city of a nation not at war with this one whose stock is above <c>strength + 80</c>
-    /// while the army holds more than <c>strength / 5</c> in money. An own capital scores −20 and a
-    /// foreign city +20 on top of a base of minus the distance. The report names the two adjustments and
-    /// no base; <em>minus the distance</em> is the reading under which the nearer city wins, and it is
-    /// the one [designed] term here. The best score wins; when nothing qualifies, or the winner is a
-    /// foreign city beyond <see cref="AiWeightsRules.ResupplyMaxForeignDistance"/>, the nearest own city
-    /// is the answer. <see cref="ResupplyCity.City"/> is <see langword="null"/> only when the nation has
-    /// no own city the army is not already beside.
-    /// </para>
-    /// <para>
-    /// A city the army is already beside (<see cref="IsInsideCity"/>) is never a destination: it is where
-    /// the original's army would already stand.
-    /// </para>
+    /// A city the army is already beside (<see cref="IsInsideCity"/>) is never a destination: it is
+    /// where the original's army would already stand.
     /// </remarks>
     public static ResupplyCity ScoreResupplyCity(
         AiView view,
@@ -381,6 +377,121 @@ public static class AiArmyTargetTree
 
         return new ResupplyCity(best, bestScore, bestDistance);
     }
+
+    /// <summary>
+    /// The Hazards' "reachable resupply" tier (the user's decision of 2026-10-10 on #925): from the
+    /// cities <see cref="ScoreResupplyCity"/> considers, the destination is the first the reachability
+    /// rule does not skip, in score order (score descending, distance ascending, city id ascending
+    /// — the [designed] tie-break rule the Hazards name). A foreign city beyond
+    /// <see cref="AiWeightsRules.ResupplyMaxForeignDistance"/> is also skipped, falling to the nearest
+    /// own city when nothing qualifies. <see cref="ResupplyCity.City"/> is <see langword="null"/> only
+    /// when there is no qualifying city of any kind AND no own city to fall back to.
+    /// </summary>
+    public static ResupplyCity ResolveResupplyCity(
+        AiView view,
+        ArmyState army,
+        bool atWar)
+    {
+        ArgumentNullException.ThrowIfNull(view);
+        ArgumentNullException.ThrowIfNull(army);
+
+        var rules = view.Ruleset.Ai;
+        var strength = army.TotalTroops / rules.ResupplyStrengthTroopsDivisor;
+
+        var candidates = new List<ResupplyCandidate>();
+        CityState? nearestOwn = null;
+        var nearestOwnDistance = int.MaxValue;
+
+        foreach (var city in view.State.Cities)
+        {
+            if (IsInsideCity(army, city))
+            {
+                continue;
+            }
+
+            var distance = AiView.Distance(army.X, army.Y, city.X, city.Y);
+            var isOwn = string.Equals(city.Owner, army.Nation, StringComparison.Ordinal);
+            long score;
+            if (isOwn)
+            {
+                if (distance < nearestOwnDistance)
+                {
+                    nearestOwn = city;
+                    nearestOwnDistance = distance;
+                }
+
+                if (city.SupplyTons >= strength)
+                {
+                    continue;
+                }
+
+                score = -distance;
+                if (CapitalOwnership.IsAnyNationsCapital(view.State, city.Id))
+                {
+                    score -= rules.ResupplyCapitalPenalty;
+                }
+            }
+            else
+            {
+                if (!atWar
+                    || view.IsAtWar(army.Nation, city.Owner)
+                    || city.SupplyTons <= strength + rules.ResupplyForeignSupplyMargin
+                    || army.Money <= strength / rules.ResupplyForeignMoneyDivisor)
+                {
+                    continue;
+                }
+
+                score = -distance + rules.ResupplyForeignBonus;
+            }
+
+            candidates.Add(new ResupplyCandidate(city, score, distance, !isOwn));
+        }
+
+        // Sort: best score first, then nearer first, then city id ascending.
+        candidates.Sort((a, b) =>
+        {
+            var cmp = b.Score.CompareTo(a.Score);
+            if (cmp != 0)
+            {
+                return cmp;
+            }
+
+            cmp = a.Distance.CompareTo(b.Distance);
+            if (cmp != 0)
+            {
+                return cmp;
+            }
+
+            return string.CompareOrdinal(a.City.Id, b.City.Id);
+        });
+
+        // The Hazards' "reachable resupply" rule (the user's decision of 2026-10-10 on #925): the first
+        // candidate whose reachability rule does not skip is the destination. A foreign city beyond
+        // ResupplyMaxForeignDistance is also skipped — it falls through to the next candidate, and
+        // ultimately to the nearest own city when no candidate qualifies.
+        foreach (var candidate in candidates)
+        {
+            if (candidate.IsForeign && candidate.Distance > rules.ResupplyMaxForeignDistance)
+            {
+                continue;
+            }
+
+            if (IsReachable(view, army, candidate.City.X, candidate.City.Y))
+            {
+                return new ResupplyCity(candidate.City, candidate.Score, candidate.Distance);
+            }
+        }
+
+        return nearestOwn is null
+            ? new ResupplyCity(null, 0, 0)
+            : new ResupplyCity(nearestOwn, -nearestOwnDistance, nearestOwnDistance);
+    }
+
+    private readonly record struct ResupplyCandidate(
+        CityState City,
+        long Score,
+        int Distance,
+        bool IsForeign);
 
     /// <summary>What the tree decided an army should do.</summary>
     /// <remarks>
@@ -485,8 +596,22 @@ public static class AiArmyTargetTree
 
         var city = ScoreCityTarget(view, army);
         var armyScore = ScoreArmyTarget(view, army);
+        // The decision's KIND is driven by the scorer's pick (best by score). The destination the
+        // MoveToResupplyCity branch moves to is the Hazards' "reachable resupply" tier — the first
+        // reachable candidate in score order — so a city whose straight-line walk stops before it does
+        // not strand the army in the middle of the path.
         var resupply = ScoreResupplyCity(view, army, atWar);
+        var resupplyDestination = ResolveResupplyCity(view, army, atWar);
         var decision = DecideFromScores(view.Ruleset.Ai, army, city, armyScore, resupply);
+        if (decision.Selected == Kind.MoveToResupplyCity
+            && resupplyDestination.City is not null
+            && (resupply.City is null
+                || resupplyDestination.City.Id != resupply.City.Id
+                || resupplyDestination.City.X != resupply.City.X
+                || resupplyDestination.City.Y != resupply.City.Y))
+        {
+            decision = decision with { Resupply = resupplyDestination };
+        }
         _activeLog?.Add(new DecisionRecord(
             army.Nation,
             army.Id,
@@ -619,10 +744,14 @@ public static class AiArmyTargetTree
     }
 
     /// <summary>
-    /// The original's <c>FUN_0044ebe8</c> — if any other own army is already within
-    /// <see cref="AiWeightsRules.GarrisonFallbackCapitalDistance"/> tiles of the capital, head for the
-    /// nearest city of any owner; otherwise head for the capital. Returns <see langword="null"/> when
-    /// no own capital exists (the brief's defence city fallback cannot run).
+    /// The original's <c>FUN_0044ebe8</c> — when some own army (the army itself included, on the report's
+    /// "some own army" reading) is already within <see cref="AiWeightsRules.GarrisonFallbackCapitalDistance"/>
+    /// tiles of the capital, head for the nearest city of any owner; otherwise head for the capital. The
+    /// Hazards' "reachable fallback" rule (the user's decision of 2026-10-10 on #925) takes the first
+    /// reachable candidate in proximity order (distance ascending, then city id ascending), so a capital
+    /// hidden behind an obstacle falls through to the nearer cities in its branch. Returns
+    /// <see langword="null"/> when no own capital exists or no candidate is reachable (the layer above
+    /// then tries <see cref="EmergencyMoveDestination"/>).
     /// </summary>
     public static (int X, int Y)? GarrisonFallback(
         AiView view,
@@ -652,26 +781,258 @@ public static class AiArmyTargetTree
 
         if (someoneAtCapital)
         {
-            // Near the capital: go to the nearest city of any owner.
-            CityState? nearest = null;
-            var nearestDist = int.MaxValue;
-            foreach (var city in state.Cities)
-            {
-                var d = AiView.Distance(army.X, army.Y, city.X, city.Y);
-                if (!IsInsideCity(army, city) && d < nearestDist)
-                {
-                    nearest = city;
-                    nearestDist = d;
-                }
-            }
+            // Near the capital: candidates are every city (not the one the army is inside), nearest first,
+            // then city id ascending. The first reachable one is the destination.
+            return FirstReachableCity(view, army, state);
+        }
 
-            if (nearest is not null)
+        // Otherwise the capital alone is the candidate. If reachable, that's the destination.
+        return IsReachable(view, army, capital.X, capital.Y) ? (capital.X, capital.Y) : null;
+    }
+
+    /// <summary>
+    /// The Hazards' "emergency move" tier (the user's decision of 2026-10-10 on #925): only when the
+    /// resupply destination and the garrison-fallback destination are both unreachable. The candidates
+    /// are the tiles (other than the army's own tile) the existing move command, ordered to that tile,
+    /// reaches exactly this turn within the army's remaining moves (its straight-line walk stops before
+    /// none of them, and none is a city, army, fleet or sea tile). The destination is the candidate
+    /// nearest the army's nearest own city; an army with no own city uses the nearest city of any owner
+    /// instead. Returns <see langword="null"/> when the army is fully boxed in — the layer above logs
+    /// <c>"no reachable move"</c> and the army stays put.
+    /// </summary>
+    public static (int X, int Y)? EmergencyMoveDestination(
+        AiView view,
+        ArmyState army,
+        GameState state)
+    {
+        ArgumentNullException.ThrowIfNull(view);
+        ArgumentNullException.ThrowIfNull(army);
+        ArgumentNullException.ThrowIfNull(state);
+
+        var anchor = NearestOwnCityFor(view, army, state) ?? NearestCityOfAnyOwnerFor(view, army, state);
+        if (anchor is null)
+        {
+            // No cities at all: the Hazards' anchor rule cannot pick a destination.
+            return null;
+        }
+
+        (int X, int Y)? best = null;
+        var bestAnchorDistance = int.MaxValue;
+        var bestArmyDistance = int.MaxValue;
+        var bestY = int.MaxValue;
+        var bestX = int.MaxValue;
+
+        for (var dy = -army.Moves; dy <= army.Moves; dy++)
+        {
+            for (var dx = -army.Moves; dx <= army.Moves; dx++)
             {
-                return (nearest.X, nearest.Y);
+                if (dx == 0 && dy == 0)
+                {
+                    continue;
+                }
+
+                var x = army.X + dx;
+                var y = army.Y + dy;
+                if (!IsEmergencyReachable(view, army, x, y))
+                {
+                    continue;
+                }
+
+                var anchorDistance = AiView.Distance(x, y, anchor.X, anchor.Y);
+                if (anchorDistance > bestAnchorDistance)
+                {
+                    continue;
+                }
+
+                var armyDistance = AiView.Distance(army.X, army.Y, x, y);
+                var yValue = y;
+                var xValue = x;
+
+                if (anchorDistance < bestAnchorDistance
+                    || (anchorDistance == bestAnchorDistance && armyDistance < bestArmyDistance)
+                    || (anchorDistance == bestAnchorDistance && armyDistance == bestArmyDistance && (yValue < bestY
+                        || (yValue == bestY && xValue < bestX))))
+                {
+                    best = (x, y);
+                    bestAnchorDistance = anchorDistance;
+                    bestArmyDistance = armyDistance;
+                    bestY = yValue;
+                    bestX = xValue;
+                }
             }
         }
 
-        return (capital.X, capital.Y);
+        return best;
+    }
+
+    /// <summary>The first city a Bresenham walk from <paramref name="army"/> can reach, in distance-then-id order.</summary>
+    private static (int X, int Y)? FirstReachableCity(
+        AiView view,
+        ArmyState army,
+        GameState state)
+    {
+        (int X, int Y)? best = null;
+        var bestDistance = int.MaxValue;
+        string? bestId = null;
+
+        foreach (var city in state.Cities)
+        {
+            if (IsInsideCity(army, city))
+            {
+                continue;
+            }
+
+            var distance = AiView.Distance(army.X, army.Y, city.X, city.Y);
+            if (!IsReachable(view, army, city.X, city.Y))
+            {
+                continue;
+            }
+
+            if (best is null
+                || distance < bestDistance
+                || (distance == bestDistance && string.CompareOrdinal(city.Id, bestId!) < 0))
+            {
+                best = (city.X, city.Y);
+                bestDistance = distance;
+                bestId = city.Id;
+            }
+        }
+
+        return best;
+    }
+
+    private static CityState? NearestOwnCityFor(AiView view, ArmyState army, GameState state)
+    {
+        CityState? best = null;
+        var bestDistance = int.MaxValue;
+        foreach (var city in state.Cities)
+        {
+            if (!string.Equals(city.Owner, army.Nation, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var d = AiView.Distance(army.X, army.Y, city.X, city.Y);
+            if (d < bestDistance)
+            {
+                best = city;
+                bestDistance = d;
+            }
+        }
+
+        return best;
+    }
+
+    private static CityState? NearestCityOfAnyOwnerFor(AiView view, ArmyState army, GameState state)
+    {
+        CityState? best = null;
+        var bestDistance = int.MaxValue;
+        foreach (var city in state.Cities)
+        {
+            if (IsInsideCity(army, city))
+            {
+                continue;
+            }
+
+            var d = AiView.Distance(army.X, army.Y, city.X, city.Y);
+            if (d < bestDistance)
+            {
+                best = city;
+                bestDistance = d;
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>
+    /// True when a Bresenham walk from <paramref name="army"/> to (<paramref name="x"/>,
+    /// <paramref name="y"/>) stops at neither a city nor another army nor a non-construction fleet nor an
+    /// impassable tile, and the path is no longer than the army's remaining moves. The destination tile
+    /// itself is examined too: it must be army-passable land and unoccupied. Used by
+    /// <see cref="EmergencyMoveDestination"/> to pick an attainable distinct tile.
+    /// </summary>
+    private static bool IsEmergencyReachable(AiView view, ArmyState army, int x, int y)
+    {
+        if ((uint)x >= (uint)view.World.Width || (uint)y >= (uint)view.World.Height)
+        {
+            return false;
+        }
+
+        var path = BresenhamPath.Trace(new GridPoint(army.X, army.Y), new GridPoint(x, y));
+        if (path.Count - 1 > army.Moves)
+        {
+            return false;
+        }
+
+        // Destination tile: passable land, unoccupied by city / other army / non-construction fleet.
+        if (!view.IsArmyPassable(new GridPoint(x, y)))
+        {
+            return false;
+        }
+
+        foreach (var city in view.State.Cities)
+        {
+            if (city.X == x && city.Y == y)
+            {
+                return false;
+            }
+        }
+
+        foreach (var other in view.State.Armies)
+        {
+            if (!string.Equals(other.Id, army.Id, StringComparison.Ordinal)
+                && other.X == x && other.Y == y)
+            {
+                return false;
+            }
+        }
+
+        foreach (var fleet in view.State.Fleets)
+        {
+            if (!fleet.IsUnderConstruction && fleet.X == x && fleet.Y == y)
+            {
+                return false;
+            }
+        }
+
+        // Intermediate cells: same rules, but passability is the only check the walker reports on a
+        // non-destination cell, with occupancy stopping it outright. Mirror what IsReachable does.
+        for (var i = 1; i < path.Count - 1; i++)
+        {
+            var step = path[i];
+            if (!view.IsArmyPassable(step))
+            {
+                return false;
+            }
+
+            foreach (var city in view.State.Cities)
+            {
+                if (city.X == step.X && city.Y == step.Y)
+                {
+                    return false;
+                }
+            }
+
+            foreach (var other in view.State.Armies)
+            {
+                if (!string.Equals(other.Id, army.Id, StringComparison.Ordinal)
+                    && other.X == step.X && other.Y == step.Y)
+                {
+                    return false;
+                }
+            }
+
+            foreach (var fleet in view.State.Fleets)
+            {
+                if (!fleet.IsUnderConstruction && fleet.X == step.X && fleet.Y == step.Y)
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     /// <summary>

@@ -331,19 +331,35 @@ public static class AiTurn
         ref int mismatches,
         List<string> marched)
     {
-        if (AiArmyTargetTree.GarrisonFallback(view, state.ArmyById(armyId)!, state) is not { } dest)
+        var army = state.ArmyById(armyId)!;
+        (int X, int Y)? dest = AiArmyTargetTree.GarrisonFallback(view, army, state);
+        string? tierLabel = null;
+        if (dest is null)
         {
-            log.Add(Inv("garrison fallback skipped for {0}: no capital", armyId));
+            // Hazards' "fallback is reachable too": when no garrison candidate is reachable, try the
+            // emergency move (the tile the existing move command can reach this turn).
+            dest = AiArmyTargetTree.EmergencyMoveDestination(view, army, state);
+            tierLabel = dest is null ? null : "emergency move";
+        }
+
+        if (dest is not { } target)
+        {
+            // Boxed in: every distinct tile is unreachable. The Hazards' "Staying put" branch — the AI
+            // is not idle by choice; nothing is reachable and the log records that explicitly.
+            log.Add(Inv("no reachable move for {0}: army stays put", armyId));
             return;
         }
 
-        var army = state.ArmyById(armyId)!;
+        var rationale = tierLabel is null
+            ? Inv("garrison fallback {0} toward ({1}, {2})", armyId, target.X, target.Y)
+            : Inv("emergency move {0} toward ({1}, {2}): no garrison destination is reachable", armyId, target.X, target.Y);
+
         var candidate = AiCandidate.Single(
             AiPhase.Military,
             AiCandidate.ApproachKind,
-            new Movement.Commands.MoveArmyCommand(view.NationId, armyId, dest.X, dest.Y),
+            new Movement.Commands.MoveArmyCommand(view.NationId, armyId, target.X, target.Y),
             ruleset.Ai.MinimumActionScore,
-            Inv("garrison fallback {0} toward ({1}, {2})", armyId, dest.X, dest.Y),
+            rationale,
             armyId);
 
         var before = state;
@@ -361,7 +377,12 @@ public static class AiTurn
         if (execution.Issued > 0)
         {
             marched.Add(armyId);
-            log.Add(Inv("garrison fallback moved {0} to ({1}, {2})", armyId, dest.X, dest.Y));
+            log.Add(Inv(
+                "{0} moved {1} to ({2}, {3})",
+                tierLabel ?? "garrison fallback",
+                armyId,
+                target.X,
+                target.Y));
         }
     }
 
