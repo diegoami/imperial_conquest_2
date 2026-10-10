@@ -172,12 +172,25 @@ public static class AiTurn
         // once per action rather than once per turn. See AiSiegeGateTally.
         var siegeGates = new AiSiegeGateTally();
 
+        // Hazards step 4 (#925): an army boxed in (moves left, no reachable resupply, garrison or
+        // emergency tile) stays put, and the log says so once per army per turn, whichever path found it.
+        var boxedInLogged = new HashSet<string>(StringComparer.Ordinal);
+
         for (var action = 0; action < ruleset.Ai.MaxActionsPerTurn; action++)
         {
             var view = new AiView(state, ruleset, world, nationId);
             var candidates = new List<AiCandidate>();
+            var boxedIn = new List<string>();
             AiMilitaryPhase.Propose(
-                view, personality, rng, marched, candidates, action == 0 ? siegeGates : null);
+                view, personality, rng, marched, candidates, action == 0 ? siegeGates : null, boxedIn);
+            foreach (var boxedArmyId in boxedIn)
+            {
+                if (boxedInLogged.Add(boxedArmyId))
+                {
+                    log.Add(Inv("no reachable move for {0}: army stays put", boxedArmyId));
+                }
+            }
+
             AiEconomyPhase.Propose(view, personality, candidates);
             // T82 (#359, bug #357, Owns amendment PR #378): the same seat-turn IRng AiMilitaryPhase
             // already receives above, so AiDiplomacyPhase's own Random(20) alliance roll is drawn from
@@ -241,7 +254,7 @@ public static class AiTurn
                 && beforeTile.Y == afterTile.Y)
             {
                 RunGarrisonFallback(view, armyId, ruleset, commands, events, ref state, log,
-                    ref issued, ref rejected, ref mismatches, marched);
+                    ref issued, ref rejected, ref mismatches, marched, boxedInLogged);
             }
 
             if (AiSubstantiveState.AreEquivalent(before, state))
@@ -330,7 +343,8 @@ public static class AiTurn
         ref int issued,
         ref int rejected,
         ref int mismatches,
-        List<string> marched)
+        List<string> marched,
+        HashSet<string> boxedInLogged)
     {
         var army = state.ArmyById(armyId)!;
         (int X, int Y)? dest = AiArmyTargetTree.GarrisonFallback(view, army, state);
@@ -347,7 +361,11 @@ public static class AiTurn
         {
             // Boxed in: every distinct tile is unreachable. The Hazards' "Staying put" branch — the AI
             // is not idle by choice; nothing is reachable and the log records that explicitly.
-            log.Add(Inv("no reachable move for {0}: army stays put", armyId));
+            if (boxedInLogged.Add(armyId))
+            {
+                log.Add(Inv("no reachable move for {0}: army stays put", armyId));
+            }
+
             return;
         }
 

@@ -80,14 +80,20 @@ public static class AiMilitaryPhase
     /// into it — see <see cref="AiSiegeGateTally"/> for why that measurement exists and why it
     /// cannot change what the AI decides.
     /// </param>
-    /// <exception cref="ArgumentNullException">Any argument but <paramref name="siegeGates"/> is null.</exception>
+    /// <param name="boxedIn">
+    /// Optional. Receives the id of every army the tree could give no command and whose garrison fallback
+    /// and emergency move found no reachable tile (Hazards step 4); the turn driver logs
+    /// <c>no reachable move</c> for each.
+    /// </param>
+    /// <exception cref="ArgumentNullException">Any argument but <paramref name="siegeGates"/> and <paramref name="boxedIn"/> is null.</exception>
     public static void Propose(
         AiView view,
         AiPersonalityProfile personality,
         IRng rng,
         IReadOnlyList<string> armiesAlreadyMarched,
         List<AiCandidate> into,
-        AiSiegeGateTally? siegeGates = null)
+        AiSiegeGateTally? siegeGates = null,
+        ICollection<string>? boxedIn = null)
     {
         ArgumentNullException.ThrowIfNull(view);
         ArgumentNullException.ThrowIfNull(personality);
@@ -109,7 +115,7 @@ public static class AiMilitaryPhase
                 continue;
             }
 
-            ProposeArmyTree(view, army, progress, armiesAlreadyMarched, into, siegeGates);
+            ProposeArmyTree(view, army, progress, armiesAlreadyMarched, into, siegeGates, boxedIn);
         }
 
         foreach (var fleet in view.OwnFleets())
@@ -285,7 +291,8 @@ public static class AiMilitaryPhase
         long progress,
         IReadOnlyList<string> armiesAlreadyMarched,
         List<AiCandidate> into,
-        AiSiegeGateTally? siegeGates)
+        AiSiegeGateTally? siegeGates,
+        ICollection<string>? boxedIn)
     {
         var archerUnitTypeId = BattleCommandRuleset.ArcherUnitTypeIdIn(view.Ruleset);
         var fortifyOrder = BattleCommandRuleset.FortificationOrderIdIn(view.Ruleset);
@@ -298,7 +305,7 @@ public static class AiMilitaryPhase
         }
 
         var atWar = AnyAtWar(view);
-        var decision = AiArmyTargetTree.Decide(view, army, atWar);
+        var decision = AiArmyTargetTree.DecideUnlogged(view, army, atWar, out var decisionRecord);
         var mayMarch = !Contains(armiesAlreadyMarched, army.Id);
         var candidatesBefore = into.Count;
 
@@ -390,16 +397,31 @@ public static class AiMilitaryPhase
         // behind both the resupply and the garrison destination.
         if (mayMarch && into.Count == candidatesBefore)
         {
-            var fallbackDest = AiArmyTargetTree.GarrisonFallback(view, army, view.State)
-                ?? AiArmyTargetTree.EmergencyMoveDestination(view, army, view.State);
+            var garrison = AiArmyTargetTree.GarrisonFallback(view, army, view.State);
+            var fallbackDest = garrison ?? AiArmyTargetTree.EmergencyMoveDestination(view, army, view.State);
             if (fallbackDest is { } dest)
             {
-                var why = AiArmyTargetTree.GarrisonFallback(view, army, view.State) is null
+                var why = garrison is null
                     ? "emergency move (no garrison destination is reachable)"
                     : "garrison fallback";
                 AddMarchCandidate(view, army, dest.X, dest.Y, AiCandidate.ApproachKind,
                     why, view.Ruleset.Ai.ReinforceCityBaseScore, progress, into);
             }
+            else
+            {
+                // Boxed in: no resupply, garrison or emergency destination is reachable. The turn driver
+                // writes the "no reachable move" line from this list, once per army per turn.
+                boxedIn?.Add(army.Id);
+            }
+        }
+
+        // The decision log (Done-when 6) records a decision of the turn. An army that has not marched is
+        // decided here; one that has marched is decided again only to find the attack its march brought
+        // within reach, and is recorded only when that attack is offered: it is not decided again
+        // otherwise, its turn is spent.
+        if (mayMarch || into.Count > candidatesBefore)
+        {
+            AiArmyTargetTree.LogDecision(decisionRecord);
         }
     }
 

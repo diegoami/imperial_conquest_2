@@ -52,7 +52,6 @@ split-fleet mac-fleet-1 mac-fleet-keep 10
 end
 end
 end
-accept-offer
 status
 news
 set-tax 20
@@ -85,6 +84,8 @@ buy mac-marines pella 5000
 split-unit mac-marines 1 200
 split-army mac-marines mac-merc 2 supply=50 money=80
 end
+accept-offer
 move mac-merc 140 47
-move mac-merc 142 50
+move mac-merc 141 48
+hire-mercenary mac-merc 25
 quit

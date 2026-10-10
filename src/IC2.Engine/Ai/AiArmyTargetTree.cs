@@ -379,13 +379,16 @@ public static class AiArmyTargetTree
     }
 
     /// <summary>
-    /// The Hazards' "reachable resupply" tier (the user's decision of 2026-10-10 on #925): from the
-    /// cities <see cref="ScoreResupplyCity"/> considers, the destination is the first the reachability
-    /// rule does not skip, in score order (score descending, distance ascending, city id ascending
-    /// — the [designed] tie-break rule the Hazards name). A foreign city beyond
-    /// <see cref="AiWeightsRules.ResupplyMaxForeignDistance"/> is also skipped, falling to the nearest
-    /// own city when nothing qualifies. <see cref="ResupplyCity.City"/> is <see langword="null"/> only
-    /// when there is no qualifying city of any kind AND no own city to fall back to.
+    /// The Hazards' "reachable resupply" tier, step 1 (the user's decision of 2026-10-10 on #925). The
+    /// original's pick (<see cref="ScoreResupplyCity"/>, including its "nearest own city" answer when
+    /// nothing qualifies or the best foreign city is beyond
+    /// <see cref="AiWeightsRules.ResupplyMaxForeignDistance"/>) is the destination whenever the
+    /// reachability rule does not skip it: an unobstructed state is never overridden. Only when the
+    /// original's pick is skipped does the next candidate take over, in score order (score descending,
+    /// distance ascending, city id ascending), among the cities <see cref="ScoreResupplyCity"/> considers
+    /// (a foreign city beyond the range is not one). <see cref="ResupplyCity.City"/> is
+    /// <see langword="null"/> when every one is skipped: the caller then falls through to the garrison
+    /// fallback (step 2) and the emergency move (step 3) instead of marching at an unreachable city.
     /// </summary>
     public static ResupplyCity ResolveResupplyCity(
         AiView view,
@@ -395,12 +398,15 @@ public static class AiArmyTargetTree
         ArgumentNullException.ThrowIfNull(view);
         ArgumentNullException.ThrowIfNull(army);
 
+        var original = ScoreResupplyCity(view, army, atWar);
+        if (original.City is { } picked && IsReachable(view, army, picked.X, picked.Y))
+        {
+            return original;
+        }
+
         var rules = view.Ruleset.Ai;
         var strength = army.TotalTroops / rules.ResupplyStrengthTroopsDivisor;
-
         var candidates = new List<ResupplyCandidate>();
-        CityState? nearestOwn = null;
-        var nearestOwnDistance = int.MaxValue;
 
         foreach (var city in view.State.Cities)
         {
@@ -414,12 +420,6 @@ public static class AiArmyTargetTree
             long score;
             if (isOwn)
             {
-                if (distance < nearestOwnDistance)
-                {
-                    nearestOwn = city;
-                    nearestOwnDistance = distance;
-                }
-
                 if (city.SupplyTons >= strength)
                 {
                     continue;
@@ -465,13 +465,14 @@ public static class AiArmyTargetTree
             return string.CompareOrdinal(a.City.Id, b.City.Id);
         });
 
-        // The Hazards' "reachable resupply" rule (the user's decision of 2026-10-10 on #925): the first
-        // candidate whose reachability rule does not skip is the destination. A foreign city beyond
-        // ResupplyMaxForeignDistance is also skipped — it falls through to the next candidate, and
-        // ultimately to the nearest own city when no candidate qualifies.
         foreach (var candidate in candidates)
         {
             if (candidate.IsForeign && candidate.Distance > rules.ResupplyMaxForeignDistance)
+            {
+                continue;
+            }
+
+            if (original.City is { } tried && string.Equals(tried.Id, candidate.City.Id, StringComparison.Ordinal))
             {
                 continue;
             }
@@ -482,9 +483,7 @@ public static class AiArmyTargetTree
             }
         }
 
-        return nearestOwn is null
-            ? new ResupplyCity(null, 0, 0)
-            : new ResupplyCity(nearestOwn, -nearestOwnDistance, nearestOwnDistance);
+        return new ResupplyCity(null, 0, 0);
     }
 
     private readonly record struct ResupplyCandidate(
@@ -591,28 +590,41 @@ public static class AiArmyTargetTree
     /// </summary>
     public static Decision Decide(AiView view, ArmyState army, bool atWar)
     {
+        var decision = DecideUnlogged(view, army, atWar, out var record);
+        _activeLog?.Add(record);
+        return decision;
+    }
+
+    /// <summary>
+    /// The same decision as <see cref="Decide"/>, written to no log: it returns the record
+    /// <see cref="Decide"/> would have logged and leaves it to the caller to log it with
+    /// <see cref="LogDecision"/> once the decision is going to be carried out. The army phase uses it
+    /// for an army that has already marched this turn, which is decided again only to find an attack its
+    /// march has brought within reach; a re-evaluation that offers nothing is not a decision of the turn
+    /// (the army has spent its march, and the original decides each army once).
+    /// </summary>
+    public static Decision DecideUnlogged(AiView view, ArmyState army, bool atWar, out DecisionRecord record)
+    {
         ArgumentNullException.ThrowIfNull(view);
         ArgumentNullException.ThrowIfNull(army);
 
         var city = ScoreCityTarget(view, army);
         var armyScore = ScoreArmyTarget(view, army);
-        // The decision's KIND is driven by the scorer's pick (best by score). The destination the
-        // MoveToResupplyCity branch moves to is the Hazards' "reachable resupply" tier — the first
-        // reachable candidate in score order — so a city whose straight-line walk stops before it does
-        // not strand the army in the middle of the path.
         var resupply = ScoreResupplyCity(view, army, atWar);
-        var resupplyDestination = ResolveResupplyCity(view, army, atWar);
         var decision = DecideFromScores(view.Ruleset.Ai, army, city, armyScore, resupply);
-        if (decision.Selected == Kind.MoveToResupplyCity
-            && resupplyDestination.City is not null
-            && (resupply.City is null
-                || resupplyDestination.City.Id != resupply.City.Id
-                || resupplyDestination.City.X != resupply.City.X
-                || resupplyDestination.City.Y != resupply.City.Y))
+
+        // The destination of a resupply march (the MoveToResupplyCity branch, and the mercenary run's
+        // "defend the resupply city" continuation) is the Hazards' step 1: the original's pick when the
+        // reachability rule does not skip it, else the next reachable candidate, else none, in which case
+        // the caller falls through to the garrison fallback and the emergency move.
+        var marchesAtResupply = decision.Selected == Kind.MoveToResupplyCity
+            || (decision.Selected == Kind.MercenaryRun && decision.After == Continuation.DefendResupplyCity);
+        if (marchesAtResupply)
         {
-            decision = decision with { Resupply = resupplyDestination };
+            decision = decision with { Resupply = ResolveResupplyCity(view, army, atWar) };
         }
-        _activeLog?.Add(new DecisionRecord(
+
+        record = new DecisionRecord(
             army.Nation,
             army.Id,
             army.X,
@@ -628,9 +640,12 @@ public static class AiArmyTargetTree
             armyScore.Score,
             city.Distance,
             armyScore.Distance,
-            city.Skipped + armyScore.Skipped));
+            city.Skipped + armyScore.Skipped);
         return decision;
     }
+
+    /// <summary>Writes a record from <see cref="DecideUnlogged"/> to the calling thread's log, when one is installed.</summary>
+    public static void LogDecision(DecisionRecord record) => _activeLog?.Add(record);
 
     /// <summary>
     /// The decision over already-computed scorer results. Public so a table-driven test can walk every
@@ -816,6 +831,7 @@ public static class AiArmyTargetTree
             return null;
         }
 
+        var terrainCells = view.World.Terrain.Decode(view.World.Width, view.World.Height);
         (int X, int Y)? best = null;
         var bestAnchorDistance = int.MaxValue;
         var bestArmyDistance = int.MaxValue;
@@ -833,7 +849,7 @@ public static class AiArmyTargetTree
 
                 var x = army.X + dx;
                 var y = army.Y + dy;
-                if (!IsEmergencyReachable(view, army, x, y))
+                if (!IsEmergencyReachable(view, army, x, y, terrainCells))
                 {
                     continue;
                 }
@@ -946,93 +962,74 @@ public static class AiArmyTargetTree
     }
 
     /// <summary>
-    /// True when a Bresenham walk from <paramref name="army"/> to (<paramref name="x"/>,
-    /// <paramref name="y"/>) stops at neither a city nor another army nor a non-construction fleet nor an
-    /// impassable tile, and the path is no longer than the army's remaining moves. The destination tile
-    /// itself is examined too: it must be army-passable land and unoccupied. Used by
+    /// True when the existing move command, ordered to (<paramref name="x"/>, <paramref name="y"/>),
+    /// reaches exactly that tile this turn: the very <see cref="MovementWalker"/> the command runs,
+    /// priced by the ruleset's terrain table (forest 2, mountains and rivers 4 in the shipped rulesets),
+    /// ends on the tile, so the cost of every step is paid from the army's remaining moves and the
+    /// walk is stopped by no sea tile, city, army or fleet. The count of steps decides nothing: a
+    /// three-step path across a mountain costs more than the army has. Used by
     /// <see cref="EmergencyMoveDestination"/> to pick an attainable distinct tile.
     /// </summary>
-    private static bool IsEmergencyReachable(AiView view, ArmyState army, int x, int y)
+    private static bool IsEmergencyReachable(AiView view, ArmyState army, int x, int y, int[] terrainCells)
     {
-        if ((uint)x >= (uint)view.World.Width || (uint)y >= (uint)view.World.Height)
+        var world = view.World;
+        if ((uint)x >= (uint)world.Width || (uint)y >= (uint)world.Height)
         {
             return false;
         }
 
-        var path = BresenhamPath.Trace(new GridPoint(army.X, army.Y), new GridPoint(x, y));
-        if (path.Count - 1 > army.Moves)
-        {
-            return false;
-        }
+        string? TileTypeIdAt(GridPoint point) =>
+            (uint)point.X < (uint)world.Width && (uint)point.Y < (uint)world.Height
+                ? world.TileTypeByCode(terrainCells[(point.Y * world.Width) + point.X])?.Id
+                : null;
 
-        // Destination tile: passable land, unoccupied by city / other army / non-construction fleet.
-        if (!view.IsArmyPassable(new GridPoint(x, y)))
+        bool IsBlocked(GridPoint point)
         {
-            return false;
-        }
-
-        foreach (var city in view.State.Cities)
-        {
-            if (city.X == x && city.Y == y)
+            if (!view.IsArmyPassable(point))
             {
-                return false;
-            }
-        }
-
-        foreach (var other in view.State.Armies)
-        {
-            if (!string.Equals(other.Id, army.Id, StringComparison.Ordinal)
-                && other.X == x && other.Y == y)
-            {
-                return false;
-            }
-        }
-
-        foreach (var fleet in view.State.Fleets)
-        {
-            if (!fleet.IsUnderConstruction && fleet.X == x && fleet.Y == y)
-            {
-                return false;
-            }
-        }
-
-        // Intermediate cells: same rules, but passability is the only check the walker reports on a
-        // non-destination cell, with occupancy stopping it outright. Mirror what IsReachable does.
-        for (var i = 1; i < path.Count - 1; i++)
-        {
-            var step = path[i];
-            if (!view.IsArmyPassable(step))
-            {
-                return false;
+                return true;
             }
 
             foreach (var city in view.State.Cities)
             {
-                if (city.X == step.X && city.Y == step.Y)
+                if (city.X == point.X && city.Y == point.Y)
                 {
-                    return false;
+                    return true;
                 }
             }
 
             foreach (var other in view.State.Armies)
             {
                 if (!string.Equals(other.Id, army.Id, StringComparison.Ordinal)
-                    && other.X == step.X && other.Y == step.Y)
+                    && other.X == point.X && other.Y == point.Y)
                 {
-                    return false;
+                    return true;
                 }
             }
 
             foreach (var fleet in view.State.Fleets)
             {
-                if (!fleet.IsUnderConstruction && fleet.X == step.X && fleet.Y == step.Y)
+                if (!fleet.IsUnderConstruction && fleet.X == point.X && fleet.Y == point.Y)
                 {
-                    return false;
+                    return true;
                 }
             }
+
+            return false;
         }
 
-        return true;
+        var destination = new GridPoint(x, y);
+        var walk = MovementWalker.Walk(
+            new GridPoint(army.X, army.Y),
+            destination,
+            army.Moves,
+            view.Ruleset.Terrain,
+            TileTypeIdAt,
+            IsBlocked,
+            NullEventSink.Instance);
+        return walk.StopReason == MovementStopReason.ReachedDestination
+            && walk.FinalPosition.X == x
+            && walk.FinalPosition.Y == y;
     }
 
     /// <summary>

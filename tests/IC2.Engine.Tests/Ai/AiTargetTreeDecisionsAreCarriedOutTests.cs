@@ -61,23 +61,22 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
                 var turns = SplitByNationTurn(round);
                 attackDecisions += log.Count(d => d.Kind is AiArmyTargetTree.Kind.AttackCity or AiArmyTargetTree.Kind.AttackArmy);
 
-                // An army's first decision of its seat's turn is the one its one march (or attack) acts on;
-                // a later decision after the march has spent the army's turn is not owed another march.
-                foreach (var firstDecision in log
-                    .GroupBy(d => (d.NationId, d.ArmyId))
-                    .Select(g => g.First())
+                // EVERY attack decision the log records is owed a carried-out attack or march toward its
+                // target (the review's R1/R2): an army that has spent its march is not decided again, so
+                // there is no later decision to exempt.
+                foreach (var decision in log
                     .Where(d => d.Kind is AiArmyTargetTree.Kind.AttackCity or AiArmyTargetTree.Kind.AttackArmy))
                 {
                     armyTurns++;
-                    skipped += firstDecision.Skipped;
-                    if (turns.TryGetValue(firstDecision.NationId, out var carriedEvents) && IsCarriedOut(firstDecision, carriedEvents))
+                    skipped += decision.Skipped;
+                    if (turns.TryGetValue(decision.NationId, out var carriedEvents) && IsCarriedOut(decision, carriedEvents))
                     {
                         carriedOut++;
                     }
 
-                    if (!turns.TryGetValue(firstDecision.NationId, out var turnEvents) || !IsCarriedOut(firstDecision, turnEvents))
+                    if (!turns.TryGetValue(decision.NationId, out var turnEvents) || !IsCarriedOut(decision, turnEvents))
                     {
-                        exceptions.Add(Describe(r, firstDecision) + " | ALLDEC " + string.Join(",", log.Where(d => d.ArmyId == firstDecision.ArmyId).Select(d => $"{d.Kind}@({d.ArmyX},{d.ArmyY})")) + " | " + (turns.TryGetValue(firstDecision.NationId, out var te) ? string.Join(";", te.Where(e => e is ArmyMoved am && am.ArmyId == firstDecision.ArmyId).Select(e => { var am = (ArmyMoved)e; return $"moved ({am.FromX},{am.FromY})>({am.ToX},{am.ToY})"; }).DefaultIfEmpty("no move")) + " " + string.Join(";", te.OfType<AiTurnDecided>().SelectMany(t => t.Lines).Where(l => l.Contains(firstDecision.ArmyId, StringComparison.Ordinal)).Take(3)) : "no turn"));
+                        exceptions.Add(Describe(r, decision) + " | ALLDEC " + string.Join(",", log.Where(d => d.ArmyId == decision.ArmyId).Select(d => $"{d.Kind}@({d.ArmyX},{d.ArmyY})")) + " | " + (turns.TryGetValue(decision.NationId, out var te) ? string.Join(";", te.Where(e => e is ArmyMoved am && am.ArmyId == decision.ArmyId).Select(e => { var am = (ArmyMoved)e; return $"moved ({am.FromX},{am.FromY})>({am.ToX},{am.ToY})"; }).DefaultIfEmpty("no move")) + " " + string.Join(";", te.OfType<AiTurnDecided>().SelectMany(t => t.Lines).Where(l => l.Contains(decision.ArmyId, StringComparison.Ordinal)).Take(3)) : "no turn"));
                     }
                 }
             }

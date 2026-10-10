@@ -21,10 +21,7 @@ namespace IC2.Slice.Checks;
 /// with <c>south-army-1</c> moved one tile from <c>north-army-1</c> — the same repositioning
 /// <c>godot/Screens/Checks/ScreensCheck.cs</c>'s <c>BattleReadySession</c> and
 /// <c>GameSessionBattleResultsTests.BattleFixture</c> use. The human declares war, then <c>end</c>; the
-/// AI's own turn plays. The check now asserts the AI's turn completed cleanly (a battle is no longer
-/// guaranteed by the new tree — the reachability / target tree may pick a fallback march over an
-/// attack when the resupply or garrison candidate wins — but the AI phase never throws and the turn
-/// always advances past the action cap).
+/// AI's own turn attacks, and the first window is the battle the engine's own <c>LastBattles</c> holds.
 /// </para>
 /// <para>
 /// <strong>Two human seats (Done-when 3–4).</strong> The <c>classical-mediterranean</c> world with the
@@ -32,8 +29,8 @@ namespace IC2.Slice.Checks;
 /// <c>rome</c> and <c>seleucid</c> human and every other seat AI. The world's own fixed turn order puts
 /// <c>carthage</c> between them whatever T119 does to the faithful preset. Three armies are scripted into
 /// an isolated all-land pocket: two carthage armies beside one weak army of each Roman army, and a third
-/// beside a weak Seleucid army, so carthage's own turn's two-three window ordering is what the check
-/// pins.
+/// beside a weak Seleucid army, so carthage's own turn attacks both humans. With a fixed seed the whole
+/// run is deterministic.
 /// </para>
 /// </remarks>
 public partial class AiPhaseBattleCheck : Node
@@ -81,21 +78,24 @@ public partial class AiPhaseBattleCheck : Node
         mainGame.SubmitForCheck("declare-war south");
         var turnBefore = mainGame.Session.State.Calendar.TurnIndex;
 
-        // T156 rework round 1 (R9): the new tree may not attack south-army-1 at (4, 2) from north-army-1
-        // at (3, 2). The check pins what the AI phase still guarantees (a clean turn that advances the
-        // calendar), regardless of whether the tree picked AttackArmy or some resupply/fallback march
-        // for that army. The "battle opens a window" assertion T116 named is no longer reachable in
-        // this fixture; the per-army attack window ordering is covered by the second human-seat check
-        // below, which keeps a smaller-battle-arrangement shape the new tree does fight on.
         mainGame.SubmitForCheck("end");
+
+        var battle = mainGame.Session.LastBattles.Single();
+        Check(
+            mainGame.ActiveOverlay is BattleResultScreen,
+            $"one human seat: the AI phase's own battle opens a battle-result screen at the human's turn "
+            + $"start (got {mainGame.ActiveOverlay?.GetType().Name ?? "null"})");
+
+        if (mainGame.ActiveOverlay is BattleResultScreen screen)
+        {
+            CheckWindowMatches(screen, battle, "one human seat: ");
+            screen.Close();
+        }
 
         Check(
             mainGame.Session.State.Calendar.TurnIndex > turnBefore,
             $"one human seat: the state's turn has moved on after 'end' "
             + $"(turn {turnBefore} -> {mainGame.Session.State.Calendar.TurnIndex})");
-        Check(
-            !mainGame.Session.State.Nations.Any(n => n.Eliminated),
-            "one human seat: no nation is eliminated by the AI phase");
 
         RemoveChild(mainGame);
         mainGame.QueueFree();
@@ -127,15 +127,9 @@ public partial class AiPhaseBattleCheck : Node
         var romeHeld = firstCall.Where(b => BattleInvolves(b, "rome")).ToArray();
         var seleucidNow = firstCall.Where(b => BattleInvolves(b, "seleucid")).ToArray();
 
-        // T156 rework round 1 (R9): carthage attacks the side its tree scorer ranks higher; with the
-        // reachable fallback, the second carthage army sometimes picks a resupply destination over
-        // the second attack. We don't require *both* humans — we require at least one battle (per
-        // seat) is registered, which the existing firstCall collection reports. The "fought both
-        // humans" assertion was tracking a downstream expectation the second attack was the second
-        // army's only option; the new tree opts the second army into a reachable destination.
         Check(
-            romeHeld.Length + seleucidNow.Length > 0,
-            $"two human seats: carthage's turn fought at least one battle "
+            romeHeld.Length > 0 && seleucidNow.Length > 0,
+            $"two human seats: carthage's turn fought battles against both humans "
             + $"(against rome: {romeHeld.Length}, against seleucid: {seleucidNow.Length})");
 
         Check(
@@ -195,15 +189,15 @@ public partial class AiPhaseBattleCheck : Node
                 + $"once (shown {shown})");
         }
 
-        // Done-when 4: the held battle against Rome is shown exactly once at Rome's next turn start
-        // — its window-ordering. The original assertion expected two battles; the new tree's reachable
-        // fallback may issue only one (the resupply destination now wins when its reachable score is
-        // higher than the second attack's). The single-window invariant is what the per-incoming-
-        // seat handover check above pins already ("rome's turn start shows at least the 1 battle(s)
-        // held for it"); leaving this assertion in for tracing the dropped count, not as a fail gate.
-        System.Console.WriteLine(
-            $"several battles (informational): carthage fought {romeHeld.Length} battle(s) against rome "
-            + $"this turn (the new tree may pick one and a resupply/fallback march for the other).");
+        // Done-when 4: two battles against one seat in one AI phase, in the order fought.
+        Check(
+            romeHeld.Length == 2,
+            $"several battles: carthage's one turn fought exactly two battles against rome, so both are "
+            + $"shown in the order fought (got {romeHeld.Length})");
+        Check(
+            romeWindows.Count >= 2 && WindowMatches(romeWindows[0], romeHeld[0])
+                && WindowMatches(romeWindows[1], romeHeld[1]),
+            "several battles: rome's first two windows are its two held battles, in the order fought");
 
         RemoveChild(mainGame);
         mainGame.QueueFree();
