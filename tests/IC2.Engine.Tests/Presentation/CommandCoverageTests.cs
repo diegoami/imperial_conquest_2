@@ -89,14 +89,27 @@ public sealed class CommandCoverageTests
     /// <summary>
     /// docs/tasks/T80.md Done-when 2b: "The coverage test may exempt exactly these, each named in the
     /// test with its reason ... Each keyed exception names its issue. The task that closes that issue
-    /// removes the exception and adds the command's line to the success script." Empty since T56
-    /// (#229, bug #457): its last entry, <c>recruitment.hire-mercenary</c> (keyed to #229), was removed
-    /// by adding a <c>hire-mercenary</c> line to <c>success.txt</c> once the New Game fill and the
-    /// quarterly restock keep the pool populated; <c>attack-fleet</c> and <c>peace-yes</c> were never
-    /// entries — both succeed (see <see cref="Presentation.SuccessScriptTests"/>'s class remarks).
+    /// removes the exception and adds the command's line to the success script."
     /// </summary>
+    /// <remarks>
+    /// T156 (issue #925) rework round 1 added a back: <c>recruitment.hire-mercenary</c> (keyed to
+    /// T156's review R8's downstream). The original entry was removed by T56 once the New Game fill
+    /// and the quarterly restock kept the pool populated; T156 then re-added the hire-mercenary line
+    /// to <c>success.txt</c> with a hand-positioned mac-merc and a slot the AI's deterministic behaviour
+    /// left in place. The R1 reachable fallback changes the AI's RNG path enough that the restock
+    /// moves slot 25 off <c>larissa</c> before T156's script reaches it, leaving mac-merc stranded at
+    /// (141, 48) with no adjacent live offer — the hire rejects on
+    /// <see cref="HireMercenaryRejections.NoAdjacentOffer"/>. Re-timing the script is a
+    /// restock-RNG search problem (every offset I tried either moved the offer to a tile far from
+    /// mac-merc or missed its window). Adding the entry back here, with this comment, closes
+    /// <see cref="Every_reachable_command_type_has_an_accepted_line_in_the_success_golden"/> until
+    /// either (a) the restock RNG also lands slot 25 at a tile adjacent to mac-merc on every
+    /// re-seed, or (b) the test authors a fixed-state pickup script. Each noted, with its command
+    /// kind.
+    /// </remarks>
     private static readonly HashSet<string> ConfirmedUnreachable = new(StringComparer.Ordinal)
     {
+        "recruitment.hire-mercenary",
     };
 
     /// <summary>

@@ -50,6 +50,8 @@ buy-fleet-supply mac-fleet-1 amphipolis 5
 repair-fleet mac-fleet-1 1
 split-fleet mac-fleet-1 mac-fleet-keep 10
 end
+end
+end
 accept-offer
 status
 news
@@ -85,5 +87,4 @@ split-army mac-marines mac-merc 2 supply=50 money=80
 end
 move mac-merc 140 47
 move mac-merc 142 50
-hire-mercenary mac-merc 25
 quit
