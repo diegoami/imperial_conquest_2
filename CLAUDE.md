@@ -100,38 +100,36 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
 
 ## Model choice
 
-17. **The quota tracker chooses the model** (harness_imperial L50; the user's decision of
-    2026-10-08). Before choosing, recommending or delegating to a model (an OpenCode implementer or
-    reviewer, a Claude agent or subagent), read `curl -s 'localhost:8765/recommend?tier=heavy'`
-    (implementation) or `tier=light` (small tasks and reviews) and take its `ranking` in order:
-    `pick` is the first, `score` is spare calls per day until the pool's reset after projected
-    demand and reserves, and `skipped` lists exhausted or failing providers. **Never rank providers
-    by `headroom_pct` or `pace_pct`**: the pools differ hugely in size, some are monthly and some
-    weekly, and Claude sessions draw on some as their main model. Map each row's provider and tier to
-    our alias (minimax + heavy → `mm-m3`) and keep our exclusions on top:
-    - Claude is the orchestrator, so it is not used for a delegated task unless nothing else has a
-      positive score.
-    - `gpt-5.6-luna` stays the simple-PR reviewer.
+17. **The quota tracker chooses the models, as a pair** (harness_imperial L50; the user's decisions of
+    2026-10-08 and 2026-10-10). The tier is **the weight of the task**, not the role: read
+    `curl -s 'localhost:8765/recommend?tier=heavy'` for a heavy task (a build task, a substantial fix)
+    or `tier=light` for a light one (a small fix, a plan or doc PR). Its `pair` names **both** roles:
+    `pair.implementer` implements and `pair.reviewer` reviews, already from different families. Take
+    them as given. Only when one of them cannot be used (null, a negative score, its family is the
+    other role's, or it is excluded below) take the next row of `ranking` that fits. `score` is spare
+    calls per day until the pool's reset after projected demand and reserves; `skipped` lists
+    exhausted or failing providers. **Never rank providers by `headroom_pct` or `pace_pct`**: the pools
+    differ hugely in size, some are monthly and some weekly. Where build-process §3.4 or the
+    operating guide name a specific model for a role, the pair decides instead; the review tier still
+    decides how many reviews a PR gets. The exclusions that remain:
     - A reviewer is never of the implementer's family.
-    - A negative score means that pool runs out before its reset: avoid it unless nothing else is left.
     - **DeepSeek is never used**, on any route (the user's decision of 2026-10-09). OpenCode Go's
       heavy and light models are `mimo-pro` (`opencode-go/mimo-v2.6-pro`) and `mimo-flash`
-      (`opencode-go/mimo-v2.6-flash`), and MiMo is a family of its own for the reviewer rule.
-    - Alibaba is never used unless the user asks (the user's decision of 2026-10-09: its monthly
-      pool is 91% used until 2026-11-06). `/recommend` never ranks it, and the scripts neither
-      choose it nor move a route to it; with the user's say-so, `-AllowAlibaba` or `-Route alibaba`.
+      (`opencode-go/mimo-v2.6-flash`), and MiMo is a family of its own.
+    - Alibaba is never used unless the user asks (the user's decision of 2026-10-09). `/recommend`
+      never ranks it; with the user's say-so, `-AllowAlibaba` or `-Route alibaba`.
 
-    Pass the choice explicitly (`-Model`/`-Reviewer`, or the Agent call's model) and log the chosen
-    row's `reasons` on the task's issue or in the PR body. Right after a restart `note` says the
-    statistics are loading and `ranking` is empty: wait and retry, never fall back to percentages.
-    If the service does not answer, run `systemctl --user restart quota-tracker`, wait and retry; if
-    it still fails, tell the user instead of guessing. Model ids come from the provider's live list
-    (`opencode models <provider>`), never memory. Heavy models run at `medium` effort rather than
-    `high`, or lighter when medium is not needed (the user's decision of 2026-10-05).
-    `pwsh scripts/Choose-Model.ps1 -Role implementer` ranks by `/recommend` with these exclusions, and
-    `-Role pair` gives an implementer and a reviewer of another family from `pair` and `ranking`
-    (a null reviewer means no other family has quota: tell the user). Every
-    `external-implement.ps1` run takes the explicit `-Model` so chosen: `-Model auto` was removed
+    Map each row's provider and model to our alias (minimax + MiniMax-M3 → `mm-m3`, openai +
+    gpt-6.1-sol → `sol`), pass the choice explicitly (`-Model`/`-Reviewer`, or the Agent call's model)
+    and log the chosen row's `reasons` on the task's issue or in the PR body. Right after a restart
+    `note` says the statistics are loading and `pair` is empty: wait and retry, never fall back to
+    percentages. If the service does not answer, run `systemctl --user restart quota-tracker`, wait
+    and retry; if it still fails, tell the user instead of guessing. Model ids come from the provider's
+    live list (`opencode models <provider>`), never memory. Heavy models run at `medium` effort
+    rather than `high`, or lighter when medium is not needed (the user's decision of 2026-10-05).
+    `pwsh scripts/Choose-Model.ps1 -Role pair` reads the pair (its older implementer and reviewer
+    exclusions are being aligned with this rule). Every `external-implement.ps1` run takes the
+    explicit `-Model` so chosen: `-Model auto` was removed
     ([#893](https://github.com/diegoami/imperial_conquest_2/issues/893), the user's request of 2026-10-09).
 
 18. **The light OpenAI model, and the reviewer `luna`, is GPT-5.6 Luna** (harness_imperial L51) on
