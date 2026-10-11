@@ -476,13 +476,14 @@ Thracia (thracia) takes its turn: 1 order issued.
   Weather: storm-damages-fleet (week 3).
 Rome (rome) takes its turn: 10 orders issued.
 Carthage (carthage) takes its turn: 11 orders issued.
-Seleucid (seleucid) takes its turn: 22 orders issued.
+Seleucid (seleucid) takes its turn: 24 orders issued.
 Ptolemaic (ptolemaic) takes its turn: 21 orders issued.
 Now: Week 5, Autumn 270 BC. Active seat: Macedonia (macedonia).
 News:
    
   Week  5      Autumn      270BC
   Bordeaux   (Celtiberia)  falls to Carthage.
+  Iconium   (Galatia)  falls to Seleucid.
 
 > end
 Macedonia (macedonia) ends its turn.
@@ -493,7 +494,7 @@ Celtiberia (celtiberia) takes its turn: 1 order issued.
 Illyria (illyria) takes its turn: 0 orders issued.
 Dacia (dacia) takes its turn: 0 orders issued.
 Bithynia (bithynia) takes its turn: 2 orders issued.
-Galatia (galatia) takes its turn: 1 order issued.
+Galatia (galatia) takes its turn: 2 orders issued.
 Armenia (armenia) takes its turn: 4 orders issued.
 Media (media) takes its turn: 8 orders issued.
 Thracia (thracia) takes its turn: 1 order issued.
@@ -502,10 +503,11 @@ Thracia (thracia) takes its turn: 1 order issued.
   Weather: drought-reduces-supply (week 5).
 Rome (rome) takes its turn: 10 orders issued.
 Carthage (carthage) takes its turn: 10 orders issued.
-Seleucid (seleucid) takes its turn: 25 orders issued.
+Seleucid (seleucid) takes its turn: 24 orders issued.
 Ptolemaic (ptolemaic) takes its turn: 22 orders issued.
 Now: Week 7, Autumn 270 BC. Active seat: Macedonia (macedonia).
 News:
+  Galatia destroys army of Seleucid.
    
   Week  7      Autumn      270BC
   Synnada   (Galatia)  falls to Seleucid.
@@ -514,10 +516,10 @@ News:
 Week 7, Autumn 270 BC (turn 15). Active seat: Macedonia (macedonia).
 
 Nations:
-  Rome (rome, ai): treasury -3332, unity 898, tax 5%
-  Carthage (carthage, ai): treasury 11752, unity 814, tax 5%
-  Seleucid (seleucid, ai): treasury -10558, unity 798, tax 36%
-  Ptolemaic (ptolemaic, ai): treasury -5321, unity 651, tax 31%
+  Rome (rome, ai): treasury -4658, unity 898, tax 5%
+  Carthage (carthage, ai): treasury 12071, unity 814, tax 5%
+  Seleucid (seleucid, ai): treasury -9568, unity 782, tax 36%
+  Ptolemaic (ptolemaic, ai): treasury -6600, unity 651, tax 31%
   Macedonia (macedonia, human): treasury 1098, unity 817, tax 15%
   Numidia (numidia, ai): treasury 2235, unity 665, tax 5%
   Gaul (gaul, ai): treasury -5343, unity 519, tax 17%
@@ -526,7 +528,7 @@ Nations:
   Illyria (illyria, ai): treasury 773, unity 725, tax 17%
   Dacia (dacia, ai): treasury -76, unity 604, tax 17%
   Bithynia (bithynia, ai): treasury -3398, unity 545, tax 18%
-  Galatia (galatia, ai): treasury -3357, unity 673, tax 32%
+  Galatia (galatia, ai): treasury -3357, unity 683, tax 32%
   Armenia (armenia, ai): treasury -5410, unity 651, tax 26%
   Media (media, ai): treasury -5132, unity 671, tax 28%
   Thracia (thracia, ai): treasury -2168, unity 745, tax 27%
@@ -537,35 +539,32 @@ Armies:
   army-2 (Carthage) @ (51,32): 23840 troops in 8 units, supply 238t (99%), morale 70, moves 0
   army-3 (Carthage) @ (80,81): 24818 troops in 7 units, supply 248t (99%), morale 70, moves 8
   army-4 (Seleucid) @ (206,30): 33353 troops in 10 units, supply 333t (99%), morale 70, moves 0
-  army-5 (Seleucid) @ (200,46): 22591 troops in 8 units, supply 112t (49%), morale 70, moves 0
   army-7 (Ptolemaic) @ (220,53): 58680 troops in 11 units, supply 528t (89%), morale 70, moves 0
   army-8 (Macedonia) @ (136,51): 4528 troops in 2 units, supply 0t (0%), morale 51, moves 9
-  army-13 (Media) @ (283,34): 19600 troops in 5 units, supply 187t (95%), morale 70, moves 10
   army-14 (Thracia) @ (158,41): 15614 troops in 4 units, supply 149t (95%), morale 70, moves 10
   mac-marines (Macedonia) @ (144,42): 6400 troops in 2 units, supply 0t (0%), morale 51, moves 9
-  army-6 (Seleucid) @ (188,46): 31912 troops in 3 units, supply 296t (92%), morale 59, moves 0
+  army-6 (Seleucid) @ (188,46): 51590 troops in 6 units, supply 296t (57%), morale 59, moves 0
   army-9 (Seleucid) @ (222,55): 83200 troops in 11 units, supply 544t (65%), morale 59, moves 0
   army-10 (Ptolemaic) @ (189,104): 79400 troops in 12 units, supply 794t (100%), morale 59, moves 0
   army-11 (Ptolemaic) @ (223,62): 29800 troops in 4 units, supply 298t (100%), morale 59, moves 0
   army-12 (Gaul) @ (75,30): 94600 troops in 16 units, supply 306t (32%), morale 59, moves 6
   army-15 (Celtiberia) @ (45,38): 82300 troops in 9 units, supply 510t (61%), morale 59, moves 6
   army-16 (Bithynia) @ (211,27): 95600 troops in 12 units, supply 530t (55%), morale 59, moves 6
-  army-17 (Galatia) @ (200,45): 59500 troops in 9 units, supply 566t (95%), morale 59, moves 8
+  army-17 (Galatia) @ (198,47): 40775 troops in 9 units, supply 387t (94%), morale 59, moves 8
   army-18 (Armenia) @ (263,32): 99000 troops in 16 units, supply 677t (68%), morale 59, moves 6
   army-19 (Media) @ (286,25): 29200 troops in 5 units, supply 278t (95%), morale 59, moves 9
-  army-20 (Media) @ (285,29): 36900 troops in 6 units, supply 281t (76%), morale 59, moves 9
-  army-21 (Media) @ (293,41): 21900 troops in 3 units, supply 209t (95%), morale 59, moves 9
-  army-22 (Seleucid) @ (204,53): 33000 troops in 6 units, supply 330t (100%), morale 58, moves 0
+  army-20 (Media) @ (285,29): 56500 troops in 10 units, supply 461t (81%), morale 59, moves 8
+  army-21 (Media) @ (292,44): 21900 troops in 3 units, supply 209t (95%), morale 59, moves 9
   army-23 (Seleucid) @ (186,52): 50900 troops in 5 units, supply 509t (100%), morale 58, moves 0
-  army-24 (Ptolemaic) @ (220,86): 21400 troops in 4 units, supply 214t (100%), morale 58, moves 3
+  army-24 (Ptolemaic) @ (222,71): 21400 troops in 4 units, supply 214t (100%), morale 58, moves 0
   army-25 (Bithynia) @ (201,30): 13600 troops in 1 units, supply 0t (0%), morale 55, moves 9
-  army-26 (Media) @ (301,58): 35000 troops in 4 units, supply 183t (52%), morale 58, moves 9
-  army-27 (Ptolemaic) @ (223,87): 41300 troops in 8 units, supply 252t (61%), morale 57, moves 7
-  army-28 (Gaul) @ (67,34): 7800 troops in 1 units, supply 0t (0%), morale 57, moves 9
-  army-29 (Media) @ (282,20): 2900 troops in 1 units, supply 0t (0%), morale 57, moves 9
-  army-30 (Seleucid) @ (188,59): 25700 troops in 3 units, supply 0t (0%), morale 59, moves 0
-  army-31 (Seleucid) @ (206,58): 23100 troops in 2 units, supply 0t (0%), morale 59, moves 0
-  army-32 (Ptolemaic) @ (192,96): 23000 troops in 4 units, supply 0t (0%), morale 59, moves 0
+  army-13 (Media) @ (301,58): 35000 troops in 4 units, supply 183t (52%), morale 58, moves 9
+  army-26 (Ptolemaic) @ (223,87): 41300 troops in 8 units, supply 252t (61%), morale 57, moves 7
+  army-27 (Gaul) @ (67,34): 7800 troops in 1 units, supply 0t (0%), morale 57, moves 9
+  army-5 (Media) @ (282,20): 2900 troops in 1 units, supply 0t (0%), morale 57, moves 9
+  army-22 (Seleucid) @ (188,59): 25700 troops in 3 units, supply 0t (0%), morale 59, moves 0
+  army-28 (Seleucid) @ (204,58): 23100 troops in 2 units, supply 0t (0%), morale 59, moves 0
+  army-29 (Ptolemaic) @ (192,96): 23000 troops in 4 units, supply 0t (0%), morale 59, moves 0
 
 Cities:
   sala "Sala" @ (9,90), owner Carthage: supply 650t, loyalty 95, fortification 60%
@@ -801,7 +800,7 @@ Cities:
   sesamus "Sesamus" @ (196,25), owner Bithynia: supply 200t, loyalty 74, fortification 35%
   heliopolis "Heliopolis" @ (196,102), owner Ptolemaic: supply 1150t, loyalty 85, fortification 42%
   gangra "Gangra" @ (197,34), owner Galatia: supply 150t, loyalty 62, fortification 43%
-  iconium "Iconium" @ (197,47), owner Galatia: supply 190t, loyalty 52, fortification 55%
+  iconium "Iconium" @ (197,47), owner Seleucid: supply 140t, loyalty 60, fortification 41%
   seleucia "Seleucia" @ (197,63), owner Seleucid: supply 1140t, loyalty 91, fortification 68%
   busiris "Busiris" @ (197,98), owner Ptolemaic: supply 1080t, loyalty 85, fortification 26%
   citium "Citium" @ (198,76), owner Ptolemaic: supply 300t, loyalty 60, fortification 52%
@@ -814,7 +813,7 @@ Cities:
   salamis "Salamis" @ (201,73), owner Ptolemaic: supply 570t, loyalty 64, fortification 57%
   cytorus "Cytorus" @ (202,24), owner Bithynia: supply 330t, loyalty 87, fortification 54%
   pelusium "Pelusium" @ (203,96), owner Ptolemaic: supply 1010t, loyalty 92, fortification 62%
-  soli-2 "Soli" @ (204,59), owner Seleucid: supply 1087t, loyalty 86, fortification 76%
+  soli-2 "Soli" @ (204,59), owner Seleucid: supply 1300t, loyalty 86, fortification 76%
   tyana "Tyana" @ (208,49), owner Seleucid: supply 880t, loyalty 86, fortification 48%
   tarsus "Tarsus" @ (208,57), owner Seleucid: supply 1700t, loyalty 79, fortification 67%
   casium "Casium" @ (208,94), owner Ptolemaic: supply 480t, loyalty 71, fortification 49%
@@ -834,7 +833,7 @@ Cities:
   sidon "Sidon" @ (221,71), owner Seleucid: supply 460t, loyalty 90, fortification 27%
   tyre "Tyre" @ (222,73), owner Ptolemaic: supply 576t, loyalty 67, fortification 69%
   samaria "Samaria" @ (222,81), owner Ptolemaic: supply 420t, loyalty 70, fortification 52%
-  jerusalem "Jerusalem" @ (223,86), owner Ptolemaic: supply 631t, loyalty 44, fortification 63%
+  jerusalem "Jerusalem" @ (223,86), owner Ptolemaic: supply 630t, loyalty 44, fortification 63%
   masada "Masada" @ (223,88), owner Ptolemaic: supply 110t, loyalty 63, fortification 98%
   hemesa "Hemesa" @ (224,66), owner Seleucid: supply 720t, loyalty 59, fortification 70%
   aila "Aila" @ (224,100), owner Ptolemaic: supply 560t, loyalty 81, fortification 22%
@@ -883,7 +882,7 @@ Cities:
   ani "Ani" @ (282,33), owner Media: supply 190t, loyalty 68, fortification 45%
   bisitun "Bisitun" @ (282,69), owner Seleucid: supply 920t, loyalty 76, fortification 54%
   al-hira "Al Hira" @ (284,92), owner Seleucid: supply 580t, loyalty 62, fortification 40%
-  artaxata "Artaxata" @ (286,26), owner Media: supply 89t, loyalty 69, fortification 89%
+  artaxata "Artaxata" @ (286,26), owner Media: supply 76t, loyalty 69, fortification 89%
   vologesias "Vologesias" @ (287,77), owner Seleucid: supply 610t, loyalty 71, fortification 41%
   phraata "Phraata" @ (289,42), owner Media: supply 310t, loyalty 63, fortification 40%
   astrabad "Astrabad" @ (289,102), owner Seleucid: supply 550t, loyalty 66, fortification 50%
@@ -905,8 +904,6 @@ Cities:
 
 > news
 News log:
-   
-  Week  11      Spring      270BC
   A fleet belonging to ptolemaic is damaged in a storm.
   Thracia depose their leader Medon.
    
@@ -942,6 +939,8 @@ News log:
    
   Week  5      Autumn      270BC
   Bordeaux   (Celtiberia)  falls to Carthage.
+  Iconium   (Galatia)  falls to Seleucid.
+  Galatia destroys army of Seleucid.
    
   Week  7      Autumn      270BC
   Synnada   (Galatia)  falls to Seleucid.
@@ -1006,23 +1005,21 @@ Celtiberia (celtiberia) takes its turn: 1 order issued.
 Illyria (illyria) takes its turn: 8 orders issued.
 Dacia (dacia) takes its turn: 0 orders issued.
 Bithynia (bithynia) takes its turn: 2 orders issued.
-Galatia (galatia) takes its turn: 1 order issued.
+Galatia (galatia) takes its turn: 2 orders issued.
 Armenia (armenia) takes its turn: 1 order issued.
-Media (media) takes its turn: 6 orders issued.
+Media (media) takes its turn: 5 orders issued.
 Thracia (thracia) takes its turn: 1 order issued.
-  Weather: storm-damages-fleet (week 7).
   Weather: drought-reduces-supply (week 7).
 Rome (rome) takes its turn: 5 orders issued.
 Carthage (carthage) takes its turn: 10 orders issued.
 Seleucid (seleucid) takes its turn: 26 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 15 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 16 orders issued.
 Now: Week 9, Autumn 270 BC. Active seat: Macedonia (macedonia).
 News:
-  Galatia and Seleucid have agreed to end their war.
-  Galatia destroys army of Seleucid.
    
   Week  9      Autumn      270BC
   Ptolemaic destroys army of Seleucid.
+  Acroinon   (Galatia)  falls to Seleucid.
   Seleucid destroys army of Bithynia.
   Ptolemaic destroys army of Seleucid.
 
@@ -1047,16 +1044,18 @@ Celtiberia (celtiberia) takes its turn: 1 order issued.
 Illyria (illyria) takes its turn: 3 orders issued.
 Dacia (dacia) takes its turn: 4 orders issued.
 Bithynia (bithynia) takes its turn: 1 order issued.
-Galatia (galatia) takes its turn: 1 order issued.
+Galatia (galatia) takes its turn: 2 orders issued.
 Armenia (armenia) takes its turn: 1 order issued.
-Media (media) takes its turn: 6 orders issued.
+Media (media) takes its turn: 4 orders issued.
 Thracia (thracia) takes its turn: 10 orders issued.
-Rome (rome) takes its turn: 3 orders issued.
+  Weather: storm-damages-fleet (week 9).
+Rome (rome) takes its turn: 6 orders issued.
 Carthage (carthage) takes its turn: 10 orders issued.
-Seleucid (seleucid) takes its turn: 16 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 7 orders issued.
+Seleucid (seleucid) takes its turn: 14 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 8 orders issued.
 Now: Week 11, Autumn 270 BC. Active seat: Macedonia (macedonia).
 News:
+  Galatia destroys army of Seleucid.
    
   Week  11      Autumn      270BC
   Cytorus   (Bithynia)  falls to Seleucid.
@@ -1088,22 +1087,21 @@ Celtiberia (celtiberia) takes its turn: 2 orders issued.
 Illyria (illyria) takes its turn: 1 order issued.
 Dacia (dacia) takes its turn: 5 orders issued.
 Bithynia (bithynia) takes its turn: 2 orders issued.
-Galatia (galatia) takes its turn: 2 orders issued.
+Galatia (galatia) takes its turn: 4 orders issued.
 Armenia (armenia) takes its turn: 2 orders issued.
-Media (media) takes its turn: 7 orders issued.
+Media (media) takes its turn: 5 orders issued.
 Thracia (thracia) takes its turn: 9 orders issued.
-  Weather: drought-reduces-supply (week 11).
-  Weather: storm-damages-fleet (week 11).
-  Weather: storm-damages-fleet (week 11).
-Rome (rome) takes its turn: 3 orders issued.
+Rome (rome) takes its turn: 4 orders issued.
 Carthage (carthage) takes its turn: 10 orders issued.
-Seleucid (seleucid) takes its turn: 6 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 6 orders issued.
+Seleucid (seleucid) takes its turn: 5 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 7 orders issued.
 Now: Week 1, Winter 270 BC. Active seat: Macedonia (macedonia).
 News:
-  Thracia depose their leader Alkelas.
+  Rome depose their leader Marcus Claudius.
+  Media depose their leader Samsuiluna.
    
   Week  1      Winter      270BC
+  Galatia destroys army of Seleucid.
 
 > quit
 Goodbye.
