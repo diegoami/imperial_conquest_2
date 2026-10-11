@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Checks/CloseAndSaveCheck.cs" id="1_close_and_save_check"]
+
+[node name="CloseAndSaveCheck" type="Node"]
+script = ExtResource("1_close_and_save_check")
