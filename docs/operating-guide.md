@@ -117,6 +117,15 @@ The in-game battle pacing delay is a per-nation preference (the `TBattleDelays` 
   - **Packaging** (`pwsh scripts/package.ps1`, `-Verify` to check the export) also needs Godot's **4.7.2 mono export templates**, installed from the editor under `%APPDATA%\Godot\export_templates\4.7.2.stable.mono\` ([packaging.md](packaging.md)).
   - **Headless screenshots do not work.** The headless display driver has no texture, so `GetViewport().GetTexture().GetImage()` throws "Parameter 't' is null" (#156). Visual evidence needs a short **windowed** run.
   - Opening the editor dirties `godot/project.godot` and `godot/MapViewer.cs` with whitespace churn. `scripts/check-godot-churn.ps1` reverts the benign churn and leaves real edits alone. Never run two Godot processes at once.
+- **The daily worktree cleanup** (the user's decision of 2026-10-11). Each machine has a Windows scheduled task, `IC2 Clean-Worktrees`, that runs `scripts/Clean-Worktrees.ps1 -Apply` at 04:00 from the main checkout and appends to `%LOCALAPPDATA%\ic2\clean-worktrees.log`. It removes only the trees the script calls safe and older than 7 days ([build-process.md §4.7](build-process.md#47-after-the-merge) step 4). To set it up on a machine, run this once in PowerShell (adjust `$repo` to that machine's main checkout):
+  ```powershell
+  $repo = 'C:\Users\diego\projects\imperial_conquest_2'; $log = Join-Path $env:LOCALAPPDATA 'ic2'; New-Item -ItemType Directory -Force $log | Out-Null
+  $cmd = "Set-Location '$repo'; & '$repo\scripts\Clean-Worktrees.ps1' -Apply *>> '$log\clean-worktrees.log'"
+  Register-ScheduledTask -TaskName 'IC2 Clean-Worktrees' -Trigger (New-ScheduledTaskTrigger -Daily -At 4:00) `
+    -Action (New-ScheduledTaskAction -Execute (Get-Command pwsh).Source -Argument "-NoProfile -WindowStyle Hidden -Command `"$cmd`"" -WorkingDirectory $repo) `
+    -Settings (New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 1))
+  ```
+  Check it with `Start-ScheduledTask -TaskName 'IC2 Clean-Worktrees'`, then read the log's last line; remove it with `Unregister-ScheduledTask -TaskName 'IC2 Clean-Worktrees'`.
 - **ffmpeg** is at `%LOCALAPPDATA%\ReTools\ffmpeg-master-latest-win64-gpl\bin\ffmpeg.exe`. To extract frames: `ffmpeg -ss <startSeconds> -i "<recording.mp4>" -vf fps=1 -frames:v <N> <outdir>/f_%03d.png`, then read the frames. The tactical battle's combat-resolution panel gives exact per-exchange troop counts, and the user will record more battles on request.
 - **Experiments run in the cloud; the desktop confirms.** A cloud environment for the research repository, with Wine, Xvfb and the fixtures repository attached, is where [evidence-pipeline.md](evidence-pipeline.md#the-stages)'s stage 0 runs the original game headless. The desktop, the Windows machine where the user plays, confirms: a result seen only under Wine gets one confirmation there before it settles a rule.
 - **`%LOCALAPPDATA%\ReTools\`** holds:
