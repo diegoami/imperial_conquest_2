@@ -1187,6 +1187,13 @@
     "faithfulConsolidatePartnerBelowDenominator": 3,
     "faithfulConsolidateMercenaryBelowNumerator": 1,
     "faithfulConsolidateMercenaryBelowDenominator": 6,
+    "faithfulMergeArmiesDonorTroopsBelow": 20000,
+    "faithfulMergeArmiesDistanceBelow": 18,
+    "faithfulMergeArmiesExtentBelow": 20,
+    "faithfulMergeArmiesPartnerTroopsBelow": 80000,
+    "faithfulMergeFleetsSurvivorShipsBelow": 40,
+    "faithfulMergeFleetsDistanceBelow": 34,
+    "faithfulMergeFleetsCombinedShipsBelow": 100,
     "cityRegionById": [],
     "_provenance": {
       "permilleScale": "[designed]: the fixed-point denominator every AI personality parameter and every scoring ratio in this block is expressed in (parts per thousand). The original's AI was out of scope for reverse-engineering until research 2026-10-07-strategic-ai-turn.md decompiled its turn, which runs on fixed phases and thresholds with no scoring block, so every number in this block stays designed rather than decompiled; there is no original fixed-point convention to transcribe.",
@@ -1283,6 +1290,13 @@
       "faithfulConsolidatePartnerBelowDenominator": "T158 adopted: same as the shipped ruleset.",
       "faithfulConsolidateMercenaryBelowNumerator": "T158 adopted: same as the shipped ruleset.",
       "faithfulConsolidateMercenaryBelowDenominator": "T158 adopted: same as the shipped ruleset.",
+      "faithfulMergeArmiesDonorTroopsBelow": "T159 adopted: same as the shipped ruleset.",
+      "faithfulMergeArmiesDistanceBelow": "T159 adopted: same as the shipped ruleset.",
+      "faithfulMergeArmiesExtentBelow": "T159 adopted: same as the shipped ruleset.",
+      "faithfulMergeArmiesPartnerTroopsBelow": "T159 adopted: same as the shipped ruleset.",
+      "faithfulMergeFleetsSurvivorShipsBelow": "T159 adopted: same as the shipped ruleset.",
+      "faithfulMergeFleetsDistanceBelow": "T159 adopted: same as the shipped ruleset.",
+      "faithfulMergeFleetsCombinedShipsBelow": "T159 adopted: same as the shipped ruleset.",
       "cityRegionById": "T156 adopted: same as the shipped ruleset (empty)."
     }
   },

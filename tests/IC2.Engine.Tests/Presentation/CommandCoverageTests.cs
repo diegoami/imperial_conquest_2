@@ -84,6 +84,10 @@ public sealed class CommandCoverageTests
         "diplomacy.ai-form-alliance",
         "diplomacy.ai-form-trade",
         "diplomacy.ai-swap-trade-partner",
+        // T159: the AI's own army merge (FUN_004509f0) under classical-faithful; refused for a human seat.
+        "armies.ai-absorb-army",
+        // T159: the AI's own fleet merge (FUN_00450b30) under classical-faithful; refused for a human seat.
+        "naval.ai-absorb-fleet",
     };
 
     /// <summary>

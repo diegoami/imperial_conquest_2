@@ -121,6 +121,18 @@ public static class AiFaithfulEconomy
         issued += consolidated.Issued;
         rejected += consolidated.Rejected;
 
+        // T159 (#959): the original's last two economy-phase sub-phases, FUN_004509f0 then FUN_00450b30:
+        // merge two armies, then merge two fleets, each at most once per seat per round.
+        var armyMerge = MergeArmies(state, ruleset, commands, events, nationId, log);
+        state = armyMerge.State;
+        issued += armyMerge.Issued;
+        rejected += armyMerge.Rejected;
+
+        var fleetMerge = MergeFleets(state, ruleset, commands, events, nationId, log);
+        state = fleetMerge.State;
+        issued += fleetMerge.Issued;
+        rejected += fleetMerge.Rejected;
+
         return new Result(state, issued, rejected);
     }
 
@@ -694,6 +706,100 @@ public static class AiFaithfulEconomy
         }
 
         return (state, issued, rejected);
+    }
+
+    /// <summary>
+    /// <c>FUN_004509f0</c> (T159): two nested table-order loops. The donor is the first own army, from table
+    /// index 0, that passes the donor gates and has a valid partner; the partner is the first other own army
+    /// from index 0 that passes the partner gates (<see cref="AiAbsorbArmyCommandHandler"/>). The pair goes
+    /// through <see cref="AiAbsorbArmyCommand"/>; the pass stops after the first merge. Draws nothing.
+    /// </summary>
+    public static (GameState State, int Issued, int Rejected) MergeArmies(
+        GameState state,
+        Ruleset ruleset,
+        ICommandDispatch commands,
+        IEventSink events,
+        string nationId,
+        List<string> log)
+    {
+        var weights = ruleset.Ai;
+        foreach (var donor in state.Armies)
+        {
+            if (!string.Equals(donor.Nation, nationId, StringComparison.Ordinal)
+                || !AiAbsorbArmyCommandHandler.IsValidDonor(donor, weights))
+            {
+                continue;
+            }
+
+            foreach (var partner in state.Armies)
+            {
+                if (string.Equals(partner.Id, donor.Id, StringComparison.Ordinal)
+                    || !string.Equals(partner.Nation, nationId, StringComparison.Ordinal)
+                    || !AiAbsorbArmyCommandHandler.IsValidPartner(donor, partner, weights))
+                {
+                    continue;
+                }
+
+                var result = commands.Dispatch(state, new AiAbsorbArmyCommand(nationId, partner.Id, donor.Id), events);
+                if (result.IsRejected)
+                {
+                    log.Add(Inv("REJECTED merge armies {0} into {1}: {2}", donor.Id, partner.Id, result.Rejection!.Message));
+                    return (state, 1, 1);
+                }
+
+                log.Add(Inv("faithful merge: army {0} into {1}", donor.Id, partner.Id));
+                return (result.State, 1, 0);
+            }
+        }
+
+        return (state, 0, 0);
+    }
+
+    /// <summary>
+    /// <c>FUN_00450b30</c> (T159): the same two loops over the fleet table. The survivor is the first own fleet
+    /// that passes the survivor gates and has a valid partner; the absorbed fleet is the first other own fleet
+    /// that passes the partner gates (<see cref="AiAbsorbFleetCommandHandler"/>). Stops after the first merge.
+    /// Draws nothing.
+    /// </summary>
+    public static (GameState State, int Issued, int Rejected) MergeFleets(
+        GameState state,
+        Ruleset ruleset,
+        ICommandDispatch commands,
+        IEventSink events,
+        string nationId,
+        List<string> log)
+    {
+        var weights = ruleset.Ai;
+        foreach (var survivor in state.Fleets)
+        {
+            if (!string.Equals(survivor.Nation, nationId, StringComparison.Ordinal)
+                || !AiAbsorbFleetCommandHandler.IsValidSurvivor(survivor, weights))
+            {
+                continue;
+            }
+
+            foreach (var partner in state.Fleets)
+            {
+                if (string.Equals(partner.Id, survivor.Id, StringComparison.Ordinal)
+                    || !string.Equals(partner.Nation, nationId, StringComparison.Ordinal)
+                    || !AiAbsorbFleetCommandHandler.IsValidPartner(survivor, partner, weights))
+                {
+                    continue;
+                }
+
+                var result = commands.Dispatch(state, new AiAbsorbFleetCommand(nationId, survivor.Id, partner.Id), events);
+                if (result.IsRejected)
+                {
+                    log.Add(Inv("REJECTED merge fleets {0} into {1}: {2}", partner.Id, survivor.Id, result.Rejection!.Message));
+                    return (state, 1, 1);
+                }
+
+                log.Add(Inv("faithful merge: fleet {0} into {1}", partner.Id, survivor.Id));
+                return (result.State, 1, 0);
+            }
+        }
+
+        return (state, 0, 0);
     }
 
     private static bool HostsConstruction(GameState state, string cityId)
