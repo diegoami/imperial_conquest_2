@@ -11,7 +11,7 @@ namespace IC2.Slice.Screens;
 /// <param name="NationName">Its display name.</param>
 /// <param name="RelationLabel">The current relation, already worded for display (never a bare numeric code).</param>
 /// <param name="CanDeclareWar">Whether "Declare War" should be enabled — not already at war.</param>
-/// <param name="CanMakePeace">Whether "Make Peace" should be enabled — currently at war.</param>
+/// <param name="CanMakePeace">Whether "Make Peace" should be enabled — there is a trade, an alliance or a war to end (the engine's make-peace gate, <c>MakePeaceCommandHandler</c>); not at plain peace or in a cooldown.</param>
 /// <param name="CanProposeAlliance">Whether "Propose Alliance" should be enabled — at peace or trade, not already allied.</param>
 /// <param name="CanProposeTrade">Whether "Propose Trade" should be enabled — at peace, not already trading.</param>
 public sealed record DiplomacyRelationRow(
@@ -60,13 +60,16 @@ public static class DiplomacyGridViewModel
             var isWar = value == codes.War;
             var isAlliance = value == codes.Alliance;
             var isTrade = value == codes.Trade;
+            // Mirrors MakePeaceCommandHandler's relation gate (T88): trade, alliance and war are all
+            // something to end; peace and a cooldown value are not.
+            var canMakePeace = isTrade || isAlliance || isWar;
 
             rows.Add(new DiplomacyRelationRow(
                 nation.Id,
                 nation.Name,
                 RelationLabel(value, codes),
                 CanDeclareWar: !isWar,
-                CanMakePeace: isWar,
+                CanMakePeace: canMakePeace,
                 CanProposeAlliance: !isWar && !isAlliance,
                 CanProposeTrade: !isWar && !isTrade));
         }
