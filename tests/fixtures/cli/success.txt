@@ -11,6 +11,7 @@ propose-trade illyria
 propose-alliance dacia
 declare-war armenia
 end
+make-peace illyria
 move mac-marines 144 42
 buy mac-marines pella 5
 move mac-spare 147 40
@@ -19,46 +20,24 @@ disband-army mac-spare
 move mac-detached 157 31
 move army-8 135 52
 end
+accept-offer
 move mac-detached 155 29
 move army-8 135 52
 end
 move army-8 135 52
 end
 move mac-detached 155 26
-attack-army mac-detached army-14
-besiege-city army-8 phoenice
 end
+besiege-city army-8 phoenice
 split-army army-8 mac-sac-1 0
 end
 move mac-sac-1 151 31
 end
 move mac-sac-1 151 31
 end
-peace-yes
-end
-end
-make-peace illyria
-mobilize 0 mac-recruit-0
-end
-mobilize 0 mac-recruit-1
+mobilize 2 mac-recruit-0
+mobilize 2 mac-recruit-1
 join-units mac-marines 1 2
-end
-accept-offer
-split-fleet mac-fleet-1 mac-fleet-2 10
-fleet-transfer mac-fleet-1 mac-fleet-2 1 1 0
-join-fleets mac-fleet-1 mac-fleet-2
-buy-fleet-supply mac-fleet-1 amphipolis 5
-repair-fleet mac-fleet-1 1
-split-fleet mac-fleet-1 mac-fleet-keep 10
-end
-end
-end
-status
-news
-set-tax 20
-transfer-money mac-fleet-1 100
-transfer-money mac-fleet-1 -50 via mac-fleet-keep
-scuttle-fleet mac-fleet-1
 transfer-money army-8 100
 transfer-money army-8 -50
 move army-8 136 42
@@ -76,13 +55,33 @@ end
 move mac-merc 140 47
 move mac-merc 141 48
 hire-mercenary mac-merc 25
-move army-8 142 42
 end
-move army-8 148 40
+attack-army mac-detached army-14
+end
+end
+split-fleet mac-fleet-1 mac-fleet-2 10
+fleet-transfer mac-fleet-1 mac-fleet-2 1 1 0
+join-fleets mac-fleet-1 mac-fleet-2
+buy-fleet-supply mac-fleet-1 amphipolis 5
+repair-fleet mac-fleet-1 1
+split-fleet mac-fleet-1 mac-fleet-keep 13
+end
+end
+end
+status
+news
+set-tax 20
+transfer-money mac-fleet-1 100
+transfer-money mac-fleet-1 -50 via mac-fleet-keep
+scuttle-fleet mac-fleet-1
+move mac-marines 142 42
+end
+move mac-marines 148 40
 move-fleet mac-fleet-keep 148 41
-embark-army army-8 mac-fleet-keep
-disembark-army army-8 148 40
+embark-army mac-marines mac-fleet-keep
+disembark-army mac-marines 148 40
 recruit-standing pella light_infantry 200
 disband-slot 0
 end
+peace-yes
 quit
