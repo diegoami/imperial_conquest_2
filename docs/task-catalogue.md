@@ -1257,7 +1257,7 @@ AI fleet order and consolidation (part of #910, the economy's first two tail sub
 
 #### T159 Under classical-faithful, the AI merges a small army or fleet into a nearby own one, as the original does
 
-AI faithful merges (the last part of #910; an AI-only path, the user's decision of 2026-10-11; ships in `v0.5.2`; it merges after T158) → [full entry](tasks/T159.md) · [#959](https://github.com/diegoami/imperial_conquest_2/issues/959)
+AI faithful merges (the last part of #910; an AI-only path, the user's decision of 2026-10-11; ships in `v0.5.2`; it starts after research request imperial-conquest-2-research#7 is answered and merges after T158) → [full entry](tasks/T159.md) · [#959](https://github.com/diegoami/imperial_conquest_2/issues/959)
 
 ---
 
