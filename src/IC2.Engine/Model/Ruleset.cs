@@ -2104,6 +2104,13 @@ public sealed record VictoryRules(
 /// <param name="FaithfulConsolidatePartnerBelowDenominator">T158: the denominator of that fraction.</param>
 /// <param name="FaithfulConsolidateMercenaryBelowNumerator">T158: a mercenary unit below this fraction (numerator) of the standard size is disbanded.</param>
 /// <param name="FaithfulConsolidateMercenaryBelowDenominator">T158: the denominator of that fraction.</param>
+/// <param name="FaithfulMergeArmiesDonorTroopsBelow">T159: the AI merges an army into a partner only while the donor's total troops are strictly below this (A2).</param>
+/// <param name="FaithfulMergeArmiesDistanceBelow">T159: the partner army lies at Chebyshev distance strictly below this (A3): 17 merges, 18 does not.</param>
+/// <param name="FaithfulMergeArmiesExtentBelow">T159: the two armies' slot extents (highest slot holding troops, plus 1) sum to strictly below this (A3, A5).</param>
+/// <param name="FaithfulMergeArmiesPartnerTroopsBelow">T159: the partner army's own troops are strictly below this (A3).</param>
+/// <param name="FaithfulMergeFleetsSurvivorShipsBelow">T159: the surviving (idle) fleet holds strictly fewer ships than this (F2).</param>
+/// <param name="FaithfulMergeFleetsDistanceBelow">T159: the absorbed fleet lies at Chebyshev distance strictly below this (F3): 33 merges, 34 does not.</param>
+/// <param name="FaithfulMergeFleetsCombinedShipsBelow">T159: the two fleets' ships sum to strictly below this (F3): 99 merges, 100 does not.</param>
 /// <param name="CityRegionById">
 /// The per-city region id the city scorer reads when it decides whether the target is in "another
 /// region" (<c>2026-10-07-strategic-ai-turn.md</c> §3.3, citing <c>FUN_0044eb18</c> for the boundary).
@@ -2206,6 +2213,13 @@ public sealed record AiWeightsRules(
     int FaithfulConsolidatePartnerBelowDenominator,
     int FaithfulConsolidateMercenaryBelowNumerator,
     int FaithfulConsolidateMercenaryBelowDenominator,
+    int FaithfulMergeArmiesDonorTroopsBelow,
+    int FaithfulMergeArmiesDistanceBelow,
+    int FaithfulMergeArmiesExtentBelow,
+    int FaithfulMergeArmiesPartnerTroopsBelow,
+    int FaithfulMergeFleetsSurvivorShipsBelow,
+    int FaithfulMergeFleetsDistanceBelow,
+    int FaithfulMergeFleetsCombinedShipsBelow,
     ValueList<AiCityRegionAssignment> CityRegionById,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 

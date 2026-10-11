@@ -36,6 +36,10 @@ public static class CommandOutcomeWording
         "diplomacy.ai-form-trade",
         "diplomacy.ai-swap-trade-partner",
 
+        // T159: the AI's own army and fleet merges under classical-faithful; the app never issues them.
+        "armies.ai-absorb-army",
+        "naval.ai-absorb-fleet",
+
         // No Godot control submits these (Strategy's Taxation and the Fleet rows are shown disabled, and
         // the mercenary pool is empty by design — bug #229/#457).
         "economy.set-tax",

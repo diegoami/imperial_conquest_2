@@ -37,6 +37,10 @@ public static class CommandVerbCatalog
         "diplomacy.ai-form-alliance",
         "diplomacy.ai-form-trade",
         "diplomacy.ai-swap-trade-partner",
+        // T159: the AI's own army merge under classical-faithful (FUN_004509f0); no human verb.
+        "armies.ai-absorb-army",
+        // T159: the AI's own fleet merge under classical-faithful (FUN_00450b30); no human verb.
+        "naval.ai-absorb-fleet",
     };
 
     /// <summary>Three command types that do have a real verb but that no shipped scenario can ever make

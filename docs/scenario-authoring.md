@@ -1001,6 +1001,13 @@ one shared scale, so the AI's determinism guarantee never depends on floating-po
 | `faithfulConsolidatePartnerBelowDenominator` | int | fraction | The D of that fraction; 3. |
 | `faithfulConsolidateMercenaryBelowNumerator` | int | fraction | A mercenary unit below N/D of the standard size is disbanded (never an army's last unit); N is 1. |
 | `faithfulConsolidateMercenaryBelowDenominator` | int | fraction | The D of that fraction; 6. |
+| `faithfulMergeArmiesDonorTroopsBelow` | int | troops | The AI merges an army (the donor) into a nearby own army only while the donor's total troops are strictly below N; 20000. |
+| `faithfulMergeArmiesDistanceBelow` | int | tiles | ... and the partner lies at Chebyshev distance strictly below N (17 merges, 18 does not); 18. |
+| `faithfulMergeArmiesExtentBelow` | int | slots | ... and the two armies' slot extents (highest slot holding troops, plus 1) sum to strictly below N; 20. |
+| `faithfulMergeArmiesPartnerTroopsBelow` | int | troops | ... and the partner's own troops are strictly below N; 80000. |
+| `faithfulMergeFleetsSurvivorShipsBelow` | int | ships | The AI merges a nearby own fleet into an idle fleet (the survivor) holding strictly fewer than N ships; 40. |
+| `faithfulMergeFleetsDistanceBelow` | int | tiles | ... the absorbed fleet lies at Chebyshev distance strictly below N (33 merges, 34 does not); 34. |
+| `faithfulMergeFleetsCombinedShipsBelow` | int | ships | ... and the two fleets' ships sum to strictly below N; 100. |
 | `cityRegionById` | list | region assignments | Pins cities to region ids (`cityId`, `region`); a coordinate takes the region of the nearest pinned city. Empty in the shipped data: the original's region boxes are not transcribed, so every city is in region 0 and the halving term never fires. |
 | `cityId` | string | city id | A `cityRegionById` row's city. |
 | `region` | int | region id | A `cityRegionById` row's region. |
