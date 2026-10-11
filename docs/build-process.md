@@ -581,7 +581,7 @@ that directory: it is the main session's checkout. Work in your own worktree:
     inside it). Right after the worktree exists, check that
     `git -C C:/Users/diego/projects/imperial_conquest_2 status --porcelain` prints nothing and that no
     `ic2-work` folder exists inside the main checkout; if either fails, undo it and say so.
-  - <local-only tasks only> copy C:\Users\diego\projects\imperial_conquest_2\assets.local.ini into
+  - <local-only tasks only> copy C:/Users/diego/projects/imperial_conquest_2/assets.local.ini into
     the worktree root. It is git-ignored; never commit it. (For an OpenCode run this setup is
     already done: `scripts/external-implement.ps1` created the worktree and `-LocalOnly` copied the
     file, so skip this whole block.)
