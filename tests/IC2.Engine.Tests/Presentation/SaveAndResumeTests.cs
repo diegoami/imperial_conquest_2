@@ -396,7 +396,7 @@ public sealed class SaveAndResumeTests : IDisposable
         var afterEnd = resumed.Submit("end");
 
         Assert.Contains(afterEnd.Lines, l =>
-            l.Contains("has been deposed and handed to the AI", StringComparison.Ordinal)
+            l.Contains("handed to the AI", StringComparison.Ordinal)
             && l.Contains("Watch mode from here on", StringComparison.Ordinal));
         Assert.DoesNotContain(afterEnd.Lines, l => l.Contains("No human seat remains", StringComparison.Ordinal));
         Assert.False(afterEnd.ShouldExit);

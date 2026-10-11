@@ -165,7 +165,7 @@ public sealed class SeatFallOutputTests
             Assert.Equal("south", fall.NationId);
             Assert.Equal(SeatFallReason.Conquered, fall.Reason);
             Assert.Equal("north", fall.ConquerorNationId);
-            Assert.Equal("Your nation has been conquerred by Northern League (north).", fall.Text);
+            Assert.Equal("Your nation has been conquerred by Northern League.", fall.Text);
             Assert.Contains(fall.Text, round2.Lines);
             Assert.Equal(0, fall.EndCityCount);
 

@@ -167,7 +167,7 @@ public partial class GameEndCheck : Node
             if (mainGame.ActiveOverlay is GameEndScreen screen)
             {
                 Check(
-                    screen.BodyLabel.Text == "Your nation has been conquerred by Northern League (north).",
+                    screen.BodyLabel.Text == "Your nation has been conquerred by Northern League.",
                     $"conquered: the body names the captor (got '{screen.BodyLabel.Text}')");
                 var south = mainGame.Session.State.NationById("south")!;
                 var fall = mainGame.Session.LastSeatFalls.Single();

@@ -926,6 +926,22 @@ public sealed partial class GameSession
         LastBattles = Array.Empty<Battle.BattleResult>();
         _pendingSeatFalls.Clear();
         LastSeatFalls = Array.Empty<SeatFall>();
+
+        // Bug #921 item 4: the human turn-start fall check the original runs at each human turn start,
+        // run on the loaded state too (the existing check, unchanged -- a no-op unless the active human
+        // seat is indebted, disunited, past the year limit or holds every city), so a crafted save is not
+        // deposed a turn late. Its lines are the prelude the caller shows.
+        if (!_isWatchMode)
+        {
+            var lines = new List<string>();
+            DepositActiveHumanSeatIfItShouldFallAtTurnStart(lines);
+            if (!AnnounceAndAdoptWatchModeIfSeatIsLost(lines))
+            {
+                AnnounceGameOverIfNoHumanSeatRemains(lines);
+            }
+
+            _pendingPrelude = lines.Count > 0 ? lines : null;
+        }
     }
 
     /// <summary>
@@ -1076,7 +1092,7 @@ public sealed partial class GameSession
         SeatFallReason.HardEndYear => "You have reached the end of your allotted 20 years.",
         SeatFallReason.Unpopularity => "Your unpopularity has forced the army to overthrow you.",
         SeatFallReason.Unpaid => "Your army have deposed you because they have not been paid.",
-        SeatFallReason.Conquered => $"Your nation has been conquerred by {NationDisplay(conqueror!)}.",
+        SeatFallReason.Conquered => $"Your nation has been conquerred by {NationName(conqueror!)}.",
         _ => throw new ArgumentOutOfRangeException(nameof(reason), reason, "Unknown seat fall reason."),
     };
 
@@ -1410,6 +1426,12 @@ public sealed partial class GameSession
                 break;
             case "load":
                 lines.AddRange(HandleLoad(trimmed));
+                if (_pendingPrelude is { Count: > 0 } loadPrelude)
+                {
+                    lines.AddRange(loadPrelude);
+                    _pendingPrelude = null;
+                }
+
                 break;
             case "news":
                 lines.AddRange(RenderNews());
@@ -1810,6 +1832,27 @@ public sealed partial class GameSession
     }
 
     /// <summary>
+    /// Bug #921 item 3: the watch-mode notice for a seat that was handed to the AI, worded by the actual
+    /// reason (victory, the year limit, the army's overthrow or unpaid upkeep) instead of "deposed" for all.
+    /// The reason is the one already recorded for this seat when there is one (the post-fall unity no
+    /// longer tells unpopularity from unpaid upkeep), else classified from the state.
+    /// </summary>
+    private string HandedToAiClause(NationState nation)
+    {
+        var recorded = _pendingSeatFalls.FirstOrDefault(
+            f => string.Equals(f.NationId, nation.Id, StringComparison.Ordinal));
+        var reason = recorded?.Reason ?? FallReasonOf(nation).Reason;
+        return reason switch
+        {
+            SeatFallReason.AllCities => "has conquered the Mediterranean and is handed to the AI.",
+            SeatFallReason.HardEndYear => "has reached the end of its allotted 20 years and is handed to the AI.",
+            SeatFallReason.Unpopularity => "has been overthrown by the army and handed to the AI.",
+            SeatFallReason.Unpaid => "has been deposed by its unpaid army and handed to the AI.",
+            _ => "has been conquered and handed to the AI.",
+        };
+    }
+
+    /// <summary>
     /// Done-when 7, the user's decision on PR #375's review (N2/N3): checked after every seat played this
     /// round, seated or watch mode alike. If the CLI's own <c>--seat</c> nation has just been found
     /// eliminated or deposed (<see cref="SeatControl.Ai"/>), announces it once, adopts watch mode
@@ -1858,7 +1901,7 @@ public sealed partial class GameSession
             nation.Eliminated
                 ? $"{NationDisplay(_humanSeatNationId)} has fallen: {HumanLeaderFallsMessage(nation)} "
                   + "Watch mode from here on: one round per end, no orders."
-                : $"{NationDisplay(_humanSeatNationId)} has been deposed and handed to the AI. "
+                : $"{NationDisplay(_humanSeatNationId)} {HandedToAiClause(nation)} "
                   + "Watch mode from here on: one round per end, no orders.");
         return true;
     }
