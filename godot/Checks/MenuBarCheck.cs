@@ -154,6 +154,7 @@ public partial class MenuBarCheck : Control
             // Done-when 5: the four overlays and the news toggle, none of which mutates the turn.
             (BetweenStepsFrames, CheckNewsToggles),
             (BetweenStepsFrames, CheckInternationalRelations),
+            (BetweenStepsFrames, CheckInternationalRelationsFits),
             (BetweenStepsFrames, CheckInternationalRelationsCloses),
             (BetweenStepsFrames, CheckHelpTopics),
             (BetweenStepsFrames, CheckAbout),
@@ -438,7 +439,20 @@ public partial class MenuBarCheck : Control
             $"International relations opens DiplomacyScreen (got {_mainGame.ActiveOverlay?.GetType().Name ?? "null"})");
     }
 
-    // Bug #968: the window must be closable by Esc and its Close button must be on screen at the default size.
+    // Bug #968: the window must be closable by Esc and its Close button must be on screen at the default size
+    // (and at a smaller laptop window, where the 16-nation grid used to push the button off screen).
+    private void CheckInternationalRelationsFits()
+    {
+        if (_mainGame.ActiveOverlay is not DiplomacyScreen diplomacy)
+        {
+            Check(false, "International relations is still open for the fit check");
+            return;
+        }
+
+        AssertRelationsFits(diplomacy, "default window");
+        GetWindow().Size = new Vector2I(1280, 720);
+    }
+
     private void CheckInternationalRelationsCloses()
     {
         if (_mainGame.ActiveOverlay is not DiplomacyScreen diplomacy)
@@ -447,17 +461,7 @@ public partial class MenuBarCheck : Control
             return;
         }
 
-        var viewportRect = new Rect2(Vector2.Zero, GetViewport().GetVisibleRect().Size);
-        var buttonRect = FindButton(diplomacy, "Close")?.GetGlobalRect() ?? default;
-        Check(
-            viewportRect.Encloses(buttonRect),
-            $"the International relations Close button lies inside the viewport (button {buttonRect}, viewport {viewportRect})");
-
-        var panel = FindPanel(diplomacy);
-        var panelRect = panel?.GetGlobalRect() ?? default;
-        Check(
-            viewportRect.Encloses(panelRect),
-            $"the International relations window lies inside the viewport (window {panelRect}, viewport {viewportRect})");
+        AssertRelationsFits(diplomacy, "1280x720 window");
 
         GetViewport().PushInput(new InputEventKey { Keycode = Key.Escape, Pressed = true });
         Check(_mainGame.ActiveOverlay is null, "Esc closes the International relations window");
@@ -465,6 +469,21 @@ public partial class MenuBarCheck : Control
         {
             diplomacy.Close();
         }
+
+        GetWindow().Size = new Vector2I(1500, 850);
+    }
+
+    private void AssertRelationsFits(DiplomacyScreen diplomacy, string label)
+    {
+        var viewportRect = new Rect2(Vector2.Zero, GetViewport().GetVisibleRect().Size);
+        var buttonRect = FindButton(diplomacy, "Close")?.GetGlobalRect() ?? default;
+        Check(
+            viewportRect.Encloses(buttonRect),
+            $"the International relations Close button lies inside the viewport, {label} (button {buttonRect}, viewport {viewportRect})");
+        var panelRect = FindPanel(diplomacy)?.GetGlobalRect() ?? default;
+        Check(
+            viewportRect.Encloses(panelRect),
+            $"the International relations window lies inside the viewport, {label} (window {panelRect}, viewport {viewportRect})");
     }
 
     private static PanelContainer? FindPanel(Node node)
