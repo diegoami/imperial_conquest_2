@@ -4,6 +4,7 @@ using IC2.Engine.Cities.Capture;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
 using IC2.Engine.Movement.Commands;
+using IC2.Engine.Naval;
 using IC2.Engine.Recruitment.Commands;
 using IC2.Engine.Presentation;
 using IC2.Engine.Serialization;
@@ -175,7 +176,9 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
     /// <summary>
     /// The state at the end of <paramref name="nationId"/>'s turn, rebuilt from the round's start state, its end state
     /// and its events (the session exposes no per-turn snapshot): exactly the incarnation of each army id that was
-    /// alive at the boundary, at its position then.
+    /// alive at the boundary, at its position then, and the fleets known to stand where they stood then. Only what
+    /// <see cref="AiArmyTargetTree.IsReachable"/> reads matters: army ids and positions, fleet positions, cities and
+    /// terrain.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -190,12 +193,15 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
     /// embarked army (no event).
     /// </para>
     /// <para>
-    /// Each id is simulated through the round: alive at the start if the start state has it, created by
-    /// <c>RecruitMobilized</c>, destroyed by <c>BattleResolved</c>. Anything the events cannot explain is fail
-    /// closed (the id is left out): an event that contradicts the lifetime (a second destruction, a move of a dead
-    /// army, a creation of a live one), an end state that disagrees with the simulated final liveness (an army
-    /// created without a creation event, or one gone without a destruction event), an army aboard a fleet, a
-    /// position that no move, no start position and no end position gives.
+    /// <strong>Everything the events cannot explain is fail closed</strong>: the army or fleet is left out, which can
+    /// only make a target more reachable and so never widens the exemption. Without the nation's boundary in the
+    /// round, no army or fleet is kept, so the deciding army is absent and nothing is exempt. An army is left out
+    /// when an event contradicts its lifetime (a second destruction, a move or scatter of a dead army, a creation of
+    /// a live one), when the end state disagrees with its simulated final liveness (an army created or removed
+    /// without an event), when it is aboard a fleet at the start or the end, and when no start position, move or
+    /// end position gives where it stood at the boundary. A fleet is kept only when it stands on the same tile at
+    /// the start and the end, was not under construction at the start, and no <see cref="FleetMoved"/> or
+    /// <see cref="FleetScattered"/> for it is in the round.
     /// </para>
     /// </remarks>
     internal static GameState TurnBoundaryState(
@@ -205,7 +211,7 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
             && string.Equals(decided.NationId, nationId, StringComparison.Ordinal));
         if (boundary < 0)
         {
-            return endOfRound;
+            return endOfRound with { Armies = ValueList<ArmyState>.Empty, Fleets = ValueList<FleetState>.Empty };
         }
 
         var ids = new List<string>();
@@ -227,22 +233,13 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
             Note(army.Id);
         }
 
+        // An id in neither state can only matter if it was created and destroyed within the round, so the
+        // destructions name every other id worth simulating.
         foreach (var published in round)
         {
-            switch (published)
+            if (published is BattleResolved { Result.LoserFate: LoserFate.Destroyed } battle)
             {
-                case ArmyMoved moved:
-                    Note(moved.ArmyId);
-                    break;
-                case ArmyScattered scattered:
-                    Note(scattered.ArmyId);
-                    break;
-                case RecruitMobilized { ArmyWasCreated: true } mobilized:
-                    Note(mobilized.ArmyId);
-                    break;
-                case BattleResolved { Result.LoserFate: LoserFate.Destroyed } battle:
-                    Note(battle.Result.LoserId);
-                    break;
+                Note(battle.Result.LoserId);
             }
         }
 
@@ -255,10 +252,29 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
             }
         }
 
-        return endOfRound with { Armies = ValueList.From(armies) };
+        var fleets = new List<FleetState>();
+        foreach (var fleet in endOfRound.Fleets)
+        {
+            if (startOfRound.Fleets.FirstOrDefault(f => Same(f.Id, fleet.Id)) is { } atStart
+                && (atStart.X, atStart.Y) == (fleet.X, fleet.Y)
+                && !atStart.IsUnderConstruction
+                && !round.Any(e => FleetChanged(e, fleet.Id)))
+            {
+                fleets.Add(fleet);
+            }
+        }
+
+        return endOfRound with { Armies = ValueList.From(armies), Fleets = ValueList.From(fleets) };
     }
 
     private static bool Same(string a, string b) => string.Equals(a, b, StringComparison.Ordinal);
+
+    private static bool FleetChanged(DomainEvent published, string fleetId) => published switch
+    {
+        FleetMoved moved => Same(moved.FleetId, fleetId),
+        FleetScattered scattered => Same(scattered.FleetId, fleetId),
+        _ => false,
+    };
 
     private static ArmyState? ArmyAtBoundary(
         string id, GameState start, GameState end, List<DomainEvent> round, int boundary)
@@ -272,9 +288,6 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
 
         var alive = atStart is not null;
         (int X, int Y)? position = atStart is null ? null : (atStart.X, atStart.Y);
-        var nation = atStart?.Nation;
-        var initialIncarnation = atStart is not null;
-        var aliveAtBoundary = false;
         (int X, int Y)? positionAtBoundary = null;
         var changedAfterBoundary = false;
 
@@ -282,7 +295,6 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
         {
             if (i == boundary)
             {
-                aliveAtBoundary = alive;
                 positionAtBoundary = position;
             }
 
@@ -295,8 +307,6 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
                     }
 
                     alive = true;
-                    nation = created.NationId;
-                    initialIncarnation = false;
                     changedAfterBoundary |= i > boundary;
                     break;
 
@@ -316,9 +326,11 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
                         return null;
                     }
 
-                    // The first move after the boundary of an incarnation whose position is still unknown tells
-                    // where it stood at the boundary: its origin.
-                    if (i > boundary && aliveAtBoundary && !changedAfterBoundary && positionAtBoundary is null)
+                    // The first move after the boundary of the boundary's own incarnation, while its position is
+                    // still unknown, tells where it stood at the boundary: its origin. (A move before the boundary
+                    // sets nothing that lasts: the boundary step overwrites it. After a re-creation the moving army
+                    // is a later incarnation.)
+                    if (!changedAfterBoundary && positionAtBoundary is null)
                     {
                         positionAtBoundary = (moved.FromX, moved.FromY);
                     }
@@ -332,7 +344,7 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
                         return null;
                     }
 
-                    if (i > boundary && aliveAtBoundary && !changedAfterBoundary && positionAtBoundary is null)
+                    if (i > boundary && positionAtBoundary is null)
                     {
                         // A scatter has no origin: the boundary position cannot be recovered.
                         return null;
@@ -349,25 +361,22 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
             return null;
         }
 
-        var finalIncarnation = atEnd is not null && !changedAfterBoundary;
         if (positionAtBoundary is null)
         {
-            // A created army that has not moved by the boundary and does not move after it either stands where
-            // the round ends -- but only if it is the incarnation that survives to the end.
-            if (!finalIncarnation)
+            // An incarnation whose position no start state or move gives stands where the round ends, but only if
+            // it is the incarnation that survives to the end.
+            if (atEnd is null || changedAfterBoundary)
             {
                 return null;
             }
 
-            positionAtBoundary = (atEnd!.X, atEnd.Y);
+            positionAtBoundary = (atEnd.X, atEnd.Y);
         }
 
-        var basis = finalIncarnation
-            ? atEnd!
-            : initialIncarnation && atStart is not null
-                ? atStart
-                : new ArmyState(id, nation ?? string.Empty, 0, 0, 0, 0, 0, 0, null, null, ValueList<UnitSlot>.Empty);
-        return basis with { X = positionAtBoundary.Value.X, Y = positionAtBoundary.Value.Y };
+        // Only the id and the position matter to the reachability rule.
+        return new ArmyState(
+            id, string.Empty, positionAtBoundary.Value.X, positionAtBoundary.Value.Y, 0, 0, 0, 0, null, null,
+            ValueList<UnitSlot>.Empty);
     }
 
     /// <summary>

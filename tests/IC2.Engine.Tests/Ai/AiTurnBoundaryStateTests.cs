@@ -4,6 +4,7 @@ using IC2.Engine.Core;
 using IC2.Engine.Model;
 using IC2.Engine.Movement;
 using IC2.Engine.Movement.Commands;
+using IC2.Engine.Naval;
 using IC2.Engine.Recruitment.Commands;
 using IC2.Engine.Tests.Battle.Commands;
 using Xunit;
@@ -12,7 +13,7 @@ using CaptureFixtures = IC2.Engine.Tests.Cities.Capture.CaptureTestbed;
 namespace IC2.Engine.Tests.Ai;
 
 /// <summary>
-/// T157 (#926) rework R3: the turn-boundary reconstruction behind the decisions test's exemption preserves
+/// T157 (#926) rework R3 and round 3: the turn-boundary reconstruction behind the decisions test's exemption preserves
 /// entity lifetimes. An army destroyed before the nation's turn boundary is not a blocker; one destroyed after it is;
 /// a surviving army is kept either way.
 /// </summary>
@@ -93,6 +94,9 @@ public sealed class AiTurnBoundaryStateTests
     private static RecruitMobilized Created(string id, string nation = Foe) =>
         new(nation, "home", id, true, "light_infantry", 1000, 6, "Recruit");
 
+    private static FleetState Fleet(string id, int x, int y) =>
+        new(id, Foe, x, y, 0, 10, 100, 0, 0, null, null, null, null);
+
     private static ArmyScattered Scattered(string id, int toX, int toY) => new(id, Foe, toX, toY);
 
     private static ArmyState? At(GameState start, GameState end, List<DomainEvent> round, string id) =>
@@ -126,15 +130,22 @@ public sealed class AiTurnBoundaryStateTests
     // ---- TurnBoundaryState's branches
 
     [Fact]
-    public void Without_the_nations_boundary_the_end_state_is_returned_unchanged()
+    public void Without_the_nations_boundary_no_army_or_fleet_is_kept_and_nothing_is_exempt()
     {
-        var (start, end) = Round(Array.Empty<ArmyState>(), new[] { Army("ghost", Foe, 3, 3) });
+        var (x, y) = FindRun();
+        // The blocker stands on the path at the start and the end, and only another nation's boundary is in the
+        // round: the deciding nation's boundary cannot be placed, so nothing may be exempted.
+        var (start, end) = Round(new[] { Army("blk", Foe, x + 2, y) }, new[] { Army("blk", Foe, x + 2, y) });
+        start = start with { Fleets = ValueList.From(new[] { Fleet("f", x + 3, y) }) };
+        end = end with { Fleets = ValueList.From(new[] { Fleet("f", x + 3, y) }) };
         var round = new List<DomainEvent> { Boundary(Foe) };
 
         var boundary = AiTargetTreeDecisionsAreCarriedOutTests.TurnBoundaryState(start, end, round, Me);
 
-        Assert.Same(end, boundary);
-        Assert.NotNull(boundary.ArmyById("ghost"));
+        Assert.Empty(boundary.Armies);
+        Assert.Empty(boundary.Fleets);
+        Assert.False(Superseded(start, end, round, x, y));
+        Assert.True(Superseded(start, end, new List<DomainEvent> { Boundary(Me) }, x, y));
     }
 
     [Fact]
@@ -295,14 +306,29 @@ public sealed class AiTurnBoundaryStateTests
     }
 
     [Fact]
-    public void An_army_aboard_a_fleet_is_omitted()
+    public void An_army_aboard_a_fleet_only_at_the_start_is_omitted_and_the_decision_is_not_exempt()
     {
         var (x, y) = FindRun();
-        var aboard = Army("blk", Foe, x + 2, y) with { AboardFleetId = "f" };
-        var (start, end) = Round(new[] { aboard }, new[] { aboard });
+        var (start, end) = Round(
+            new[] { Army("blk", Foe, x + 2, y) with { AboardFleetId = "f" } }, new[] { Army("blk", Foe, x + 2, y) });
         var round = new List<DomainEvent> { Boundary(Me) };
 
         Assert.Null(At(start, end, round, "blk"));
+        Assert.NotNull(At(start, end, round, "keeper"));
+        Assert.False(Superseded(start, end, round, x, y));
+    }
+
+    [Fact]
+    public void An_army_aboard_a_fleet_only_at_the_end_is_omitted_and_the_decision_is_not_exempt()
+    {
+        var (x, y) = FindRun();
+        var (start, end) = Round(
+            new[] { Army("blk", Foe, x + 2, y) }, new[] { Army("blk", Foe, x + 2, y) with { AboardFleetId = "f" } });
+        var round = new List<DomainEvent> { Boundary(Me) };
+
+        Assert.Null(At(start, end, round, "blk"));
+        Assert.NotNull(At(start, end, round, "keeper"));
+        Assert.False(Superseded(start, end, round, x, y));
     }
 
     [Fact]
@@ -384,6 +410,126 @@ public sealed class AiTurnBoundaryStateTests
         Assert.False(Superseded(start, end, round, x, y));
     }
 
+    [Fact]
+    public void A_move_by_a_later_incarnation_does_not_give_the_boundary_position_of_an_earlier_one()
+    {
+        var (x, y) = FindRun();
+        // Created before the boundary and never moved, so its boundary position is unknown; destroyed after the
+        // boundary, the id is recreated, and the NEW army moves from the path tile. That origin is the new army's,
+        // not where the old one stood at the boundary.
+        var (start, end) = Round(Array.Empty<ArmyState>(), new[] { Army("blk", Foe, x + 2, y + 1) });
+        var round = new List<DomainEvent>
+        {
+            Created("blk"), Boundary(Me), Destroyed("blk"), Created("blk"), Moved("blk", Foe, x + 2, y, x + 2, y + 1),
+        };
+
+        Assert.Null(At(start, end, round, "blk"));
+        Assert.NotNull(At(start, end, round, "keeper"));
+        Assert.False(Superseded(start, end, round, x, y));
+    }
+
+    [Fact]
+    public void A_scatter_after_the_boundary_keeps_a_known_boundary_position()
+    {
+        var (x, y) = FindRun();
+        var (start, end) = Round(new[] { Army("blk", Foe, x + 2, y) }, new[] { Army("blk", Foe, x + 2, y + 3) });
+        var round = new List<DomainEvent> { Boundary(Me), Scattered("blk", x + 2, y + 3) };
+
+        Assert.Equal((x + 2, y), Where(start, end, round, "blk"));
+        Assert.True(Superseded(start, end, round, x, y));
+    }
+
+    [Fact]
+    public void An_army_created_and_destroyed_within_the_round_stands_where_it_moved_at_the_boundary()
+    {
+        var (x, y) = FindRun();
+        // In neither the start nor the end state: only its events place it on the path at the boundary.
+        var (start, end) = Round(Array.Empty<ArmyState>(), Array.Empty<ArmyState>());
+        var round = new List<DomainEvent>
+        {
+            Created("blk"), Moved("blk", Foe, x + 2, y + 1, x + 2, y), Boundary(Me), Destroyed("blk"),
+        };
+
+        Assert.Equal((x + 2, y), Where(start, end, round, "blk"));
+        Assert.True(Superseded(start, end, round, x, y));
+    }
+
+    // ---- Fleets
+
+    private static (GameState Start, GameState End) FleetRound(FleetState? atStart, FleetState? atEnd)
+    {
+        var (start, end) = Round(Array.Empty<ArmyState>(), Array.Empty<ArmyState>());
+        return (
+            start with { Fleets = atStart is null ? ValueList<FleetState>.Empty : ValueList.From(new[] { atStart }) },
+            end with { Fleets = atEnd is null ? ValueList<FleetState>.Empty : ValueList.From(new[] { atEnd }) });
+    }
+
+    [Fact]
+    public void A_fleet_on_the_same_tile_at_the_start_and_the_end_with_no_fleet_event_blocks()
+    {
+        var (x, y) = FindRun();
+        var (start, end) = FleetRound(Fleet("f", x + 2, y), Fleet("f", x + 2, y));
+        var round = new List<DomainEvent> { Boundary(Me) };
+
+        Assert.Single(AiTargetTreeDecisionsAreCarriedOutTests.TurnBoundaryState(start, end, round, Me).Fleets);
+        Assert.True(Superseded(start, end, round, x, y));
+    }
+
+    [Fact]
+    public void A_fleet_only_at_the_end_is_omitted()
+    {
+        var (x, y) = FindRun();
+        var (start, end) = FleetRound(null, Fleet("f", x + 2, y));
+        var round = new List<DomainEvent> { Boundary(Me) };
+
+        Assert.False(Superseded(start, end, round, x, y));
+    }
+
+    [Fact]
+    public void A_fleet_on_another_tile_at_the_start_is_omitted()
+    {
+        var (x, y) = FindRun();
+        var round = new List<DomainEvent> { Boundary(Me) };
+
+        var (startX, endX) = FleetRound(Fleet("f", x + 3, y), Fleet("f", x + 2, y));
+        Assert.False(Superseded(startX, endX, round, x, y));
+
+        var (startY, endY) = FleetRound(Fleet("f", x + 2, y + 1), Fleet("f", x + 2, y));
+        Assert.False(Superseded(startY, endY, round, x, y));
+    }
+
+    [Fact]
+    public void A_fleet_under_construction_at_the_start_is_omitted()
+    {
+        var (x, y) = FindRun();
+        var (start, end) = FleetRound(Fleet("f", x + 2, y) with { ConstructionTicksRemaining = 1 }, Fleet("f", x + 2, y));
+        var round = new List<DomainEvent> { Boundary(Me) };
+
+        Assert.False(Superseded(start, end, round, x, y));
+    }
+
+    [Fact]
+    public void A_fleet_that_moved_or_scattered_in_the_round_is_omitted_even_back_on_its_tile()
+    {
+        var (x, y) = FindRun();
+        var (start, end) = FleetRound(Fleet("f", x + 2, y), Fleet("f", x + 2, y));
+
+        var moved = new List<DomainEvent>
+        {
+            new FleetMoved("f", Foe, x + 2, y, x + 2, y + 1), Boundary(Me), new FleetMoved("f", Foe, x + 2, y + 1, x + 2, y),
+        };
+        Assert.False(Superseded(start, end, moved, x, y));
+
+        var scattered = new List<DomainEvent> { new FleetScattered("f", Foe, x + 2, y + 1), Boundary(Me) };
+        Assert.False(Superseded(start, end, scattered, x, y));
+
+        var otherFleet = new List<DomainEvent>
+        {
+            new FleetMoved("g", Foe, 0, 0, 1, 0), new FleetScattered("g", Foe, 1, 1), Boundary(Me),
+        };
+        Assert.True(Superseded(start, end, otherFleet, x, y));
+    }
+
     // ---- IsSuperseded
 
     [Fact]
@@ -416,6 +562,8 @@ public sealed class AiTurnBoundaryStateTests
         Assert.False(Check(blocked, first));
         Assert.False(Check(blocked, first, otherPosition));
         Assert.False(Check(blocked, first, otherArmy));
+        Assert.False(Check(blocked, first, later with { NationId = Foe }));
+        Assert.False(Check(blocked, first, later with { ArmyY = y + 1 }));
         Assert.False(AiTargetTreeDecisionsAreCarriedOutTests.IsSuperseded(
             new List<AiArmyTargetTree.DecisionRecord> { later, first }, 1, blocked, Ruleset, World));
         Assert.False(Check(StateWith(new[] { Army("s", Me, x, y) }), first, later));
