@@ -303,7 +303,7 @@ In the same turn as the merge, the main session:
 3. **Makes any Owns widening durable.** A widening recorded by an issue comment ([§4.2](#42-what-the-reviewer-checks) gate 4) is added to the task's entry, `docs/tasks/T<nn>.md`, in this step's `Docs:` commit, so a later disjointness check ([§8](#8-two-machines)) reads the entry, not a comment.
    **Records the PR's "Docs affected" list**, and applies only what would otherwise leave a document **factually wrong**: a formula the code now implements differently, an `[open]` item the merge closed, a mis-attributed citation. Those go straight to `main` in a small `Docs:` commit, because a wrong provenance claim is what the review gates exist to catch. **Everything else waits for the release docs pass** ([release-plan.md §5](release-plan.md#5-release-checklist)): re-wording, counts, narrative and anything about where the build stands. The living pages are in the [wiki](https://github.com/diegoami/imperial_conquest_2/wiki), where they carry no contractual force (incident 10).
 4. **Leaves the agents' worktrees in place.** A worktree holds a run's diagnostics and any work it did not push, so nothing removes one at a merge or after a failure (the user's decision of 2026-10-08). They are removed on a schedule instead: a daily Windows scheduled task on each machine, `IC2 Clean-Worktrees` ([operating-guide.md §1.3](operating-guide.md#13-local-toolchain-outside-both-repositories)), runs the script below with `-Apply`, and the main session may run it by hand too, once they are safe to remove (merged or closed, nothing unpushed, nothing uncommitted): `pwsh scripts/Clean-Worktrees.ps1` lists every tree under `ic2-work\` with its PR state and whether it is safe, and `-Apply` removes the safe ones older than `-OlderThanDays` (7 by default), never an open PR's tree. A tree is kept by any tracked or untracked change. Ignored files don't keep a tree: build output (`bin/`, `obj/`, `.godot/` or `.vs/` at any depth), and the tooling's root `.opencode/`, `assets.local.ini` and `rendered/` (T151, and the user's decision of 2026-10-09). `-Force <path>` removes one named tree whatever its state, after printing what it holds.
-5. **Reports to the user**: the merge commit, what the review found, the follow-ups filed, and what is ready next.
+5. **Reports to the user**: the merge commit, what the review found, the follow-ups filed, and the next item, recommended with a one-line reason and followed by the alternatives (the user's decision of 2026-10-11; Appendix C step 4).
 
 ### 4.8 The playability gate, until v0.5.0
 
@@ -568,15 +568,20 @@ You are implementing task T<nn> of the Imperial Conquest 2 build. The repository
 C:\Users\diego\projects\imperial_conquest_2 (GitHub diegoami/imperial_conquest_2). Do NOT work in
 that directory: it is the main session's checkout. Work in your own worktree:
 
-  git -C C:\Users\diego\projects\imperial_conquest_2 fetch origin
+  git -C C:/Users/diego/projects/imperial_conquest_2 fetch origin
   - If origin has task/T<nn>-<slug>, an earlier attempt exists: continue it, and don't start over.
     Read its commits and any open PR first.
-      git -C C:\Users\diego\projects\imperial_conquest_2 worktree add C:\Users\diego\projects\ic2-work\T<nn> task/T<nn>-<slug>
-      git -C C:\Users\diego\projects\ic2-work\T<nn> merge --ff-only origin/task/T<nn>-<slug>   (a stale local copy catches up)
+      git -C C:/Users/diego/projects/imperial_conquest_2 worktree add C:/Users/diego/projects/ic2-work/T<nn> task/T<nn>-<slug>
+      git -C C:/Users/diego/projects/ic2-work/T<nn> merge --ff-only origin/task/T<nn>-<slug>   (a stale local copy catches up)
   - Otherwise create the branch from origin/main, then push it at once:
-      git -C C:\Users\diego\projects\imperial_conquest_2 worktree add -b task/T<nn>-<slug> C:\Users\diego\projects\ic2-work\T<nn> origin/main
-      git -C C:\Users\diego\projects\ic2-work\T<nn> push -u origin task/T<nn>-<slug>
-  - <local-only tasks only> copy C:\Users\diego\projects\imperial_conquest_2\assets.local.ini into
+      git -C C:/Users/diego/projects/imperial_conquest_2 worktree add -b task/T<nn>-<slug> C:/Users/diego/projects/ic2-work/T<nn> origin/main
+      git -C C:/Users/diego/projects/ic2-work/T<nn> push -u origin task/T<nn>-<slug>
+  - Write every path as shown: absolute, with forward slashes. Git Bash eats backslashes, and a
+    relative path resolves from the main checkout (twice on 2026-10-11 an agent's worktree landed
+    inside it). Right after the worktree exists, check that
+    `git -C C:/Users/diego/projects/imperial_conquest_2 status --porcelain` prints nothing and that no
+    `ic2-work` folder exists inside the main checkout; if either fails, undo it and say so.
+  - <local-only tasks only> copy C:/Users/diego/projects/imperial_conquest_2/assets.local.ini into
     the worktree root. It is git-ignored; never commit it. (For an OpenCode run this setup is
     already done: `scripts/external-implement.ps1` created the worktree and `-LocalOnly` copied the
     file, so skip this whole block.)
@@ -691,8 +696,8 @@ You are reviewing PR #<pr> for task T<nn> of the Imperial Conquest 2 build. You 
 Do NOT work in C:\Users\diego\projects\imperial_conquest_2 (the main session's checkout). Use your
 own worktree at the PR head:
 
-  git -C C:\Users\diego\projects\imperial_conquest_2 fetch origin task/T<nn>-<slug>
-  git -C C:\Users\diego\projects\imperial_conquest_2 worktree add --detach C:\Users\diego\projects\ic2-work\T<nn>-review origin/task/T<nn>-<slug>
+  git -C C:/Users/diego/projects/imperial_conquest_2 fetch origin task/T<nn>-<slug>
+  git -C C:/Users/diego/projects/imperial_conquest_2 worktree add --detach C:/Users/diego/projects/ic2-work/T<nn>-review origin/task/T<nn>-<slug>
   <local-only tasks only> copy assets.local.ini from the main checkout into the worktree root.
 
 GATE 0 — PROVE YOU ARE LOOKING AT THE RIGHT CODE. Before reading or judging anything, run these
@@ -931,7 +936,9 @@ the docs item applies only if the review named a claim.
    - Docs: apply the PR's "Docs affected" claims on main ("Docs: after T<nn>"). Write no status.
    - Leave the task's worktrees under C:\Users\diego\projects\ic2-work\ in place: they are removed on
      a schedule, once safe (§4.7 step 4).
-   - Report: the merge commit, the review's findings, the follow-ups, and what's ready next.
+   - Report: the merge commit, the review's findings, the follow-ups, and the next item: recommend one
+     with a one-line reason, then the alternatives, rather than only listing what is ready (the user's
+     decision of 2026-10-11, "When finishing a task, propose a new one").
 5. ESCALATE or BUG.
    - Escalate (build-process.md §4.5): label status:escalated, comment the evidence on the
      issue, and bring it to the user with options and a recommendation. Stop the run.
