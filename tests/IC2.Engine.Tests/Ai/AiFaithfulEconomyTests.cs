@@ -228,7 +228,7 @@ public sealed class AiFaithfulEconomyTests
             SystemRegistry.FromEngineAssembly(), rules, BattleCommandTestbed.ToyWorld, NullEventSink.Instance);
         var log = new List<string>();
         var result = AiFaithfulEconomy.Run(
-            state, rules, BattleCommandTestbed.ToyWorld, dispatcher, NullEventSink.Instance, new SplitMix64Rng(seed), Me, log);
+            state, rules, dispatcher, NullEventSink.Instance, new SplitMix64Rng(seed), Me, log, BattleCommandTestbed.ToyWorld);
         return (state, result);
     }
 
@@ -490,7 +490,7 @@ public sealed class AiFaithfulEconomyTests
             SystemRegistry.FromEngineAssembly(), rules, BattleCommandTestbed.ToyWorld, NullEventSink.Instance);
 
         var seat = new CountingRng(new SplitMix64Rng(11));
-        var result = AiFaithfulEconomy.Run(state, rules, BattleCommandTestbed.ToyWorld, dispatcher, NullEventSink.Instance, seat, Me, new List<string>());
+        var result = AiFaithfulEconomy.Run(state, rules, dispatcher, NullEventSink.Instance, seat, Me, new List<string>(), BattleCommandTestbed.ToyWorld);
         Assert.Equal(0, seat.OwnDraws);
         Assert.Equal(8, Slots(result.State));
         Assert.Equal(16, seat.Child!.OwnDraws);

@@ -130,7 +130,7 @@ public static class AiTurn
         // resupply and mercenary passes below. Under the designed economy this is skipped and AiEconomyPhase proposes as before.
         if (ruleset.Flags.AiEconomy == AiEconomyModel.Original)
         {
-            var economy = AiFaithfulEconomy.Run(state, ruleset, world, commands, events, rng, nationId, log);
+            var economy = AiFaithfulEconomy.Run(state, ruleset, commands, events, rng, nationId, log);
             state = economy.State;
             issued += economy.Issued;
             rejected += economy.Rejected;

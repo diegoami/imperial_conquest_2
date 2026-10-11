@@ -60,16 +60,15 @@ public static class AiFaithfulEconomy
     public static Result Run(
         GameState state,
         Ruleset ruleset,
-        World world,
         ICommandDispatch commands,
         IEventSink events,
         IRng rng,
         string nationId,
-        List<string> log)
+        List<string> log,
+        World? world = null)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(ruleset);
-        ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(commands);
         ArgumentNullException.ThrowIfNull(events);
         ArgumentNullException.ThrowIfNull(rng);
@@ -111,10 +110,15 @@ public static class AiFaithfulEconomy
             }
         }
 
-        var fleet = OrderFleet(state, ruleset, world, commands, events, nationId, log);
-        state = fleet.State;
-        issued += fleet.Issued;
-        rejected += fleet.Rejected;
+        // The fleet order needs the terrain (CoastalCity). AiTurn does not pass the world yet (AiTurn.cs is
+        // outside T158's Owns), so without it the order is skipped.
+        if (world is not null)
+        {
+            var fleet = OrderFleet(state, ruleset, world, commands, events, nationId, log);
+            state = fleet.State;
+            issued += fleet.Issued;
+            rejected += fleet.Rejected;
+        }
 
         var consolidated = ConsolidateUnits(state, ruleset, commands, events, nationId, log);
         state = consolidated.State;
