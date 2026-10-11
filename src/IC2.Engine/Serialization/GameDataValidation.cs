@@ -287,6 +287,10 @@ public static class GameDataValidation
         RequirePositiveDivisor(documentPath, ruleset.Ai.PermilleScale, "ai.permilleScale");
 
         // Bug #943: the same hazard for the other AI keys the engine divides by; each comment names where.
+        // ai.cityScoreRegionHalvingDenominator: AiArmyTargetTree: score / this (via the local copy `halving`), the city and army scorers (two sites).
+        RequirePositiveDivisor(documentPath, ruleset.Ai.CityScoreRegionHalvingDenominator, "ai.cityScoreRegionHalvingDenominator");
+        // ai.cityAttackCapitalDefenseRatioDenominator: AiArmyTargetTree: city defense * numerator / this (via the local copy `capitalDen`), the capital test.
+        RequirePositiveDivisor(documentPath, ruleset.Ai.CityAttackCapitalDefenseRatioDenominator, "ai.cityAttackCapitalDefenseRatioDenominator");
         // ai.resupplyStrengthTroopsDivisor: AiArmyTargetTree: army troops / this, in the resupply target tree (two sites).
         RequirePositiveDivisor(documentPath, ruleset.Ai.ResupplyStrengthTroopsDivisor, "ai.resupplyStrengthTroopsDivisor");
         // ai.resupplyForeignMoneyDivisor: AiArmyTargetTree: strength / this, the foreign-money test (two sites).
