@@ -216,6 +216,8 @@ graph TD
   T151 --> T154[T154 review brief in worktree]
   T56 --> T155[T155 recruit-town gate]
   T155 --> T157[T157 AI faithful economy]
+  T157 --> T158[T158 AI fleet order and consolidation]
+  T158 --> T159[T159 AI faithful merges]
   T156[T156 AI army target tree]
   T23 --> T26[T26 scenario docs+examples]
   T29 --> T26
@@ -1249,6 +1251,14 @@ AI army target tree (part of #910, split from T157; both presets, the user's dec
 
 AI faithful economy (part of #910, split from T156; ships in `v0.5.2`; it merges after T155) → [full entry](tasks/T157.md) · [#926](https://github.com/diegoami/imperial_conquest_2/issues/926)
 
+#### T158 Under classical-faithful, the AI orders a new fleet and consolidates its army units as the original does
+
+AI fleet order and consolidation (part of #910, the economy's first two tail sub-phases; ships in `v0.5.2`; it merges after T157) → [full entry](tasks/T158.md) · [#958](https://github.com/diegoami/imperial_conquest_2/issues/958)
+
+#### T159 Under classical-faithful, the AI merges a small army or fleet into a nearby own one, as the original does
+
+AI faithful merges (the last part of #910; an AI-only path, the user's decision of 2026-10-11; ships in `v0.5.2`; it starts after research request imperial-conquest-2-research#7 is answered and merges after T158) → [full entry](tasks/T159.md) · [#959](https://github.com/diegoami/imperial_conquest_2/issues/959)
+
 ---
 
 #### T25 Battle result, diplomacy, and hotseat handoff screens
@@ -1437,3 +1447,5 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T155](#t155-only-the-capital-and-towns-fortified-to-75-take-a-recruitment-order) | Recruit-town gate | M4 | Sonnet | Medium | Sol | T56 | [#904](https://github.com/diegoami/imperial_conquest_2/issues/904) |
 | [T156](#t156-the-ais-armies-follow-the-originals-target-tree-attack-an-army-or-a-city-resupply-or-hire) | AI army target tree | M12 | Sonnet | High | Opus | #907's fix | [#925](https://github.com/diegoami/imperial_conquest_2/issues/925) |
 | [T157](#t157-under-classical-faithful-the-ais-economy-follows-the-original-a-threat-budget-the-week-11-tax-no-fortifying) | AI faithful economy | M12 | Sonnet | High | Sol | T155 | [#926](https://github.com/diegoami/imperial_conquest_2/issues/926) |
+| [T158](#t158-under-classical-faithful-the-ai-orders-a-new-fleet-and-consolidates-its-army-units-as-the-original-does) | AI fleet order and consolidation | M12 | the user's choice | Medium | the user's choice | T157 | [#958](https://github.com/diegoami/imperial_conquest_2/issues/958) |
+| [T159](#t159-under-classical-faithful-the-ai-merges-a-small-army-or-fleet-into-a-nearby-own-one-as-the-original-does) | AI faithful merges | M12 | the user's choice | Medium | the user's choice | T158 | [#959](https://github.com/diegoami/imperial_conquest_2/issues/959) |
