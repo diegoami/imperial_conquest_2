@@ -481,6 +481,57 @@ public sealed class AiFaithfulMergesTests
         Assert.Equal("naval.not-adjacent", fleet.Rejection!.Code.Value);
     }
 
+    // ---------------------------------------------------------------- the handlers' own guards (direct dispatch)
+
+    private static void AssertRefused(CommandResult? outcome, string code)
+    {
+        Assert.NotNull(outcome);
+        Assert.True(outcome!.IsRejected);
+        Assert.Equal(code, outcome.Rejection!.Code.Value);
+    }
+
+    [Fact]
+    public void The_army_handler_refuses_foreign_same_missing_unknown_seat_and_eliminated_seat_leaving_the_state_unchanged()
+    {
+        var foe = Army("e", 1, 0, new[] { U(100) }, nation: Foe);
+        var state = Build(new[] { Army("d", 0, 0, 100), Army("p", 1, 0, 100), foe });
+        var dispatcher = Dispatcher(Rules());
+
+        AssertRefusedUnchanged(dispatcher, state, new AiAbsorbArmyCommand(Me, "e", "d"), "armies.ai-absorb-not-your-army");
+        AssertRefusedUnchanged(dispatcher, state, new AiAbsorbArmyCommand(Me, "p", "e"), "armies.ai-absorb-not-your-army");
+        AssertRefusedUnchanged(dispatcher, state, new AiAbsorbArmyCommand(Me, "p", "p"), "armies.ai-absorb-same-army");
+        AssertRefusedUnchanged(dispatcher, state, new AiAbsorbArmyCommand(Me, "p", "nope"), "armies.ai-absorb-unknown-army");
+        AssertRefusedUnchanged(dispatcher, state, new AiAbsorbArmyCommand(Me, "nope", "d"), "armies.ai-absorb-unknown-army");
+        AssertRefusedUnchanged(dispatcher, state, new AiAbsorbArmyCommand("zz", "p", "d"), "command.unknown-nation");
+        var eliminated = state with { Nations = ValueList.From(state.Nations.Select(n => n.Id == Me ? n with { Eliminated = true } : n)) };
+        AssertRefusedUnchanged(dispatcher, eliminated, new AiAbsorbArmyCommand(Me, "p", "d"), "command.nation-eliminated");
+    }
+
+    [Fact]
+    public void The_fleet_handler_refuses_foreign_same_missing_unknown_seat_and_eliminated_seat_leaving_the_state_unchanged()
+    {
+        var foe = Fleet("e", 1, 0, 5, nation: Foe);
+        var state = Build(fleets: new[] { Fleet("s", 0, 0, 10), Fleet("p", 1, 0, 10), foe });
+        var dispatcher = Dispatcher(Rules());
+
+        AssertRefusedUnchanged(dispatcher, state, new AiAbsorbFleetCommand(Me, "e", "p"), "naval.ai-absorb-not-your-fleet");
+        AssertRefusedUnchanged(dispatcher, state, new AiAbsorbFleetCommand(Me, "s", "e"), "naval.ai-absorb-not-your-fleet");
+        AssertRefusedUnchanged(dispatcher, state, new AiAbsorbFleetCommand(Me, "s", "s"), "naval.ai-absorb-same-fleet");
+        AssertRefusedUnchanged(dispatcher, state, new AiAbsorbFleetCommand(Me, "s", "nope"), "naval.ai-absorb-unknown-fleet");
+        AssertRefusedUnchanged(dispatcher, state, new AiAbsorbFleetCommand(Me, "nope", "p"), "naval.ai-absorb-unknown-fleet");
+        AssertRefusedUnchanged(dispatcher, state, new AiAbsorbFleetCommand("zz", "s", "p"), "command.unknown-nation");
+        var eliminated = state with { Nations = ValueList.From(state.Nations.Select(n => n.Id == Me ? n with { Eliminated = true } : n)) };
+        AssertRefusedUnchanged(dispatcher, eliminated, new AiAbsorbFleetCommand(Me, "s", "p"), "command.nation-eliminated");
+    }
+
+    private static void AssertRefusedUnchanged(CommandDispatcher dispatcher, GameState state, ICommand command, string code)
+    {
+        var before = GameJson.Serialize(state);
+        var outcome = dispatcher.Dispatch(state, command);
+        AssertRefused(outcome, code);
+        Assert.Equal(before, GameJson.Serialize(state));
+    }
+
     // ---------------------------------------------------------------- the phase wiring
 
     [Fact]
