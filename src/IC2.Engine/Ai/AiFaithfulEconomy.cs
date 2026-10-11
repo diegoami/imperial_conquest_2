@@ -60,15 +60,16 @@ public static class AiFaithfulEconomy
     public static Result Run(
         GameState state,
         Ruleset ruleset,
+        World world,
         ICommandDispatch commands,
         IEventSink events,
         IRng rng,
         string nationId,
-        List<string> log,
-        World? world = null)
+        List<string> log)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(ruleset);
+        ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(commands);
         ArgumentNullException.ThrowIfNull(events);
         ArgumentNullException.ThrowIfNull(rng);
@@ -110,15 +111,10 @@ public static class AiFaithfulEconomy
             }
         }
 
-        // The fleet order needs the terrain (CoastalCity). AiTurn does not pass the world yet (AiTurn.cs is
-        // outside T158's Owns), so without it the order is skipped.
-        if (world is not null)
-        {
-            var fleet = OrderFleet(state, ruleset, world, commands, events, nationId, log);
-            state = fleet.State;
-            issued += fleet.Issued;
-            rejected += fleet.Rejected;
-        }
+        var fleet = OrderFleet(state, ruleset, world, commands, events, nationId, log);
+        state = fleet.State;
+        issued += fleet.Issued;
+        rejected += fleet.Rejected;
 
         var consolidated = ConsolidateUnits(state, ruleset, commands, events, nationId, log);
         state = consolidated.State;
@@ -461,9 +457,9 @@ public static class AiFaithfulEconomy
     }
 
     /// <summary>
-    /// The fleet score <c>FUN_00450768</c> gates on: <see cref="AiWeightsRules.FaithfulFleetScoreEach"/> for every
-    /// own fleet and a further <see cref="AiWeightsRules.FaithfulFleetScoreAtSea"/> for every launched one (the
-    /// original's at-sea state). The report words the terms as "own fleet +1, at sea +4" and defines no more.
+    /// The fleet score <c>FUN_00450768</c> gates on: <see cref="AiWeightsRules.FaithfulFleetScoreLaunched"/> for each
+    /// own launched fleet and <see cref="AiWeightsRules.FaithfulFleetScoreUnderConstruction"/> for each own fleet
+    /// under construction (never both) [confirmed: decompile, :53838]
     /// </summary>
     public static int FleetScore(GameState state, Ruleset ruleset, string nationId)
     {
@@ -478,11 +474,9 @@ public static class AiFaithfulEconomy
                 continue;
             }
 
-            score += ruleset.Ai.FaithfulFleetScoreEach;
-            if (!fleet.IsUnderConstruction)
-            {
-                score += ruleset.Ai.FaithfulFleetScoreAtSea;
-            }
+            score += fleet.IsUnderConstruction
+                ? ruleset.Ai.FaithfulFleetScoreUnderConstruction
+                : ruleset.Ai.FaithfulFleetScoreLaunched;
         }
 
         return score;
@@ -511,14 +505,8 @@ public static class AiFaithfulEconomy
             return (state, 0, 0);
         }
 
-        var fleets = 0;
-        foreach (var fleet in state.Fleets)
-        {
-            if (string.Equals(fleet.Nation, nationId, StringComparison.Ordinal))
-            {
-                fleets++;
-            }
-        }
+        // The < 99 gate counts the whole fleet table, every nation's fleets (DAT_004a0326).
+        var fleets = state.Fleets.Count;
 
         var cities = 0;
         foreach (var city in state.Cities)

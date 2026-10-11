@@ -987,10 +987,10 @@ one shared scale, so the AI's determinism guarantee never depends on floating-po
 | `faithfulTaxRaise` | int | points | Tax rule 2's raise; 9. |
 | `faithfulTaxCeiling` | int | percent | Tax rule 2's ceiling; 40. |
 | `faithfulTaxZeroUnityBelow` | int | unity | Tax rule 3 zeroes the tax, with a positive treasury, when unity is below N; 500. |
-| `faithfulFleetCountBelow` | int | fleets | The AI orders a new fleet only while it owns fewer than N fleets; 99. |
+| `faithfulFleetCountBelow` | int | fleets | The AI orders a new fleet only while it counts fewer than N fleets in the whole table (all nations); 99. |
 | `faithfulFleetTreasuryAbove` | int | talents | ... and only while its treasury is above N; 3000. |
-| `faithfulFleetScoreEach` | int | score | The fleet score's term for every own fleet, launched or under construction; 1. |
-| `faithfulFleetScoreAtSea` | int | score | The fleet score's further term for every launched fleet; 4. |
+| `faithfulFleetScoreLaunched` | int | score | The fleet score's term for each own launched fleet; 1. |
+| `faithfulFleetScoreUnderConstruction` | int | score | The fleet score's term for each own fleet under construction (instead of the launched term); 4. |
 | `faithfulFleetScoreOneCitiesAbove` | int | cities | A fleet score of 1 still orders with more than N cities; 50. |
 | `faithfulFleetScoreTwoCitiesAbove` | int | cities | A fleet score of 2 still orders with more than N cities; 100. |
 | `faithfulFleetShipsCityOffset` | int | ships | The new fleet has `min(cap, cities + N)` ships; N is 50. |
