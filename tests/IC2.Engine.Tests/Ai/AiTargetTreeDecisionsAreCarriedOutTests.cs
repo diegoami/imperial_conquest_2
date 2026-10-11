@@ -193,11 +193,27 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
         }
 
         var destroyedAt = new Dictionary<string, int>(StringComparer.Ordinal);
+        var destructions = new Dictionary<string, int>(StringComparer.Ordinal);
         for (var i = 0; i < round.Count; i++)
         {
             if (round[i] is BattleResolved { Result.LoserFate: LoserFate.Destroyed } battle)
             {
                 destroyedAt[battle.Result.LoserId] = i;
+                destructions[battle.Result.LoserId] = destructions.GetValueOrDefault(battle.Result.LoserId) + 1;
+            }
+        }
+
+        // An id that was destroyed in the round and is also alive at its end was reused (mobilisation takes the
+        // lowest unused id), and one destroyed twice was reused in between. The round's events cannot tell the
+        // old army's moves from the new one's, so such an id is ambiguous: it is left out of the boundary state
+        // altogether (fail closed -- as the deciding army it makes the decision not exempt, as a blocker it blocks
+        // nothing).
+        var ambiguous = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var (id, count) in destructions)
+        {
+            if (count > 1 || endOfRound.ArmyById(id) is not null)
+            {
+                ambiguous.Add(id);
             }
         }
 
@@ -221,12 +237,17 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
         var armies = new List<ArmyState>();
         foreach (var army in endOfRound.Armies)
         {
+            if (ambiguous.Contains(army.Id))
+            {
+                continue;
+            }
+
             armies.Add(positions.Remove(army.Id, out var at) ? army with { X = at.X, Y = at.Y } : army);
         }
 
         foreach (var (id, at) in positions)
         {
-            if (destroyedAt.TryGetValue(id, out var when) && when > boundary)
+            if (!ambiguous.Contains(id) && destroyedAt.TryGetValue(id, out var when) && when > boundary)
             {
                 armies.Add(new ArmyState(id, at.Nation, at.X, at.Y, 0, 0, 0, 0, null, null, ValueList<UnitSlot>.Empty));
             }

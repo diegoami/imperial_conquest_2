@@ -193,4 +193,29 @@ public sealed class AiTurnBoundaryStateTests
         Assert.False(AiTargetTreeDecisionsAreCarriedOutTests.IsSuperseded(
             new List<AiArmyTargetTree.DecisionRecord> { first, later }, 0, clear, Ruleset, World));
     }
+
+    [Fact]
+    public void An_id_destroyed_and_then_reused_in_the_round_is_ambiguous_and_never_exempts()
+    {
+        var (x, y) = FindRun();
+        // The old "blk" stood on the path and was destroyed before the boundary; mobilisation then reused the
+        // id for a new army that ends the round off the path. The old army's move must not be applied to it.
+        var end = StateWith(new[] { Army("s", Me, x, y), Army("blk", Foe, x + 2, y + 1), Army("keeper", Foe, 7, 0) });
+        var round = new List<DomainEvent>
+        {
+            Moved("blk", Foe, x + 2, y + 1, x + 2, y),
+            Destroyed("blk"),
+            Boundary(Me),
+        };
+
+        var boundary = AiTargetTreeDecisionsAreCarriedOutTests.TurnBoundaryState(end, round, Me);
+        Assert.Null(boundary.ArmyById("blk"));
+        Assert.NotNull(boundary.ArmyById("keeper"));
+        Assert.False(Superseded(end, round, x, y));
+
+        // The same id as the deciding army is ambiguous too: no exemption on it.
+        var reusedDecider = new List<DomainEvent> { Destroyed("s"), Boundary(Me) };
+        var withBlocker = StateWith(new[] { Army("s", Me, x, y), Army("blk", Foe, x + 2, y) });
+        Assert.False(Superseded(withBlocker, reusedDecider, x, y));
+    }
 }
