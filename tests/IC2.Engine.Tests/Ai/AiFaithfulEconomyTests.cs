@@ -132,22 +132,67 @@ public sealed class AiFaithfulEconomyTests
     }
 
     [Fact]
-    public void Terms_2_3_and_4_stack_for_an_enemy_army_inside_10_and_the_sums_round_down()
+    public void Terms_2_3_and_4_stack_for_an_enemy_army_inside_10()
     {
         // value 2000: 2000 + 2000/4 + 2000/2.
         var state = Build(new[] { Army("e", Foe, CapX + 3, CapY, "light_infantry", Army2000) }, foeRelation: War);
         Assert.Equal(15000 + 2000 + 500 + 1000, AiFaithfulEconomy.Threat(state, Rules(), Me));
+    }
 
-        // Two armies of value 1 each: floor(2/4) = 0 and floor(2/2) = 1 -- the sum is floored, not each term.
-        var small = Build(
+    // The shipped weights are all multiples of 4, so with the shipped divisors every contribution divides
+    // exactly. These rules use divisor 3 for the three summed terms, so each army's contribution is
+    // fractional and the floor of the sum (13) differs from the sum of the floors (6 + 6 = 12).
+    private static Ruleset RulesWithDivisor3()
+    {
+        var rules = Rules();
+        return rules with
+        {
+            Ai = rules.Ai with
+            {
+                FaithfulForeignNearDivisor = 3,
+                FaithfulWarNearDivisor = 3,
+                FaithfulAlliedArmyDivisor = 3,
+            },
+        };
+    }
+
+    // 100 troops of light infantry are worth (100 / 100) x 20 = 20; two such armies are worth 40 together.
+    [Fact]
+    public void The_foreign_near_sum_is_floored_once_not_per_army()
+    {
+        var state = Build(new[]
+        {
+            Army("f1", Friend, CapX + 1, CapY, "light_infantry", 100),
+            Army("f2", Friend, CapX + 2, CapY, "light_infantry", 100),
+        });
+        Assert.Equal(13, AiFaithfulEconomy.Threat(state, RulesWithDivisor3(), Me)); // floor(40 / 3), not 6 + 6
+    }
+
+    [Fact]
+    public void The_at_war_within_20_sum_is_floored_once_not_per_army()
+    {
+        // At distance 15: outside the 10-radius foreign sum, inside the 20-radius war sum.
+        var state = Build(
             new[]
             {
-                Army("e1", Foe, CapX + 1, CapY, "light_infantry", 5),
-                Army("e2", Foe, CapX + 1, CapY + 1, "heavy_infantry", 100),
+                Army("e1", Foe, CapX + 15, CapY, "light_infantry", 100),
+                Army("e2", Foe, CapX + 15, CapY + 1, "light_infantry", 100),
             },
             foeRelation: War);
-        // values: 0 (5/100 = 0) and 100 (1 x 100): 100 full + floor(100/4) + floor(100/2).
-        Assert.Equal(15000 + 100 + 25 + 50, AiFaithfulEconomy.Threat(small, Rules(), Me));
+        Assert.Equal(15000 + 40 + 13, AiFaithfulEconomy.Threat(state, RulesWithDivisor3(), Me)); // floor(40 / 3), not 12
+    }
+
+    [Fact]
+    public void The_allied_sum_is_floored_once_not_per_army()
+    {
+        var state = Build(
+            new[]
+            {
+                Army("f1", Friend, 1, 1, "light_infantry", 100),
+                Army("f2", Friend, 2, 2, "light_infantry", 100),
+            },
+            friendRelation: Alliance);
+        Assert.Equal(6000 + 13, AiFaithfulEconomy.Own(state, RulesWithDivisor3(), Me)); // floor(40 / 3), not 12
     }
 
     [Fact]
@@ -613,5 +658,38 @@ public sealed class AiFaithfulEconomyTests
         Assert.Equal(0, result.CommandsRejected);
         Assert.DoesNotContain(result.Transcript, l => l.Contains("issued city.order", StringComparison.Ordinal));
         Assert.Contains(result.Transcript, l => l.Contains("faithful order", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Equally_near_eligible_towns_resolve_to_the_lower_id_in_either_collection_order()
+    {
+        // (70,50) and (50,70) are both at Chebyshev distance 40 from the enemy capital (90,90).
+        var one = Cap("one", 70, 50, fort: 80);
+        var two = Cap("two", 50, 70, fort: 80);
+        Assert.Equal("one", Choose(CityState(towns: new[] { one, two })));
+        Assert.Equal("one", Choose(CityState(towns: new[] { two, one })));
+    }
+
+    [Fact]
+    public void The_economy_reads_the_treasury_as_the_turn_starts_not_after_the_army_purse_top_up()
+    {
+        // Week 11, unity 400, treasury 1, tax 15, an own army beside a stocked capital with an empty purse.
+        // Before the army's resupply rule 3 applies (treasury > 0, unity < 500) and the tax goes to 0; after
+        // the purse top-up the treasury would be negative and the tax would rise instead (Sol's probe: 18).
+        var capital = Cap() with { SupplyTons = 1000 };
+        var state = Build(
+            new[] { Army("m", Me, CapX + 1, CapY, "light_infantry", Army2000) with { Money = 0 } },
+            cities: new[] { capital },
+            me: n => n with { Treasury = 1, Unity = 400, TaxRatePercent = 15 });
+        state = state with { Calendar = state.Calendar with { Week = 11 } };
+
+        var rules = Rules();
+        var dispatcher = new CommandDispatcher(
+            SystemRegistry.FromEngineAssembly(), rules, BattleCommandTestbed.ToyWorld, NullEventSink.Instance);
+        var outcome = AiTurn.Run(
+            state, rules, BattleCommandTestbed.ToyWorld, dispatcher, new SplitMix64Rng(5), NullEventSink.Instance);
+
+        Assert.Equal(0, outcome.CommandsRejected);
+        Assert.Equal(0, outcome.State.NationById(Me)!.TaxRatePercent);
     }
 }

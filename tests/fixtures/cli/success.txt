@@ -43,7 +43,6 @@ end
 mobilize 0 mac-recruit-1
 join-units mac-marines 1 2
 end
-accept-offer
 split-fleet mac-fleet-1 mac-fleet-2 10
 fleet-transfer mac-fleet-1 mac-fleet-2 1 1 0
 join-fleets mac-fleet-1 mac-fleet-2
@@ -52,6 +51,7 @@ repair-fleet mac-fleet-1 1
 split-fleet mac-fleet-1 mac-fleet-keep 10
 end
 end
+accept-offer
 end
 status
 news
