@@ -235,7 +235,7 @@ Seleucid (seleucid) takes its turn: 2 orders issued.
 Ptolemaic (ptolemaic) takes its turn: 1 order issued.
 Now: Week 1, Summer 270 BC. Active seat: Macedonia (macedonia).
 News:
-  A fleet belonging to ptolemaic is damaged in a storm.
+  A fleet belonging to Ptolemaic is damaged in a storm.
   Thracia depose their leader Medon.
    
   Week  1      Summer      270BC
@@ -263,8 +263,8 @@ Seleucid (seleucid) takes its turn: 3 orders issued.
 Ptolemaic (ptolemaic) takes its turn: 1 order issued.
 Now: Week 3, Summer 270 BC. Active seat: Macedonia (macedonia).
 News:
-  A fleet belonging to carthage is damaged in a storm.
-  A fleet belonging to ptolemaic is lost at sea.
+  A fleet belonging to Carthage is damaged in a storm.
+  A fleet belonging to Ptolemaic is lost at sea.
    
   Week  3      Summer      270BC
   Seleucid destroys army of Galatia.
@@ -325,7 +325,7 @@ Seleucid (seleucid) takes its turn: 2 orders issued.
 Ptolemaic (ptolemaic) takes its turn: 1 order issued.
 Now: Week 7, Summer 270 BC. Active seat: Macedonia (macedonia).
 News:
-  A fleet belonging to carthage is lost at sea.
+  A fleet belonging to Carthage is lost at sea.
    
   Week  7      Summer      270BC
 
@@ -409,7 +409,7 @@ Seleucid (seleucid) takes its turn: 13 orders issued.
 Ptolemaic (ptolemaic) takes its turn: 11 orders issued.
 Now: Week 1, Autumn 270 BC. Active seat: Macedonia (macedonia).
 News:
-  macedonia finishes a new fleet at Amphipolis.
+  Macedonia finishes a new fleet at Amphipolis.
   Dacia depose their leader Theuderich.
    
   Week  1      Autumn      270BC
@@ -904,12 +904,12 @@ Cities:
 
 > news
 News log:
-  A fleet belonging to ptolemaic is damaged in a storm.
+  A fleet belonging to Ptolemaic is damaged in a storm.
   Thracia depose their leader Medon.
    
   Week  1      Summer      270BC
-  A fleet belonging to carthage is damaged in a storm.
-  A fleet belonging to ptolemaic is lost at sea.
+  A fleet belonging to Carthage is damaged in a storm.
+  A fleet belonging to Ptolemaic is lost at sea.
    
   Week  3      Summer      270BC
   Seleucid destroys army of Galatia.
@@ -917,7 +917,7 @@ News log:
    
   Week  5      Summer      270BC
   Thracia and Macedonia have agreed to end their war.
-  A fleet belonging to carthage is lost at sea.
+  A fleet belonging to Carthage is lost at sea.
    
   Week  7      Summer      270BC
    
@@ -927,7 +927,7 @@ News log:
    
   Week  11      Summer      270BC
   Zela   (Bithynia)  falls to Seleucid.
-  macedonia finishes a new fleet at Amphipolis.
+  Macedonia finishes a new fleet at Amphipolis.
   Dacia depose their leader Theuderich.
    
   Week  1      Autumn      270BC

@@ -185,7 +185,8 @@ public sealed class FleetAttritionBranchMatrixTests
         Assert.True(updated.Ships < 40, "the seed must land on the heavy branch for this test to mean anything.");
         Assert.False(updated.ConditionPercent < Ruleset.Naval.DeathConditionThreshold, "must survive, not die, for DamagedInStorm rather than FleetLostAtSea to be the expected event.");
 
-        Assert.Single(sink.Events.OfType<FleetDamagedInStorm>());
+        var storm = Assert.Single(sink.Events.OfType<FleetDamagedInStorm>());
+        Assert.Equal(state.Nations[0].Name, storm.Nation); // display name, not id (bug #916)
     }
 
     /// <summary>

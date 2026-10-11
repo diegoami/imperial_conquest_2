@@ -192,7 +192,7 @@ Thracia (thracia) takes its turn: 1 order issued.
 Now: Week 1, Summer 270 BC. Active seat: Rome (rome).
 News:
   Greece declares war on Illyria.
-  A fleet belonging to ptolemaic is lost at sea.
+  A fleet belonging to Ptolemaic is lost at sea.
    
   Week  1      Summer      270BC
 
@@ -308,7 +308,7 @@ Media (media) takes its turn: 1 order issued.
 Thracia (thracia) takes its turn: 1 order issued.
 Now: Week 11, Summer 270 BC. Active seat: Rome (rome).
 News:
-  A fleet belonging to carthage is lost at sea.
+  A fleet belonging to Carthage is lost at sea.
    
   Week  11      Summer      270BC
 
