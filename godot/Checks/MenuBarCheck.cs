@@ -150,6 +150,7 @@ public partial class MenuBarCheck : Control
             // Done-when 5: the four overlays and the news toggle, none of which mutates the turn.
             (BetweenStepsFrames, CheckNewsToggles),
             (BetweenStepsFrames, CheckInternationalRelations),
+            (BetweenStepsFrames, CheckInternationalRelationsCloses),
             (BetweenStepsFrames, CheckHelpTopics),
             (BetweenStepsFrames, CheckAbout),
 
@@ -431,7 +432,29 @@ public partial class MenuBarCheck : Control
         Check(
             _mainGame.ActiveOverlay is DiplomacyScreen,
             $"International relations opens DiplomacyScreen (got {_mainGame.ActiveOverlay?.GetType().Name ?? "null"})");
-        CloseOverlay<DiplomacyScreen>();
+    }
+
+    // Bug #968: the window must be closable by Esc and its Close button must be on screen at the default size.
+    private void CheckInternationalRelationsCloses()
+    {
+        if (_mainGame.ActiveOverlay is not DiplomacyScreen diplomacy)
+        {
+            Check(false, "International relations is still open for the close check");
+            return;
+        }
+
+        var viewportRect = new Rect2(Vector2.Zero, GetViewport().GetVisibleRect().Size);
+        var buttonRect = diplomacy.CloseButton.GetGlobalRect();
+        Check(
+            viewportRect.Encloses(buttonRect),
+            $"the International relations Close button lies inside the viewport (button {buttonRect}, viewport {viewportRect})");
+
+        GetViewport().PushInput(new InputEventKey { Keycode = Key.Escape, Pressed = true });
+        Check(_mainGame.ActiveOverlay is null, "Esc closes the International relations window");
+        if (_mainGame.ActiveOverlay is DiplomacyScreen)
+        {
+            diplomacy.Close();
+        }
     }
 
     private void CheckHelpTopics()
