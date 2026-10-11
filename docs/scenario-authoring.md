@@ -957,7 +957,6 @@ one shared scale, so the AI's determinism guarantee never depends on floating-po
 | `resupplyForeignBonus` | int | score | A qualifying foreign city scores plus N; 20. |
 | `resupplyMaxForeignDistance` | int | tiles | A best foreign city beyond N is dropped for the nearest own city; 15. |
 | `garrisonFallbackCapitalDistance` | int | tiles | The garrison fallback sends an army to the nearest city when some own army is within N of the capital, else to the capital; 10. |
-| `faithfulEconomyScore` | int | score | Score of the faithful economy's own candidates; [designed], high so the economy phase precedes the army phase. |
 | `faithfulThreatPerEnemyNation` | int | threat | Threat added per nation at war with the acting nation; 15000. |
 | `faithfulOwnPerAlly` | int | strength | Own strength added per ally; 6000. |
 | `faithfulValueTroopsDivisor` | int | divisor | A unit's AI value is `(troops / N) x combatPowerWeight`; 100. |

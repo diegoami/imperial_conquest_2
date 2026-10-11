@@ -2062,7 +2062,6 @@ public sealed record VictoryRules(
 /// The <c>within N</c> radius around the capital at which a garrison-fallback army instead aims for the
 /// nearest city of any owner (<c>FUN_0044ebe8</c>, <c>2026-10-07-strategic-ai-turn.md</c> §3.5); <c>N = 10</c>.
 /// </param>
-/// <param name="FaithfulEconomyScore">Score of the faithful economy's own candidates (mobilisation excepted); high so the economy phase precedes the army phase, as the original's phase order does [designed].</param>
 /// <param name="FaithfulThreatPerEnemyNation">Threat added per nation at war with the acting nation (the original's 15000).</param>
 /// <param name="FaithfulOwnPerAlly">Own strength added per ally (the original's 6000).</param>
 /// <param name="FaithfulValueTroopsDivisor">The troops divisor of a unit's AI value, <c>(troops / 100) x combatPowerWeight</c>.</param>
@@ -2151,7 +2150,6 @@ public sealed record AiWeightsRules(
     int ResupplyForeignBonus,
     int ResupplyMaxForeignDistance,
     int GarrisonFallbackCapitalDistance,
-    long FaithfulEconomyScore,
     int FaithfulThreatPerEnemyNation,
     int FaithfulOwnPerAlly,
     int FaithfulValueTroopsDivisor,
