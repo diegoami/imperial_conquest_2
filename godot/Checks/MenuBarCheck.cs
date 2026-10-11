@@ -453,12 +453,36 @@ public partial class MenuBarCheck : Control
             viewportRect.Encloses(buttonRect),
             $"the International relations Close button lies inside the viewport (button {buttonRect}, viewport {viewportRect})");
 
+        var panel = FindPanel(diplomacy);
+        var panelRect = panel?.GetGlobalRect() ?? default;
+        Check(
+            viewportRect.Encloses(panelRect),
+            $"the International relations window lies inside the viewport (window {panelRect}, viewport {viewportRect})");
+
         GetViewport().PushInput(new InputEventKey { Keycode = Key.Escape, Pressed = true });
         Check(_mainGame.ActiveOverlay is null, "Esc closes the International relations window");
         if (_mainGame.ActiveOverlay is DiplomacyScreen)
         {
             diplomacy.Close();
         }
+    }
+
+    private static PanelContainer? FindPanel(Node node)
+    {
+        foreach (var child in node.GetChildren())
+        {
+            if (child is PanelContainer panel)
+            {
+                return panel;
+            }
+
+            if (FindPanel(child) is { } nested)
+            {
+                return nested;
+            }
+        }
+
+        return null;
     }
 
     private static Button? FindButton(Node node, string text)
