@@ -51,6 +51,7 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
             var allSkipped = 0;
             var captures = 0;
             var exceptions = new List<string>();
+            var exempted = new List<string>();
             var seatName = resolved.World.Nations.Single(n => string.Equals(n.Id, seat, StringComparison.Ordinal)).Name;
 
             for (var r = 1; r <= Rounds; r++)
@@ -70,7 +71,8 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
                 // EVERY attack decision the log records is owed a carried-out attack or march toward its
                 // target (the review's R1/R2): an army that has spent its march is not decided again, so
                 // there is no later decision to exempt.
-                foreach (var decision in log
+                var roundDecisions = log.ToList();
+                foreach (var decision in roundDecisions
                     .Where(d => d.Kind is AiArmyTargetTree.Kind.AttackCity or AiArmyTargetTree.Kind.AttackArmy))
                 {
                     checkedDecisions++;
@@ -82,6 +84,16 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
 
                     if (!turns.TryGetValue(decision.NationId, out var turnEvents) || !IsCarriedOut(decision, turnEvents))
                     {
+                        // T157 (#926): the narrow exemption. A later decision for the same army from the same
+                        // position supersedes this one when this one's target is unreachable from that position
+                        // by the reachability rule (a friendly army marched onto the straight path in between).
+                        // The superseding decision is still owed its own attack or march.
+                        if (IsSuperseded(roundDecisions, decision, TurnBoundaryState(session.State, round, decision.NationId), resolved))
+                        {
+                            exempted.Add(Describe(r, decision));
+                            continue;
+                        }
+
                         exceptions.Add(Describe(r, decision));
                     }
                 }
@@ -92,7 +104,12 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
                 + $"{attackDecisions} attack decisions, {checkedDecisions} checked, {captures} AI captures, {carriedOut} carried out, "
                 + $"{allSkipped} candidates skipped by the reachability rule across all {allDecisions} logged decisions "
                 + $"({skipped} of them in attack decisions), "
-                + $"{exceptions.Count} exceptions");
+                + $"{exceptions.Count} exceptions, {exempted.Count} exempted (superseded, target unreachable)");
+            foreach (var exemption in exempted.Take(12))
+            {
+                output.WriteLine("  exempted: " + exemption);
+            }
+
             foreach (var exception in exceptions.Take(12))
             {
                 output.WriteLine("  exception: " + exception);
@@ -150,6 +167,82 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// The state at the end of <paramref name="nationId"/>'s turn, rebuilt from the end-of-round state and the
+    /// round's army moves (the session exposes no per-turn snapshot). An army's position at that boundary is
+    /// its last move's destination at or before the nation's <see cref="AiTurnDecided"/>, else its first later
+    /// move's origin, else where it ends the round. An army destroyed after the boundary is absent from the
+    /// end-of-round state, so it is rebuilt as a bare record: only its position matters to the reachability rule.
+    /// </summary>
+    private static GameState TurnBoundaryState(GameState endOfRound, List<DomainEvent> round, string nationId)
+    {
+        var boundary = round.FindIndex(e => e is AiTurnDecided decided
+            && string.Equals(decided.NationId, nationId, StringComparison.Ordinal));
+        if (boundary < 0)
+        {
+            return endOfRound;
+        }
+
+        var positions = new Dictionary<string, (int X, int Y, string Nation)>(StringComparer.Ordinal);
+        for (var i = round.Count - 1; i > boundary; i--)
+        {
+            if (round[i] is ArmyMoved later)
+            {
+                positions[later.ArmyId] = (later.FromX, later.FromY, later.NationId);
+            }
+        }
+
+        for (var i = 0; i < boundary; i++)
+        {
+            if (round[i] is ArmyMoved earlier)
+            {
+                positions[earlier.ArmyId] = (earlier.ToX, earlier.ToY, earlier.NationId);
+            }
+        }
+
+        var armies = new List<ArmyState>();
+        foreach (var army in endOfRound.Armies)
+        {
+            armies.Add(positions.Remove(army.Id, out var at) ? army with { X = at.X, Y = at.Y } : army);
+        }
+
+        foreach (var (id, at) in positions)
+        {
+            armies.Add(new ArmyState(id, at.Nation, at.X, at.Y, 0, 0, 0, 0, null, null, ValueList<UnitSlot>.Empty));
+        }
+
+        return endOfRound with { Armies = ValueList.From(armies) };
+    }
+
+    /// <summary>
+    /// Whether <paramref name="decision"/> is superseded: a later decision for the same army from the same
+    /// position is in the round's log, and the earlier target is unreachable from that position on the end-of-round
+    /// state, with the army placed at the decision's recorded position (it has moved since).
+    /// </summary>
+    private static bool IsSuperseded(
+        List<AiArmyTargetTree.DecisionRecord> decisions,
+        AiArmyTargetTree.DecisionRecord decision,
+        GameState endState,
+        ResolvedScenario resolved)
+    {
+        var index = decisions.IndexOf(decision);
+        var later = decisions.Skip(index + 1).Any(d =>
+            string.Equals(d.NationId, decision.NationId, StringComparison.Ordinal)
+            && string.Equals(d.ArmyId, decision.ArmyId, StringComparison.Ordinal)
+            && d.ArmyX == decision.ArmyX
+            && d.ArmyY == decision.ArmyY);
+        if (!later || endState.ArmyById(decision.ArmyId) is not { } army)
+        {
+            return false;
+        }
+
+        var attackCity = decision.Kind == AiArmyTargetTree.Kind.AttackCity;
+        var targetX = attackCity ? decision.TargetCityX : decision.TargetArmyX;
+        var targetY = attackCity ? decision.TargetCityY : decision.TargetArmyY;
+        var view = new AiView(endState, resolved.Ruleset, resolved.World, decision.NationId);
+        return !AiArmyTargetTree.IsReachable(view, army with { X = decision.ArmyX, Y = decision.ArmyY }, targetX, targetY);
     }
 
     private static int Distance(int ax, int ay, int bx, int by) => Math.Max(Math.Abs(ax - bx), Math.Abs(ay - by));
