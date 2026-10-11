@@ -81,6 +81,38 @@ public sealed class CommandOutcomeWordingTests
             CommandOutcomeWording.ReadableLine("recruitment.recruit-standing-unit accepted."));
     }
 
+    /// <summary>Bug #914: the six kinds the Taxation, fleet and mercenary dialogs submit are worded.</summary>
+    [Theory]
+    [InlineData("economy.set-tax", "Tax set.")]
+    [InlineData("naval.split-fleet", "Fleets split.")]
+    [InlineData("naval.join-fleets", "Fleets joined.")]
+    [InlineData("naval.buy-fleet-supply", "Fleet supplied.")]
+    [InlineData("naval.fleet-to-fleet-transfer", "Ships transferred.")]
+    [InlineData("recruitment.hire-mercenary", "Mercenaries hired.")]
+    public void Dialog_issued_kinds_are_worded_through_ByKind(string kind, string expected)
+    {
+        Assert.False(CommandOutcomeWording.NotIssuedByTheApp.Contains(kind));
+        Assert.Equal(expected, CommandOutcomeWording.ByKind[kind]);
+        Assert.Equal(expected, CommandOutcomeWording.ReadableLine(kind + " accepted."));
+    }
+
+    /// <summary>Bug #914: Build fleet answers the original's sentence with the build city's name.</summary>
+    [Fact]
+    public void Build_fleet_names_the_build_city()
+    {
+        var state = IC2.Engine.Tests.Naval.NavalTestbed.InitialState();
+        var arx = state.CityById("arx")!;
+        var dispatcher = IC2.Engine.Tests.Naval.NavalTestbed.RealEngineDispatcher();
+        var result = dispatcher.Dispatch(
+            state, new IC2.Engine.Naval.Commands.OrderFleetCommand(arx.Owner, arx.Id, 10, "b914"));
+        Assert.True(result.IsAccepted, result.ToString());
+
+        Assert.False(CommandOutcomeWording.NotIssuedByTheApp.Contains("naval.order-fleet"));
+        Assert.Equal(
+            $"The fleet will be built at {arx.Name}.",
+            CommandOutcomeWording.Apply("naval.order-fleet accepted.", result.State));
+    }
+
     /// <summary>A kind with no wording, and every rejection or composed line, is returned unchanged.</summary>
     [Fact]
     public void A_line_without_a_wording_falls_back_to_the_engine_line()
