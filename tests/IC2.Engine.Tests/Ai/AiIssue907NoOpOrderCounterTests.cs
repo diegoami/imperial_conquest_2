@@ -8,31 +8,29 @@ using CaptureFixtures = IC2.Engine.Tests.Cities.Capture.CaptureTestbed;
 namespace IC2.Engine.Tests.Ai;
 
 /// <summary>
-/// Bug #907's second half: even after
-/// <see cref="AiMilitaryPhase.IsProposableMove"/> filters a march whose first step the walker will
-/// refuse, the <see cref="AiTurn"/> loop's counter must still hold the same line, because a candidate
-/// can still slip through (today via <see cref="AiMilitaryPhase.ProposeFleetMarches"/>, which
-/// checks terrain only on <c>path[1]</c>). When the engine accepts a command and the substantive
-/// state is untouched, the command must not be counted as issued.
+/// Bug #907's second half: the <see cref="AiTurn"/> loop's counter must not count a command that
+/// does not change the substantive state. After bug #929's fix, a fleet sail whose first step
+/// holds a launched fleet is no longer proposed at all (the fix intercepts it at proposal time),
+/// so the no-op path in <see cref="AiTurn"/> (about line 277) is no longer reached by this
+/// fixture. The first two assertions still prove the property: the turn issues nothing and changes
+/// nothing. The third assertion (the log line) was removed because the sail is not proposed, so
+/// no walk occurs and the "last action changed nothing substantive" path is never hit.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>Why a fleet-march fixture.</strong> This task's Owns list does not extend to
-/// <see cref="AiMilitaryPhase.ProposeFleetMarches"/>'s proposed occupancy check -- the brief scoped
-/// the fix to the army march -- so a fleet sail at an enemy fleet whose Bresenham first step is
-/// itself a launched enemy fleet is the natural pin for the AiTurn counter: the proposal loop sees
-/// a flat, passable first step (water, no city), the handler accepts the order, the walker stops at
-/// the obstacle and the army sits where it started. With the old counter that accepted the no-op as
-/// "1 order issued", the soak's stall metric never saw the stall; with the new counter the dispatch
-/// still happens but the count stays at zero.
+/// <strong>Why a fleet-march fixture.</strong> The original fixture used a fleet sail at an enemy
+/// fleet whose Bresenham first step was itself a launched enemy fleet. With #929's fix, that sail
+/// is now rejected at proposal time, so the AiTurn counter's no-op path is never reached. The
+/// test now pins that the turn still issues zero commands and leaves the substantive state
+/// unchanged -- the same property #907 guarantees, just exercised through a different code path.
 /// </para>
 /// <para>
-/// <strong>Two asserts to make the property explicit.</strong> The state substantively did not
-/// change (a defensive regression check for the test's own setup, so a future fix to the fleet
-/// occupancy that handles the no-op at proposal time rather than at dispatch can keep this contract)
-/// and <see cref="AiTurnOutcome.CommandsIssued"/> is zero. The candidate's <c>"sail"</c> line is
-/// still recorded in the log so a stall in this turn still reports the no-op, just not as an
-/// issued command.
+/// <strong>Two assertions to make the property explicit.</strong> The state substantively did not
+/// change and <see cref="AiTurnOutcome.CommandsIssued"/> is zero. These two asserts are the
+/// substantive regression check; the third assert from the original test was removed because
+/// #929 stops the no-op sail at proposal time, so the counter's no-op logging path is never
+/// reached. <see cref="AiTurn"/> (about line 277) remains as a defence that no current proposal
+/// reaches.
 /// </para>
 /// </remarks>
 public sealed class AiIssue907NoOpOrderCounterTests
@@ -41,7 +39,7 @@ public sealed class AiIssue907NoOpOrderCounterTests
     private const string Other = AiScriptedStates.Defender;
 
     [Fact]
-    public void A_blocked_fleet_sail_that_the_engine_accepts_does_not_count_as_issued()
+    public void A_fleet_sail_onto_a_launched_fleet_is_not_proposed_and_nothing_is_issued()
     {
         var state = BlockedFleetSailState();
 
@@ -55,10 +53,6 @@ public sealed class AiIssue907NoOpOrderCounterTests
         Assert.Equal(
             0,
             driven.Outcome.CommandsIssued);
-
-        Assert.Contains(
-            driven.Outcome.Log,
-            line => line.Contains("last action changed nothing substantive", StringComparison.Ordinal));
     }
 
     /// <summary>
