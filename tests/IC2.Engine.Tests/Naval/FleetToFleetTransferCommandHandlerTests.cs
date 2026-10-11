@@ -1,6 +1,7 @@
 using IC2.Engine.Core;
 using IC2.Engine.Model;
 using IC2.Engine.Naval.Commands;
+using IC2.Engine.Persistence;
 using IC2.Engine.Serialization;
 using Xunit;
 
@@ -254,19 +255,21 @@ public sealed class FleetToFleetTransferCommandHandlerTests
     }
 
     /// <summary>
-    /// T50 Done-when 4, the disband path: the source's full remaining money still pools into the survivor
-    /// (DoD 3's own rule, untouched), but the survivor's own purse is still capped -- kept behaviour,
-    /// <c>[open]</c> exactly as the partial-transfer path above (T72: <c>TFleetToFleet</c> is not settled
-    /// by the searched evidence), with the excess credited to the treasury so money is conserved on the
-    /// kept rule.
+    /// T160 Done-when 1 (renamed from <c>DisbandingTransfer_MoneyAboveThePurseCap_IsClampedAndTheExcessCreditedToTheTreasury</c>,
+    /// whose expectation changed: it asserted the old 1,000 clamp with 800 credited to the treasury). An
+    /// emptied giver's money joins the receiver's whole, with no <c>purseCapPerUnit</c> clamp, and the
+    /// treasury does not change (research 6b96537, cases Td0-Td2 <c>[confirmed: Wine]</c>).
     /// </summary>
-    [Fact]
-    public void DisbandingTransfer_MoneyAboveThePurseCap_IsClampedAndTheExcessCreditedToTheTreasury()
+    [Theory]
+    [InlineData(400, 123, 523)]
+    [InlineData(900, 900, 1800)] // above economy.purseCapPerUnit (1,000): kept whole.
+    public void DisbandingTransfer_PoolsTheMoneyWhole_WithNoCap_AndLeavesTheTreasuryUnchanged(
+        int giverMoney, int receiverMoney, int expected)
     {
         var state = NavalTestbed.InitialState();
         var treasuryBefore = state.NationById(NationId)!.Treasury;
-        var source = Fleet("xfer-purse-disband-src", 3, 3, ships: 10, money: 900);
-        var target = Fleet("xfer-purse-disband-dst", 4, 3, ships: 10, money: 900);
+        var source = Fleet("xfer-purse-disband-src", 3, 3, ships: 10, money: giverMoney);
+        var target = Fleet("xfer-purse-disband-dst", 4, 3, ships: 10, money: receiverMoney);
         state = state with { Fleets = ValueList.Of(source, target) };
 
         var dispatcher = NavalTestbed.RealEngineDispatcher();
@@ -275,8 +278,52 @@ public sealed class FleetToFleetTransferCommandHandlerTests
 
         Assert.True(result.IsAccepted, result.ToString());
         Assert.Null(result.State.FleetById(source.Id)); // disbanded, as DoD 3 requires.
-        Assert.Equal(1000, result.State.FleetById(target.Id)!.Money); // capped, not 1,800.
-        Assert.Equal(treasuryBefore + 800, result.State.NationById(NationId)!.Treasury);
+        Assert.Equal(expected, result.State.FleetById(target.Id)!.Money);
+        Assert.Equal(treasuryBefore, result.State.NationById(NationId)!.Treasury);
+    }
+
+    /// <summary>T160 Done-when 2: a sum above the field's bound saturates at 32,767; the excess is discarded.</summary>
+    [Fact]
+    public void DisbandingTransfer_SumAboveTheFieldBound_SaturatesAndDiscardsTheExcess()
+    {
+        var state = NavalTestbed.InitialState();
+        var treasuryBefore = state.NationById(NationId)!.Treasury;
+        var source = Fleet("xfer-bound-src", 3, 3, ships: 10, money: 30000);
+        var target = Fleet("xfer-bound-dst", 4, 3, ships: 10, money: 5000);
+        state = state with { Fleets = ValueList.Of(source, target) };
+
+        var result = NavalTestbed.RealEngineDispatcher().Dispatch(
+            state, new FleetToFleetTransferCommand(NationId, source.Id, target.Id, Ships: 10, SupplyTons: 0, Money: 0));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        Assert.Equal(32767, result.State.FleetById(target.Id)!.Money);
+        Assert.Equal(treasuryBefore, result.State.NationById(NationId)!.Treasury);
+    }
+
+    /// <summary>T160 Done-when 3: supplies sum whole, the giver's id is gone everywhere, and a save round-trips.</summary>
+    [Fact]
+    public void DisbandingTransfer_SumsSupplies_RemovesTheGiverEverywhere_AndRoundTripsASave()
+    {
+        var state = NavalTestbed.InitialState();
+        var source = Fleet("xfer-gone-src", 3, 3, ships: 10, supply: 70, money: 900);
+        var target = Fleet("xfer-gone-dst", 4, 3, ships: 10, supply: 30, money: 900);
+        state = state with { Fleets = ValueList.Of(source, target) };
+
+        var result = NavalTestbed.RealEngineDispatcher().Dispatch(
+            state, new FleetToFleetTransferCommand(NationId, source.Id, target.Id, Ships: 10, SupplyTons: 0, Money: 0));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        var after = result.State;
+        Assert.Equal(100, after.FleetById(target.Id)!.SupplyTons);
+        Assert.Null(after.FleetById(source.Id));
+        Assert.DoesNotContain(source.Id, SaveManager.Serialize(new SaveGame(
+            GameDataSchema.CurrentVersion, "t160", "T160", after.ScenarioId, after.WorldId, after.RulesetId, after)));
+
+        var save = new SaveGame(
+            GameDataSchema.CurrentVersion, "t160", "T160", after.ScenarioId, after.WorldId, after.RulesetId, after);
+        var reloaded = SaveManager.Load(
+            "t160.json", SaveManager.Serialize(save), NavalTestbed.Toy.World, NavalTestbed.Toy.Ruleset);
+        Assert.Equal(after, reloaded.State);
     }
 
     /// <summary>
