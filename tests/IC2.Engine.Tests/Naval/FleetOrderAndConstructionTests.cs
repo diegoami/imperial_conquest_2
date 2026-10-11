@@ -142,7 +142,7 @@ public sealed class FleetOrderAndConstructionTests
         }
 
         var finished = Assert.Single(sink.Events.OfType<FleetFinished>());
-        Assert.Equal(nation.Id, finished.Nation);
+        Assert.Equal(nation.Name, finished.Nation);
         Assert.Equal(arx.Name, finished.CityName);
     }
 }

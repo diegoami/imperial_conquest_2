@@ -6,7 +6,7 @@ Northern League (north) ends its turn.
 Southern League (south) takes its turn: 4 orders issued.
 Now: Week 3, Spring 270 BC. Active seat: Northern League (north).
 News:
-  A fleet belonging to north is damaged in a storm.
+  A fleet belonging to Northern League is damaged in a storm.
    
   Week  3      Spring      270BC
 
@@ -35,7 +35,7 @@ Cities:
 
 > news
 News log:
-  A fleet belonging to north is damaged in a storm.
+  A fleet belonging to Northern League is damaged in a storm.
    
   Week  3      Spring      270BC
   NORTHERN LEAGUE DECLARES WAR ON SOUTHERN LEAGUE.

@@ -9,7 +9,7 @@ namespace IC2.Engine.Naval;
 /// added by T10/T42): <see cref="Nation"/> and <see cref="CityName"/> resolve the template's two
 /// placeholders, the bracket annotation on the second being provenance text the renderer ignores.
 /// </summary>
-/// <param name="Nation">The fleet's owning nation.</param>
+/// <param name="Nation">The fleet's owning nation's display name (as the city events carry), not its id.</param>
 /// <param name="CityName">The city the fleet was built at.</param>
 [DomainEvent("fleet.finished", NewsWorthy = true)]
 public sealed record FleetFinished(string Nation, string CityName) : DomainEvent;
@@ -20,7 +20,7 @@ public sealed record FleetFinished(string Nation, string CityName) : DomainEvent
 /// the news catalog's already-registered <c>fleet.lost-at-sea</c> template (corrected to end with a
 /// period by T42, bug #88), confirmed verbatim in <c>1_cartago_271_summer_9.sav</c>'s own news log.
 /// </summary>
-/// <param name="Nation">The fleet's owning nation.</param>
+/// <param name="Nation">The fleet's owning nation's display name (as the city events carry), not its id.</param>
 [DomainEvent("fleet.lost-at-sea", NewsWorthy = true)]
 public sealed record FleetLostAtSea(string Nation) : DomainEvent;
 
@@ -29,7 +29,7 @@ public sealed record FleetLostAtSea(string Nation) : DomainEvent;
 /// <c>docs/task-catalogue.md</c> "T14 Naval" Scope. Matches the news catalog's already-registered
 /// <c>fleet.damaged-in-storm</c> template, added by T42 (<c>news-log-format-and-messages.md</c> Q4 #20).
 /// </summary>
-/// <param name="Nation">The fleet's owning nation.</param>
+/// <param name="Nation">The fleet's owning nation's display name (as the city events carry), not its id.</param>
 [DomainEvent("fleet.damaged-in-storm", NewsWorthy = true)]
 public sealed record FleetDamagedInStorm(string Nation) : DomainEvent;
 

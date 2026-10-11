@@ -280,7 +280,7 @@ public sealed class CartagoFleetAttritionReplayTests
         Assert.Null(result.ArmyById("doomed-army")); // lost with the fleet, per game-design.md's Naval section.
 
         var lostAtSea = Assert.Single(sink.Events.OfType<FleetLostAtSea>());
-        Assert.Equal(nationId, lostAtSea.Nation);
+        Assert.Equal(state.Nations[0].Name, lostAtSea.Nation);
     }
 
     /// <summary>

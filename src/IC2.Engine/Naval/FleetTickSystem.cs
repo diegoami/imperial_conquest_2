@@ -99,7 +99,7 @@ public sealed class FleetTickSystem : IGameSystem
                     };
                     updatedFleets.Add(launched);
 
-                    context.Events.Publish(new FleetFinished(fleet.Nation, buildCity.Name));
+                    context.Events.Publish(new FleetFinished(NationDisplayName(state, fleet.Nation), buildCity.Name));
                 }
                 else
                 {
@@ -139,7 +139,7 @@ public sealed class FleetTickSystem : IGameSystem
 
             if (outcome.Destroyed)
             {
-                context.Events.Publish(new FleetLostAtSea(fleet.Nation));
+                context.Events.Publish(new FleetLostAtSea(NationDisplayName(state, fleet.Nation)));
                 if (carriedArmy is not null)
                 {
                     destroyedArmyIds.Add(carriedArmy.Id);
@@ -150,7 +150,7 @@ public sealed class FleetTickSystem : IGameSystem
 
             if (outcome.DamagedInStorm)
             {
-                context.Events.Publish(new FleetDamagedInStorm(fleet.Nation));
+                context.Events.Publish(new FleetDamagedInStorm(NationDisplayName(state, fleet.Nation)));
             }
 
             // The delete sweep: an emptied carried army is deleted and the fleet's own link to it
@@ -187,6 +187,10 @@ public sealed class FleetTickSystem : IGameSystem
 
         return state with { Fleets = ValueList.From(updatedFleets), Armies = survivingArmies };
     }
+
+    /// <summary>The nation's display name, as the city events carry it (bug #916); the id only if the nation is missing.</summary>
+    private static string NationDisplayName(GameState state, string nationId) =>
+        state.NationById(nationId)?.Name ?? nationId;
 
     /// <summary>
     /// <c>[designed]</c> placeholder for the undecompiled <c>FUN_004494e4</c> — see this type's remarks.
