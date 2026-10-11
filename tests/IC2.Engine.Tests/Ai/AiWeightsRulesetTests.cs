@@ -71,6 +71,10 @@ public sealed class AiWeightsRulesetTests
     /// now refused at load, naming the key, like <c>ai.permilleScale</c>.
     /// </summary>
     [Theory]
+    [InlineData("ai.cityScoreRegionHalvingDenominator", 0)]
+    [InlineData("ai.cityScoreRegionHalvingDenominator", -1)]
+    [InlineData("ai.cityAttackCapitalDefenseRatioDenominator", 0)]
+    [InlineData("ai.cityAttackCapitalDefenseRatioDenominator", -1)]
     [InlineData("ai.resupplyStrengthTroopsDivisor", 0)]
     [InlineData("ai.resupplyStrengthTroopsDivisor", -1)]
     [InlineData("ai.resupplyForeignMoneyDivisor", 0)]
