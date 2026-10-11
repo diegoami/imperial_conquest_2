@@ -13,7 +13,9 @@
     It lists every worktree under the root (default: the ic2-work\ beside the main checkout),
     one line each: its path, branch or detached HEAD, age (last modification anywhere under it),
     PR state when the branch has one (gh pr list --head; a detached review tree's PR is read from
-    its <pr>-review-... name, the pre-T151 <pr>-external-review-... names included), its size, and
+    its <pr>-review-... name, the pre-T151 <pr>-external-review-... names included; any other
+    detached tree's PR is resolved from its HEAD commit: a PR whose head commit equals HEAD, or
+    whose branch on origin contains it), its size, and
     whether it is SAFE to remove.
 
     A tree is safe only when ALL of these hold:
@@ -130,6 +132,44 @@ function Get-PrStateByNumber([string] $Number) {
     try { return ([string]($text | ConvertFrom-Json).state).ToUpperInvariant() } catch { return $null }
 }
 
+function Get-PrStateByHead([string] $Path) {
+    # #895: the PR state of a detached tree whose name gives no PR (implementer, stage-2, plan and
+    # T<nn>-review trees), resolved from its HEAD commit: any PR whose head commit (headRefOid)
+    # equals HEAD, or whose head branch on origin contains HEAD. A squash merge leaves main with a
+    # different commit, so main is never matched; the PR's own last head commit is. Any OPEN PR
+    # vetoes; otherwise MERGED, then CLOSED. $null when HEAD matches no PR (state unknown).
+    $sha = $null
+    try { $sha = ([string](git -C $Path rev-parse HEAD 2>$null)).Trim() } catch { return $null }
+    if (-not $sha) { return $null }
+    $script:HeadPrNumber = ''
+    $states = @()
+    $out = @()
+    try { $out = @(Invoke-GhRepo @('pr', 'list', '--state', 'all', '--search', $sha, '--json', 'number,state,headRefOid') | Where-Object { $_ }) } catch { $out = @() }
+    $text = (($out | ForEach-Object { [string]$_ }) -join "`n").Trim()
+    if ($text) {
+        try {
+            # search can be fuzzy: keep only a PR whose head commit really is HEAD
+            $hit = @(@($text | ConvertFrom-Json) | Where-Object { ([string]$_.headRefOid).Trim() -eq $sha })
+            $states += @($hit | ForEach-Object { ([string]$_.state).ToUpperInvariant() })
+            if ($hit.Count -gt 0) { $script:HeadPrNumber = "#$($hit[0].number) " }
+        } catch { }
+    }
+    $refs = @()
+    try { $refs = @(git -C $Path branch -r --contains $sha 2>$null) } catch { $refs = @() }
+    foreach ($r in $refs) {
+        $name = "$r".Trim()
+        if (-not $name -or $name -match '->' -or -not $name.StartsWith('origin/')) { continue }
+        $name = $name.Substring('origin/'.Length)
+        if ($name -eq 'main' -or $name -eq 'HEAD') { continue }
+        $b = Get-PrStateByBranch $name
+        if ($b -in @('OPEN', 'MERGED', 'CLOSED')) { $states += $b }
+    }
+    if ($states -contains 'OPEN') { return 'OPEN' }
+    if ($states -contains 'MERGED') { return 'MERGED' }
+    if ($states -contains 'CLOSED') { return 'CLOSED' }
+    return $null
+}
+
 function Get-WorktreeStats([string] $Path) {
     # Age (the newest LastWriteTime anywhere under the tree, a build under bin/ included -- it is
     # activity) and size, in one pass. A foreach statement, not ForEach-Object: the script block's
@@ -242,7 +282,9 @@ function Get-WorktreeEntry([string] $Path) {
             $prState = Get-PrStateByNumber $m.Groups[1].Value
             $prText = "PR #$($m.Groups[1].Value) $(if ($prState) { $prState } else { 'state unknown' })"
         } else {
-            $prText = 'detached, not a review tree'
+            # #895: no PR in the name: resolve it from HEAD (a PR's head commit, or a branch on origin containing it).
+            $prState = Get-PrStateByHead $Path
+            $prText = if ($prState) { "PR $($script:HeadPrNumber)by HEAD $prState" } else { 'detached, PR state unknown (HEAD matches no PR)' }
         }
     } else {
         $branchText = $branch.Trim()
@@ -523,6 +565,12 @@ function Invoke-CleanWorktreesSelfTest {
         $script:PrStates = @{ '777' = 'OPEN'; '888' = 'MERGED' }
         $script:Gh = {
             param([string[]] $GhArgs)
+            if ($GhArgs -contains '--search') {
+                # #895: gh pr list --search <sha>; a fuzzy hit (another head commit) is returned too.
+                $q = $GhArgs[($GhArgs.IndexOf('--search') + 1)]
+                if ($script:SearchResults -and $script:SearchResults.ContainsKey($q)) { return $script:SearchResults[$q] }
+                return '[]'
+            }
             if ($GhArgs -contains '--head') {
                 $b = $GhArgs[($GhArgs.IndexOf('--head') + 1)]
                 $s = $script:BranchStates[$b]
@@ -593,6 +641,44 @@ function Invoke-CleanWorktreesSelfTest {
         $summary = '{0} worktrees, {1} safe to remove, {2} removed' -f $entries.Count, $candidates.Count, $removedCount
         Write-Host $summary
         Add 'summary: "N worktrees, S safe to remove, R removed"' ($summary -eq '13 worktrees, 4 safe to remove, 4 removed')
+
+        # --- #895: a detached tree whose name gives no PR resolves its PR from HEAD ---
+        $root895 = Join-Path $temp 'ic2-work-895'
+        New-Item -ItemType Directory -Force -Path $root895 | Out-Null
+        $shaOf = @{}
+        foreach ($n in @('d1', 'd2', 'd3', 'd4', 'd5')) {
+            git -C $main checkout -q -b "task/$n" main
+            Set-Content -LiteralPath (Join-Path $main "$n.txt") -Value $n -Encoding utf8
+            git -C $main add -A
+            git -C $main commit -q -m $n
+            git -C $main push -q origin "task/$n"
+            $shaOf[$n] = (git -C $main rev-parse HEAD).Trim()
+            git -C $main checkout -q main
+            git -C $main worktree add -q --detach (Join-Path $root895 "$n-impl") $shaOf[$n]
+        }
+        Set-Content -LiteralPath (Join-Path $root895 'd4-impl\d4.txt') -Value 'uncommitted' -Encoding utf8
+        $decoy = '{"number":999,"state":"OPEN","headRefOid":"0000000000000000000000000000000000000000"}'
+        $script:SearchResults = @{
+            $shaOf['d1'] = '[{"number":501,"state":"MERGED","headRefOid":"' + $shaOf['d1'] + '"}]'
+            $shaOf['d2'] = '[{"number":502,"state":"OPEN","headRefOid":"' + $shaOf['d2'] + '"}]'
+            $shaOf['d3'] = "[$decoy]"
+            $shaOf['d4'] = '[{"number":504,"state":"MERGED","headRefOid":"' + $shaOf['d4'] + '"}]'
+        }
+        $script:BranchStates['task/d5'] = 'MERGED'
+        $e895 = @(Get-WorktreeEntries $root895)
+        $e895 | ForEach-Object { Write-Host (Format-WorktreeLine $_) }
+        $d1 = $e895 | Where-Object { $_.Path -like '*d1-impl' }
+        Add '#895: a detached tree (no PR in its name) whose HEAD is a MERGED PR''s head commit, clean and on origin: SAFE' ($d1.Safe -and $d1.Detached -and $d1.PrState -eq 'MERGED')
+        $d2 = $e895 | Where-Object { $_.Path -like '*d2-impl' }
+        Add '#895: the same with an OPEN PR: NOT safe, the open PR is the reason' (-not $d2.Safe -and $d2.PrState -eq 'OPEN' -and (($d2.Reasons -join '; ') -match 'open'))
+        $d3 = $e895 | Where-Object { $_.Path -like '*d3-impl' }
+        Add '#895: a detached tree whose HEAD matches no PR (a fuzzy search hit with another head is ignored): PR state unknown, NOT safe' (-not $d3.Safe -and $d3.PrState -eq '' -and (($d3.Reasons -join '; ') -match 'PR state unknown'))
+        $d4 = $e895 | Where-Object { $_.Path -like '*d4-impl' }
+        Add '#895: a detached tree with uncommitted changes and a MERGED PR: NOT safe (holds work)' (-not $d4.Safe -and $d4.PrState -eq 'MERGED' -and (($d4.Reasons -join '; ') -match 'holds work'))
+        $d5 = $e895 | Where-Object { $_.Path -like '*d5-impl' }
+        Add '#895: no PR with that head commit, but its branch on origin has a MERGED PR: SAFE' ($d5.Safe -and $d5.PrState -eq 'MERGED')
+        $oldName = [regex]::Match('412-external-review-luna-1a2b3c', '^(\d+)-(external-)?review-')
+        Add '#895: the pre-T151 <pr>-external-review-... names are recognised by the name rule' ($oldName.Success -and $oldName.Groups[1].Value -eq '412')
 
         # --- -Force: one named tree, whatever its state ---
         $target = Join-Path $root 't2-dirty'
