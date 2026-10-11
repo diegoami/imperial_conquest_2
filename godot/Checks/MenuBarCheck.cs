@@ -68,6 +68,10 @@ public partial class MenuBarCheck : Control
 
     public override void _Ready()
     {
+        // The shipped default window (project.godot window/size), so the layout asserts match what a player sees (bug #968).
+        GetWindow().Size = new Vector2I(
+            (int)ProjectSettings.GetSetting("display/window/size/viewport_width"),
+            (int)ProjectSettings.GetSetting("display/window/size/viewport_height"));
         Size = GetViewport().GetVisibleRect().Size;
 
         var resolved = GameDataContext.Repository.Resolve("classical-mediterranean");

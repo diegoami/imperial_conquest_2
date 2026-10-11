@@ -87,8 +87,9 @@ public partial class DiplomacyScreen : Control
     {
         if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape })
         {
+            var viewport = GetViewport();
             Close();
-            GetViewport().SetInputAsHandled();
+            viewport.SetInputAsHandled();
         }
     }
 
