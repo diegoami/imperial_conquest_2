@@ -407,6 +407,9 @@ News:
   Week  1      Autumn      270BC
   Iconium   (Galatia)  falls to Seleucid.
 
+> accept-offer
+diplomacy.accept-pending-offer accepted.
+
 > split-fleet mac-fleet-1 mac-fleet-2 10
 naval.split-fleet accepted.
 
@@ -427,9 +430,9 @@ naval.split-fleet accepted.
 
 > end
 Macedonia (macedonia) ends its turn.
-Numidia (numidia) takes its turn: 0 orders issued.
+Numidia (numidia) takes its turn: 1 order issued.
 Gaul (gaul) takes its turn: 9 orders issued.
-Greece (greece) takes its turn: 1 order issued.
+Greece (greece) takes its turn: 2 orders issued.
 Celtiberia (celtiberia) takes its turn: 10 orders issued.
 Illyria (illyria) takes its turn: 10 orders issued.
 Dacia (dacia) takes its turn: 1 order issued.
@@ -438,7 +441,6 @@ Galatia (galatia) takes its turn: 9 orders issued.
 Armenia (armenia) takes its turn: 10 orders issued.
 Media (media) takes its turn: 11 orders issued.
 Thracia (thracia) takes its turn: 1 order issued.
-  Weather: storm-damages-fleet (week 1).
   Weather: storm-damages-fleet (week 1).
 Rome (rome) takes its turn: 2 orders issued.
 Carthage (carthage) takes its turn: 2 orders issued.
@@ -485,7 +487,7 @@ Galatia (galatia) takes its turn: 2 orders issued.
 Armenia (armenia) takes its turn: 4 orders issued.
 Media (media) takes its turn: 7 orders issued.
 Thracia (thracia) takes its turn: 1 order issued.
-  Weather: drought-reduces-supply (week 5).
+  Weather: storm-damages-fleet (week 5).
 Rome (rome) takes its turn: 2 orders issued.
 Carthage (carthage) takes its turn: 10 orders issued.
 Seleucid (seleucid) takes its turn: 23 orders issued.
@@ -502,50 +504,50 @@ Week 7, Autumn 270 BC (turn 15). Active seat: Macedonia (macedonia).
 
 Nations:
   Rome (rome, ai): treasury 2751, unity 883, tax 5%
-  Carthage (carthage, ai): treasury 10282, unity 814, tax 5%
-  Seleucid (seleucid, ai): treasury -9451, unity 650, tax 36%
+  Carthage (carthage, ai): treasury 10138, unity 814, tax 5%
+  Seleucid (seleucid, ai): treasury -9045, unity 650, tax 36%
   Ptolemaic (ptolemaic, ai): treasury 3665, unity 700, tax 13%
   Macedonia (macedonia, human): treasury 1096, unity 817, tax 15%
   Numidia (numidia, ai): treasury 2168, unity 665, tax 5%
   Gaul (gaul, ai): treasury -3601, unity 556, tax 17%
-  Greece (greece, ai): treasury -6216, unity 531, tax 17%
-  Celtiberia (celtiberia, ai): treasury -5247, unity 627, tax 33%
-  Illyria (illyria, ai): treasury -837, unity 684, tax 23%
-  Dacia (dacia, ai): treasury -64, unity 608, tax 17%
-  Bithynia (bithynia, ai): treasury -5325, unity 691, tax 30%
-  Galatia (galatia, ai): treasury -2556, unity 698, tax 32%
-  Armenia (armenia, ai): treasury -4124, unity 651, tax 26%
+  Greece (greece, ai): treasury -6336, unity 531, tax 17%
+  Celtiberia (celtiberia, ai): treasury -5087, unity 627, tax 33%
+  Illyria (illyria, ai): treasury -987, unity 684, tax 23%
+  Dacia (dacia, ai): treasury -106, unity 608, tax 17%
+  Bithynia (bithynia, ai): treasury -5313, unity 691, tax 30%
+  Galatia (galatia, ai): treasury -2718, unity 698, tax 32%
+  Armenia (armenia, ai): treasury -4194, unity 651, tax 26%
   Media (media, ai): treasury -6140, unity 671, tax 28%
   Thracia (thracia, ai): treasury -5622, unity 751, tax 27%
 
 Armies:
   army-0 (Rome) @ (98,38): 17562 troops in 5 units, supply 175t (99%), morale 70, moves 9
   army-1 (Rome) @ (113,53): 22000 troops in 6 units, supply 220t (100%), morale 70, moves 1
-  army-2 (Carthage) @ (51,32): 23425 troops in 8 units, supply 234t (99%), morale 70, moves 0
+  army-2 (Carthage) @ (51,32): 23515 troops in 8 units, supply 235t (99%), morale 70, moves 0
   army-3 (Carthage) @ (80,81): 24818 troops in 7 units, supply 248t (99%), morale 70, moves 8
   army-7 (Ptolemaic) @ (182,100): 56400 troops in 10 units, supply 564t (100%), morale 70, moves 5
   army-8 (Macedonia) @ (136,51): 4542 troops in 2 units, supply 0t (0%), morale 51, moves 9
-  army-11 (Bithynia) @ (182,48): 16934 troops in 7 units, supply 740t (436%), morale 70, moves 9
+  army-11 (Bithynia) @ (182,48): 16749 troops in 7 units, supply 740t (441%), morale 70, moves 9
   army-13 (Media) @ (285,73): 37700 troops in 9 units, supply 359t (95%), morale 70, moves 9
   army-14 (Thracia) @ (158,41): 14854 troops in 5 units, supply 141t (94%), morale 70, moves 10
   mac-marines (Macedonia) @ (144,42): 6400 troops in 2 units, supply 0t (0%), morale 51, moves 9
-  army-5 (Seleucid) @ (214,45): 30400 troops in 5 units, supply 304t (100%), morale 59, moves 0
-  army-6 (Seleucid) @ (217,52): 39200 troops in 6 units, supply 392t (100%), morale 59, moves 0
+  army-5 (Seleucid) @ (205,50): 30400 troops in 5 units, supply 304t (100%), morale 59, moves 0
+  army-6 (Seleucid) @ (218,51): 39200 troops in 6 units, supply 392t (100%), morale 59, moves 0
   army-10 (Gaul) @ (61,30): 78300 troops in 16 units, supply 631t (80%), morale 59, moves 7
-  army-12 (Celtiberia) @ (45,37): 76400 troops in 15 units, supply 523t (68%), morale 59, moves 7
+  army-12 (Celtiberia) @ (45,38): 76400 troops in 15 units, supply 523t (68%), morale 59, moves 7
   army-15 (Illyria) @ (131,46): 65400 troops in 8 units, supply 622t (95%), morale 59, moves 7
   army-16 (Bithynia) @ (209,26): 84300 troops in 14 units, supply 550t (65%), morale 59, moves 6
-  army-17 (Galatia) @ (193,43): 35558 troops in 7 units, supply 338t (95%), morale 59, moves 9
-  army-18 (Armenia) @ (266,32): 91200 troops in 15 units, supply 189t (20%), morale 59, moves 6
+  army-17 (Galatia) @ (193,43): 35447 troops in 7 units, supply 337t (95%), morale 59, moves 9
+  army-18 (Armenia) @ (266,32): 89900 troops in 15 units, supply 190t (21%), morale 59, moves 6
   army-19 (Media) @ (286,25): 19500 troops in 5 units, supply 186t (95%), morale 59, moves 10
   army-20 (Media) @ (305,57): 23900 troops in 6 units, supply 137t (57%), morale 59, moves 9
   army-21 (Media) @ (286,28): 26200 troops in 5 units, supply 188t (71%), morale 59, moves 9
   army-22 (Greece) @ (147,56): 63000 troops in 8 units, supply 599t (95%), morale 58, moves 7
-  army-23 (Seleucid) @ (189,65): 5600 troops in 3 units, supply 56t (100%), morale 57, moves 0
-  army-24 (Seleucid) @ (220,60): 33100 troops in 5 units, supply 138t (41%), morale 57, moves 8
-  army-25 (Seleucid) @ (205,59): 21700 troops in 5 units, supply 150t (69%), morale 57, moves 8
+  army-23 (Seleucid) @ (220,60): 33100 troops in 5 units, supply 138t (41%), morale 57, moves 8
+  army-24 (Seleucid) @ (205,59): 21700 troops in 5 units, supply 150t (69%), morale 57, moves 8
+  army-25 (Seleucid) @ (189,65): 5600 troops in 3 units, supply 56t (100%), morale 57, moves 0
   army-26 (Greece) @ (153,62): 57500 troops in 8 units, supply 0t (0%), morale 57, moves 7
-  army-4 (Armenia) @ (263,34): 11900 troops in 1 units, supply 0t (0%), morale 57, moves 9
+  army-4 (Armenia) @ (263,34): 13200 troops in 1 units, supply 0t (0%), morale 57, moves 9
   army-27 (Media) @ (282,20): 15000 troops in 1 units, supply 0t (0%), morale 57, moves 9
   army-9 (Seleucid) @ (187,59): 17100 troops in 3 units, supply 0t (0%), morale 59, moves 1
 
@@ -577,7 +579,7 @@ Cities:
   quiza "Quiza" @ (44,82), owner Carthage: supply 290t, loyalty 81, fortification 61%
   carthago-novo "Carthago Novo" @ (45,68), owner Carthage: supply 910t, loyalty 92, fortification 83%
   helice "Helice" @ (46,65), owner Carthage: supply 210t, loyalty 69, fortification 24%
-  bordeaux "Bordeaux" @ (47,29), owner Carthage: supply 228t, loyalty 42, fortification 39%
+  bordeaux "Bordeaux" @ (47,29), owner Carthage: supply 227t, loyalty 42, fortification 39%
   saguntum "Saguntum" @ (47,55), owner Celtiberia: supply 500t, loyalty 87, fortification 78%
   hemeroscopium "Hemeroscopium" @ (47,59), owner Greece: supply 230t, loyalty 72, fortification 42%
   akra-leuke "Akra Leuke" @ (47,63), owner Carthage: supply 120t, loyalty 88, fortification 94%
@@ -952,6 +954,9 @@ army-8 moved from (136,51) to (136,43), spending 9 of 9 moves.
 > buy mac-marines pella 5
 mac-marines bought 5 tons of supply at pella, free at your own city.
 
+> buy mac-marines pella 5000
+mac-marines bought 60 tons of supply at pella, free at your own city.
+
 > transfer-money mac-marines 100
 mac-marines received 100 talents from the treasury.
 
@@ -970,6 +975,12 @@ armies.rename-unit accepted.
 > disband-unit mac-marines 1
 armies.disband-unit accepted.
 
+> split-unit mac-marines 1 200
+armies.split-unit accepted.
+
+> split-army mac-marines mac-merc 2 supply=45 money=80
+armies.split-army accepted.
+
 > end
 Macedonia (macedonia) ends its turn.
 Numidia (numidia) takes its turn: 0 orders issued.
@@ -983,8 +994,6 @@ Galatia (galatia) takes its turn: 2 orders issued.
 Armenia (armenia) takes its turn: 2 orders issued.
 Media (media) takes its turn: 9 orders issued.
 Thracia (thracia) takes its turn: 1 order issued.
-  Weather: storm-damages-fleet (week 7).
-  Weather: drought-reduces-supply (week 7).
 Rome (rome) takes its turn: 2 orders issued.
 Carthage (carthage) takes its turn: 10 orders issued.
 Seleucid (seleucid) takes its turn: 22 orders issued.
@@ -994,6 +1003,15 @@ News:
   Iconium   (Seleucid)  falls to Galatia.
    
   Week  9      Autumn      270BC
+
+> move mac-merc 140 47
+mac-merc moved from (138,43) to (140,47), spending 6 of 10 moves.
+
+> move mac-merc 141 48
+mac-merc moved from (140,47) to (141,48), spending 2 of 4 moves.
+
+> hire-mercenary mac-merc 25
+recruitment.hire-mercenary accepted.
 
 > move army-8 142 42
 army-8 moved from (136,43) to (142,42), spending 8 of 9 moves.
@@ -1011,10 +1029,10 @@ Galatia (galatia) takes its turn: 1 order issued.
 Armenia (armenia) takes its turn: 2 orders issued.
 Media (media) takes its turn: 9 orders issued.
 Thracia (thracia) takes its turn: 10 orders issued.
-  Weather: drought-reduces-supply (week 9).
+  Weather: storm-damages-fleet (week 9).
 Rome (rome) takes its turn: 2 orders issued.
 Carthage (carthage) takes its turn: 9 orders issued.
-Seleucid (seleucid) takes its turn: 8 orders issued.
+Seleucid (seleucid) takes its turn: 7 orders issued.
 Ptolemaic (ptolemaic) takes its turn: 1 order issued.
 Now: Week 11, Autumn 270 BC. Active seat: Macedonia (macedonia).
 News:
@@ -1022,7 +1040,6 @@ News:
   Celtiberia destroys army of Carthage.
    
   Week  11      Autumn      270BC
-  Zela   (Bithynia)  falls to Seleucid.
 
 > move army-8 148 40
 army-8 moved from (142,42) to (148,40), spending 6 of 9 moves.
@@ -1059,316 +1076,17 @@ Thracia (thracia) takes its turn: 6 orders issued.
   Weather: storm-damages-fleet (week 11).
 Rome (rome) takes its turn: 2 orders issued.
 Carthage (carthage) takes its turn: 9 orders issued.
-Seleucid (seleucid) takes its turn: 15 orders issued.
+Seleucid (seleucid) takes its turn: 16 orders issued.
 Ptolemaic (ptolemaic) takes its turn: 1 order issued.
 Now: Week 1, Winter 270 BC. Active seat: Macedonia (macedonia).
 News:
   Demetrias   (Macedonia)  falls to Greece.
   Phoenice   (Greece)  falls to Illyria.
   Pharsalos defects from Greece to Illyria.
-  Celtiberia depose their leader Gelo.
    
   Week  1      Winter      270BC
-  Bithynia destroys army of Seleucid.
-
-> move mac-marines 143 42
-mac-marines moved from (137,42) to (143,42), spending 7 of 9 moves.
-
-> end
-Macedonia (macedonia) ends its turn.
-Numidia (numidia) takes its turn: 0 orders issued.
-Gaul (gaul) takes its turn: 1 order issued.
-Greece (greece) takes its turn: 9 orders issued.
-Celtiberia (celtiberia) takes its turn: 3 orders issued.
-Illyria (illyria) takes its turn: 4 orders issued.
-Dacia (dacia) takes its turn: 3 orders issued.
-Bithynia (bithynia) takes its turn: 8 orders issued.
-Galatia (galatia) takes its turn: 5 orders issued.
-Armenia (armenia) takes its turn: 3 orders issued.
-Media (media) takes its turn: 8 orders issued.
-Thracia (thracia) takes its turn: 6 orders issued.
-  Weather: drought-reduces-supply (week 1).
-  Weather: storm-damages-fleet (week 1).
-Rome (rome) takes its turn: 2 orders issued.
-Carthage (carthage) takes its turn: 1 order issued.
-Seleucid (seleucid) takes its turn: 5 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 1 order issued.
-Now: Week 3, Winter 270 BC. Active seat: Macedonia (macedonia).
-News:
-  Pharsalos   (Illyria)  falls to Greece.
-  Greece destroys army of Macedonia.
-  Bithynia destroys army of Seleucid.
-   
-  Week  3      Winter      270BC
-  Galatia sues Seleucid for peace and;
-      Galatia ends all current trading agreements.
-      Galatia  ends all current alliances.
-      Galatia pays reparations of 162 talents.
   Seleucid destroys army of Galatia.
-
-> end
-Macedonia (macedonia) ends its turn.
-Numidia (numidia) takes its turn: 1 order issued.
-Gaul (gaul) takes its turn: 1 order issued.
-Greece (greece) takes its turn: 8 orders issued.
-Celtiberia (celtiberia) takes its turn: 2 orders issued.
-Illyria (illyria) takes its turn: 2 orders issued.
-Dacia (dacia) takes its turn: 2 orders issued.
-Bithynia (bithynia) takes its turn: 5 orders issued.
-Galatia (galatia) takes its turn: 1 order issued.
-Armenia (armenia) takes its turn: 2 orders issued.
-Media (media) takes its turn: 8 orders issued.
-Thracia (thracia) takes its turn: 6 orders issued.
-  Weather: drought-reduces-supply (week 3).
-  Weather: drought-reduces-supply (week 3).
-  Weather: storm-damages-fleet (week 3).
-  Weather: storm-damages-fleet (week 3).
-  Weather: storm-damages-fleet (week 3).
-Rome (rome) takes its turn: 2 orders issued.
-Carthage (carthage) takes its turn: 1 order issued.
-Seleucid (seleucid) takes its turn: 3 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 1 order issued.
-Now: Week 5, Winter 270 BC. Active seat: Macedonia (macedonia).
-News:
-  Greece destroys army of Illyria.
-  Greece destroys army of Macedonia.
-  Bithynia and Seleucid have agreed to end their war.
   Bithynia destroys army of Seleucid.
-   
-  Week  5      Winter      270BC
-
-> end
-Macedonia (macedonia) ends its turn.
-Numidia (numidia) takes its turn: 0 orders issued.
-Gaul (gaul) takes its turn: 1 order issued.
-Greece (greece) takes its turn: 5 orders issued.
-Celtiberia (celtiberia) takes its turn: 3 orders issued.
-Illyria (illyria) takes its turn: 1 order issued.
-Dacia (dacia) takes its turn: 3 orders issued.
-Bithynia (bithynia) takes its turn: 4 orders issued.
-Galatia (galatia) takes its turn: 1 order issued.
-Armenia (armenia) takes its turn: 2 orders issued.
-Media (media) takes its turn: 8 orders issued.
-Thracia (thracia) takes its turn: 3 orders issued.
-  Weather: drought-reduces-supply (week 5).
-  Weather: drought-reduces-supply (week 5).
-  Weather: drought-reduces-supply (week 5).
-  Weather: storm-damages-fleet (week 5).
-  Weather: storm-damages-fleet (week 5).
-  Weather: storm-damages-fleet (week 5).
-Rome (rome) takes its turn: 2 orders issued.
-Carthage (carthage) takes its turn: 1 order issued.
-Seleucid (seleucid) takes its turn: 3 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 1 order issued.
-Now: Week 7, Winter 270 BC. Active seat: Macedonia (macedonia).
-News:
-  Osca   (Carthage)  falls to Celtiberia.
-  Maluesa   (Macedonia)  falls to Dacia.
-   
-  Week  7      Winter      270BC
-
-> end
-Macedonia (macedonia) ends its turn.
-Numidia (numidia) takes its turn: 0 orders issued.
-Gaul (gaul) takes its turn: 1 order issued.
-Greece (greece) takes its turn: 6 orders issued.
-Celtiberia (celtiberia) takes its turn: 2 orders issued.
-Illyria (illyria) takes its turn: 1 order issued.
-Dacia (dacia) takes its turn: 2 orders issued.
-Bithynia (bithynia) takes its turn: 4 orders issued.
-Galatia (galatia) takes its turn: 1 order issued.
-Armenia (armenia) takes its turn: 2 orders issued.
-Media (media) takes its turn: 8 orders issued.
-Thracia (thracia) takes its turn: 3 orders issued.
-  Weather: drought-reduces-supply (week 7).
-  Weather: storm-damages-fleet (week 7).
-  Weather: storm-damages-fleet (week 7).
-Rome (rome) takes its turn: 2 orders issued.
-Carthage (carthage) takes its turn: 1 order issued.
-Seleucid (seleucid) takes its turn: 3 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 1 order issued.
-Now: Week 9, Winter 270 BC. Active seat: Macedonia (macedonia).
-News:
-  Phoenice   (Illyria)  falls to Greece.
-   
-  Week  9      Winter      270BC
-
-> end
-Macedonia (macedonia) ends its turn.
-Numidia (numidia) takes its turn: 0 orders issued.
-Gaul (gaul) takes its turn: 1 order issued.
-Greece (greece) takes its turn: 6 orders issued.
-Celtiberia (celtiberia) takes its turn: 2 orders issued.
-Illyria (illyria) takes its turn: 1 order issued.
-Dacia (dacia) takes its turn: 3 orders issued.
-Bithynia (bithynia) takes its turn: 4 orders issued.
-Galatia (galatia) takes its turn: 1 order issued.
-Armenia (armenia) takes its turn: 2 orders issued.
-Media (media) takes its turn: 8 orders issued.
-Thracia (thracia) takes its turn: 3 orders issued.
-  Weather: storm-damages-fleet (week 9).
-  Weather: drought-reduces-supply (week 9).
-Rome (rome) takes its turn: 2 orders issued.
-Carthage (carthage) takes its turn: 1 order issued.
-Seleucid (seleucid) takes its turn: 4 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 1 order issued.
-Now: Week 11, Winter 270 BC. Active seat: Macedonia (macedonia).
-News:
-  Dimale   (Illyria)  falls to Greece.
-  Lissus defects from Illyria to Greece.
-  Serdica   (Macedonia)  falls to Greece.
-  Naissus   (Macedonia)  falls to Dacia.
-   
-  Week  11      Winter      270BC
-
-> end
-Macedonia (macedonia) ends its turn.
-Numidia (numidia) takes its turn: 0 orders issued.
-Gaul (gaul) takes its turn: 2 orders issued.
-Greece (greece) takes its turn: 6 orders issued.
-Celtiberia (celtiberia) takes its turn: 3 orders issued.
-Illyria (illyria) takes its turn: 2 orders issued.
-Dacia (dacia) takes its turn: 3 orders issued.
-Bithynia (bithynia) takes its turn: 5 orders issued.
-Galatia (galatia) takes its turn: 1 order issued.
-Armenia (armenia) takes its turn: 3 orders issued.
-Media (media) takes its turn: 9 orders issued.
-Thracia (thracia) takes its turn: 4 orders issued.
-  Weather: storm-damages-fleet (week 11).
-  Weather: drought-reduces-supply (week 11).
-  Weather: storm-damages-fleet (week 11).
-  Weather: storm-damages-fleet (week 11).
-  Weather: drought-reduces-supply (week 11).
-  Weather: drought-reduces-supply (week 11).
-Rome (rome) takes its turn: 2 orders issued.
-Carthage (carthage) takes its turn: 1 order issued.
-Seleucid (seleucid) takes its turn: 3 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 1 order issued.
-Now: Week 1, Spring 269 BC. Active seat: Macedonia (macedonia).
-News:
-  Bithynia depose their leader Diogenes.
-  Media depose their leader Samsuiluna.
-   
-  Week  1      Spring      269BC
-
-> end
-Macedonia (macedonia) ends its turn.
-Numidia (numidia) takes its turn: 0 orders issued.
-Gaul (gaul) takes its turn: 1 order issued.
-Greece (greece) takes its turn: 7 orders issued.
-Celtiberia (celtiberia) takes its turn: 4 orders issued.
-Illyria (illyria) takes its turn: 3 orders issued.
-Dacia (dacia) takes its turn: 3 orders issued.
-Bithynia (bithynia) takes its turn: 6 orders issued.
-Galatia (galatia) takes its turn: 2 orders issued.
-Armenia (armenia) takes its turn: 4 orders issued.
-Media (media) takes its turn: 8 orders issued.
-Thracia (thracia) takes its turn: 3 orders issued.
-Rome (rome) takes its turn: 2 orders issued.
-Carthage (carthage) takes its turn: 1 order issued.
-Seleucid (seleucid) takes its turn: 14 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 1 order issued.
-Now: Week 3, Spring 269 BC. Active seat: Macedonia (macedonia).
-News:
-  Epidamnus   (Illyria)  falls to Greece.
-   
-  Week  3      Spring      269BC
-
-> end
-Macedonia (macedonia) ends its turn.
-Numidia (numidia) takes its turn: 0 orders issued.
-Gaul (gaul) takes its turn: 1 order issued.
-Greece (greece) takes its turn: 7 orders issued.
-Celtiberia (celtiberia) takes its turn: 4 orders issued.
-Illyria (illyria) takes its turn: 0 orders issued.
-Dacia (dacia) takes its turn: 3 orders issued.
-Bithynia (bithynia) takes its turn: 5 orders issued.
-Galatia (galatia) takes its turn: 1 order issued.
-Armenia (armenia) takes its turn: 3 orders issued.
-Media (media) takes its turn: 8 orders issued.
-Thracia (thracia) takes its turn: 3 orders issued.
-  Weather: drought-reduces-supply (week 3).
-Rome (rome) takes its turn: 2 orders issued.
-Carthage (carthage) takes its turn: 11 orders issued.
-Seleucid (seleucid) takes its turn: 16 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 1 order issued.
-Now: Week 5, Spring 269 BC. Active seat: Macedonia (macedonia).
-News:
-  Abdera   (Macedonia)  falls to Greece.
-  Greece destroys army of Illyria.
-  Castulo   (Carthage)  falls to Celtiberia.
-   
-  Week  5      Spring      269BC
-
-> end
-Macedonia (macedonia) ends its turn.
-Numidia (numidia) takes its turn: 0 orders issued.
-Gaul (gaul) takes its turn: 1 order issued.
-Greece (greece) takes its turn: 5 orders issued.
-Celtiberia (celtiberia) takes its turn: 4 orders issued.
-Illyria (illyria) takes its turn: 0 orders issued.
-Dacia (dacia) takes its turn: 3 orders issued.
-Bithynia (bithynia) takes its turn: 5 orders issued.
-Galatia (galatia) takes its turn: 1 order issued.
-Armenia (armenia) takes its turn: 3 orders issued.
-Media (media) takes its turn: 8 orders issued.
-Thracia (thracia) takes its turn: 3 orders issued.
-  Weather: drought-reduces-supply (week 5).
-  Weather: storm-damages-fleet (week 5).
-  Weather: drought-reduces-supply (week 5).
-Rome (rome) takes its turn: 2 orders issued.
-Carthage (carthage) takes its turn: 20 orders issued.
-Seleucid (seleucid) takes its turn: 18 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 1 order issued.
-Now: Week 7, Spring 269 BC. Active seat: Macedonia (macedonia).
-News:
-  Greece fails to capture Philippi   (Macedonia).
-   
-  Week  7      Spring      269BC
-
-> buy mac-marines pella 5000
-Purchase rejected (supply.unknown-army): 'mac-marines' is not a known army.
-
-> split-unit mac-marines 1 200
-armies.split-unit rejected (armies.unknown-army): 'mac-marines' is not a known army.
-
-> split-army mac-marines mac-merc 2 supply=50 money=80
-armies.split-army rejected (armies.unknown-army): 'mac-marines' is not a known army.
-
-> end
-Macedonia (macedonia) ends its turn.
-Numidia (numidia) takes its turn: 0 orders issued.
-Gaul (gaul) takes its turn: 1 order issued.
-Greece (greece) takes its turn: 5 orders issued.
-Celtiberia (celtiberia) takes its turn: 3 orders issued.
-Illyria (illyria) takes its turn: 0 orders issued.
-Dacia (dacia) takes its turn: 3 orders issued.
-Bithynia (bithynia) takes its turn: 5 orders issued.
-Galatia (galatia) takes its turn: 1 order issued.
-Armenia (armenia) takes its turn: 3 orders issued.
-Media (media) takes its turn: 8 orders issued.
-Thracia (thracia) takes its turn: 3 orders issued.
-Rome (rome) takes its turn: 2 orders issued.
-Carthage (carthage) takes its turn: 12 orders issued.
-Seleucid (seleucid) takes its turn: 18 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 1 order issued.
-Now: Week 9, Spring 269 BC. Active seat: Macedonia (macedonia).
-News:
-  Greece fails to capture Philippi   (Macedonia).
-   
-  Week  9      Spring      269BC
-
-> accept-offer
-diplomacy.accept-pending-offer rejected (diplomacy.no-pending-offer): There is no pending offer to accept.
-
-> move mac-merc 140 47
-Move rejected (movement.unknown-army): 'mac-merc' is not a known army.
-
-> move mac-merc 141 48
-Move rejected (movement.unknown-army): 'mac-merc' is not a known army.
-
-> hire-mercenary mac-merc 25
-recruitment.hire-mercenary rejected (mercenary.unknown-army): 'mac-merc' is not a known army.
 
 > quit
 Goodbye.
