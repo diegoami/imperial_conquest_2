@@ -1,3 +1,5 @@
+using IC2.Engine.Model;
+
 namespace IC2.Slice.UI;
 
 /// <summary>
@@ -16,8 +18,8 @@ namespace IC2.Slice.UI;
 /// </para>
 /// <para>
 /// <strong>Why some kinds are absent.</strong> <see cref="NotIssuedByTheApp"/> lists the command kinds the
-/// Godot app never submits: the three AI-internal diplomacy commands (no human verb at all) and the seven
-/// the UI leaves disabled or has no control for. Nothing in the app ever renders their acceptance, so they
+/// Godot app never submits: the AI-internal commands (no human verb at all; bug #914 removed the seven
+/// the Taxation, fleet and mercenary dialogs now submit). Nothing in the app ever renders their acceptance, so they
 /// keep the engine's line as dead fallback rather than shipping an unreachable sentence. The unit test
 /// enumerates every <see cref="IC2.Engine.Core.ICommand"/> type, removes that set, and fails if any
 /// remaining kind has no wording.
@@ -25,6 +27,9 @@ namespace IC2.Slice.UI;
 /// </remarks>
 public static class CommandOutcomeWording
 {
+    /// <summary>The kind of the Build fleet order.</summary>
+    public const string OrderFleetKind = "naval.order-fleet";
+
     /// <summary>The suffix the engine's generic acceptance line ends with (<c>GameSession.Commands.cs</c>).</summary>
     public const string AcceptanceSuffix = " accepted.";
 
@@ -40,15 +45,6 @@ public static class CommandOutcomeWording
         "armies.ai-absorb-army",
         "naval.ai-absorb-fleet",
 
-        // No Godot control submits these (Strategy's Taxation and the Fleet rows are shown disabled, and
-        // the mercenary pool is empty by design — bug #229/#457).
-        "economy.set-tax",
-        "naval.split-fleet",
-        "naval.join-fleets",
-        "naval.order-fleet",
-        "naval.buy-fleet-supply",
-        "naval.fleet-to-fleet-transfer",
-        "recruitment.hire-mercenary",
     };
 
     /// <summary>The readable line for each command kind the app can issue, keyed by <c>ICommand.Kind</c>.</summary>
@@ -94,6 +90,21 @@ public static class CommandOutcomeWording
             ["diplomacy.propose-alliance"] = "Alliance proposed.",
             ["diplomacy.propose-trade"] = "Trade proposed.",
             ["diplomacy.accept-pending-offer"] = "You accepted the offer.",
+
+            // Bug #914: the Taxation, fleet and mercenary dialogs submit these. The original closes them
+            // silently (2026-10-08-strategy-menu-s01-s12.md); these short sentences are the user's choice
+            // of 2026-10-11 (#914).
+            ["economy.set-tax"] = "Tax set.",
+            ["naval.split-fleet"] = "Fleets split.",
+            ["naval.join-fleets"] = "Fleets joined.",
+            ["naval.buy-fleet-supply"] = "Fleet supplied.",
+            ["naval.fleet-to-fleet-transfer"] = "Ships transferred.",
+            ["recruitment.hire-mercenary"] = "Mercenaries hired.",
+
+            // Build fleet: the original answers "The fleet will be built at <city>."
+            // (2026-10-02-fleet-orders-live.md). The city is not in the engine's line, so Apply(block, state)
+            // names it; this is the fallback when no state is given.
+            [OrderFleetKind] = "The fleet will be built.",
 
             // The post-battle Offer of peace window's Yes.
             ["diplomacy.accept-peace-treaty"] = "You accepted the peace treaty.",
@@ -141,5 +152,36 @@ public static class CommandOutcomeWording
         }
 
         return string.Join('\n', lines);
+    }
+
+    /// <summary>
+    /// Bug #914: <see cref="Apply(string)"/>, but a Build fleet acceptance is worded with the build city's
+    /// display name, read from the order just placed (the last fleet <paramref name="state"/> holds).
+    /// </summary>
+    public static string Apply(string block, GameState? state)
+    {
+        ArgumentNullException.ThrowIfNull(block);
+        if (state is null || block.Length == 0)
+        {
+            return Apply(block);
+        }
+
+        var orderLine = OrderFleetKind + AcceptanceSuffix;
+        var lines = block.Split('\n');
+        for (var i = 0; i < lines.Length; i++)
+        {
+            lines[i] = lines[i] == orderLine ? BuildFleetLine(state) : ReadableLine(lines[i]);
+        }
+
+        return string.Join('\n', lines);
+    }
+
+    /// <summary>"The fleet will be built at &lt;city&gt;." for the newest fleet's build city.</summary>
+    public static string BuildFleetLine(GameState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        var buildCity = state.Fleets.Count > 0 ? state.Fleets[state.Fleets.Count - 1].BuildCityId : null;
+        var city = buildCity is null ? null : state.CityById(buildCity);
+        return city is null ? ByKind[OrderFleetKind] : $"The fleet will be built at {city.Name}.";
     }
 }

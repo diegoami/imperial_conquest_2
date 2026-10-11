@@ -1758,7 +1758,7 @@ public partial class MainGameScreen : Control
         }
 
         var rawOutcome = CommandOutcomeText.OutcomeBlock(lines, pendingOffers);
-        var outcome = CommandOutcomeWording.Apply(rawOutcome);
+        var outcome = CommandOutcomeWording.Apply(rawOutcome, Session.State);
 
         // T147 (bug #781 point 4): below an accepted order's readable line, the news entries the order
         // added to State.NewsLog. Only an order whose acceptance the app rewrote gets them; an "end"
