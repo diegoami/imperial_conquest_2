@@ -64,6 +64,53 @@ public sealed class AiWeightsRulesetTests
         Assert.Contains("greater than 0", error.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Bug #943: the other AI keys the engine divides by (AiArmyTargetTree's resupply and mercenary-run
+    /// tests, AiFaithfulEconomy's value, near-count, allied-army, deficit-floor, amount and tax-cut
+    /// arithmetic) were not guarded, so a 0 was a <see cref="DivideByZeroException"/> mid-turn. Each is
+    /// now refused at load, naming the key, like <c>ai.permilleScale</c>.
+    /// </summary>
+    [Theory]
+    [InlineData("ai.cityScoreRegionHalvingDenominator", 0)]
+    [InlineData("ai.cityScoreRegionHalvingDenominator", -1)]
+    [InlineData("ai.cityAttackCapitalDefenseRatioDenominator", 0)]
+    [InlineData("ai.cityAttackCapitalDefenseRatioDenominator", -1)]
+    [InlineData("ai.resupplyStrengthTroopsDivisor", 0)]
+    [InlineData("ai.resupplyStrengthTroopsDivisor", -1)]
+    [InlineData("ai.resupplyForeignMoneyDivisor", 0)]
+    [InlineData("ai.resupplyForeignMoneyDivisor", -1)]
+    [InlineData("ai.mercenaryRunTroopsDivisor", 0)]
+    [InlineData("ai.mercenaryRunTroopsDivisor", -1)]
+    [InlineData("ai.faithfulValueTroopsDivisor", 0)]
+    [InlineData("ai.faithfulValueTroopsDivisor", -1)]
+    [InlineData("ai.faithfulForeignNearDivisor", 0)]
+    [InlineData("ai.faithfulForeignNearDivisor", -1)]
+    [InlineData("ai.faithfulWarNearDivisor", 0)]
+    [InlineData("ai.faithfulWarNearDivisor", -1)]
+    [InlineData("ai.faithfulAlliedArmyDivisor", 0)]
+    [InlineData("ai.faithfulAlliedArmyDivisor", -1)]
+    [InlineData("ai.faithfulDeficitFloorWealthDivisor", 0)]
+    [InlineData("ai.faithfulDeficitFloorWealthDivisor", -1)]
+    [InlineData("ai.faithfulAmountSpanDenominator", 0)]
+    [InlineData("ai.faithfulAmountSpanDenominator", -1)]
+    [InlineData("ai.faithfulAmountMinDivisor", 0)]
+    [InlineData("ai.faithfulAmountMinDivisor", -1)]
+    [InlineData("ai.faithfulAmountRounding", 0)]
+    [InlineData("ai.faithfulAmountRounding", -1)]
+    [InlineData("ai.faithfulTaxCutTreasuryWealthDivisor", 0)]
+    [InlineData("ai.faithfulTaxCutTreasuryWealthDivisor", -1)]
+    public void A_non_positive_ai_divisor_is_rejected_at_validation(string key, int badValue)
+    {
+        var document = LoadToyRulesetNode();
+        document["ai"]![key["ai.".Length..]] = badValue;
+
+        var error = Assert.Throws<MalformedGameDataException>(
+            () => GameDataLoader.Load<Ruleset>("mutated-toy-ruleset.json", document.ToJsonString()));
+
+        Assert.Contains(key, error.Message, StringComparison.Ordinal);
+        Assert.Contains("greater than 0", error.Message, StringComparison.Ordinal);
+    }
+
     /// <summary>The shipped toy ruleset's own permilleScale (1000) already passes this check.</summary>
     [Fact]
     public void Shipped_toy_rulesets_permille_scale_passes_the_divisor_check()

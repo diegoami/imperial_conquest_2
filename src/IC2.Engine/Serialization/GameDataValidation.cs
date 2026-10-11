@@ -285,6 +285,36 @@ public static class GameDataValidation
         // AiView.WithVictoryAwareness. A 0 here is a DivideByZeroException the first AI turn runs, exactly
         // the hazard N5 (T63) closed for the divisors above.
         RequirePositiveDivisor(documentPath, ruleset.Ai.PermilleScale, "ai.permilleScale");
+
+        // Bug #943: the same hazard for the other AI keys the engine divides by; each comment names where.
+        // ai.cityScoreRegionHalvingDenominator: AiArmyTargetTree: score / this (via the local copy `halving`), the city and army scorers (two sites).
+        RequirePositiveDivisor(documentPath, ruleset.Ai.CityScoreRegionHalvingDenominator, "ai.cityScoreRegionHalvingDenominator");
+        // ai.cityAttackCapitalDefenseRatioDenominator: AiArmyTargetTree: city defense * numerator / this (via the local copy `capitalDen`), the capital test.
+        RequirePositiveDivisor(documentPath, ruleset.Ai.CityAttackCapitalDefenseRatioDenominator, "ai.cityAttackCapitalDefenseRatioDenominator");
+        // ai.resupplyStrengthTroopsDivisor: AiArmyTargetTree: army troops / this, in the resupply target tree (two sites).
+        RequirePositiveDivisor(documentPath, ruleset.Ai.ResupplyStrengthTroopsDivisor, "ai.resupplyStrengthTroopsDivisor");
+        // ai.resupplyForeignMoneyDivisor: AiArmyTargetTree: strength / this, the foreign-money test (two sites).
+        RequirePositiveDivisor(documentPath, ruleset.Ai.ResupplyForeignMoneyDivisor, "ai.resupplyForeignMoneyDivisor");
+        // ai.mercenaryRunTroopsDivisor: AiArmyTargetTree: army troops / this, the mercenary run's well-supplied test.
+        RequirePositiveDivisor(documentPath, ruleset.Ai.MercenaryRunTroopsDivisor, "ai.mercenaryRunTroopsDivisor");
+        // ai.faithfulValueTroopsDivisor: AiFaithfulEconomy: unit troops / this, in the army value sum.
+        RequirePositiveDivisor(documentPath, ruleset.Ai.FaithfulValueTroopsDivisor, "ai.faithfulValueTroopsDivisor");
+        // ai.faithfulForeignNearDivisor: AiFaithfulEconomy: foreign near count / this, in the threat sum.
+        RequirePositiveDivisor(documentPath, ruleset.Ai.FaithfulForeignNearDivisor, "ai.faithfulForeignNearDivisor");
+        // ai.faithfulWarNearDivisor: AiFaithfulEconomy: war near count / this, in the threat sum.
+        RequirePositiveDivisor(documentPath, ruleset.Ai.FaithfulWarNearDivisor, "ai.faithfulWarNearDivisor");
+        // ai.faithfulAlliedArmyDivisor: AiFaithfulEconomy: allied army value / this, in the ally strength sum.
+        RequirePositiveDivisor(documentPath, ruleset.Ai.FaithfulAlliedArmyDivisor, "ai.faithfulAlliedArmyDivisor");
+        // ai.faithfulDeficitFloorWealthDivisor: AiFaithfulEconomy: nation wealth / this, the deficit floor.
+        RequirePositiveDivisor(documentPath, ruleset.Ai.FaithfulDeficitFloorWealthDivisor, "ai.faithfulDeficitFloorWealthDivisor");
+        // ai.faithfulAmountSpanDenominator: AiFaithfulEconomy: span = size * numerator / this, the order amount.
+        RequirePositiveDivisor(documentPath, ruleset.Ai.FaithfulAmountSpanDenominator, "ai.faithfulAmountSpanDenominator");
+        // ai.faithfulAmountMinDivisor: AiFaithfulEconomy: size / this, the order amount's minimum.
+        RequirePositiveDivisor(documentPath, ruleset.Ai.FaithfulAmountMinDivisor, "ai.faithfulAmountMinDivisor");
+        // ai.faithfulAmountRounding: AiFaithfulEconomy: raw / this * this, the order amount's rounding.
+        RequirePositiveDivisor(documentPath, ruleset.Ai.FaithfulAmountRounding, "ai.faithfulAmountRounding");
+        // ai.faithfulTaxCutTreasuryWealthDivisor: AiFaithfulEconomy: nation wealth / this, the tax-cut treasury test.
+        RequirePositiveDivisor(documentPath, ruleset.Ai.FaithfulTaxCutTreasuryWealthDivisor, "ai.faithfulTaxCutTreasuryWealthDivisor");
     }
 
     /// <summary>
