@@ -95,6 +95,34 @@ public static class GameDataValidation
             // exported pool rather than a ruleset-tunable rule, so it is a local constant here rather
             // than a Ruleset field. DatLayout is internal to IC2.Data, so this namespace cannot
             // reference the constant directly; it is restated here against that cited source.
+            // T161: a nation's starting recruitment queue. Its target city must exist, and a slot holds
+            // troops (the DAT's empty slot, troops 0, is not exported). The unit type and the state
+            // code's upper bound are ruleset data, so GameStateFactory checks those.
+            if (nation.RecruitmentSlots is { } recruitmentSlots)
+            {
+                for (var i = 0; i < recruitmentSlots.Count; i++)
+                {
+                    var slot = recruitmentSlots[i];
+                    if (world.CityById(slot.TargetCityId) is null)
+                    {
+                        throw new UnresolvedReferenceException(
+                            documentPath, $"city (nation '{nation.Id}' recruitmentSlots[{i}].targetCityId)", slot.TargetCityId);
+                    }
+
+                    if (slot.Troops <= 0)
+                    {
+                        throw new MalformedGameDataException(
+                            documentPath, $"nation '{nation.Id}' recruitmentSlots[{i}].troops is {slot.Troops}; a slot holds at least one troop.");
+                    }
+
+                    if (slot.StateCode < 0)
+                    {
+                        throw new MalformedGameDataException(
+                            documentPath, $"nation '{nation.Id}' recruitmentSlots[{i}].stateCode is {slot.StateCode}; it cannot be negative.");
+                    }
+                }
+            }
+
             if (nation.LeaderNames is { } leaderNames)
             {
                 const int leaderNamePoolSize = 12;

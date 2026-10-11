@@ -755,7 +755,13 @@ public partial class StrategyDialogsCheck : Control
             T109RomeFleetId, RomeId, portX, portY,
             Ships: 20, ConditionPercent: 100, Money: 50, SupplyTons: 100, Moves: 8));
 
-        var customWorld = world with { StartingFleets = ValueList.From(fleets) };
+        // T161: the shipped world now starts Rome with four regiments in training; the dialogs here are
+        // checked on the regiments the check orders itself, so the starting queues are left out.
+        var customWorld = world with
+        {
+            StartingFleets = ValueList.From(fleets),
+            Nations = ValueList.From(world.Nations.Select(n => n with { RecruitmentSlots = null })),
+        };
         return new GameSession(
             customWorld, resolved.Ruleset, resolved.Scenario, seedOverride: 1, humanSeatNationId: RomeId);
     }

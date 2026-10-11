@@ -1,0 +1,479 @@
+{
+  "_source": "Copied from the research report 2026-09-29-new-game-recruitment-queues-come-from-the-dat.md (diegoami/imperial-conquest-2-research), table 'The starting queues per nation, from the DAT'. Not read from the world file; cityId is the id of that DAT city index (the test pins Rome's).",
+  "nations": [
+    {
+      "nation": "rome",
+      "slotCount": 4,
+      "troopTotal": 14000,
+      "datCityIndex": 85,
+      "cityId": "rome",
+      "slots": [
+        {
+          "targetCityId": "rome",
+          "unitTypeId": "light_infantry",
+          "troops": 5500,
+          "stateCode": 9
+        },
+        {
+          "targetCityId": "rome",
+          "unitTypeId": "heavy_infantry",
+          "troops": 3500,
+          "stateCode": 13
+        },
+        {
+          "targetCityId": "rome",
+          "unitTypeId": "heavy_infantry",
+          "troops": 4000,
+          "stateCode": 17
+        },
+        {
+          "targetCityId": "rome",
+          "unitTypeId": "heavy_cavalry",
+          "troops": 1000,
+          "stateCode": 17
+        }
+      ]
+    },
+    {
+      "nation": "carthage",
+      "slotCount": 2,
+      "troopTotal": 4200,
+      "datCityIndex": 72,
+      "cityId": "carthago",
+      "slots": [
+        {
+          "targetCityId": "carthago",
+          "unitTypeId": "heavy_cavalry",
+          "troops": 1200,
+          "stateCode": 11
+        },
+        {
+          "targetCityId": "carthago",
+          "unitTypeId": "heavy_infantry",
+          "troops": 3000,
+          "stateCode": 11
+        }
+      ]
+    },
+    {
+      "nation": "seleucid",
+      "slotCount": 8,
+      "troopTotal": 35200,
+      "datCityIndex": 259,
+      "cityId": "antioch",
+      "slots": [
+        {
+          "targetCityId": "antioch",
+          "unitTypeId": "light_infantry",
+          "troops": 6000,
+          "stateCode": 7
+        },
+        {
+          "targetCityId": "antioch",
+          "unitTypeId": "light_infantry",
+          "troops": 5800,
+          "stateCode": 7
+        },
+        {
+          "targetCityId": "antioch",
+          "unitTypeId": "archers",
+          "troops": 1700,
+          "stateCode": 11
+        },
+        {
+          "targetCityId": "antioch",
+          "unitTypeId": "archers",
+          "troops": 1400,
+          "stateCode": 11
+        },
+        {
+          "targetCityId": "antioch",
+          "unitTypeId": "heavy_infantry",
+          "troops": 4500,
+          "stateCode": 15
+        },
+        {
+          "targetCityId": "antioch",
+          "unitTypeId": "light_cavalry",
+          "troops": 3800,
+          "stateCode": 19
+        },
+        {
+          "targetCityId": "antioch",
+          "unitTypeId": "heavy_infantry",
+          "troops": 4000,
+          "stateCode": 21
+        },
+        {
+          "targetCityId": "antioch",
+          "unitTypeId": "light_infantry",
+          "troops": 8000,
+          "stateCode": 21
+        }
+      ]
+    },
+    {
+      "nation": "ptolemaic",
+      "slotCount": 5,
+      "troopTotal": 24400,
+      "datCityIndex": 214,
+      "cityId": "alexandria",
+      "slots": [
+        {
+          "targetCityId": "alexandria",
+          "unitTypeId": "heavy_cavalry",
+          "troops": 900,
+          "stateCode": 7
+        },
+        {
+          "targetCityId": "alexandria",
+          "unitTypeId": "light_infantry",
+          "troops": 9000,
+          "stateCode": 13
+        },
+        {
+          "targetCityId": "alexandria",
+          "unitTypeId": "heavy_infantry",
+          "troops": 5000,
+          "stateCode": 15
+        },
+        {
+          "targetCityId": "alexandria",
+          "unitTypeId": "archers",
+          "troops": 2000,
+          "stateCode": 17
+        },
+        {
+          "targetCityId": "alexandria",
+          "unitTypeId": "light_infantry",
+          "troops": 7500,
+          "stateCode": 21
+        }
+      ]
+    },
+    {
+      "nation": "macedonia",
+      "slotCount": 2,
+      "troopTotal": 9000,
+      "datCityIndex": 144,
+      "cityId": "pella",
+      "slots": [
+        {
+          "targetCityId": "pella",
+          "unitTypeId": "heavy_infantry",
+          "troops": 4000,
+          "stateCode": 7
+        },
+        {
+          "targetCityId": "pella",
+          "unitTypeId": "light_infantry",
+          "troops": 5000,
+          "stateCode": 13
+        }
+      ]
+    },
+    {
+      "nation": "numidia",
+      "slotCount": 3,
+      "troopTotal": 7500,
+      "datCityIndex": 47,
+      "cityId": "gemellae",
+      "slots": [
+        {
+          "targetCityId": "gemellae",
+          "unitTypeId": "light_cavalry",
+          "troops": 2500,
+          "stateCode": 5
+        },
+        {
+          "targetCityId": "gemellae",
+          "unitTypeId": "heavy_cavalry",
+          "troops": 700,
+          "stateCode": 9
+        },
+        {
+          "targetCityId": "gemellae",
+          "unitTypeId": "light_infantry",
+          "troops": 4300,
+          "stateCode": 15
+        }
+      ]
+    },
+    {
+      "nation": "gaul",
+      "slotCount": 4,
+      "troopTotal": 16500,
+      "datCityIndex": 45,
+      "cityId": "nimes",
+      "slots": [
+        {
+          "targetCityId": "nimes",
+          "unitTypeId": "heavy_infantry",
+          "troops": 1500,
+          "stateCode": 9
+        },
+        {
+          "targetCityId": "nimes",
+          "unitTypeId": "light_infantry",
+          "troops": 8500,
+          "stateCode": 13
+        },
+        {
+          "targetCityId": "nimes",
+          "unitTypeId": "heavy_cavalry",
+          "troops": 800,
+          "stateCode": 15
+        },
+        {
+          "targetCityId": "nimes",
+          "unitTypeId": "light_infantry",
+          "troops": 5700,
+          "stateCode": 19
+        }
+      ]
+    },
+    {
+      "nation": "greece",
+      "slotCount": 2,
+      "troopTotal": 8300,
+      "datCityIndex": 166,
+      "cityId": "athens",
+      "slots": [
+        {
+          "targetCityId": "athens",
+          "unitTypeId": "heavy_infantry",
+          "troops": 3500,
+          "stateCode": 5
+        },
+        {
+          "targetCityId": "athens",
+          "unitTypeId": "light_infantry",
+          "troops": 4800,
+          "stateCode": 13
+        }
+      ]
+    },
+    {
+      "nation": "celtiberia",
+      "slotCount": 4,
+      "troopTotal": 15000,
+      "datCityIndex": 23,
+      "cityId": "numantia",
+      "slots": [
+        {
+          "targetCityId": "numantia",
+          "unitTypeId": "heavy_cavalry",
+          "troops": 1300,
+          "stateCode": 7
+        },
+        {
+          "targetCityId": "numantia",
+          "unitTypeId": "light_infantry",
+          "troops": 5500,
+          "stateCode": 7
+        },
+        {
+          "targetCityId": "numantia",
+          "unitTypeId": "light_cavalry",
+          "troops": 3000,
+          "stateCode": 17
+        },
+        {
+          "targetCityId": "numantia",
+          "unitTypeId": "light_infantry",
+          "troops": 5200,
+          "stateCode": 17
+        }
+      ]
+    },
+    {
+      "nation": "illyria",
+      "slotCount": 3,
+      "troopTotal": 11800,
+      "datCityIndex": 126,
+      "cityId": "scodra",
+      "slots": [
+        {
+          "targetCityId": "scodra",
+          "unitTypeId": "light_infantry",
+          "troops": 4300,
+          "stateCode": 11
+        },
+        {
+          "targetCityId": "scodra",
+          "unitTypeId": "light_infantry",
+          "troops": 5000,
+          "stateCode": 15
+        },
+        {
+          "targetCityId": "scodra",
+          "unitTypeId": "light_cavalry",
+          "troops": 2500,
+          "stateCode": 17
+        }
+      ]
+    },
+    {
+      "nation": "dacia",
+      "slotCount": 3,
+      "troopTotal": 10700,
+      "datCityIndex": 133,
+      "cityId": "sirmium",
+      "slots": [
+        {
+          "targetCityId": "sirmium",
+          "unitTypeId": "light_infantry",
+          "troops": 4200,
+          "stateCode": 7
+        },
+        {
+          "targetCityId": "sirmium",
+          "unitTypeId": "light_infantry",
+          "troops": 3800,
+          "stateCode": 11
+        },
+        {
+          "targetCityId": "sirmium",
+          "unitTypeId": "heavy_infantry",
+          "troops": 2700,
+          "stateCode": 13
+        }
+      ]
+    },
+    {
+      "nation": "bithynia",
+      "slotCount": 3,
+      "troopTotal": 10100,
+      "datCityIndex": 250,
+      "cityId": "sinope",
+      "slots": [
+        {
+          "targetCityId": "sinope",
+          "unitTypeId": "heavy_infantry",
+          "troops": 2800,
+          "stateCode": 7
+        },
+        {
+          "targetCityId": "sinope",
+          "unitTypeId": "light_infantry",
+          "troops": 6300,
+          "stateCode": 15
+        },
+        {
+          "targetCityId": "sinope",
+          "unitTypeId": "heavy_cavalry",
+          "troops": 1000,
+          "stateCode": 17
+        }
+      ]
+    },
+    {
+      "nation": "galatia",
+      "slotCount": 3,
+      "troopTotal": 13100,
+      "datCityIndex": 218,
+      "cityId": "ancyra",
+      "slots": [
+        {
+          "targetCityId": "ancyra",
+          "unitTypeId": "light_cavalry",
+          "troops": 3100,
+          "stateCode": 9
+        },
+        {
+          "targetCityId": "ancyra",
+          "unitTypeId": "light_infantry",
+          "troops": 4900,
+          "stateCode": 15
+        },
+        {
+          "targetCityId": "ancyra",
+          "unitTypeId": "light_infantry",
+          "troops": 5100,
+          "stateCode": 21
+        }
+      ]
+    },
+    {
+      "nation": "armenia",
+      "slotCount": 3,
+      "troopTotal": 12000,
+      "datCityIndex": 297,
+      "cityId": "erivan",
+      "slots": [
+        {
+          "targetCityId": "erivan",
+          "unitTypeId": "light_infantry",
+          "troops": 5000,
+          "stateCode": 13
+        },
+        {
+          "targetCityId": "erivan",
+          "unitTypeId": "light_infantry",
+          "troops": 5000,
+          "stateCode": 19
+        },
+        {
+          "targetCityId": "erivan",
+          "unitTypeId": "archers",
+          "troops": 2000,
+          "stateCode": 19
+        }
+      ]
+    },
+    {
+      "nation": "media",
+      "slotCount": 3,
+      "troopTotal": 13500,
+      "datCityIndex": 330,
+      "cityId": "ecbatana",
+      "slots": [
+        {
+          "targetCityId": "ecbatana",
+          "unitTypeId": "archers",
+          "troops": 2500,
+          "stateCode": 7
+        },
+        {
+          "targetCityId": "ecbatana",
+          "unitTypeId": "light_infantry",
+          "troops": 7000,
+          "stateCode": 13
+        },
+        {
+          "targetCityId": "ecbatana",
+          "unitTypeId": "light_cavalry",
+          "troops": 4000,
+          "stateCode": 17
+        }
+      ]
+    },
+    {
+      "nation": "thracia",
+      "slotCount": 3,
+      "troopTotal": 10300,
+      "datCityIndex": 192,
+      "cityId": "byzantium",
+      "slots": [
+        {
+          "targetCityId": "byzantium",
+          "unitTypeId": "light_infantry",
+          "troops": 5300,
+          "stateCode": 9
+        },
+        {
+          "targetCityId": "byzantium",
+          "unitTypeId": "heavy_infantry",
+          "troops": 4000,
+          "stateCode": 17
+        },
+        {
+          "targetCityId": "byzantium",
+          "unitTypeId": "heavy_cavalry",
+          "troops": 1000,
+          "stateCode": 17
+        }
+      ]
+    }
+  ]
+}

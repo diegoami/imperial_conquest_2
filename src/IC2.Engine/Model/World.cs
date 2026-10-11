@@ -534,6 +534,13 @@ public sealed record TileType(
 /// exactly 12 non-empty names, at least two distinct, and <see cref="LeaderName"/> is one of them
 /// (<c>GameDataValidation</c>).
 /// </param>
+/// <param name="RecruitmentSlots">
+/// T161: the nation's recruitment queue as the original's DAT gives it at a new game's start, slot by
+/// slot in the DAT's own order (nation record <c>+0x2C9</c>, 40 slots of 8 bytes; an empty slot, troops 0,
+/// is not exported). <c>GameStateFactory.CreateInitial</c> seeds <see cref="NationState.RecruitmentSlots"/>
+/// from it. Optional and trailing: a world authored before T161 (the toy and example worlds) carries no
+/// queue, and <see langword="null"/> means an empty one.
+/// </param>
 public sealed record NationDefinition(
     string Id,
     string Name,
@@ -550,7 +557,8 @@ public sealed record NationDefinition(
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null,
     ValueList<string>? BattleColorsHex = null,
     string? GlyphColorHex = null,
-    ValueList<string>? LeaderNames = null);
+    ValueList<string>? LeaderNames = null,
+    ValueList<RecruitmentSlot>? RecruitmentSlots = null);
 
 /// <summary>A city as the world defines it at scenario start.</summary>
 /// <param name="Owner">The nation that currently controls the city (city record <c>+6</c>).</param>

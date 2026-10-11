@@ -322,6 +322,23 @@ if (palette.Zip(glyphPalette).Distinct().Count() != 16)
 const string startSaveName = "1_rome_270_winter_11.sav";
 var startSaveNations = SaveNationTable.Parse(File.ReadAllBytes(ResolveStartSave(settings, startSaveName)));
 
+// T161: each nation's starting recruitment queue, read straight from the DAT's nation record
+// (+0x2C9, 40 slots x 8 bytes, words state/type/troops/city) through IC2.Data's own
+// SaveRecruitmentTable.Parse. Its emptiness test is "troops == 0" (the parse skips such a slot), and the
+// slots keep the DAT's slot order. The type code is the DAT's unit order, the city index goes through the
+// same CityId mapping the cities use, and the state word is carried as the readiness counter.
+string[] recruitmentUnitTypeIds = ["light_infantry", "heavy_infantry", "archers", "light_cavalry", "heavy_cavalry"];
+var recruitmentTable = SaveRecruitmentTable.Parse(datBytes);
+ValueList<RecruitmentSlot> NationRecruitmentSlots(int nationCode) => ValueList.Of(recruitmentTable.Entries
+    .Where(e => e.NationCode == nationCode)
+    .OrderBy(e => e.Slot)
+    .Select(e => new RecruitmentSlot(
+        TargetCityId: CityId(e.CityIndex),
+        UnitTypeId: recruitmentUnitTypeIds[e.TypeCode],
+        Troops: e.Troops,
+        StateCode: e.StateCode))
+    .ToArray());
+
 var nationDefs = new NationDefinition[16];
 for (var i = 0; i < 16; i++)
 {
@@ -369,6 +386,7 @@ for (var i = 0; i < 16; i++)
         Population: population,
         BattleColorsHex: battleColorsHex,
         LeaderNames: ValueList.Of(leaderNames.ToArray()),
+        RecruitmentSlots: NationRecruitmentSlots(i),
         Provenance: ProvenanceMap.Of(
             ("name", "confirmed: T30's DAT nation-table parse (IC2.Data.SaveNationTable.Parse), DAT 0x1B100; cross-checked against NationCatalog -- docs/investigations/dat-file-layout.md."),
             ("colorHex", "confirmed: 2026-09-29-nation-marker-colours.md -- the report's background-square colour for this nation (read from the user's 2026-09-29 screenshot strip, cross-checked against the pre-T94 research inspector's OwnerColor table); replaces T49's designed palette."),
@@ -383,7 +401,8 @@ for (var i = 0; i < 16; i++)
             ("taxBase", "confirmed: DAT nation record +0x41b, exported as stored, not recomputed -- nation-tax-base-and-city-economy-fields.md, docs/task-catalogue.md T29 DoD 9."),
             ("taxRatePercent", "confirmed: DAT nation record +0x419, T30's parse."),
             ("mobilizedPercent", "confirmed: DAT nation record +0x413, T30's parse."),
-            ("population", "derived: not itself a DAT nation-record field; summed from this nation's own cities' populationThousands (WorldPrefix.Parse), consistent with the score formula's use of a nation-level population figure (corpus id diplomacy.scoreFormula).")));
+            ("population", "derived: not itself a DAT nation-record field; summed from this nation's own cities' populationThousands (WorldPrefix.Parse), consistent with the score formula's use of a nation-level population figure (corpus id diplomacy.scoreFormula)."),
+            ("recruitmentSlots", "confirmed: 2026-09-29-new-game-recruitment-queues-come-from-the-dat.md -- a new game copies the DAT nation record's recruitment block as it is (three headless new games in Wine, every nation's slots identical to its DAT record). DAT nation record +0x2C9 (IC2.Data.DatLayout.NationRecruitmentOffset), 40 slots of 8 bytes, words state/type/troops/city, through IC2.Data.SaveRecruitmentTable.Parse; a slot with troops 0 is empty and not exported, the rest keep the DAT's slot order. State is the readiness counter, type 0-4 is light_infantry, heavy_infantry, archers, light_cavalry, heavy_cavalry, and the city index maps to a city id as the cities do.")));
 }
 
 // ============================================================================================
