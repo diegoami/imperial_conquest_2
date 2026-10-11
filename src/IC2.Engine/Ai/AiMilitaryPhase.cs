@@ -261,6 +261,27 @@ public static class AiMilitaryPhase
                 continue;
             }
 
+            // Mirror MoveFleetCommandHandler.IsBlocked: a launched fleet at the first step blocks the
+            // sail, just as IsProposableMove mirrors MoveArmyCommandHandler.IsBlocked for armies.
+            // The passability check above handles terrain; this handles occupancy only.
+            var firstStep = path[1];
+            var blockedByFleetAtFirstStep = false;
+            foreach (var otherFleet in view.State.Fleets)
+            {
+                if (!string.Equals(otherFleet.Id, fleet.Id, StringComparison.Ordinal)
+                    && !otherFleet.IsUnderConstruction
+                    && otherFleet.X == firstStep.X && otherFleet.Y == firstStep.Y)
+                {
+                    blockedByFleetAtFirstStep = true;
+                    break;
+                }
+            }
+
+            if (blockedByFleetAtFirstStep)
+            {
+                continue;
+            }
+
             var score = view.Ruleset.Ai.SailAtFleetBaseScore - (view.Ruleset.Ai.DistancePenaltyPerTile * distance);
             if (score < view.Ruleset.Ai.MinimumActionScore)
             {
