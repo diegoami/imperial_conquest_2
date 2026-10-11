@@ -568,14 +568,19 @@ You are implementing task T<nn> of the Imperial Conquest 2 build. The repository
 C:\Users\diego\projects\imperial_conquest_2 (GitHub diegoami/imperial_conquest_2). Do NOT work in
 that directory: it is the main session's checkout. Work in your own worktree:
 
-  git -C C:\Users\diego\projects\imperial_conquest_2 fetch origin
+  git -C C:/Users/diego/projects/imperial_conquest_2 fetch origin
   - If origin has task/T<nn>-<slug>, an earlier attempt exists: continue it, and don't start over.
     Read its commits and any open PR first.
-      git -C C:\Users\diego\projects\imperial_conquest_2 worktree add C:\Users\diego\projects\ic2-work\T<nn> task/T<nn>-<slug>
-      git -C C:\Users\diego\projects\ic2-work\T<nn> merge --ff-only origin/task/T<nn>-<slug>   (a stale local copy catches up)
+      git -C C:/Users/diego/projects/imperial_conquest_2 worktree add C:/Users/diego/projects/ic2-work/T<nn> task/T<nn>-<slug>
+      git -C C:/Users/diego/projects/ic2-work/T<nn> merge --ff-only origin/task/T<nn>-<slug>   (a stale local copy catches up)
   - Otherwise create the branch from origin/main, then push it at once:
-      git -C C:\Users\diego\projects\imperial_conquest_2 worktree add -b task/T<nn>-<slug> C:\Users\diego\projects\ic2-work\T<nn> origin/main
-      git -C C:\Users\diego\projects\ic2-work\T<nn> push -u origin task/T<nn>-<slug>
+      git -C C:/Users/diego/projects/imperial_conquest_2 worktree add -b task/T<nn>-<slug> C:/Users/diego/projects/ic2-work/T<nn> origin/main
+      git -C C:/Users/diego/projects/ic2-work/T<nn> push -u origin task/T<nn>-<slug>
+  - Write every path as shown: absolute, with forward slashes. Git Bash eats backslashes, and a
+    relative path resolves from the main checkout (twice on 2026-10-11 an agent's worktree landed
+    inside it). Right after the worktree exists, check that
+    `git -C C:/Users/diego/projects/imperial_conquest_2 status --porcelain` prints nothing and that no
+    `ic2-work` folder exists inside the main checkout; if either fails, undo it and say so.
   - <local-only tasks only> copy C:\Users\diego\projects\imperial_conquest_2\assets.local.ini into
     the worktree root. It is git-ignored; never commit it. (For an OpenCode run this setup is
     already done: `scripts/external-implement.ps1` created the worktree and `-LocalOnly` copied the
@@ -691,8 +696,8 @@ You are reviewing PR #<pr> for task T<nn> of the Imperial Conquest 2 build. You 
 Do NOT work in C:\Users\diego\projects\imperial_conquest_2 (the main session's checkout). Use your
 own worktree at the PR head:
 
-  git -C C:\Users\diego\projects\imperial_conquest_2 fetch origin task/T<nn>-<slug>
-  git -C C:\Users\diego\projects\imperial_conquest_2 worktree add --detach C:\Users\diego\projects\ic2-work\T<nn>-review origin/task/T<nn>-<slug>
+  git -C C:/Users/diego/projects/imperial_conquest_2 fetch origin task/T<nn>-<slug>
+  git -C C:/Users/diego/projects/imperial_conquest_2 worktree add --detach C:/Users/diego/projects/ic2-work/T<nn>-review origin/task/T<nn>-<slug>
   <local-only tasks only> copy assets.local.ini from the main checkout into the worktree root.
 
 GATE 0 — PROVE YOU ARE LOOKING AT THE RIGHT CODE. Before reading or judging anything, run these
@@ -931,7 +936,9 @@ the docs item applies only if the review named a claim.
    - Docs: apply the PR's "Docs affected" claims on main ("Docs: after T<nn>"). Write no status.
    - Leave the task's worktrees under C:\Users\diego\projects\ic2-work\ in place: they are removed on
      a schedule, once safe (§4.7 step 4).
-   - Report: the merge commit, the review's findings, the follow-ups, and what's ready next.
+   - Report: the merge commit, the review's findings, the follow-ups, and the next item: recommend one
+     with a one-line reason, then the alternatives, rather than only listing what is ready (the user's
+     decision of 2026-10-11, "When finishing a task, propose a new one").
 5. ESCALATE or BUG.
    - Escalate (build-process.md §4.5): label status:escalated, comment the evidence on the
      issue, and bring it to the user with options and a recommendation. Stop the run.
