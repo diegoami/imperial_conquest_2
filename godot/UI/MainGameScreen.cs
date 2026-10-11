@@ -148,6 +148,10 @@ public partial class MainGameScreen : Control
 
     private readonly Queue<Engine.Battle.BattleResult> _pendingBattleOverlays = new();
 
+    /// <summary>Fix #917: the turn-start offer notices the engine announced, shown one at a time by
+    /// <see cref="ShowNextOverlay"/> once any battle, fall, hand-off and peace window has had its turn.</summary>
+    private readonly Queue<string> _pendingOfferNotices = new();
+
     // T138: one window per human seat that fell on the last Submit call, in the order the engine recorded
     // them. Drained by ShowNextOverlay after the call's battle windows and before a hotseat hand-off.
     private readonly Queue<SeatFall> _pendingGameEndOverlays = new();
@@ -1708,6 +1712,16 @@ public partial class MainGameScreen : Control
     /// </summary>
     private void OnSessionEventsPublished(IReadOnlyList<Engine.Core.DomainEvent> events)
     {
+        // Fix #917: the original's turn-start box. The engine's text is shown verbatim; the notice is
+        // never a news line and changes no relation. The Accept Offer button stays the way to accept.
+        foreach (var domainEvent in events)
+        {
+            if (domainEvent is Engine.Diplomacy.PendingDiplomaticOfferAnnounced announced)
+            {
+                _pendingOfferNotices.Enqueue(announced.DialogText);
+            }
+        }
+
         if (_soundPlayer is null)
         {
             return;
@@ -1984,6 +1998,68 @@ public partial class MainGameScreen : Control
             && Session.PendingPeaceOfferFor(Session.State.ActiveNationId) is { } offer)
         {
             ShowPeaceOfferOverlay(offer);
+            return;
+        }
+
+        if (ActiveOverlay is null && _pendingOfferNotices.Count > 0)
+        {
+            var notice = new OfferNoticeBox { Text = _pendingOfferNotices.Dequeue() };
+            notice.Closed += () =>
+            {
+                CloseOverlay(notice);
+                ShowNextOverlay();
+            };
+            ShowOverlay(notice);
+        }
+    }
+
+    /// <summary>Fix #917: the OK-only box the original shows at the human's turn start for an AI
+    /// nation's offer of trade or alliance. Closes on OK and on Esc.</summary>
+    internal partial class OfferNoticeBox : Control
+    {
+        public event Action? Closed;
+
+        public required string Text { get; init; }
+
+        public override void _Ready()
+        {
+            var backdrop = new ColorRect { Color = new Color(0, 0, 0, 0.6f), MouseFilter = MouseFilterEnum.Stop };
+            backdrop.SetAnchorsPreset(LayoutPreset.FullRect);
+            AddChild(backdrop);
+
+            var center = new CenterContainer();
+            center.SetAnchorsPreset(LayoutPreset.FullRect);
+            AddChild(center);
+
+            var panel = UiKit.MakePanel(UiKit.PanelColor);
+            panel.CustomMinimumSize = new Vector2(420, 0);
+            center.AddChild(panel);
+
+            var column = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            column.AddThemeConstantOverride("separation", 12);
+            panel.AddChild(column);
+
+            var label = UiKit.MakeLabel(Text, 16, UiKit.TextColor);
+            label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            column.AddChild(label);
+
+            var ok = UiKit.MakeButton("OK", Close);
+            ok.SizeFlagsHorizontal = SizeFlags.ShrinkEnd;
+            column.AddChild(ok);
+            ok.GrabFocus();
+        }
+
+        public void Close() => Closed?.Invoke();
+
+        public override void _UnhandledInput(InputEvent @event)
+        {
+            if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape })
+            {
+                // Close removes this node from the tree, so the viewport is taken first.
+                var viewport = GetViewport();
+                Close();
+                viewport.SetInputAsHandled();
+            }
         }
     }
 
