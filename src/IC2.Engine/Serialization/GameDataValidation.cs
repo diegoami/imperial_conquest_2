@@ -315,6 +315,96 @@ public static class GameDataValidation
         RequirePositiveDivisor(documentPath, ruleset.Ai.FaithfulAmountRounding, "ai.faithfulAmountRounding");
         // ai.faithfulTaxCutTreasuryWealthDivisor: AiFaithfulEconomy: nation wealth / this, the tax-cut treasury test.
         RequirePositiveDivisor(documentPath, ruleset.Ai.FaithfulTaxCutTreasuryWealthDivisor, "ai.faithfulTaxCutTreasuryWealthDivisor");
+
+        ValidateRngBounds(documentPath, ruleset);
+    }
+
+    /// <summary>
+    /// Bug #973: <c>IRng.NextInt(bound)</c> throws for a bound of 0 or less, <c>NextInt(min, max)</c> for an
+    /// empty range, and <c>NextChance(1, d)</c> for a denominator of 0 or less. Every ruleset value that
+    /// reaches such a draw is checked here, so a bad ruleset is refused at load rather than crashing mid-game.
+    /// Each comment names the draw site.
+    /// </summary>
+    private static void ValidateRngBounds(string documentPath, Ruleset ruleset)
+    {
+        // NextInt(bound): the bound must be > 0.
+        // AiFaithfulEconomy.RollType: NextInt(faithfulTypeDrawBound).
+        RequireRngBound(documentPath, ruleset.Ai.FaithfulTypeDrawBound, "ai.faithfulTypeDrawBound");
+        // AiFaithfulEconomy.RollTroops: span = size * numerator / denominator, then NextInt(span); a numerator of 0 or less makes the span 0 or less.
+        RequireRngBound(documentPath, ruleset.Ai.FaithfulAmountSpanNumerator, "ai.faithfulAmountSpanNumerator");
+        // BattleCasualties (two sites) and TypeWeightedInstantCandidate: NextInt(casualtyDivisorRandomSpan) + base.
+        RequireRngBound(documentPath, ruleset.Combat.CasualtyDivisorRandomSpan, "combat.casualtyDivisorRandomSpan");
+        // BattleCasualties promotion roll: NextInt(promotionChanceDenominator) == 0.
+        RequireRngBound(documentPath, ruleset.Combat.PromotionChanceDenominator, "combat.promotionChanceDenominator");
+        // InstantBattleResolver auto-peace roll (two sites): NextInt(autoPeaceChanceDenominator) < numerator.
+        RequireRngBound(documentPath, ruleset.Combat.AutoPeaceChanceDenominator, "combat.autoPeaceChanceDenominator");
+        // ConquestCascade: NextInt(conquestLoyaltyRandomBonusMax) per conquered city.
+        RequireRngBound(documentPath, ruleset.Capture.ConquestLoyaltyRandomBonusMax, "capture.conquestLoyaltyRandomBonusMax");
+        // FleetAttritionRule zero-supply condition loss: NextInt(zeroSupplyConditionRandomBound).
+        RequireRngBound(documentPath, ruleset.Naval.ZeroSupplyConditionRandomBound, "naval.zeroSupplyConditionRandomBound");
+        // FleetPower: NextInt(randomBandCount).
+        RequireRngBound(documentPath, ruleset.Combat.Naval.RandomBandCount, "combat.naval.randomBandCount");
+        // CityLoyaltyDraws: loyalty += NextInt(loyaltyRiseRollBound).
+        RequireRngBound(documentPath, ruleset.Economy.LoyaltyRiseRollBound, "economy.loyaltyRiseRollBound");
+        // MercenaryPoolRestock: the empty-slot roll, the replace roll, the template index and the quality jitter.
+        RequireRngBound(documentPath, ruleset.Recruitment.MercenaryRestockEmptyRollDenominator, "recruitment.mercenaryRestockEmptyRollDenominator");
+        RequireRngBound(documentPath, ruleset.Recruitment.MercenaryRestockReplaceRollDenominator, "recruitment.mercenaryRestockReplaceRollDenominator");
+        RequireRngBound(documentPath, ruleset.Recruitment.MercenaryRestockTemplateDrawCount, "recruitment.mercenaryRestockTemplateDrawCount");
+        RequireRngBound(documentPath, ruleset.Recruitment.MercenaryRestockQualityJitterSteps, "recruitment.mercenaryRestockQualityJitterSteps");
+
+        // NextInt(min, max + 1) in InstantBattleResolver.DrawScatterDistance: the range [min, max] must not be empty.
+        var scatter = ruleset.Combat.ScatteredDefeat;
+        if (scatter.ScatterTilesMin > scatter.ScatterTilesMax)
+        {
+            throw new MalformedGameDataException(
+                documentPath,
+                $"'combat.scatteredDefeat.scatterTilesMin' ({scatter.ScatterTilesMin}) must not exceed "
+                + $"'combat.scatteredDefeat.scatterTilesMax' ({scatter.ScatterTilesMax}) (the scatter distance is a random draw over that range).");
+        }
+
+        // NextChance(1, d): the denominator must be > 0.
+        RequireRngBound(documentPath, ruleset.Diplomacy.OfferRollDenominator, "diplomacy.offerRollDenominator");
+        RequireRngBound(documentPath, ruleset.Diplomacy.ThawBonusChanceDenominator, "diplomacy.thawBonusChanceDenominator");
+        RequireRngBound(documentPath, ruleset.Diplomacy.AiOwnDiplomacy.AllianceRollDenominator, "diplomacy.aiOwnDiplomacy.allianceRollDenominator");
+        RequireRngBound(documentPath, ruleset.Diplomacy.AiOwnDiplomacy.WarDeclareRollDenominator, "diplomacy.aiOwnDiplomacy.warDeclareRollDenominator");
+        RequireRngBound(documentPath, ruleset.Economy.DepositionRandomDivisor, "economy.depositionRandomDivisor");
+        RequireRngBound(documentPath, ruleset.Economy.LoyaltyFallProbabilityDenominator, "economy.loyaltyFallProbabilityDenominator");
+        RequireRngBound(documentPath, ruleset.Economy.FamineLoyaltyLossProbabilityDenominator, "economy.famineLoyaltyLossProbabilityDenominator");
+        RequireRngBound(documentPath, ruleset.Naval.StormWinterSpikeChanceDenominator, "naval.stormWinterSpikeChanceDenominator");
+
+        // WeatherEventSystem: NextChance(numerator, denominator) per location, then NextInt(effects.Count). An
+        // empty effects list is legitimate (the system returns before any draw), so only the odds are checked,
+        // and only when the system would draw.
+        var weather = ruleset.Economy.Weather;
+        if (weather.Effects.Count > 0)
+        {
+            for (var i = 0; i < weather.BySeason.Count; i++)
+            {
+                var odds = weather.BySeason[i];
+                RequireChance(documentPath, odds.EarlyNumerator, odds.EarlyDenominator, $"economy.weather.bySeason[{i}].early");
+                RequireChance(documentPath, odds.LateNumerator, odds.LateDenominator, $"economy.weather.bySeason[{i}].late");
+            }
+        }
+    }
+
+    private static void RequireRngBound(string documentPath, int value, string field)
+    {
+        if (value <= 0)
+        {
+            throw new MalformedGameDataException(
+                documentPath, $"'{field}' must be greater than 0 (it is a random-draw bound); got {value}.");
+        }
+    }
+
+    private static void RequireChance(string documentPath, int numerator, int denominator, string field)
+    {
+        if (denominator <= 0 || numerator < 0 || numerator > denominator)
+        {
+            throw new MalformedGameDataException(
+                documentPath,
+                $"'{field}' odds {numerator}-in-{denominator} are not a valid chance (it is a random-draw bound): "
+                + "the denominator must be greater than 0 and the numerator between 0 and the denominator.");
+        }
     }
 
     /// <summary>
