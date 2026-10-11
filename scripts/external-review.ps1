@@ -420,6 +420,17 @@ function Read-ReviewOutput {
         }
         $bodyLines = @(@($bodyLines | Select-Object -First $closeIdx) + $after)
     }
+    # A verdict that contradicts its own findings (issue #971) is not trustworthy to act on either:
+    # a rework with no finding line, or an approve with a finding marked blocking ("non-blocking"
+    # and "not blocking" do not count). Flag it the same way: post whole, no label, exit 4.
+    $findingRx = '^\s*(?:(?:[-*+]|\d+[.)])\s+|#+\s*)?[*_]*R\d+'
+    $findingLines = @($bodyLines | Where-Object { $_ -match $findingRx })
+    $contradicts = $false
+    if ($verdict -eq 'rework' -and $findingLines.Count -eq 0) { $contradicts = $true }
+    if ($verdict -eq 'approve' -and @($findingLines | Where-Object { $_ -match '(?i)(?<!non-)(?<!non )(?<!not )\bblocking\b' }).Count -gt 0) { $contradicts = $true }
+    if ($contradicts) {
+        return [pscustomobject]@{ Ok = $true; Flagged = $true; FlagNote = 'verdict contradicts findings'; Review = $raw; Verdict = $verdict }
+    }
     while ($bodyLines.Count -gt 0 -and -not $bodyLines[0].Trim()) { $bodyLines = @($bodyLines | Select-Object -Skip 1) }
     while ($bodyLines.Count -gt 0 -and -not $bodyLines[-1].Trim()) { $bodyLines = @($bodyLines | Select-Object -First ($bodyLines.Count - 1)) }
     if ($bodyLines.Count -eq 0) {
@@ -491,6 +502,20 @@ function Invoke-ReviewParserSelfTest {
         [pscustomobject]@{ Name = 'flat unreadable';        Text = "$h Looks good overall  R1. fine";                      Expect = 'verdict unreadable'; MustContain = @('Looks good overall', 'R1. fine') },
         [pscustomobject]@{ Name = 'no closing verdict';     Text = "$h`napprove`n`nR1. fine`nR2. another";               Expect = 'may be cut off' },
         [pscustomobject]@{ Name = 'unreadable verdict';     Text = "$h`nLooks good to me.`n`nR1. fine`nR2. another";     Expect = 'verdict unreadable' },
+        # Issue #971: a verdict that contradicts its findings is flagged; correct reviews are not.
+        [pscustomobject]@{ Name = 'rework, no finding';        Text = "$h`nrework`n`nAll five gates passed. Nothing to fix.`nrework"; Expect = 'verdict contradicts findings'; MustContain = @('All five gates passed') },
+        [pscustomobject]@{ Name = 'rework, R1 (blocking)';     Text = "$h`nrework`n`nR1 (blocking): the label path is wrong`nrework"; Expect = 'act' },
+        [pscustomobject]@{ Name = 'rework, bold R1 Blocking';  Text = "$h`nrework`n`n**R1 -- Blocking: the label path is wrong.**`nrework"; Expect = 'act' },
+        [pscustomobject]@{ Name = 'rework, list-item R1';      Text = "$h`nrework`n`n- **R1 -- Blocking: wrong.**`nrework"; Expect = 'act' },
+        [pscustomobject]@{ Name = 'rework, heading R1';        Text = "$h`nrework`n`n### R1 blocking`nwrong`nrework"; Expect = 'act' },
+        [pscustomobject]@{ Name = 'approve, R1 blocking';      Text = "$h`napprove`n`nR1 $([char]0x2014) blocking: the label path is wrong`napprove"; Expect = 'verdict contradicts findings'; MustContain = @('the label path is wrong') },
+        [pscustomobject]@{ Name = 'approve, bold R1 Blocking'; Text = "$h`napprove`n`n**R1 -- Blocking: wrong.**`napprove"; Expect = 'verdict contradicts findings' },
+        [pscustomobject]@{ Name = 'approve, R1 non-blocking';  Text = "$h`napprove`n`nR1 $([char]0x2014) non-blocking`napprove"; Expect = 'act' },
+        [pscustomobject]@{ Name = 'approve, bold non-blocking style'; Text = "$h`napprove`n`n**R1 -- non-blocking, style.**`napprove"; Expect = 'act' },
+        [pscustomobject]@{ Name = 'approve, R1 not blocking';  Text = "$h`napprove`n`nR1 (not blocking): style`napprove"; Expect = 'act' },
+        [pscustomobject]@{ Name = 'approve, no findings';      Text = "$h`napprove`n`nAll five gates passed.`napprove"; Expect = 'act' },
+        [pscustomobject]@{ Name = 'approve after named fixes, no R-line'; Text = "$h`napprove after named fixes`n`nFix the typo.`napprove after named fixes"; Expect = 'act' },
+        [pscustomobject]@{ Name = 'user decision, no R-line';  Text = "$h`nuser decision`n`nThe plan needs a call.`nuser decision"; Expect = 'act' },
         [pscustomobject]@{ Name = 'no header, chatter';     Text = "reading files...`nrunning tests...`nno review";      Expect = 'failure' }
     )
     $failed = 0
