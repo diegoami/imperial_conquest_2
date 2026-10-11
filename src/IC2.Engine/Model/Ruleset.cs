@@ -2090,6 +2090,20 @@ public sealed record VictoryRules(
 /// <param name="FaithfulTaxRaise">Rule 2's raise, in points.</param>
 /// <param name="FaithfulTaxCeiling">Rule 2's ceiling.</param>
 /// <param name="FaithfulTaxZeroUnityBelow">Rule 3 zeroes the tax, with a positive treasury, when unity is below this.</param>
+/// <param name="FaithfulFleetCountBelow">T158: the AI orders a new fleet only while it owns fewer than this many fleets (<c>FUN_00450768</c>).</param>
+/// <param name="FaithfulFleetTreasuryAbove">T158: ... and only while its treasury is above this.</param>
+/// <param name="FaithfulFleetScoreEach">T158: the fleet score's term for every own fleet, launched or still under construction.</param>
+/// <param name="FaithfulFleetScoreAtSea">T158: the fleet score's further term for every own launched (at sea) fleet.</param>
+/// <param name="FaithfulFleetScoreOneCitiesAbove">T158: a fleet score of 1 still orders when the nation owns more cities than this.</param>
+/// <param name="FaithfulFleetScoreTwoCitiesAbove">T158: a fleet score of 2 still orders when the nation owns more cities than this.</param>
+/// <param name="FaithfulFleetShipsCityOffset">T158: the new fleet's ships are <c>min(cap, cities + offset)</c>; the offset.</param>
+/// <param name="FaithfulFleetShipsCap">T158: the cap of the ship count above.</param>
+/// <param name="FaithfulConsolidateRegularBelowNumerator">T158: a regular unit below this fraction (numerator) of its type's standard size is merged.</param>
+/// <param name="FaithfulConsolidateRegularBelowDenominator">T158: the denominator of that fraction.</param>
+/// <param name="FaithfulConsolidatePartnerBelowNumerator">T158: the partner slot it merges with is below this fraction (numerator) of the standard size.</param>
+/// <param name="FaithfulConsolidatePartnerBelowDenominator">T158: the denominator of that fraction.</param>
+/// <param name="FaithfulConsolidateMercenaryBelowNumerator">T158: a mercenary unit below this fraction (numerator) of the standard size is disbanded.</param>
+/// <param name="FaithfulConsolidateMercenaryBelowDenominator">T158: the denominator of that fraction.</param>
 /// <param name="CityRegionById">
 /// The per-city region id the city scorer reads when it decides whether the target is in "another
 /// region" (<c>2026-10-07-strategic-ai-turn.md</c> §3.3, citing <c>FUN_0044eb18</c> for the boundary).
@@ -2178,6 +2192,20 @@ public sealed record AiWeightsRules(
     int FaithfulTaxRaise,
     int FaithfulTaxCeiling,
     int FaithfulTaxZeroUnityBelow,
+    int FaithfulFleetCountBelow,
+    int FaithfulFleetTreasuryAbove,
+    int FaithfulFleetScoreEach,
+    int FaithfulFleetScoreAtSea,
+    int FaithfulFleetScoreOneCitiesAbove,
+    int FaithfulFleetScoreTwoCitiesAbove,
+    int FaithfulFleetShipsCityOffset,
+    int FaithfulFleetShipsCap,
+    int FaithfulConsolidateRegularBelowNumerator,
+    int FaithfulConsolidateRegularBelowDenominator,
+    int FaithfulConsolidatePartnerBelowNumerator,
+    int FaithfulConsolidatePartnerBelowDenominator,
+    int FaithfulConsolidateMercenaryBelowNumerator,
+    int FaithfulConsolidateMercenaryBelowDenominator,
     ValueList<AiCityRegionAssignment> CityRegionById,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
