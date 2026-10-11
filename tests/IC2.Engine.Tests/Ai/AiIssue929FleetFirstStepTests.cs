@@ -15,8 +15,8 @@ namespace IC2.Engine.Tests.Ai;
 /// no longer counted as issued, but the AI's turn still ends on it and the next candidate
 /// is never tried.
 ///
-/// The fix mirrors the army fix in <see cref="IsProposableMove"/>: after the terrain check,
-/// reject a first step that <see cref="MoveFleetCommandHandler.IsBlocked"/> would block
+/// The fix mirrors the army fix in <c>AiMilitaryPhase.IsProposableMove</c>: after the terrain check,
+/// reject a first step that <c>MoveFleetCommandHandler</c>'s <c>IsBlocked</c> would block
 /// (another launched fleet at that position), so the next candidate is tried.
 /// </summary>
 public sealed class AiIssue929FleetFirstStepTests
@@ -26,8 +26,9 @@ public sealed class AiIssue929FleetFirstStepTests
 
     /// <summary>
     /// A fleet whose best sail's first step holds a launched fleet proposes its next candidate
-    /// instead. Two enemy fleets are equidistant; the nearer one blocks the first step, so only
-    /// the further one is proposed.
+    /// instead. Two enemy fleets stand at the same distance (2); a third, launched fleet holds the
+    /// first step toward one of them ("near-enemy"), so only the sail at the other ("far-enemy")
+    /// is proposed.
     /// </summary>
     [Fact]
     public void A_fleet_whose_best_sail_first_step_is_blocked_proposes_the_next_candidate()

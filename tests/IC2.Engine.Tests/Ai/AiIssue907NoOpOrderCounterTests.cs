@@ -47,8 +47,8 @@ public sealed class AiIssue907NoOpOrderCounterTests
 
         Assert.True(
             AiSubstantiveState.AreEquivalent(state, driven.Outcome.State),
-            "the fleet sail's blocked walk should leave the substantive state untouched, "
-            + "so this test's fixture is actually exercising the no-op case");
+            "the fleet sail onto the launched blocker is not proposed (bug #929), so the turn "
+            + "should leave the substantive state untouched");
 
         Assert.Equal(
             0,
@@ -57,9 +57,9 @@ public sealed class AiIssue907NoOpOrderCounterTests
 
     /// <summary>
     /// Own fleet at <c>(0,2)</c> sailing at the enemy fleet at <c>(0,5)</c>: Bresenham's first step is
-    /// <c>(0,3)</c>, where a launched enemy fleet blocks the walk. The terrain rule alone
-    /// (<see cref="AiView.IsFleetPassable"/>) sees water, so the proposal loop still proposes the
-    /// sail -- exactly the no-op accepted-and-counted case the brief asks the AiTurn counter to stop.
+    /// <c>(0,3)</c>, where a launched enemy fleet stands. The terrain at <c>(0,3)</c> is water, but
+    /// since bug #929 the fleet march proposer also rejects a first step that
+    /// <c>MoveFleetCommandHandler</c> blocks, so the sail is never proposed and the turn issues nothing.
     /// </summary>
     private static GameState BlockedFleetSailState()
     {
