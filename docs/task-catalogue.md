@@ -218,6 +218,7 @@ graph TD
   T155 --> T157[T157 AI faithful economy]
   T157 --> T158[T158 AI fleet order and consolidation]
   T158 --> T159[T159 AI faithful merges]
+  T160[T160 emptied fleet money]
   T156[T156 AI army target tree]
   T23 --> T26[T26 scenario docs+examples]
   T29 --> T26
@@ -1259,6 +1260,10 @@ AI fleet order and consolidation (part of #910, the economy's first two tail sub
 
 AI faithful merges (the last part of #910; an AI-only path, the user's decision of 2026-10-11; ships in `v0.5.2`; it starts after research request imperial-conquest-2-research#7 is answered and merges after T158) → [full entry](tasks/T159.md) · [#959](https://github.com/diegoami/imperial_conquest_2/issues/959)
 
+#### T160 Transfer ships that empties a fleet adds its money to the other fleet whole, as the original does
+
+Emptied fleet money (from bug #962, the user's decision of 2026-10-11; ships in `v0.5.2`) → [full entry](tasks/T160.md) · [#966](https://github.com/diegoami/imperial_conquest_2/issues/966)
+
 ---
 
 #### T25 Battle result, diplomacy, and hotseat handoff screens
@@ -1449,3 +1454,4 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T157](#t157-under-classical-faithful-the-ais-economy-follows-the-original-a-threat-budget-the-week-11-tax-no-fortifying) | AI faithful economy | M12 | Sonnet | High | Sol | T155 | [#926](https://github.com/diegoami/imperial_conquest_2/issues/926) |
 | [T158](#t158-under-classical-faithful-the-ai-orders-a-new-fleet-and-consolidates-its-army-units-as-the-original-does) | AI fleet order and consolidation | M12 | the user's choice | Medium | the user's choice | T157 | [#958](https://github.com/diegoami/imperial_conquest_2/issues/958) |
 | [T159](#t159-under-classical-faithful-the-ai-merges-a-small-army-or-fleet-into-a-nearby-own-one-as-the-original-does) | AI faithful merges | M12 | the user's choice | Medium | the user's choice | T158 | [#959](https://github.com/diegoami/imperial_conquest_2/issues/959) |
+| [T160](#t160-transfer-ships-that-empties-a-fleet-adds-its-money-to-the-other-fleet-whole-as-the-original-does) | Emptied fleet money | M7 | the user's choice | Low | the user's choice | none | [#966](https://github.com/diegoami/imperial_conquest_2/issues/966) |
