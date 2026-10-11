@@ -122,6 +122,20 @@ public static class AiTurn
             personality.ExpansionDrivePermille,
             personality.LoyaltyToAlliancesPermille));
 
+        var issued = 0;
+        var rejected = 0;
+
+        // T157 (#926): the original's economy phase runs once, before everything the army and fleet
+        // phases do (FUN_0044fa20's order), so it reads the treasury and armies as the turn starts, ahead of the
+        // resupply and mercenary passes below. Under the designed economy this is skipped and AiEconomyPhase proposes as before.
+        if (ruleset.Flags.AiEconomy == AiEconomyModel.Original)
+        {
+            var economy = AiFaithfulEconomy.Run(state, ruleset, commands, events, rng, nationId, log);
+            state = economy.State;
+            issued += economy.Issued;
+            rejected += economy.Rejected;
+        }
+
         // R1: the original's FUN_0044E41C is one loop per army over the cities, and each in-range city
         // iteration resupplies the army (FUN_0044f6d8) before hiring at that city. AiMercenaryHirePass.Run
         // reproduces that loop, so the hire at an earlier city raises the troop count a later city's
@@ -161,8 +175,6 @@ public static class AiTurn
             mercenary.TalentsPaid + fleetResupply.TalentsPaid));
         log.Add(mercenary.Describe());
 
-        var issued = 0;
-        var rejected = 0;
         var mismatches = 0;
         var hitCap = true;
         var marched = new List<string>();

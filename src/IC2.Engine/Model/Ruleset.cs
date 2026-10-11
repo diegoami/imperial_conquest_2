@@ -2062,6 +2062,34 @@ public sealed record VictoryRules(
 /// The <c>within N</c> radius around the capital at which a garrison-fallback army instead aims for the
 /// nearest city of any owner (<c>FUN_0044ebe8</c>, <c>2026-10-07-strategic-ai-turn.md</c> §3.5); <c>N = 10</c>.
 /// </param>
+/// <param name="FaithfulThreatPerEnemyNation">Threat added per nation at war with the acting nation (the original's 15000).</param>
+/// <param name="FaithfulOwnPerAlly">Own strength added per ally (the original's 6000).</param>
+/// <param name="FaithfulValueTroopsDivisor">The troops divisor of a unit's AI value, <c>(troops / 100) x combatPowerWeight</c>.</param>
+/// <param name="FaithfulForeignNearDistance">The Chebyshev radius around the capital within which a foreign army adds its value over <see cref="FaithfulForeignNearDivisor"/> to the threat.</param>
+/// <param name="FaithfulForeignNearDivisor">The divisor of a foreign army's value inside <see cref="FaithfulForeignNearDistance"/>.</param>
+/// <param name="FaithfulWarNearDistance">The Chebyshev radius around the capital within which an at-war army adds its value over <see cref="FaithfulWarNearDivisor"/> to the threat.</param>
+/// <param name="FaithfulWarNearDivisor">The divisor of an at-war army's value inside <see cref="FaithfulWarNearDistance"/>.</param>
+/// <param name="FaithfulAlliedArmyDivisor">The divisor of an allied army's value in the own strength.</param>
+/// <param name="FaithfulMaxOrdersPerTurn">The most new recruitment orders the faithful economy places in one turn.</param>
+/// <param name="FaithfulMaxOrdersBelowFloor">The most new orders a turn once the treasury is at or below the deficit floor.</param>
+/// <param name="FaithfulDeficitFloorWealthDivisor">The deficit floor is <c>-wealth / divisor</c>; a new order is placed freely while the treasury is above it.</param>
+/// <param name="FaithfulCapitalArmyDistance">The Chebyshev radius around the capital in which an own army switches the order's city off the capital.</param>
+/// <param name="FaithfulCapitalQueueShareDivisor">The capital keeps the orders until more than <c>1 / divisor</c> of all queued orders sit there.</param>
+/// <param name="FaithfulTypeDrawBound">The exclusive bound of the order type's draw (<c>Random(100)</c>).</param>
+/// <param name="FaithfulRecruitTypeBuckets">The order type's draw buckets, in ascending order of exclusive upper bound.</param>
+/// <param name="FaithfulAmountMinDivisor">An order's minimum is <c>standardSize / divisor</c>.</param>
+/// <param name="FaithfulAmountSpanNumerator">The numerator of the random span added to the minimum, a fraction of the standard size.</param>
+/// <param name="FaithfulAmountSpanDenominator">The denominator of that span.</param>
+/// <param name="FaithfulAmountRounding">An order's troops are rounded down to a multiple of this.</param>
+/// <param name="FaithfulTaxWeek">The calendar week whose economy phase runs the tax policy.</param>
+/// <param name="FaithfulTaxCutUnityBelow">Rule 1 cuts the tax when unity is below this.</param>
+/// <param name="FaithfulTaxCutTreasuryWealthDivisor">Rule 1 also cuts the tax when the treasury exceeds <c>wealth / divisor</c>.</param>
+/// <param name="FaithfulTaxCut">Rule 1's cut, in points.</param>
+/// <param name="FaithfulTaxFloor">Rule 1's floor.</param>
+/// <param name="FaithfulTaxRaiseTreasuryBelow">Rule 2 raises the tax when own strength does not exceed the threat and the treasury is below this.</param>
+/// <param name="FaithfulTaxRaise">Rule 2's raise, in points.</param>
+/// <param name="FaithfulTaxCeiling">Rule 2's ceiling.</param>
+/// <param name="FaithfulTaxZeroUnityBelow">Rule 3 zeroes the tax, with a positive treasury, when unity is below this.</param>
 /// <param name="CityRegionById">
 /// The per-city region id the city scorer reads when it decides whether the target is in "another
 /// region" (<c>2026-10-07-strategic-ai-turn.md</c> §3.3, citing <c>FUN_0044eb18</c> for the boundary).
@@ -2122,6 +2150,34 @@ public sealed record AiWeightsRules(
     int ResupplyForeignBonus,
     int ResupplyMaxForeignDistance,
     int GarrisonFallbackCapitalDistance,
+    int FaithfulThreatPerEnemyNation,
+    int FaithfulOwnPerAlly,
+    int FaithfulValueTroopsDivisor,
+    int FaithfulForeignNearDistance,
+    int FaithfulForeignNearDivisor,
+    int FaithfulWarNearDistance,
+    int FaithfulWarNearDivisor,
+    int FaithfulAlliedArmyDivisor,
+    int FaithfulMaxOrdersPerTurn,
+    int FaithfulMaxOrdersBelowFloor,
+    int FaithfulDeficitFloorWealthDivisor,
+    int FaithfulCapitalArmyDistance,
+    int FaithfulCapitalQueueShareDivisor,
+    int FaithfulTypeDrawBound,
+    ValueList<AiRecruitTypeBucket> FaithfulRecruitTypeBuckets,
+    int FaithfulAmountMinDivisor,
+    int FaithfulAmountSpanNumerator,
+    int FaithfulAmountSpanDenominator,
+    int FaithfulAmountRounding,
+    int FaithfulTaxWeek,
+    int FaithfulTaxCutUnityBelow,
+    int FaithfulTaxCutTreasuryWealthDivisor,
+    int FaithfulTaxCut,
+    int FaithfulTaxFloor,
+    int FaithfulTaxRaiseTreasuryBelow,
+    int FaithfulTaxRaise,
+    int FaithfulTaxCeiling,
+    int FaithfulTaxZeroUnityBelow,
     ValueList<AiCityRegionAssignment> CityRegionById,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
@@ -2139,6 +2195,11 @@ public sealed record AiWeightsRules(
 /// here rather than on the city itself.
 /// </param>
 public sealed record AiCityRegionAssignment(string CityId, int Region);
+
+/// <summary>One bucket of the faithful economy's order-type draw (<c>FUN_004501f4</c>).</summary>
+/// <param name="UnitTypeId">The unit type an order whose draw falls in this bucket takes.</param>
+/// <param name="UpperBoundExclusive">The bucket holds draws below this value and at or above the previous bucket's.</param>
+public sealed record AiRecruitTypeBucket(string UnitTypeId, int UpperBoundExclusive);
 
 /// <summary>
 /// The formula-variant selectors — <c>docs/game-design.md</c> §"Two shipped presets, not a pile of
@@ -2181,6 +2242,12 @@ public sealed record AiCityRegionAssignment(string CityId, int Region);
 /// <c>0x4407E4</c> check no balance <strong>[derived: decompiled]</strong>); <c>improved</c> is
 /// <see cref="UnaffordableOrderPolicy.Refuse"/>.
 /// </param>
+/// <param name="AiEconomy">
+/// T157 (#926): which economy the AI seats play. <c>classical-faithful</c> is
+/// <see cref="AiEconomyModel.Original"/>: the original's threat budget, week-11 tax and no fortifying
+/// (<c>2026-10-07-strategic-ai-turn.md</c> §2.1-2.3 [confirmed: decompile]); <c>improved</c> keeps the
+/// <see cref="AiEconomyModel.Designed"/> economy.
+/// </param>
 /// <param name="HumanMoveResupply">
 /// Bug #756, T144: whether a human army's move also resupplies it. Read only by <c>GameSession</c>'s
 /// <c>move</c> handler; the AI's resupply pass, buying supply and the Supply army dialog never read it.
@@ -2198,6 +2265,7 @@ public sealed record RulesetFlags(
     bool FaithfulThawColumnBug,
     SiegeRatioClampPolicy BugPolicySiegeRatioClamp,
     UnaffordableOrderPolicy UnaffordableRecruitAndFortify,
+    AiEconomyModel AiEconomy,
     HumanMoveResupplyPolicy HumanMoveResupply,
     EndTurnWarningScope EndTurnWarningScope,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
@@ -2264,6 +2332,16 @@ public enum UnaffordableOrderPolicy
 
     /// <summary>Refuse the order with its insufficient-treasury rejection and leave the state unchanged.</summary>
     Refuse,
+}
+
+/// <summary>Which economy the AI seats play (T157, #926).</summary>
+public enum AiEconomyModel
+{
+    /// <summary>The designed economy: affordability-scored recruitment and fortification.</summary>
+    Designed,
+
+    /// <summary>The original's: a threat budget, the week-11 tax, and no fortification orders.</summary>
+    Original,
 }
 
 /// <summary>Whether a human army's move runs the automatic resupply (bug #756, T144).</summary>

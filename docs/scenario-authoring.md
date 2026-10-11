@@ -957,6 +957,36 @@ one shared scale, so the AI's determinism guarantee never depends on floating-po
 | `resupplyForeignBonus` | int | score | A qualifying foreign city scores plus N; 20. |
 | `resupplyMaxForeignDistance` | int | tiles | A best foreign city beyond N is dropped for the nearest own city; 15. |
 | `garrisonFallbackCapitalDistance` | int | tiles | The garrison fallback sends an army to the nearest city when some own army is within N of the capital, else to the capital; 10. |
+| `faithfulThreatPerEnemyNation` | int | threat | Threat added per nation at war with the acting nation; 15000. |
+| `faithfulOwnPerAlly` | int | strength | Own strength added per ally; 6000. |
+| `faithfulValueTroopsDivisor` | int | divisor | A unit's AI value is `(troops / N) x combatPowerWeight`; 100. |
+| `faithfulForeignNearDistance` | int | tiles | Foreign armies within N of the capital add value over `faithfulForeignNearDivisor` to the threat; 10. |
+| `faithfulForeignNearDivisor` | int | divisor | Divisor of a foreign army's value inside that radius; 4. |
+| `faithfulWarNearDistance` | int | tiles | Armies at war within N of the capital add value over `faithfulWarNearDivisor` to the threat; 20. |
+| `faithfulWarNearDivisor` | int | divisor | Divisor of an at-war army's value inside that radius; 2. |
+| `faithfulAlliedArmyDivisor` | int | divisor | Divisor of an allied army's value in the own strength; 2. |
+| `faithfulMaxOrdersPerTurn` | int | orders | The most new recruitment orders the faithful economy places in a turn; 8. |
+| `faithfulMaxOrdersBelowFloor` | int | orders | The most new orders a turn once the treasury is at or below the deficit floor; 3. |
+| `faithfulDeficitFloorWealthDivisor` | int | divisor | The deficit floor is `-wealth / N`; 500. |
+| `faithfulCapitalArmyDistance` | int | tiles | An own army within N of the capital lets an order leave the capital; 15. |
+| `faithfulCapitalQueueShareDivisor` | int | divisor | Orders leave the capital only when more than `1 / N` of all queued orders sit there; 3. |
+| `faithfulTypeDrawBound` | int | bound | Exclusive bound of the order type's draw; 100. |
+| `faithfulRecruitTypeBuckets` | list | buckets | The type draw's buckets in ascending order (`unitTypeId`, `upperBoundExclusive`): light infantry below 35, heavy infantry below 60, archers below 75, light cavalry below 90, heavy cavalry below 100. |
+| `unitTypeId` | string | unit type id | A `faithfulRecruitTypeBuckets` row's unit type. |
+| `upperBoundExclusive` | int | draw value | A `faithfulRecruitTypeBuckets` row holds draws below this and at or above the previous row's. |
+| `faithfulAmountMinDivisor` | int | divisor | An order's minimum is `standardSize / N`; 3. |
+| `faithfulAmountSpanNumerator` | int | numerator | The random span added to the minimum is `standardSize x N / faithfulAmountSpanDenominator`; 4. |
+| `faithfulAmountSpanDenominator` | int | denominator | The denominator of that span; 5. |
+| `faithfulAmountRounding` | int | troops | An order's troops are rounded down to a multiple of N, then capped at the battalion size; 100. |
+| `faithfulTaxWeek` | int | week | The calendar week whose economy phase runs the tax policy; 11. |
+| `faithfulTaxCutUnityBelow` | int | unity | Tax rule 1 cuts when unity is below N; 650. |
+| `faithfulTaxCutTreasuryWealthDivisor` | int | divisor | Tax rule 1 also cuts when the treasury exceeds `wealth / N`; 2000. |
+| `faithfulTaxCut` | int | points | Tax rule 1's cut; 6. |
+| `faithfulTaxFloor` | int | percent | Tax rule 1's floor; 5. |
+| `faithfulTaxRaiseTreasuryBelow` | int | talents | Tax rule 2 raises when own strength does not exceed the threat and the treasury is below N; 1000. |
+| `faithfulTaxRaise` | int | points | Tax rule 2's raise; 9. |
+| `faithfulTaxCeiling` | int | percent | Tax rule 2's ceiling; 40. |
+| `faithfulTaxZeroUnityBelow` | int | unity | Tax rule 3 zeroes the tax, with a positive treasury, when unity is below N; 500. |
 | `cityRegionById` | list | region assignments | Pins cities to region ids (`cityId`, `region`); a coordinate takes the region of the nearest pinned city. Empty in the shipped data: the original's region boxes are not transcribed, so every city is in region 0 and the halving term never fires. |
 | `cityId` | string | city id | A `cityRegionById` row's city. |
 | `region` | int | region id | A `cityRegionById` row's region. |
@@ -991,6 +1021,7 @@ are just two settings of this record.
 | `faithfulThawColumnBug` | boolean | — | `true` reproduces the confirmed bug where the quarterly diplomatic thaw only ever touches the first `diplomacy.faithfulThawColumnLimit` of each nation's 16 relation columns; `false` thaws every column. |
 | `bugPolicySiegeRatioClamp` | enum | `"reproduce16BitClamp"`, `"clamp32Bit"` | Whether the siege attrition ratio and erosion ratio term reproduce the original's signed 16-bit wraparound (`classical-faithful`) or are computed in ordinary 32-bit arithmetic, never wrapping (`improved`). |
 | `unaffordableRecruitAndFortify` | enum | `"allowDebt"`, `"refuse"` | What a standing-unit recruitment order and a city fortification order do when the treasury cannot cover the cost: `allowDebt` (`classical-faithful`) takes the full cost and lets the treasury end below zero, as the original does; `refuse` (`improved`, and the small test ruleset) rejects the order. No other order reads it. |
+| `aiEconomy` | enum | `"designed"`, `"original"` | Which economy the AI seats play: `original` (`classical-faithful`) is the original's threat budget, week-11 tax and no fortifying; `designed` (`improved`, the toy ruleset) keeps the affordability-scored economy. |
 | `humanMoveResupply` | enum | `"never"`, `"againstNonHostileCity"` | Whether a human army's move also resupplies it: `never` (`classical-faithful`) runs no automatic resupply on a move, as the original, where only the AI resupplies; `againstNonHostileCity` (`improved`) resupplies an army whose move ends next to a city whose owner is not at war with it, against the first such city. Only the session's `move` reads it; the AI's resupply, buying supply and the Supply army dialog do not. |
 | `endTurnWarningScope` | enum | `"notActedOnly"`, `"everyUnit"` | Whether End turn checks only units whose recomputed weekly allowance is untouched (`classical-faithful`) or every own unit (`improved`). |
 | `_provenance` | object | No | Provenance map. |
