@@ -2015,7 +2015,7 @@ public partial class MainGameScreen : Control
 
     /// <summary>Fix #917: the OK-only box the original shows at the human's turn start for an AI
     /// nation's offer of trade or alliance. Closes on OK and on Esc.</summary>
-    private partial class OfferNoticeBox : Control
+    internal partial class OfferNoticeBox : Control
     {
         public event Action? Closed;
 

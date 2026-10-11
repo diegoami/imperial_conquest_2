@@ -71,6 +71,7 @@ public partial class EndTurnBoxCheck : Control
                 secondBox.EndTurnButton.EmitSignal(Button.SignalName.Pressed);
             }
 
+            DismissOfferNotices(mainGame);
             Check(mainGame.ActiveOverlay is null, "END TURN closes the box");
             Check(beforeCommands == 1, "END TURN submits exactly one command");
             Check(mainGame.Session.State.Calendar.TurnIndex == beforeTurn + 1, "END TURN advances the turn");
@@ -78,6 +79,16 @@ public partial class EndTurnBoxCheck : Control
         finally
         {
             RemoveMainGame(mainGame);
+        }
+    }
+
+    // Fix #917: ending the turn can start a turn with the engine's OK-only offer notice. It is dismissed
+    // here so the assertions below still fail for any other overlay.
+    private static void DismissOfferNotices(MainGameScreen mainGame)
+    {
+        while (mainGame.ActiveOverlay is MainGameScreen.OfferNoticeBox notice)
+        {
+            notice.Close();
         }
     }
 
@@ -91,6 +102,7 @@ public partial class EndTurnBoxCheck : Control
             mainGame.CommandIssued += _ => commands++;
             mainGame.MenuBar.PressItemForCheck("game.end_turn");
 
+            DismissOfferNotices(mainGame);
             Check(mainGame.ActiveOverlay is null, "a seat with no warning has no box");
             Check(commands == 1, "a seat with no warning submits end immediately");
             Check(mainGame.Session.State.Calendar.TurnIndex == beforeTurn + 1, "an unwarned seat advances immediately");
