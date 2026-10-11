@@ -90,9 +90,11 @@ public sealed class InformationPanelModelTests
             $"Loyalty: {InformationWords.Loyalty(city.Loyalty)}",
             byKey[InformationPanelModel.CityLoyaltyKey]);
 
-        // C06: Fortification. Rome's classical fortification is 78, so the under-construction
-        // marker is absent.
-        Assert.Equal("Fortification: 78%", byKey[InformationPanelModel.CityFortificationKey]);
+        // C06 + C07: Fortification. Rome's classical fortification is 78, so the under-construction
+        // marker is absent. T161: a new game starts with the DAT's queues, and Rome's four regiments
+        // in training all sit at Rome (5,500 + 3,500 + 4,000 + 1,000 = 14,000 troops), so the
+        // controller's queue-troop bracket (C07) now follows the percent.
+        Assert.Equal("Fortification: 78%   (14000)", byKey[InformationPanelModel.CityFortificationKey]);
 
         // C08: Tribute = CityTaxContribution.Compute in talents (the same number the engine uses
         // for the quarterly rebuild).

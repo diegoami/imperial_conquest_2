@@ -58,8 +58,17 @@ public sealed class RecruitmentPanelViewModelTests
     private static GameSession RomeSession(ulong seed = 1)
     {
         var classical = Classical();
+
+        // T161: the shipped world now starts every nation with the DAT's training queue (Rome has four
+        // regiments). These tests are about the regiments the player orders (slot 0 is "the" recruit,
+        // the list holds exactly the ordered ones), so their session starts from a world without the
+        // starting queues. No assertion changed; the real start is pinned by StartingRecruitmentQueuesTests.
+        var world = classical.World with
+        {
+            Nations = ValueList.From(classical.World.Nations.Select(n => n with { RecruitmentSlots = null })),
+        };
         return new GameSession(
-            classical.World, classical.Ruleset, classical.Scenario, seedOverride: seed, humanSeatNationId: RomeId);
+            world, classical.Ruleset, classical.Scenario, seedOverride: seed, humanSeatNationId: RomeId);
     }
 
     private static NationState RomeNation(GameSession session) => session.State.NationById(RomeId)!;

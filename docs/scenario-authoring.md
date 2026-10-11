@@ -121,6 +121,7 @@ Each nation in `nations` is an object with:
 | `battleColorsHex` | array of strings | No | The nation's three tactical-battle icon colours as `#RRGGBB` strings, in the original's substitution order (the nation record's `+0x424`, `+0x428` and `+0x42C`; T128 recolours the 5 × 3 unit icons from this list). |
 | `leaderName` | string | Yes | Name of the nation's leader. |
 | `leaderNames` | array of strings | No | The nation's 12-candidate leader-name pool, in the original's DAT pool order (T146). When present it must hold exactly 12 non-empty names, at least two distinct, and `leaderName` must be one of them; the New Game draw and the fall/rebirth redraws select from it. Omit it for a scenario with fixed leaders. |
+| `recruitmentSlots` | array of recruitment slots | No | The nation's starting recruitment queue (T161), in the original's DAT slot order; a new game seeds the nation's training list from it. Each slot has `targetCityId` (a city of this world), `unitTypeId` (a unit type of the ruleset), `troops` (above 0) and `stateCode` (the readiness counter, 0 to the ruleset's `calendar.cityUnitStateCodeCap`). Omit it for an empty queue. |
 | `capitalCityId` | string | Yes | The `id` of the city that is this nation's capital (must resolve to a city in `cities`). |
 | `treasury` | integer | Yes | Starting treasury (gold coins). |
 | `unity` | integer | Yes | Starting unity (morale / cohesion). |

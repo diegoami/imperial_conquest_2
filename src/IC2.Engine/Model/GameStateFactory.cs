@@ -19,6 +19,41 @@ namespace IC2.Engine.Model;
 /// </remarks>
 public static class GameStateFactory
 {
+    /// <summary>
+    /// T161: a nation's starting recruitment queue, exactly the world's (a world with none gives an empty
+    /// queue). The ruleset-dependent half of the queue's validation lives here, because the world
+    /// document is validated without a ruleset: each slot's unit type must exist and its state code must
+    /// lie within the readiness counter's range. The error names the nation and slot index.
+    /// </summary>
+    private static ValueList<RecruitmentSlot> StartingRecruitment(NationDefinition definition, World world, Ruleset ruleset)
+    {
+        if (definition.RecruitmentSlots is not { } slots)
+        {
+            return ValueList<RecruitmentSlot>.Empty;
+        }
+
+        for (var i = 0; i < slots.Count; i++)
+        {
+            var slot = slots[i];
+            var key = $"nation '{definition.Id}' recruitmentSlots[{i}]";
+            if (ruleset.UnitTypeById(slot.UnitTypeId) is null)
+            {
+                throw new ArgumentException(
+                    $"World '{world.Id}': {key} has unitTypeId '{slot.UnitTypeId}', which ruleset '{ruleset.Id}' does not define.",
+                    nameof(world));
+            }
+
+            if (slot.StateCode < 0 || slot.StateCode > ruleset.Calendar.CityUnitStateCodeCap)
+            {
+                throw new ArgumentException(
+                    $"World '{world.Id}': {key} has stateCode {slot.StateCode}, outside 0 to {ruleset.Calendar.CityUnitStateCodeCap}.",
+                    nameof(world));
+            }
+        }
+
+        return slots;
+    }
+
     /// <summary>Creates the starting state for a scenario.</summary>
     /// <exception cref="ArgumentException">
     /// The scenario and world disagree: the scenario seats a nation the world does not define, or the
@@ -87,7 +122,7 @@ public static class GameStateFactory
                 PopulationAtStart: definition.Population,
                 TreasuryAtStart: definition.Treasury,
                 CityCountAtStart: cityCount,
-                RecruitmentSlots: ValueList<RecruitmentSlot>.Empty,
+                RecruitmentSlots: StartingRecruitment(definition, world, ruleset),
                 Eliminated: cityCount == 0,
                 ConqueredBy: null);
         }

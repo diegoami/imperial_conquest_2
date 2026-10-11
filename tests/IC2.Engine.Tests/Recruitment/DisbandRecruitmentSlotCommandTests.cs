@@ -31,8 +31,20 @@ public sealed class DisbandRecruitmentSlotCommandTests
     private static CommandDispatcher NewDispatcher(IEventSink? sink = null) => new(
         SystemRegistry.FromEngineAssembly(), Classical.Ruleset, Classical.World, sink ?? NullEventSink.Instance);
 
-    private static GameState ClassicalInitial() =>
-        GameStateFactory.CreateInitial(Classical.World, Classical.Ruleset, Classical.Scenario);
+    /// <summary>
+    /// The classical initial state with every nation's queue emptied. T161 made a new game start with the
+    /// DAT's queues (Rome holds four slots), but these tests are about disbanding the one slot they just
+    /// recruited -- "the only slot", slot index 0, "macedonia holds none" -- so they begin from empty
+    /// queues. Only the starting queues are removed; no assertion changed.
+    /// </summary>
+    private static GameState ClassicalInitial()
+    {
+        var created = GameStateFactory.CreateInitial(Classical.World, Classical.Ruleset, Classical.Scenario);
+        return created with
+        {
+            Nations = ValueList.From(created.Nations.Select(n => n with { RecruitmentSlots = ValueList<RecruitmentSlot>.Empty })),
+        };
+    }
 
     /// <summary>
     /// Done-when 1: after <c>recruit-standing</c> in Rome, <c>disband-slot</c> on that slot removes
