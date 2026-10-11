@@ -47,6 +47,10 @@ public partial class LoadGameScreen : Control
     /// </summary>
     public event Action<GameSession>? GameResumed;
 
+    /// <summary>Bug #919: the save file the last successful Continue loaded, or null before one. Read by
+    /// <see cref="AppRoot"/> so the main screen's Save writes back to the file that was opened.</summary>
+    public string? LastLoadedPath { get; private set; }
+
     private const string SavesDirectory = "user://saves";
 
     private Label _messageLabel = null!;
@@ -174,6 +178,7 @@ public partial class LoadGameScreen : Control
         }
 
         var session = new GameSession(world, ruleset, scenario, save);
+        LastLoadedPath = path;
 
         // Done-when 2/4: the resumed session's own active seat and human-seat bookkeeping already come
         // from the save's own state (GameSession.ResumeFrom). AppRoot.ShowLoadGame's own GameResumed

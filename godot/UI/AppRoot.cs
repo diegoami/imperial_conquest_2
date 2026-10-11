@@ -1,3 +1,4 @@
+using System;
 using Godot;
 
 namespace IC2.Slice.UI;
@@ -15,9 +16,50 @@ public partial class AppRoot : Control
     /// and inspect the real scene tree without simulating mouse events.</summary>
     public Control? CurrentScreen { get; private set; }
 
+    /// <summary>Bug #919: what a confirmed (or unneeded-to-confirm) window close does. Defaults to
+    /// quitting the tree; a headless check replaces it so it can observe the quit without ending its run.</summary>
+    public Action? QuitAction { get; set; }
+
     public override void _Ready()
     {
+        // Bug #919: the window's close button must not quit an open game unasked; the close request
+        // arrives as NotificationWMCloseRequest and HandleCloseRequest decides.
+        GetTree().AutoAcceptQuit = false;
         ShowMainMenu();
+    }
+
+    public override void _Notification(int what)
+    {
+        if (what == NotificationWMCloseRequest)
+        {
+            HandleCloseRequest();
+        }
+    }
+
+    /// <summary>Bug #919: with a game open, asks the same leave-game question File -> Close asks and quits
+    /// only on Yes; on any other screen nothing is left to lose, so it quits at once.</summary>
+    public void HandleCloseRequest()
+    {
+        if (CurrentScreen is MainGameScreen game)
+        {
+            game.ConfirmQuit(Quit);
+        }
+        else
+        {
+            Quit();
+        }
+    }
+
+    private void Quit()
+    {
+        if (QuitAction is { } action)
+        {
+            action();
+        }
+        else
+        {
+            GetTree().Quit();
+        }
     }
 
     public void ShowMainMenu()
@@ -54,7 +96,12 @@ public partial class AppRoot : Control
         screen.BackRequested += ShowMainMenu;
         screen.GameResumed += session =>
         {
-            var mainScreen = new MainGameScreen { Session = session, RepositoryRoot = GameDataContext.RepositoryRoot };
+            var mainScreen = new MainGameScreen
+            {
+                Session = session,
+                RepositoryRoot = GameDataContext.RepositoryRoot,
+                OpenedPath = screen.LastLoadedPath,
+            };
             SwapTo(mainScreen);
         };
         SwapTo(screen);

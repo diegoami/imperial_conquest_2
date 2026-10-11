@@ -31,6 +31,10 @@ public partial class MainGameScreen : Control
 
     public required string RepositoryRoot { get; init; }
 
+    /// <summary>Bug #919: the save file this game was opened from (File -> Open), or null for a new game.
+    /// Save writes back to it until a Save As names another file.</summary>
+    public string? OpenedPath { get; init; }
+
     /// <summary>
     /// Where <see cref="OnSavePressed"/> writes — the same <c>user://saves</c> convention
     /// <see cref="LoadGameScreen"/> already reads <c>*.json</c> saves from (its own private constant of
@@ -755,6 +759,10 @@ public partial class MainGameScreen : Control
         prompt.Refused += () => CloseOverlay(prompt);
         ShowOverlay(prompt);
     }
+
+    /// <summary>Bug #919: the window's close button while this game is open — the same question File ->
+    /// Close asks, and <paramref name="onConfirmed"/> runs only on Yes.</summary>
+    public void ConfirmQuit(Action onConfirmed) => ConfirmLeavingGame("quit", onConfirmed);
 
     /// <summary>Save As: a name prompt, then a save under <c>user://saves</c>. [designed]: the original
     /// used a file dialog; a Godot file dialog cannot run under the headless checks, and the task's own
@@ -1557,6 +1565,12 @@ public partial class MainGameScreen : Control
         Directory.CreateDirectory(directory);
 
         var suffix = checkUniqueSuffix ?? CheckSaveSuffix;
+        if (suffix is null && (LastSavedPath ?? OpenedPath) is { } existing)
+        {
+            SaveToFile(existing);
+            return;
+        }
+
         var fileName = suffix is null
             ? $"{Session.Scenario.Id}-turn-{Session.State.Calendar.TurnIndex}.json"
             : $"{Session.Scenario.Id}-turn-{Session.State.Calendar.TurnIndex}-{suffix}.json";
