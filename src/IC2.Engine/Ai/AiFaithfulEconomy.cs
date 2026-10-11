@@ -1,6 +1,9 @@
 using IC2.Engine.Core;
+using IC2.Engine.Armies.Commands;
 using IC2.Engine.Economy.Commands;
 using IC2.Engine.Model;
+using IC2.Engine.Naval;
+using IC2.Engine.Naval.Commands;
 using IC2.Engine.Recruitment;
 using IC2.Engine.Recruitment.Commands;
 using static IC2.Engine.Ai.AiFormat;
@@ -50,10 +53,14 @@ public static class AiFaithfulEconomy
     /// <param name="Rejected">Commands refused (must be zero).</param>
     public readonly record struct Result(GameState State, int Issued, int Rejected);
 
-    /// <summary>Runs the phase for <paramref name="nationId"/>: recruitment, then the tax policy.</summary>
+    /// <summary>
+    /// Runs the phase for <paramref name="nationId"/>: recruitment, the tax policy, then (T158) a new fleet
+    /// order and the consolidation of army units, in the original's order (<c>FUN_00450768</c>, <c>FUN_00450858</c>).
+    /// </summary>
     public static Result Run(
         GameState state,
         Ruleset ruleset,
+        World world,
         ICommandDispatch commands,
         IEventSink events,
         IRng rng,
@@ -62,6 +69,7 @@ public static class AiFaithfulEconomy
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(ruleset);
+        ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(commands);
         ArgumentNullException.ThrowIfNull(events);
         ArgumentNullException.ThrowIfNull(rng);
@@ -102,6 +110,16 @@ public static class AiFaithfulEconomy
                 }
             }
         }
+
+        var fleet = OrderFleet(state, ruleset, world, commands, events, nationId, log);
+        state = fleet.State;
+        issued += fleet.Issued;
+        rejected += fleet.Rejected;
+
+        var consolidated = ConsolidateUnits(state, ruleset, commands, events, nationId, log);
+        state = consolidated.State;
+        issued += consolidated.Issued;
+        rejected += consolidated.Rejected;
 
         return new Result(state, issued, rejected);
     }
@@ -436,6 +454,259 @@ public static class AiFaithfulEconomy
         }
 
         return tax;
+    }
+
+    /// <summary>
+    /// The fleet score <c>FUN_00450768</c> gates on: <see cref="AiWeightsRules.FaithfulFleetScoreLaunched"/> for each
+    /// own launched fleet and <see cref="AiWeightsRules.FaithfulFleetScoreUnderConstruction"/> for each own fleet
+    /// under construction (never both) [confirmed: decompile, :53838]
+    /// </summary>
+    public static int FleetScore(GameState state, Ruleset ruleset, string nationId)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(ruleset);
+
+        var score = 0;
+        foreach (var fleet in state.Fleets)
+        {
+            if (!string.Equals(fleet.Nation, nationId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            score += fleet.IsUnderConstruction
+                ? ruleset.Ai.FaithfulFleetScoreUnderConstruction
+                : ruleset.Ai.FaithfulFleetScoreLaunched;
+        }
+
+        return score;
+    }
+
+    /// <summary>
+    /// <c>FUN_00450768</c>: at most one fleet order a turn, when the nation owns fewer than
+    /// <see cref="AiWeightsRules.FaithfulFleetCountBelow"/> fleets, its treasury is above
+    /// <see cref="AiWeightsRules.FaithfulFleetTreasuryAbove"/> and its fleet score is 0, or 1 with more than
+    /// 50 cities, or 2 with more than 100. Ships <c>min(cap, cities + offset)</c>, at the port
+    /// <see cref="ChoosePort"/> names, through <see cref="OrderFleetCommand"/>. Draws nothing.
+    /// </summary>
+    public static (GameState State, int Issued, int Rejected) OrderFleet(
+        GameState state,
+        Ruleset ruleset,
+        World world,
+        ICommandDispatch commands,
+        IEventSink events,
+        string nationId,
+        List<string> log)
+    {
+        var weights = ruleset.Ai;
+        var nation = state.NationById(nationId);
+        if (nation is null || nation.Eliminated)
+        {
+            return (state, 0, 0);
+        }
+
+        // The < 99 gate counts the whole fleet table, every nation's fleets (DAT_004a0326).
+        var fleets = state.Fleets.Count;
+
+        var cities = 0;
+        foreach (var city in state.Cities)
+        {
+            if (string.Equals(city.Owner, nationId, StringComparison.Ordinal))
+            {
+                cities++;
+            }
+        }
+
+        var score = FleetScore(state, ruleset, nationId);
+        var scoreAllows = score == 0
+                          || (score == 1 && cities > weights.FaithfulFleetScoreOneCitiesAbove)
+                          || (score == 2 && cities > weights.FaithfulFleetScoreTwoCitiesAbove);
+        if (fleets >= weights.FaithfulFleetCountBelow
+            || nation.Treasury <= weights.FaithfulFleetTreasuryAbove
+            || !scoreAllows)
+        {
+            return (state, 0, 0);
+        }
+
+        var ships = Math.Min(weights.FaithfulFleetShipsCap, cities + weights.FaithfulFleetShipsCityOffset);
+        if (ships < ruleset.Naval.OrderMinShips || ships > ruleset.Naval.OrderMaxShips)
+        {
+            return (state, 0, 0);
+        }
+
+        var port = ChoosePort(state, world, nation);
+        if (port is null)
+        {
+            return (state, 0, 0);
+        }
+
+        var fleetId = Inv("{0}-ai-fleet-{1}", nationId, state.Calendar.TurnIndex);
+        for (var suffix = 2; state.FleetById(fleetId) is not null; suffix++)
+        {
+            fleetId = Inv("{0}-ai-fleet-{1}-{2}", nationId, state.Calendar.TurnIndex, suffix);
+        }
+
+        var result = commands.Dispatch(state, new OrderFleetCommand(nationId, port.Id, ships, fleetId), events);
+        if (result.IsRejected)
+        {
+            log.Add(Inv("REJECTED order fleet {0} ships at {1}: {2}", ships, port.Id, result.Rejection!.Message));
+            return (state, 1, 1);
+        }
+
+        log.Add(Inv("faithful fleet order: {0} ships at {1} ({2})", ships, port.Id, fleetId));
+        return (result.State, 1, 0);
+    }
+
+    /// <summary>
+    /// <c>FUN_004496e0</c>: the own city <see cref="CoastalCity.IsCoastal"/> accepts (a sea cell in its 3x3),
+    /// nearest the capital by Chebyshev distance, that hosts no construction order already. No test that the
+    /// water cell is free is made: the report gives no predicate for the decompile's "free".
+    /// Equal distances: the lower city id (ordinal) wins. [designed]: the report names no loop order or
+    /// tie rule for FUN_004496e0 (searched 2026-10-07-strategic-ai-turn.md and
+    /// 2026-10-09-fleet-build-city-nearest-capital.md, which did not play a tie).
+    /// </summary>
+    public static CityState? ChoosePort(GameState state, World world, NationState nation)
+    {
+        var capital = nation.CapitalCityId is { } id ? state.CityById(id) : null;
+        if (capital is null)
+        {
+            return null;
+        }
+
+        CityState? best = null;
+        var bestDistance = int.MaxValue;
+        foreach (var city in state.Cities)
+        {
+            if (!string.Equals(city.Owner, nation.Id, StringComparison.Ordinal)
+                || !CoastalCity.IsCoastal(city, world)
+                || HostsConstruction(state, city.Id))
+            {
+                continue;
+            }
+
+            var distance = AiView.Distance(city.X, city.Y, capital.X, capital.Y);
+            if (distance < bestDistance
+                || (distance == bestDistance && best is not null && string.CompareOrdinal(city.Id, best.Id) < 0))
+            {
+                best = city;
+                bestDistance = distance;
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>
+    /// <c>FUN_00450858</c>: slot by slot over every own army, in the army's slot order. A regular unit below
+    /// the regular fraction of its type's standard size is joined with the next same-type regular slot below
+    /// the partner fraction (<see cref="JoinUnitsCommand"/>); a mercenary below the mercenary fraction is
+    /// disbanded (<see cref="DisbandUnitCommand"/>) unless it is the army's last unit. [designed]: the last
+    /// unit is kept because the command refuses it by design (#565) and the report names no such case. After
+    /// a join the pass moves on to the next slot. Draws nothing.
+    /// </summary>
+    public static (GameState State, int Issued, int Rejected) ConsolidateUnits(
+        GameState state,
+        Ruleset ruleset,
+        ICommandDispatch commands,
+        IEventSink events,
+        string nationId,
+        List<string> log)
+    {
+        var weights = ruleset.Ai;
+        var issued = 0;
+        var rejected = 0;
+        var armyIds = new List<string>();
+        foreach (var army in state.Armies)
+        {
+            if (string.Equals(army.Nation, nationId, StringComparison.Ordinal))
+            {
+                armyIds.Add(army.Id);
+            }
+        }
+
+        foreach (var armyId in armyIds)
+        {
+            var slot = 0;
+            while (state.ArmyById(armyId) is { } army && slot < army.Units.Count)
+            {
+                var unit = army.Units[slot];
+                var type = ruleset.UnitTypeById(unit.UnitTypeId);
+                if (type is null)
+                {
+                    slot++;
+                    continue;
+                }
+
+                var size = (long)type.StandardBattalionSize;
+                ICommand? command = null;
+                if (unit.IsRegular
+                    && unit.Troops * (long)weights.FaithfulConsolidateRegularBelowDenominator
+                    < size * weights.FaithfulConsolidateRegularBelowNumerator)
+                {
+                    for (var next = slot + 1; next < army.Units.Count; next++)
+                    {
+                        var other = army.Units[next];
+                        if (other.IsRegular
+                            && string.Equals(other.UnitTypeId, unit.UnitTypeId, StringComparison.Ordinal)
+                            && other.Troops * (long)weights.FaithfulConsolidatePartnerBelowDenominator
+                            < size * weights.FaithfulConsolidatePartnerBelowNumerator)
+                        {
+                            command = new JoinUnitsCommand(nationId, armyId, slot, next);
+                            break;
+                        }
+                    }
+                }
+                else if (unit.IsMercenary
+                         && army.Units.Count > 1
+                         && unit.Troops * (long)weights.FaithfulConsolidateMercenaryBelowDenominator
+                         < size * weights.FaithfulConsolidateMercenaryBelowNumerator)
+                {
+                    command = new DisbandUnitCommand(nationId, armyId, slot);
+                }
+
+                if (command is null)
+                {
+                    slot++;
+                    continue;
+                }
+
+                var result = commands.Dispatch(state, command, events);
+                issued++;
+                if (result.IsRejected)
+                {
+                    rejected++;
+                    log.Add(Inv("REJECTED consolidate {0} slot {1}: {2}", armyId, slot, result.Rejection!.Message));
+                    slot++;
+                    continue;
+                }
+
+                state = result.State;
+                if (command is DisbandUnitCommand)
+                {
+                    log.Add(Inv("faithful consolidate: disbanded {0} slot {1}", armyId, slot));
+                }
+                else
+                {
+                    log.Add(Inv("faithful consolidate: joined {0} slot {1}", armyId, slot));
+                    slot++;
+                }
+            }
+        }
+
+        return (state, issued, rejected);
+    }
+
+    private static bool HostsConstruction(GameState state, string cityId)
+    {
+        foreach (var fleet in state.Fleets)
+        {
+            if (fleet.IsUnderConstruction && string.Equals(fleet.BuildCityId, cityId, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static int Queued(NationState nation, string cityId)

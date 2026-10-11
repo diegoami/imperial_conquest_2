@@ -987,6 +987,20 @@ one shared scale, so the AI's determinism guarantee never depends on floating-po
 | `faithfulTaxRaise` | int | points | Tax rule 2's raise; 9. |
 | `faithfulTaxCeiling` | int | percent | Tax rule 2's ceiling; 40. |
 | `faithfulTaxZeroUnityBelow` | int | unity | Tax rule 3 zeroes the tax, with a positive treasury, when unity is below N; 500. |
+| `faithfulFleetCountBelow` | int | fleets | The AI orders a new fleet only while it counts fewer than N fleets in the whole table (all nations); 99. |
+| `faithfulFleetTreasuryAbove` | int | talents | ... and only while its treasury is above N; 3000. |
+| `faithfulFleetScoreLaunched` | int | score | The fleet score's term for each own launched fleet; 1. |
+| `faithfulFleetScoreUnderConstruction` | int | score | The fleet score's term for each own fleet under construction (instead of the launched term); 4. |
+| `faithfulFleetScoreOneCitiesAbove` | int | cities | A fleet score of 1 still orders with more than N cities; 50. |
+| `faithfulFleetScoreTwoCitiesAbove` | int | cities | A fleet score of 2 still orders with more than N cities; 100. |
+| `faithfulFleetShipsCityOffset` | int | ships | The new fleet has `min(cap, cities + N)` ships; N is 50. |
+| `faithfulFleetShipsCap` | int | ships | The cap of the ship count above; 100. |
+| `faithfulConsolidateRegularBelowNumerator` | int | fraction | A regular unit below N/D of its type's standard size is merged; N is 2. |
+| `faithfulConsolidateRegularBelowDenominator` | int | fraction | The D of that fraction; 3. |
+| `faithfulConsolidatePartnerBelowNumerator` | int | fraction | Its merge partner (the next same-type regular slot) is below N/D of the standard size; N is 1. |
+| `faithfulConsolidatePartnerBelowDenominator` | int | fraction | The D of that fraction; 3. |
+| `faithfulConsolidateMercenaryBelowNumerator` | int | fraction | A mercenary unit below N/D of the standard size is disbanded (never an army's last unit); N is 1. |
+| `faithfulConsolidateMercenaryBelowDenominator` | int | fraction | The D of that fraction; 6. |
 | `cityRegionById` | list | region assignments | Pins cities to region ids (`cityId`, `region`); a coordinate takes the region of the nearest pinned city. Empty in the shipped data: the original's region boxes are not transcribed, so every city is in region 0 and the halving term never fires. |
 | `cityId` | string | city id | A `cityRegionById` row's city. |
 | `region` | int | region id | A `cityRegionById` row's region. |
