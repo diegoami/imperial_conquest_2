@@ -394,7 +394,13 @@ public static class AiFaithfulEconomy
                 distance = Math.Min(distance, AiView.Distance(city.X, city.Y, enemy.X, enemy.Y));
             }
 
-            if (distance < bestDistance)
+            // Equal distances: the lower city id (ordinal) wins, so the choice never depends on the order of
+            // GameState.Cities. [designed]: the strategic-AI-turn report (section 2.2, FUN_004502e0) says
+            // "nearest to an enemy capital" and nothing about ties, and no other report of the research
+            // repository's docs/reports describes FUN_004502e0's loop, so the original's tie rule is unknown.
+            if (distance < bestDistance
+                || (distance == bestDistance && best is not null
+                    && string.CompareOrdinal(city.Id, best.Id) < 0))
             {
                 best = city;
                 bestDistance = distance;

@@ -88,7 +88,7 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
                         // position supersedes this one when this one's target is unreachable from that position
                         // by the reachability rule (a friendly army marched onto the straight path in between).
                         // The superseding decision is still owed its own attack or march.
-                        if (IsSuperseded(roundDecisions, decision, TurnBoundaryState(session.State, round, decision.NationId), resolved))
+                        if (IsSuperseded(roundDecisions, decision, TurnBoundaryState(session.State, round, decision.NationId), resolved.Ruleset, resolved.World))
                         {
                             exempted.Add(Describe(r, decision));
                             continue;
@@ -171,18 +171,33 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
 
     /// <summary>
     /// The state at the end of <paramref name="nationId"/>'s turn, rebuilt from the end-of-round state and the
-    /// round's army moves (the session exposes no per-turn snapshot). An army's position at that boundary is
-    /// its last move's destination at or before the nation's <see cref="AiTurnDecided"/>, else its first later
-    /// move's origin, else where it ends the round. An army destroyed after the boundary is absent from the
-    /// end-of-round state, so it is rebuilt as a bare record: only its position matters to the reachability rule.
+    /// round's events (the session exposes no per-turn snapshot), preserving each army's lifetime.
     /// </summary>
-    private static GameState TurnBoundaryState(GameState endOfRound, List<DomainEvent> round, string nationId)
+    /// <remarks>
+    /// An army's position at the boundary is its last move's destination before the nation's
+    /// <see cref="AiTurnDecided"/>, else its first later move's origin, else where it ends the round. An army
+    /// missing from the end-of-round state was destroyed in the round (<see cref="BattleResolved"/> with a
+    /// destroyed loser); it is rebuilt, as a bare record, only when that happened AFTER the boundary and it
+    /// moved (so its boundary position is known). One destroyed before the boundary is not rebuilt. One that never
+    /// moved and was destroyed after the boundary cannot be rebuilt (no position is recorded); that only ever
+    /// narrows the exemption.
+    /// </remarks>
+    internal static GameState TurnBoundaryState(GameState endOfRound, List<DomainEvent> round, string nationId)
     {
         var boundary = round.FindIndex(e => e is AiTurnDecided decided
             && string.Equals(decided.NationId, nationId, StringComparison.Ordinal));
         if (boundary < 0)
         {
             return endOfRound;
+        }
+
+        var destroyedAt = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (var i = 0; i < round.Count; i++)
+        {
+            if (round[i] is BattleResolved { Result.LoserFate: LoserFate.Destroyed } battle)
+            {
+                destroyedAt[battle.Result.LoserId] = i;
+            }
         }
 
         var positions = new Dictionary<string, (int X, int Y, string Nation)>(StringComparer.Ordinal);
@@ -210,7 +225,10 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
 
         foreach (var (id, at) in positions)
         {
-            armies.Add(new ArmyState(id, at.Nation, at.X, at.Y, 0, 0, 0, 0, null, null, ValueList<UnitSlot>.Empty));
+            if (destroyedAt.TryGetValue(id, out var when) && when > boundary)
+            {
+                armies.Add(new ArmyState(id, at.Nation, at.X, at.Y, 0, 0, 0, 0, null, null, ValueList<UnitSlot>.Empty));
+            }
         }
 
         return endOfRound with { Armies = ValueList.From(armies) };
@@ -221,11 +239,12 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
     /// position is in the round's log, and the earlier target is unreachable from that position on the end-of-round
     /// state, with the army placed at the decision's recorded position (it has moved since).
     /// </summary>
-    private static bool IsSuperseded(
+    internal static bool IsSuperseded(
         List<AiArmyTargetTree.DecisionRecord> decisions,
         AiArmyTargetTree.DecisionRecord decision,
         GameState endState,
-        ResolvedScenario resolved)
+        Ruleset ruleset,
+        World world)
     {
         var index = decisions.IndexOf(decision);
         var later = decisions.Skip(index + 1).Any(d =>
@@ -241,7 +260,7 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
         var attackCity = decision.Kind == AiArmyTargetTree.Kind.AttackCity;
         var targetX = attackCity ? decision.TargetCityX : decision.TargetArmyX;
         var targetY = attackCity ? decision.TargetCityY : decision.TargetArmyY;
-        var view = new AiView(endState, resolved.Ruleset, resolved.World, decision.NationId);
+        var view = new AiView(endState, ruleset, world, decision.NationId);
         return !AiArmyTargetTree.IsReachable(view, army with { X = decision.ArmyX, Y = decision.ArmyY }, targetX, targetY);
     }
 
