@@ -4,6 +4,7 @@ using IC2.Engine.Core;
 using IC2.Engine.Model;
 using IC2.Engine.Movement;
 using IC2.Engine.Movement.Commands;
+using IC2.Engine.Recruitment.Commands;
 using IC2.Engine.Tests.Battle.Commands;
 using Xunit;
 using CaptureFixtures = IC2.Engine.Tests.Cities.Capture.CaptureTestbed;
@@ -89,133 +90,346 @@ public sealed class AiTurnBoundaryStateTests
     private static AiArmyTargetTree.DecisionRecord Decision(string target, int tx, int ty, int ax, int ay) =>
         new(Me, "s", ax, ay, AiArmyTargetTree.Kind.AttackCity, target, tx, ty, null, 0, 0, 200, 0, 5, 0, 0);
 
-    private static bool Superseded(GameState end, List<DomainEvent> round, int x, int y)
+    private static RecruitMobilized Created(string id, string nation = Foe) =>
+        new(nation, "home", id, true, "light_infantry", 1000, 6, "Recruit");
+
+    private static ArmyScattered Scattered(string id, int toX, int toY) => new(id, Foe, toX, toY);
+
+    private static ArmyState? At(GameState start, GameState end, List<DomainEvent> round, string id) =>
+        AiTargetTreeDecisionsAreCarriedOutTests.TurnBoundaryState(start, end, round, Me).ArmyById(id);
+
+    private static (int X, int Y)? Where(GameState start, GameState end, List<DomainEvent> round, string id) =>
+        At(start, end, round, id) is { } army ? (army.X, army.Y) : null;
+
+    // The deciding army "s" stands at (x, y) and aims at (x + 5, y); a blocker on (x + 2, y) makes the target
+    // unreachable, and a later decision for the same army and position is in the log.
+    private static bool Superseded(GameState start, GameState end, List<DomainEvent> round, int x, int y)
     {
         var first = Decision("t", x + 5, y, x, y);
         var second = Decision("u", x + 5, y - 1, x, y);
-        var boundary = AiTargetTreeDecisionsAreCarriedOutTests.TurnBoundaryState(end, round, Me);
+        var boundary = AiTargetTreeDecisionsAreCarriedOutTests.TurnBoundaryState(start, end, round, Me);
         return AiTargetTreeDecisionsAreCarriedOutTests.IsSuperseded(
             new List<AiArmyTargetTree.DecisionRecord> { first, second }, 0, boundary, Ruleset, World);
     }
 
-    [Fact]
-    public void A_blocker_destroyed_before_the_boundary_is_not_resurrected_and_the_decision_is_not_exempt()
+    // Start and end states of a round, each holding the deciding army "s" and an untouched "keeper".
+    private static (GameState Start, GameState End) Round(ArmyState[] startExtra, ArmyState[] endExtra)
     {
         var (x, y) = FindRun();
-        var end = StateWith(new[] { Army("s", Me, x, y), Army("keeper", Foe, 7, 0) });
-        var round = new List<DomainEvent>
-        {
-            Moved("blk", Foe, x + 2, y + 1, x + 2, y),
-            Destroyed("blk"),
-            Boundary(Me),
-        };
+        var keeper = Army("keeper", Foe, 7, 0);
+        var s = Army("s", Me, x, y);
+        return (
+            StateWith(new[] { s, keeper }.Concat(startExtra)),
+            StateWith(new[] { s, keeper }.Concat(endExtra)));
+    }
 
-        var boundary = AiTargetTreeDecisionsAreCarriedOutTests.TurnBoundaryState(end, round, Me);
-        Assert.Null(boundary.ArmyById("blk"));
-        Assert.NotNull(boundary.ArmyById("keeper"));
-        Assert.NotNull(boundary.ArmyById("s"));
-        Assert.False(Superseded(end, round, x, y));
+    // ---- TurnBoundaryState's branches
+
+    [Fact]
+    public void Without_the_nations_boundary_the_end_state_is_returned_unchanged()
+    {
+        var (start, end) = Round(Array.Empty<ArmyState>(), new[] { Army("ghost", Foe, 3, 3) });
+        var round = new List<DomainEvent> { Boundary(Foe) };
+
+        var boundary = AiTargetTreeDecisionsAreCarriedOutTests.TurnBoundaryState(start, end, round, Me);
+
+        Assert.Same(end, boundary);
+        Assert.NotNull(boundary.ArmyById("ghost"));
     }
 
     [Fact]
-    public void A_blocker_destroyed_after_the_boundary_is_present_at_the_boundary_and_the_decision_is_exempt()
+    public void An_army_destroyed_before_the_boundary_is_absent_and_the_others_stay()
     {
         var (x, y) = FindRun();
-        var end = StateWith(new[] { Army("s", Me, x, y), Army("keeper", Foe, 7, 0) });
-        var round = new List<DomainEvent>
-        {
-            Moved("blk", Foe, x + 2, y + 1, x + 2, y),
-            Boundary(Me),
-            Destroyed("blk"),
-        };
+        var (start, end) = Round(new[] { Army("blk", Foe, x + 2, y + 1) }, Array.Empty<ArmyState>());
+        var round = new List<DomainEvent> { Moved("blk", Foe, x + 2, y + 1, x + 2, y), Destroyed("blk"), Boundary(Me) };
 
-        var boundary = AiTargetTreeDecisionsAreCarriedOutTests.TurnBoundaryState(end, round, Me);
-        Assert.Equal((x + 2, y), (boundary.ArmyById("blk")!.X, boundary.ArmyById("blk")!.Y));
-        Assert.NotNull(boundary.ArmyById("keeper"));
-        Assert.True(Superseded(end, round, x, y));
+        Assert.Null(At(start, end, round, "blk"));
+        Assert.NotNull(At(start, end, round, "keeper"));
+        Assert.NotNull(At(start, end, round, "s"));
+        Assert.False(Superseded(start, end, round, x, y));
     }
 
     [Fact]
-    public void A_surviving_blocker_is_placed_where_it_stood_at_the_boundary()
+    public void An_army_destroyed_after_the_boundary_is_there_at_its_position_and_the_decision_is_exempt()
     {
         var (x, y) = FindRun();
-        // It ends the round away from the path, but stood on it when the turn ended.
-        var end = StateWith(new[] { Army("s", Me, x, y), Army("blk", Foe, x + 2, y + 1) });
+        var (start, end) = Round(new[] { Army("blk", Foe, x + 2, y + 1) }, Array.Empty<ArmyState>());
+        var round = new List<DomainEvent> { Moved("blk", Foe, x + 2, y + 1, x + 2, y), Boundary(Me), Destroyed("blk") };
+
+        Assert.Equal((x + 2, y), Where(start, end, round, "blk"));
+        Assert.NotNull(At(start, end, round, "keeper"));
+        Assert.True(Superseded(start, end, round, x, y));
+    }
+
+    [Fact]
+    public void An_army_destroyed_twice_is_omitted_whatever_its_recorded_moves_and_the_decision_is_not_exempt()
+    {
+        var (x, y) = FindRun();
+        // It stood on the path at the boundary by its recorded move, was destroyed twice afterwards, and is absent
+        // at the end: the second destruction contradicts the lifetime, so the id is ambiguous and left out.
+        var (start, end) = Round(new[] { Army("blk", Foe, x + 2, y + 1) }, Array.Empty<ArmyState>());
         var round = new List<DomainEvent>
         {
-            Moved("blk", Foe, x + 2, y + 1, x + 2, y),
+            Moved("blk", Foe, x + 2, y + 1, x + 2, y), Boundary(Me), Destroyed("blk"), Destroyed("blk"),
+        };
+
+        Assert.Null(At(start, end, round, "blk"));
+        Assert.NotNull(At(start, end, round, "keeper"));
+        Assert.False(Superseded(start, end, round, x, y));
+    }
+
+    [Fact]
+    public void A_reused_id_before_the_boundary_is_the_new_incarnation_at_its_own_position()
+    {
+        var (x, y) = FindRun();
+        // The old army moved onto the path and was destroyed; the id was reused, and the new army ends at (x+2,y+1).
+        var (start, end) = Round(
+            new[] { Army("blk", Foe, x + 2, y + 1) }, new[] { Army("blk", Foe, x + 2, y + 1) });
+        var round = new List<DomainEvent>
+        {
+            Moved("blk", Foe, x + 2, y + 1, x + 2, y), Destroyed("blk"), Created("blk"), Boundary(Me),
+        };
+
+        Assert.Equal((x + 2, y + 1), Where(start, end, round, "blk"));
+        Assert.False(Superseded(start, end, round, x, y));
+    }
+
+    [Fact]
+    public void A_reused_id_after_the_boundary_is_the_old_incarnation_at_the_boundary()
+    {
+        var (x, y) = FindRun();
+        var (start, end) = Round(
+            new[] { Army("blk", Foe, x + 2, y) }, new[] { Army("blk", Foe, x + 2, y + 1) });
+        var round = new List<DomainEvent> { Boundary(Me), Destroyed("blk"), Created("blk") };
+
+        Assert.Equal((x + 2, y), Where(start, end, round, "blk"));
+        Assert.True(Superseded(start, end, round, x, y));
+    }
+
+    [Fact]
+    public void An_army_created_after_the_boundary_that_never_moved_is_not_in_the_boundary_state()
+    {
+        var (x, y) = FindRun();
+        var (start, end) = Round(Array.Empty<ArmyState>(), new[] { Army("blk", Foe, x + 2, y) });
+        var round = new List<DomainEvent> { Boundary(Me), Created("blk") };
+
+        Assert.Null(At(start, end, round, "blk"));
+        Assert.False(Superseded(start, end, round, x, y));
+    }
+
+    [Fact]
+    public void An_army_created_before_the_boundary_that_never_moved_stands_where_the_round_ends()
+    {
+        var (x, y) = FindRun();
+        var (start, end) = Round(Array.Empty<ArmyState>(), new[] { Army("blk", Foe, x + 2, y) });
+        var round = new List<DomainEvent> { Created("blk"), Boundary(Me) };
+
+        Assert.Equal((x + 2, y), Where(start, end, round, "blk"));
+        Assert.True(Superseded(start, end, round, x, y));
+    }
+
+    [Fact]
+    public void The_position_is_the_last_move_before_the_boundary()
+    {
+        var (x, y) = FindRun();
+        var (start, end) = Round(
+            new[] { Army("blk", Foe, x + 2, y + 3) }, new[] { Army("blk", Foe, x + 2, y + 1) });
+        var round = new List<DomainEvent>
+        {
+            Moved("blk", Foe, x + 2, y + 3, x + 2, y + 2),
+            Moved("blk", Foe, x + 2, y + 2, x + 2, y),
             Boundary(Me),
             Moved("blk", Foe, x + 2, y, x + 2, y + 1),
         };
 
-        var boundary = AiTargetTreeDecisionsAreCarriedOutTests.TurnBoundaryState(end, round, Me);
-        Assert.Equal((x + 2, y), (boundary.ArmyById("blk")!.X, boundary.ArmyById("blk")!.Y));
-        Assert.True(Superseded(end, round, x, y));
+        Assert.Equal((x + 2, y), Where(start, end, round, "blk"));
     }
+
+    [Fact]
+    public void The_position_of_an_unmoved_incarnation_is_the_origin_of_its_first_move_after_the_boundary()
+    {
+        var (x, y) = FindRun();
+        var (start, end) = Round(Array.Empty<ArmyState>(), new[] { Army("blk", Foe, x + 2, y + 4) });
+        var round = new List<DomainEvent>
+        {
+            Created("blk"),
+            Boundary(Me),
+            Moved("blk", Foe, x + 2, y, x + 2, y + 1),
+            Moved("blk", Foe, x + 2, y + 1, x + 2, y + 4),
+        };
+
+        Assert.Equal((x + 2, y), Where(start, end, round, "blk"));
+    }
+
+    [Fact]
+    public void An_unmoved_army_that_started_the_round_stands_at_its_start_position()
+    {
+        var (x, y) = FindRun();
+        var (start, end) = Round(new[] { Army("blk", Foe, x + 2, y) }, new[] { Army("blk", Foe, x + 2, y) });
+        var round = new List<DomainEvent> { Boundary(Me) };
+
+        Assert.Equal((x + 2, y), Where(start, end, round, "blk"));
+    }
+
+    [Fact]
+    public void An_army_gone_without_a_destruction_event_is_omitted()
+    {
+        var (x, y) = FindRun();
+        var (start, end) = Round(new[] { Army("blk", Foe, x + 2, y) }, Array.Empty<ArmyState>());
+        var round = new List<DomainEvent> { Boundary(Me) };
+
+        Assert.Null(At(start, end, round, "blk"));
+        Assert.False(Superseded(start, end, round, x, y));
+    }
+
+    [Fact]
+    public void An_army_present_at_the_end_with_no_creation_event_is_omitted()
+    {
+        var (x, y) = FindRun();
+        var (start, end) = Round(Array.Empty<ArmyState>(), new[] { Army("blk", Foe, x + 2, y) });
+        var round = new List<DomainEvent> { Boundary(Me) };
+
+        Assert.Null(At(start, end, round, "blk"));
+        Assert.False(Superseded(start, end, round, x, y));
+    }
+
+    [Fact]
+    public void An_army_aboard_a_fleet_is_omitted()
+    {
+        var (x, y) = FindRun();
+        var aboard = Army("blk", Foe, x + 2, y) with { AboardFleetId = "f" };
+        var (start, end) = Round(new[] { aboard }, new[] { aboard });
+        var round = new List<DomainEvent> { Boundary(Me) };
+
+        Assert.Null(At(start, end, round, "blk"));
+    }
+
+    [Fact]
+    public void A_scatter_before_the_boundary_sets_the_position()
+    {
+        var (x, y) = FindRun();
+        var (start, end) = Round(
+            new[] { Army("blk", Foe, x + 2, y + 3) }, new[] { Army("blk", Foe, x + 2, y) });
+        var round = new List<DomainEvent> { Scattered("blk", x + 2, y), Boundary(Me) };
+
+        Assert.Equal((x + 2, y), Where(start, end, round, "blk"));
+    }
+
+    [Fact]
+    public void A_scatter_after_the_boundary_of_an_army_with_no_known_position_omits_it()
+    {
+        var (x, y) = FindRun();
+        var (start, end) = Round(Array.Empty<ArmyState>(), new[] { Army("blk", Foe, x + 2, y) });
+        var round = new List<DomainEvent> { Created("blk"), Boundary(Me), Scattered("blk", x + 2, y) };
+
+        Assert.Null(At(start, end, round, "blk"));
+    }
+
+    [Fact]
+    public void A_move_after_the_armys_destruction_contradicts_its_lifetime_and_omits_the_id()
+    {
+        var (x, y) = FindRun();
+        var (start, end) = Round(new[] { Army("blk", Foe, x + 2, y + 1) }, Array.Empty<ArmyState>());
+        var round = new List<DomainEvent>
+        {
+            Moved("blk", Foe, x + 2, y + 1, x + 2, y), Boundary(Me), Destroyed("blk"), Moved("blk", Foe, x + 2, y, x + 2, y + 1),
+        };
+
+        Assert.Null(At(start, end, round, "blk"));
+        Assert.False(Superseded(start, end, round, x, y));
+    }
+
+    [Fact]
+    public void A_scatter_after_the_armys_destruction_contradicts_its_lifetime_and_omits_the_id()
+    {
+        var (x, y) = FindRun();
+        var (start, end) = Round(new[] { Army("blk", Foe, x + 2, y) }, Array.Empty<ArmyState>());
+        var round = new List<DomainEvent> { Boundary(Me), Destroyed("blk"), Scattered("blk", x + 2, y + 1) };
+
+        Assert.Null(At(start, end, round, "blk"));
+        Assert.False(Superseded(start, end, round, x, y));
+    }
+
+    [Fact]
+    public void An_id_destroyed_before_the_boundary_and_recreated_after_it_is_absent_at_the_boundary()
+    {
+        var (x, y) = FindRun();
+        var (start, end) = Round(
+            new[] { Army("blk", Foe, x + 2, y + 1) }, new[] { Army("blk", Foe, x + 2, y) });
+        var round = new List<DomainEvent> { Destroyed("blk"), Boundary(Me), Created("blk") };
+
+        Assert.Null(At(start, end, round, "blk"));
+        Assert.False(Superseded(start, end, round, x, y));
+    }
+
+    [Fact]
+    public void A_creation_of_an_army_that_is_already_alive_omits_the_id()
+    {
+        var (x, y) = FindRun();
+        var (start, end) = Round(new[] { Army("blk", Foe, x + 2, y) }, new[] { Army("blk", Foe, x + 2, y) });
+        var round = new List<DomainEvent> { Created("blk"), Boundary(Me) };
+
+        Assert.Null(At(start, end, round, "blk"));
+    }
+
+    [Fact]
+    public void A_created_army_destroyed_after_the_boundary_without_ever_moving_has_no_position_and_is_omitted()
+    {
+        var (x, y) = FindRun();
+        var (start, end) = Round(Array.Empty<ArmyState>(), Array.Empty<ArmyState>());
+        var round = new List<DomainEvent> { Created("blk"), Boundary(Me), Destroyed("blk") };
+
+        Assert.Null(At(start, end, round, "blk"));
+        Assert.False(Superseded(start, end, round, x, y));
+    }
+
+    // ---- IsSuperseded
 
     [Fact]
     public void A_final_value_equal_duplicate_with_no_later_decision_is_not_exempt()
     {
         var (x, y) = FindRun();
-        // The blocker stands on the path at the boundary, so the target is unreachable.
         var end = StateWith(new[] { Army("s", Me, x, y), Army("blk", Foe, x + 2, y) });
         var first = Decision("t", x + 5, y, x, y);
         var last = first with { };
         var decisions = new List<AiArmyTargetTree.DecisionRecord> { first, last };
 
-        // The first copy has a genuinely later one (the duplicate); the final copy has nothing after it.
         Assert.True(AiTargetTreeDecisionsAreCarriedOutTests.IsSuperseded(decisions, 0, end, Ruleset, World));
         Assert.False(AiTargetTreeDecisionsAreCarriedOutTests.IsSuperseded(decisions, 1, end, Ruleset, World));
     }
 
     [Fact]
-    public void A_genuinely_later_decision_for_the_same_army_and_position_exempts_when_the_target_is_unreachable()
+    public void A_later_decision_exempts_only_for_the_same_army_and_position_and_an_unreachable_target()
     {
         var (x, y) = FindRun();
-        var end = StateWith(new[] { Army("s", Me, x, y), Army("blk", Foe, x + 2, y) });
+        var blocked = StateWith(new[] { Army("s", Me, x, y), Army("blk", Foe, x + 2, y) });
         var first = Decision("t", x + 5, y, x, y);
         var later = Decision("u", x + 5, y - 1, x, y);
         var otherPosition = Decision("u", x + 5, y - 1, x + 1, y);
         var otherArmy = later with { ArmyId = "other" };
 
-        Assert.True(AiTargetTreeDecisionsAreCarriedOutTests.IsSuperseded(
-            new List<AiArmyTargetTree.DecisionRecord> { first, later }, 0, end, Ruleset, World));
-        // A later decision from another position, or for another army, supersedes nothing.
+        bool Check(GameState state, params AiArmyTargetTree.DecisionRecord[] log) =>
+            AiTargetTreeDecisionsAreCarriedOutTests.IsSuperseded(log.ToList(), 0, state, Ruleset, World);
+
+        Assert.True(Check(blocked, first, later));
+        Assert.False(Check(blocked, first));
+        Assert.False(Check(blocked, first, otherPosition));
+        Assert.False(Check(blocked, first, otherArmy));
         Assert.False(AiTargetTreeDecisionsAreCarriedOutTests.IsSuperseded(
-            new List<AiArmyTargetTree.DecisionRecord> { first, otherPosition }, 0, end, Ruleset, World));
-        Assert.False(AiTargetTreeDecisionsAreCarriedOutTests.IsSuperseded(
-            new List<AiArmyTargetTree.DecisionRecord> { first, otherArmy }, 0, end, Ruleset, World));
-        // An EARLIER decision does not count as a later one.
-        Assert.False(AiTargetTreeDecisionsAreCarriedOutTests.IsSuperseded(
-            new List<AiArmyTargetTree.DecisionRecord> { later, first }, 1, end, Ruleset, World));
-        // Reachable target: not exempt even with a later decision.
-        var clear = StateWith(new[] { Army("s", Me, x, y) });
-        Assert.False(AiTargetTreeDecisionsAreCarriedOutTests.IsSuperseded(
-            new List<AiArmyTargetTree.DecisionRecord> { first, later }, 0, clear, Ruleset, World));
+            new List<AiArmyTargetTree.DecisionRecord> { later, first }, 1, blocked, Ruleset, World));
+        Assert.False(Check(StateWith(new[] { Army("s", Me, x, y) }), first, later));
     }
 
     [Fact]
-    public void An_id_destroyed_and_then_reused_in_the_round_is_ambiguous_and_never_exempts()
+    public void A_deciding_army_absent_from_the_boundary_state_is_never_exempt()
     {
         var (x, y) = FindRun();
-        // The old "blk" stood on the path and was destroyed before the boundary; mobilisation then reused the
-        // id for a new army that ends the round off the path. The old army's move must not be applied to it.
-        var end = StateWith(new[] { Army("s", Me, x, y), Army("blk", Foe, x + 2, y + 1), Army("keeper", Foe, 7, 0) });
-        var round = new List<DomainEvent>
-        {
-            Moved("blk", Foe, x + 2, y + 1, x + 2, y),
-            Destroyed("blk"),
-            Boundary(Me),
-        };
+        var noDecider = StateWith(new[] { Army("blk", Foe, x + 2, y) });
+        var first = Decision("t", x + 5, y, x, y);
+        var later = Decision("u", x + 5, y - 1, x, y);
 
-        var boundary = AiTargetTreeDecisionsAreCarriedOutTests.TurnBoundaryState(end, round, Me);
-        Assert.Null(boundary.ArmyById("blk"));
-        Assert.NotNull(boundary.ArmyById("keeper"));
-        Assert.False(Superseded(end, round, x, y));
-
-        // The same id as the deciding army is ambiguous too: no exemption on it.
-        var reusedDecider = new List<DomainEvent> { Destroyed("s"), Boundary(Me) };
-        var withBlocker = StateWith(new[] { Army("s", Me, x, y), Army("blk", Foe, x + 2, y) });
-        Assert.False(Superseded(withBlocker, reusedDecider, x, y));
+        Assert.False(AiTargetTreeDecisionsAreCarriedOutTests.IsSuperseded(
+            new List<AiArmyTargetTree.DecisionRecord> { first, later }, 0, noDecider, Ruleset, World));
     }
 }
