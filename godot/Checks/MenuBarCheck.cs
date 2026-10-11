@@ -444,7 +444,7 @@ public partial class MenuBarCheck : Control
         }
 
         var viewportRect = new Rect2(Vector2.Zero, GetViewport().GetVisibleRect().Size);
-        var buttonRect = diplomacy.CloseButton.GetGlobalRect();
+        var buttonRect = FindButton(diplomacy, "Close")?.GetGlobalRect() ?? default;
         Check(
             viewportRect.Encloses(buttonRect),
             $"the International relations Close button lies inside the viewport (button {buttonRect}, viewport {viewportRect})");
@@ -455,6 +455,24 @@ public partial class MenuBarCheck : Control
         {
             diplomacy.Close();
         }
+    }
+
+    private static Button? FindButton(Node node, string text)
+    {
+        foreach (var child in node.GetChildren())
+        {
+            if (child is Button button && button.Text == text)
+            {
+                return button;
+            }
+
+            if (FindButton(child, text) is { } nested)
+            {
+                return nested;
+            }
+        }
+
+        return null;
     }
 
     private void CheckHelpTopics()

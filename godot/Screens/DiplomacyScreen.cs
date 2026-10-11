@@ -71,8 +71,7 @@ public partial class DiplomacyScreen : Control
         }
 
         content.AddChild(new HSeparator());
-        CloseButton = UiKit.MakeButton("Close", Close);
-        content.AddChild(CloseButton);
+        content.AddChild(UiKit.MakeButton("Close", Close));
 
         var cap = Math.Max(MinimumGridHeight, GetViewportRect().Size.Y - ReservedHeight);
         scroll.CustomMinimumSize = new Vector2(0, Math.Min(cap, Grid.GetCombinedMinimumSize().Y));
@@ -83,9 +82,6 @@ public partial class DiplomacyScreen : Control
     private const float ReservedHeight = 300f;
 
     private const float MinimumGridHeight = 120f;
-
-    /// <summary>The Close button, exposed for <c>godot/Checks/MenuBarCheck.cs</c> to assert it is on screen.</summary>
-    public Button CloseButton { get; private set; } = null!;
 
     public override void _UnhandledInput(InputEvent @event)
     {
