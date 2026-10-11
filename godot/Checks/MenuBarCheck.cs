@@ -1,4 +1,5 @@
 using Godot;
+using IC2.Engine.Model;
 using IC2.Engine.Presentation;
 using IC2.Slice.Screens;
 using IC2.Slice.UI;
@@ -68,6 +69,10 @@ public partial class MenuBarCheck : Control
 
     public override void _Ready()
     {
+        // The shipped default window (project.godot window/size), so the layout asserts match what a player sees (bug #968).
+        GetWindow().Size = new Vector2I(
+            (int)ProjectSettings.GetSetting("display/window/size/viewport_width"),
+            (int)ProjectSettings.GetSetting("display/window/size/viewport_height"));
         Size = GetViewport().GetVisibleRect().Size;
 
         var resolved = GameDataContext.Repository.Resolve("classical-mediterranean");
@@ -150,6 +155,9 @@ public partial class MenuBarCheck : Control
             // Done-when 5: the four overlays and the news toggle, none of which mutates the turn.
             (BetweenStepsFrames, CheckNewsToggles),
             (BetweenStepsFrames, CheckInternationalRelations),
+            (BetweenStepsFrames, CheckInternationalRelationsCloses),
+            (BetweenStepsFrames, OpenRelationsWithPendingOffer),
+            (BetweenStepsFrames, CheckRelationsWithPendingOfferFits),
             (BetweenStepsFrames, CheckHelpTopics),
             (BetweenStepsFrames, CheckAbout),
 
@@ -431,7 +439,113 @@ public partial class MenuBarCheck : Control
         Check(
             _mainGame.ActiveOverlay is DiplomacyScreen,
             $"International relations opens DiplomacyScreen (got {_mainGame.ActiveOverlay?.GetType().Name ?? "null"})");
-        CloseOverlay<DiplomacyScreen>();
+    }
+
+    // Bug #968: the window must close on Esc, and its Close button and window must be on screen at the default
+    // window size with the 16-nation shipped scenario. (Resizing the window below the default is not reliable
+    // headless, so smaller windows are not asserted here; the scroll cap follows the viewport height.)
+    private void CheckInternationalRelationsCloses()
+    {
+        if (_mainGame.ActiveOverlay is not DiplomacyScreen diplomacy)
+        {
+            Check(false, "International relations is still open for the close check");
+            return;
+        }
+
+        AssertRelationsFits(diplomacy, "default window");
+
+        GetViewport().PushInput(new InputEventKey { Keycode = Key.Escape, Pressed = true });
+        Check(_mainGame.ActiveOverlay is null, "Esc closes the International relations window");
+        if (_mainGame.ActiveOverlay is DiplomacyScreen)
+        {
+            diplomacy.Close();
+        }
+    }
+
+    // Bug #968: with an offer pending the window gains a label and an Accept Offer button; the Close button
+    // and the window must still lie inside the viewport.
+    private void OpenRelationsWithPendingOffer()
+    {
+        var session = _mainGame.Session;
+        var proposer = session.State.Nations.First(n => n.Id != "rome").Id;
+        SetSessionState(session, session.State with
+        {
+            PendingOffer = new PendingDiplomaticOffer(proposer, session.Ruleset.Diplomacy.StateCodes.Trade),
+        });
+        _mainGame.MenuBar.PressItemForCheck("strategy.relations");
+        Check(
+            _mainGame.ActiveOverlay is DiplomacyScreen,
+            $"International relations opens with a pending offer (got {_mainGame.ActiveOverlay?.GetType().Name ?? "null"})");
+    }
+
+    private void CheckRelationsWithPendingOfferFits()
+    {
+        var session = _mainGame.Session;
+        if (_mainGame.ActiveOverlay is DiplomacyScreen diplomacy)
+        {
+            AssertRelationsFits(diplomacy, "pending offer");
+            diplomacy.Close();
+        }
+        else
+        {
+            Check(false, "International relations is open for the pending-offer fit check");
+        }
+
+        SetSessionState(session, session.State with { PendingOffer = null });
+    }
+
+    // GameSession.State has a private setter; the check seeds an offer the way the AI phase would.
+    private static void SetSessionState(GameSession session, GameState state) =>
+        typeof(GameSession).GetProperty(nameof(GameSession.State))!.GetSetMethod(true)!.Invoke(session, new object[] { state });
+
+    private void AssertRelationsFits(DiplomacyScreen diplomacy, string label)
+    {
+        var viewportRect = new Rect2(Vector2.Zero, GetViewport().GetVisibleRect().Size);
+        var buttonRect = FindButton(diplomacy, "Close")?.GetGlobalRect() ?? default;
+        Check(
+            viewportRect.Encloses(buttonRect),
+            $"the International relations Close button lies inside the viewport, {label} (button {buttonRect}, viewport {viewportRect})");
+        GD.Print($"[968] {label}: window height {FindPanel(diplomacy)?.Size.Y}");
+        var panelRect = FindPanel(diplomacy)?.GetGlobalRect() ?? default;
+        Check(
+            viewportRect.Encloses(panelRect),
+            $"the International relations window lies inside the viewport, {label} (window {panelRect}, viewport {viewportRect})");
+    }
+
+    private static PanelContainer? FindPanel(Node node)
+    {
+        foreach (var child in node.GetChildren())
+        {
+            if (child is PanelContainer panel)
+            {
+                return panel;
+            }
+
+            if (FindPanel(child) is { } nested)
+            {
+                return nested;
+            }
+        }
+
+        return null;
+    }
+
+    private static Button? FindButton(Node node, string text)
+    {
+        foreach (var child in node.GetChildren())
+        {
+            if (child is Button button && button.Text == text)
+            {
+                return button;
+            }
+
+            if (FindButton(child, text) is { } nested)
+            {
+                return nested;
+            }
+        }
+
+        return null;
     }
 
     private void CheckHelpTopics()

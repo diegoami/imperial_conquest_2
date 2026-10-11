@@ -52,7 +52,17 @@ public partial class DiplomacyScreen : Control
         Grid = new GridContainer { Columns = 6 };
         Grid.AddThemeConstantOverride("h_separation", 12);
         Grid.AddThemeConstantOverride("v_separation", 6);
-        content.AddChild(Grid);
+
+        // The grid has one row per nation (16 in the shipped scenario), taller than the window, so it sits
+        // in a scroll container whose height is capped to what the viewport leaves after the title, the
+        // pending-offer row and the Close button: the Close button always stays on screen (bug #968).
+        var scroll = new ScrollContainer
+        {
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+        };
+        scroll.AddChild(Grid);
+        content.AddChild(scroll);
 
         AddHeaderRow();
         foreach (var row in DiplomacyGridViewModel.BuildRows(Session.State, Session.Ruleset, Session.State.ActiveNationId))
@@ -62,6 +72,25 @@ public partial class DiplomacyScreen : Control
 
         content.AddChild(new HSeparator());
         content.AddChild(UiKit.MakeButton("Close", Close));
+
+        var cap = Math.Max(MinimumGridHeight, GetViewportRect().Size.Y - ReservedHeight);
+        scroll.CustomMinimumSize = new Vector2(0, Math.Min(cap, Grid.GetCombinedMinimumSize().Y));
+    }
+
+    /// <summary>Height the window keeps for everything but the grid: title, pending offer, separator, the
+    /// Close button, the panel's margins and the gaps between them.</summary>
+    private const float ReservedHeight = 300f;
+
+    private const float MinimumGridHeight = 120f;
+
+    public override void _UnhandledInput(InputEvent @event)
+    {
+        if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape })
+        {
+            var viewport = GetViewport();
+            Close();
+            viewport.SetInputAsHandled();
+        }
     }
 
     /// <summary>Dismisses this screen — what the "Close" button does, exposed under its own name for
