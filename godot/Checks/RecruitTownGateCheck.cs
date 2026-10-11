@@ -56,8 +56,15 @@ public partial class RecruitTownGateCheck : Control
     {
         Size = GetViewport().GetVisibleRect().Size;
 
+        // T161: the shipped world now starts Rome with the DAT's four regiments in training. This check
+        // is about the regiments it orders itself, so its session starts from a world without them.
+        var shipped = GameDataContext.Repository.Resolve("classical-mediterranean").World;
+        var noStartingQueues = shipped with
+        {
+            Nations = ValueList.From(shipped.Nations.Select(n => n with { RecruitmentSlots = null })),
+        };
         _session = new GameSession(
-            GameDataContext.Repository.Resolve("classical-mediterranean").World,
+            noStartingQueues,
             GameDataContext.Repository.Resolve("classical-mediterranean").Ruleset,
             GameDataContext.Repository.Resolve("classical-mediterranean").Scenario,
             seedOverride: 1,
