@@ -1,4 +1,6 @@
+using IC2.Engine.Diplomacy.Commands;
 using IC2.Engine.Model;
+using IC2.Engine.Tests.Diplomacy;
 using IC2.Engine.Tests.Core;
 using IC2.Slice.Screens;
 using Xunit;
@@ -80,5 +82,59 @@ public sealed class DiplomacyGridViewModelTests
             .Single(r => r.NationId == "south");
 
         Assert.Equal("Cooldown (3)", row.RelationLabel);
+    }
+    private static DiplomacyRelationRow RowFor(int relation, out GameState state)
+    {
+        var s = CoreTestbed.InitialState();
+        state = s with { Relations = s.Relations.WithRelation("north", "south", relation) };
+        return DiplomacyGridViewModel.BuildRows(state, CoreTestbed.Toy.Ruleset, "north")
+            .Single(r => r.NationId == "south");
+    }
+
+    [Fact]
+    public void Make_peace_is_enabled_for_trade_alliance_and_war()
+    {
+        var codes = CoreTestbed.Toy.Ruleset.Diplomacy.StateCodes;
+
+        Assert.True(RowFor(codes.Trade, out _).CanMakePeace);
+        Assert.True(RowFor(codes.Alliance, out _).CanMakePeace);
+        Assert.True(RowFor(codes.War, out _).CanMakePeace);
+    }
+
+    [Fact]
+    public void Make_peace_is_disabled_for_plain_peace_and_for_cooldown_values()
+    {
+        var codes = CoreTestbed.Toy.Ruleset.Diplomacy.StateCodes;
+
+        Assert.False(RowFor(codes.Peace, out _).CanMakePeace);
+        Assert.False(RowFor(-1, out _).CanMakePeace);
+        Assert.False(RowFor(-8, out _).CanMakePeace);
+        Assert.False(RowFor(-24, out _).CanMakePeace);
+    }
+
+    /// <summary>
+    /// Bug 915: the row's Make Peace button must agree with the engine's own make-peace gate. Both seats are
+    /// human so the engine's separate AI-refusal of a war peace never applies and acceptance is exactly the
+    /// relation gate.
+    /// </summary>
+    [Fact]
+    public void Make_peace_enabled_equals_the_engine_accepting_the_command_on_the_same_state()
+    {
+        var ruleset = DiplomacyTestbed.Ruleset;
+        var codes = ruleset.Diplomacy.StateCodes;
+        var values = new[] { codes.Peace, codes.Trade, codes.Alliance, codes.War, -1, -3, -8, -24 };
+
+        foreach (var value in values)
+        {
+            var state = DiplomacyTestbed.StateOf(
+                DiplomacyTestbed.Nation("a", "A", control: SeatControl.Human),
+                DiplomacyTestbed.Nation("b", "B", control: SeatControl.Human));
+            state = state with { Relations = state.Relations.WithRelation("a", "b", value) };
+
+            var row = DiplomacyGridViewModel.BuildRows(state, ruleset, "a").Single(r => r.NationId == "b");
+            var result = DiplomacyTestbed.Dispatcher().Dispatch(state, new MakePeaceCommand("a", "b"));
+
+            Assert.True(row.CanMakePeace == result.IsAccepted, $"relation value {value}");
+        }
     }
 }
