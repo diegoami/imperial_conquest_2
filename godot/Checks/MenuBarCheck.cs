@@ -1,4 +1,5 @@
 using Godot;
+using IC2.Engine.Model;
 using IC2.Engine.Presentation;
 using IC2.Slice.Screens;
 using IC2.Slice.UI;
@@ -155,6 +156,8 @@ public partial class MenuBarCheck : Control
             (BetweenStepsFrames, CheckNewsToggles),
             (BetweenStepsFrames, CheckInternationalRelations),
             (BetweenStepsFrames, CheckInternationalRelationsCloses),
+            (BetweenStepsFrames, OpenRelationsWithPendingOffer),
+            (BetweenStepsFrames, CheckRelationsWithPendingOfferFits),
             (BetweenStepsFrames, CheckHelpTopics),
             (BetweenStepsFrames, CheckAbout),
 
@@ -459,6 +462,42 @@ public partial class MenuBarCheck : Control
         }
     }
 
+    // Bug #968: with an offer pending the window gains a label and an Accept Offer button; the Close button
+    // and the window must still lie inside the viewport.
+    private void OpenRelationsWithPendingOffer()
+    {
+        var session = _mainGame.Session;
+        var proposer = session.State.Nations.First(n => n.Id != "rome").Id;
+        SetSessionState(session, session.State with
+        {
+            PendingOffer = new PendingDiplomaticOffer(proposer, session.Ruleset.Diplomacy.StateCodes.Trade),
+        });
+        _mainGame.MenuBar.PressItemForCheck("strategy.relations");
+        Check(
+            _mainGame.ActiveOverlay is DiplomacyScreen,
+            $"International relations opens with a pending offer (got {_mainGame.ActiveOverlay?.GetType().Name ?? "null"})");
+    }
+
+    private void CheckRelationsWithPendingOfferFits()
+    {
+        var session = _mainGame.Session;
+        if (_mainGame.ActiveOverlay is DiplomacyScreen diplomacy)
+        {
+            AssertRelationsFits(diplomacy, "pending offer");
+            diplomacy.Close();
+        }
+        else
+        {
+            Check(false, "International relations is open for the pending-offer fit check");
+        }
+
+        SetSessionState(session, session.State with { PendingOffer = null });
+    }
+
+    // GameSession.State has a private setter; the check seeds an offer the way the AI phase would.
+    private static void SetSessionState(GameSession session, GameState state) =>
+        typeof(GameSession).GetProperty(nameof(GameSession.State))!.GetSetMethod(true)!.Invoke(session, new object[] { state });
+
     private void AssertRelationsFits(DiplomacyScreen diplomacy, string label)
     {
         var viewportRect = new Rect2(Vector2.Zero, GetViewport().GetVisibleRect().Size);
@@ -466,6 +505,7 @@ public partial class MenuBarCheck : Control
         Check(
             viewportRect.Encloses(buttonRect),
             $"the International relations Close button lies inside the viewport, {label} (button {buttonRect}, viewport {viewportRect})");
+        GD.Print($"[968] {label}: window height {FindPanel(diplomacy)?.Size.Y}");
         var panelRect = FindPanel(diplomacy)?.GetGlobalRect() ?? default;
         Check(
             viewportRect.Encloses(panelRect),
