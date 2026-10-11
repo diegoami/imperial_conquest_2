@@ -1,0 +1,372 @@
+> status mine
+Nation: Rome (rome, human): treasury 2200, unity 821, tax 10%
+
+Armies:
+  army-0 (Rome) @ (100,37): 23700 troops in 6 units, supply 170t (71%), morale 70, moves 8
+  army-1 (Rome) @ (120,53): 22000 troops in 6 units, supply 176t (80%), morale 68, moves 8
+
+Fleets:
+
+Cities:
+  pisae "Pisae" @ (93,35), owner Rome: supply 99t, loyalty 74, fortification 69%
+  tarquinii "Tarquinii" @ (98,39), owner Rome: supply 119t, loyalty 78, fortification 56%
+  arretium "Arretium" @ (99,36), owner Rome: supply 150t, loyalty 95, fortification 72%
+  caere "Caere" @ (99,42), owner Rome: supply 153t, loyalty 77, fortification 50%
+  rome "Rome" @ (101,43), owner Rome: supply 990t, loyalty 95, fortification 78%
+  ariminum "Ariminum" @ (102,33), owner Rome: supply 104t, loyalty 77, fortification 52%
+  carsioli "Carsioli" @ (102,41), owner Rome: supply 98t, loyalty 96, fortification 55%
+  antium "Antium" @ (102,46), owner Rome: supply 146t, loyalty 92, fortification 69%
+  alba-fucens "Alba Fucens" @ (104,42), owner Rome: supply 99t, loyalty 92, fortification 61%
+  fregellae "Fregellae" @ (104,44), owner Rome: supply 105t, loyalty 81, fortification 61%
+  hadria "Hadria" @ (106,39), owner Rome: supply 79t, loyalty 89, fortification 62%
+  cales "Cales" @ (106,46), owner Rome: supply 123t, loyalty 78, fortification 51%
+  capua "Capua" @ (108,49), owner Rome: supply 115t, loyalty 73, fortification 57%
+  neapolis "Neapolis" @ (109,52), owner Rome: supply 152t, loyalty 75, fortification 40%
+  paestum "Paestum" @ (113,54), owner Rome: supply 82t, loyalty 95, fortification 58%
+  luceria "Luceria" @ (115,48), owner Rome: supply 169t, loyalty 95, fortification 77%
+  rhegium "Rhegium" @ (115,63), owner Rome: supply 119t, loyalty 65, fortification 44%
+  teanum-apulum "Teanum Apulum" @ (116,45), owner Rome: supply 106t, loyalty 76, fortification 58%
+  venusia "Venusia" @ (118,51), owner Rome: supply 132t, loyalty 95, fortification 61%
+  locri "Locri" @ (118,63), owner Rome: supply 97t, loyalty 62, fortification 30%
+  thurii "Thurii" @ (120,56), owner Rome: supply 122t, loyalty 61, fortification 51%
+  heraclea "Heraclea" @ (121,53), owner Rome: supply 139t, loyalty 50, fortification 46%
+  croton "Croton" @ (122,60), owner Rome: supply 146t, loyalty 69, fortification 45%
+  tarrentum "Tarrentum" @ (124,52), owner Rome: supply 243t, loyalty 52, fortification 62%
+  brundisium "Brundisium" @ (127,52), owner Rome: supply 127t, loyalty 75, fortification 38%
+
+> end
+Rome (rome) ends its turn.
+Carthage (carthage) takes its turn: 24 orders issued.
+Seleucid (seleucid) takes its turn: 13 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 19 orders issued.
+Macedonia (macedonia) takes its turn: 10 orders issued.
+Numidia (numidia) takes its turn: 14 orders issued.
+Gaul (gaul) takes its turn: 14 orders issued.
+Greece (greece) takes its turn: 9 orders issued.
+Celtiberia (celtiberia) takes its turn: 15 orders issued.
+Illyria (illyria) takes its turn: 10 orders issued.
+Dacia (dacia) takes its turn: 7 orders issued.
+Bithynia (bithynia) takes its turn: 9 orders issued.
+Galatia (galatia) takes its turn: 8 orders issued.
+Armenia (armenia) takes its turn: 6 orders issued.
+Media (media) takes its turn: 9 orders issued.
+Thracia (thracia) takes its turn: 8 orders issued.
+  Weather: storm-damages-fleet (week 1).
+  Weather: storm-damages-fleet (week 1).
+  Weather: drought-reduces-supply (week 1).
+Now: Week 3, Spring 270 BC. Active seat: Rome (rome).
+News:
+   
+  Week  3      Spring      270BC
+
+> end
+Rome (rome) ends its turn.
+Carthage (carthage) takes its turn: 10 orders issued.
+Seleucid (seleucid) takes its turn: 3 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 2 orders issued.
+Macedonia (macedonia) takes its turn: 4 orders issued.
+Numidia (numidia) takes its turn: 3 orders issued.
+Gaul (gaul) takes its turn: 3 orders issued.
+Greece (greece) takes its turn: 1 order issued.
+Celtiberia (celtiberia) takes its turn: 5 orders issued.
+Illyria (illyria) takes its turn: 5 orders issued.
+Dacia (dacia) takes its turn: 3 orders issued.
+Bithynia (bithynia) takes its turn: 2 orders issued.
+Galatia (galatia) takes its turn: 3 orders issued.
+Armenia (armenia) takes its turn: 0 orders issued.
+Media (media) takes its turn: 3 orders issued.
+Thracia (thracia) takes its turn: 2 orders issued.
+  Weather: storm-damages-fleet (week 3).
+  Weather: drought-reduces-supply (week 3).
+  Weather: storm-damages-fleet (week 3).
+Now: Week 5, Spring 270 BC. Active seat: Rome (rome).
+News:
+  Ptolemaic sues Seleucid for peace and;
+      Ptolemaic ends all current trading agreements.
+      Ptolemaic  ends all current alliances.
+      Ptolemaic pays reparations of 2,462 talents.
+  Seleucid destroys army of Ptolemaic.
+  Celtiberia sues Carthage for peace and;
+      Celtiberia ends all current trading agreements.
+      Celtiberia  ends all current alliances.
+      Celtiberia pays reparations of 355 talents.
+   
+  Week  5      Spring      270BC
+
+> end
+Rome (rome) ends its turn.
+Carthage (carthage) takes its turn: 10 orders issued.
+Seleucid (seleucid) takes its turn: 16 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 2 orders issued.
+Macedonia (macedonia) takes its turn: 1 order issued.
+Numidia (numidia) takes its turn: 1 order issued.
+Gaul (gaul) takes its turn: 1 order issued.
+Greece (greece) takes its turn: 1 order issued.
+Celtiberia (celtiberia) takes its turn: 1 order issued.
+Illyria (illyria) takes its turn: 1 order issued.
+Dacia (dacia) takes its turn: 0 orders issued.
+Bithynia (bithynia) takes its turn: 1 order issued.
+Galatia (galatia) takes its turn: 1 order issued.
+Armenia (armenia) takes its turn: 0 orders issued.
+Media (media) takes its turn: 1 order issued.
+Thracia (thracia) takes its turn: 1 order issued.
+  Weather: storm-damages-fleet (week 5).
+  Weather: storm-damages-fleet (week 5).
+Now: Week 7, Spring 270 BC. Active seat: Rome (rome).
+News:
+  Astacus   (Bithynia)  falls to Seleucid.
+  Calpe defects from Bithynia to Seleucid.
+  Pontica defects from Bithynia to Seleucid.
+   
+  Week  7      Spring      270BC
+
+> end
+Rome (rome) ends its turn.
+Carthage (carthage) takes its turn: 2 orders issued.
+Seleucid (seleucid) takes its turn: 3 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 1 order issued.
+Macedonia (macedonia) takes its turn: 1 order issued.
+Numidia (numidia) takes its turn: 0 orders issued.
+Gaul (gaul) takes its turn: 2 orders issued.
+Greece (greece) takes its turn: 1 order issued.
+Celtiberia (celtiberia) takes its turn: 1 order issued.
+Illyria (illyria) takes its turn: 0 orders issued.
+Dacia (dacia) takes its turn: 0 orders issued.
+Bithynia (bithynia) takes its turn: 1 order issued.
+Galatia (galatia) takes its turn: 1 order issued.
+Armenia (armenia) takes its turn: 0 orders issued.
+Media (media) takes its turn: 1 order issued.
+Thracia (thracia) takes its turn: 1 order issued.
+Now: Week 9, Spring 270 BC. Active seat: Rome (rome).
+News:
+   
+  Week  9      Spring      270BC
+
+> end
+Rome (rome) ends its turn.
+Carthage (carthage) takes its turn: 2 orders issued.
+Seleucid (seleucid) takes its turn: 3 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 1 order issued.
+Macedonia (macedonia) takes its turn: 1 order issued.
+Numidia (numidia) takes its turn: 0 orders issued.
+Gaul (gaul) takes its turn: 2 orders issued.
+Greece (greece) takes its turn: 0 orders issued.
+Celtiberia (celtiberia) takes its turn: 1 order issued.
+Illyria (illyria) takes its turn: 0 orders issued.
+Dacia (dacia) takes its turn: 0 orders issued.
+Bithynia (bithynia) takes its turn: 2 orders issued.
+Galatia (galatia) takes its turn: 2 orders issued.
+Armenia (armenia) takes its turn: 1 order issued.
+Media (media) takes its turn: 1 order issued.
+Thracia (thracia) takes its turn: 1 order issued.
+  Weather: storm-damages-fleet (week 9).
+  Weather: drought-reduces-supply (week 9).
+Now: Week 11, Spring 270 BC. Active seat: Rome (rome).
+News:
+  Galatia sues Seleucid for peace and;
+      Galatia ends all current trading agreements.
+      Galatia  ends all current alliances.
+      Galatia pays reparations of 154 talents.
+   
+  Week  11      Spring      270BC
+
+> end
+Rome (rome) ends its turn.
+Carthage (carthage) takes its turn: 2 orders issued.
+Seleucid (seleucid) takes its turn: 6 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 1 order issued.
+Macedonia (macedonia) takes its turn: 1 order issued.
+Numidia (numidia) takes its turn: 0 orders issued.
+Gaul (gaul) takes its turn: 2 orders issued.
+Greece (greece) takes its turn: 1 order issued.
+Celtiberia (celtiberia) takes its turn: 1 order issued.
+Illyria (illyria) takes its turn: 0 orders issued.
+Dacia (dacia) takes its turn: 0 orders issued.
+Bithynia (bithynia) takes its turn: 2 orders issued.
+Galatia (galatia) takes its turn: 1 order issued.
+Armenia (armenia) takes its turn: 0 orders issued.
+Media (media) takes its turn: 1 order issued.
+Thracia (thracia) takes its turn: 1 order issued.
+  Weather: storm-damages-fleet (week 11).
+  Weather: storm-damages-fleet (week 11).
+Now: Week 1, Summer 270 BC. Active seat: Rome (rome).
+News:
+  Greece declares war on Illyria.
+  A fleet belonging to ptolemaic is lost at sea.
+   
+  Week  1      Summer      270BC
+
+> end
+Rome (rome) ends its turn.
+Carthage (carthage) takes its turn: 16 orders issued.
+Seleucid (seleucid) takes its turn: 12 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 1 order issued.
+Macedonia (macedonia) takes its turn: 11 orders issued.
+Numidia (numidia) takes its turn: 7 orders issued.
+Gaul (gaul) takes its turn: 10 orders issued.
+Greece (greece) takes its turn: 11 orders issued.
+Celtiberia (celtiberia) takes its turn: 1 order issued.
+Illyria (illyria) takes its turn: 6 orders issued.
+Dacia (dacia) takes its turn: 4 orders issued.
+Bithynia (bithynia) takes its turn: 3 orders issued.
+Galatia (galatia) takes its turn: 1 order issued.
+Armenia (armenia) takes its turn: 7 orders issued.
+Media (media) takes its turn: 5 orders issued.
+Thracia (thracia) takes its turn: 4 orders issued.
+Now: Week 3, Summer 270 BC. Active seat: Rome (rome).
+News:
+   
+  Week  3      Summer      270BC
+
+> end
+Rome (rome) ends its turn.
+Carthage (carthage) takes its turn: 2 orders issued.
+Seleucid (seleucid) takes its turn: 3 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 1 order issued.
+Macedonia (macedonia) takes its turn: 1 order issued.
+Numidia (numidia) takes its turn: 4 orders issued.
+Gaul (gaul) takes its turn: 1 order issued.
+Greece (greece) takes its turn: 1 order issued.
+Celtiberia (celtiberia) takes its turn: 1 order issued.
+Illyria (illyria) takes its turn: 1 order issued.
+Dacia (dacia) takes its turn: 0 orders issued.
+Bithynia (bithynia) takes its turn: 2 orders issued.
+Galatia (galatia) takes its turn: 1 order issued.
+Armenia (armenia) takes its turn: 0 orders issued.
+Media (media) takes its turn: 1 order issued.
+Thracia (thracia) takes its turn: 1 order issued.
+Now: Week 5, Summer 270 BC. Active seat: Rome (rome).
+News:
+  Bithynia and Seleucid have agreed to end their war.
+  Bithynia destroys army of Seleucid.
+   
+  Week  5      Summer      270BC
+
+> end
+Rome (rome) ends its turn.
+Carthage (carthage) takes its turn: 2 orders issued.
+Seleucid (seleucid) takes its turn: 1 order issued.
+Ptolemaic (ptolemaic) takes its turn: 1 order issued.
+Macedonia (macedonia) takes its turn: 1 order issued.
+Numidia (numidia) takes its turn: 1 order issued.
+Gaul (gaul) takes its turn: 1 order issued.
+Greece (greece) takes its turn: 2 orders issued.
+Celtiberia (celtiberia) takes its turn: 1 order issued.
+Illyria (illyria) takes its turn: 0 orders issued.
+Dacia (dacia) takes its turn: 0 orders issued.
+Bithynia (bithynia) takes its turn: 1 order issued.
+Galatia (galatia) takes its turn: 1 order issued.
+Armenia (armenia) takes its turn: 0 orders issued.
+Media (media) takes its turn: 1 order issued.
+Thracia (thracia) takes its turn: 1 order issued.
+  Weather: storm-damages-fleet (week 5).
+  Weather: drought-reduces-supply (week 5).
+Now: Week 7, Summer 270 BC. Active seat: Rome (rome).
+News:
+   
+  Week  7      Summer      270BC
+
+> end
+Rome (rome) ends its turn.
+Carthage (carthage) takes its turn: 2 orders issued.
+Seleucid (seleucid) takes its turn: 1 order issued.
+Ptolemaic (ptolemaic) takes its turn: 1 order issued.
+Macedonia (macedonia) takes its turn: 2 orders issued.
+Numidia (numidia) takes its turn: 0 orders issued.
+Gaul (gaul) takes its turn: 1 order issued.
+Greece (greece) takes its turn: 1 order issued.
+Celtiberia (celtiberia) takes its turn: 1 order issued.
+Illyria (illyria) takes its turn: 0 orders issued.
+Dacia (dacia) takes its turn: 0 orders issued.
+Bithynia (bithynia) takes its turn: 1 order issued.
+Galatia (galatia) takes its turn: 1 order issued.
+Armenia (armenia) takes its turn: 0 orders issued.
+Media (media) takes its turn: 1 order issued.
+Thracia (thracia) takes its turn: 1 order issued.
+Now: Week 9, Summer 270 BC. Active seat: Rome (rome).
+News:
+  Macedonia declares war on Illyria.
+   
+  Week  9      Summer      270BC
+
+> end
+Rome (rome) ends its turn.
+Carthage (carthage) takes its turn: 2 orders issued.
+Seleucid (seleucid) takes its turn: 1 order issued.
+Ptolemaic (ptolemaic) takes its turn: 1 order issued.
+Macedonia (macedonia) takes its turn: 1 order issued.
+Numidia (numidia) takes its turn: 0 orders issued.
+Gaul (gaul) takes its turn: 1 order issued.
+Greece (greece) takes its turn: 1 order issued.
+Celtiberia (celtiberia) takes its turn: 1 order issued.
+Illyria (illyria) takes its turn: 0 orders issued.
+Dacia (dacia) takes its turn: 0 orders issued.
+Bithynia (bithynia) takes its turn: 1 order issued.
+Galatia (galatia) takes its turn: 1 order issued.
+Armenia (armenia) takes its turn: 0 orders issued.
+Media (media) takes its turn: 1 order issued.
+Thracia (thracia) takes its turn: 1 order issued.
+Now: Week 11, Summer 270 BC. Active seat: Rome (rome).
+News:
+  A fleet belonging to carthage is lost at sea.
+   
+  Week  11      Summer      270BC
+
+> end
+Rome (rome) ends its turn.
+Carthage (carthage) takes its turn: 2 orders issued.
+Seleucid (seleucid) takes its turn: 1 order issued.
+Ptolemaic (ptolemaic) takes its turn: 1 order issued.
+Macedonia (macedonia) takes its turn: 1 order issued.
+Numidia (numidia) takes its turn: 0 orders issued.
+Gaul (gaul) takes its turn: 1 order issued.
+Greece (greece) takes its turn: 1 order issued.
+Celtiberia (celtiberia) takes its turn: 1 order issued.
+Illyria (illyria) takes its turn: 0 orders issued.
+Dacia (dacia) takes its turn: 0 orders issued.
+Bithynia (bithynia) takes its turn: 1 order issued.
+Galatia (galatia) takes its turn: 1 order issued.
+Armenia (armenia) takes its turn: 0 orders issued.
+Media (media) takes its turn: 1 order issued.
+Thracia (thracia) takes its turn: 1 order issued.
+Now: Week 1, Autumn 270 BC. Active seat: Rome (rome).
+News:
+   
+  Week  1      Autumn      270BC
+
+> status mine
+Nation: Rome (rome, human): treasury 2745, unity 927, tax 10%
+
+Armies:
+  army-0 (Rome) @ (100,37): 11331 troops in 5 units, supply 404t (356%), morale 70, moves 10
+  army-1 (Rome) @ (120,53): 22000 troops in 6 units, supply 0t (0%), morale 52, moves 8
+
+Fleets:
+
+Cities:
+  pisae "Pisae" @ (93,35), owner Rome: supply 230t, loyalty 77, fortification 69%
+  tarquinii "Tarquinii" @ (98,39), owner Rome: supply 270t, loyalty 81, fortification 56%
+  arretium "Arretium" @ (99,36), owner Rome: supply 330t, loyalty 95, fortification 72%
+  caere "Caere" @ (99,42), owner Rome: supply 340t, loyalty 80, fortification 50%
+  rome "Rome" @ (101,43), owner Rome: supply 1810t, loyalty 95, fortification 78%
+  ariminum "Ariminum" @ (102,33), owner Rome: supply 240t, loyalty 80, fortification 52%
+  carsioli "Carsioli" @ (102,41), owner Rome: supply 220t, loyalty 95, fortification 55%
+  antium "Antium" @ (102,46), owner Rome: supply 330t, loyalty 92, fortification 69%
+  alba-fucens "Alba Fucens" @ (104,42), owner Rome: supply 230t, loyalty 92, fortification 61%
+  fregellae "Fregellae" @ (104,44), owner Rome: supply 230t, loyalty 81, fortification 61%
+  hadria "Hadria" @ (106,39), owner Rome: supply 200t, loyalty 89, fortification 62%
+  cales "Cales" @ (106,46), owner Rome: supply 280t, loyalty 82, fortification 51%
+  capua "Capua" @ (108,49), owner Rome: supply 270t, loyalty 77, fortification 57%
+  neapolis "Neapolis" @ (109,52), owner Rome: supply 340t, loyalty 79, fortification 40%
+  paestum "Paestum" @ (113,54), owner Rome: supply 200t, loyalty 95, fortification 58%
+  luceria "Luceria" @ (115,48), owner Rome: supply 390t, loyalty 95, fortification 77%
+  rhegium "Rhegium" @ (115,63), owner Rome: supply 270t, loyalty 66, fortification 44%
+  teanum-apulum "Teanum Apulum" @ (116,45), owner Rome: supply 240t, loyalty 75, fortification 58%
+  venusia "Venusia" @ (118,51), owner Rome: supply 310t, loyalty 95, fortification 61%
+  locri "Locri" @ (118,63), owner Rome: supply 220t, loyalty 66, fortification 30%
+  thurii "Thurii" @ (120,56), owner Rome: supply 270t, loyalty 64, fortification 51%
+  heraclea "Heraclea" @ (121,53), owner Rome: supply 330t, loyalty 53, fortification 46%
+  croton "Croton" @ (122,60), owner Rome: supply 330t, loyalty 72, fortification 45%
+  tarrentum "Tarrentum" @ (124,52), owner Rome: supply 500t, loyalty 57, fortification 62%
+  brundisium "Brundisium" @ (127,52), owner Rome: supply 290t, loyalty 78, fortification 38%
+

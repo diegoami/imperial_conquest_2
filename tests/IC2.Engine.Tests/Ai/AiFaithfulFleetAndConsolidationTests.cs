@@ -2,8 +2,11 @@ using IC2.Engine.Ai;
 using IC2.Engine.Armies.Commands;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
+using IC2.Engine.Presentation;
+using IC2.Engine.Serialization;
 using IC2.Engine.Tests.Battle.Commands;
 using Xunit;
+using ModelTestPaths = IC2.Engine.Tests.Model.TestPaths;
 using CaptureFixtures = IC2.Engine.Tests.Cities.Capture.CaptureTestbed;
 
 namespace IC2.Engine.Tests.Ai;
@@ -374,5 +377,40 @@ public sealed class AiFaithfulFleetAndConsolidationTests
         var outcome = AiTurn.Run(state, rules, world, dispatcher, new SplitMix64Rng(5), NullEventSink.Instance);
         Assert.Empty(outcome.State.Fleets);
         Assert.Equal(3, outcome.State.ArmyById("m")!.Units.Count);
+    }
+
+    [Fact]
+    public void Slots_after_a_join_are_not_revisited_in_the_same_pass()
+    {
+        // Three same-type regulars of 1000: one join (slot 0 + slot 1) gives [2000, 1000]. Revisiting the
+        // surviving slot 0 would join again and leave [3000].
+        var (after, issued, rejected) = Consolidate(WithArmy(U(Li, 1000), U(Li, 1000), U(Li, 1000)));
+        Assert.Equal((1, 0), (issued, rejected));
+        Assert.Equal(new[] { 2000, 1000 }, Units(after).Select(u => u.Troops).ToArray());
+    }
+
+    /// <summary>
+    /// Done-when 5: a seeded run on the shipped <c>improved</c> preset (classical-mediterranean, seat rome,
+    /// seed 7, twelve End turns) reproduces, byte for byte, the transcript generated at origin/main
+    /// 2444bf0 before this task: every AI nation's orders issued and every event it caused.
+    /// </summary>
+    [Fact]
+    public void A_seeded_improved_run_matches_the_transcript_recorded_before_T158()
+    {
+        var repository = GameDataRepository.Load(ModelTestPaths.DataRoot);
+        var resolved = repository.Resolve("classical-mediterranean");
+        var improved = repository.RulesetById("improved")!;
+        var session = new GameSession(resolved.World, improved, resolved.Scenario, seedOverride: 7, humanSeatNationId: "rome");
+        var cli = Path.Combine(ModelTestPaths.RepositoryRoot, "tests", "fixtures", "cli");
+        var builder = new System.Text.StringBuilder();
+        foreach (var line in File.ReadAllLines(Path.Combine(cli, "improved-ai.txt")))
+        {
+            foreach (var text in session.Submit(line).Lines)
+            {
+                builder.Append(text).Append("\n");
+            }
+        }
+
+        Assert.Equal(File.ReadAllText(Path.Combine(cli, "improved-ai.golden.txt")), builder.ToString());
     }
 }
