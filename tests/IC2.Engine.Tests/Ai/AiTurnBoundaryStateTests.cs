@@ -95,7 +95,7 @@ public sealed class AiTurnBoundaryStateTests
         var second = Decision("u", x + 5, y - 1, x, y);
         var boundary = AiTargetTreeDecisionsAreCarriedOutTests.TurnBoundaryState(end, round, Me);
         return AiTargetTreeDecisionsAreCarriedOutTests.IsSuperseded(
-            new List<AiArmyTargetTree.DecisionRecord> { first, second }, first, boundary, Ruleset, World);
+            new List<AiArmyTargetTree.DecisionRecord> { first, second }, 0, boundary, Ruleset, World);
     }
 
     [Fact]
@@ -151,5 +151,46 @@ public sealed class AiTurnBoundaryStateTests
         var boundary = AiTargetTreeDecisionsAreCarriedOutTests.TurnBoundaryState(end, round, Me);
         Assert.Equal((x + 2, y), (boundary.ArmyById("blk")!.X, boundary.ArmyById("blk")!.Y));
         Assert.True(Superseded(end, round, x, y));
+    }
+
+    [Fact]
+    public void A_final_value_equal_duplicate_with_no_later_decision_is_not_exempt()
+    {
+        var (x, y) = FindRun();
+        // The blocker stands on the path at the boundary, so the target is unreachable.
+        var end = StateWith(new[] { Army("s", Me, x, y), Army("blk", Foe, x + 2, y) });
+        var first = Decision("t", x + 5, y, x, y);
+        var last = first with { };
+        var decisions = new List<AiArmyTargetTree.DecisionRecord> { first, last };
+
+        // The first copy has a genuinely later one (the duplicate); the final copy has nothing after it.
+        Assert.True(AiTargetTreeDecisionsAreCarriedOutTests.IsSuperseded(decisions, 0, end, Ruleset, World));
+        Assert.False(AiTargetTreeDecisionsAreCarriedOutTests.IsSuperseded(decisions, 1, end, Ruleset, World));
+    }
+
+    [Fact]
+    public void A_genuinely_later_decision_for_the_same_army_and_position_exempts_when_the_target_is_unreachable()
+    {
+        var (x, y) = FindRun();
+        var end = StateWith(new[] { Army("s", Me, x, y), Army("blk", Foe, x + 2, y) });
+        var first = Decision("t", x + 5, y, x, y);
+        var later = Decision("u", x + 5, y - 1, x, y);
+        var otherPosition = Decision("u", x + 5, y - 1, x + 1, y);
+        var otherArmy = later with { ArmyId = "other" };
+
+        Assert.True(AiTargetTreeDecisionsAreCarriedOutTests.IsSuperseded(
+            new List<AiArmyTargetTree.DecisionRecord> { first, later }, 0, end, Ruleset, World));
+        // A later decision from another position, or for another army, supersedes nothing.
+        Assert.False(AiTargetTreeDecisionsAreCarriedOutTests.IsSuperseded(
+            new List<AiArmyTargetTree.DecisionRecord> { first, otherPosition }, 0, end, Ruleset, World));
+        Assert.False(AiTargetTreeDecisionsAreCarriedOutTests.IsSuperseded(
+            new List<AiArmyTargetTree.DecisionRecord> { first, otherArmy }, 0, end, Ruleset, World));
+        // An EARLIER decision does not count as a later one.
+        Assert.False(AiTargetTreeDecisionsAreCarriedOutTests.IsSuperseded(
+            new List<AiArmyTargetTree.DecisionRecord> { later, first }, 1, end, Ruleset, World));
+        // Reachable target: not exempt even with a later decision.
+        var clear = StateWith(new[] { Army("s", Me, x, y) });
+        Assert.False(AiTargetTreeDecisionsAreCarriedOutTests.IsSuperseded(
+            new List<AiArmyTargetTree.DecisionRecord> { first, later }, 0, clear, Ruleset, World));
     }
 }

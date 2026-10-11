@@ -72,8 +72,9 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
                 // target (the review's R1/R2): an army that has spent its march is not decided again, so
                 // there is no later decision to exempt.
                 var roundDecisions = log.ToList();
-                foreach (var decision in roundDecisions
-                    .Where(d => d.Kind is AiArmyTargetTree.Kind.AttackCity or AiArmyTargetTree.Kind.AttackArmy))
+                foreach (var (decision, decisionIndex) in roundDecisions
+                    .Select((d, i) => (d, i))
+                    .Where(x => x.d.Kind is AiArmyTargetTree.Kind.AttackCity or AiArmyTargetTree.Kind.AttackArmy))
                 {
                     checkedDecisions++;
                     skipped += decision.Skipped;
@@ -88,7 +89,7 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
                         // position supersedes this one when this one's target is unreachable from that position
                         // by the reachability rule (a friendly army marched onto the straight path in between).
                         // The superseding decision is still owed its own attack or march.
-                        if (IsSuperseded(roundDecisions, decision, TurnBoundaryState(session.State, round, decision.NationId), resolved.Ruleset, resolved.World))
+                        if (IsSuperseded(roundDecisions, decisionIndex, TurnBoundaryState(session.State, round, decision.NationId), resolved.Ruleset, resolved.World))
                         {
                             exempted.Add(Describe(r, decision));
                             continue;
@@ -241,13 +242,15 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
     /// </summary>
     internal static bool IsSuperseded(
         List<AiArmyTargetTree.DecisionRecord> decisions,
-        AiArmyTargetTree.DecisionRecord decision,
+        int decisionIndex,
         GameState endState,
         Ruleset ruleset,
         World world)
     {
-        var index = decisions.IndexOf(decision);
-        var later = decisions.Skip(index + 1).Any(d =>
+        // By position in the log, never by value: DecisionRecord is a record, so IndexOf would find the first
+        // value-equal copy and a final duplicate would count itself or an earlier copy as "later".
+        var decision = decisions[decisionIndex];
+        var later = decisions.Skip(decisionIndex + 1).Any(d =>
             string.Equals(d.NationId, decision.NationId, StringComparison.Ordinal)
             && string.Equals(d.ArmyId, decision.ArmyId, StringComparison.Ordinal)
             && d.ArmyX == decision.ArmyX
