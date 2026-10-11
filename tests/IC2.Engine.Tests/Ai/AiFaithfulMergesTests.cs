@@ -242,6 +242,23 @@ public sealed class AiFaithfulMergesTests
     }
 
     [Fact]
+    public void Zero_troop_records_on_the_donor_and_the_partner_are_dropped_and_the_troop_sums_still_match()
+    {
+        // Decision 6 (PR 986): the merge carries only units holding troops; a 0-troop record is empty space.
+        var donor = Army("d", 0, 0, new[] { U(100, "a"), U(0, "dz0"), U(200, "b"), U(300, "c"), U(0, "dz1") });
+        var partner = Army("p", 1, 0, new[] { U(20_000, "p0"), U(10_000, "p1"), U(0, "pz0"), U(0, "pz1") });
+        var before = donor.TotalTroops + partner.TotalTroops;
+        var after = MergeArmies(Build(new[] { donor, partner })).State.ArmyById("p")!;
+
+        var held = donor.Units.Count(u => u.Troops > 0) + partner.Units.Count(u => u.Troops > 0);
+        Assert.Equal(5, held);
+        Assert.Equal(held, after.Units.Count);
+        Assert.Equal(before, after.TotalTroops);
+        Assert.DoesNotContain(after.Units, u => u.Troops == 0);
+        Assert.Equal(new[] { "p0", "p1", "a", "c", "b" }, after.Units.Select(u => u.Name).ToArray());
+    }
+
+    [Fact]
     public void The_partner_keeps_its_position_morale_and_every_other_field()
     {
         var partner = Army("p", 3, 4, 30_000) with { Morale = 77, CoveredTileCode = 5 };
