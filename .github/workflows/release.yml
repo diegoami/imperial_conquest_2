@@ -55,10 +55,13 @@ jobs:
       # The tag goes through the environment, never straight into a script.
       TAG: ${{ github.event_name == 'pull_request' && 'v0.4.0' || github.event.inputs.tag || github.ref_name }}
     steps:
+      # On pull_request the default ref is the merge commit; the PR-head step below must build the PR's
+      # own head, so check that out explicitly (empty ref = the trigger's default on push and dispatch).
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || '' }}
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -147,6 +150,7 @@ jobs:
         if: github.event_name == 'pull_request'
         shell: pwsh
         run: |
+          Write-Host "PR head under test: $(git rev-parse HEAD) (expected ${{ github.event.pull_request.head.sha }})"
           git -c user.name=ci -c user.email=ci@example.invalid tag -a t131-pr-head -m ci HEAD
           if ($LASTEXITCODE -ne 0) { throw 'could not create the local tag' }
           pwsh scripts/release-assets.ps1 -Tag t131-pr-head -SkipInstallerTest -Godot 'C:\godot\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64_console.exe'
