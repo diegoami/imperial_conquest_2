@@ -51,6 +51,16 @@ public sealed class OrderCityCommandHandler : ICommandHandler<OrderCityCommand>
                 $"Order points must be positive, got {command.Points}.");
         }
 
+        // "Under siege" is the original's FUN_004497cc, the hostile-army-adjacent test (T67, #304;
+        // refusal-texts-and-conditions.md R22: "an own city is selected and an enemy army is next to it"),
+        // not a stored flag.
+        if (orderRule.RefusedWhileUnderSiege && HostileArmyAdjacent.IsThreatened(city, state, ruleset))
+        {
+            return CommandOutcome.Reject(
+                CityOrderRejections.FortifyRefusedWhileUnderSiege,
+                $"City '{city.Name}' is under siege and cannot be {command.OrderId}ified.");
+        }
+
         // Check if already at maximum
         var currentPercent = FortificationCode.FinishedPercent(city.FortificationCode, orderRule);
         if (currentPercent >= orderRule.MaxPercent)
@@ -66,16 +76,6 @@ public sealed class OrderCityCommandHandler : ICommandHandler<OrderCityCommand>
             return CommandOutcome.Reject(
                 CityOrderRejections.FortifyRefusedOrderPending,
                 $"City '{city.Name}' already has a {command.OrderId} order pending.");
-        }
-
-        // "Under siege" is the original's FUN_004497cc, the hostile-army-adjacent test (T67, #304;
-        // refusal-texts-and-conditions.md R22: "an own city is selected and an enemy army is next to it"),
-        // not a stored flag.
-        if (orderRule.RefusedWhileUnderSiege && HostileArmyAdjacent.IsThreatened(city, state, ruleset))
-        {
-            return CommandOutcome.Reject(
-                CityOrderRejections.FortifyRefusedWhileUnderSiege,
-                $"City '{city.Name}' is under siege and cannot be {command.OrderId}ified.");
         }
 
         // Check points don't exceed max available
