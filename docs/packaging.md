@@ -72,6 +72,67 @@ overrides disabled. The verify copies therefore write Godot's supported `overrid
 executable to point `run/main_scene` at the check scene. It is only ever written under
 `rendered/verify/` and never ships.
 
+## Release assets
+
+Every tag's GitHub Release carries two Windows x64 files, built from that tag by
+[`scripts/release-assets.ps1`](../scripts/release-assets.ps1) and attached by
+[`.github/workflows/release.yml`](../.github/workflows/release.yml) (T131,
+[release-plan.md §5](release-plan.md#5-release-checklist) item 20):
+
+| File | How a player runs it |
+| --- | --- |
+| `ImperialConquest2-<tag>-windows-x64.zip` | Extract it anywhere and start `ic2\game\IC2.MapViewer.exe`. The `ic2` folder is the package of the section above. |
+| `ImperialConquest2-<tag>-windows-x64-setup.exe` | A per-user installer (Inno Setup 6, [`installer/ic2.iss`](../installer/ic2.iss)): no administrator rights, installs under `%LOCALAPPDATA%\Programs\Imperial Conquest 2`, adds a Start-menu entry and an optional desktop shortcut, and upgrades an earlier install in place. The player's saves live in the user profile and are untouched. Neither file is code-signed, so Windows SmartScreen warns on the installer. |
+
+The installer's `AppId` is **fixed** (`{5B7E2C1A-6F3D-4E8B-9A41-1C2D3E4F5A6B}`) and must never change:
+it is how a newer Setup finds and upgrades the existing install. A different `AppId` would install a
+second copy beside the first.
+
+### Building them locally
+
+```powershell
+pwsh scripts/release-assets.ps1 -Tag v0.4.1 [-Godot <console exe>] [-Iscc <ISCC.exe>] [-SmokeOnly] [-SkipInstallerTest]
+```
+
+It needs the prerequisites above plus **Inno Setup 6** (`ISCC.exe` from `-Iscc`, then `PATH`, then
+`%ProgramFiles(x86)%\Inno Setup 6`, then `%LOCALAPPDATA%\Programs\Inno Setup 6`). In order, it checks
+the tag out into a scratch worktree (`rendered/release/<tag>/src`, removed when it ends), packages that
+tree with `package.ps1` (`-Verify` when the tag has `godot/Checks/AssetPackSelectionCheck.tscn`, unless
+`-SmokeOnly`), runs a headless smoke of the package (`--headless --quit-after 600` with the scrubbed
+environment; exit 0 and no `SCRIPT ERROR`), zips it, builds the installer and tests it (silent install
+into a scratch directory, the same smoke on the installed game, silent uninstall, which must leave no
+file). It then prints each file's path, size and SHA-256 and leaves them in `rendered/release/<tag>/`.
+
+The installer test installs under the same `AppId` as a player's own install, so it **refuses to run**
+when that `AppId` is already registered for the current user (a silent uninstall would remove the real
+install). Pass `-SkipInstallerTest` there; the workflow's runner has no such install.
+
+**The overlay.** A tag may predate the packaging files. When the tag lacks `godot/export_presets.cfg` or
+`scripts/package.ps1` (v0.4.0 lacks both), the running checkout's copy is copied into the scratch
+worktree and the script prints `release-assets: <path> is not in <tag>; using <commit>'s`. Nothing else
+is overlaid: a tag whose game code those files cannot export fails, and is reported, not patched.
+
+### The workflow
+
+`release.yml` runs on `windows-latest` and:
+
+- **on a push of a `v*` tag**, builds the tag (the 4.7.2 .NET editor and its export templates are
+  cached), then its `attach` job calls `release-assets.ps1 -Tag <tag> -Upload`, which creates a draft
+  pre-release when the tag has no Release and uploads both files;
+- **on a manual dispatch** (`gh workflow run release.yml -f tag=<tag>`), does the same for an older tag,
+  such as a maintenance-line tag;
+- **on a pull request** that touches the workflow, `installer/` or the script, builds v0.4.0 and keeps
+  the two files as workflow artifacts only.
+
+The runs are titled `release assets: <tag>`. The script adds `package.ps1 -Verify` itself for any tag that carries the check scene; the
+pull_request lane also builds the PR's own tree under a local, never-pushed tag so `-Verify` runs on the runner.
+
+Assets are **attached, never replaced**. `-Upload` refuses (exit 3) when the Release already holds a
+file of either name, published or draft, and the `attach` job then fails, with the build's files kept as
+the run's artifacts. Replacing an asset is the user's act, by hand (`gh release delete-asset`, then a
+re-run or `gh release upload`). Only the `attach` job has write permission, and only on a push or a
+dispatch; the workflow never publishes a Release or creates a tag.
+
 ## Troubleshooting
 
 - **"no solution file was found … IC2.MapViewer.sln"** — Godot's .NET exporter insists on a
