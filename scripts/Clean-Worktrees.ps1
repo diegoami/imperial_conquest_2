@@ -21,6 +21,7 @@
     A tree is safe only when ALL of these hold:
       (a) `git status --porcelain --ignored` shows nothing outside bin/, obj/, .godot/ and .vs/
           -- matched at any depth as whole path components, so src/IC2.Engine/bin/ is noise too
+          -- plus an UNTRACKED *.uid under godot/ (Godot run leftovers, #1004);
           -- plus .opencode/, assets.local.ini and rendered/ matched only as the FIRST path
           -- component, i.e. at the tree root (src/rendered/x and docs/.opencode/y are work);
           -- the run's ignored diagnostics under a ROOT rendered/ are disposable once (c) holds
@@ -110,6 +111,7 @@ function Get-PrStateByBranch([string] $Branch) {
     # closed one and a re-opened OPEN one). Read EVERY state: any open PR vetoes removal,
     # whatever order the response lists them in. Only when none is open is the tree's PR
     # MERGED/CLOSED (safe either way).
+    $script:BranchPrNumber = ''
     $out = @()
     try { $out = @(Invoke-GhRepo @('pr', 'list', '--head', $Branch, '--state', 'all', '--json', 'number,state') | Where-Object { $_ }) } catch { $out = @() }
     $text = (($out | ForEach-Object { [string]$_ }) -join "`n").Trim()
@@ -117,9 +119,11 @@ function Get-PrStateByBranch([string] $Branch) {
     try { $prs = @($text | ConvertFrom-Json) } catch { return $null }
     if ($prs.Count -eq 0) { return 'none' }
     $states = @($prs | ForEach-Object { ([string]$_.state).ToUpperInvariant() })
-    if ($states -contains 'OPEN') { return 'OPEN' }
-    if ($states -contains 'MERGED') { return 'MERGED' }
-    if ($states -contains 'CLOSED') { return 'CLOSED' }
+    # The number of the PR that decides the state (#1004 N2), for the listing line.
+    foreach ($st in @('OPEN', 'MERGED', 'CLOSED')) {
+        $i = [array]::IndexOf($states, $st)
+        if ($i -ge 0) { if ($prs[$i].number) { $script:BranchPrNumber = "#$($prs[$i].number)" }; return $st }
+    }
     return ([string]$prs[0].state).ToUpperInvariant()
 }
 
@@ -151,7 +155,7 @@ function Get-PrStateByHead([string] $Path) {
             # search can be fuzzy: keep only a PR whose head commit really is HEAD
             $hit = @(@($text | ConvertFrom-Json) | Where-Object { ([string]$_.headRefOid).Trim() -eq $sha })
             $states += @($hit | ForEach-Object { ([string]$_.state).ToUpperInvariant() })
-            if ($hit.Count -gt 0) { $script:HeadPrNumber = "#$($hit[0].number) " }
+            if ($hit.Count -gt 0) { $script:HeadPrNumber = "#$($hit[0].number)" }
         } catch { }
     }
     $refs = @()
@@ -162,7 +166,11 @@ function Get-PrStateByHead([string] $Path) {
         $name = $name.Substring('origin/'.Length)
         if ($name -eq 'main' -or $name -eq 'HEAD') { continue }
         $b = Get-PrStateByBranch $name
-        if ($b -in @('OPEN', 'MERGED', 'CLOSED')) { $states += $b }
+        if ($b -in @('OPEN', 'MERGED', 'CLOSED')) {
+            $states += $b
+            # #1004 N2: a PR found only through the branch still shows its number.
+            if (-not $script:HeadPrNumber) { $script:HeadPrNumber = $script:BranchPrNumber }
+        }
     }
     if ($states -contains 'OPEN') { return 'OPEN' }
     if ($states -contains 'MERGED') { return 'MERGED' }
@@ -211,6 +219,7 @@ function Get-WorktreeNoise([string] $Path) {
     # `git status --porcelain --ignored` entries that are NOT allowed noise.
     #   - bin/, obj/, .godot/ and .vs/ are noise at ANY depth, as whole path components (so
     #     src/IC2.Engine/bin/ and godot/.godot/ are noise), never as substrings of a component.
+    #   - an UNTRACKED *.uid under godot/ (a Godot run's leftovers, #1004) is noise too.
     #   - .opencode/, assets.local.ini and rendered/ are noise ONLY as the FIRST path component,
     #     i.e. at the tree ROOT (so src/rendered/x and docs/.opencode/y still count as work).
     # EVERY path exemption reaches only an IGNORED (`!!`) entry (R1): the two-character status is
@@ -226,7 +235,7 @@ function Get-WorktreeNoise([string] $Path) {
     $allowedRoot = @('.opencode', 'assets.local.ini', 'rendered')
     $bad = @()
     $lines = @()
-    try { $lines = @(git -C $Path status --porcelain --ignored 2>$null) } catch { $lines = @() }
+    try { $lines = @(git -C $Path status --porcelain --ignored --untracked-files=all 2>$null) } catch { $lines = @() }
     foreach ($l in $lines) {
         if (-not $l -or $l.Length -lt 4) { continue }
         # R1: the two-character status BEFORE any path exemption. Only `!!` (ignored) entries may
@@ -236,6 +245,9 @@ function Get-WorktreeNoise([string] $Path) {
         foreach ($side in @($body -split ' -> ')) {
             $p = $side.Trim().Trim('"')
             if (-not $p) { continue }
+            # #1004: an UNTRACKED (`??`) *.uid under godot/ is a Godot run's noise, like .godot/.
+            # A tracked or staged .uid, and any other untracked file, is still work.
+            if ($status -eq '??' -and $p -match '^godot[\/](.+[\/])?[^\/]+\.uid$') { continue }
             if ($status -ne '!!') { $bad += $p; continue }
             $parts = @($p -split '[\\/]' | Where-Object { $_ })
             $noise = $false
@@ -284,7 +296,7 @@ function Get-WorktreeEntry([string] $Path) {
         } else {
             # #895: no PR in the name: resolve it from HEAD (a PR's head commit, or a branch on origin containing it).
             $prState = Get-PrStateByHead $Path
-            $prText = if ($prState) { "PR $($script:HeadPrNumber)by HEAD $prState" } else { 'detached, PR state unknown (HEAD matches no PR)' }
+            $prText = if ($prState) { (@('PR', $script:HeadPrNumber, 'by HEAD', $prState) | Where-Object { $_ }) -join ' ' } else { 'detached, PR state unknown (HEAD matches no PR)' }
         }
     } else {
         $branchText = $branch.Trim()
@@ -664,7 +676,7 @@ function Invoke-CleanWorktreesSelfTest {
             $shaOf['d3'] = "[$decoy]"
             $shaOf['d4'] = '[{"number":504,"state":"MERGED","headRefOid":"' + $shaOf['d4'] + '"}]'
         }
-        $script:BranchStates['task/d5'] = 'MERGED'
+        $script:BranchStates['task/d5'] = '[{"number":505,"state":"MERGED"}]'
         $e895 = @(Get-WorktreeEntries $root895)
         $e895 | ForEach-Object { Write-Host (Format-WorktreeLine $_) }
         $d1 = $e895 | Where-Object { $_.Path -like '*d1-impl' }
@@ -679,6 +691,33 @@ function Invoke-CleanWorktreesSelfTest {
         Add '#895: no PR with that head commit, but its branch on origin has a MERGED PR: SAFE' ($d5.Safe -and $d5.PrState -eq 'MERGED')
         $oldName = [regex]::Match('412-external-review-luna-1a2b3c', '^(\d+)-(external-)?review-')
         Add '#895: the pre-T151 <pr>-external-review-... names are recognised by the name rule' ($oldName.Success -and $oldName.Groups[1].Value -eq '412')
+
+        # --- #1004 N2: a PR found only through the branch shows its number (no double space) ---
+        Add '#1004 N2: the d5 line shows the PR number found through its branch' ((Format-WorktreeLine $d5) -match 'PR #505 by HEAD MERGED' -and (Format-WorktreeLine $d5) -notmatch 'PR\s{2,}')
+
+        # --- #1004: an untracked godot/**/*.uid is noise; a real untracked file is still work ---
+        $root1004 = Join-Path $temp 'ic2-work-1004'
+        New-Item -ItemType Directory -Force -Path $root1004 | Out-Null
+        foreach ($n in @('u1-uid-only', 'u2-uid-and-real', 'u3-uid-outside-godot')) {
+            git -C $main worktree add -q --detach (Join-Path $root1004 $n) main
+        }
+        foreach ($rel in @('godot\scripts\A.cs.uid', 'godot\B.cs.uid')) {
+            foreach ($n in @('u1-uid-only', 'u2-uid-and-real')) {
+                $f = Join-Path (Join-Path $root1004 $n) $rel
+                New-Item -ItemType Directory -Force -Path (Split-Path $f -Parent) | Out-Null
+                Set-Content -LiteralPath $f -Value 'uid://x' -Encoding utf8
+            }
+        }
+        Set-Content -LiteralPath (Join-Path $root1004 'u2-uid-and-real\godot\real.cs') -Value 'class R { }' -Encoding utf8
+        Set-Content -LiteralPath (Join-Path $root1004 'u3-uid-outside-godot\src.cs.uid') -Value 'uid://y' -Encoding utf8
+        Add '#1004: a tree whose only untracked files are godot/**/*.cs.uid has no work' ((Get-WorktreeNoise (Join-Path $root1004 'u1-uid-only')).Count -eq 0)
+        $u1 = Get-WorktreeEntry (Join-Path $root1004 'u1-uid-only')
+        Add '#1004: that tree does not read "holds work"' (($u1.Reasons -join '; ') -notmatch 'holds work')
+        $u2n = @(Get-WorktreeNoise (Join-Path $root1004 'u2-uid-and-real'))
+        Add '#1004: .uid noise plus one real untracked file still holds work, and only the real file is named' ($u2n.Count -eq 1 -and $u2n[0] -match 'real\.cs$')
+        $u2 = Get-WorktreeEntry (Join-Path $root1004 'u2-uid-and-real')
+        Add '#1004: that tree reads "holds work"' (($u2.Reasons -join '; ') -match 'holds work')
+        Add '#1004: an untracked .uid outside godot/ is still work' ((Get-WorktreeNoise (Join-Path $root1004 'u3-uid-outside-godot')).Count -eq 1)
 
         # --- -Force: one named tree, whatever its state ---
         $target = Join-Path $root 't2-dirty'
