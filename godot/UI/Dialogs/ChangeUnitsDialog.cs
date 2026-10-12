@@ -205,7 +205,7 @@ public partial class ChangeUnitsDialog : Control
         var selected = _unitList.GetSelectedItems();
         if (selected.Length >= 2)
         {
-            SubmitIfAny(_model.JoinUnitsLine(selected[0], selected[1]));
+            SubmitIfAny(_model.JoinUnitsLine(selected));
         }
     }
 
@@ -271,9 +271,9 @@ public partial class ChangeUnitsDialog : Control
     /// <summary>Splits one unit, exactly as the Split panel's Split button does.</summary>
     public void SplitUnitForCheck(int index, int troops) => SubmitIfAny(_model.SplitUnitLine(index, troops));
 
-    /// <summary>Joins two units, exactly as the Join units button does.</summary>
-    public void JoinUnitsForCheck(int firstIndex, int secondIndex) =>
-        SubmitIfAny(_model.JoinUnitsLine(firstIndex, secondIndex));
+    /// <summary>Joins the given units, exactly as the Join units button does.</summary>
+    public void JoinUnitsForCheck(params int[] indexes) =>
+        SubmitIfAny(_model.JoinUnitsLine(indexes));
 
     /// <summary>OK, exactly as its button does: close, submitting nothing further.</summary>
     public void OkForCheck() => Cancel();

@@ -333,14 +333,24 @@ public sealed partial class GameSession
 
     private IReadOnlyList<string> HandleJoinUnits(string[] tokens)
     {
-        if (tokens.Length != 4
-            || !int.TryParse(tokens[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var first)
-            || !int.TryParse(tokens[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var second))
+        var indexes = new List<int>();
+        for (var i = 2; i < tokens.Length; i++)
         {
-            return new[] { "Usage: join-units <army> <unit-index> <unit-index>" };
+            if (!int.TryParse(tokens[i], NumberStyles.Integer, CultureInfo.InvariantCulture, out var index))
+            {
+                indexes.Clear();
+                break;
+            }
+
+            indexes.Add(index);
         }
 
-        return IssueCommand(new JoinUnitsCommand(State.ActiveNationId, tokens[1], first, second));
+        if (indexes.Count < 2)
+        {
+            return new[] { "Usage: join-units <army> <unit-index> <unit-index> [<unit-index> ...]" };
+        }
+
+        return IssueCommand(new JoinUnitsCommand(State.ActiveNationId, tokens[1], indexes));
     }
 
     private IReadOnlyList<string> HandleSplitUnit(string[] tokens)

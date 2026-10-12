@@ -29,25 +29,26 @@ public sealed class JoinUnitsCommandHandler : ICommandHandler<JoinUnitsCommand>
                 $"Army '{army.Id}' belongs to '{army.Nation}', not '{command.IssuingNationId}'.");
         }
 
-        if (command.FirstUnitIndex == command.SecondUnitIndex
-            || command.FirstUnitIndex < 0 || command.FirstUnitIndex >= army.Units.Count
-            || command.SecondUnitIndex < 0 || command.SecondUnitIndex >= army.Units.Count)
+        var indexes = command.UnitIndexes;
+        if (indexes.Count < 2
+            || indexes.Any(i => i < 0 || i >= army.Units.Count)
+            || indexes.Distinct().Count() != indexes.Count)
         {
             return CommandOutcome.Reject(
                 JoinUnitsRejections.InvalidUnitIndex,
-                $"Army '{army.Id}' has {army.Units.Count} units; both indices must be distinct and in range.");
+                $"Army '{army.Id}' has {army.Units.Count} units; at least two distinct in-range indices are needed.");
         }
 
-        var first = army.Units[command.FirstUnitIndex];
-        var second = army.Units[command.SecondUnitIndex];
+        var first = army.Units[indexes[0]];
+        var selected = indexes.Select(i => army.Units[i]).ToList();
 
-        if (!UnitMergeGuard.IsMergeAllowedByMarker(first, second))
+        if (selected.Any(u => !UnitMergeGuard.IsMergeAllowedByMarker(first, u)))
         {
             return CommandOutcome.Reject(
                 JoinUnitsRejections.MercenaryUnit, "You can only join regular units together.");
         }
 
-        if (!string.Equals(first.UnitTypeId, second.UnitTypeId, StringComparison.Ordinal))
+        if (selected.Any(u => !string.Equals(first.UnitTypeId, u.UnitTypeId, StringComparison.Ordinal)))
         {
             return CommandOutcome.Reject(
                 JoinUnitsRejections.DifferentUnitTypes, "You can only combine units of the same type.");
@@ -60,7 +61,7 @@ public sealed class JoinUnitsCommandHandler : ICommandHandler<JoinUnitsCommand>
                 JoinUnitsRejections.DifferentUnitTypes, $"'{first.UnitTypeId}' is not a unit type in ruleset '{context.Ruleset.Id}'.");
         }
 
-        var combinedTroops = first.Troops + second.Troops;
+        var combinedTroops = selected.Sum(u => u.Troops);
         if (combinedTroops > type.StandardBattalionSize)
         {
             return CommandOutcome.Reject(
@@ -68,19 +69,20 @@ public sealed class JoinUnitsCommandHandler : ICommandHandler<JoinUnitsCommand>
                 $"Combined troops ({combinedTroops}) would exceed {first.UnitTypeId}'s battalion size of {type.StandardBattalionSize}.");
         }
 
-        // Arithmetic mean, truncated toward zero -- see JoinUnitsCommand's remarks on rounding.
-        var mergedQuality = (first.Quality + second.Quality) / 2;
+        // Integer average (sum / n, truncated toward zero) -- see JoinUnitsCommand's remarks on rounding.
+        var mergedQuality = selected.Sum(u => u.Quality) / selected.Count;
         var merged = first with { Troops = combinedTroops, Quality = mergedQuality };
 
-        var updatedUnits = new List<UnitSlot>(army.Units.Count - 1);
+        var removed = indexes.Skip(1).ToHashSet();
+        var updatedUnits = new List<UnitSlot>(army.Units.Count - removed.Count);
         for (var i = 0; i < army.Units.Count; i++)
         {
-            if (i == command.SecondUnitIndex)
+            if (removed.Contains(i))
             {
                 continue;
             }
 
-            updatedUnits.Add(i == command.FirstUnitIndex ? merged : army.Units[i]);
+            updatedUnits.Add(i == indexes[0] ? merged : army.Units[i]);
         }
 
         var updatedArmy = army with { Units = ValueList.From(updatedUnits) };

@@ -26,6 +26,7 @@ public sealed class ArmyDialogModelsTests
     private const string OneUnitArmyId = "t111-lonely";
     private const string NewArmyId = "t111-a-split";
     private const string ThreeUnitArmyId = "t111-three";
+    private const string JoinFourArmyId = "t164-join-four";
     private const string ThreeUnitNewArmyId = "t111-three-split";
 
     private static readonly Lazy<ResolvedScenario> LazyClassical = new(
@@ -60,6 +61,15 @@ public sealed class ArmyDialogModelsTests
                 new UnitSlot(0, "heavy_infantry", 5_000, 6, "5th Legion"),
                 new UnitSlot(0, "archers", 3_000, 8, "6th Bowmen"),
                 new UnitSlot(0, "light_cavalry", 2_000, 7, "7th Riders"),
+            })));
+        armies.Add(new StartingArmy(
+            JoinFourArmyId, NationId, X: 114, Y: 110, Morale: 70, Money: 0, SupplyTons: 0, Moves: 8,
+            Units: ValueList.Of(new[]
+            {
+                new UnitSlot(0, "heavy_infantry", 1_000, 6, "J1"),
+                new UnitSlot(0, "heavy_infantry", 1_200, 6, "J2"),
+                new UnitSlot(0, "heavy_infantry", 1_500, 6, "J3"),
+                new UnitSlot(0, "heavy_infantry", 1_700, 6, "J4"),
             })));
         armies.Add(new StartingArmy(
             OneUnitArmyId, NationId, X: 110, Y: 110, Morale: 70, Money: 0, SupplyTons: 0, Moves: 8,
@@ -347,11 +357,42 @@ public sealed class ArmyDialogModelsTests
         Assert.Equal($"rename-unit {ArmyAId} 1 Legio I", model.RenameLine(1, "Legio I"));
         Assert.Equal($"split-unit {ArmyAId} 0 1000", model.SplitUnitLine(0, 1_000));
         Assert.Equal($"join-units {ArmyAId} 0 1", model.JoinUnitsLine(0, 1));
+        Assert.Equal($"join-units {ArmyAId} 0 1 2", model.JoinUnitsLine(0, 1, 2));
         Assert.Equal($"disband-unit {ArmyAId} 0", model.DisbandUnitLine(0));
 
         var output = session.Submit(model.RenameLine(1, "Legio I"));
         Assert.Contains(output.Lines, line => line.Contains("armies.rename-unit accepted", StringComparison.Ordinal));
         Assert.Equal("Legio I", session.State.ArmyById(ArmyAId)!.Units[1].Name);
+    }
+
+    [Fact]
+    public void Change_units_join_over_three_selected_units_joins_all_three_through_the_session()
+    {
+        var session = Session();
+        var model = ChangeUnitsModel.ForArmy(session.State.ArmyById(JoinFourArmyId)!);
+
+        var line = model.JoinUnitsLine(0, 1, 2);
+        Assert.Equal($"join-units {JoinFourArmyId} 0 1 2", line);
+        var output = session.Submit(line);
+
+        Assert.Contains(output.Lines, l => l.Contains("armies.join-units accepted", StringComparison.Ordinal));
+        var units = session.State.ArmyById(JoinFourArmyId)!.Units;
+        Assert.Equal(2, units.Count);
+        Assert.Equal(3_700, units[0].Troops); // 1,000 + 1,200 + 1,500.
+        Assert.Equal(1_700, units[1].Troops); // the unselected fourth is untouched.
+    }
+
+    [Fact]
+    public void Change_units_join_over_four_selected_units_joins_all_four_through_the_session()
+    {
+        var session = Session();
+        var model = ChangeUnitsModel.ForArmy(session.State.ArmyById(JoinFourArmyId)!);
+
+        session.Submit(model.JoinUnitsLine(0, 1, 2, 3));
+
+        var units = session.State.ArmyById(JoinFourArmyId)!.Units;
+        Assert.Single(units);
+        Assert.Equal(5_400, units[0].Troops);
     }
 
     [Fact]
