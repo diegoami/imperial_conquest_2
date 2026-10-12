@@ -1,4 +1,7 @@
 using Godot;
+using IC2.Engine.Model;
+using IC2.Engine.Presentation;
+using IC2.Slice.UI;
 using GodotDictionary = Godot.Collections.Dictionary;
 
 namespace IC2.Slice.Checks;
@@ -39,6 +42,13 @@ public partial class FontCandidatesTour : Control
     private int _frame;
     private int _index;
 
+    // "As it stands" mode (IC2_TOUR_MODE=asis): opens the real dialogs and panels of a fresh Rome game
+    // through the same check seams the other tours use, one screenshot each, for the evaluation document.
+    private bool _asIs;
+    private MainGameScreen? _game;
+    private readonly Queue<(string Name, Action Open)> _asIsSteps = new();
+    private string? _pendingCapture;
+
     private static Color C(string hex) => new(hex);
 
     public override void _Ready()
@@ -54,6 +64,16 @@ public partial class FontCandidatesTour : Control
         }
 
         Size = GetViewport().GetVisibleRect().Size;
+
+        if (System.Environment.GetEnvironmentVariable("IC2_TOUR_MODE") == "asis")
+        {
+            _asIs = true;
+            _game = new MainGameScreen { Session = BuildAsIsSession(), RepositoryRoot = GameDataContext.RepositoryRoot };
+            _game.SetAnchorsPreset(LayoutPreset.FullRect);
+            AddChild(_game);
+            StartAsIsSteps();
+            return;
+        }
 
         _plan.Add((new Pairing("Baseline: Godot default font, today's sizes", "00-baseline", null, null, false), Current));
         var pairings = BuildPairings();
@@ -107,8 +127,109 @@ public partial class FontCandidatesTour : Control
         OpentypeFeatures = new GodotDictionary { { "tnum", 1 } },
     };
 
+    private void StartAsIsSteps()
+    {
+        var g = _game!;
+        var state = g.Session.State;
+        var nation = state.ActiveNationId;
+        var army = state.ArmyById("tour-a")!;
+        var fleet = state.Fleets.FirstOrDefault(f => f.Id == "tour-fleet");
+        void Menu(string id) => g.MenuBar.PressItemForCheck(id);
+        void Army(string id) { g.SelectArmyForCheck(army.Id); Menu(id); }
+        void Fleet(string id) { if (fleet is not null) { g.SelectFleetForCheck(fleet.Id); Menu(id); } }
+        void Add(string name, Action a) => _asIsSteps.Enqueue((name, a));
+        Add("10-panel-army", () => g.SelectArmyForCheck(army.Id));
+        if (fleet is not null) { Add("11-panel-fleet", () => g.SelectFleetForCheck(fleet.Id)); }
+        Add("12-panel-city", () => g.ContextPanel.ShowCity("rome"));
+        Add("20-dialog-taxation", () => Menu("strategy.taxation"));
+        Add("21-dialog-balance-sheet", () => Menu("strategy.balance_sheet"));
+        Add("22-dialog-recruit-unit", () => Menu("strategy.recruit_unit"));
+        Add("23-dialog-build-fleet", () => Menu("strategy.build_fleet"));
+        Add("24-dialog-find-city", () => Menu("area_map.find_city"));
+        Add("30-dialog-army-supply", () => Army("unit_map.army_supply"));
+        Add("31-dialog-army-recruit-mercenaries", () => Army("unit_map.army_recruit_mercenaries"));
+        Add("32-dialog-army-transfer", () => Army("unit_map.army_transfer_unit"));
+        Add("32b-dialog-army-join", () => Army("unit_map.army_join"));
+        Add("33-dialog-army-split", () => Army("unit_map.army_split"));
+        Add("34-dialog-army-change-units", () => Army("unit_map.army_change_units"));
+        if (fleet is not null) Add("40-dialog-fleet-supply", () => Fleet("unit_map.fleet_supply"));
+        if (fleet is not null) Add("41-dialog-fleet-repair", () => Fleet("unit_map.fleet_repair"));
+        if (fleet is not null) Add("42-dialog-fleet-transfer", () => Fleet("unit_map.fleet_transfer_ships"));
+        if (fleet is not null) Add("43-dialog-fleet-split", () => Fleet("unit_map.fleet_split"));
+        Add("50-dialog-fortify-city", () => { g.SelectCityForCheck("rome"); Menu("unit_map.city_fortify"); });
+        Add("60-menu-nations-relations", () => Menu("strategy.relations"));
+    }
+
+    /// <summary>
+    /// The shipped classical world with Rome as the human seat plus two adjacent Roman armies and a Roman
+    /// fleet (the same placements <c>ArmyOrdersCheck</c> uses), so Transfer, Join, Split and the fleet
+    /// dialogs have something to open on.
+    /// </summary>
+    private static GameSession BuildAsIsSession()
+    {
+        var resolved = GameDataContext.Repository.Resolve("classical-mediterranean");
+        static StartingArmy Roman(string id, int x, int y, params (string Type, int Troops, int Quality)[] units) => new(
+            id, "rome", x, y, Morale: 70, Money: 100, SupplyTons: 100, Moves: 8,
+            Units: ValueList.From(units.Select((unit, index) =>
+                new UnitSlot(0, unit.Type, unit.Troops, unit.Quality, $"{id} unit {index + 1}"))));
+        var armies = resolved.World.StartingArmies.ToList();
+        armies.Add(Roman("tour-a", 100, 100, ("heavy_infantry", 5_000, 6), ("archers", 3_000, 8), ("light_cavalry", 2_000, 7)));
+        armies.Add(Roman("tour-b", 100, 99, ("light_cavalry", 4_000, 7), ("light_infantry", 1_000, 5)));
+        var fleets = resolved.World.StartingFleets.ToList();
+        fleets.Add(new StartingFleet("tour-fleet", "rome", 100, 120, Ships: 10, ConditionPercent: 80, Money: 0, SupplyTons: 300, Moves: 8));
+        var world = resolved.World with
+        {
+            StartingArmies = ValueList.From(armies),
+            StartingFleets = ValueList.From(fleets),
+        };
+        return new GameSession(world, resolved.Ruleset, resolved.Scenario, seedOverride: 1, humanSeatNationId: "rome");
+    }
+
+    private void ProcessAsIs()
+    {
+        _frame++;
+        if (_frame < SettleFrames)
+        {
+            return;
+        }
+
+        if (_pendingCapture is not null)
+        {
+            Capture("asis-" + _pendingCapture + ".png");
+            _pendingCapture = null;
+            _frame = 0;
+            return;
+        }
+
+        if (_asIsSteps.Count == 0)
+        {
+            GD.Print("FontCandidatesTour (asis): done.");
+            GetTree().Quit(0);
+            return;
+        }
+
+        var (name, open) = _asIsSteps.Dequeue();
+        var before = _game.ActiveOverlay;
+        open();
+        if (name.Contains("dialog") && (_game.ActiveOverlay is null || ReferenceEquals(_game.ActiveOverlay, before)))
+        {
+            GD.Print($"FontCandidatesTour (asis): {name} did not open; skipped.");
+            _frame = 0;
+            return;
+        }
+
+        _pendingCapture = name;
+        _frame = 0;
+    }
+
     public override void _Process(double delta)
     {
+        if (_asIs)
+        {
+            ProcessAsIs();
+            return;
+        }
+
         if (_index >= _plan.Count)
         {
             GD.Print("FontCandidatesTour: done.");
