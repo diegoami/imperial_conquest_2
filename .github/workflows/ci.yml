@@ -1,7 +1,8 @@
 name: CI
 
 # T01 (docs/task-catalogue.md "Build scaffolding and CI"): restore, build and test
-# IC2.sln on every push and pull request. The build-and-test job never references
+# IC2.sln on every push and pull request that changes more than documentation (#1076: docs/**,
+# **/*.md and release-notes/** alone run nothing). The build-and-test job never references
 # godot/IC2.MapViewer.csproj; the godot-headless job below (2026-09-28) downloads the Godot 4.7.2
 # .NET editor and runs the project's headless checks, so the Godot lane is checked by CI and not
 # only by a reviewer's machine and the user's visual sign-off.
@@ -12,11 +13,73 @@ on:
   # PR still runs twice on one SHA only when its head branch is itself named
   # release/** (never a task or fix branch), so the earlier reason for
   # main-only pushes holds (repo-audit-2026-09-18.md §4.6).
+  #
+  # #1076 (the CI-minutes cut, 2026-10-12): a change that touches only documentation runs
+  # nothing, on a push and on a pull request alike. paths-ignore skips a run only when EVERY
+  # changed file matches, so a commit that also touches code still runs. The godot-headless job is
+  # narrower still: the `changes` job below gates it on godot/, src/, data/, assets/ and this file.
   push:
     branches: ["main", "release/**"]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - "release-notes/**"
   pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - "release-notes/**"
 
 jobs:
+  # #1076: says whether anything the Godot checks depend on changed. A pull request is compared with
+  # its base commit, a push with the commit before it; a new branch, a force push, an unreachable
+  # commit or a push to a release/** line runs the Godot checks. No third-party action.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      godot: ${{ steps.filter.outputs.godot }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Did a Godot-relevant path change
+        id: filter
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            base="$PR_BASE"
+          else
+            base="$PUSH_BEFORE"
+            case "$REF_NAME" in release/*) echo "godot=true" >> "$GITHUB_OUTPUT"; echo "maintenance line: run everything"; exit 0 ;; esac
+          fi
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            echo "godot=true" >> "$GITHUB_OUTPUT"
+            echo "no usable base commit: run everything"
+            exit 0
+          fi
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            files=$(git diff --name-only "$base"..."$HEAD_SHA")
+          else
+            files=$(git diff --name-only "$base" "$HEAD_SHA")
+          fi
+          echo "$files"
+          # Also what the Godot checks read or build with: tests/fixtures/ (OrderCoverageCheck runs
+          # tests/fixtures/cli/success.txt and success-fleet.txt), Directory.Build.props, IC2.sln and
+          # scripts/check-godot-churn.ps1.
+          if echo "$files" | grep -Eq '^(godot/|src/|data/|assets/|tests/fixtures/|Directory\.Build\.props$|IC2\.sln$|scripts/check-godot-churn\.ps1$|\.github/workflows/ci\.yml$)'; then
+            echo "godot=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "godot=false" >> "$GITHUB_OUTPUT"
+          fi
+
   build-and-test:
     runs-on: ubuntu-latest
     # Follow-up #382 N12: a hang guard, since removing the repeat check in
@@ -104,6 +167,8 @@ jobs:
   # run outside the editor does not build it itself. `--import` then imports the resources once, so the
   # first real run does not spend its --quit-after frames importing.
   godot-headless:
+    needs: changes
+    if: needs.changes.outputs.godot == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:

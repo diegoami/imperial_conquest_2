@@ -176,9 +176,9 @@ jobs:
             rendered/release/${{ env.TAG }}/ImperialConquest2-*-windows-x64-setup.exe
           if-no-files-found: error
           compression-level: 0
-          # [designed] 30 days bounds how long the build's files stay on the run for a refused or
-          # failed attach. Searched the T131 entry, docs/packaging.md and ci.yml: no value given.
-          retention-days: 30
+          # [designed] 3 days (#1076, the CI-storage cut) bounds how long the build's files stay on the run
+          # for a refused or failed attach; the attach job's release assets are the durable copy.
+          retention-days: 3
 
   attach:
     needs: build
