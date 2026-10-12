@@ -224,6 +224,8 @@ graph TD
   T163[T163 town tiers]
   T164[T164 join all selected]
   T165[T165 load original saves]
+  T166[T166 recruit from all cities]
+  T119 --> T167[T167 faithful balance sheet]
   T156[T156 AI army target tree]
   T23 --> T26[T26 scenario docs+examples]
   T29 --> T26
@@ -1289,6 +1291,14 @@ Join all selected (from bug #1011, the evidence pass of research `1ff54ab`; ship
 
 Load original saves (from bug #1002, the user's report of 2026-10-11; ships in `v0.5.3`) → [full entry](tasks/T165.md) · [#1021](https://github.com/diegoami/imperial_conquest_2/issues/1021)
 
+#### T166 Recruit unit recruits at the capital from All cities, and lists All cities only when two towns hold units
+
+Recruit from all cities (from bug #1039, the evidence pass of research `89c37ff`; the user's decision of 2026-10-12; ships in `v0.5.3`) → [full entry](tasks/T166.md) · [#1042](https://github.com/diegoami/imperial_conquest_2/issues/1042)
+
+#### T167 Under classical-faithful the Balance sheet totals as the original does: mercenaries, fleets under construction, a rounded Debt limit
+
+Faithful balance sheet (from bug #1038, the evidence pass of research `89c37ff`; the user's decision of 2026-10-12) → [full entry](tasks/T167.md) · [#1043](https://github.com/diegoami/imperial_conquest_2/issues/1043)
+
 ---
 
 #### T25 Battle result, diplomacy, and hotseat handoff screens
@@ -1485,3 +1495,5 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T163](#t163-small-medium-and-big-towns-draw-different-markers-the-originals-four-population-tiers) | Town tiers | M18 | the user's choice | Medium | the user's choice | none | [#1008](https://github.com/diegoami/imperial_conquest_2/issues/1008) |
 | [T164](#t164-join-units-joins-every-selected-unit-as-the-original-does) | Join all selected | M18 | the user's choice | Low | the user's choice | none | [#1020](https://github.com/diegoami/imperial_conquest_2/issues/1020) |
 | [T165](#t165-load-game-browses-to-any-folder-and-opens-the-originals-sav-files) | Load original saves | M18 | the user's choice | Medium | the user's choice | none | [#1021](https://github.com/diegoami/imperial_conquest_2/issues/1021) |
+| [T166](#t166-recruit-unit-recruits-at-the-capital-from-all-cities-and-lists-all-cities-only-when-two-towns-hold-units) | Recruit from all cities | M18 | the user's choice | Low | the user's choice | none | [#1042](https://github.com/diegoami/imperial_conquest_2/issues/1042) |
+| [T167](#t167-under-classical-faithful-the-balance-sheet-totals-as-the-original-does-mercenaries-fleets-under-construction-a-rounded-debt-limit) | Faithful balance sheet | none | the user's choice | Medium | the user's choice | T119 | [#1043](https://github.com/diegoami/imperial_conquest_2/issues/1043) |
