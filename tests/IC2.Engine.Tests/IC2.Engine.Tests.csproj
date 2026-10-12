@@ -65,6 +65,8 @@
     -->
     <Compile Include="../../godot/UI/RulesetPresets.cs" Link="Ui/RulesetPresets.cs" />
     <Compile Include="../../godot/UI/NewGameSelection.cs" Link="Ui/NewGameSelection.cs" />
+    <!-- T165: the Godot-free half of the Load game screen (opens a .json or an original .sav). -->
+    <Compile Include="../../godot/UI/LoadGameModel.cs" Link="Ui/LoadGameModel.cs" />
 
     <!--
       T25 (tests/IC2.Engine.Tests/Ui/Screens/**): the same seam, one file further. BattleResultViewModel.cs,

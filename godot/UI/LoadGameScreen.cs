@@ -79,6 +79,7 @@ public partial class LoadGameScreen : Control
         backButton.CustomMinimumSize = new Vector2(90, 34);
         header.AddChild(backButton);
         header.AddChild(UiKit.MakeLabel("Load Game", 26, UiKit.AccentColor));
+        header.AddChild(UiKit.MakeButton("Browse...", OnBrowsePressed, 14));
 
         var list = new VBoxContainer();
         list.AddThemeConstantOverride("separation", 8);
@@ -143,42 +144,16 @@ public partial class LoadGameScreen : Control
     /// </summary>
     private void OnContinuePressed(string path)
     {
-        SaveSummary summary;
-        try
+        var outcome = LoadGameModel.Open(path, GameDataContext.Repository);
+        if (outcome.Session is not { } session)
         {
-            summary = SaveManager.PeekSummaryFile(path);
-        }
-        catch (Exception ex)
-        {
-            _messageLabel.Text = $"Could not read '{Path.GetFileName(path)}': {ex.Message}";
+            _messageLabel.Text = outcome.Message;
             return;
         }
 
-        var repository = GameDataContext.Repository;
-        var world = repository.WorldById(summary.WorldId);
-        var ruleset = repository.RulesetById(summary.RulesetId);
-        var scenario = repository.ScenarioById(summary.ScenarioId);
-        if (world is null || ruleset is null || scenario is null)
-        {
-            _messageLabel.Text =
-                $"'{Path.GetFileName(path)}' names a world/ruleset/scenario this build does not have "
-                + $"(world '{summary.WorldId}', ruleset '{summary.RulesetId}', scenario '{summary.ScenarioId}').";
-            return;
-        }
-
-        Engine.Model.SaveGame save;
-        try
-        {
-            save = SaveManager.LoadFile(path, world, ruleset);
-        }
-        catch (Exception ex)
-        {
-            _messageLabel.Text = $"Could not load '{Path.GetFileName(path)}': {ex.Message}";
-            return;
-        }
-
-        var session = new GameSession(world, ruleset, scenario, save);
-        LastLoadedPath = path;
+        // Only a remake .json is written back to by Save (bug #919); an imported original .sav is never
+        // overwritten, so Save writes a new .json as it does for a new game.
+        LastLoadedPath = path.EndsWith(".json", StringComparison.OrdinalIgnoreCase) ? path : null;
 
         // Done-when 2/4: the resumed session's own active seat and human-seat bookkeeping already come
         // from the save's own state (GameSession.ResumeFrom). AppRoot.ShowLoadGame's own GameResumed
@@ -186,11 +161,68 @@ public partial class LoadGameScreen : Control
         // the instant before that swap (or not at all, in the normal click-through case) -- kept anyway
         // for a caller that does not swap screens, such as this task's own headless check.
         _messageLabel.Text =
-            $"Resumed '{summary.Label}' — scenario '{scenario.Id}', turn {summary.TurnIndex}. "
+            $"Resumed '{Path.GetFileName(path)}' — scenario '{session.Scenario.Id}', turn {session.State.Calendar.TurnIndex}. "
             + $"Active seat: {session.State.NationById(session.State.ActiveNationId)?.Name ?? session.State.ActiveNationId}.";
 
         GameResumed?.Invoke(session);
     }
+
+    /// <summary>
+    /// T165 (#1021): the folder the last Browse chose a file from this session; the dialog starts there,
+    /// otherwise in the saves folder.
+    /// </summary>
+    private static string? _lastBrowsedFolder;
+
+    private FileDialog? _browseDialog;
+
+    /// <summary>The Browse dialog, created on first use: a native-path file dialog over the whole file
+    /// system, filtered to <c>*.json</c> and <c>*.sav</c>.</summary>
+    public FileDialog BrowseDialog => _browseDialog ??= CreateBrowseDialog();
+
+    private FileDialog CreateBrowseDialog()
+    {
+        var dialog = new FileDialog
+        {
+            Access = FileDialog.AccessEnum.Filesystem,
+            FileMode = FileDialog.FileModeEnum.OpenFile,
+            Title = "Open a saved game or an original .sav",
+            Filters = new[] { "*.json, *.sav ; Saved games" },
+            Size = new Vector2I(760, 520),
+        };
+        dialog.FileSelected += OnBrowseFileSelected;
+        AddChild(dialog);
+        return dialog;
+    }
+
+    private void OnBrowsePressed()
+    {
+        var dialog = BrowseDialog;
+        var folder = _lastBrowsedFolder is { } last && Directory.Exists(last)
+            ? last
+            : ProjectSettings.GlobalizePath(SavesDirectory);
+        if (!Directory.Exists(folder))
+        {
+            folder = OS.GetSystemDir(OS.SystemDir.Documents);
+        }
+
+        dialog.CurrentDir = folder;
+        dialog.PopupCentered();
+    }
+
+    private void OnBrowseFileSelected(string path)
+    {
+        _lastBrowsedFolder = Path.GetDirectoryName(path);
+        OnContinuePressed(path);
+    }
+
+    /// <summary>
+    /// Opens <paramref name="path"/> as the Browse dialog's <c>FileSelected</c> would: records its folder as
+    /// the last browsed one, then resumes it. Exposed for <c>godot/Checks/BrowseLoadCheck.cs</c>.
+    /// </summary>
+    public void BrowseForCheck(string path) => OnBrowseFileSelected(path);
+
+    /// <summary>The folder Browse will open in next, for a check: the last browsed folder, or null.</summary>
+    public static string? LastBrowsedFolderForCheck => _lastBrowsedFolder;
 
     /// <summary>
     /// Resumes <paramref name="path"/> exactly as a real "Continue" click would (<see cref="OnContinuePressed"/>)
