@@ -819,6 +819,36 @@ def _self_check_run_survives_failures(failures: list) -> None:
            os.path.relpath(DEFAULT_LOCK_DIR, REPO_ROOT) == "rendered")
 
 
+def _self_check_manifest_merge(failures: list) -> None:
+    """The manifest step merges: an entry the prompts do not list (sfx.*) survives
+    unchanged in its place, a one-key write updates only that key."""
+    import shutil
+
+    scratch = os.path.join(REPO_ROOT, "rendered", "selfcheck-manifest-%d" % os.getpid())
+    try:
+        os.makedirs(scratch, exist_ok=True)
+        seed = {"schemaVersion": 1, "name": "x", "description": "x", "assets": {
+            "sfx.fleet_move": "sounds/fleet_move.wav", "unit.a.icon": "OLD/a.bmp",
+            "unit.b.icon": "OLD/b.bmp"}}
+        with open(os.path.join(scratch, "manifest.json"), "w", encoding="utf-8") as handle:
+            json.dump(seed, handle)
+        entries = [{"key": k, "kind": "sprite", "prompt": k}
+                   for k in ("unit.a.icon", "unit.b.icon", "unit.c.icon")]
+        write_manifest(scratch, entries, {"unit.a.icon"})
+        assets = read_manifest(scratch)["assets"]
+        _check(failures, "manifest: an entry the prompts do not list survives unchanged",
+               assets.get("sfx.fleet_move") == "sounds/fleet_move.wav", str(assets))
+        _check(failures, "manifest: the generated key is updated in place",
+               assets.get("unit.a.icon") == asset_relpath("unit.a.icon"), str(assets))
+        _check(failures, "manifest: a key the run did not generate keeps its existing path",
+               assets.get("unit.b.icon") == "OLD/b.bmp", str(assets))
+        _check(failures, "manifest: existing order kept, a new key goes at the end",
+               list(assets) == ["sfx.fleet_move", "unit.a.icon", "unit.b.icon", "unit.c.icon"],
+               str(list(assets)))
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
 def self_check() -> list:
     """Run the conforming step on synthetic images drawn in code (never downloaded)
     and validate the output bytes against exactly what the C# conformance test will
@@ -1212,6 +1242,7 @@ def self_check() -> list:
     # Run robustness: one key failing must not abort the run. call_image_model is stubbed,
     # so this uses no network and no key; the scratch pack goes under rendered/ (never TEMP).
     _self_check_run_survives_failures(failures)
+    _self_check_manifest_merge(failures)
 
     if failures:
         print(f"Self-check FAILED: {len(failures)} check(s) failed: {failures}")
@@ -1397,7 +1428,19 @@ def call_image_model(config: dict, prompt: str) -> tuple:
 # --- Pack output -------------------------------------------------------------------------
 
 
-def manifest_document(entries: list) -> dict:
+def manifest_document(entries: list, existing: dict | None = None,
+                      replace_keys: set | None = None) -> dict:
+    """The manifest document, MERGED into `existing` (the manifest already on disk): every
+    existing entry keeps its place and its path - including entries this script's prompts
+    do not list (the sfx.* cues from the sound script) - an entry in `replace_keys` is
+    replaced in place, and an entry of `entries` the manifest lacks is appended at the end
+    (in `entries` order). `replace_keys` None means every entry of `entries` (a first
+    write of the whole pack)."""
+    assets = dict((existing or {}).get("assets", {}))
+    for entry in entries:
+        key = entry["key"]
+        if key not in assets or replace_keys is None or key in replace_keys:
+            assets[key] = asset_relpath(key)
     return {
         "schemaVersion": 1,
         "name": "Authored Asset Pack",
@@ -1409,24 +1452,38 @@ def manifest_document(entries: list) -> dict:
             "256x256 24-bit seamless surfaces), plus locally synthesized sound cues. The same "
             "shape as the placeholder pack's manifest."
         ),
-        "assets": {entry["key"]: asset_relpath(entry["key"]) for entry in entries},
+        "assets": assets,
     }
 
 
-def write_manifest(out_dir: str, entries: list) -> str:
+def read_manifest(out_dir: str) -> dict | None:
     path = os.path.join(out_dir, "manifest.json")
+    if not os.path.exists(path):
+        return None
+    with open(path, encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def write_manifest(out_dir: str, entries: list, replace_keys: set | None = None) -> str:
+    """Merge into the manifest already in `out_dir` (see manifest_document); never drop
+    an entry this run did not generate."""
+    path = os.path.join(out_dir, "manifest.json")
+    document = manifest_document(entries, read_manifest(out_dir), replace_keys)
+    os.makedirs(out_dir, exist_ok=True)
     with open(path, "w", encoding="utf-8", newline="\n") as handle:
-        json.dump(manifest_document(entries), handle, indent=2)
+        json.dump(document, handle, indent=2)
         handle.write("\n")
     return path
 
 
 def missing_pack_files(out_dir: str, entries: list) -> list:
-    return [
-        entry["key"]
-        for entry in entries
-        if not os.path.exists(os.path.join(out_dir, asset_relpath(entry["key"])))
-    ]
+    """Keys with no file: every prompt entry AND every key the manifest on disk lists
+    (so the sfx.* entries the sound script owns are checked too)."""
+    paths = {entry["key"]: asset_relpath(entry["key"]) for entry in entries}
+    for key, relpath in (read_manifest(out_dir) or {}).get("assets", {}).items():
+        paths.setdefault(key, relpath)
+    return [key for key, relpath in paths.items()
+            if not os.path.exists(os.path.join(out_dir, relpath))]
 
 
 def acquire_lock(lock_dir: str = DEFAULT_LOCK_DIR) -> str:
@@ -1644,7 +1701,7 @@ def run_generation(config: dict, entries: list, selection: list, out_dir: str, r
     try:
         generated, failed = generate_selection(config, selection, out_dir, raw_dir, call=call)
 
-        manifest_path = write_manifest(out_dir, entries)
+        manifest_path = write_manifest(out_dir, entries, {e["key"] for e in selection})
         print(f"  wrote {os.path.relpath(manifest_path, REPO_ROOT)}")
         missing = missing_pack_files(out_dir, entries)
         if missing:
@@ -1839,7 +1896,7 @@ def run_reconform(entries: list, selection: list, out_dir: str, raw_dir: str,
             print(f"  {verb} {relpath} ({image.size[0]}x{image.size[1]} -> "
                   f"{out_size}x{out_size} {depth})")
         if write:
-            manifest_path = write_manifest(out_dir, entries)
+            manifest_path = write_manifest(out_dir, entries, set(done))
             print(f"  wrote {os.path.relpath(manifest_path, REPO_ROOT)}")
         print(f"reconform finished: {len(done)} reconformed, {len(no_raw)} with no original, "
               f"{len(failed)} failed")
