@@ -13,15 +13,17 @@ namespace IC2.Engine.Tests.Assets;
 /// <remarks>
 /// <para>
 /// 1. Every key <see cref="AssetKeys.AllKeys"/> yields today (read live from the compiled engine,
-/// never copied into this test) must appear as a line inside that block.
+/// never copied into this test), and every key of T128's Godot-side
+/// <see cref="BattleAssetKeys.AllKeys"/>, must appear as a line inside that block.
 /// </para>
 /// <para>
-/// 2. Every line inside that block must be a real <see cref="AssetKeys"/> constant — so a stray or
+/// 2. Every line inside that block must be a real <see cref="AssetKeys"/> or
+/// <see cref="BattleAssetKeys"/> constant — so a stray or
 /// misspelled "existing" key claimed in the document fails exactly as loudly as a missing one.
 /// </para>
 /// <para>
 /// Gap/candidate keys discussed elsewhere in the document (candidate new sfx keys) are deliberately
-/// outside this block: this test only requires the *existing* keys - all 67 after T101 and T148 - to
+/// outside this block: this test only requires the *existing* keys - the engine's 75 plus T128's 25 battle keys - to
 /// round-trip, and a proposed key must not affect it either way.
 /// </para>
 /// </remarks>

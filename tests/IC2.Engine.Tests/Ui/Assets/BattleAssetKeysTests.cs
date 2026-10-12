@@ -243,10 +243,13 @@ public sealed class BattleAssetKeysTests
             Assert.True(colours.Contains(BattleIconTint.PurpleMarker), $"{key}: no purple 0x800080 pixel");
             Assert.True(colours.Contains(BattleIconTint.WhiteMarker), $"{key}: no white pixel");
             Assert.True(colours.Contains(BattleIconTint.BlueMarker), $"{key}: no blue 0x0000FF pixel");
+
+            // docs/asset-specification.md 1.2: 32-bit BGRA, and the icon fills its cell, so alpha is 255 throughout.
+            Assert.True(ReadBmp(path, key).AllOpaque, $"{key}: a pixel is not opaque (alpha 255 throughout expected)");
         }
     }
 
-    private sealed record Bmp(int Width, int Height, int BitCount, HashSet<(byte R, byte G, byte B)> Colours);
+    private sealed record Bmp(int Width, int Height, int BitCount, HashSet<(byte R, byte G, byte B)> Colours, bool AllOpaque);
 
     private static Bmp ReadBmp(string path, string key)
     {
@@ -261,11 +264,17 @@ public sealed class BattleAssetKeysTests
         var bytesPerPixel = bitCount / 8;
         var rowSize = ((width * bytesPerPixel) + 3) / 4 * 4;
         var colours = new HashSet<(byte R, byte G, byte B)>();
+        var allOpaque = true;
         for (var y = 0; y < height; y++)
         {
             for (var x = 0; x < width; x++)
             {
                 var i = 54 + (y * rowSize) + (x * bytesPerPixel);
+                if (bitCount == 32 && bytes[i + 3] != 255)
+                {
+                    allOpaque = false;
+                }
+
                 if (bitCount == 32 && bytes[i + 3] == 0)
                 {
                     continue;
@@ -275,6 +284,6 @@ public sealed class BattleAssetKeysTests
             }
         }
 
-        return new Bmp(width, height, bitCount, colours);
+        return new Bmp(width, height, bitCount, colours, allOpaque);
     }
 }

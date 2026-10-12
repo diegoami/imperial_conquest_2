@@ -779,8 +779,8 @@ section actually require:
 
   | Key | File | Size | Depth | Draws |
   | --- | --- | --- | --- | --- |
-  | `battle.unit.<type>.<small\|medium\|large>` (15: the five types of §4.1 at three sizes) | `battle/unit_<type>_<size>.bmp` | 32 × 32 | 24-bit opaque | a unit on the board; three recolourable regions (below) |
-  | `battle.ground` | `battle/ground.bmp` | 32 × 32 | 24-bit opaque | the one ground tile: grass with brown contour lines (the battlefield has no terrain) |
+  | `battle.unit.<type>.<small\|medium\|large>` (15: the five types of §4.1 at three sizes) | `battle/unit_<type>_<size>.bmp` | 32 × 32 | 32-bit BGRA, alpha 255 throughout | a unit on the board; three recolourable regions (below). §1.2 makes every non-terrain asset 32-bit BGRA; a unit icon fills its cell, so it is opaque, which is the case §1.2 allows ("may fill every pixel opaque") |
+  | `battle.ground` | `battle/ground.bmp` | 32 × 32 | 24-bit opaque | the one ground tile, a full-tile background like a terrain tile (§1.2's terrain rule): grass with brown contour lines (the battlefield has no terrain) |
   | `battle.cursor` | `battle/cursor.bmp` | 32 × 32 | 32-bit BGRA | the one selection cursor (the original draws it with an erase raster op) |
   | `battle.toolbar.<unit_moves\|friendly_units\|enemy_units\|cancel_selection\|end_turn\|change_pauses\|computer_general\|surrender>` (8) | `battle/toolbar_<button>.bmp` | 20 × 20 | 32-bit BGRA | the eight toolbar buttons, in the original's order |
 

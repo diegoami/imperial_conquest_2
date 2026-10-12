@@ -13,8 +13,7 @@ The directory to write the asset pack to. Created if it doesn't exist.
 #>
 
 param(
-    [Parameter(Mandatory=$true)]
-    [string]$OutputPath,
+    [string]$OutputPath = (Join-Path -Path $PSScriptRoot -ChildPath "../assets/packs/placeholder"),
     [int]$Seed = 42
 )
 
@@ -392,7 +391,7 @@ foreach ($command in $uiCommands) {
 }
 
 # --- T128: the tactical battle screen's assets (docs/asset-specification.md 4.7) -------------------
-# 15 recolourable unit icons (32x32, 24-bit opaque), the ground tile (32x32, 24-bit), the cursor
+# 15 recolourable unit icons (32x32, 32-bit BGRA, alpha 255 throughout), the ground tile (32x32, 24-bit), the cursor
 # (32x32, 32-bit BGRA) and eight toolbar glyphs (20x20, 32-bit BGRA). A unit icon is drawn in the
 # three marker colours the nation recolour replaces (purple 0x800080, white, blue 0x0000FF) plus a
 # black outline and the lime dotted frame the original keeps; the figure grows with the size index.
@@ -528,7 +527,7 @@ function New-BattleUnitBMP {
         Set-RgbaPixel $buffer $n $n 0 $i $lime
         Set-RgbaPixel $buffer $n $n ($n - 1) $i $lime
     }
-    Write-BmpFromRgba -Path $Path -Buffer $buffer -Width $n -Height $n -BitCount 24
+    Write-BmpFromRgba -Path $Path -Buffer $buffer -Width $n -Height $n -BitCount 32
 }
 
 # The ground: grass green with brown contour lines (a battlefield has no terrain).

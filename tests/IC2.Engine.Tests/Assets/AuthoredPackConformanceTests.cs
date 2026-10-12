@@ -493,8 +493,10 @@ public sealed class AuthoredPackConformanceTests
 
     /// <summary>
     /// The kind implied by the key's own first segment: terrain tiles are opaque 24-bit, sfx are
-    /// WAV, and everything else (unit icons and army/fleet/city markers) are transparent 32-bit
-    /// BGRA sprites - the same split <c>scripts/generate-authored-assets.py</c> conforms by.
+    /// WAV, T128's <c>battle.ground</c> is a "tile" too (24-bit opaque), T128's <c>battle.unit.*</c>
+    /// and <c>battle.toolbar.*</c> have their own kinds (32-bit BGRA: opaque unit icons, 20 x 20 glyphs),
+    /// and everything else (unit icons, army/fleet/city markers, <c>battle.cursor</c>) are 32-bit BGRA
+    /// sprites - the same split <c>scripts/generate-authored-assets.py</c> conforms by.
     /// </summary>
     private static string ExpectedKind(string key) => key switch
     {
@@ -549,7 +551,7 @@ public sealed class AuthoredPackConformanceTests
         var bitCount = BitConverter.ToUInt16(bytes, 28);
         Assert.True(bitCount == expectedBitCount,
             $"{assetKey}: bit depth is {bitCount}, expected {expectedBitCount} "
-            + "(docs/asset-specification.md 1.2: 24-bit opaque terrain, 32-bit BGRA sprites)");
+            + "(docs/asset-specification.md 1.2: 24-bit opaque terrain tiles and battle.ground, 32-bit BGRA everything else)");
 
         Assert.Equal(0u, BitConverter.ToUInt32(bytes, 30)); // BI_RGB, uncompressed
 

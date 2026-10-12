@@ -10,8 +10,11 @@ docs/asset-specification.md - calls the configured OpenRouter-compatible chat-co
 endpoint with modalities ["image", "text"] (the image returns as a base64 data URL in the
 assistant message's `images` field), conforms each result to the specification's format
 rules (docs/asset-specification.md par. 1: 32x32 BMP, 24-bit opaque terrain tiles, 32-bit
-BGRA sprites with the background keyed out to alpha, and T101's 32-bit BGRA ui.command.*
-toolbar icons - keyed to alpha but kept full-colour, never neutral-silhouetted), and writes
+BGRA sprites with the background keyed out to alpha, T101's 32-bit BGRA ui.command.*
+toolbar icons - keyed to alpha but kept full-colour, never neutral-silhouetted - and T128's
+tactical-battle assets: 32x32 32-bit BGRA battle.unit.* icons snapped to the four-colour marker
+palette with alpha 255 throughout, a 24-bit opaque battle.ground tile, a 32-bit battle.cursor
+and 20x20 32-bit BGRA battle.toolbar.* glyphs; the prompts cover all of those kinds), and writes
 assets/packs/authored/ with a manifest in the same shape as T11's placeholder pack.
 
 Non-determinism is the defining constraint: the same prompt does not give the same pixels
@@ -123,8 +126,9 @@ ESTIMATED_IMAGE_OUTPUT_TOKENS = 1300
 VALID_KINDS = ("sprite", "ui", "tile", "surface", "sfx", "battle_unit", "battle_glyph")
 
 # T128: the tactical battle screen's assets (docs/asset-specification.md 4.7). A battle unit icon is a
-# 32x32 24-bit opaque image painted in exactly the three marker colours the nation recolour replaces
-# (purple 0x800080, white, blue 0x0000FF) plus black, so a draw-time pixel substitution finds them;
+# 32x32 32-bit BGRA image (alpha 255 throughout: it fills its cell, par. 1.2) painted in exactly the
+# three marker colours the nation recolour replaces (purple 0x800080, white, blue 0x0000FF) plus
+# black, so a draw-time pixel substitution finds them;
 # a battle toolbar glyph is a 20x20 32-bit BGRA full-colour icon.
 BATTLE_GLYPH_SIZE = 20
 BATTLE_MARKER_PURPLE = (128, 0, 128)
@@ -566,8 +570,9 @@ def conform_battle_unit_image(img: Image.Image) -> Image.Image:
 
 
 def conform_battle_unit(img: Image.Image) -> bytes:
-    """conform_battle_unit_image, serialized as a 24-bit opaque BMP."""
-    return bmp_bytes(conform_battle_unit_image(img), 24)
+    """conform_battle_unit_image, serialized as a 32-bit BGRA BMP with alpha 255 throughout (par. 1.2:
+    every non-terrain asset is 32-bit BGRA; a unit icon fills its cell, so it is opaque)."""
+    return bmp_bytes(conform_battle_unit_image(img).convert("RGBA"), 32)
 
 
 def conform_battle_glyph(img: Image.Image) -> bytes:
@@ -1617,8 +1622,8 @@ def dry_run(config: dict, entries: list, selection: list, models: list | None) -
           f"({sum(1 for e in image_keys if e['kind'] == 'sprite')} sprites -> 32-bit BGRA "
           f"+ {sum(1 for e in image_keys if e['kind'] == 'ui')} toolbar icons -> 32-bit BGRA "
           f"+ {sum(1 for e in image_keys if e['kind'] == 'tile')} terrain tiles -> 24-bit opaque "
-          f"+ {sum(1 for e in image_keys if e['kind'] == 'battle_unit')} battle unit icons -> 24-bit "
-          f"marker palette + {sum(1 for e in image_keys if e['kind'] == 'battle_glyph')} battle "
+          f"+ {sum(1 for e in image_keys if e['kind'] == 'battle_unit')} battle unit icons -> 32-bit "
+          f"BGRA marker palette + {sum(1 for e in image_keys if e['kind'] == 'battle_glyph')} battle "
           "glyphs -> 20x20 32-bit BGRA "
           f"+ {sum(1 for e in image_keys if e['kind'] == 'surface')} surface textures -> "
           "256x256 24-bit seamless)")
@@ -1917,7 +1922,7 @@ def conform_image(kind: str, image: Image.Image) -> tuple:
     if kind == "surface":
         return conform_surface(image), "256x256 24-bit opaque (seamless)"
     if kind == "battle_unit":
-        return conform_battle_unit(image), "24-bit opaque (marker palette)"
+        return conform_battle_unit(image), "32-bit BGRA, opaque (marker palette)"
     if kind == "battle_glyph":
         return conform_battle_glyph(image), "20x20 32-bit BGRA (full-colour glyph)"
     return conform_tile(image), "24-bit opaque"

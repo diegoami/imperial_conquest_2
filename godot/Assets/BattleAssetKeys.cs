@@ -112,10 +112,11 @@ public static class BattleAssetKeys
     public static int ExpectedSize(string key) => IsToolbarGlyph(key) ? GlyphSize : CellSize;
 
     /// <summary>
-    /// The BMP bit depth of <paramref name="key"/>'s file: 24 (opaque) for the unit icons, which
-    /// fill their cell, and for the ground tile; 32 (BGRA, transparent background) for the cursor
-    /// and the toolbar glyphs.
+    /// The BMP bit depth of <paramref name="key"/>'s file. docs/asset-specification.md 1.2: 24-bit
+    /// opaque for a full-tile background (the ground tile, like a terrain tile) and 32-bit BGRA for
+    /// every other asset, the unit icons included (they fill their cell, so their alpha is 255
+    /// throughout), the cursor and the toolbar glyphs.
     /// </summary>
     public static int ExpectedBitCount(string key) =>
-        IsUnitIcon(key) || key == Ground ? 24 : 32;
+        key == Ground ? 24 : 32;
 }
