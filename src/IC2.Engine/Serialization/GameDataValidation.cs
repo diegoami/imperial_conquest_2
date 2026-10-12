@@ -824,6 +824,29 @@ public static class GameDataValidation
             RequireStateNation(documentPath, state, pendingOffer.ProposingNationId);
         }
 
+        // T71 (#411 S2): T86's two nation references. A null Neighbours (a state that carries no
+        // neighbour set, answered by NeighbourGeography's fallback) and a null ConqueredBy (never
+        // conquered) stay valid; only a named id has to resolve.
+        if (state.Neighbours is { } neighbours)
+        {
+            foreach (var entry in neighbours)
+            {
+                RequireStateNation(documentPath, state, entry.NationId);
+                foreach (var neighbourId in entry.NeighbourIds)
+                {
+                    RequireStateNation(documentPath, state, neighbourId);
+                }
+            }
+        }
+
+        foreach (var nation in state.Nations)
+        {
+            if (nation.ConqueredBy is { } conqueror)
+            {
+                RequireStateNation(documentPath, state, conqueror);
+            }
+        }
+
         foreach (var army in state.Armies)
         {
             RequireStateNation(documentPath, state, army.Nation);

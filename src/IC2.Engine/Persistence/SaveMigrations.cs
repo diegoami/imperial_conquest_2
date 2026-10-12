@@ -35,6 +35,10 @@ internal static class SaveMigrations
     /// <exception cref="UnsupportedSaveFormatException">
     /// <paramref name="foundVersion"/> is older than any version this build knows how to migrate from.
     /// </exception>
+    /// <exception cref="MissingMigrationStepException">
+    /// A version between <see cref="SaveFormat.MinimumSupportedVersion"/> and
+    /// <see cref="SaveFormat.CurrentVersion"/> has no step in the switch below.
+    /// </exception>
     public static JsonObject MigrateToCurrent(
         string documentPath, JsonObject envelope, int foundVersion, World? expectedWorld = null)
     {
@@ -49,12 +53,14 @@ internal static class SaveMigrations
                 2 => MigrateV2ToV3(documentPath, current, expectedWorld),
                 3 => MigrateV3ToV4(documentPath, current),
 
-                // Nothing this build can step forward from -- either a version below
-                // SaveFormat.MinimumSupportedVersion (zero, negative, or otherwise never shipped), or
-                // (defensively) a version this switch has not been taught a step for. Same exception
-                // type DoD 3 uses for "too new", but its own message tells the two apart (found <
-                // MinimumSupportedVersion is never "a newer build").
-                _ => throw new UnsupportedSaveFormatException(documentPath, foundVersion, SaveFormat.CurrentVersion),
+                // A version below SaveFormat.MinimumSupportedVersion (zero, negative, or otherwise never
+                // shipped) is not "a newer build" either, and UnsupportedSaveFormatException's message
+                // says so. A version from MinimumSupportedVersion up to CurrentVersion - 1 that reaches
+                // this arm has no step in the switch above: a defect in this build (T71, #346), named as
+                // such rather than blamed on a newer build.
+                _ when version < SaveFormat.MinimumSupportedVersion =>
+                    throw new UnsupportedSaveFormatException(documentPath, foundVersion, SaveFormat.CurrentVersion),
+                _ => throw new MissingMigrationStepException(documentPath, version, foundVersion),
             };
 
             version++;

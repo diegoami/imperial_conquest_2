@@ -118,15 +118,24 @@ public sealed class MissingTerrainSidecarException : GameDataException
             worldPath,
             innerException is null
                 ? $"'{worldPath}' names terrain sidecar file '{sidecarPath}', which does not exist."
-                // The inner exception's own message carries the real reason (not found, access
-                // denied, a directory rather than a file, ...) rather than always claiming "does not
-                // exist" for a file that might actually exist but be unreadable for some other reason.
-                : $"'{worldPath}' names terrain sidecar file '{sidecarPath}', which could not be read: {innerException.Message}",
+                // The inner exception's own message carries the real reason (access denied, a
+                // directory rather than a file, ...) rather than always claiming "does not exist" for a
+                // file that might exist but be unreadable. The framework's messages repeat the path
+                // ("Could not find file 'X'"), and this message names it once: a not-found is said
+                // plainly, and any other reason that carries the path is reduced to its exception type.
+                : $"'{worldPath}' names terrain sidecar file '{sidecarPath}', which {Reason(innerException, sidecarPath)}.",
             innerException)
     {
         WorldPath = worldPath;
         SidecarPath = sidecarPath;
     }
+
+    private static string Reason(Exception inner, string sidecarPath) =>
+        inner is FileNotFoundException or DirectoryNotFoundException
+            ? "does not exist"
+            : inner.Message.Contains(sidecarPath, StringComparison.OrdinalIgnoreCase)
+                ? $"could not be read ({inner.GetType().Name})"
+                : $"could not be read: {inner.Message}";
 
     /// <summary>The world document that references the sidecar.</summary>
     public string WorldPath { get; }
@@ -153,4 +162,32 @@ public sealed class UnresolvedReferenceException : GameDataException
 
     /// <summary>The id that could not be resolved.</summary>
     public string Id { get; }
+}
+
+/// <summary>
+/// A save declares a <c>saveFormatVersion</c> inside the range this build claims to read (from
+/// <c>SaveFormat.MinimumSupportedVersion</c> up to, but not including, <c>SaveFormat.CurrentVersion</c>),
+/// but the build has no migration step for it. That is a defect in this build, not a fault in the file,
+/// so it must never be reported as "written by a newer build".
+/// </summary>
+public sealed class MissingMigrationStepException : GameDataException
+{
+    /// <param name="documentPath">The save file the failure came from.</param>
+    /// <param name="missingFromVersion">The version whose step to the next version does not exist.</param>
+    /// <param name="foundVersion">The version the file declared.</param>
+    public MissingMigrationStepException(string documentPath, int missingFromVersion, int foundVersion)
+        : base(
+            documentPath,
+            $"'{documentPath}' declares save format version {foundVersion}, but this build has no migration "
+            + $"step from version {missingFromVersion} to version {missingFromVersion + 1}.")
+    {
+        MissingFromVersion = missingFromVersion;
+        FoundVersion = foundVersion;
+    }
+
+    /// <summary>The version whose migration step is missing.</summary>
+    public int MissingFromVersion { get; }
+
+    /// <summary>The version the file declared.</summary>
+    public int FoundVersion { get; }
 }
