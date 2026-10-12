@@ -22,6 +22,10 @@ name: Nightly
 
 on:
   schedule:
+    # [designed] 03:17 UTC daily. Cadence: release-plan.md (line 301) wants a green scheduled run within
+    # the last 24 hours, so once a day. The hour and the odd minute are a choice (a quiet hour, off
+    # the :00 mark where scheduled runs queue). Searched the T28 entry, build-process.md,
+    # release-plan.md and operating-guide.md for a nightly time: none given.
     - cron: "17 3 * * *"
   workflow_dispatch:
     inputs:
@@ -41,6 +45,9 @@ jobs:
     runs-on: ubuntu-latest
     # The soak and golden fixtures take well under 5 minutes in ci.yml (its build-and-test job has a
     # 20-minute guard); the same guard here.
+    # [designed] 30 minutes: a hang guard, not a target. Local full run took about 2 min 15 s;
+    # ci.yml's two jobs use 20 (its comment measures the slowest run at 122 s). 30 adds headroom for the
+    # fixtures clone and the Release build. Searched the T28 entry and build-process.md: no timeout given.
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -86,6 +93,8 @@ jobs:
     needs: test
     if: ${{ failure() && github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
+    # [designed] 5 minutes: a hang guard for one `gh issue create` call, which takes seconds.
+    # Searched the T28 entry and ci.yml (its timeouts are for builds): nothing for a job this small.
     timeout-minutes: 5
     permissions:
       issues: write
