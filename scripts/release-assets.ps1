@@ -184,4 +184,211 @@ function Invoke-WithScrubbedEnvironment {
         foreach ($name in $names) { [Environment]::SetEnvironmentVariable($name, $null, 'Process') }
         if ($env:PATH -match 'Godot' -or $env:PATH -match 'dotnet') { throw "the scrubbed PATH still names Godot or dotnet: $env:PATH" }
 
-        Write-Step "scrubbed run: PATH='$env:PATH', DOTNET_ROOT unset; launching $Executable $($Arguments -join ' '
+        Write-Step "scrubbed run: PATH='$env:PATH', DOTNET_ROOT unset; launching $Executable $($Arguments -join ' ')"
+        # Start-Process: the export is a GUI-subsystem executable, which `&` does not wait for.
+        $stdout = "$LogPath.stdout"
+        $stderr = "$LogPath.stderr"
+        $process = Start-Process -FilePath $Executable -ArgumentList $Arguments -Wait -PassThru `
+            -NoNewWindow -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+        Get-Content -LiteralPath $stdout -ErrorAction SilentlyContinue | Set-Content -LiteralPath $LogPath -Encoding utf8
+        Get-Content -LiteralPath $stderr -ErrorAction SilentlyContinue | Add-Content -LiteralPath $LogPath -Encoding utf8
+        Remove-Item -LiteralPath $stdout, $stderr -Force -ErrorAction SilentlyContinue
+        return $process.ExitCode
+    }
+    finally {
+        $env:PATH = $savedPath
+        foreach ($name in $names) {
+            [Environment]::SetEnvironmentVariable($name, $(if ($null -ne $saved[$name]) { [string]$saved[$name] } else { $null }), 'Process')
+        }
+    }
+}
+
+# The headless smoke: the game starts, runs 600 frames and quits. Passes on exit 0 and no
+# SCRIPT ERROR line in the captured output.
+function Invoke-Smoke {
+    param([string]$GameExe, [string]$LogPath, [string]$What)
+    Write-Step "headless smoke ($What)"
+    $code = Invoke-WithScrubbedEnvironment -Executable $GameExe -Arguments @('--headless', '--quit-after', '600') -LogPath $LogPath
+    if ($code -ne 0) { throw "the headless smoke ($What) exited with code $code; see $LogPath." }
+    if (Select-String -LiteralPath $LogPath -Pattern 'SCRIPT ERROR' -Quiet) {
+        throw "the headless smoke ($What) logged a SCRIPT ERROR; see $LogPath."
+    }
+    Write-Step "headless smoke ($What) passed"
+}
+
+function Resolve-Iscc {
+    $candidates = @()
+    if ($Iscc) {
+        if (Test-Path -LiteralPath $Iscc) { return (Resolve-Path -LiteralPath $Iscc).Path }
+        $candidates += $Iscc
+    }
+    $onPath = Get-Command 'ISCC.exe' -ErrorAction SilentlyContinue
+    if ($onPath) { return $onPath.Source }
+    $candidates += 'ISCC.exe on PATH'
+    $pf86 = ${env:ProgramFiles(x86)}
+    foreach ($candidate in @(
+            $(if ($pf86) { Join-Path $pf86 'Inno Setup 6\ISCC.exe' }),
+            $(if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe' }))) {
+        if (-not $candidate) { continue }
+        if (Test-Path -LiteralPath $candidate) { return $candidate }
+        $candidates += $candidate
+    }
+    throw "ISCC.exe (Inno Setup 6) was not found. Looked at: $($candidates -join '; ')."
+}
+
+function Wait-ForUninstaller {
+    # Inno's uninstaller re-launches itself from %TEMP% (is-*.tmp\unins000.tmp) and the first process
+    # exits at once, so wait on the relaunched one too.
+    $deadline = (Get-Date).AddSeconds(180)
+    do {
+        Start-Sleep -Milliseconds 500
+        $running = @(Get-Process -ErrorAction SilentlyContinue | Where-Object {
+                $_.ProcessName -like 'unins*' -or ($_.Path -and $_.Path -like '*\is-*.tmp\*')
+            })
+    } while ($running.Count -gt 0 -and (Get-Date) -lt $deadline)
+    if ($running.Count -gt 0) { throw 'the uninstaller was still running after 180 seconds.' }
+}
+
+function Invoke-Uninstall([string]$InstallDir) {
+    $uninstaller = Join-Path $InstallDir 'unins000.exe'
+    if (-not (Test-Path -LiteralPath $uninstaller)) { throw "the install holds no $uninstaller." }
+    $p = Start-Process -FilePath $uninstaller -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') -Wait -PassThru
+    if ($p.ExitCode -ne 0) { throw "the silent uninstall exited with code $($p.ExitCode)." }
+    Wait-ForUninstaller
+}
+
+function Invoke-InstallerTest {
+    param([string]$SetupExe, [string]$LogDir)
+    $scratch = Join-Path ([IO.Path]::GetTempPath()) ("ic2-install-test-" + [guid]::NewGuid().ToString('N').Substring(0, 8))
+    $installed = $false
+    $uninstalled = $false
+    try {
+        Write-Step "installer test: silent install into $scratch"
+        $p = Start-Process -FilePath $SetupExe -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CURRENTUSER', "/DIR=$scratch") -Wait -PassThru
+        if ($p.ExitCode -ne 0) { throw "the silent install exited with code $($p.ExitCode)." }
+        $installed = $true
+        $installedExe = Join-Path $scratch 'game/IC2.MapViewer.exe'
+        if (-not (Test-Path -LiteralPath $installedExe)) { throw "the install holds no $installedExe." }
+
+        Invoke-Smoke -GameExe $installedExe -LogPath (Join-Path $LogDir 'smoke-installed.log') -What 'installed copy'
+
+        Write-Step 'installer test: silent uninstall'
+        Invoke-Uninstall -InstallDir $scratch
+        $uninstalled = $true
+        $left = @()
+        if (Test-Path -LiteralPath $scratch) { $left = @(Get-ChildItem -LiteralPath $scratch -Recurse -File -Force) }
+        if ($left.Count -gt 0) {
+            throw "the uninstall left $($left.Count) file(s) in ${scratch}: $(($left | Select-Object -First 5 | ForEach-Object { $_.FullName }) -join ', ')"
+        }
+        if (Test-Path -LiteralPath $UninstallKey) { throw 'the uninstall left the AppId registered.' }
+        Write-Step 'installer test passed: install, smoke and uninstall left no file'
+    }
+    finally {
+        # Never leave the test's registration behind, even when a step above failed.
+        if ($installed -and -not $uninstalled) {
+            try { Invoke-Uninstall -InstallDir $scratch } catch { Write-Warning "cleanup uninstall failed: $($_.Exception.Message)" }
+        }
+        if (Test-Path -LiteralPath $scratch) { Remove-Item -LiteralPath $scratch -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+}
+
+$worktree = Join-Path $OutDir 'src'
+$worktreeAdded = $false
+$smokeScratch = $null
+$exitCode = 1
+try {
+    # The installer test touches the player's real per-user registration: refuse before building
+    # anything when the fixed AppId is already registered.
+    if (-not $SkipInstallerTest -and (Test-Path -LiteralPath $UninstallKey)) {
+        throw ("the installer test refuses to run: the AppId $AppId is already registered for this user ($UninstallKey). " +
+            'Its silent uninstall would remove the real install. Pass -SkipInstallerTest to build without it.')
+    }
+
+    & git -C $RepoRoot rev-parse -q --verify "refs/tags/$Tag" *> $null
+    if ($LASTEXITCODE -ne 0) { throw "the tag '$Tag' does not exist in $RepoRoot." }
+
+    $isccExe = Resolve-Iscc
+    Write-Step "using ISCC at $isccExe"
+
+    # 1. The tag's tree, in a scratch worktree.
+    if (Test-Path -LiteralPath $OutDir) { Remove-Item -LiteralPath $OutDir -Recurse -Force }
+    & git -C $RepoRoot worktree prune *> $null
+    New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
+    Write-Step "checking out $Tag into $worktree"
+    Invoke-Git @('-C', $RepoRoot, 'worktree', 'add', '--detach', $worktree, "refs/tags/$Tag^{commit}") | Out-Null
+    $worktreeAdded = $true
+
+    # 2. Overlay the packaging files a tag predates.
+    $runningCommit = (Invoke-Git @('-C', $RepoRoot, 'rev-parse', '--short', 'HEAD') | Select-Object -First 1)
+    foreach ($relative in @('godot/export_presets.cfg', 'scripts/package.ps1')) {
+        $target = Join-Path $worktree $relative
+        if (Test-Path -LiteralPath $target) { continue }
+        Write-Host "release-assets: $relative is not in $Tag; using $runningCommit's"
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $target) | Out-Null
+        Copy-Item -LiteralPath (Join-Path $RepoRoot $relative) -Destination $target
+    }
+
+    # 3. Package the tag's tree.
+    $packageArgs = @('-NoProfile', '-File', (Join-Path $worktree 'scripts/package.ps1'))
+    if ($Godot) {
+        $godotCommand = Get-Command $Godot -ErrorAction SilentlyContinue
+        if (-not $godotCommand) { throw "the Godot executable '$Godot' was not found." }
+        $packageArgs += @('-Godot', $godotCommand.Source)
+    }
+    $verify = (Test-Path -LiteralPath (Join-Path $worktree 'godot/Checks/AssetPackSelectionCheck.tscn')) -and -not $SmokeOnly
+    if ($verify) { $packageArgs += '-Verify' }
+    $pwshExe = [Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
+    Write-Step "packaging $Tag$(if ($verify) { ' with -Verify' } else { ' (no -Verify)' })"
+    & $pwshExe @packageArgs
+    if ($LASTEXITCODE -ne 0) { throw "package.ps1 exited with code $LASTEXITCODE." }
+    $icDir = Join-Path $worktree 'rendered/export/ic2'
+    if (-not (Test-Path -LiteralPath (Join-Path $icDir 'game/IC2.MapViewer.exe'))) { throw "packaging produced no $icDir/game/IC2.MapViewer.exe." }
+
+    # 4. The headless smoke, always, on a copy away from any repository.
+    $smokeScratch = Join-Path ([IO.Path]::GetTempPath()) ("ic2-smoke-" + [guid]::NewGuid().ToString('N').Substring(0, 8))
+    New-Item -ItemType Directory -Force -Path $smokeScratch | Out-Null
+    Copy-Item -LiteralPath $icDir -Destination (Join-Path $smokeScratch 'ic2') -Recurse -Force
+    Invoke-Smoke -GameExe (Join-Path $smokeScratch 'ic2/game/IC2.MapViewer.exe') -LogPath (Join-Path $OutDir 'smoke-package.log') -What 'package'
+
+    # 5. The zip, ic2\ at its top.
+    $zipPath = Join-Path $OutDir $ZipName
+    Write-Step "zipping to $zipPath"
+    Compress-Archive -LiteralPath $icDir -DestinationPath $zipPath -CompressionLevel Optimal
+
+    # 6. The installer, from the running checkout's script (a tag predates installer/ic2.iss).
+    $iss = Join-Path $RepoRoot 'installer/ic2.iss'
+    if (-not (Test-Path -LiteralPath $iss)) { throw "installer/ic2.iss is missing from $RepoRoot." }
+    Write-Step 'building the installer'
+    & $isccExe "/DAppVersion=$Version" "/DSourceDir=$icDir" "/DOutputDir=$OutDir" "/FImperialConquest2-$Tag-windows-x64-setup" $iss
+    if ($LASTEXITCODE -ne 0) { throw "ISCC exited with code $LASTEXITCODE." }
+    $setupPath = Join-Path $OutDir $SetupName
+    if (-not (Test-Path -LiteralPath $setupPath)) { throw "ISCC produced no $setupPath." }
+
+    # 7. The installer test.
+    if ($SkipInstallerTest) { Write-Step 'skipping the installer test (-SkipInstallerTest)' }
+    else { Invoke-InstallerTest -SetupExe $setupPath -LogDir $OutDir }
+
+    # 8. Report.
+    foreach ($file in @($zipPath, $setupPath)) {
+        $item = Get-Item -LiteralPath $file
+        $hash = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
+        $shown = $file.Substring($RepoRoot.Length).TrimStart('\', '/') -replace '\\', '/'
+        Write-Host "release-assets: $shown $($item.Length) sha256 $hash"
+    }
+    $exitCode = 0
+}
+catch {
+    [Console]::Error.WriteLine("release-assets: ERROR: $($_.Exception.Message)")
+    $exitCode = 1
+}
+finally {
+    if ($worktreeAdded) {
+        & git -C $RepoRoot worktree remove --force $worktree *> $null
+        if (Test-Path -LiteralPath $worktree) { Remove-Item -LiteralPath $worktree -Recurse -Force -ErrorAction SilentlyContinue }
+        & git -C $RepoRoot worktree prune *> $null
+    }
+    if ($smokeScratch -and (Test-Path -LiteralPath $smokeScratch)) {
+        Remove-Item -LiteralPath $smokeScratch -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+exit $exitCode
