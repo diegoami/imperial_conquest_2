@@ -220,6 +220,8 @@ graph TD
   T158 --> T159[T159 AI faithful merges]
   T160[T160 emptied fleet money]
   T161[T161 starting recruitment queues]
+  T161 --> T162[T162 recruit all cities]
+  T163[T163 town tiers]
   T156[T156 AI army target tree]
   T23 --> T26[T26 scenario docs+examples]
   T29 --> T26
@@ -1269,6 +1271,14 @@ Emptied fleet money (from bug #962, the user's decision of 2026-10-11; ships in 
 
 Starting recruitment queues (from bug #514, the user's report of 2026-10-11; ships in `v0.5.3`) → [full entry](tasks/T161.md) · [#1000](https://github.com/diegoami/imperial_conquest_2/issues/1000)
 
+#### T162 Recruit unit lists every city's units in training and shows when each is ready
+
+Recruit all cities (from bug #1001, the user's report of 2026-10-11; ships in `v0.5.3`; it merges after T161) → [full entry](tasks/T162.md) · [#1007](https://github.com/diegoami/imperial_conquest_2/issues/1007)
+
+#### T163 Small, medium and big towns draw different markers: the original's four population tiers
+
+Town tiers (from bug #818, the user's request of 2026-10-11; ships in `v0.5.3`) → [full entry](tasks/T163.md) · [#1008](https://github.com/diegoami/imperial_conquest_2/issues/1008)
+
 ---
 
 #### T25 Battle result, diplomacy, and hotseat handoff screens
@@ -1461,3 +1471,5 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T159](#t159-under-classical-faithful-the-ai-merges-a-small-army-or-fleet-into-a-nearby-own-one-as-the-original-does) | AI faithful merges | M12 | the user's choice | Medium | the user's choice | T158 | [#959](https://github.com/diegoami/imperial_conquest_2/issues/959) |
 | [T160](#t160-transfer-ships-that-empties-a-fleet-adds-its-money-to-the-other-fleet-whole-as-the-original-does) | Emptied fleet money | M7 | the user's choice | Low | the user's choice | none | [#966](https://github.com/diegoami/imperial_conquest_2/issues/966) |
 | [T161](#t161-new-games-start-with-the-originals-regiments-in-training-read-from-the-dat) | Starting recruitment queues | M4 | the user's choice | Medium | the user's choice | none | [#1000](https://github.com/diegoami/imperial_conquest_2/issues/1000) |
+| [T162](#t162-recruit-unit-lists-every-citys-units-in-training-and-shows-when-each-is-ready) | Recruit all cities | M18 | the user's choice | Medium | the user's choice | T161 | [#1007](https://github.com/diegoami/imperial_conquest_2/issues/1007) |
+| [T163](#t163-small-medium-and-big-towns-draw-different-markers-the-originals-four-population-tiers) | Town tiers | M18 | the user's choice | Medium | the user's choice | none | [#1008](https://github.com/diegoami/imperial_conquest_2/issues/1008) |
