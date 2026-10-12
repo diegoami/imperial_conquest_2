@@ -404,19 +404,30 @@ public class WorldTerrainSidecarTests
         try
         {
             var worlds = Directory.CreateDirectory(Path.Combine(tempDir.FullName, "worlds"));
-            File.WriteAllText(Path.Combine(worlds.FullName, "ok.b64"), "AAA=");
+            // A sidecar the toy world can really load (its own terrain, re-encoded as base64), so a
+            // resolved path is proved by the loaded data, not by the absence of one error message.
+            var toy = GameDataLoader.LoadFile<World>(TestPaths.ToyWorldFile);
+            var cells = toy.Terrain.Decode(toy.Width, toy.Height);
+            var sidecarText = Convert.ToBase64String(cells.SelectMany(c => new[] { (byte)(c & 0xFF), (byte)(c >> 8) }).ToArray());
+            File.WriteAllText(Path.Combine(worlds.FullName, "ok.b64"), sidecarText);
             var worldPath = WriteWorldWithTerrainDataFile(worlds.FullName, "../WORLDS/ok.b64");
+
+            // A genuine escape (a real sibling directory with a loadable sidecar) is rejected on every
+            // platform, so deleting the prefix guard fails this test everywhere.
+            var sibling = Directory.CreateDirectory(Path.Combine(tempDir.FullName, "sibling"));
+            File.WriteAllText(Path.Combine(sibling.FullName, "ok.b64"), sidecarText);
+            var escaping = Assert.Throws<MalformedGameDataException>(
+                () => GameDataLoader.LoadFile<World>(WriteWorldWithTerrainDataFile(worlds.FullName, "../sibling/ok.b64")));
+            Assert.Contains("escape", escaping.Message, StringComparison.Ordinal);
 
             var caseInsensitive = OperatingSystem.IsWindows() || OperatingSystem.IsMacOS();
             if (caseInsensitive)
             {
-                // Inside the directory: not rejected as an escape (a later stage may still object to
-                // this stub sidecar's content, which is not what is asserted here).
-                var thrown = Record.Exception(() => GameDataLoader.LoadFile<World>(worldPath));
-                if (thrown is MalformedGameDataException malformed)
-                {
-                    Assert.DoesNotContain("escape", malformed.Message, StringComparison.Ordinal);
-                }
+                // Inside the directory: resolved and read back as the sidecar's own data. Fails
+                // if the compare is made case-sensitive again (the path would then be rejected as an escape).
+                var world = GameDataLoader.LoadFile<World>(worldPath);
+                Assert.Equal(sidecarText, world.Terrain.Data);
+                Assert.Null(world.Terrain.DataFile);
             }
             else
             {
