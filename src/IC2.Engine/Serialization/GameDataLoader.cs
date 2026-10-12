@@ -111,8 +111,9 @@ public static class GameDataLoader
     /// <c>dataFile</c>, so this never touches the disk for them.
     /// </summary>
     /// <exception cref="MalformedGameDataException">
-    /// The grid names both <c>data</c> and <c>dataFile</c>; <c>dataFile</c> is empty or whitespace; or
-    /// <c>dataFile</c> is an absolute path or escapes the world document's own directory.
+    /// The grid names both <c>data</c> and <c>dataFile</c>; <c>dataFile</c> is empty or whitespace, holds an
+    /// invalid path character, names a reserved device or a directory, is an absolute path, or escapes the
+    /// world document's own directory; or the document path itself is empty or invalid.
     /// </exception>
     /// <exception cref="MissingTerrainSidecarException">The named sidecar file does not exist or cannot be read.</exception>
     private static World ResolveWorldTerrainSidecar(string documentPath, World world)
@@ -135,9 +136,32 @@ public static class GameDataLoader
                 documentPath, "the terrain grid's \"dataFile\" must not be empty or whitespace.");
         }
 
-        var worldDirectory = Path.GetDirectoryName(Path.GetFullPath(documentPath))
+        // T71 (#284 N3, R2-N2): a path the file system cannot even express is a malformed document, not
+        // an ArgumentException from Path.GetFullPath -- the CLI catches only GameDataException.
+        // IsNullOrWhiteSpace also covers the empty documentPath a caller passes for an in-memory
+        // document, which has no directory a sidecar could sit next to.
+        if (string.IsNullOrWhiteSpace(documentPath))
+        {
+            throw new MalformedGameDataException(
+                documentPath,
+                $"the document path is empty, so \"dataFile\" ('{terrain.DataFile}') has no directory to be resolved against.");
+        }
+
+        RequireNoInvalidPathCharacters(documentPath, documentPath, "the document path");
+        RequireNoInvalidPathCharacters(documentPath, terrain.DataFile, "the terrain grid's \"dataFile\"");
+
+        string worldDirectory;
+        try
+        {
+            worldDirectory = Path.GetDirectoryName(Path.GetFullPath(documentPath))
                               ?? throw new MalformedGameDataException(
                                   documentPath, $"'{documentPath}' has no directory to resolve terrain sidecar '{terrain.DataFile}' against.");
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            throw new MalformedGameDataException(
+                documentPath, $"the document path cannot be resolved to a directory: {ex.Message}", ex);
+        }
 
         // DoD 2 says the sidecar is found relative to the world file: an absolute "dataFile", or one
         // that escapes worldDirectory via "..", is rejected outright rather than silently followed --
@@ -150,11 +174,43 @@ public static class GameDataLoader
                 $"the terrain grid's \"dataFile\" ('{terrain.DataFile}') must be relative to the world document's own directory, not an absolute path.");
         }
 
-        var sidecarPath = Path.GetFullPath(Path.Combine(worldDirectory, terrain.DataFile));
+        string sidecarPath;
+        try
+        {
+            sidecarPath = Path.GetFullPath(Path.Combine(worldDirectory, terrain.DataFile));
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            throw new MalformedGameDataException(
+                documentPath, $"the terrain grid's \"dataFile\" ('{terrain.DataFile}') cannot be resolved to a path: {ex.Message}", ex);
+        }
+
+        // A Windows device name ("nul", "con", ...) resolves to a \\.\ device path: outside any
+        // directory, but not an escape from this one, so say what is actually wrong with it.
+        if (sidecarPath.StartsWith(@"\\.\", StringComparison.Ordinal) || sidecarPath.StartsWith(@"\\?\", StringComparison.Ordinal))
+        {
+            throw new MalformedGameDataException(
+                documentPath,
+                $"the terrain grid's \"dataFile\" ('{terrain.DataFile}') names a reserved device, not a file.");
+        }
+
+        // "." (or "sub/..", or a trailing separator) names a directory, not a file. Reported as such,
+        // not as an escape, which it is not.
+        if (terrain.DataFile.EndsWith(Path.DirectorySeparatorChar)
+            || terrain.DataFile.EndsWith(Path.AltDirectorySeparatorChar)
+            || string.Equals(
+                Path.TrimEndingDirectorySeparator(sidecarPath), Path.TrimEndingDirectorySeparator(worldDirectory), PathComparison)
+            || Directory.Exists(sidecarPath))
+        {
+            throw new MalformedGameDataException(
+                documentPath,
+                $"the terrain grid's \"dataFile\" ('{terrain.DataFile}') names a directory, not a file.");
+        }
+
         var worldDirectoryPrefix = worldDirectory.EndsWith(Path.DirectorySeparatorChar)
             ? worldDirectory
             : worldDirectory + Path.DirectorySeparatorChar;
-        if (!sidecarPath.StartsWith(worldDirectoryPrefix, StringComparison.Ordinal))
+        if (!sidecarPath.StartsWith(worldDirectoryPrefix, PathComparison))
         {
             throw new MalformedGameDataException(
                 documentPath,
@@ -175,6 +231,31 @@ public static class GameDataLoader
         // exactly like one that embedded Data all along (that mutual-exclusion check two lines up,
         // and TerrainGrid.Decode's own, both exist so the two are never both set at once).
         return world with { Terrain = terrain with { Data = sidecarText.Trim(), DataFile = null } };
+    }
+
+    /// <summary>
+    /// The case rule for comparing a sidecar's resolved path against the world's directory prefix: the
+    /// platform's own file-name rule, not a fixed one. Windows and macOS file systems are
+    /// case-insensitive by default, so <c>"../WORLDS/ok.b64"</c> from a directory named <c>worlds</c>
+    /// is inside it there and is accepted; on Linux it names a different directory and is rejected as an
+    /// escape. (A case-sensitive macOS volume is the one approximate case; the file read that follows is
+    /// what the file system itself then decides.) The earlier fixed ordinal compare was stricter than the
+    /// Windows file system the shipped build runs on.
+    /// </summary>
+    private static StringComparison PathComparison =>
+        OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+
+    private static void RequireNoInvalidPathCharacters(string documentPath, string path, string what)
+    {
+        var bad = path.IndexOfAny(Path.GetInvalidPathChars());
+        if (bad >= 0)
+        {
+            throw new MalformedGameDataException(
+                documentPath,
+                $"{what} contains an invalid path character (U+{(int)path[bad]:X4}) at position {bad}.");
+        }
     }
 
     private static void CheckSchemaVersion(string documentPath, JsonObject root)

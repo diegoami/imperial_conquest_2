@@ -280,6 +280,13 @@ public class WorldTerrainSidecarTests
     /// </summary>
     private static string WriteWorldWithTerrainDataFile(string directory, string dataFile)
     {
+        var worldPath = Path.Combine(directory, "world-" + Guid.NewGuid().ToString("N") + ".json");
+        File.WriteAllText(worldPath, WorldJsonWithTerrainDataFile(dataFile));
+        return worldPath;
+    }
+
+    private static string WorldJsonWithTerrainDataFile(string dataFile)
+    {
         var node = (JsonObject)JsonNode.Parse(File.ReadAllText(TestPaths.ToyWorldFile))!;
         node["terrain"] = new JsonObject
         {
@@ -289,9 +296,169 @@ public class WorldTerrainSidecarTests
             ["dataFile"] = dataFile,
         };
 
-        var worldPath = Path.Combine(directory, "world-" + Guid.NewGuid().ToString("N") + ".json");
-        File.WriteAllText(worldPath, node.ToJsonString());
-        return worldPath;
+        return node.ToJsonString();
+    }
+
+    /// <summary>T71 (#284 N3): an empty document path with a "dataFile" is a typed error, not an ArgumentException.</summary>
+    [Fact]
+    public void An_empty_document_path_with_a_dataFile_is_a_typed_error()
+    {
+        var error = Assert.Throws<MalformedGameDataException>(
+            () => GameDataLoader.Load<World>("", WorldJsonWithTerrainDataFile("x.terrain.b64")));
+
+        Assert.Contains("document path is empty", error.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>T71 (#284 R2-N2): a NUL in "dataFile" is a typed error, not an ArgumentException (the CLI catches only GameDataException).</summary>
+    [Fact]
+    public void A_dataFile_containing_a_NUL_character_is_a_typed_error()
+    {
+        var error = Assert.Throws<MalformedGameDataException>(
+            () => GameDataLoader.Load<World>("world.json", WorldJsonWithTerrainDataFile("bad\0name.b64")));
+
+        Assert.Contains("invalid path character", error.Message, StringComparison.Ordinal);
+        Assert.Contains("dataFile", error.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>T71 (#284 R2-N2): the other invalid path characters, where the platform has any besides NUL (Windows does; Linux does not).</summary>
+    [SkippableFact]
+    public void A_dataFile_containing_another_invalid_path_character_is_a_typed_error()
+    {
+        var others = Path.GetInvalidPathChars().Where(c => c != '\0').ToArray();
+        Skip.If(others.Length == 0, "this platform's only invalid path character is NUL, covered by the NUL test.");
+
+        var error = Assert.Throws<MalformedGameDataException>(
+            () => GameDataLoader.Load<World>("world.json", WorldJsonWithTerrainDataFile("bad" + others[0] + "name.b64")));
+
+        Assert.Contains("invalid path character", error.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>T71: an invalid character in the document path itself is typed the same way.</summary>
+    [Fact]
+    public void A_document_path_containing_a_NUL_character_is_a_typed_error()
+    {
+        var error = Assert.Throws<MalformedGameDataException>(
+            () => GameDataLoader.Load<World>("wor\0ld.json", WorldJsonWithTerrainDataFile("x.terrain.b64")));
+
+        Assert.Contains("document path", error.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// T71 (#284 R2-N3): "." names the world's directory, so it is rejected as a directory, not as an
+    /// escape from the directory.
+    /// </summary>
+    [Fact]
+    public void A_dot_dataFile_is_rejected_as_a_directory_not_as_an_escape()
+    {
+        var tempDir = Directory.CreateTempSubdirectory("ic2-t71-sidecar-");
+        try
+        {
+            var worldPath = WriteWorldWithTerrainDataFile(tempDir.FullName, ".");
+
+            var error = Assert.Throws<MalformedGameDataException>(() => GameDataLoader.LoadFile<World>(worldPath));
+
+            Assert.Contains("names a directory, not a file", error.Message, StringComparison.Ordinal);
+            Assert.DoesNotContain("escape", error.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            tempDir.Delete(recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// T71 (#284 R2-N3): "nul" is a Windows device name; it is rejected as a device, not as an escape.
+    /// On other platforms "nul" is an ordinary (missing) file name, so there is nothing to assert.
+    /// </summary>
+    [SkippableFact]
+    public void A_nul_dataFile_is_rejected_as_a_reserved_device_not_as_an_escape()
+    {
+        Skip.IfNot(OperatingSystem.IsWindows(), "\"nul\" is a reserved device name only on Windows; elsewhere it is an ordinary file name.");
+
+        var tempDir = Directory.CreateTempSubdirectory("ic2-t71-sidecar-");
+        try
+        {
+            var worldPath = WriteWorldWithTerrainDataFile(tempDir.FullName, "nul");
+
+            var error = Assert.Throws<MalformedGameDataException>(() => GameDataLoader.LoadFile<World>(worldPath));
+
+            Assert.Contains("reserved device", error.Message, StringComparison.Ordinal);
+            Assert.DoesNotContain("escape", error.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            tempDir.Delete(recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// T71 (#284 R2-N3): the directory-prefix compare follows the platform's file-name case rule (see
+    /// <c>GameDataLoader.PathComparison</c>). "../WORLDS/ok.b64" from a directory named "worlds" is
+    /// inside it on a case-insensitive file system (Windows, macOS) and an escape on a case-sensitive
+    /// one (Linux); the test asserts whichever rule the platform it runs on has.
+    /// </summary>
+    [Fact]
+    public void The_directory_prefix_compare_follows_the_platforms_case_rule()
+    {
+        var tempDir = Directory.CreateTempSubdirectory("ic2-t71-sidecar-");
+        try
+        {
+            var worlds = Directory.CreateDirectory(Path.Combine(tempDir.FullName, "worlds"));
+            // A sidecar the toy world can really load (its own terrain, re-encoded as base64), so a
+            // resolved path is proved by the loaded data, not by the absence of one error message.
+            var toy = GameDataLoader.LoadFile<World>(TestPaths.ToyWorldFile);
+            var cells = toy.Terrain.Decode(toy.Width, toy.Height);
+            var sidecarText = Convert.ToBase64String(cells.SelectMany(c => new[] { (byte)(c & 0xFF), (byte)(c >> 8) }).ToArray());
+            File.WriteAllText(Path.Combine(worlds.FullName, "ok.b64"), sidecarText);
+            var worldPath = WriteWorldWithTerrainDataFile(worlds.FullName, "../WORLDS/ok.b64");
+
+            // A genuine escape (a real sibling directory with a loadable sidecar) is rejected on every
+            // platform, so deleting the prefix guard fails this test everywhere.
+            var sibling = Directory.CreateDirectory(Path.Combine(tempDir.FullName, "sibling"));
+            File.WriteAllText(Path.Combine(sibling.FullName, "ok.b64"), sidecarText);
+            var escaping = Assert.Throws<MalformedGameDataException>(
+                () => GameDataLoader.LoadFile<World>(WriteWorldWithTerrainDataFile(worlds.FullName, "../sibling/ok.b64")));
+            Assert.Contains("escape", escaping.Message, StringComparison.Ordinal);
+
+            var caseInsensitive = OperatingSystem.IsWindows() || OperatingSystem.IsMacOS();
+            if (caseInsensitive)
+            {
+                // Inside the directory: resolved and read back as the sidecar's own data. Fails
+                // if the compare is made case-sensitive again (the path would then be rejected as an escape).
+                var world = GameDataLoader.LoadFile<World>(worldPath);
+                Assert.Equal(sidecarText, world.Terrain.Data);
+                Assert.Null(world.Terrain.DataFile);
+            }
+            else
+            {
+                var error = Assert.Throws<MalformedGameDataException>(() => GameDataLoader.LoadFile<World>(worldPath));
+                Assert.Contains("escape", error.Message, StringComparison.Ordinal);
+            }
+        }
+        finally
+        {
+            tempDir.Delete(recursive: true);
+        }
+    }
+
+    /// <summary>T71 (#284 R2-N3): the missing-sidecar message names the resolved sidecar path exactly once.</summary>
+    [Fact]
+    public void The_missing_sidecar_message_names_the_sidecar_path_once()
+    {
+        var tempDir = Directory.CreateTempSubdirectory("ic2-t71-sidecar-");
+        try
+        {
+            var worldPath = WriteWorldWithTerrainDataFile(tempDir.FullName, "does-not-exist.terrain.b64");
+            var error = Assert.Throws<MissingTerrainSidecarException>(() => GameDataLoader.LoadFile<World>(worldPath));
+
+            var occurrences = error.Message.Split(error.SidecarPath).Length - 1;
+            Assert.Equal(1, occurrences);
+            Assert.Contains("does not exist", error.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            tempDir.Delete(recursive: true);
+        }
     }
 }
 
@@ -335,12 +502,63 @@ public class WorldTerrainExportReproducibilityTests
 
     private readonly DotnetRunArtifactsFixture _artifacts;
 
+    private const string BackupSuffix = ".before-rerun.bak";
+
+    /// <summary>
+    /// A leftover backup is always the committed original (the export only starts after the move that
+    /// made it), so it replaces whatever is at <paramref name="sidecarPath"/> -- nothing, or a partial
+    /// export from the killed run.
+    /// </summary>
+    internal static void RestoreSidecarFromLeftoverBackup(string sidecarPath, string backupPath)
+    {
+        if (File.Exists(backupPath))
+        {
+            File.Move(backupPath, sidecarPath, overwrite: true);
+        }
+    }
+
+    /// <summary>
+    /// T71 (#284 R2-N1) Done-when 3: delete the sidecar, leave a <c>.bak</c>, and the start-of-run
+    /// restore brings the sidecar back. Needs no original game files, so it runs everywhere.
+    /// </summary>
+    [Fact]
+    public void A_killed_run_that_left_the_sidecar_deleted_is_repaired_from_its_backup()
+    {
+        var tempDir = Directory.CreateTempSubdirectory("ic2-t71-restore-");
+        try
+        {
+            var sidecar = Path.Combine(tempDir.FullName, "x.terrain.b64");
+            var backup = sidecar + BackupSuffix;
+            File.WriteAllText(backup, "COMMITTED");
+
+            RestoreSidecarFromLeftoverBackup(sidecar, backup);
+
+            Assert.Equal("COMMITTED", File.ReadAllText(sidecar));
+            Assert.False(File.Exists(backup));
+
+            // No leftover: nothing changes.
+            RestoreSidecarFromLeftoverBackup(sidecar, backup);
+            Assert.Equal("COMMITTED", File.ReadAllText(sidecar));
+        }
+        finally
+        {
+            tempDir.Delete(recursive: true);
+        }
+    }
+
     [SkippableFact]
     public void Rerunning_the_export_reproduces_the_committed_terrain_sidecar_byte_for_byte()
     {
         Skip.IfNot(OriginalFilesAvailability.IsConfigured, OriginalFilesAvailability.SkipReason);
 
         var sidecarPath = Path.Combine(ExportedDataPaths.RepositoryRoot, "data", "worlds", "classical-mediterranean.terrain.b64");
+        var backupPath = sidecarPath + BackupSuffix;
+
+        // T71 (#284 R2-N1): a previous run killed between the move below and its restore left the
+        // committed sidecar deleted and the only copy in the .bak. Restore it first, before anything
+        // reads the sidecar, so the next run repairs rather than fails. (The backup stays beside the
+        // sidecar, which keeps a same-volume move atomic; the restore-on-start is what makes a kill safe.)
+        RestoreSidecarFromLeftoverBackup(sidecarPath, backupPath);
         var expectedHash = Sha256(sidecarPath);
 
         // Review finding B2: comparing the file with itself before and after passes even when a
@@ -348,7 +566,6 @@ public class WorldTerrainExportReproducibilityTests
         // equal to itself. Moving the committed file out of the way first turns "the exporter didn't
         // write it" into a missing file, not a stale-but-matching one; the export must recreate it
         // for this assertion to have anything to compare.
-        var backupPath = sidecarPath + ".before-rerun.bak";
         File.Move(sidecarPath, backupPath, overwrite: true);
         try
         {

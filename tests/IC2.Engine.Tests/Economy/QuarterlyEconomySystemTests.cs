@@ -180,7 +180,7 @@ public sealed class QuarterlyEconomySystemTests
     /// <summary>
     /// Review round 1, B1: an embarked army deleted by desertion must not leave its carrying fleet
     /// pointing at an army that no longer exists — <see cref="Model.FleetState.CarriedArmyId"/> is the
-    /// model's one cross-reference to an army id, and <see cref="Serialization.GameDataValidation.Validate"/>
+    /// model's one cross-reference to an army id, and <see cref="IC2.Engine.Serialization.GameDataValidation.Validate"/>
     /// rejects a dangling one on every save load. <c>[derived]</c>: the report never states whether the
     /// original clears this pointer, the same undocumented-but-necessary status the army-deletion rule
     /// itself already carries (<see cref="MercenaryDesertion"/>'s own remarks).
@@ -233,7 +233,7 @@ public sealed class QuarterlyEconomySystemTests
 
         // The resulting state round-trips: no dangling reference for GameDataValidation to reject on a
         // reload (the exact failure mode this fix closes -- previously an UnresolvedReferenceException).
-        Serialization.GameDataValidation.Validate("probe.json", after);
+        IC2.Engine.Serialization.GameDataValidation.Validate("probe.json", after);
     }
 
     [Fact]

@@ -164,6 +164,37 @@ public sealed class SaveFileIoTests : IDisposable
         Assert.False(File.Exists(path + ".tmp"));
     }
 
+    /// <summary>
+    /// T71 (#286 item 1): a rename that fails leaves the previous save intact, byte for byte. A real
+    /// failure of <see cref="File.Move(string, string, bool)"/> onto an existing file can only be provoked
+    /// on Windows (an open handle blocks the replace; Linux's <c>rename()</c> ignores open handles), so this
+    /// test skips elsewhere, with a reason: CI on Linux reports a skip, never a pass. Mutation: a catch
+    /// block in <see cref="SaveManager.WriteFile"/> that empties <c>path</c> when the rename fails makes the
+    /// final assertion fail.
+    /// </summary>
+    [SkippableFact]
+    public void WriteFile_when_the_rename_fails_leaves_the_previous_save_intact()
+    {
+        Skip.IfNot(
+            OperatingSystem.IsWindows(),
+            "a rename over an open file fails only on Windows; Linux's rename() replaces it regardless, so there is no failure to observe.");
+
+        var path = Path.Combine(_directory, "toy-3city-previous-save.ic2save.json");
+        SaveManager.WriteFile(path, BuildToySave("toy-3city-first", "First save"));
+        var before = File.ReadAllBytes(path);
+
+        // The handle that blocks the replace also lets the mutation (empty the target on failure) write
+        // to the file, so the mutation is observable: it truncates through this very handle's sharing.
+        using (new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+        {
+            Assert.Throws<SaveWriteException>(
+                () => SaveManager.WriteFile(path, BuildToySave("toy-3city-second", "Second save")));
+        }
+
+        Assert.Equal(before, File.ReadAllBytes(path));
+        Assert.False(File.Exists(path + ".tmp"));
+    }
+
     [Fact]
     public void LoadFile_of_a_path_that_does_not_exist_throws_a_typed_error_not_a_raw_IO_exception()
     {

@@ -24,6 +24,27 @@ namespace IC2.Engine.Tests.Economy;
 /// </summary>
 public sealed class RebellionTests
 {
+    /// <summary>
+    /// T71 (#411 S2): <see cref="EliminationForcesTestbed.StateWith"/> renames the nations but inherits the
+    /// toy scenario's neighbour set (north/south), which <c>GameDataValidation</c> now rejects as dangling.
+    /// Rebuilt here as a full mesh over the nations given: capture and rebellion paths read it (the
+    /// conquest cascade merges neighbours), so it is rebuilt, not nulled.
+    /// </summary>
+    private static GameState StateWith(
+        IEnumerable<NationState> nations,
+        IEnumerable<CityState> cities,
+        IEnumerable<ArmyState>? armies = null,
+        IEnumerable<FleetState>? fleets = null)
+    {
+        var nationList = nations.ToList();
+        var state = EliminationForcesTestbed.StateWith(nationList, cities, armies, fleets);
+        return state with
+        {
+            Neighbours = ValueList.From(nationList.Select(n => new NationNeighbours(
+                n.Id, ValueList.From(nationList.Where(o => o.Id != n.Id).Select(o => o.Id))))),
+        };
+    }
+
     private static Ruleset Ruleset => CaptureTestbed.Ruleset;
     private static World World => PersistenceTestbed.Toy.World; // Naming only: state.Neighbours is always set below, so NeighbourGeography never actually reads World's own data.
 
@@ -57,7 +78,7 @@ public sealed class RebellionTests
         var gaul = CaptureTestbed.Nation("gaul", unity: 600, capitalCityId: "gaul-cap");
         var gaulArmy = CaptureTestbed.Army("gaul-army", "gaul", x: 2, y: 0, morale: 50); // distance 2.
 
-        var state = EliminationForcesTestbed.StateWith(
+        var state = StateWith(
             new[] { rome, carthage, gaul }, new[] { city, gaulCapital }, new[] { gaulArmy });
         state = state with
         {
@@ -93,7 +114,7 @@ public sealed class RebellionTests
         var romeOtherCity = CaptureTestbed.City("c2", "Other", 9, 9, "rome", "rome", 50, 0, 5, 10, 3);
         var rome = CaptureTestbed.Nation("rome", unity: 260, treasury: 500);
         var carthage = CaptureTestbed.Nation("carthage", unity: 600, treasury: 1000) with { Control = SeatControl.Human };
-        var state = EliminationForcesTestbed.StateWith(new[] { rome, carthage }, new[] { city, romeOtherCity });
+        var state = StateWith(new[] { rome, carthage }, new[] { city, romeOtherCity });
 
         var sink = new RecordingEventSink();
         var result = Rebellion.Run(state, World, Ruleset, city, sink, new ScriptedRng());
@@ -136,7 +157,7 @@ public sealed class RebellionTests
             CaptureTestbed.Army("a-raider2", "raider2", x: 9, y: 0, morale: 50), // distance 9: qualifies.
             CaptureTestbed.Army("a-raider1", "raider1", x: 10, y: 0, morale: 50), // distance 10: excluded.
         };
-        var state = EliminationForcesTestbed.StateWith(new[] { owner, raider1, raider2 }, new[] { city }, armies);
+        var state = StateWith(new[] { owner, raider1, raider2 }, new[] { city }, armies);
         state = state with
         {
             Relations = state.Relations
@@ -158,7 +179,7 @@ public sealed class RebellionTests
         var neutral = CaptureTestbed.Nation("neutral", unity: 600);
         var armies = new[] { CaptureTestbed.Army("a1", "neutral", x: 3, y: 0, morale: 50) }; // well within range.
         // EliminationForcesTestbed.StateWith's own Relations are already peace-uniform: never at war.
-        var state = EliminationForcesTestbed.StateWith(new[] { owner, neutral }, new[] { city }, armies);
+        var state = StateWith(new[] { owner, neutral }, new[] { city }, armies);
         state = WithNeighbours(state, "owner"); // no candidate for (d) either, so nothing happens overall.
 
         var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance, new ScriptedRng());
@@ -182,7 +203,7 @@ public sealed class RebellionTests
             CaptureTestbed.Army("a1", "raider1", x: 1, y: 0, morale: 50), // matches first.
             CaptureTestbed.Army("a2", "raider2", x: 2, y: 0, morale: 50), // matches last -- this one wins.
         };
-        var state = EliminationForcesTestbed.StateWith(new[] { owner, raider1, raider2 }, new[] { city }, armies);
+        var state = StateWith(new[] { owner, raider1, raider2 }, new[] { city }, armies);
         state = state with
         {
             Relations = state.Relations
@@ -206,7 +227,7 @@ public sealed class RebellionTests
         var city = CaptureTestbed.City("c1", "City", 0, 0, "owner", "owner", 20, 0, 10, 20, 5);
         var owner = CaptureTestbed.Nation("owner", unity: 600);
         var dead = CaptureTestbed.Nation("dead", unity: 0);
-        var state = EliminationForcesTestbed.StateWith(new[] { owner, dead }, new[] { city });
+        var state = StateWith(new[] { owner, dead }, new[] { city });
         state = WithNeighbours(state, "owner", "dead");
 
         var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance, new ScriptedRng());
@@ -222,7 +243,7 @@ public sealed class RebellionTests
         var allyCapital = CaptureTestbed.City("ally-cap", "AllyCap", 3, 0, "ally", "ally", 90, 0, 50, 100, 10);
         var owner = CaptureTestbed.Nation("owner", unity: 600);
         var ally = CaptureTestbed.Nation("ally", unity: 600, capitalCityId: "ally-cap");
-        var state = EliminationForcesTestbed.StateWith(new[] { owner, ally }, new[] { city, allyCapital });
+        var state = StateWith(new[] { owner, ally }, new[] { city, allyCapital });
         state = WithNeighbours(state, "owner", "ally") with
         {
             Relations = state.Relations.WithRelation("owner", "ally", Ruleset.Diplomacy.StateCodes.Alliance),
@@ -247,7 +268,7 @@ public sealed class RebellionTests
         var owner = CaptureTestbed.Nation("owner", unity: 600);
         var n0 = CaptureTestbed.Nation("n0", unity: 600, capitalCityId: "n0-cap");
         var n1 = CaptureTestbed.Nation("n1", unity: 600, capitalCityId: "n1-cap");
-        var state = EliminationForcesTestbed.StateWith(
+        var state = StateWith(
             new[] { owner, n0, n1 }, new[] { city, n0Capital, n1Capital });
         state = WithNeighbours(state, "owner", "n0", "n1"); // ascending index order: n0 first.
 
@@ -275,7 +296,7 @@ public sealed class RebellionTests
         var n1 = CaptureTestbed.Nation("n1", unity: 600, capitalCityId: "n1-cap");
         var cities = new List<CityState> { city, n0Capital, n1Capital };
         cities.AddRange(n0Fillers);
-        var state = EliminationForcesTestbed.StateWith(new[] { owner, n0, n1 }, cities);
+        var state = StateWith(new[] { owner, n0, n1 }, cities);
         state = WithNeighbours(state, "owner", "n0", "n1");
 
         var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance, new ScriptedRng());
@@ -301,7 +322,7 @@ public sealed class RebellionTests
         var n1 = CaptureTestbed.Nation("n1", unity: 600, capitalCityId: "n1-cap");
         var cities = new List<CityState> { city, n0Capital, n1Capital };
         cities.AddRange(n1Filler);
-        var state = EliminationForcesTestbed.StateWith(new[] { owner, n0, n1 }, cities);
+        var state = StateWith(new[] { owner, n0, n1 }, cities);
         state = WithNeighbours(state, "owner", "n0", "n1");
 
         var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance, new ScriptedRng());
@@ -326,7 +347,7 @@ public sealed class RebellionTests
         var n1 = CaptureTestbed.Nation("n1", unity: 600, capitalCityId: "n1-cap");
         var cities = new List<CityState> { city, n0Capital, n1Capital };
         cities.AddRange(n1Fillers);
-        var state = EliminationForcesTestbed.StateWith(new[] { owner, n0, n1 }, cities);
+        var state = StateWith(new[] { owner, n0, n1 }, cities);
         state = WithNeighbours(state, "owner", "n0", "n1");
 
         var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance, new ScriptedRng());
@@ -351,7 +372,7 @@ public sealed class RebellionTests
         var n1 = CaptureTestbed.Nation("n1", unity: 600, capitalCityId: "n1-cap");
         var cities = new List<CityState> { city, n0Capital, n1Capital };
         cities.AddRange(n0Filler);
-        var state = EliminationForcesTestbed.StateWith(new[] { owner, n0, n1 }, cities);
+        var state = StateWith(new[] { owner, n0, n1 }, cities);
         state = WithNeighbours(state, "owner", "n0", "n1");
 
         var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance, new ScriptedRng());
@@ -365,7 +386,7 @@ public sealed class RebellionTests
     {
         var city = CaptureTestbed.City("c1", "City", 0, 0, "owner", "owner", 20, 0, 10, 20, 5);
         var owner = CaptureTestbed.Nation("owner", unity: 600);
-        var state = EliminationForcesTestbed.StateWith(new[] { owner }, new[] { city });
+        var state = StateWith(new[] { owner }, new[] { city });
         state = WithNeighbours(state, "owner"); // an entry with an empty neighbour list.
 
         var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance, new ScriptedRng());
@@ -395,7 +416,7 @@ public sealed class RebellionTests
         var weakArmy = CaptureTestbed.Army("weak-army", "weak", x: 9, y: 9, morale: 50);
         var weak = CaptureTestbed.Nation("weak", unity: 600, treasury: 100);
         var strong = CaptureTestbed.Nation("strong", unity: 600, treasury: 500);
-        var state = EliminationForcesTestbed.StateWith(
+        var state = StateWith(
             new[] { weak, strong }, new[] { city }, new[] { weakArmy });
 
         var result = Rebellion.Run(state, World, Ruleset, city, NullEventSink.Instance, new ScriptedRng());

@@ -678,6 +678,12 @@ public sealed class ConquestCascadeTests
             ActiveSeatIndex = 0,
             Relations = DiplomaticRelations.Uniform(
                 ValueList.Of(Loser, Winner, Bystander), Ruleset.Diplomacy.StateCodes.Peace),
+            // T71 (#411 S2): the inherited toy neighbour set names north/south, now rejected as dangling.
+            // Rebuilt (not nulled) because the conquest cascade merges neighbours.
+            Neighbours = ValueList.Of(
+                new NationNeighbours(Loser, ValueList.Of(Winner, Bystander)),
+                new NationNeighbours(Winner, ValueList.Of(Loser, Bystander)),
+                new NationNeighbours(Bystander, ValueList.Of(Loser, Winner))),
         };
 
         var result = Capture((stateWithBystander, scenario.CapturedCityId), NullEventSink.Instance);

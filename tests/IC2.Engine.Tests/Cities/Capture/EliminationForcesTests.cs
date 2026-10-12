@@ -18,6 +18,27 @@ namespace IC2.Engine.Tests.Cities.Capture;
 /// </summary>
 public sealed class EliminationForcesTests
 {
+    /// <summary>
+    /// T71 (#411 S2): <see cref="EliminationForcesTestbed.StateWith"/> renames the nations but inherits the
+    /// toy scenario's neighbour set (north/south), which <c>GameDataValidation</c> now rejects as dangling.
+    /// Rebuilt here as a full mesh over the nations given: capture and rebellion paths read it (the
+    /// conquest cascade merges neighbours), so it is rebuilt, not nulled.
+    /// </summary>
+    private static GameState StateWith(
+        IEnumerable<NationState> nations,
+        IEnumerable<CityState> cities,
+        IEnumerable<ArmyState>? armies = null,
+        IEnumerable<FleetState>? fleets = null)
+    {
+        var nationList = nations.ToList();
+        var state = EliminationForcesTestbed.StateWith(nationList, cities, armies, fleets);
+        return state with
+        {
+            Neighbours = ValueList.From(nationList.Select(n => new NationNeighbours(
+                n.Id, ValueList.From(nationList.Where(o => o.Id != n.Id).Select(o => o.Id))))),
+        };
+    }
+
     private static Ruleset Ruleset => EliminationForcesTestbed.Ruleset;
     private const string ArcherUnitTypeId = CaptureTestbed.ArcherUnitTypeId;
     private static string FortifyOrderId => CaptureTestbed.FortifyOrderId;
@@ -89,7 +110,7 @@ public sealed class EliminationForcesTests
             BuildCityId = "doomed-capital",
         };
 
-        var state = EliminationForcesTestbed.StateWith(
+        var state = StateWith(
             new[] { doomed, capturer, other },
             new[] { doomedCapital, otherCity },
             new[] { attacker, xLandArmy, xArmyInForeignCity, xEmbarkedArmy },
@@ -158,7 +179,7 @@ public sealed class EliminationForcesTests
             BuildCityId = "doomed-capital",
         };
 
-        var state = EliminationForcesTestbed.StateWith(
+        var state = StateWith(
             new[] { doomed, newOwner, other },
             new[] { doomedCapital, otherCity },
             new[] { xLandArmy, xArmyInForeignCity, xEmbarkedArmy },
@@ -214,7 +235,7 @@ public sealed class EliminationForcesTests
         var xFleet = EliminationForcesTestbed.Fleet("x-fleet", "doomed", 3, 3, carriedArmyId: "x-embarked-army");
         var yFleet = EliminationForcesTestbed.Fleet("y-fleet", "survivor", 20, 20, carriedArmyId: "y-army");
 
-        var state = EliminationForcesTestbed.StateWith(
+        var state = StateWith(
             new[] { doomed, capturer, survivor },
             new[] { doomedCapital, survivorCity },
             new[] { attacker, xEmbarkedArmy, yArmy },
@@ -261,7 +282,7 @@ public sealed class EliminationForcesTests
         var xFleet = EliminationForcesTestbed.Fleet("x-fleet", "doomed", 3, 3, carriedArmyId: "y-army-aboard-x");
         var yFleet = EliminationForcesTestbed.Fleet("y-fleet", "survivor", 20, 20, carriedArmyId: "x-army-aboard-y");
 
-        var state = EliminationForcesTestbed.StateWith(
+        var state = StateWith(
             new[] { doomed, capturer, survivor },
             new[] { doomedCapital, survivorCity },
             new[] { attacker, xArmyAboardYsFleet, yArmyAboardXsFleet },
@@ -302,7 +323,7 @@ public sealed class EliminationForcesTests
             with { Money = 300, SupplyTons = 50 };
         var xFleet = EliminationForcesTestbed.Fleet("x-fleet", "doomed", 1, 1) with { Money = 200, SupplyTons = 80 };
 
-        var state = EliminationForcesTestbed.StateWith(
+        var state = StateWith(
             new[] { doomed, capturer }, Array.Empty<CityState>(), new[] { xArmy }, new[] { xFleet });
 
         var result = EliminationForces.Dispose(state, "doomed", "capturer");
@@ -348,7 +369,7 @@ public sealed class EliminationForcesTests
         // here -- this test is about Capture's own JustEliminated == false guard, not conquest.
         var fillerCities = CaptureTestbed.FillerCities("doomed", 5, startX: 1000, y: 1000);
 
-        var state = EliminationForcesTestbed.StateWith(
+        var state = StateWith(
             new[] { doomed, capturer },
             new[] { doomedFirstCity, doomedSecondCity }.Concat(fillerCities),
             new[] { attacker, xArmy },
@@ -394,7 +415,7 @@ public sealed class EliminationForcesTests
             BuildCityId = "doomed-second",
         };
 
-        var state = EliminationForcesTestbed.StateWith(
+        var state = StateWith(
             new[] { doomed, newOwner },
             new[] { doomedFirstCity, doomedSecondCity },
             new[] { xArmy },
