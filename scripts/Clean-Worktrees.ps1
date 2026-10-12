@@ -21,6 +21,7 @@
     A tree is safe only when ALL of these hold:
       (a) `git status --porcelain --ignored` shows nothing outside bin/, obj/, .godot/ and .vs/
           -- matched at any depth as whole path components, so src/IC2.Engine/bin/ is noise too
+          -- plus an UNTRACKED *.uid under godot/ (Godot run leftovers, #1004);
           -- plus .opencode/, assets.local.ini and rendered/ matched only as the FIRST path
           -- component, i.e. at the tree root (src/rendered/x and docs/.opencode/y are work);
           -- the run's ignored diagnostics under a ROOT rendered/ are disposable once (c) holds
