@@ -70,8 +70,9 @@ public static class MobilizeRecruitSlotRejections
 
     /// <summary>
     /// The slot's <see cref="Model.RecruitmentSlot.StateCode"/> is below the issuing seat's threshold —
-    /// the original's <em>"You cannot mobilise a unit at this time."</em> for a recruit that still reads
-    /// <c>not ready</c>.
+    /// a recruit that still reads <c>not ready</c>. The original's <em>"You cannot mobilise a unit at this
+    /// time."</em> box is for a <em>ready</em> selected unit that finds no army to join and no room for a
+    /// new army (198 armies); an unready unit is skipped there with no box (research g1 G9).
     /// </summary>
     public static readonly RejectionCode SlotNotReady = new("recruitment.slot-not-ready");
 

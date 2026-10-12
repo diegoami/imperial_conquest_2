@@ -156,7 +156,8 @@ public partial class RecruitUnitDialog : Control
         // recruitTownMinFortificationPercent, or a town with units in training (so they can still be
         // mobilized or disbanded from here). Recruit is then offered only where the order would be
         // accepted — see Refresh. T162 (bug #1001) adds the original's "All cities" entry last: it lists
-        // every regiment in training with its city and offers no Recruit. The dropdown is rebuilt from
+        // every regiment in training with its city, only when more than one town holds units (T166), and
+        // Recruit there trains at the capital. The dropdown is rebuilt from
         // the model's list after each submit.
         _cityDropdown = new OptionButton();
         FillCityDropdown();
@@ -318,6 +319,11 @@ public partial class RecruitUnitDialog : Control
             _cityIds.Add(city.Id);
         }
 
+        if (!_model.ShowsAllCities)
+        {
+            return;
+        }
+
         _cityDropdown.AddItem(RecruitUnitDialogModel.AllCitiesLabel);
         _cityDropdown.SetItemMetadata(_cityDropdown.ItemCount - 1, RecruitUnitDialogModel.AllCitiesId);
     }
@@ -359,12 +365,13 @@ public partial class RecruitUnitDialog : Control
     private void SubmitRecruit()
     {
         var cityId = SelectedCityIdForCheck;
-        if (string.IsNullOrEmpty(cityId) || RecruitUnitDialogModel.IsAllCities(cityId))
+        if (string.IsNullOrEmpty(cityId))
         {
             return;
         }
 
-        var line = _model.RecruitStandingLine(cityId, _selectedUnitTypeId, (int)_troops.Value);
+        // All cities trains at the capital (T166); a town trains at itself.
+        var line = _model.RecruitStandingLine(_model.RecruitCityIdFor(cityId), _selectedUnitTypeId, (int)_troops.Value);
         var lines = Submit(line);
         _replyLabel.Text = lines.Skip(1).FirstOrDefault(text => text.Length > 0) ?? string.Empty;
         RebuildModel();
@@ -444,7 +451,7 @@ public partial class RecruitUnitDialog : Control
         FillCityDropdown();
 
         var keep = RecruitUnitDialogModel.IsAllCities(selectedId)
-            ? _cityDropdown.ItemCount - 1
+            ? (_model.ShowsAllCities ? _cityDropdown.ItemCount - 1 : -1)
             : _cityIds.FindIndex(id => string.Equals(id, selectedId, StringComparison.Ordinal));
         if (keep < 0 && _cityDropdown.ItemCount > 0)
         {
@@ -514,6 +521,11 @@ public partial class RecruitUnitDialog : Control
     /// <summary>Selects the All cities entry, exactly as the dropdown does — exposed for the headless check (T162).</summary>
     public void SelectAllCitiesForCheck()
     {
+        if (!_model.ShowsAllCities)
+        {
+            return;
+        }
+
         _cityDropdown.Select(_cityDropdown.ItemCount - 1);
         _selectedSlotIndex = null;
         Refresh();

@@ -602,7 +602,7 @@ public sealed class RecruitUnitDialogModel
     /// The dialog follows this for its Recruit control; the engine refuses without it anyway.
     /// </summary>
     public bool CanRecruitAt(string cityId) =>
-        _state.CityById(cityId) is { } city
+        _state.CityById(RecruitCityIdFor(cityId)) is { } city
         && RecruitmentEligibility.MayTakeOrder(city, Nation, _ruleset);
 
     /// <summary>
@@ -611,9 +611,7 @@ public sealed class RecruitUnitDialogModel
     /// <see langword="null"/> when the order would be accepted.
     /// </summary>
     public string? RecruitRefusalReasonAt(string cityId) =>
-        IsAllCities(cityId)
-            ? AllCitiesRecruitReason
-            : _state.CityById(cityId) is { } city
+        _state.CityById(RecruitCityIdFor(cityId)) is { } city
         && !RecruitmentEligibility.MayTakeOrder(city, Nation, _ruleset)
             ? RecruitmentEligibility.RefusalReason(city, Nation, _ruleset)
             : null;
@@ -658,6 +656,36 @@ public sealed class RecruitUnitDialogModel
         string.Equals(selectionId, AllCitiesId, StringComparison.Ordinal);
 
     /// <summary>
+    /// The city a Recruit order from <paramref name="selectionId"/> trains at: the town itself, or the
+    /// nation's capital for All cities (T166; the original's <c>TArmyRecruits_RecruitUnit</c> skips the
+    /// fortification refusal for All cities and creates the unit at the capital).
+    /// </summary>
+    public string RecruitCityIdFor(string selectionId) =>
+        IsAllCities(selectionId) ? Nation.CapitalCityId ?? string.Empty : selectionId;
+
+    /// <summary>
+    /// Whether the dropdown lists the All cities entry: only when more than one town holds queued
+    /// units (T166; the original's <c>TArmyRecruits_SetCityRecruits</c>).
+    /// </summary>
+    public bool ShowsAllCities
+    {
+        get
+        {
+            string? first = null;
+            foreach (var slot in Nation.RecruitmentSlots)
+            {
+                first ??= slot.TargetCityId;
+                if (!string.Equals(slot.TargetCityId, first, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    /// <summary>
     /// The training list for a dropdown selection: every regiment of the nation, in queue order, for
     /// All cities (T162); otherwise only <paramref name="selectionId"/>'s own, as before.
     /// </summary>
@@ -675,6 +703,11 @@ public sealed class RecruitUnitDialogModel
     {
         get
         {
+            if (!ShowsAllCities)
+            {
+                return false;
+            }
+
             foreach (var slot in Nation.RecruitmentSlots)
             {
                 if (!string.Equals(slot.TargetCityId, Nation.CapitalCityId, StringComparison.Ordinal))
@@ -695,9 +728,6 @@ public sealed class RecruitUnitDialogModel
 
     /// <summary>Whether Disband is offered for <paramref name="row"/>: any selected regiment (T162).</summary>
     public static bool MayDisband(TrainingRegimentView? row) => row is not null;
-
-    /// <summary>Why Recruit is not offered on the All cities entry: a new order needs one city (T162).</summary>
-    public const string AllCitiesRecruitReason = "Pick a city to recruit: All cities only lists units in training.";
 
     /// <summary>
     /// The <c>recruit-standing</c> line the Recruit unit button submits, with the chosen city, type

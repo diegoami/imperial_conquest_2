@@ -8,7 +8,7 @@ using ModelTestPaths = IC2.Engine.Tests.Model.TestPaths;
 namespace IC2.Engine.Tests.Ui;
 
 /// <summary>
-/// T162 (bug #1001): the Recruit unit dialog's All cities entry, its opening rule, acting on a row from
+/// T162 (bug #1001), changed by T166: the Recruit unit dialog's All cities entry, its opening rule, acting on a row from
 /// it, and the readiness text. States are real sessions; slots come from the engine's own
 /// <c>recruit-standing</c> and become ready through <c>end</c>.
 /// </summary>
@@ -75,7 +75,7 @@ public sealed class RecruitAllCitiesTests
     }
 
     [Fact]
-    public void The_dialog_opens_on_All_cities_only_when_a_unit_trains_outside_the_capital()
+    public void The_dialog_opens_on_All_cities_only_when_it_is_listed_and_a_unit_trains_outside_the_capital()
     {
         var session = RomeSession();
         Assert.False(Model(session).OpensOnAllCities);
@@ -84,17 +84,70 @@ public sealed class RecruitAllCitiesTests
         Assert.False(Model(session).OpensOnAllCities);
 
         Recruit(session, LuceriaCityId, "archers", 400);
+        Assert.True(Model(session).ShowsAllCities);
         Assert.True(Model(session).OpensOnAllCities);
     }
 
     [Fact]
-    public void All_cities_offers_no_recruit()
+    public void All_cities_is_listed_only_when_two_towns_hold_units()
     {
-        var model = Model(TwoCitySession());
-        Assert.False(model.CanRecruitAt(RecruitUnitDialogModel.AllCitiesId));
-        Assert.NotNull(model.RecruitRefusalReasonAt(RecruitUnitDialogModel.AllCitiesId));
-        Assert.True(RecruitUnitDialogModel.IsAllCities(RecruitUnitDialogModel.AllCitiesId));
-        Assert.DoesNotContain(model.ListedCities, c => RecruitUnitDialogModel.IsAllCities(c.Id));
+        var session = RomeSession();
+        Assert.False(Model(session).ShowsAllCities);
+
+        Recruit(session, LuceriaCityId, "archers", 400);
+        Assert.False(Model(session).ShowsAllCities);
+        Assert.False(Model(session).OpensOnAllCities);
+
+        // Two units at the same town are still one town.
+        Recruit(session, LuceriaCityId, "archers", 400);
+        Assert.False(Model(session).ShowsAllCities);
+
+        Recruit(session, RomeCityId, "light_infantry", 200);
+        Assert.True(Model(session).ShowsAllCities);
+    }
+
+    [Fact]
+    public void Recruit_from_All_cities_submits_the_capitals_line_and_trains_at_the_capital()
+    {
+        var viaAll = TwoCitySession();
+        var viaCapital = TwoCitySession();
+        var model = Model(viaAll);
+        var capital = viaAll.State.NationById(RomeId)!.CapitalCityId!;
+
+        Assert.Equal(capital, model.RecruitCityIdFor(RecruitUnitDialogModel.AllCitiesId));
+        Assert.Equal(LuceriaCityId, model.RecruitCityIdFor(LuceriaCityId));
+        Assert.True(model.CanRecruitAt(RecruitUnitDialogModel.AllCitiesId));
+        Assert.Null(model.RecruitRefusalReasonAt(RecruitUnitDialogModel.AllCitiesId));
+
+        var lineAll = model.RecruitStandingLine(model.RecruitCityIdFor(RecruitUnitDialogModel.AllCitiesId), "archers", 300);
+        var lineCapital = Model(viaCapital).RecruitStandingLine(capital, "archers", 300);
+        Assert.Equal(lineCapital, lineAll);
+
+        var before = Model(viaAll).TrainingFor(capital).Count;
+        Assert.Equal(viaCapital.Submit(lineCapital).Lines, viaAll.Submit(lineAll).Lines);
+        var after = Model(viaAll).TrainingFor(capital);
+        Assert.Equal(before + 1, after.Count);
+        Assert.Contains(after, r => r.UnitTypeId == "archers" && r.Troops == 300);
+    }
+
+    [Fact]
+    public void A_listed_town_below_the_fortification_threshold_still_refuses_Recruit_by_name()
+    {
+        var session = TwoCitySession();
+        var luceria = session.State.CityById(LuceriaCityId)!;
+        var weak = luceria with { FortificationCode = 0 };
+        var state = session.State with
+        {
+            Cities = ValueList.From(session.State.Cities.Select(c => c.Id == LuceriaCityId ? weak : c)),
+        };
+        var model = RecruitUnitDialogModel.ForActiveNation(state, session.Ruleset, session.World);
+
+        Assert.Contains(model.ListedCities, c => c.Id == LuceriaCityId);
+        Assert.False(model.CanRecruitAt(LuceriaCityId));
+        Assert.NotNull(model.RecruitRefusalReasonAt(LuceriaCityId));
+        Assert.Contains("fortification", model.RecruitRefusalReasonAt(LuceriaCityId)!, StringComparison.OrdinalIgnoreCase);
+        // All cities is not that refusal: it recruits at the capital.
+        Assert.Null(model.RecruitRefusalReasonAt(RecruitUnitDialogModel.AllCitiesId));
     }
 
     [Fact]
