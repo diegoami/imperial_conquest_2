@@ -52,7 +52,7 @@ Galatia (galatia) takes its turn: 7 orders issued.
 Armenia (armenia) takes its turn: 8 orders issued.
 Media (media) takes its turn: 9 orders issued.
 Thracia (thracia) takes its turn: 2 orders issued.
-  Weather: storm-damages-fleet (week 1).
+  Weather: rough-sea-painted (week 1).
 Rome (rome) takes its turn: 2 orders issued.
 Carthage (carthage) takes its turn: 2 orders issued.
 Seleucid (seleucid) takes its turn: 11 orders issued.
@@ -104,8 +104,7 @@ Galatia (galatia) takes its turn: 3 orders issued.
 Armenia (armenia) takes its turn: 8 orders issued.
 Media (media) takes its turn: 9 orders issued.
 Thracia (thracia) takes its turn: 1 order issued.
-  Weather: drought-reduces-supply (week 3).
-  Weather: drought-reduces-supply (week 3).
+  Weather: rough-sea-painted (week 3).
 Rome (rome) takes its turn: 2 orders issued.
 Carthage (carthage) takes its turn: 2 orders issued.
 Seleucid (seleucid) takes its turn: 12 orders issued.
@@ -140,7 +139,8 @@ Galatia (galatia) takes its turn: 3 orders issued.
 Armenia (armenia) takes its turn: 0 orders issued.
 Media (media) takes its turn: 7 orders issued.
 Thracia (thracia) takes its turn: 1 order issued.
-  Weather: storm-damages-fleet (week 5).
+  Weather: rough-sea-painted (week 5).
+  Weather: rough-sea-painted (week 5).
 Rome (rome) takes its turn: 2 orders issued.
 Carthage (carthage) takes its turn: 2 orders issued.
 Seleucid (seleucid) takes its turn: 12 orders issued.
@@ -171,8 +171,8 @@ Galatia (galatia) takes its turn: 2 orders issued.
 Armenia (armenia) takes its turn: 3 orders issued.
 Media (media) takes its turn: 2 orders issued.
 Thracia (thracia) takes its turn: 2 orders issued.
-  Weather: storm-damages-fleet (week 7).
-  Weather: drought-reduces-supply (week 7).
+  Weather: rough-sea-painted (week 7).
+  Weather: rough-sea-painted (week 7).
 Rome (rome) takes its turn: 5 orders issued.
 Carthage (carthage) takes its turn: 3 orders issued.
 Seleucid (seleucid) takes its turn: 5 orders issued.
@@ -286,7 +286,8 @@ Galatia (galatia) takes its turn: 0 orders issued.
 Armenia (armenia) takes its turn: 1 order issued.
 Media (media) takes its turn: 2 orders issued.
 Thracia (thracia) takes its turn: 1 order issued.
-  Weather: drought-reduces-supply (week 3).
+  Weather: rough-sea-painted (week 3).
+  Weather: rough-sea-painted (week 3).
 Rome (rome) takes its turn: 3 orders issued.
 Carthage (carthage) takes its turn: 4 orders issued.
 Seleucid (seleucid) takes its turn: 5 orders issued.
@@ -396,7 +397,7 @@ Galatia (galatia) takes its turn: 1 order issued.
 Armenia (armenia) takes its turn: 1 order issued.
 Media (media) takes its turn: 3 orders issued.
 Thracia (thracia) takes its turn: 2 orders issued.
-  Weather: storm-damages-fleet (week 7).
+  Weather: rough-sea-painted (week 7).
 Rome (rome) takes its turn: 2 orders issued.
 Carthage (carthage) takes its turn: 2 orders issued.
 Seleucid (seleucid) takes its turn: 6 orders issued.
@@ -424,7 +425,7 @@ Galatia (galatia) takes its turn: 2 orders issued.
 Armenia (armenia) takes its turn: 1 order issued.
 Media (media) takes its turn: 2 orders issued.
 Thracia (thracia) takes its turn: 9 orders issued.
-  Weather: drought-reduces-supply (week 9).
+  Weather: rough-sea-painted (week 9).
 Rome (rome) takes its turn: 3 orders issued.
 Carthage (carthage) takes its turn: 2 orders issued.
 Seleucid (seleucid) takes its turn: 4 orders issued.
@@ -540,8 +541,8 @@ Galatia (galatia) takes its turn: 2 orders issued.
 Armenia (armenia) takes its turn: 2 orders issued.
 Media (media) takes its turn: 11 orders issued.
 Thracia (thracia) takes its turn: 2 orders issued.
-  Weather: storm-damages-fleet (week 5).
-  Weather: storm-damages-fleet (week 5).
+  Weather: rough-sea-painted (week 5).
+  Weather: rough-sea-painted (week 5).
 Rome (rome) takes its turn: 10 orders issued.
 Carthage (carthage) takes its turn: 10 orders issued.
 Seleucid (seleucid) takes its turn: 14 orders issued.
@@ -1016,9 +1017,7 @@ Galatia (galatia) takes its turn: 2 orders issued.
 Armenia (armenia) takes its turn: 2 orders issued.
 Media (media) takes its turn: 4 orders issued.
 Thracia (thracia) takes its turn: 2 orders issued.
-  Weather: drought-reduces-supply (week 7).
-  Weather: storm-damages-fleet (week 7).
-  Weather: storm-damages-fleet (week 7).
+  Weather: rough-sea-painted (week 7).
 Rome (rome) takes its turn: 4 orders issued.
 Carthage (carthage) takes its turn: 10 orders issued.
 Seleucid (seleucid) takes its turn: 9 orders issued.
@@ -1066,8 +1065,7 @@ Galatia (galatia) takes its turn: 2 orders issued.
 Armenia (armenia) takes its turn: 2 orders issued.
 Media (media) takes its turn: 3 orders issued.
 Thracia (thracia) takes its turn: 1 order issued.
-  Weather: drought-reduces-supply (week 9).
-  Weather: drought-reduces-supply (week 9).
+  Weather: rough-sea-painted (week 9).
 Rome (rome) takes its turn: 2 orders issued.
 Carthage (carthage) takes its turn: 2 orders issued.
 Seleucid (seleucid) takes its turn: 6 orders issued.

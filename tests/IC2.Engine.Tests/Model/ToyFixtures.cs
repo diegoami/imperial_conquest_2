@@ -101,6 +101,8 @@ public static class ToyFixtures
             Fleets = ValueList.From(fleets),
             Cities = ValueList.From(cities),
             MercenaryPool = mercenaryPool,
+            // T81: a non-empty weekly rough-sea overlay, so the serialization round trips cover it too.
+            RoughSeaCells = ValueList.Of(new RoughSeaCell(0, 1), new RoughSeaCell(1, 0), new RoughSeaCell(2, 2)),
             Relations = relations,
             NewsLog = news,
             PendingOffer = new PendingDiplomaticOffer(

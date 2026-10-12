@@ -1426,6 +1426,8 @@ internal static class RulesetCorpusMap
         ("economy.unityTaxRateDivisor", "economy.unityTaxRateDivisor"),
         ("economy.wealthPerPopulationThousand", "economy.wealthPerPopulationThousand"),
         ("economy.weather.earlyLateWeekThreshold", "weather.oddsBySeasonWeek.springEarly"),
+        ("economy.weather.clearRadiusTiles", "weather.overlay.clearRadius"),
+        ("economy.weather.roughSeaMoveCost", "weather.overlay.roughSeaMoveCost"),
         ("loyalty.allegiantRecaptureTarget", "loyalty.target.recapture"),
         ("loyalty.defectionFloor", "loyalty.floor.defection"),
         ("loyalty.forcedCaptureFloor", "loyalty.floor.forcedCapture"),
