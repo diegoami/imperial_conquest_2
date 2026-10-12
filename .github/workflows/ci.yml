@@ -1,7 +1,8 @@
 name: CI
 
 # T01 (docs/task-catalogue.md "Build scaffolding and CI"): restore, build and test
-# IC2.sln on every push and pull request. The build-and-test job never references
+# IC2.sln on every push and pull request that changes more than documentation (#1076: docs/**,
+# **/*.md and release-notes/** alone run nothing). The build-and-test job never references
 # godot/IC2.MapViewer.csproj; the godot-headless job below (2026-09-28) downloads the Godot 4.7.2
 # .NET editor and runs the project's headless checks, so the Godot lane is checked by CI and not
 # only by a reviewer's machine and the user's visual sign-off.
@@ -70,7 +71,10 @@ jobs:
             files=$(git diff --name-only "$base" "$HEAD_SHA")
           fi
           echo "$files"
-          if echo "$files" | grep -Eq '^(godot/|src/|data/|assets/|\.github/workflows/ci\.yml$)'; then
+          # Also what the Godot checks read or build with: tests/fixtures/ (OrderCoverageCheck runs
+          # tests/fixtures/cli/success.txt and success-fleet.txt), Directory.Build.props, IC2.sln and
+          # scripts/check-godot-churn.ps1.
+          if echo "$files" | grep -Eq '^(godot/|src/|data/|assets/|tests/fixtures/|Directory\.Build\.props$|IC2\.sln$|scripts/check-godot-churn\.ps1$|\.github/workflows/ci\.yml$)'; then
             echo "godot=true" >> "$GITHUB_OUTPUT"
           else
             echo "godot=false" >> "$GITHUB_OUTPUT"
