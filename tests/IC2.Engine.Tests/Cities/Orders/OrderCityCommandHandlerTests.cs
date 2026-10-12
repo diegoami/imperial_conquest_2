@@ -157,4 +157,21 @@ public sealed class OrderCityCommandHandlerTests
         Assert.Equal(CityOrderRejections.FortifyRefusedWhileUnderSiege, besiegedResult.Code);
         Assert.Equal(besiegedNationBefore.Treasury, besiegedResult.State.NationById(besiegedNationBefore.Id)!.Treasury);
     }
+
+    // Bug #1064: the original checks under siege (R22) before the maximum (R23) and a pending order (R24).
+    [Theory]
+    [InlineData(false)] // already at the maximum
+    [InlineData(true)]  // an order already pending
+    public void A_besieged_city_gets_the_siege_refusal_before_the_maximum_or_pending_refusals(bool pending)
+    {
+        var dispatcher = OrdersTestbed.Dispatcher();
+        var besieged = OrdersTestbed.WithSouthArmyMovedBesideArx(CoreTestbed.InitialState());
+        var code = pending ? 40 + OrdersTestbed.FortifyRule.InProgressEncodingRadix : 100;
+        var before = OrdersTestbed.WithCity(besieged, besieged.CityById(CityId)! with { FortificationCode = code });
+
+        var result = dispatcher.Dispatch(before, new OrderCityCommand(before.ActiveNationId, CityId, "fortify", 1));
+
+        Assert.Equal(CityOrderRejections.FortifyRefusedWhileUnderSiege, result.Code);
+        Assert.Same(before, result.State);
+    }
 }

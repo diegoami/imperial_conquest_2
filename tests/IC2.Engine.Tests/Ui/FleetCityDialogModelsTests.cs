@@ -414,6 +414,29 @@ public sealed class FleetCityDialogModelsTests
         }
     }
 
+    // Bug #1064: the siege refusal (R22) comes before the maximum (R23) and a pending order (R24).
+    [Fact]
+    public void Fortify_gives_the_siege_refusal_first_for_a_besieged_city_at_the_maximum_or_with_an_order_pending()
+    {
+        var ruleset = ClassicalRuleset;
+        var rule = ruleset.CityOrders.Orders.Single(order => order.Id == FortifyCityModel.FortifyOrderId);
+        const string siege = "You cannot fortify a city which is under siege.";
+
+        var calm = State(Fleet(), city: City());
+        var besiegedBase = HostileArmyMovedBesideCity(calm, ruleset);
+        foreach (var code in new[] { rule.MaxPercent, 40 + rule.InProgressEncodingRadix })
+        {
+            var city = besiegedBase.CityById(CityId)! with { FortificationCode = code };
+            var state = besiegedBase with
+            {
+                Cities = ValueList.From(besiegedBase.Cities.Select(c => c.Id == CityId ? city : c)),
+            };
+            var model = FortifyCityModel.ForCity(state, state.CityById(CityId)!, ruleset);
+            Assert.True(model.UnderSiege);
+            Assert.Equal(siege, model.RefusalMessage);
+        }
+    }
+
     private static GameState HostileArmyMovedBesideCity(GameState state, Ruleset ruleset)
     {
         var city = state.CityById(CityId)!;
