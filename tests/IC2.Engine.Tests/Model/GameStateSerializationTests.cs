@@ -42,6 +42,11 @@ public class GameStateSerializationTests
         // list and a null.
         Assert.Contains(state.Nations, n => n.RecruitmentSlots.Count > 0);
         Assert.NotNull(state.PendingOffer);
+
+        // T81: a non-empty rough-sea overlay, so the round trip below serializes real cells.
+        Assert.NotEmpty(state.RoughSeaCells!);
+        Assert.True(state.IsRoughSea(1, 0));
+        Assert.False(state.IsRoughSea(3, 3));
     }
 
     [Fact]

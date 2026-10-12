@@ -611,6 +611,31 @@ for (var i = MercenaryTemplateCount; i < MercenaryTemplateCount + 50; i++)
 Console.WriteLine($"Mercenary template table: {MercenaryTemplateCount} templates from DAT 0x{MercenaryBlockOffset:X}, all {templateCityTiles.Count} city tiles valid, 4 duplicated keys, {MercenaryNamesCount} Label names from DAT 0x{MercenaryNamesOffset:X}.");
 
 // ============================================================================================
+// 7b. The 20 weather centres (T81, bug #339): FUN_004481a0 reads 0x50 bytes into DAT_00479540, at DAT
+//     0x1F876 -- the gap between the terrain/static tables and the mercenary name table at 0x1F8C6:
+//     20 records of two signed 16-bit little-endian words (x, y). decompiled-map-code1-overlay.md §1
+//     [confirmed: DAT bytes]; the SAV does not store them. The weekly overlay rolls around each, in order.
+// ============================================================================================
+const int WeatherCentreCount = 20;
+const int WeatherCentreOffset = 0x1F876;
+const int WeatherCentreRecordLength = 4;
+const int WeatherCentreMapEdgeMargin = 10;
+
+var weatherCentres = new WeatherCentre[WeatherCentreCount];
+for (var i = 0; i < WeatherCentreCount; i++)
+{
+    var at = WeatherCentreOffset + i * WeatherCentreRecordLength;
+    var x = BinaryPrimitives.ReadInt16LittleEndian(datBytes.AsSpan(at, 2));
+    var y = BinaryPrimitives.ReadInt16LittleEndian(datBytes.AsSpan(at + 2, 2));
+    // The report: all 20 lie at least 10 from every map edge, so the unclamped clear box never leaves the grid.
+    if (x < WeatherCentreMapEdgeMargin || y < WeatherCentreMapEdgeMargin
+        || x >= WorldPrefix.MapWidth - WeatherCentreMapEdgeMargin || y >= WorldPrefix.MapHeight - WeatherCentreMapEdgeMargin)
+        throw new InvalidOperationException($"Weather centre {i} at DAT 0x{at:X} reads ({x}, {y}), within {WeatherCentreMapEdgeMargin} of the map edge -- the offset must be wrong.");
+    weatherCentres[i] = new WeatherCentre(x, y);
+}
+Console.WriteLine($"Weather centres: {WeatherCentreCount} from DAT 0x{WeatherCentreOffset:X}, first ({weatherCentres[0].X}, {weatherCentres[0].Y}), last ({weatherCentres[^1].X}, {weatherCentres[^1].Y}).");
+
+// ============================================================================================
 // 8. Assemble the World. TurnOrder is the DAT's own nation-table order: the original shuffles it
 //    at New Game (FUN_00448aa4), which this export does not reproduce -- [designed] default.
 // ============================================================================================
@@ -631,6 +656,7 @@ var world = new World(
     StartingNews: startingNews,
     StartingNeighbours: startingNeighbours,
     MercenaryTemplates: ValueList.Of(mercenaryTemplates),
+    WeatherCentres: ValueList.Of(weatherCentres),
     Provenance: ProvenanceMap.Of(
         ("width", "confirmed: WorldPrefix.MapWidth, T30's DAT parse -- 320x140, docs/investigations/dat-file-layout.md."),
         ("height", "confirmed: WorldPrefix.MapHeight, T30's DAT parse."),
@@ -644,7 +670,8 @@ var world = new World(
         ("startingRelations", "confirmed: T73's DAT nation-table parse (IC2.Data.SaveNationTable.Parse's Relations field), DAT nation record +0x0B, 16x16 shorts -- decompiled-diplomacy-peace-terms-and-instant-battles.md's 2026-09-24 addition, \"the starting matrix\": symmetric, zero diagonal, 5 wars, 13 trades, 4 alliances, no cooldowns."),
         ("startingNews", "confirmed: T73's DAT news-seed parse (IC2.Data.SaveNewsLog.Parse), the DAT's last 2,440 bytes -- news-log-format-and-messages.md §Q1: slots 0-26 are the scripted 272-271 BC history, kept byte-for-byte verbatim (no trim, no re-render), with the newest index set to 26 exactly as FUN_00448AA4 sets it at New Game."),
         ("startingNeighbours", "confirmed: T85's DAT nation-table parse (IC2.Data.NationRecord.NeighbourMask field), DAT nation record +0x2B (IC2.Data.DatLayout.NationNeighbourOffset), 16 words -- dat-neighbour-mask.md §2, \"The mask in the DAT\": symmetric, no self bit, 24 pairs across all 16 rows, matching all 101 local saves. Replaces the geometric derivation NeighbourGeography used before this field existed (dat-neighbour-mask.md §6/§7); that derivation reproduces all 24 of these pairs but adds 6 more (Rome-Greece, Thracia-Bithynia, Thracia-Seleucid, Seleucid-Macedonia, Seleucid-Greece, Ptolemaic-Greece) that this field does not carry."),
-        ("mercenaryTemplates", "confirmed: T56's read of the DAT's fixed mercenary template table (decompiled-new-game-mercenary-fill.md §4): 201 records of six signed 16-bit little-endian words at DAT 0x1FCD6 (the first 201 of the 251-record block the loader reads into 0x0049D0A4; records 201-250 are the 50 live pool slots, checked here to ship as the empty (0,0,0,0,-1,0)), in DAT order and keyed by index -- four (x, y, Label, type) keys appear twice, and template 200 (Vologesias, light cavalry) is data the restock's Random(200) draw never selects but is carried anyway so the indices match. Every (x, y) is checked to be a city tile. The 52 Label names the Label field indexes live at DAT 0x1F8C6, 20-byte NUL-terminated: " + string.Join("; ", mercenaryNames.Select((n, i) => $"{i}={n}")) + ". The names are recorded here rather than as world data: Label round-trips as a number, and this model deliberately carries no display string for it.")));
+        ("mercenaryTemplates", "confirmed: T56's read of the DAT's fixed mercenary template table (decompiled-new-game-mercenary-fill.md §4): 201 records of six signed 16-bit little-endian words at DAT 0x1FCD6 (the first 201 of the 251-record block the loader reads into 0x0049D0A4; records 201-250 are the 50 live pool slots, checked here to ship as the empty (0,0,0,0,-1,0)), in DAT order and keyed by index -- four (x, y, Label, type) keys appear twice, and template 200 (Vologesias, light cavalry) is data the restock's Random(200) draw never selects but is carried anyway so the indices match. Every (x, y) is checked to be a city tile. The 52 Label names the Label field indexes live at DAT 0x1F8C6, 20-byte NUL-terminated: " + string.Join("; ", mercenaryNames.Select((n, i) => $"{i}={n}")) + ". The names are recorded here rather than as world data: Label round-trips as a number, and this model deliberately carries no display string for it."),
+        ("weatherCentres", "confirmed: FUN_004481a0 reads the 20 centres of the weekly rough-sea overlay into DAT_00479540 from DAT 0x1F876, 20 records of two signed 16-bit little-endian words (x, y), in DAT order, which is the weekly roll's draw order -- decompiled-map-code1-overlay.md §1 (research 0d2674c). The saved game does not store them. The export checks that all 20 lie at least 10 tiles from every map edge, as the report states.")));
 
 Console.WriteLine($"World assembled: {world.Nations.Count} nations, {world.Cities.Count} cities, {world.StartingArmies.Count} armies, {world.StartingFleets.Count} fleets.");
 
@@ -1159,8 +1186,7 @@ static List<string> FindToyProvenanceMentions(JsonNode? node, string path = "")
 /// <c>classical-faithful.json</c> have no confident match here (down from ~140 before T68 -- the
 /// type-effectiveness matrix, the two caps and the four season values from #236 N1, the 12
 /// formula-string citations review round 1 B2 added, and the 3 more review round 2 R1-B2 added)
-/// — mostly designed placeholders (weather
-/// effect magnitudes, the scatter/detailed-resolver reserve
+/// — mostly designed placeholders (the scatter/detailed-resolver reserve
 /// constants) or values the corpus documents only as part of a longer prose passage with no
 /// isolable id. Those keep <c>toy-ruleset.json</c>'s original report-citation provenance, which is
 /// still a valid citation per <c>Provenance.cs</c>'s format — just not corpus-id-traced. See T68's
@@ -1400,7 +1426,8 @@ internal static class RulesetCorpusMap
         ("economy.unityTaxRateDivisor", "economy.unityTaxRateDivisor"),
         ("economy.wealthPerPopulationThousand", "economy.wealthPerPopulationThousand"),
         ("economy.weather.earlyLateWeekThreshold", "weather.oddsBySeasonWeek.springEarly"),
-        ("economy.weather.locationCount", "weather.trackedLocationCount"),
+        ("economy.weather.clearRadiusTiles", "weather.overlay.clearRadius"),
+        ("economy.weather.roughSeaMoveCost", "weather.overlay.roughSeaMoveCost"),
         ("loyalty.allegiantRecaptureTarget", "loyalty.target.recapture"),
         ("loyalty.defectionFloor", "loyalty.floor.defection"),
         ("loyalty.forcedCaptureFloor", "loyalty.floor.forcedCapture"),

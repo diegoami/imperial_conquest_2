@@ -21,22 +21,23 @@ namespace IC2.Engine.Naval;
 /// exempted by geography — the original's own gate never tests position, only the launched sentinel.
 /// </para>
 /// <para>
-/// <strong>Two predicates the cited reports leave open</strong> (<c>docs/investigations/thracia-supply-morale.md</c>
-/// §"Still open"), implemented as named, ruleset-driven placeholders rather than escalated, per
-/// <c>docs/task-catalogue.md</c> T14's own instruction:
+/// <strong>Two predicates, both decompiled since T81</strong> (<c>decompiled-map-code1-overlay.md</c> §2
+/// and §5):
 /// </para>
 /// <list type="bullet">
 /// <item><description>
 /// <c>FleetRecord +24 == 1</c> (the tripling predicate) reads <see cref="FleetState.CoveredTileCode"/>
-/// directly against <see cref="NavalRules.StormTripleConditionTileCode"/> — the same field the record
-/// layout already confirms as the fleet's covered map cell, so no new field is invented; only the
-/// trigger value's real-world meaning is undecompiled.
+/// directly against <see cref="NavalRules.StormTripleConditionTileCode"/>: the fleet's covered map cell,
+/// which is 1 exactly when the fleet stands on a rough-sea cell. The weekly
+/// <see cref="Economy.WeatherEventSystem"/> sets and clears it for every fleet, and every fleet step copies
+/// it from the cell it enters, so the branch is reachable.
 /// </description></item>
 /// <item><description>
 /// <c>FUN_004494e4</c> ("away from friendly coast") is answered by <see cref="IsNearFriendlyCoast"/>: a
-/// launched fleet within <see cref="NavalRules.FriendlyCoastRadiusTiles"/> tiles (Chebyshev distance) of
-/// a city its own nation owns counts as near friendly coast. <c>[designed]</c> placeholder geometry for
-/// an undecompiled predicate, not a resolution of it — see that field's own remarks.
+/// launched fleet within <see cref="NavalRules.FriendlyCoastRadiusTiles"/> tiles (Chebyshev distance 1, the
+/// 3×3) of a city its own nation owns counts as near friendly coast. <strong>[confirmed:
+/// decompiled-map-code1-overlay.md §5]</strong> This is the original's predicate itself: the index of a
+/// city of the fleet's own nation in its clamped 3×3, else −1. It does not look at allies or at land.
 /// </description></item>
 /// </list>
 /// <para>
@@ -193,7 +194,7 @@ public sealed class FleetTickSystem : IGameSystem
         state.NationById(nationId)?.Name ?? nationId;
 
     /// <summary>
-    /// <c>[designed]</c> placeholder for the undecompiled <c>FUN_004494e4</c> — see this type's remarks.
+    /// <c>FUN_004494e4</c>: a city of the fleet's own nation in its 3×3 <strong>[confirmed]</strong> — see this type's remarks.
     /// </summary>
     private static bool IsNearFriendlyCoast(FleetState fleet, GameState state, NavalRules rules)
     {

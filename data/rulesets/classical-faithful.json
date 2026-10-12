@@ -288,53 +288,60 @@
           "seasonIndex": 0,
           "earlyNumerator": 1,
           "earlyDenominator": 15,
+          "earlyRadiusTiles": 4,
           "lateNumerator": 1,
-          "lateDenominator": 30
+          "lateDenominator": 30,
+          "lateRadiusTiles": 3
         },
         {
           "seasonIndex": 1,
           "earlyNumerator": 1,
           "earlyDenominator": 40,
+          "earlyRadiusTiles": 2,
           "lateNumerator": 1,
-          "lateDenominator": 40
+          "lateDenominator": 40,
+          "lateRadiusTiles": 2
         },
         {
           "seasonIndex": 2,
           "earlyNumerator": 1,
           "earlyDenominator": 30,
+          "earlyRadiusTiles": 3,
           "lateNumerator": 1,
-          "lateDenominator": 15
+          "lateDenominator": 15,
+          "lateRadiusTiles": 4
         },
         {
           "seasonIndex": 3,
           "earlyNumerator": 1,
           "earlyDenominator": 5,
+          "earlyRadiusTiles": 5,
           "lateNumerator": 1,
-          "lateDenominator": 5
+          "lateDenominator": 5,
+          "lateRadiusTiles": 5
         }
       ],
-      "locationCount": 20,
-      "effects": [
-        {
-          "id": "storm-damages-fleet",
-          "description": "A storm damages a fleet at sea.",
-          "_provenance": {
-            "_group": "designed: docs/game-design.md §Economy — 'implement as a data-driven table of possible weather effects (storm damages a fleet, drought reduces a region's supply, etc.) with the confirmed frequency curve and [designed] specific effects'. decompiled-weather-events.md confirms the frequency curve only; FUN_004511bc (the effect itself) was never decompiled, so no magnitude is transcribed here — this entry names the effect kind design-audit.md already suggests, nothing more."
-          }
-        },
-        {
-          "id": "drought-reduces-supply",
-          "description": "A drought reduces a region's supply.",
-          "_provenance": {
-            "_group": "designed: docs/game-design.md §Economy, same open item as storm-damages-fleet — no magnitude transcribed, effect internals unrecovered."
-          }
-        }
-      ],
+      "clearRadiusTiles": 10,
+      "ringChanceNumerator": 1,
+      "ringChanceDenominator": 2,
+      "cityExclusionRadiusTiles": 1,
+      "calmSeaTileCode": 0,
+      "roughSeaTileCode": 1,
+      "roughSeaMoveCost": 3,
+      "newGameSeasonIndex": 0,
+      "newGameWeek": 1,
       "_provenance": {
-        "earlyLateWeekThreshold": "confirmed: decompiled-weather-events.md — Spring's 'early'/'late' boundary is week < 6; Autumn's is week < 7 (the report gives the two seasons different boundaries, not the same one). Represented here as a single field because on this engine's odd-week calendar (weeks 1, 3, 5, 7, 9, 11) the two readings pick out exactly the same set of weeks either way, so a single shared threshold of 6 is behaviourally equivalent to carrying 6 and 7 separately (review round 1, B5). Summer and Winter are flat for the whole season, so their early/late split never matters. T04 fixtures corpus id: 'weather.oddsBySeasonWeek.springEarly'.",
-        "bySeason": "confirmed: decompiled-weather-events.md — Spring early 1-in-15 / late 1-in-30; Summer 1-in-40; Autumn early 1-in-30 / late 1-in-15; Winter 1-in-5. Winter is roughly 8x more frequent than Summer (1/5 vs 1/40), the source for T08's DoD 8 ratio-band assertion, itself approximate per that report.",
-        "locationCount": "confirmed: decompiled-weather-events.md, DAT_00479540 — the frequency curve above is rolled independently once per tracked location, every tick, not once per tick overall (review round 1, B4). The locations' own identity is [open], exactly as the report leaves it; only the roll count is transcribed here. T04 fixtures corpus id: 'weather.trackedLocationCount'.",
-        "effects": "designed: docs/game-design.md §Economy — the frequency curve is confirmed but the effects were never decompiled (FUN_004511bc, [open] per docs/design-audit.md §2.13); this table exists so an effect can be added as data later without an engine change, not because these two entries' specifics are evidenced."
+        "earlyLateWeekThreshold": "confirmed: decompiled-map-code1-overlay.md §1 table (and decompiled-weather-events.md) -- Spring's early/late boundary is week < 6; Autumn's is week < 7. Represented here as a single field because on this engine's odd-week calendar (weeks 1, 3, 5, 7, 9, 11) the two readings pick out exactly the same set of weeks, so one shared threshold of 6 is behaviourally equivalent to carrying 6 and 7 separately. Summer and Winter are flat for the whole season, so their early/late split never matters. T04 fixtures corpus id: 'weather.oddsBySeasonWeek.springEarly'.",
+        "bySeason": "confirmed: decompiled-map-code1-overlay.md §1 table, read with the season and week BEFORE the calendar advance (the roll runs after the fleet loop and before the advance; 14 corpus saves pin that): hit odds 1 in N and inner radius r -- Spring week < 6 N 15 r 4, Spring week >= 6 N 30 r 3, Summer N 40 r 2, Autumn week < 7 N 30 r 3, Autumn week >= 7 N 15 r 4, Winter N 5 r 5. The N values agree with decompiled-weather-events.md (T04 corpus ids 'weather.oddsBySeasonWeek.*'); the radii are new in the overlay report. A hit paints the inner (2r+1)^2 square always and the ring out to 2r per ringChance.",
+        "clearRadiusTiles": "confirmed: decompiled-map-code1-overlay.md §1 -- FUN_00451304 clears every code-1 cell within +-10 tiles of each of the 20 centres, which equals the largest paint reach (2r = 10 in Winter), so the overlay lives exactly one week. T04 fixtures corpus id: 'weather.overlay.clearRadius'.",
+        "ringChanceNumerator": "confirmed: decompiled-map-code1-overlay.md §1 and §3 -- the outer ring (|dx| or |dy| > r, out to 2r) paints a cell when Random(2) == 0; 10,295 of 20,348 eligible ring cells were painted over the corpus, 50.6 %.",
+        "ringChanceDenominator": "confirmed: decompiled-map-code1-overlay.md §1 -- the 2 of Random(2) == 0, same source as ringChanceNumerator.",
+        "cityExclusionRadiusTiles": "confirmed: decompiled-map-code1-overlay.md §1 (FUN_004511bc) -- a cell is painted only if no city marker (codes 20-99) lies in its clamped 3x3 neighbourhood, i.e. within Chebyshev distance 1; 0 of 19,639 corpus code-1 cells had a city there.",
+        "calmSeaTileCode": "confirmed: decompiled-map-code1-overlay.md §1 and §2 -- a cell is painted only if it is currently map code 0 (calm sea), and the weekly clear sets every fleet's +24 covered-cell word to 0.",
+        "roughSeaTileCode": "confirmed: decompiled-map-code1-overlay.md §2 -- code 1 is the rough-sea cell and a fleet standing on one carries 1 as its covered cell (+24); the fleet storm pass and the fleet panel read that word. The covered cell the clone holds as FleetState.CoveredTileCode.",
+        "roughSeaMoveCost": "confirmed: decompiled-map-code1-overlay.md §2 -- the terrain table (DAT 0x1F622) prices code 0 'Sea' at 1 and code 1 'Sea' at 3, and FUN_0044dd70 charges that cost to enter; played: 2026-10-12-g3-original-checks.md §5, one step onto a staged code-1 cell took Rome's fleet from 29 moves to 26 against 29 to 28 calm. T04 fixtures corpus id: 'weather.overlay.roughSeaMoveCost'.",
+        "newGameSeasonIndex": "confirmed: decompiled-map-code1-overlay.md §1 -- FUN_00448aa4 (new-game setup) calls the roll right after it sets Spring, week 1, 270 BC, so a brand-new game already has a Spring-week-1 overlay (the six corpus saves of 270 BC Spring week 1 show r = 4).",
+        "newGameWeek": "confirmed: decompiled-map-code1-overlay.md §1 -- the week of the same new-game roll."
       }
     },
     "supplyDialogArmyCapacityBonus": 1,
@@ -604,7 +611,7 @@
       "damageSlowdownConditionThreshold": "confirmed: same reports — condition < 70 costs a further (70 - condition) >> 2 moves. T04 fixtures corpus id: 'fleet.condition.movePenaltyThreshold'.",
       "damageSlowdownDivisor": "confirmed: same reports — the >> 2, equivalent to integer division by 4 for the non-negative operand this term always has.",
       "constructionTickStep": "confirmed: decompiled-unit-map-orders-and-record-fields.md and supply-driven-morale-and-fleet-attrition.md — the construction countdown decrements by 2 per turn's tick, not by 1 (the Caere order: 24 to 12 over six turns; the Macedonian order: 24,22,20,18,16,14,12 over six turns).",
-      "friendlyCoastRadiusTiles": "[designed]: FUN_004494e4 ('away from friendly coast') is not decompiled (investigations/thracia-supply-morale.md §'Still open'). This is a placeholder tile-radius proxy for that undecompiled predicate, not a resolution of it. Searched tests/fixtures/known-reports.json's naval-related reports for a decompiled test and found none.",
+      "friendlyCoastRadiusTiles": "confirmed: decompiled-map-code1-overlay.md §5 -- FUN_004494e4(owner, xy) (all_app_functions.txt:48066-48118) returns the index of a city OWNED BY the fleet's own nation within the clamped 3x3 around the fleet, else -1; the storm pass's 'away from friendly coast' is that result < 0. So radius 1 (Chebyshev) around a city of the fleet's own nation is exactly the original's predicate, confirming T14's earlier [designed] value; it does not look at allies or at land in general.",
       "markerBandBaseTier1": "confirmed: decompiled-unit-map-orders-and-record-fields.md part 3 — FUN_0044A878 encodes marker = owner + band, band 300 for the smallest ship-count tier, checked against 90 ships owner 1 -> 333 and 70 ships owner 3 -> 335. T04 fixtures corpus id: 'fleet.markerFormula'.",
       "markerBandStep": "confirmed: decompiled-unit-map-orders-and-record-fields.md part 3 — each band base is a multiple of 16 above 300. T04 fixtures corpus id: 'fleet.markerFormula'."
     }

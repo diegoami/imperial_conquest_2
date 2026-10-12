@@ -193,6 +193,53 @@ public sealed class SaveMigrationTests
     }
 
     /// <summary>
+    /// T81 (#339): the version-5-to-6 step gives a state the rough-sea overlay it never had, empty. A
+    /// version-5 envelope (no <c>roughSeaCells</c>) loads through a real migration with an empty overlay and
+    /// every other field untouched.
+    /// </summary>
+    [Fact]
+    public void MigratingAVersion5EnvelopeGivesTheStateAnEmptyRoughSeaOverlay()
+    {
+        var toy = PersistenceTestbed.Toy;
+        var state = PersistenceTestbed.PlayTurns(2) with { RoughSeaCells = ValueList<RoughSeaCell>.Empty };
+        var save = new SaveGame(
+            SchemaVersion: state.SchemaVersion, Id: "v5-shape-test", Label: "v5 shape test",
+            ScenarioId: state.ScenarioId, WorldId: state.WorldId, RulesetId: state.RulesetId, State: state);
+
+        var v5Envelope = (JsonObject)JsonNode.Parse(SaveManager.Serialize(save))!;
+        v5Envelope[SaveFormat.VersionField] = 5;
+        var v5State = (JsonObject)((JsonObject)v5Envelope[SaveFormat.PayloadField]!)["state"]!;
+        Assert.True(v5State.Remove("roughSeaCells")); // the shape this build wrote before the overlay existed
+
+        var loaded = SaveManager.Load("v5-shape-test.json", v5Envelope.ToJsonString(), toy.World, toy.Ruleset);
+
+        Assert.Equal(state, loaded.State);
+        Assert.Empty(loaded.State.RoughSeaCells!);
+    }
+
+    /// <summary>T81: a native save round-trips a non-empty overlay, cell for cell and in order.</summary>
+    [Fact]
+    public void ANativeSaveRoundTripsTheRoughSeaOverlay()
+    {
+        var toy = PersistenceTestbed.Toy;
+        var state = PersistenceTestbed.PlayTurns(2) with
+        {
+            RoughSeaCells = ValueList.Of(new RoughSeaCell(0, 1), new RoughSeaCell(1, 0), new RoughSeaCell(2, 2)),
+        };
+        var save = new SaveGame(
+            SchemaVersion: state.SchemaVersion, Id: "overlay-round-trip", Label: "overlay round trip",
+            ScenarioId: state.ScenarioId, WorldId: state.WorldId, RulesetId: state.RulesetId, State: state);
+
+        var json = SaveManager.Serialize(save);
+        Assert.Contains("\"roughSeaCells\"", json, StringComparison.Ordinal);
+
+        var loaded = SaveManager.Load("overlay-round-trip.json", json, toy.World, toy.Ruleset);
+
+        Assert.Equal(state.RoughSeaCells, loaded.State.RoughSeaCells);
+        Assert.Equal(state, loaded.State);
+    }
+
+    /// <summary>
     /// T86 Done-when 3's own version step: migrating a version-2 envelope to version 3 makes both new
     /// fields explicit. <c>conqueredBy</c> is always JSON <c>null</c> (a version-2 save never had a
     /// conquest to record). <c>neighbours</c> is populated for real, from

@@ -57,6 +57,7 @@ A world file is stored under `data/worlds/` as a JSON file (e.g., `data/worlds/t
 | `startingNews` | object or null | No | News log entries at game start (see T75) — an object (`mostRecentSlot` + `slots`), not a plain array. See "Starting news" below. If omitted, the log is empty. |
 | `startingNeighbours` | array or null | No | Adjacency list of neighbours for each nation (see T85). See "Starting neighbours" below. If omitted, neighbours are computed from geography. |
 | `mercenaryTemplates` | array or null | No | The fixed mercenary template table the quarterly restock and the New Game fill draw from (see T56). See "Mercenary templates" below. If omitted, the restock and the fill have nothing to draw and change nothing. |
+| `weatherCentres` | array or null | No | The 20 fixed centres of the weekly rough-sea overlay (see T81). See "Weather centres" below. If omitted, the world has no weather: no sea is ever rough. |
 | `_provenance` | object | No | Provenance map for fields that need explanation. |
 
 ### Terrain grid
@@ -262,6 +263,15 @@ twice, so nothing may key templates by city and label. Template 200 is never dra
 | `troopsBase` | integer | Yes | The troops *base*: an offer is 1.5×–3× this value, capped at the type's standard battalion size. |
 | `qualityBase` | integer | Yes | The quality base: an offer's quality is this value or one above it, clamped to 5–9. |
 
+### Weather centres
+
+`weatherCentres` (T81), when present, is an array of the tiles the weekly rough-sea overlay rolls around, in the original's DAT order (the DAT's table at `0x1F876`, 20 records), which is the order of the weekly roll's draws. The shipped classical world carries all 20; the toy worlds carry none, and a world without centres has no weather. Each centre is at least `economy.weather.clearRadiusTiles` from every map edge in the original; the engine bounds-checks every painted cell regardless.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `x` | integer | Yes | The centre's tile column; it must lie on the map. |
+| `y` | integer | Yes | The centre's tile row; it must lie on the map. |
+
 ---
 
 ## Ruleset Files
@@ -378,7 +388,7 @@ objects documented in their own subsections below.
 | `rebellionLoyaltyThreshold` | integer | 0–100 loyalty | `CityLoyaltyDraws`: a non-capital city below this loyalty (after both draws) is flagged as a rebellion risk. |
 | `supplyConsumption` | object | — | Per-turn army/fleet supply consumption. See "Supply consumption" below. |
 | `supplyMorale` | object | — | The supply→strategic-morale rule. See "Supply morale" below. |
-| `weather` | object | — | The weather-event frequency curve and effects table. See "Weather events" below. |
+| `weather` | object | — | The weekly rough-sea overlay: odds, radii, and fleet costs. See "Weather events" below. |
 | `supplyDialogArmyCapacityBonus` | integer | tons | Added to `armySupplyTonsPerTroops`'s capacity for the supply *dialog's* transfer cap only (both the free own-city and paid foreign paths); every other supply writer uses the plain capacity. |
 | `autoResupplyPurseTopUpThreshold` | integer | talents | `AutomaticResupply`: below this purse balance (and a positive treasury), the unit's purse is topped up. |
 | `autoResupplyPurseTopUpAmount` | integer | talents | The flat top-up `AutomaticResupply` grants when the threshold above is met. |
@@ -454,14 +464,19 @@ Writes only an army's strategic morale, never per-unit tactical morale.
 
 #### Weather events (`economy.weather`)
 
-The weather-event frequency curve (`WeatherEventRules`): confirmed frequency, `[designed]` effects.
+The weekly rough-sea overlay (`WeatherEventRules`, T81): each week the engine clears the rough sea within `clearRadiusTiles` of every world weather centre, then rolls each centre and paints a square of rough sea around a hit. Confirmed from the decompiled `FUN_00451304` / `FUN_004511bc`.
 
 | Field | Type | Range / unit | Meaning |
 |-------|------|--------------|---------|
 | `earlyLateWeekThreshold` | integer | week number | Below this week a season is in its "early" part; at or above it, "late". |
 | `bySeason` | array of `WeatherSeasonOdds` | one per season | See table below. |
-| `locationCount` | integer | count | The frequency curve is a per-location roll, made independently this many times per tick, not once. |
-| `effects` | array of `WeatherEffectRule` | — | The data-driven effects table a fired event draws from. See table below. |
+| `clearRadiusTiles` | integer | tiles | Every rough cell within this Chebyshev distance of a centre becomes calm before the roll. |
+| `ringChanceNumerator` / `ringChanceDenominator` | integer | fraction | The chance that each cell of the ring (beyond the inner square, out to twice its radius) is painted. |
+| `cityExclusionRadiusTiles` | integer | tiles | A cell with a city within this Chebyshev distance is never painted. |
+| `calmSeaTileCode` | integer | terrain code | The only terrain code a patch can paint; also the value a fleet's covered cell is reset to each week. |
+| `roughSeaTileCode` | integer | map code | The covered-cell code of a fleet standing on rough sea. |
+| `roughSeaMoveCost` | integer | moves | What a fleet pays to enter a rough sea cell. |
+| `newGameSeasonIndex` / `newGameWeek` | integer | season, week | The calendar position whose odds the one roll at new game uses. |
 | `_provenance` | object | No | Provenance map. |
 
 `WeatherSeasonOdds` (one entry per season, no `_provenance` of its own):
@@ -469,16 +484,10 @@ The weather-event frequency curve (`WeatherEventRules`): confirmed frequency, `[
 | Field | Type | Meaning |
 |-------|------|---------|
 | `seasonIndex` | integer | Which season (0-based) this entry is for. |
-| `earlyNumerator` / `earlyDenominator` | integer | The event chance during the season's "early" part, as a fraction. |
-| `lateNumerator` / `lateDenominator` | integer | The event chance during the season's "late" part. |
-
-`WeatherEffectRule` (one entry per possible weather effect):
-
-| Field | Type | Meaning |
-|-------|------|---------|
-| `id` | string | Stable key, e.g. `"storm-damages-fleet"`. |
-| `description` | string | Human-readable description of the effect. |
-| `_provenance` | object | Provenance map (each effect is individually `designed`, since the report identifies the frequency curve but not the effects). |
+| `earlyNumerator` / `earlyDenominator` | integer | The chance a centre hits during the season's "early" part, as a fraction. |
+| `earlyRadiusTiles` | integer | The radius of the always-painted inner square (the ring reaches twice as far) in the "early" part. |
+| `lateNumerator` / `lateDenominator` | integer | The hit chance during the season's "late" part. |
+| `lateRadiusTiles` | integer | The inner-square radius in the "late" part. |
 
 ### Recruitment rules
 

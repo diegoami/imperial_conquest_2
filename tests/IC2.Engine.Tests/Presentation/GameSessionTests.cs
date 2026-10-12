@@ -76,14 +76,15 @@ public sealed class GameSessionTests
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <strong>Two random consumers reach this script</strong> (<c>docs/build-process.md</c> §2.3: the
+    /// <strong>One random consumer reaches this script</strong> (<c>docs/build-process.md</c> §2.3: the
     /// list may grow when a task legitimately adds a draw, and must shrink back when a task legitimately
-    /// removes what let an earlier one reach it — see the T82 note below):
+    /// removes what let an earlier one reach it — see the T82 and T81 notes below). T81 (#358) removed the
+    /// second: <see cref="Economy.WeatherEventSystem"/> used to roll the <c>[designed]</c> placeholder
+    /// events of a <c>locationCount</c> every tick, surfaced as a "  Weather: ..." line; it is now the
+    /// original's rough-sea overlay, rolled around the world's weather centres, and the toy world has none,
+    /// so no weather line is ever printed here and nothing blanks one.
     /// </para>
     /// <list type="number">
-    /// <item><see cref="Economy.WeatherEventSystem"/> — surfaced as a "  Weather: ..." line, dropped
-    /// whole, since every character of one is random-driven and a fired event also shifts every later
-    /// line's position.</item>
     /// <item><see cref="Economy.CityLoyaltyDraws"/> (T35) — its quarterly rise/fall rolls move the
     /// <c>loyalty NN</c> field of a "Cities:" line. Its rebellion-risk event never fires in this script,
     /// so the news log is unaffected either way.</item>
@@ -112,7 +113,7 @@ public sealed class GameSessionTests
     /// </para>
     /// </remarks>
     [Fact]
-    public void A_different_seed_changes_only_the_weather_and_loyalty_lines()
+    public void A_different_seed_changes_only_the_loyalty_lines()
     {
         var scriptLines = File.ReadAllLines(DemoScriptPath);
 
@@ -149,12 +150,14 @@ public sealed class GameSessionTests
         // stream-shifting change, related or not, which is exactly what it did to T60. Forty seeds drop
         // that to (1 - 0.156)^40 = 0.1%. Forty is also sufficient for the weather lines, measured over
         // seeds 1..40 to take several distinct values and first differ from seed 1 at seed 2. Portus's
-        // loyalty first differs at seed 13 -- which is precisely why 12 was not enough.
+        // loyalty first differs at seed 13 -- which is precisely why 12 was not enough. (T81: the weather
+        // lines that sentence also sized are gone with the placeholder events; the toy world has no
+        // weather centres, so it prints none.)
         //
         // T82 (#359, bug #357): the army-troop-count, unit-supply and Southern-League-treasury checks
         // this comment used to size are gone -- WithoutRandomDrivenText's own remarks say why (the
         // combat that used to move them is unreachable from this script now) -- so 40 only has to answer
-        // for weather and loyalty here.
+        // for loyalty here.
         //
         // Cost: about 1.3 ms per seed in process, so this test runs in ~51 ms against ~16 ms at twelve
         // seeds -- roughly 35 ms added to the suite. (Measured per *process* it looks like ~0.8 s a
@@ -173,7 +176,6 @@ public sealed class GameSessionTests
             played.Add(AfterTheFirstTurn(transcript));
         }
 
-        AssertVaries(played, WeatherLinePattern, "a Weather: line");
         AssertVaries(played, LoyaltyFieldPattern, "a city's loyalty");
     }
 
@@ -232,10 +234,6 @@ public sealed class GameSessionTests
         }
     }
 
-    /// <summary>A whole weather line, for the varies-with-the-seed control.</summary>
-    private static readonly Regex WeatherLinePattern =
-        new(@"Weather: \S+ \(week \d+\)\.", RegexOptions.Compiled);
-
     /// <summary>Matches exactly the "loyalty NN" field <see cref="GameSessionRendering.RenderStatus"/> prints
     /// in a "Cities:" line -- the one field <see cref="Economy.CityLoyaltyDraws"/> can change.</summary>
     private static readonly Regex LoyaltyFieldPattern = new(@"loyalty \d+", RegexOptions.Compiled);
@@ -265,10 +263,8 @@ public sealed class GameSessionTests
     }
 
     /// <summary>
-    /// Leaves everything before the first played turn untouched, then, in the rest, drops the weather
-    /// lines entirely (every character of one is random-driven, and a fired event also shifts every later
-    /// line) and blanks exactly the one field <see cref="Economy.CityLoyaltyDraws"/> reaches — and
-    /// nothing else. Every other character of every other line still has to match byte for byte.
+    /// Leaves everything before the first played turn untouched, then, in the rest, blanks exactly the one
+    /// field <see cref="Economy.CityLoyaltyDraws"/> reaches — and nothing else. Every other character of every other line still has to match byte for byte.
     /// </summary>
     /// <remarks>
     /// <strong>T82 (#359, bug #357): back to two random consumers, not three.</strong> T22 widened this
@@ -298,7 +294,6 @@ public sealed class GameSessionTests
         return head + string.Join(
             '\n',
             tail.Split('\n')
-                .Where(line => !line.TrimStart().StartsWith("Weather:", StringComparison.Ordinal))
                 .Select(line => LoyaltyFieldPattern.Replace(line, "loyalty ##")));
     }
 

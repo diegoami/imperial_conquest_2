@@ -37,18 +37,19 @@ public static class SaveFormat
     /// <c>mercenaryPool</c> slot the <c>x</c>/<c>y</c> city-tile position the original always carried
     /// <c>[confirmed: decompiled-mercenary-offer-list-and-position.md §4]</c>; version 5 (T67) drops
     /// <c>cities[].underSiege</c>, a flag nothing wrote ("under siege" is now the hostile-army-adjacent
-    /// predicate). A pre-T76 save cannot
+    /// predicate; version 6 (T81) adds <c>state.roughSeaCells</c>, the weekly rough-sea overlay
+    /// <c>[confirmed: decompiled-map-code1-overlay.md §5]</c>, empty on a migrated save. A pre-T76 save cannot
     /// supply it — its version-3 schema holds neither the tile nor a template the tile could be derived
     /// from, so a migrated entry is defaulted to the DAT's own never-filled <c>(0, 0)</c>
     /// <c>[designed]</c>. In every shipped world — <c>classical-mediterranean</c>, <c>example-tiny-duel</c>
     /// and <c>toy-3city</c>, none of which has a city at <c>(0, 0)</c> — that makes the offer unreachable
     /// until T56's restock rewrites the pair; a scenario with a city at <c>(0, 0)</c> would instead make it
     /// live on that city. <see cref="SaveMigrations"/> carries the real version-1-to-2, version-2-to-3 and
-    /// version-3-to-4 and version-4-to-5 steps; the version-1 step is exercised by
+    /// version-3-to-4, version-4-to-5 and version-5-to-6 steps; the version-1 step is exercised by
     /// <c>tests/fixtures/saves/toy-3city-turn-10.v1.json</c> — a save written by this task's own
     /// version-1 code, committed before this constant became 2.
     /// </summary>
-    public const int CurrentVersion = 5;
+    public const int CurrentVersion = 6;
 
     /// <summary>
     /// The lowest save format version this build has ever shipped and can migrate from

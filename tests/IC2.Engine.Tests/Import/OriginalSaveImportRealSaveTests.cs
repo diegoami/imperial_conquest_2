@@ -85,20 +85,16 @@ public class OriginalSaveImportRealSaveTests
     [MemberData(nameof(RepresentativeSample))]
     public void Import_report_claims_exactly_the_declared_unmapped_fields(string fileName)
     {
-        // Done-when 2, as narrowed by the user's remaining waiver (docs/tasks/T21.md "The map grid's
-        // overlay", the T21 escalation, round 3): the report's UnmappedFields is derived from
-        // OriginalSaveFieldMapping (review B1). T76 (#330, bug #325) added MercenaryPoolSlot's own
-        // city-tile position, so the only entry it can now ever carry is WorldPrefix.Cells (the saved map
-        // grid's dynamic, seasonal code-1 overlay, which GameState cannot hold -- bug #339 is its
-        // correction). An extra entry appearing here means a field IC2.Data now parses stopped being
-        // mapped, and this test must fail; so must losing that last one.
+        // Done-when 2: the report's UnmappedFields is derived from OriginalSaveFieldMapping (review B1).
+        // T76 (#330) mapped MercenaryRecord.X/Y and T81 (#339) maps WorldPrefix.Cells onto
+        // GameState.RoughSeaCells, so the waiver is closed and the report claims NO unmapped field. An
+        // entry appearing here means a field IC2.Data now parses stopped being mapped, and this test
+        // must fail.
         Skip.IfNot(LocalOriginalAssets.IsConfigured, LocalOriginalAssets.SkipReason);
 
         var result = ImportFixture(fileName);
 
-        Assert.Equal(
-            new[] { "WorldPrefix.Cells" },
-            result.Report.UnmappedFields.OrderBy(f => f, StringComparer.Ordinal));
+        Assert.Empty(result.Report.UnmappedFields);
     }
 
     [SkippableTheory]
