@@ -522,6 +522,8 @@ upstream, in the research repo, not repeated here as new derivations.
 **So: the original has five city map-code variants, not three.** The placeholder pack ships four keys
 (`city.tier1/2/3.icon` + `city.capital.icon`). **Five confirmed variants against four shipped keys is
 itself the gap this section now records**, rather than closing early the way the first draft did.
+**Closed by [T163](tasks/T163.md):** both packs ship five keys, `city.tier1/2/3/4.icon` + `city.capital.icon`,
+and every ruleset ships the thresholds `[25, 50, 100]`.
 **Resolved (2026-10-07): the variant's meaning is settled** — decompilation plan item 16, closed by
 `2026-10-07-city-marker-variants.md`. **Variants 0–3 are population size tiers**: unsigned thresholds on
 the city's current population in thousands — `< 25`, `25–49`, `50–99`, `≥ 100` — written by the
@@ -602,8 +604,8 @@ example of the kind of variety the five-variant code plausibly selects between, 
 synthetic `DrawCity` glyph shape (`:179-182`, three line segments forming a roofline-and-walls
 silhouette — the generic case, closest to the small house) as the baseline `city.tier1/2/3.icon` keys
 already draw from. The original's order is `tier1` small house, `tier2` house, `tier3` small castle, a fourth tier large castle,
-and `city.capital.icon` the temple (above). The clone's pictures stay its own drawings. The packs ship three tier
-keys, so the large castle has no key yet (bug [#818](https://github.com/diegoami/imperial_conquest_2/issues/818)).
+and `city.capital.icon` the temple (above). The clone's pictures stay its own drawings. Since [T163](tasks/T163.md) the packs ship
+four tier keys, the large castle's being `city.tier4.icon` (bug [#818](https://github.com/diegoami/imperial_conquest_2/issues/818)).
 
 ---
 
@@ -639,18 +641,16 @@ by T48, then T24. Exists today.
 `fleet.tier1.icon`, `fleet.tier2.icon`, `fleet.tier3.icon` — thresholds and depiction in §3.2. First
 needed by T48, then T24. Exists today.
 
-### 4.4 City markers — see §3.3; four shipped keys against five confirmed variants
+### 4.4 City markers — see §3.3; five shipped keys for five confirmed variants
 
-`city.tier1.icon`, `city.tier2.icon`, `city.tier3.icon`, `city.capital.icon` — depiction guidance in
-§3.3. First needed by T48, then T24. Exists today, **but §3.3's own gap applies here directly**: the
-original's confirmed map-code encoding has **five** variants (`rivers-and-map-markers.md`, 334/334
-cities) — **four population tiers at 25/50/100 thousand plus the capital**, meaning settled 2026-10-07
-by `2026-10-07-city-marker-variants.md` — not the four this group's keys provide for. The missing key
-is now specific: a **fourth population-tier icon**, not an unknown-meaning variant. Adding it is T11's
-list to change, and the engine's marker seam and both packs cap at three tier keys today (bug
-[#818](https://github.com/diegoami/imperial_conquest_2/issues/818)), so the gap DoD 1 asked this
-document to record stands until that lands: **four shipped keys are not enough for the five confirmed
-variants.**
+`city.tier1.icon`, `city.tier2.icon`, `city.tier3.icon`, `city.tier4.icon`, `city.capital.icon` — depiction
+guidance in §3.3. First needed by T48, then T24; the fourth tier key since [T163](tasks/T163.md). The original's
+confirmed map-code encoding has **five** variants (`rivers-and-map-markers.md`, 334/334 cities) — **four
+population tiers at 25/50/100 thousand plus the capital**, meaning settled 2026-10-07 by
+`2026-10-07-city-marker-variants.md` — and the five keys provide for all of them (bug
+[#818](https://github.com/diegoami/imperial_conquest_2/issues/818)). The clone recomputes a town's tier from its
+current population whenever it is drawn, where the original sets it only when a town changes owner: a
+recorded deliberate difference (`[designed]`, the user's decision of 2026-10-11 on #818).
 
 ### 4.5 Terrain tiles — complete; the game map paints the surfaces, the river gap closed by strokes
 
@@ -948,8 +948,8 @@ this task's Owns list to change.
 
 ## 6. Existing keys — machine-checked ground truth
 
-The exact 67 keys `AssetKeys.AllKeys` yields today (the 25 original keys, T148's six seamless
-terrain surface keys and T101's 36 toolbar commands), one per line, in the same eight-group order as
+The exact 75 keys `AssetKeys.AllKeys` yields today (the original sprite, tile and sound keys with T163's
+`city.tier4.icon`, T148's six seamless terrain surface keys and T101's 36 toolbar commands), one per line, in the same eight-group order as
 `AssetKeys.cs` itself. This block is read verbatim by `AssetSpecificationCoverageTests.cs`; do not
 reformat it without updating that test's expectations.
 
@@ -968,6 +968,7 @@ fleet.tier3.icon
 city.tier1.icon
 city.tier2.icon
 city.tier3.icon
+city.tier4.icon
 city.capital.icon
 terrain.plain.tile
 terrain.desert.tile
