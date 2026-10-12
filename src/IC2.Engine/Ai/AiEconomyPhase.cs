@@ -118,7 +118,7 @@ public static class AiEconomyPhase
     /// never earlier, per T57's Done-when 2.
     /// </para>
     /// <para>
-    /// <strong>A city under siege is skipped.</strong> A pending slot adds to its training city's
+    /// <strong>A city under siege (a hostile army adjacent, T67) is skipped.</strong> A pending slot adds to its training city's
     /// defender strength for as long as it stays pending
     /// (<see cref="Cities.Capture.CompleteDefenderStrength.GarrisonTerm"/>); mobilizing it removes that
     /// addend and replaces it with a field army standing beside the city instead — a trade, not a pure
@@ -161,7 +161,9 @@ public static class AiEconomyPhase
                 continue;
             }
 
-            if (city.UnderSiege)
+            // T67 (#304): "under siege" is the hostile-army-adjacent predicate (FUN_004497cc), not a stored flag.
+            // This restraint is the AI's own [designed] one (the original's FUN_004504f4 has no such test).
+            if (view.IsThreatened(city))
             {
                 continue;
             }
@@ -377,7 +379,8 @@ public static class AiEconomyPhase
             return;
         }
 
-        if (rule.RefusedWhileUnderSiege && city.UnderSiege)
+        // T67 (#304): the handler's refusal evaluates FUN_004497cc, so the AI asks the same predicate.
+        if (rule.RefusedWhileUnderSiege && threatened)
         {
             return;
         }

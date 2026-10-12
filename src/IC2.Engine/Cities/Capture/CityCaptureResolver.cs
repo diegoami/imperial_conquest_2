@@ -3,6 +3,8 @@ using IC2.Engine.Core;
 using IC2.Engine.Diplomacy;
 using IC2.Engine.Economy;
 using IC2.Engine.Model;
+using IC2.Engine.Movement;
+using IC2.Engine.Naval;
 using IC2.Engine.Strength;
 
 namespace IC2.Engine.Cities.Capture;
@@ -383,7 +385,7 @@ public static class CityCaptureResolver
                 continue;
             }
 
-            if (ChebyshevDistance(candidate.X, candidate.Y, attackerArmy.X, attackerArmy.Y) >= rules.CascadeDistanceMax)
+            if (LandingTile.ChebyshevDistance(new GridPoint(candidate.X, candidate.Y), new GridPoint(attackerArmy.X, attackerArmy.Y)) >= rules.CascadeDistanceMax)
             {
                 continue;
             }
@@ -563,11 +565,4 @@ public static class CityCaptureResolver
             + "term decodes through.",
             nameof(orderId));
     }
-
-    /// <summary>
-    /// Chebyshev (chessboard) distance — <see cref="Battle.ScatterPlacement"/>'s own map-distance
-    /// convention, reused here since the report gives the cascade's distance threshold but not the metric.
-    /// </summary>
-    private static int ChebyshevDistance(int x1, int y1, int x2, int y2) =>
-        Math.Max(Math.Abs(x1 - x2), Math.Abs(y1 - y2));
 }

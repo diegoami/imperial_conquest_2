@@ -1,6 +1,7 @@
 using IC2.Engine.Ai;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
+using IC2.Engine.Movement.Commands;
 using IC2.Engine.Tests.Battle;
 using IC2.Engine.Tests.Battle.Commands;
 using Xunit;
@@ -259,8 +260,11 @@ public sealed class AiCommandLegalityTests
                 Relations = baseState.Relations.WithRelation(
                     Acting, Other, Ruleset.Diplomacy.StateCodes.Trade),
             },
-            "besieged-city" => WithTreasury(
-                WithActingCity(baseState, c => c with { UnderSiege = true, FortificationCode = 20 }), 100_000),
+            // T67 (#304): "under siege" is the hostile-army-adjacent predicate, so this state is built the way
+            // play builds it -- at war, and the other nation's army moved beside the acting city by a real
+            // MoveArmyCommand -- not by setting a flag.
+            "besieged-city" => BesiegedByPlay(
+                WithTreasury(WithActingCity(baseState, c => c with { FortificationCode = 20 }), 100_000)),
             "army-next-to-an-enemy-city" => WithActingArmy(baseState, a => a with { X = 7, Y = 4 }),
             "army-between-two-enemy-cities" => TwoEnemyCitiesState(),
             // T82 (#359, bug #357): a siege no longer declares war on its own -- it now requires the two
@@ -361,6 +365,27 @@ public sealed class AiCommandLegalityTests
             Armies = ValueList.From(state.Armies.Select(a =>
                 string.Equals(a.Id, "attacker-army", StringComparison.Ordinal) ? change(a) : a)),
         };
+
+    /// <summary>
+    /// Puts <see cref="Acting"/> and <see cref="Other"/> at war and walks the other nation's army to a cell
+    /// beside the acting city with a real <see cref="MoveArmyCommand"/> (that nation's seat made active for
+    /// the command, then put back).
+    /// </summary>
+    private static GameState BesiegedByPlay(GameState state)
+    {
+        var atWar = BattleCommandTestbed.AtWar(state, Acting, Other);
+        var city = atWar.CityById("attacker-city")!;
+        var army = atWar.ArmyById("defender-army")!;
+        var originalSeat = atWar.ActiveSeatIndex;
+        var otherSeat = AiScriptedStates.WithActiveSeat(atWar, Other).ActiveSeatIndex;
+        var moved = BattleCommandTestbed.Dispatcher().Dispatch(
+            atWar with { ActiveSeatIndex = otherSeat },
+            new MoveArmyCommand(Other, army.Id, city.X + 1, city.Y + 1));
+        Assert.True(moved.IsAccepted, moved.Rejection?.ToString());
+        var arrived = moved.State.ArmyById(army.Id)!;
+        Assert.Equal((city.X + 1, city.Y + 1), (arrived.X, arrived.Y));
+        return moved.State with { ActiveSeatIndex = originalSeat };
+    }
 
     private static GameState WithActingCity(GameState state, Func<CityState, CityState> change) =>
         state with

@@ -552,7 +552,8 @@
     { "id": "diplomacy.aiOwnRule.allianceRollDenominator", "value": 20, "source": "decompiled-ai-offers-to-human-seats.md", "tag": "confirmed", "note": "T82 (#359, bug #357): FUN_0044FB7C §1a -- 'if not busy and Random(20) == 0', gating the alliance partner search." },
     { "id": "diplomacy.aiOwnRule.allianceMaxPartnerWars", "value": 2, "source": "decompiled-ai-offers-to-human-seats.md", "tag": "confirmed", "note": "T82 (#359, bug #357): FUN_0044FB7C §1a -- the alliance partner search's own 'wars(m) < 2' term." },
     { "id": "diplomacy.aiOwnRule.powerWealthDivisor", "value": 20000, "source": "decompiled-ai-offers-to-human-seats.md", "tag": "confirmed", "note": "T82 (#359, bug #357): FUN_0044FB7C §1a -- P(n) = (wealth +0x430 / 20000) × (unity +0x440 / 100)." },
-    { "id": "diplomacy.aiOwnRule.powerUnityDivisor", "value": 100, "source": "decompiled-ai-offers-to-human-seats.md", "tag": "confirmed", "note": "T82 (#359, bug #357): FUN_0044FB7C §1a -- see diplomacy.aiOwnRule.powerWealthDivisor; the unity term's own divisor." }
+    { "id": "diplomacy.aiOwnRule.powerUnityDivisor", "value": 100, "source": "decompiled-ai-offers-to-human-seats.md", "tag": "confirmed", "note": "T82 (#359, bug #357): FUN_0044FB7C §1a -- see diplomacy.aiOwnRule.powerWealthDivisor; the unity term's own divisor." },
+    { "id": "cityOrders.fortify.weeklyPointCap", "value": 10, "source": "city-population-growth.md", "tag": "confirmed", "note": "T67 (#304, bug #344): ~:98, the weekly build step adds min(10, word / 100) points per round. Seen in one headless turn under Wine (Altinum 2550 -> 1560, Capua 1857 -> 867) by 2026-09-29-fortification-orders-cost-rate-and-the-100-bug.md sections 2 and 3, which supersedes the caveat at ~:213 that the step is read from code only." }
 
   ]
 }
