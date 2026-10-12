@@ -93,8 +93,10 @@ public partial class ConfirmPrompt : Control
         // node through the tree's unhandled path, not this control's own focus path.
         if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape })
         {
-            Answer(yes: false);
+            // Mark the key handled first: Answer raises Refused, whose handler removes this prompt from
+            // the tree, after which GetViewport() is null.
             GetViewport().SetInputAsHandled();
+            Answer(yes: false);
         }
     }
 
