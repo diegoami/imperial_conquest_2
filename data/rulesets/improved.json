@@ -1327,6 +1327,7 @@
     "aiEconomy": "designed",
     "humanMoveResupply": "againstNonHostileCity",
     "endTurnWarningScope": "everyUnit",
+    "newGameTurnOrder": "fixed",
     "_provenance": {
       "diplomacyModel": "docs/game-design.md §'Two shipped presets' (answers design-audit.md Q3) — use the confirmed state machine plus an AI opinion-score layer on top of it, keeping every confirmed rule intact and only adding the genuinely-missing piece (the AI's willingness). classical-faithful uses the confirmed model exactly as coded.",
       "economyPurses": "docs/game-design.md §'Two shipped presets' (answers design-audit.md Q4) — centralise supply and mercenary purchases to the national treasury, trading logistical depth for less micromanagement. classical-faithful keeps the per-army/per-fleet purses (cap 1,000) exactly as coded.",
@@ -1337,7 +1338,8 @@
       "unaffordableRecruitAndFortify": "bug #549, T115, user's decision of 2026-10-01 (PR #550 comment): the original checks no balance for a recruitment (TArmyRecruits.RecruitUnit 0x454E78, 2026-09-29-which-cities-may-recruit-and-troop-amounts.md §2) or a fortification (the Fortify dialog's OK 0x4407E4, 2026-09-29-fortification-orders-cost-rate-and-the-100-bug.md §1) [derived: decompiled], so classical-faithful allows the debt (allowDebt) and improved refuses an order the treasury cannot cover (refuse). Only these two orders read this flag.",
       "aiEconomy": "T157 (#926): improved keeps the designed AI economy (affordability-scored recruitment and fortification); classical-faithful plays the original's.",
       "humanMoveResupply": "bug #756, the user's decision of 2026-10-05 (comment on #756), research report 2026-10-05-army-purse-writes-and-the-1000-cap.md 'Reachability of row 10' (research 9ae8924, provisional): in the original only the AI resupplies an army (FUN_0044F6D8 is called by the AI's per-army pass FUN_0044E41C and by the walk's tail FUN_0044D734, which a human click on a city marker never reaches) [derived: code]. classical-faithful runs no automatic resupply on a human army's move (never); improved keeps it against the first non-hostile adjacent city (againstNonHostileCity) [designed: a convenience, T23 Done-when 2]. Only GameSession's move reads this flag; the AI's resupply pass, buying supply and the Supply army dialog do not.",
-      "endTurnWarningScope": "designed: docs/game-design.md §'Two shipped presets' and the user's decision of 2026-10-03 — improved checks every own unit, whether or not it has acted."
+      "endTurnWarningScope": "designed: docs/game-design.md §'Two shipped presets' and the user's decision of 2026-10-03 — improved checks every own unit, whether or not it has acted.",
+      "newGameTurnOrder": "designed: the user's decision of 2026-10-02 (PR #601) -- improved keeps the world's fixed turn order; classical-faithful shuffles it at New Game (T119, #602, research 871ca91)."
     }
   },
   "_provenance": {

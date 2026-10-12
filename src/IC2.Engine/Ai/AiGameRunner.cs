@@ -149,6 +149,10 @@ public static class AiGameRunner
         // Game constructor makes. A world without a leader-name pool (the toy world) draws nothing.
         state = NewGameLeaders.Apply(state, world);
 
+        // T119 (#602): the New Game turn-order shuffle, from the state's own seed, as GameSession's New
+        // Game constructor does; a ruleset that says `fixed` keeps the world's order.
+        state = IC2.Engine.Calendar.NewGameTurnOrder.Apply(state, ruleset);
+
         var transcript = new List<string>
         {
             Inv(

@@ -1191,6 +1191,7 @@
     "aiEconomy": "designed",
     "humanMoveResupply": "againstNonHostileCity",
     "endTurnWarningScope": "notActedOnly",
+    "newGameTurnOrder": "fixed",
     "_provenance": {
       "diplomacyModel": "docs/game-design.md §'Two shipped presets' — the confirmed state machine only, with no AI opinion-score layer (audit Q3).",
       "economyPurses": "docs/game-design.md §'Two shipped presets' — per-army and per-fleet purses, as the original has (audit Q4).",
@@ -1201,7 +1202,8 @@
       "unaffordableRecruitAndFortify": "bug #549, T115, user's decision of 2026-10-01 (PR #550 comment): the original checks no balance for a recruitment (TArmyRecruits.RecruitUnit 0x454E78, 2026-09-29-which-cities-may-recruit-and-troop-amounts.md §2) or a fortification (the Fortify dialog's OK 0x4407E4, 2026-09-29-fortification-orders-cost-rate-and-the-100-bug.md §1) [derived: decompiled], so classical-faithful allows the debt (allowDebt) and improved refuses an order the treasury cannot cover (refuse). Only these two orders read this flag. This ruleset is refuse as well [designed: user's decision of 2026-10-03], so the CLI demo's fortification and recruitment orders keep today's refusal.",
       "aiEconomy": "T157 (#926): the toy ruleset keeps the designed AI economy; classical-faithful plays the original's (threat budget, week-11 tax, no fortifying) and improved keeps the designed one.",
       "humanMoveResupply": "bug #756, the user's decision of 2026-10-05 (comment on #756), research report 2026-10-05-army-purse-writes-and-the-1000-cap.md 'Reachability of row 10' (research 9ae8924, provisional): in the original only the AI resupplies an army (FUN_0044F6D8 is called by the AI's per-army pass FUN_0044E41C and by the walk's tail FUN_0044D734, which a human click on a city marker never reaches) [derived: code]. classical-faithful runs no automatic resupply on a human army's move (never); improved keeps it against the first non-hostile adjacent city (againstNonHostileCity) [designed: a convenience, T23 Done-when 2]. Only GameSession's move reads this flag; the AI's resupply pass, buying supply and the Supply army dialog do not.",
-      "endTurnWarningScope": "designed: docs/game-design.md §'Two shipped presets' and the user's decision of 2026-10-03 — classical-faithful preserves the original's not-acted-only filter."
+      "endTurnWarningScope": "designed: docs/game-design.md §'Two shipped presets' and the user's decision of 2026-10-03 — classical-faithful preserves the original's not-acted-only filter.",
+      "newGameTurnOrder": "T119 (#602): the toy ruleset keeps the world's turn order; classical-faithful shuffles it at New Game with the original's algorithm and improved keeps it fixed."
     }
   },
   "_provenance": {

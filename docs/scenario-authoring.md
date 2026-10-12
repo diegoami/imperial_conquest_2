@@ -1046,6 +1046,7 @@ are just two settings of this record.
 | `aiEconomy` | enum | `"designed"`, `"original"` | Which economy the AI seats play: `original` (`classical-faithful`) is the original's threat budget, week-11 tax and no fortifying; `designed` (`improved`, the toy ruleset) keeps the affordability-scored economy. |
 | `humanMoveResupply` | enum | `"never"`, `"againstNonHostileCity"` | Whether a human army's move also resupplies it: `never` (`classical-faithful`) runs no automatic resupply on a move, as the original, where only the AI resupplies; `againstNonHostileCity` (`improved`) resupplies an army whose move ends next to a city whose owner is not at war with it, against the first such city. Only the session's `move` reads it; the AI's resupply, buying supply and the Supply army dialog do not. |
 | `endTurnWarningScope` | enum | `"notActedOnly"`, `"everyUnit"` | Whether End turn checks only units whose recomputed weekly allowance is untouched (`classical-faithful`) or every own unit (`improved`). |
+| `newGameTurnOrder` | enum | `"fixed"`, `"shuffle"` | Whether a New Game keeps the world's turn order (`fixed`, `improved` and the toy ruleset) or shuffles it with the original's algorithm (`shuffle`, `classical-faithful`): for each slot in order, swap it with a slot drawn from all of them. Fixed for the whole game once drawn; a resumed save never reshuffles. |
 | `_provenance` | object | No | Provenance map. |
 
 ---
