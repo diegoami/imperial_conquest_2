@@ -136,7 +136,12 @@ public partial class SupplyArmyCheck : Control
             StartingFleets = ValueList.From(fleets),
         };
 
-        return new GameSession(world, resolved.Ruleset, resolved.Scenario, seedOverride: 1, humanSeatNationId: BuyersNationId);
+        // T119: the shuffle is off -- the check's first reply must be the session's own, not a prelude.
+        var fixedOrder = resolved.Ruleset with
+        {
+            Flags = resolved.Ruleset.Flags with { NewGameTurnOrder = NewGameTurnOrderPolicy.Fixed },
+        };
+        return new GameSession(world, fixedOrder, resolved.Scenario, seedOverride: 1, humanSeatNationId: BuyersNationId);
     }
 
     private static StartingArmy RomanArmy(string id, int X, int Y, int supplyTons, int money) => new(
