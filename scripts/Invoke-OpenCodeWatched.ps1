@@ -547,6 +547,15 @@ function Get-OpenCodeExportArguments([int] $Major, [string] $SessionId) {
     return "export $SessionId"
 }
 
+function Resolve-OpenCodeWorkDir([string] $WorkDir, [switch] $DryRun) {
+    # A real run resolves the directory strictly (it throws when it is missing). A dry run may name a
+    # worktree that does not exist yet (bug #956), so it reports the full path it would use instead.
+    if ($DryRun -and -not (Test-Path -LiteralPath $WorkDir)) {
+        return [System.IO.Path]::GetFullPath($WorkDir, (Get-Location -PSProvider FileSystem).ProviderPath)
+    }
+    return (Resolve-Path -LiteralPath $WorkDir).Path
+}
+
 function Resolve-OpenCodeExe {
     # The real executable, never the npm shim: `opencode.cmd` cannot carry a multi-line prompt
     # through cmd.exe, and killing the shim's process would leave opencode.exe running.
@@ -996,7 +1005,7 @@ function Invoke-OpenCodeWatched {
         # It does start `opencode --version`, with the neutral probe directories described above.
         [switch] $WhatIf
     )
-    $WorkDir = (Resolve-Path -LiteralPath $WorkDir).Path
+    $WorkDir = Resolve-OpenCodeWorkDir -WorkDir $WorkDir -DryRun:$WhatIf
     $cli = Get-OpenCodeCli
     $titleToken = [guid]::NewGuid().ToString('N').Substring(0, 12)
     $fullTitle = "$Title-$titleToken"
