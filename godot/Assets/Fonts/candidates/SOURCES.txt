@@ -1,0 +1,6 @@
+Candidate fonts for T168 (issue #1072). All are SIL Open Font License 1.1 (OFL.txt beside each font),
+which allows bundling and redistribution in a release. Source: https://github.com/google/fonts (ofl/<family>/).
+Cinzel (ofl/cinzel, variable wght), Marcellus (ofl/marcellus), Cormorant SC (ofl/cormorantsc),
+Alegreya Sans (ofl/alegreyasans), IBM Plex Sans Condensed (ofl/ibmplexsanscondensed),
+Fira Sans Condensed (ofl/firasanscondensed), Source Sans 3 (ofl/sourcesans3, variable wght).
+Files renamed only where the upstream name contains brackets.
