@@ -13,9 +13,12 @@ namespace IC2.Slice.UI;
 /// <remarks>
 /// <para>
 /// <strong>Every figure is <see cref="BalanceSheet.For"/>.</strong> The dialog reads each line from
-/// the engine's own projection — never a restated formula — so a ruleset change moves the dialog and
-/// the engine's quarterly credit together (T104's own design, see
-/// <c>docs/tasks/T104.md</c>).
+/// the engine's own projection — never a restated formula — so under
+/// <c>BalanceSheetTotalsPolicy.Reconciling</c> a ruleset change moves the dialog and the engine's quarterly
+/// credit together (T104's own design, see <c>docs/tasks/T104.md</c>). Under <c>Original</c>
+/// (<c>classical-faithful</c>, T167) the sheet follows the original's display (g1 G2) instead, and two lines
+/// differ from what the tick charges and tests: the Fleet line counts fleets under construction, and the
+/// Debt limit is rounded for display (the deposition test keeps the unrounded figure).
 /// </para>
 /// <para>
 /// <strong>The captions are the original's, the terms are the engine's.</strong> The original's
@@ -44,11 +47,16 @@ namespace IC2.Slice.UI;
 /// (<see cref="IC2.Engine.Economy.Deposition.DebtLimit"/>).</description></item>
 /// </list>
 /// <para>
-/// <strong>Mercenaries' pay is shown but is not part of the expenditure total.</strong>
-/// <see cref="BalanceSheet.ExpenditureTotal"/> excludes it by design: mercenary pay is charged to
-/// the army's own purse, not the nation's treasury, so it does not move the treasury and would not
-/// reconcile with a quarter's treasury change. The dialog lists the line because the original lists
-/// it; the engine's balance sheet records it because the same shared function backs both.
+/// <strong>The Fleet line and the expenditure total depend on the ruleset's
+/// <c>BalanceSheetTotalsPolicy</c> (T167).</strong> Under <c>classical-faithful</c> (<c>Original</c>) the Fleet
+/// line counts every fleet the nation owns, fleets under construction included, at the per-ship rate, and the
+/// total includes the Mercenary units line, as the original's does (g1 G2); that total deliberately does not
+/// reconcile with a quarter's treasury change. Under <c>improved</c> and the toy ruleset (<c>Reconciling</c>)
+/// the Fleet line counts launched fleets only (what the tick charges) and
+/// <see cref="BalanceSheet.ExpenditureTotal"/> excludes the Mercenary units line, because mercenary pay is
+/// charged to the army's own purse, not the nation's treasury; that total reconciles with the quarter's
+/// treasury change. The dialog lists the Mercenary units line either way because the original lists it; the
+/// engine's balance sheet records it because the same shared function backs both.
 /// </para>
 /// </remarks>
 public partial class BalanceSheetDialog : Control

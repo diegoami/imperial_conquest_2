@@ -330,7 +330,8 @@ public sealed partial class GameSession
     /// <c>balance</c> — the read-only quarterly budget projection (<c>docs/tasks/T104.md</c>). Prints every
     /// line of <see cref="BalanceSheet.For(GameState, string, Ruleset)"/> for the active nation and mutates
     /// nothing, matching the original's <c>TBalanceSheet</c> (OK only). Every figure comes from the same
-    /// shared economy function the quarterly systems call, never re-derived here.
+    /// shared economy function the quarterly systems call, never re-derived here (under classical-faithful's
+    /// <c>Original</c> policy the Fleet line and Debt limit follow the original's display, T167).
     /// </summary>
     private IReadOnlyList<string> RenderBalance()
     {
@@ -356,7 +357,9 @@ public sealed partial class GameSession
             $"  Recruitment slot upkeep: {sheet.RecruitmentSlotUpkeep}",
             $"  Regulars' upkeep: {sheet.RegularsUpkeep}",
             $"  Mercenaries' pay: {sheet.MercenariesPay}",
-            $"  Expenditure total (excludes mercenaries' pay): {sheet.ExpenditureTotal}",
+            sheet.TotalIncludesMercenaries
+                ? $"  Expenditure total: {sheet.ExpenditureTotal}"
+                : $"  Expenditure total (excludes mercenaries' pay): {sheet.ExpenditureTotal}",
             $"  Treasury: {sheet.Treasury}",
             $"  Debt limit: {sheet.DebtLimit}",
         };

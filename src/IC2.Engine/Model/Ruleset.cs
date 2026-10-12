@@ -377,6 +377,16 @@ public sealed record TerrainRules(
 /// (<see cref="PopulationGrowthTaxDivisor"/>) — the original's AI may set a rate above 40, which is not
 /// this command's concern.
 /// </para>
+/// <para>
+/// <strong>T167's Debt-limit display rounding</strong> (bug #1038), read only under
+/// <see cref="BalanceSheetTotalsPolicy.Original"/>: the Balance sheet shows the capped debt limit (at most
+/// <c>−DebtTreasuryFloor</c>) rounded down to <see cref="BalanceSheetDebtLimitLowStep"/> when it is at most
+/// <see cref="BalanceSheetDebtLimitLowMax"/>, to <see cref="BalanceSheetDebtLimitMidStep"/> when it is at most
+/// <see cref="BalanceSheetDebtLimitMidMax"/>, and to <see cref="BalanceSheetDebtLimitHighStep"/> above
+/// <strong>[confirmed: Wine + code, research 89c37ff, 2026-10-11-g1-original-checks.md G2,
+/// <c>TBalanceSheet_PaintBalance</c> 55541-55556; nine played rows]</strong>. The deposition test keeps the
+/// unrounded figure.
+/// </para>
 /// </remarks>
 public sealed record EconomyRules(
     int TaxRateDivisor,
@@ -440,6 +450,11 @@ public sealed record EconomyRules(
     int RebirthTaxRatePercent,
     int RebirthMobilizedPercent,
     int RebirthDefectionRelationPenalty,
+    int BalanceSheetDebtLimitLowMax,
+    int BalanceSheetDebtLimitLowStep,
+    int BalanceSheetDebtLimitMidMax,
+    int BalanceSheetDebtLimitMidStep,
+    int BalanceSheetDebtLimitHighStep,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>
@@ -2310,6 +2325,20 @@ public sealed record AiRecruitTypeBucket(string UnitTypeId, int UpperBoundExclus
 /// and the stream name <c>new-game.turn-order</c> is <strong>[designed]</strong>. Read only by
 /// <see cref="IC2.Engine.Calendar.NewGameTurnOrder"/>.
 /// </param>
+/// <param name="BalanceSheetTotals">
+/// T167, bug #1038, the user's decision of 2026-10-12 (PR #1041, question 3): how the Balance sheet totals
+/// its Expenditure column and shows its Debt limit. <c>classical-faithful</c> is
+/// <see cref="BalanceSheetTotalsPolicy.Original"/>: the Total includes the Mercenary units line, the Fleet
+/// line counts every owned fleet (under construction or not) at the per-ship rate, and the Debt limit is
+/// rounded for display with the <c>economy.balanceSheetDebtLimit*</c> keys <strong>[confirmed: Wine + code,
+/// research 89c37ff, 2026-10-11-g1-original-checks.md G2, <c>TBalanceSheet_PaintBalance</c>]</strong>;
+/// <c>improved</c> and the toy ruleset are <see cref="BalanceSheetTotalsPolicy.Reconciling"/>, the Total that
+/// reconciles with the quarter's treasury change <strong>[designed: the user's decision of 2026-10-12]</strong>;
+/// I searched the research reports on the Balance sheet (2026-10-11-g1-original-checks.md G2 and the earlier
+/// balance-sheet notes), docs/game-design.md and docs/design-audit.md for a rule or preset policy about the
+/// reconciling Total and found none, so it rests on the user's decision alone.
+/// No charge changes under either value; read only by <see cref="IC2.Engine.Economy.BalanceSheet"/>.
+/// </param>
 public sealed record RulesetFlags(
     DiplomacyModel DiplomacyModel,
     EconomyPurseModel EconomyPurses,
@@ -2322,6 +2351,7 @@ public sealed record RulesetFlags(
     HumanMoveResupplyPolicy HumanMoveResupply,
     EndTurnWarningScope EndTurnWarningScope,
     NewGameTurnOrderPolicy NewGameTurnOrder,
+    BalanceSheetTotalsPolicy BalanceSheetTotals,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>How faithfully diplomacy follows the original (audit Q3).</summary>
@@ -2409,6 +2439,22 @@ public enum HumanMoveResupplyPolicy
     /// against the first such city in list order.
     /// </summary>
     AgainstNonHostileCity,
+}
+
+/// <summary>How the Balance sheet totals its Expenditure column and shows its Debt limit (T167).</summary>
+public enum BalanceSheetTotalsPolicy
+{
+    /// <summary>
+    /// The Total reconciles with the quarter's treasury change: it excludes the Mercenary units line, the
+    /// Fleet line counts launched fleets only, and the Debt limit is the unrounded figure.
+    /// </summary>
+    Reconciling,
+
+    /// <summary>
+    /// The original's figures: the Total includes the Mercenary units line, the Fleet line counts every
+    /// owned fleet, and the Debt limit is rounded for display.
+    /// </summary>
+    Original,
 }
 
 /// <summary>Whether a New Game shuffles the turn order (T119).</summary>
