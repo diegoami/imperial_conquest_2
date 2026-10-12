@@ -345,8 +345,35 @@ public static class GameDataValidation
         RequirePositiveDivisor(documentPath, ruleset.Ai.FaithfulTaxCutTreasuryWealthDivisor, "ai.faithfulTaxCutTreasuryWealthDivisor");
 
         ValidateRuntimeDivisors(documentPath, ruleset);
+        ValidateBalanceSheetDebtLimits(documentPath, ruleset);
         ValidateRngBounds(documentPath, ruleset);
         ValidateRollTroopsSpan(documentPath, ruleset);
+    }
+
+    /// <summary>
+    /// Bug #1054: the <c>economy.balanceSheetDebtLimit*</c> keys round the Balance sheet's debt limit down to a
+    /// step (<c>limit / step * step</c>) under <c>flags.balanceSheetTotals: original</c>. A step of 0 or less
+    /// would divide by zero (or flip the sign) when the sheet is built, and the bands must ascend
+    /// (0 &lt; lowMax &lt; midMax) for the three steps to apply in order, so each is refused at load.
+    /// </summary>
+    private static void ValidateBalanceSheetDebtLimits(string documentPath, Ruleset ruleset)
+    {
+        var e = ruleset.Economy;
+        RequirePositiveDivisor(documentPath, e.BalanceSheetDebtLimitLowStep, "economy.balanceSheetDebtLimitLowStep");
+        RequirePositiveDivisor(documentPath, e.BalanceSheetDebtLimitMidStep, "economy.balanceSheetDebtLimitMidStep");
+        RequirePositiveDivisor(documentPath, e.BalanceSheetDebtLimitHighStep, "economy.balanceSheetDebtLimitHighStep");
+        if (e.BalanceSheetDebtLimitLowMax <= 0)
+        {
+            throw new MalformedGameDataException(
+                documentPath, $"'economy.balanceSheetDebtLimitLowMax' must be greater than 0; got {e.BalanceSheetDebtLimitLowMax}.");
+        }
+
+        if (e.BalanceSheetDebtLimitLowMax >= e.BalanceSheetDebtLimitMidMax)
+        {
+            throw new MalformedGameDataException(
+                documentPath,
+                $"'economy.balanceSheetDebtLimitLowMax' ({e.BalanceSheetDebtLimitLowMax}) must be less than 'economy.balanceSheetDebtLimitMidMax' ({e.BalanceSheetDebtLimitMidMax}).");
+        }
     }
 
     /// <summary>
