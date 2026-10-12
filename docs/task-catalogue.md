@@ -226,6 +226,8 @@ graph TD
   T165[T165 load original saves]
   T166[T166 recruit from all cities]
   T119 --> T167[T167 faithful balance sheet]
+  T168[T168 UI evaluation]
+  T168 --> T169[T169 UI theme]
   T156[T156 AI army target tree]
   T23 --> T26[T26 scenario docs+examples]
   T29 --> T26
@@ -1299,6 +1301,14 @@ Recruit from all cities (from bug #1039, the evidence pass of research `89c37ff`
 
 Faithful balance sheet (from bug #1038, the evidence pass of research `89c37ff`; the user's decision of 2026-10-12) → [full entry](tasks/T167.md) · [#1043](https://github.com/diegoami/imperial_conquest_2/issues/1043)
 
+#### T168 The UI's look, evaluated against the original, with font and palette candidates for the user to choose
+
+UI evaluation (from #899, the user's priority of 2026-10-12; ships in `v0.6.0`) → [full entry](tasks/T168.md) · [#1072](https://github.com/diegoami/imperial_conquest_2/issues/1072)
+
+#### T169 One theme for the whole app: the chosen fonts, a compact type scale and the new palette, and no Godot splash
+
+UI theme (from #899 and the user's pick at T168's review; ships in `v0.6.0`) → [full entry](tasks/T169.md) · [#1073](https://github.com/diegoami/imperial_conquest_2/issues/1073)
+
 ---
 
 #### T25 Battle result, diplomacy, and hotseat handoff screens
@@ -1497,3 +1507,5 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T165](#t165-load-game-browses-to-any-folder-and-opens-the-originals-sav-files) | Load original saves | M18 | the user's choice | Medium | the user's choice | none | [#1021](https://github.com/diegoami/imperial_conquest_2/issues/1021) |
 | [T166](#t166-recruit-unit-recruits-at-the-capital-from-all-cities-and-lists-all-cities-only-when-two-towns-hold-units) | Recruit from all cities | M18 | the user's choice | Low | the user's choice | none | [#1042](https://github.com/diegoami/imperial_conquest_2/issues/1042) |
 | [T167](#t167-under-classical-faithful-the-balance-sheet-totals-as-the-original-does-mercenaries-fleets-under-construction-a-rounded-debt-limit) | Faithful balance sheet | none | the user's choice | Medium | the user's choice | T119 | [#1043](https://github.com/diegoami/imperial_conquest_2/issues/1043) |
+| [T168](#t168-the-uis-look-evaluated-against-the-original-with-font-and-palette-candidates-for-the-user-to-choose) | UI evaluation | M18 | the user's choice | Medium | the user's choice | none | [#1072](https://github.com/diegoami/imperial_conquest_2/issues/1072) |
+| [T169](#t169-one-theme-for-the-whole-app-the-chosen-fonts-a-compact-type-scale-and-the-new-palette-and-no-godot-splash) | UI theme | M18 | the user's choice | High | the user's choice | T168 | [#1073](https://github.com/diegoami/imperial_conquest_2/issues/1073) |
