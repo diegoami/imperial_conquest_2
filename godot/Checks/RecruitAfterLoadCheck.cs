@@ -106,7 +106,7 @@ public partial class RecruitAfterLoadCheck : Node
         if (!Check(dialog is not null, "Recruit unit opens after the load")) { return; }
         Check(dialog!.SelectedCityIdForCheck == RecruitUnitDialogModel.AllCitiesId,
             $"the dialog opens on All cities (got '{dialog.SelectedCityIdForCheck}')");
-        Check(!dialog.RecruitEnabledForCheck, "All cities offers no Recruit");
+        Check(dialog.RecruitEnabledForCheck, "All cities offers Recruit, which trains at the capital (T166)");
         Check(dialog.TrainingRowsForCheck.Any(r => r.SlotIndex == recruitedSlot && r.TargetCityId == town.Id),
             "the recruited unit is listed, with its city");
         Check(dialog.TrainingRowTextsForCheck.Any(t => t.Contains(resumed.Session.State.CityById(town.Id)!.Name)),
