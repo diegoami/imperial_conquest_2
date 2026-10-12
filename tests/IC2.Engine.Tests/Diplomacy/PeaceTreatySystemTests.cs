@@ -1,10 +1,27 @@
+using System.Reflection;
 using IC2.Engine.Battle;
 using IC2.Engine.Core;
 using IC2.Engine.Diplomacy;
 using IC2.Engine.Model;
+using IC2.Engine.News;
+using IC2.Engine.Tests.Core;
 using Xunit;
 
 namespace IC2.Engine.Tests.Diplomacy;
+
+/// <summary>Test-only: publishes an AI-AI battle's destroys line then its treaty trigger, as the resolver does (#1040).</summary>
+[TestFixtureGroup(PeaceTreatySystemTests.OrderGroup)]
+[GameSystem(TurnPhase.Orders, "test.peace-order.battle-publisher")]
+public sealed class DestroyedThenTreatyPublisherSystem : IGameSystem
+{
+    /// <inheritdoc/>
+    public GameState Execute(SystemContext context)
+    {
+        context.Events.Publish(new BattleArmyDestroyed("Winner", "Loser"));
+        context.Events.Publish(new PeaceTreatyTriggered("winner-nation", "loser-nation", LoserUnity: 100, LoserCityCount: 48));
+        return context.State;
+    }
+}
 
 /// <summary>
 /// <c>docs/task-catalogue.md</c> T19 DoD 7 and DoD 8: reacting to T16's <see cref="PeaceTreatyTriggered"/>
@@ -13,6 +30,8 @@ namespace IC2.Engine.Tests.Diplomacy;
 /// </summary>
 public sealed class PeaceTreatySystemTests
 {
+    internal const string OrderGroup = "peace-treaty.news-order";
+
     private const string Winner = "winner-nation";
     private const string Loser = "loser-nation";
     private const string ThirdParty = "third-party"; // survives untouched
@@ -322,5 +341,45 @@ public sealed class PeaceTreatySystemTests
         // first regardless of this ordering, since the treaty's own honourable/sues lines are emitted
         // before the cascade runs at all and do not interfere with this comparison.
         Assert.True(loserAllyLine < winnerAllyLine, "the loser's ally's line must land before the winner's ally's own");
+    }
+
+    /// <summary>
+    /// #1040: an AI-AI battle's "destroys army of" line stands directly BEFORE the treaty block (the sues
+    /// block, or the agreed line), as the original writes it, and appears exactly once.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void DestroysLine_PrecedesTheTreatyBlock_ThroughTheRealPipeline(bool honourable)
+    {
+        var registry = SystemRegistry.FromAssemblies(
+            new[] { typeof(PeaceTreatySystem).Assembly, typeof(PeaceTreatySystemTests).Assembly },
+            type => type == typeof(PeaceTreatySystem)
+                || type == typeof(NewsLogWriterSeatEnd)
+                || string.Equals(
+                    type.GetCustomAttribute<TestFixtureGroupAttribute>(inherit: false)?.Group,
+                    OrderGroup,
+                    StringComparison.Ordinal));
+        var coordinator = new TurnCoordinator(
+            registry, DiplomacyTestbed.Ruleset, DiplomacyTestbed.Toy.World, NullEventSink.Instance);
+
+        var state = honourable
+            ? BaseState(winnerWealth: 100, winnerUnity: 100, loserWealth: 9000, loserUnity: 900, loserTaxBase: 6188)
+            : BaseState(winnerWealth: 9000, winnerUnity: 900, loserWealth: 100, loserUnity: 100, loserTaxBase: 6188);
+        state = state with
+        {
+            Armies = ValueList.Of(
+                DiplomacyTestbed.Army("winner-army", Winner, 60, DiplomacyTestbed.Unit("light_infantry", honourable ? 100 : 90000, 5)),
+                DiplomacyTestbed.Army("loser-army", Loser, 60, DiplomacyTestbed.Unit("light_infantry", honourable ? 90000 : 100, 5))),
+        };
+
+        var lines = coordinator.RunTurn(state).State.NewsLog.Slots.Select(e => e.Text).ToList();
+
+        var destroyed = lines.FindIndex(l => l.Contains("destroys army of", StringComparison.Ordinal));
+        var blockStart = lines.FindIndex(l =>
+            l.Contains(honourable ? "have agreed to end their war" : "sues", StringComparison.Ordinal));
+        Assert.True(destroyed >= 0, string.Join(" | ", lines));
+        Assert.Equal(1, lines.Count(l => l.Contains("destroys army of", StringComparison.Ordinal)));
+        Assert.Equal(destroyed + 1, blockStart);
     }
 }
