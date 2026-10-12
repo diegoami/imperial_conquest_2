@@ -2333,7 +2333,10 @@ public sealed record AiRecruitTypeBucket(string UnitTypeId, int UpperBoundExclus
 /// rounded for display with the <c>economy.balanceSheetDebtLimit*</c> keys <strong>[confirmed: Wine + code,
 /// research 89c37ff, 2026-10-11-g1-original-checks.md G2, <c>TBalanceSheet_PaintBalance</c>]</strong>;
 /// <c>improved</c> and the toy ruleset are <see cref="BalanceSheetTotalsPolicy.Reconciling"/>, the Total that
-/// reconciles with the quarter's treasury change <strong>[designed: the user's decision of 2026-10-12]</strong>.
+/// reconciles with the quarter's treasury change <strong>[designed: the user's decision of 2026-10-12]</strong>;
+/// I searched the research reports on the Balance sheet (2026-10-11-g1-original-checks.md G2 and the earlier
+/// balance-sheet notes), docs/game-design.md and docs/design-audit.md for a rule or preset policy about the
+/// reconciling Total and found none, so it rests on the user's decision alone.
 /// No charge changes under either value; read only by <see cref="IC2.Engine.Economy.BalanceSheet"/>.
 /// </param>
 public sealed record RulesetFlags(

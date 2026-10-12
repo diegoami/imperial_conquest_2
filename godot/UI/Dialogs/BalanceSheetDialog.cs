@@ -44,12 +44,13 @@ namespace IC2.Slice.UI;
 /// (<see cref="IC2.Engine.Economy.Deposition.DebtLimit"/>).</description></item>
 /// </list>
 /// <para>
-/// <strong>Mercenaries' pay is shown but is not part of the expenditure total.</strong>
-/// <see cref="BalanceSheet.ExpenditureTotal"/> excludes it by design: mercenary pay is charged to
-/// the army's own purse, not the nation's treasury, so it does not move the treasury and would not
-/// reconcile with a quarter's treasury change. The dialog lists the line because the original lists
-/// it; the engine's balance sheet records it because the same shared function backs both. Under
-/// <c>classical-faithful</c> (T167) the total includes it, as the original's does.
+/// <strong>Whether mercenaries' pay is part of the expenditure total depends on the ruleset.</strong>
+/// Under <c>classical-faithful</c> (<c>BalanceSheetTotalsPolicy.Original</c>, T167) the total includes it,
+/// as the original's does (g1 G2), and so does not reconcile with a quarter's treasury change. Under
+/// <c>improved</c> and the toy ruleset (<c>Reconciling</c>) <see cref="BalanceSheet.ExpenditureTotal"/>
+/// excludes it: mercenary pay is charged to the army's own purse, not the nation's treasury, so including
+/// it would not reconcile. The dialog lists the line either way because the original lists it; the engine's
+/// balance sheet records it because the same shared function backs both.
 /// </para>
 /// </remarks>
 public partial class BalanceSheetDialog : Control

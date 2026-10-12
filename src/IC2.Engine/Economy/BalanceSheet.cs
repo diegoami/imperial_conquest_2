@@ -17,12 +17,13 @@ namespace IC2.Engine.Economy;
 /// Every field below is produced by that same shared function, never a second copy of a formula.
 /// </para>
 /// <para>
-/// <strong>Mercenaries' pay is shown but is not part of <see cref="ExpenditureTotal"/>.</strong>
+/// <strong>Under <see cref="BalanceSheetTotalsPolicy.Reconciling"/> (<c>improved</c>, the toy ruleset),
+/// mercenaries' pay is shown but is not part of <see cref="ExpenditureTotal"/>.</strong>
 /// <see cref="ArmyUpkeep.ComputeForNation"/> reports it so the line exists, but the quarterly billing
 /// charges mercenary pay to the army's own purse, not to the nation's treasury
-/// (<see cref="MercenaryDesertion.BillArmy"/>), so it never moves the treasury. <see cref="ExpenditureTotal"/>
-/// is therefore the treasury outflow — the sum that reconciles with a quarter's treasury change — while
-/// <see cref="MercenariesPay"/> is listed for the player's information. This is why
+/// (<see cref="MercenaryDesertion.BillArmy"/>), so it never moves the treasury. Under this policy
+/// <see cref="ExpenditureTotal"/> is therefore the treasury outflow — the sum that reconciles with a quarter's
+/// treasury change — while <see cref="MercenariesPay"/> is listed for the player's information. This is why
 /// <c>docs/tasks/T104.md</c>'s Done-when 2 identity holds even for a nation with mercenaries.
 /// </para>
 /// <para>
@@ -78,9 +79,12 @@ public sealed record BalanceSheet(
     public int IncomeTotal => TaxIncome + TaxBaseQuarterShare + TradeIncome;
 
     /// <summary>
-    /// The treasury-charged expenditure lines' total — the figure that reconciles with the quarter's
-    /// treasury change. <see cref="MercenariesPay"/> is excluded unless <see cref="TotalIncludesMercenaries"/>;
-    /// see this type's remarks.
+    /// The expenditure lines' total. Under <see cref="BalanceSheetTotalsPolicy.Reconciling"/> it is the
+    /// treasury-charged lines only, the figure that reconciles with the quarter's treasury change, and
+    /// <see cref="MercenariesPay"/> is excluded. Under <see cref="BalanceSheetTotalsPolicy.Original"/>
+    /// (<see cref="TotalIncludesMercenaries"/>) it includes <see cref="MercenariesPay"/> and the all-fleets
+    /// Fleet line, as the original's does, and deliberately does not reconcile with the treasury change
+    /// (g1 G2); see this type's remarks.
     /// </summary>
     public int ExpenditureTotal =>
         CityAndWealthUpkeep + ShipUpkeep + RecruitmentSlotUpkeep + RegularsUpkeep
