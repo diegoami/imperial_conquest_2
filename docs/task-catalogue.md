@@ -222,6 +222,8 @@ graph TD
   T161[T161 starting recruitment queues]
   T161 --> T162[T162 recruit all cities]
   T163[T163 town tiers]
+  T164[T164 join all selected]
+  T165[T165 load original saves]
   T156[T156 AI army target tree]
   T23 --> T26[T26 scenario docs+examples]
   T29 --> T26
@@ -1279,6 +1281,14 @@ Recruit all cities (from bug #1001, the user's report of 2026-10-11; ships in `v
 
 Town tiers (from bug #818, the user's request of 2026-10-11; ships in `v0.5.3`) → [full entry](tasks/T163.md) · [#1008](https://github.com/diegoami/imperial_conquest_2/issues/1008)
 
+#### T164 Join units joins every selected unit, as the original does
+
+Join all selected (from bug #1011, the evidence pass of research `1ff54ab`; ships in `v0.5.3`) → [full entry](tasks/T164.md) · [#1020](https://github.com/diegoami/imperial_conquest_2/issues/1020)
+
+#### T165 Load game browses to any folder and opens the original's .sav files
+
+Load original saves (from bug #1002, the user's report of 2026-10-11; ships in `v0.5.3`) → [full entry](tasks/T165.md) · [#1021](https://github.com/diegoami/imperial_conquest_2/issues/1021)
+
 ---
 
 #### T25 Battle result, diplomacy, and hotseat handoff screens
@@ -1473,3 +1483,5 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T161](#t161-new-games-start-with-the-originals-regiments-in-training-read-from-the-dat) | Starting recruitment queues | M4 | the user's choice | Medium | the user's choice | none | [#1000](https://github.com/diegoami/imperial_conquest_2/issues/1000) |
 | [T162](#t162-recruit-unit-lists-every-citys-units-in-training-and-shows-when-each-is-ready) | Recruit all cities | M18 | the user's choice | Medium | the user's choice | T161 | [#1007](https://github.com/diegoami/imperial_conquest_2/issues/1007) |
 | [T163](#t163-small-medium-and-big-towns-draw-different-markers-the-originals-four-population-tiers) | Town tiers | M18 | the user's choice | Medium | the user's choice | none | [#1008](https://github.com/diegoami/imperial_conquest_2/issues/1008) |
+| [T164](#t164-join-units-joins-every-selected-unit-as-the-original-does) | Join all selected | M18 | the user's choice | Low | the user's choice | none | [#1020](https://github.com/diegoami/imperial_conquest_2/issues/1020) |
+| [T165](#t165-load-game-browses-to-any-folder-and-opens-the-originals-sav-files) | Load original saves | M18 | the user's choice | Medium | the user's choice | none | [#1021](https://github.com/diegoami/imperial_conquest_2/issues/1021) |
