@@ -90,6 +90,22 @@ public class RngBoundValidationTests
         Assert.Contains("economy.weather.bySeason[0].early", ex.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>Follow-up #980 item 1: the row above mutates only the early odds; this one mutates only the late odds.</summary>
+    [Theory]
+    [InlineData(1, 0)]
+    [InlineData(1, -1)]
+    [InlineData(-1, 5)]
+    [InlineData(6, 5)]
+    public void A_weather_season_with_invalid_late_odds_is_refused_naming_the_key(int numerator, int denominator)
+    {
+        var r = Toy();
+        var odds = r.Economy.Weather.BySeason[0] with { LateNumerator = numerator, LateDenominator = denominator };
+        var list = new List<WeatherSeasonOdds>(r.Economy.Weather.BySeason) { [0] = odds };
+        var bad = r with { Economy = r.Economy with { Weather = r.Economy.Weather with { BySeason = new ValueList<WeatherSeasonOdds>(list) } } };
+        var ex = Assert.Throws<MalformedGameDataException>(() => GameDataValidation.Validate(Document, bad));
+        Assert.Contains("economy.weather.bySeason[0].late", ex.Message, StringComparison.Ordinal);
+    }
+
     /// <summary>An empty effects list is legitimate: WeatherEventSystem returns before any draw.</summary>
     [Fact]
     public void An_empty_weather_effects_list_is_accepted_because_the_system_skips_the_draw()
