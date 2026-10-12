@@ -1,0 +1,192 @@
+# T131 (issue #688): every tag's GitHub Release carries a Windows zip and installer, built from that
+# tag by scripts/release-assets.ps1 (docs/packaging.md, "Release assets"; release-plan.md §5 item 20).
+#
+# Triggers
+#   push of a v* tag      builds the tag, then attaches the two files to its Release (creating a
+#                         draft pre-release when none exists).
+#   workflow_dispatch     the same for an older tag (the `tag` input), e.g. a maintenance-line tag
+#                         or v0.4.0's re-run.
+#   pull_request          limited to the files that make up this workflow; builds v0.4.0's assets
+#                         and keeps them as workflow artifacts only. It exists because GitHub
+#                         dispatches a workflow_dispatch workflow only once its file is on the
+#                         default branch, so the PR cannot test itself by dispatch.
+#
+# The workflow never publishes a Release, never edits a Release's title or body, never replaces an
+# asset a Release already holds (scripts/release-assets.ps1 -Upload refuses), and never creates or
+# moves a tag. Only the attach job holds write permission, and only on push and dispatch.
+
+name: release-assets
+
+run-name: "release assets: ${{ github.event_name == 'pull_request' && 'v0.4.0 (pull request build)' || github.event.inputs.tag || github.ref_name }}"
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "The existing tag to build and attach (for example v0.4.0)"
+        required: true
+        type: string
+  pull_request:
+    paths:
+      - ".github/workflows/release.yml"
+      - "installer/**"
+      - "scripts/release-assets.ps1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-assets-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  GODOT_VERSION: 4.7.2-stable
+  TEMPLATES_VERSION: 4.7.2.stable.mono
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      # The tag goes through the environment, never straight into a script.
+      TAG: ${{ github.event_name == 'pull_request' && 'v0.4.0' || github.event.inputs.tag || github.ref_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Cache the Godot editor
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: C:\godot
+          key: godot-${{ env.GODOT_VERSION }}-mono-win64
+
+      - name: Download the Godot .NET editor
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $zip = Join-Path $env:RUNNER_TEMP 'godot.zip'
+          Invoke-WebRequest -Uri "https://github.com/godotengine/godot/releases/download/$env:GODOT_VERSION/Godot_v${env:GODOT_VERSION}_mono_win64.zip" -OutFile $zip
+          # Keep the folder whole: GodotSharp\ must sit next to the executable.
+          Expand-Archive -LiteralPath $zip -DestinationPath C:\godot -Force
+
+      - name: Cache the export templates
+        id: templates-cache
+        uses: actions/cache@v4
+        with:
+          path: C:\godot-templates
+          key: godot-templates-${{ env.TEMPLATES_VERSION }}-windows
+
+      - name: Download the export templates
+        if: steps.templates-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # The .tpz is a zip of every platform's templates (about 1.2 GB); only the Windows ones
+          # and version.txt are kept, under templates\.
+          $tpz = Join-Path $env:RUNNER_TEMP 'templates.tpz'
+          Invoke-WebRequest -Uri "https://github.com/godotengine/godot/releases/download/$env:GODOT_VERSION/Godot_v${env:GODOT_VERSION}_mono_export_templates.tpz" -OutFile $tpz
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $archive = [System.IO.Compression.ZipFile]::OpenRead($tpz)
+          try {
+            New-Item -ItemType Directory -Force -Path C:\godot-templates | Out-Null
+            foreach ($entry in $archive.Entries) {
+              if ($entry.FullName -notmatch '^templates/(version\.txt|windows_[^/]*)$') { continue }
+              $target = Join-Path C:\godot-templates (Split-Path -Leaf $entry.FullName)
+              [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $target, $true)
+            }
+          }
+          finally { $archive.Dispose() }
+          Remove-Item -LiteralPath $tpz -Force
+          Get-ChildItem C:\godot-templates | Select-Object Name, Length
+
+      - name: Install the export templates
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $destination = Join-Path $env:APPDATA "Godot\export_templates\$env:TEMPLATES_VERSION"
+          New-Item -ItemType Directory -Force -Path $destination | Out-Null
+          Copy-Item -Path 'C:\godot-templates\*' -Destination $destination -Recurse -Force
+
+      # The runner image ships Inno Setup; release-assets.ps1 looks for ISCC itself. This step only
+      # installs it when none of its lookup places holds it, so an image change does not break a release.
+      - name: Ensure Inno Setup
+        shell: pwsh
+        run: |
+          $places = @(
+            (Get-Command 'ISCC.exe' -ErrorAction SilentlyContinue).Source,
+            (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'),
+            (Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe')
+          ) | Where-Object { $_ -and (Test-Path -LiteralPath $_) }
+          if ($places) { Write-Host "Inno Setup found: $($places[0])"; exit 0 }
+          choco install innosetup -y --no-progress
+          if ($LASTEXITCODE -ne 0) { throw "choco install innosetup failed with code $LASTEXITCODE" }
+
+      # -SmokeOnly: package.ps1 -Verify includes a windowed screenshot tour that a hosted runner has
+      # no display for, and the pull_request lane builds v0.4.0, which carries no check scene.
+      # -Verify stays release-plan.md §5 item 11's local check.
+      - name: Build the tag's assets
+        shell: pwsh
+        run: >
+          pwsh scripts/release-assets.ps1 -Tag $env:TAG -SmokeOnly
+          -Godot 'C:\godot\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64_console.exe'
+
+      - name: Summarize the files
+        if: success()
+        shell: pwsh
+        run: |
+          $dir = Join-Path 'rendered/release' $env:TAG
+          "### Release assets for ``$env:TAG``" | Add-Content -Path $env:GITHUB_STEP_SUMMARY
+          foreach ($file in Get-ChildItem -LiteralPath $dir -File | Where-Object { $_.Name -like 'ImperialConquest2-*' }) {
+            $hash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            "- ``$($file.Name)`` $($file.Length) bytes, sha256 ``$hash``" | Add-Content -Path $env:GITHUB_STEP_SUMMARY
+          }
+
+      - name: Upload the two files as workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets
+          path: |
+            rendered/release/${{ env.TAG }}/ImperialConquest2-*-windows-x64.zip
+            rendered/release/${{ env.TAG }}/ImperialConquest2-*-windows-x64-setup.exe
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+
+  attach:
+    needs: build
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download the build's files
+        uses: actions/download-artifact@v4
+        with:
+          name: release-assets
+          path: release-assets-download
+
+      # A refused upload (the Release already holds one of the names) fails this job by design: the
+      # build's files stay on the run as artifacts, and the user decides.
+      - name: Attach to the tag's Release
+        shell: pwsh
+        run: pwsh scripts/release-assets.ps1 -Tag $env:TAG -Upload -AssetsDir release-assets-download
