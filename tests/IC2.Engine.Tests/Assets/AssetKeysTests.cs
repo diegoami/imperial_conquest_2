@@ -31,6 +31,7 @@ public class AssetKeysTests
         Assert.Contains(AssetKeys.CityTier1Icon, allKeys);
         Assert.Contains(AssetKeys.CityTier2Icon, allKeys);
         Assert.Contains(AssetKeys.CityTier3Icon, allKeys);
+        Assert.Contains(AssetKeys.CityTier4Icon, allKeys);
         Assert.Contains(AssetKeys.CityCapitalIcon, allKeys);
 
         // Should include sound effects
@@ -104,8 +105,13 @@ public class AssetKeysTests
         var tier1 = AssetKeys.CityTier1Icon;
         var tier2 = AssetKeys.CityTier2Icon;
         var tier3 = AssetKeys.CityTier3Icon;
+        var tier4 = AssetKeys.CityTier4Icon;
         var capital = AssetKeys.CityCapitalIcon;
 
+        Assert.NotEqual(tier4, tier1);
+        Assert.NotEqual(tier4, tier2);
+        Assert.NotEqual(tier4, tier3);
+        Assert.NotEqual(capital, tier4);
         Assert.NotEqual(tier1, tier2);
         Assert.NotEqual(tier2, tier3);
         Assert.NotEqual(tier1, tier3);
@@ -137,8 +143,8 @@ public class AssetKeysTests
     {
         var allKeys = AssetKeys.AllKeys.ToList();
 
-        Assert.Equal(74, allKeys.Count);
-        Assert.Equal(38, allKeys.Count(k => !k.StartsWith("ui.command.", StringComparison.Ordinal)));
+        Assert.Equal(75, allKeys.Count);
+        Assert.Equal(39, allKeys.Count(k => !k.StartsWith("ui.command.", StringComparison.Ordinal)));
         Assert.Equal(36, allKeys.Count(k => k.StartsWith("ui.command.", StringComparison.Ordinal)));
         Assert.Equal(10, allKeys.Count(k => k.StartsWith("sfx.", StringComparison.Ordinal)));
     }

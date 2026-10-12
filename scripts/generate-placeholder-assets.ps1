@@ -303,6 +303,7 @@ $colors = @{
     "tier1_city" = @(150, 150, 100)
     "tier2_city" = @(180, 180, 100)
     "tier3_city" = @(220, 220, 100)
+    "tier4_city" = @(240, 130, 60)
     "capital" = @(255, 215, 0)
     "plain" = @(144, 238, 144)
     "desert" = @(210, 180, 140)
@@ -330,6 +331,7 @@ $bmpMappings = @{
     "city/tier1.bmp" = $colors["tier1_city"]
     "city/tier2.bmp" = $colors["tier2_city"]
     "city/tier3.bmp" = $colors["tier3_city"]
+    "city/tier4.bmp" = $colors["tier4_city"]
     "city/capital.bmp" = $colors["capital"]
     "terrain/plain.bmp" = $colors["plain"]
     "terrain/desert.bmp" = $colors["desert"]
@@ -413,6 +415,7 @@ for ($tier = 1; $tier -le 3; $tier++) {
     $manifest.assets["fleet.tier$tier.icon"] = "fleet/tier$tier.bmp"
     $manifest.assets["city.tier$tier.icon"] = "city/tier$tier.bmp"
 }
+$manifest.assets["city.tier4.icon"] = "city/tier4.bmp"
 
 $manifest.assets["city.capital.icon"] = "city/capital.bmp"
 

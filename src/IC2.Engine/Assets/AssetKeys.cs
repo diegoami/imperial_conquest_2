@@ -98,6 +98,13 @@ public static class AssetKeys
     public const string CityTier3Icon = "city.tier3.icon";
 
     /// <summary>
+    /// Icon for the biggest towns (population of 100 thousand or more).
+    /// From <c>2026-10-07-city-marker-variants.md</c> [confirmed: decompile + saves]: variants 0-3 are
+    /// the four population tiers, so the pack carries a fourth town key beside the capital's.
+    /// </summary>
+    public const string CityTier4Icon = "city.tier4.icon";
+
+    /// <summary>
     /// Icon for capital cities.
     /// From <c>game-design.md</c> §"City markers" — capital status is orthogonal to population size.
     /// </summary>
@@ -358,6 +365,7 @@ public static class AssetKeys
             yield return CityTier1Icon;
             yield return CityTier2Icon;
             yield return CityTier3Icon;
+            yield return CityTier4Icon;
             yield return CityCapitalIcon;
 
             // Terrain tiles

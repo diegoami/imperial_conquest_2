@@ -133,15 +133,21 @@ public class PlaceholderPackIntegrationTests
         var tier1Path = Path.Combine(_placeholderPackDir, pack.ResolveAsset(AssetKeys.CityTier1Icon));
         var tier2Path = Path.Combine(_placeholderPackDir, pack.ResolveAsset(AssetKeys.CityTier2Icon));
         var tier3Path = Path.Combine(_placeholderPackDir, pack.ResolveAsset(AssetKeys.CityTier3Icon));
+        var tier4Path = Path.Combine(_placeholderPackDir, pack.ResolveAsset(AssetKeys.CityTier4Icon));
         var capitalPath = Path.Combine(_placeholderPackDir, pack.ResolveAsset(AssetKeys.CityCapitalIcon));
 
         // Act
         var hash1 = ComputeSHA256(tier1Path);
         var hash2 = ComputeSHA256(tier2Path);
         var hash3 = ComputeSHA256(tier3Path);
+        var hash4 = ComputeSHA256(tier4Path);
         var hashCapital = ComputeSHA256(capitalPath);
 
         // Assert - Each should have different content
+        Assert.NotEqual(hash4, hash1);
+        Assert.NotEqual(hash4, hash2);
+        Assert.NotEqual(hash4, hash3);
+        Assert.NotEqual(hashCapital, hash4);
         Assert.NotEqual(hash1, hash2);
         Assert.NotEqual(hash2, hash3);
         Assert.NotEqual(hash1, hash3);
