@@ -26,22 +26,21 @@ namespace IC2.Slice.Assets;
 /// for it, while a mixed army's plurality unit type is not part of the original's marker at all.
 /// </para>
 /// <para>
-/// <strong>Capital status — <c>[confirmed]</c>, orthogonal to population.</strong> Of
-/// <c>docs/game-design.md</c> §"City markers" (itself <c>[open]</c>), exactly this part is confirmed:
-/// a city's map cell code (20–199) is purely its identity/index with no population term
-/// (<c>terrain-move-cost-table-in-dat.md</c>), and a nation's capital is a separate piece of state,
-/// the DAT nation record's capital-city index (<c>NationRecord.CapitalCityIndex</c>, T30's parse) —
-/// mirrored live as <see cref="NationState.CapitalCityId"/>. So a capital draws
-/// <see cref="AssetKeys.CityCapitalIcon"/> regardless of its <see cref="CityState.PopulationThousands"/>.
-/// <strong>Not</strong> confirmed, and not asserted here: any population-keyed city sprite banding by
-/// the original's renderer (the section's own "has not been decompiled or confirmed either way").
+/// <strong>Cities — <c>[confirmed: decompile + saves]</c>, five variants.</strong> Research report
+/// <c>2026-10-07-city-marker-variants.md</c>: a city's map code is <c>20 + owner + 16 × variant</c>;
+/// variants 0-3 are population tiers on the city's population in thousands (under 25, 25-49, 50-99,
+/// 100 or more) and variant 4 is the national capital. So a capital draws
+/// <see cref="AssetKeys.CityCapitalIcon"/> regardless of its <see cref="CityState.PopulationThousands"/>
+/// (the capital is the nation's live <see cref="NationState.CapitalCityId"/>, mirrored from the DAT
+/// nation record's capital-city index), and every other town draws one of the four
+/// <c>city.tierN.icon</c> keys by <see cref="MapMarkerRules.CityPopulationTierThresholds"/>
+/// (<c>[25, 50, 100]</c> in every shipped ruleset, read from there, never a C# literal).
 /// </para>
 /// <para>
-/// <strong>City population tiers — <c>[designed]</c>, thresholds read from the ruleset.</strong> Every
-/// shipped ruleset ships <see cref="MapMarkerRules.CityPopulationTierThresholds"/> empty (the field's
-/// own provenance records exactly what was searched and what the reports establish);
-/// <see cref="CityIcon"/> then returns <see cref="AssetKeys.CityTier1Icon"/> for every non-capital,
-/// exactly as T48 shipped, until a ruleset supplies boundaries. No boundary is invented here.
+/// <strong>Live tiers — <c>[designed]</c>, the user's decision of 2026-10-11 (bug #818).</strong> The
+/// original sets a town's variant only when the town changes owner, so it goes stale as the town
+/// grows. The clone recomputes the tier from the town's current population every time it is drawn:
+/// a recorded deliberate difference.
 /// </para>
 /// </remarks>
 public static class MapMarkerKeys
@@ -71,7 +70,8 @@ public static class MapMarkerKeys
             rules.CityPopulationTierThresholds,
             AssetKeys.CityTier1Icon,
             AssetKeys.CityTier2Icon,
-            AssetKeys.CityTier3Icon);
+            AssetKeys.CityTier3Icon,
+            AssetKeys.CityTier4Icon);
     }
 
     /// <summary>
@@ -112,16 +112,10 @@ public static class MapMarkerKeys
     /// <summary>
     /// Index 0 below the first threshold, stepping up by one per threshold reached — the same band
     /// arithmetic <see cref="IC2.Engine.Naval.FleetMarker.Encode"/> and the original's own
-    /// <c>&lt; threshold</c> comparisons use. Fewer than two thresholds means the highest tier is
-    /// simply never reached; more than two is capped at the pack's third key, which is the highest one
-    /// the confirmed three-tier set ships.
+    /// <c>&lt; threshold</c> comparisons use. Fewer thresholds than keys means the highest keys are
+    /// simply never reached; more thresholds than keys is capped at the last key.
     /// </summary>
-    private static string TieredIcon(
-        int value,
-        IReadOnlyList<int> thresholds,
-        string tier1Key,
-        string tier2Key,
-        string tier3Key)
+    private static string TieredIcon(int value, IReadOnlyList<int> thresholds, params string[] tierKeys)
     {
         var tierIndex = 0;
         foreach (var threshold in thresholds)
@@ -134,11 +128,6 @@ public static class MapMarkerKeys
             tierIndex++;
         }
 
-        return tierIndex switch
-        {
-            0 => tier1Key,
-            1 => tier2Key,
-            _ => tier3Key,
-        };
+        return tierKeys[Math.Min(tierIndex, tierKeys.Length - 1)];
     }
 }

@@ -87,6 +87,12 @@
       "source": "docs/asset-specification.md 3.3: 'A columned temple with a stepped triangular pediment and four columns'; the tier-to-shape assignment is this pack's designed choice"
     },
     {
+      "key": "city.tier4.icon",
+      "kind": "sprite",
+      "prompt": "A fortified ancient Mediterranean great-town pictogram facing forward: a broad town wall with a row of square towers along its top and a large arched gate, with the tiered roofs of tall buildings and a columned hall rising above the wall, the biggest and richest ordinary city marker, but with no banner and no castle keep. Pixel-art game sprite: a single subject centred in the frame with clear empty margins, drawn as a bold, simple silhouette in light grey to near-white, with strong simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 3.3 (city markers); research 2026-10-07-city-marker-variants.md [confirmed: decompile + saves] makes the original's town variants 0-3 four population tiers (100 thousand or more is the fourth), and this pack's fourth town key is T163 (bug #818). The art is this pack's designed choice: bigger and richer than the tier-3 temple, and not the capital's crenellated castle with a raised banner"
+    },
+    {
       "key": "city.capital.icon",
       "kind": "sprite",
       "prompt": "A walled ancient citadel pictogram facing forward: crenellated walls with two corner towers and a central gatehouse, with a raised banner on a pole above the gate marking the capital. Pixel-art game sprite: a single subject centred in the frame with clear empty margins, drawn as a bold, simple silhouette in light grey to near-white, with strong simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",

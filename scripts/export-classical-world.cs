@@ -805,6 +805,12 @@ rulesetNode["flags"]!["aiEconomy"] = "original";
 ((JsonObject)rulesetNode["flags"]!["_provenance"]!)["aiEconomy"] =
     "T157 (#926), the user's decisions of 2026-10-01 on 515 and 2026-10-09 on 910: the AI's economy is the original's (2026-10-07-strategic-ai-turn.md sections 2.1-2.3 [confirmed: decompile]): a threat budget, the week-11 tax policy, and no fortification orders. improved keeps the designed economy. Read only by the AI's economy phase.";
 
+// ---- T163 (#1008): the city marker's four population tiers. The toy ruleset carries the same value; the
+// exporter owns it explicitly so a re-run states it here rather than relying on the copy.
+rulesetNode["mapMarkers"]!["cityPopulationTierThresholds"] = new JsonArray(25, 50, 100);
+((JsonObject)rulesetNode["mapMarkers"]!["_provenance"]!)["cityPopulationTierThresholds"] =
+    "confirmed: 2026-10-07-city-marker-variants.md [confirmed: decompile + saves] (rivers-and-map-markers.md 'City and unit overlays': map code = 20 + owner code + 16 x variant, 334/334 cities in the checked save). FUN_0044a794 writes variants 0-3 as population tiers on the city's population in thousands: under 25, 25-49, 50-99, 100 or more, so the thresholds are [25, 50, 100] and the comparison is 'under'; variant 4 is the national capital, written by the capital-relocation and rebirth paths, so a capital draws its own marker at any population. The pack carries four town keys (city.tier1-4) plus city.capital, so all five variants are drawn. DELIBERATE DIFFERENCE [designed], the user's decision of 2026-10-11 on bug #818: the original refreshes a town's tier only when the town changes owner, so it goes stale as the town grows; the clone recomputes the tier from the town's current population every time it is drawn (live tiers).";
+
 // ---- Review round 1 B1, corrected by round 2 R1-B1: _provenance.id is the one provenance key
 // that describes the file itself -- what ruleset this is and why it exists -- so, unlike every
 // other provenance string, it genuinely cannot be written preset-neutrally: toy-ruleset.json's own

@@ -29,11 +29,8 @@ public sealed class MapMarkerKeysTests
     /// marker per owner" implementation could not do.
     /// </summary>
     /// <remarks>
-    /// The boundary (100) is a <strong>test fixture</strong>, not a shipped value: every shipped
-    /// ruleset leaves <see cref="MapMarkerRules.CityPopulationTierThresholds"/> empty on purpose (the
-    /// field's own provenance records why), so there are no real boundaries to read until a ruleset
-    /// supplies them — and <c>data/rulesets</c> is deliberately not touched by this task. The army and
-    /// fleet boundaries this file also asserts are the shipped, confirmed ones.
+    /// The boundary (100) is a <strong>test fixture</strong>, not the shipped value (the shipped
+    /// [25, 50, 100] is pinned by the T163 theory below); it shows the key follows the number.
     /// </remarks>
     [Fact]
     public void City_marker_key_follows_population_from_the_loaded_state_not_the_owner()
@@ -72,9 +69,8 @@ public sealed class MapMarkerKeysTests
     /// reaches the third — the values a <c>&lt;=</c> comparison would misplace.
     /// </summary>
     /// <remarks>
-    /// The thresholds are test fixtures (100, 200), not shipped values, for the same reason the test
-    /// above records: every shipped ruleset deliberately leaves
-    /// <see cref="MapMarkerRules.CityPopulationTierThresholds"/> empty.
+    /// The thresholds are test fixtures (100, 200), not shipped values: the point is the comparison
+    /// itself, strictly under a threshold.
     /// </remarks>
     [Theory]
     [InlineData(99, AssetKeys.CityTier1Icon)]
@@ -100,6 +96,53 @@ public sealed class MapMarkerKeysTests
         Assert.Equal(
             expectedKey,
             MapMarkerKeys.CityIcon(atBoundaryState, atBoundaryState.CityById("portus")!, rules.MapMarkers));
+    }
+
+    /// <summary>
+    /// T163 DoD 1: the SHIPPED thresholds ([25, 50, 100], research report
+    /// 2026-10-07-city-marker-variants.md) decide the four town tiers, each boundary pinned from both
+    /// sides (24/25, 49/50, 99/100), and a capital draws its own marker at any population.
+    /// </summary>
+    [Theory]
+    [InlineData(24, AssetKeys.CityTier1Icon)]
+    [InlineData(25, AssetKeys.CityTier2Icon)]
+    [InlineData(49, AssetKeys.CityTier2Icon)]
+    [InlineData(50, AssetKeys.CityTier3Icon)]
+    [InlineData(99, AssetKeys.CityTier3Icon)]
+    [InlineData(100, AssetKeys.CityTier4Icon)]
+    [InlineData(500, AssetKeys.CityTier4Icon)]
+    public void Shipped_ruleset_town_tiers_split_at_25_50_and_100(int population, string expectedKey)
+    {
+        var resolved = Repository.Resolve("toy-3city");
+        var rules = resolved.Ruleset;
+        var state = GameStateFactory.CreateInitial(resolved.World, rules, resolved.Scenario);
+
+        var portus = state.CityById("portus")!;
+        var changed = portus with { PopulationThousands = population };
+        var changedState = state with { Cities = ReplaceCity(state.Cities, changed) };
+        Assert.Equal(
+            expectedKey,
+            MapMarkerKeys.CityIcon(changedState, changedState.CityById("portus")!, rules.MapMarkers));
+
+        var meridia = state.CityById("meridia")!;
+        var capital = meridia with { PopulationThousands = population };
+        var capitalState = state with { Cities = ReplaceCity(state.Cities, capital) };
+        Assert.Equal(
+            AssetKeys.CityCapitalIcon,
+            MapMarkerKeys.CityIcon(capitalState, capitalState.CityById("meridia")!, rules.MapMarkers));
+    }
+
+    /// <summary>T163 DoD 2: every shipped ruleset ships the report's [25, 50, 100].</summary>
+    [Fact]
+    public void Every_shipped_ruleset_ships_the_confirmed_town_tier_thresholds()
+    {
+        Assert.NotEmpty(Repository.Rulesets);
+        foreach (var ruleset in Repository.Rulesets)
+        {
+            Assert.True(
+                ruleset.MapMarkers.CityPopulationTierThresholds.SequenceEqual(new[] { 25, 50, 100 }),
+                $"{ruleset.Id} ships {string.Join(",", ruleset.MapMarkers.CityPopulationTierThresholds)}");
+        }
     }
 
     /// <summary>
@@ -256,7 +299,10 @@ public sealed class MapMarkerKeysTests
         Assert.NotEqual(oldCapital.Id, newCapitalId);
         Assert.Contains(newCapitalId, defecting.Select(c => c.Id));
         Assert.Equal(AssetKeys.CityCapitalIcon, MapMarkerKeys.CityIcon(after, after.CityById(newCapitalId!)!, rules.MapMarkers));
-        Assert.Equal(AssetKeys.CityTier1Icon, MapMarkerKeys.CityIcon(after, after.CityById(oldCapital.Id)!, rules.MapMarkers));
+        // The former capital is an ordinary town again: it draws its population tier (the shipped
+        // [25, 50, 100]; its population is 100 thousand or more, so the fourth), not the capital marker.
+        Assert.True(after.CityById(oldCapital.Id)!.PopulationThousands >= 100);
+        Assert.Equal(AssetKeys.CityTier4Icon, MapMarkerKeys.CityIcon(after, after.CityById(oldCapital.Id)!, rules.MapMarkers));
     }
 
     private static ValueList<UnitSlot> OneUnitOf(int troops) =>
