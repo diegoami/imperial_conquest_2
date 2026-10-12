@@ -996,7 +996,13 @@ function Invoke-OpenCodeWatched {
         # It does start `opencode --version`, with the neutral probe directories described above.
         [switch] $WhatIf
     )
-    $WorkDir = (Resolve-Path -LiteralPath $WorkDir).Path
+    # A real run resolves the directory strictly. A dry run may name a worktree that does not exist
+    # yet (bug #956), so it reports the full path it would use instead of throwing.
+    if ($WhatIf -and -not (Test-Path -LiteralPath $WorkDir)) {
+        $WorkDir = [System.IO.Path]::GetFullPath($WorkDir, (Get-Location -PSProvider FileSystem).ProviderPath)
+    } else {
+        $WorkDir = (Resolve-Path -LiteralPath $WorkDir).Path
+    }
     $cli = Get-OpenCodeCli
     $titleToken = [guid]::NewGuid().ToString('N').Substring(0, 12)
     $fullTitle = "$Title-$titleToken"
