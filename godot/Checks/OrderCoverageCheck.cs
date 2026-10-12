@@ -96,8 +96,16 @@ public partial class OrderCoverageCheck : Node
 
         GD.Print("== classical-mediterranean / macedonia / seed 3 (tests/fixtures/cli/success.txt) ==");
         var classical = repository.Resolve("classical-mediterranean");
+        // T119: the order is pinned fixed, as success.txt's own golden and test are (seed 3 was chosen on it).
         var classicalSession = new GameSession(
-            classical.World, classical.Ruleset, classical.Scenario, seedOverride: 3, humanSeatNationId: "macedonia");
+            classical.World,
+            classical.Ruleset with
+            {
+                Flags = classical.Ruleset.Flags with { NewGameTurnOrder = IC2.Engine.Model.NewGameTurnOrderPolicy.Fixed },
+            },
+            classical.Scenario,
+            seedOverride: 3,
+            humanSeatNationId: "macedonia");
         RunScriptFile(classicalSession, Path.Combine(repositoryRoot, "tests", "fixtures", "cli", "success.txt"));
 
         GD.Print();

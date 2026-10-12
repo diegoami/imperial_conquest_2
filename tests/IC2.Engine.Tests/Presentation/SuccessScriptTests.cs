@@ -179,8 +179,22 @@ public sealed class SuccessScriptTests
     private static ResolvedScenario Toy => LazyToy.Value;
 
     /// <summary>seed 3 — see this class's own remarks for why, not the scenario's committed 270.</summary>
+    /// <remarks>
+    /// T119: the order is pinned fixed (<c>--turn-order fixed</c> on the CLI). Seed 3 was chosen on the world's
+    /// own order, and the shuffled order (<c>classical-faithful</c>'s default) breaks the script's accepted lines
+    /// for that seed and for every seed tried (the <c>hire-mercenary</c> line needs an offer next to
+    /// <c>mac-merc</c>).
+    /// </remarks>
     private static GameSession NewSuccessSession() =>
-        new(Classical.World, Classical.Ruleset, Classical.Scenario, seedOverride: 3, humanSeatNationId: "macedonia");
+        new(
+            Classical.World,
+            Classical.Ruleset with
+            {
+                Flags = Classical.Ruleset.Flags with { NewGameTurnOrder = IC2.Engine.Model.NewGameTurnOrderPolicy.Fixed },
+            },
+            Classical.Scenario,
+            seedOverride: 3,
+            humanSeatNationId: "macedonia");
 
     /// <summary>The scenario's own committed seed (20250913); north is already its own default human seat.</summary>
     private static GameSession NewFleetSession() =>
@@ -318,7 +332,7 @@ public sealed class SuccessScriptTests
 
     /// <summary>
     /// Done-when 1: "<c>dotnet run --project src/IC2.Cli -- --scenario classical-mediterranean --seat
-    /// macedonia --seed 3 --script tests/fixtures/cli/success.txt</c> exits 0, and its output equals the
+    /// macedonia --seed 3 --turn-order fixed --script tests/fixtures/cli/success.txt</c> exits 0, and its output equals the
     /// committed <c>tests/fixtures/cli/success.golden.txt</c> byte for byte. A test runs the same session
     /// in-process, through the Presentation session, and asserts the same."
     /// </summary>

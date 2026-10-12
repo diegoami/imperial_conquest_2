@@ -9,8 +9,9 @@ namespace IC2.Cli;
 
 /// <summary>
 /// A thin console wrapper around <see cref="GameSession"/> — <c>docs/task-catalogue.md</c> "T41 Thin CLI
-/// demo on the toy world (a walking skeleton)". Holds no game rule and no parsing beyond its own five
-/// arguments (<c>--script</c>, <c>--seed</c>, <c>--scenario</c>, <c>--ruleset</c>, <c>--seat</c>): every
+/// demo on the toy world (a walking skeleton)". Holds no game rule and no parsing beyond its own seven
+/// arguments (<c>--script</c>, <c>--seed</c>, <c>--turn-order</c> <c>fixed|shuffle</c>, <c>--scenario</c>,
+/// <c>--ruleset</c>, <c>--seat</c>, <c>--load</c>): every
 /// command line it reads is handed to <see cref="GameSession.Submit"/> verbatim, and every line it prints
 /// to standard output is exactly what that call returned.
 /// </summary>
@@ -81,6 +82,7 @@ internal static class Program
         string? rulesetOverrideId = null;
         string? seatNationId = null;
         string? loadPath = null;
+        NewGameTurnOrderPolicy? turnOrderOverride = null;
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -106,6 +108,20 @@ internal static class Program
 
                     i++;
                     seed = parsedSeed;
+                    break;
+
+                case "--turn-order":
+                    // T119: overrides the ruleset's newGameTurnOrder flag for this session only.
+                    if (i + 1 >= args.Length
+                        || !Enum.TryParse<NewGameTurnOrderPolicy>(args[i + 1], ignoreCase: true, out var parsedOrder)
+                        || (parsedOrder != NewGameTurnOrderPolicy.Fixed && parsedOrder != NewGameTurnOrderPolicy.Shuffle))
+                    {
+                        Console.Error.WriteLine("--turn-order requires fixed or shuffle.");
+                        return 1;
+                    }
+
+                    i++;
+                    turnOrderOverride = parsedOrder;
                     break;
 
                 case "--scenario":
@@ -205,6 +221,17 @@ internal static class Program
                     }
 
                     resolved = resolved with { Ruleset = overrideRuleset };
+                }
+
+                if (turnOrderOverride is not null)
+                {
+                    resolved = resolved with
+                    {
+                        Ruleset = resolved.Ruleset with
+                        {
+                            Flags = resolved.Ruleset.Flags with { NewGameTurnOrder = turnOrderOverride.Value },
+                        },
+                    };
                 }
 
                 // docs/tasks/T83.md Done-when 1: "an unknown nation id is rejected with the list of ids" --

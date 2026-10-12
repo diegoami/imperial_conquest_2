@@ -99,6 +99,7 @@ public class ExportedRulesetTests
         Assert.Equal(UnaffordableOrderPolicy.AllowDebt, ruleset.Flags.UnaffordableRecruitAndFortify);
         Assert.Equal(HumanMoveResupplyPolicy.Never, ruleset.Flags.HumanMoveResupply);
         Assert.Equal(EndTurnWarningScope.NotActedOnly, ruleset.Flags.EndTurnWarningScope);
+        Assert.Equal(NewGameTurnOrderPolicy.Shuffle, ruleset.Flags.NewGameTurnOrder);
     }
 
     private static HashSet<string> LoadCorpusIds()

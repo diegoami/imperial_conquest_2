@@ -2299,6 +2299,17 @@ public sealed record AiRecruitTypeBucket(string UnitTypeId, int UpperBoundExclus
 /// <see cref="HumanMoveResupplyPolicy.AgainstNonHostileCity"/>, a designed convenience kept by the user's
 /// decision of 2026-10-05.
 /// </param>
+/// <param name="NewGameTurnOrder">
+/// T119, issue #602: whether a New Game shuffles the world's turn order. <c>classical-faithful</c> is
+/// <see cref="NewGameTurnOrderPolicy.Shuffle"/>: the original's <c>FUN_00448AA4</c> shuffles the nations'
+/// order at New Game <strong>[confirmed: code, research 871ca91]</strong> (the research supports the
+/// algorithm only, not this policy); <c>improved</c> and the toy ruleset are <see cref="NewGameTurnOrderPolicy.Fixed"/>, the world's own order
+/// <strong>[designed: the user's decision of 2026-10-02]</strong>; I searched design-audit.md,
+/// docs/game-design.md and the shuffle report for a preset policy or stream name and found none, so the
+/// policy rests on the user's decisions of 2026-10-02/03 (preset split; algorithm parity, not seed parity)
+/// and the stream name <c>new-game.turn-order</c> is <strong>[designed]</strong>. Read only by
+/// <see cref="IC2.Engine.Calendar.NewGameTurnOrder"/>.
+/// </param>
 public sealed record RulesetFlags(
     DiplomacyModel DiplomacyModel,
     EconomyPurseModel EconomyPurses,
@@ -2310,6 +2321,7 @@ public sealed record RulesetFlags(
     AiEconomyModel AiEconomy,
     HumanMoveResupplyPolicy HumanMoveResupply,
     EndTurnWarningScope EndTurnWarningScope,
+    NewGameTurnOrderPolicy NewGameTurnOrder,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>How faithfully diplomacy follows the original (audit Q3).</summary>
@@ -2397,6 +2409,16 @@ public enum HumanMoveResupplyPolicy
     /// against the first such city in list order.
     /// </summary>
     AgainstNonHostileCity,
+}
+
+/// <summary>Whether a New Game shuffles the turn order (T119).</summary>
+public enum NewGameTurnOrderPolicy
+{
+    /// <summary>Keep the world's nation order, with its first nation first.</summary>
+    Fixed,
+
+    /// <summary>Shuffle the order at New Game with the original's algorithm.</summary>
+    Shuffle,
 }
 
 /// <summary>Which own units the End turn warning query examines.</summary>

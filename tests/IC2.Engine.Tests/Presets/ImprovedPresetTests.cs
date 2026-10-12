@@ -163,6 +163,7 @@ public class ImprovedPresetTests
             "flags.aiEconomy",
             "flags.humanMoveResupply",
             "flags.endTurnWarningScope",
+            "flags.newGameTurnOrder",
             "victory.defaultCondition",
             "victory.defaultTurnLimit",
         };

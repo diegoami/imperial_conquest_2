@@ -313,20 +313,26 @@ public sealed class SaveAndResumeTests : IDisposable
         // and seleucid) whose own pre-seat AI turns produce zero prelude news, so there is nothing for
         // _pendingNewsBaseline's loss to omit here. A seat that does produce pre-seat news (for example
         // ptolemaic) would need the same accepted-gap workaround B1's own test above uses, not this one's.
+        // T119: this test is about the resume path, not the turn order, and its B3 premise (carthage's pre-seat AI turns
+        // produce zero prelude news) was measured on the world's own order, so the shuffle is off here.
+        var fixedOrder = classical.Ruleset with
+        {
+            Flags = classical.Ruleset.Flags with { NewGameTurnOrder = NewGameTurnOrderPolicy.Fixed },
+        };
         var uninterrupted = new GameSession(
-            classical.World, classical.Ruleset, classical.Scenario, seedOverride: null, humanSeatNationId: "carthage");
+            classical.World, fixedOrder, classical.Scenario, seedOverride: null, humanSeatNationId: "carthage");
         uninterrupted.Submit("status");
         var uninterruptedFirstEnd = uninterrupted.Submit("end");
 
         var toSave = new GameSession(
-            classical.World, classical.Ruleset, classical.Scenario, seedOverride: null, humanSeatNationId: "carthage");
+            classical.World, fixedOrder, classical.Scenario, seedOverride: null, humanSeatNationId: "carthage");
         toSave.Submit("status");
         var path = PathFor("save-carthage-b3.json");
         var saveOutput = toSave.Submit($"save {path}");
         Assert.DoesNotContain(saveOutput.Lines, l => l.StartsWith("Could not", StringComparison.Ordinal));
 
-        var save = SaveManager.LoadFile(path, classical.World, classical.Ruleset);
-        var resumed = new GameSession(classical.World, classical.Ruleset, classical.Scenario, save);
+        var save = SaveManager.LoadFile(path, classical.World, fixedOrder);
+        var resumed = new GameSession(classical.World, fixedOrder, classical.Scenario, save);
         var resumedFirstEnd = resumed.Submit("end");
 
         Assert.Equal(

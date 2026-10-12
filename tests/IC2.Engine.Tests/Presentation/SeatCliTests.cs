@@ -27,8 +27,15 @@ public sealed class SeatCliTests
 
     private static ResolvedScenario Classical => LazyClassical.Value;
 
-    private static GameSession NewClassicalSeatSession(string nation, ulong? seed = null) =>
-        new(Classical.World, Classical.Ruleset, Classical.Scenario, seed, nation);
+    /// <summary>
+    /// T119: the classical ruleset with the New Game turn-order shuffle off, for the tests that are not about
+    /// the order and assume the world's own (Rome first); the golden transcripts run the shuffled default.
+    /// </summary>
+    private static Ruleset FixedOrderRuleset =>
+        Classical.Ruleset with { Flags = Classical.Ruleset.Flags with { NewGameTurnOrder = NewGameTurnOrderPolicy.Fixed } };
+
+    private static GameSession NewClassicalSeatSession(string nation, ulong? seed = null, bool fixedOrder = false) =>
+        new(Classical.World, fixedOrder ? FixedOrderRuleset : Classical.Ruleset, Classical.Scenario, seed, nation);
 
     private static string RunTranscript(GameSession session, IEnumerable<string> scriptLines)
     {
@@ -198,7 +205,7 @@ public sealed class SeatCliTests
     [Fact]
     public void The_first_submit_flushes_the_construction_time_prelude_and_the_second_does_not()
     {
-        var session = NewClassicalSeatSession("carthage");
+        var session = NewClassicalSeatSession("carthage", fixedOrder: true);
 
         var first = session.Submit("end");
 
@@ -791,7 +798,7 @@ public sealed class SeatCliTests
     }
 
     private static GameSession NewClassicalWatchModeSession() =>
-        new(Classical.World, Classical.Ruleset, Classical.Scenario);
+        new(Classical.World, FixedOrderRuleset, Classical.Scenario);
 
     /// <summary>
     /// Review round 2, B3 (blocking): <c>PlayUntilOneFullLapOrRepeat</c>'s own <c>!playedThisRound.Contains(…)</c>
@@ -1216,7 +1223,7 @@ public sealed class SeatCliTests
     [Fact]
     public void The_round_footer_reports_news_even_when_the_ring_buffer_started_this_round_already_full()
     {
-        var session = NewClassicalSeatSession("rome");
+        var session = NewClassicalSeatSession("rome", fixedOrder: true);
         Assert.Equal(27, session.State.NewsLog.Slots.Count);
 
         var padded = session.State.NewsLog;

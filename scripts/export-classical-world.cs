@@ -799,6 +799,12 @@ rulesetNode["flags"]!["humanMoveResupply"] = "never";
 ((JsonObject)rulesetNode["flags"]!["_provenance"]!)["humanMoveResupply"] =
     "bug #756, the user's decision of 2026-10-05 (comment on #756), research report 2026-10-05-army-purse-writes-and-the-1000-cap.md 'Reachability of row 10' (research 9ae8924, provisional): in the original only the AI resupplies an army (FUN_0044F6D8 is called by the AI's per-army pass FUN_0044E41C and by the walk's tail FUN_0044D734, which a human click on a city marker never reaches) [derived: code]. classical-faithful runs no automatic resupply on a human army's move (never); improved keeps it against the first non-hostile adjacent city (againstNonHostileCity) [designed: a convenience, T23 Done-when 2]. Only GameSession's move reads this flag; the AI's resupply pass, buying supply and the Supply army dialog do not.";
 
+// ---- T119 (#602): the toy ruleset keeps the world's order ("fixed"); classical-faithful shuffles it at New
+// Game with the original's algorithm ("shuffle"), so the exporter owns this value and its note.
+rulesetNode["flags"]!["newGameTurnOrder"] = "shuffle";
+((JsonObject)rulesetNode["flags"]!["_provenance"]!)["newGameTurnOrder"] =
+    "T119 (#602), the user's decision of 2026-10-02 (PR #601): classical-faithful shuffles the turn order at New Game with the original's algorithm (FUN_00448AA4, 16 draws of Random(16), each swapping its slot with the drawn one; not Fisher-Yates) [confirmed: code, 2026-10-03-new-game-turn-order-shuffle.md, research 871ca91]; the generator is the clone's own [designed: algorithm parity, not seed-for-seed parity]. improved keeps the world's fixed order. The research supports the algorithm only; searched design-audit.md, docs/game-design.md and the shuffle report for a preset policy or stream name and found none, so the policy rests on the user's decisions of 2026-10-02/03 (stream name new-game.turn-order is designed).";
+
 // ---- T157 (#926): the toy ruleset keeps the designed AI economy ("designed"); classical-faithful plays the
 // original's ("original"), so the exporter owns this value and its note and never copies the toy's.
 rulesetNode["flags"]!["aiEconomy"] = "original";

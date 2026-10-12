@@ -732,6 +732,11 @@ public sealed partial class GameSession
         // other seeded outcome moves; a world without a pool draws nothing.
         State = NewGameLeaders.Apply(State, World);
 
+        // T119 (#602): the New Game turn-order shuffle, after the seed override and before any seat is
+        // advanced (the original shuffles before the seat form opens, so the human's seat does not change
+        // it). Its own stream; a ruleset that says `fixed` (improved, the toy) keeps the world's order.
+        State = IC2.Engine.Calendar.NewGameTurnOrder.Apply(State, ruleset);
+
         // T87 rework round 1 (bug #380, review B4): this used to run only for a --seat session
         // (_humanSeatNationId is not null), so a plain hotseat session's own first turn-order seat was
         // never checked at the true start of its own turn -- reachable the instant that seat starts
