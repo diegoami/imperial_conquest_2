@@ -134,14 +134,23 @@ jobs:
           choco install innosetup -y --no-progress
           if ($LASTEXITCODE -ne 0) { throw "choco install innosetup failed with code $LASTEXITCODE" }
 
-      # -SmokeOnly: package.ps1 -Verify includes a windowed screenshot tour that a hosted runner has
-      # no display for, and the pull_request lane builds v0.4.0, which carries no check scene.
-      # -Verify stays release-plan.md §5 item 11's local check.
       - name: Build the tag's assets
         shell: pwsh
         run: >
-          pwsh scripts/release-assets.ps1 -Tag $env:TAG -SmokeOnly
+          pwsh scripts/release-assets.ps1 -Tag $env:TAG
           -Godot 'C:\godot\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64_console.exe'
+
+      # pull_request lane only: v0.4.0 has no check scene, so it never exercises package.ps1 -Verify.
+      # This builds the PR's own tree under a LOCAL tag (never pushed) so -Verify, including its
+      # windowed screenshot tour, runs on the hosted runner. Not uploaded.
+      - name: Build the PR head with -Verify (local tag, never pushed)
+        if: github.event_name == 'pull_request'
+        shell: pwsh
+        run: |
+          git -c user.name=ci -c user.email=ci@example.invalid tag -a t131-pr-head -m ci HEAD
+          if ($LASTEXITCODE -ne 0) { throw 'could not create the local tag' }
+          pwsh scripts/release-assets.ps1 -Tag t131-pr-head -SkipInstallerTest -Godot 'C:\godot\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64_console.exe'
+          if ($LASTEXITCODE -ne 0) { throw "release-assets.ps1 exited with code $LASTEXITCODE" }
 
       - name: Summarize the files
         if: success()
@@ -163,12 +172,17 @@ jobs:
             rendered/release/${{ env.TAG }}/ImperialConquest2-*-windows-x64-setup.exe
           if-no-files-found: error
           compression-level: 0
+          # [designed] 30 days bounds how long the build's files stay on the run for a refused or
+          # failed attach. Searched the T131 entry, docs/packaging.md and ci.yml: no value given.
           retention-days: 30
 
   attach:
     needs: build
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    # [designed] 15 minutes bounds the attach job (a checkout, a download of about 133 MB and one gh
+    # upload). Searched the T131 entry, docs/packaging.md and ci.yml (20 minutes there, for a different
+    # job): no value for this job. The build job's 45 minutes is the entry's.
     timeout-minutes: 15
     permissions:
       contents: write

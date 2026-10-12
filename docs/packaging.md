@@ -124,8 +124,8 @@ is overlaid: a tag whose game code those files cannot export fails, and is repor
 - **on a pull request** that touches the workflow, `installer/` or the script, builds v0.4.0 and keeps
   the two files as workflow artifacts only.
 
-The runs are titled `release assets: <tag>`. The workflow passes `-SmokeOnly` to the script, so the
-windowed screenshot tour of `package.ps1 -Verify` stays the local check of release-plan.md §5 item 11.
+The runs are titled `release assets: <tag>`. The script adds `package.ps1 -Verify` itself for any tag that carries the check scene; the
+pull_request lane also builds the PR's own tree under a local, never-pushed tag so `-Verify` runs on the runner.
 
 Assets are **attached, never replaced**. `-Upload` refuses (exit 3) when the Release already holds a
 file of either name, published or draft, and the `attach` job then fails, with the build's files kept as

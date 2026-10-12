@@ -239,6 +239,10 @@ function Resolve-Iscc {
 function Wait-ForUninstaller {
     # Inno's uninstaller re-launches itself from %TEMP% (is-*.tmp\unins000.tmp) and the first process
     # exits at once, so wait on the relaunched one too.
+    # [designed] 180 seconds bounds the wait for the relaunched uninstaller; 500 ms is the poll
+    # interval. Searched the T131 entry, docs/packaging.md and package.ps1 (which has no timeout of
+    # its own; its runs block on Start-Process -Wait): no value given. The 2026-10-12 CI runner's
+    # uninstall took about 2 seconds.
     $deadline = (Get-Date).AddSeconds(180)
     do {
         Start-Sleep -Milliseconds 500
