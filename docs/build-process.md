@@ -872,6 +872,15 @@ the docs item applies only if the review named a claim.
    touches (the report's title or key terms match the task's), hold the task, tell the user why,
    and run /process-evidence first. A report that does not concern this task never holds it, and
    a failed script holds nothing: report the failure and go on.
+   PRE-FLIGHT THE OWNS LIST against today's code, every task, before step 1 (the user's
+   decision of 2026-10-12: an implementer that stops on a file outside Owns is the main
+   session's failure, not the implementer's). For every file, class, member and field the
+   entry names, and every symbol it changes, deletes or renames, run `git grep -n -w <name>`
+   on origin/main (`-- src godot tests scripts data`) and check every hit is in Owns; for a
+   change of behaviour, also find the tests, checks and goldens that pin the old behaviour.
+   Line numbers in an older entry are approximate: find each place by name. Anything
+   missing is added by a plan amendment (§4.9) BEFORE dispatch, never left for the
+   implementer to stop on. Say in the brief that the pre-flight ran and what it added.
 1. IMPLEMENT. Label status:in-progress. ASK THE USER (CLAUDE.md rule 17, the user's decision of
    2026-10-11), one question with the question tool: does the main session implement it, or a
    subagent, and which model? Show `curl -s 'localhost:8765/recommend?tier=heavy'`'s pick as a
