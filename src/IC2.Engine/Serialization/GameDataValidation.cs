@@ -344,7 +344,178 @@ public static class GameDataValidation
         // ai.faithfulTaxCutTreasuryWealthDivisor: AiFaithfulEconomy: nation wealth / this, the tax-cut treasury test.
         RequirePositiveDivisor(documentPath, ruleset.Ai.FaithfulTaxCutTreasuryWealthDivisor, "ai.faithfulTaxCutTreasuryWealthDivisor");
 
+        ValidateRuntimeDivisors(documentPath, ruleset);
         ValidateRngBounds(documentPath, ruleset);
+        ValidateRollTroopsSpan(documentPath, ruleset);
+    }
+
+    /// <summary>
+    /// Bug #979: the non-AI ruleset keys the engine divides by (<c>/</c> or <c>%</c>) at runtime. A 0 or
+    /// negative value is a <see cref="DivideByZeroException"/> (or a sign flip) mid-game, so it is refused
+    /// at load, exactly as the divisors above and the AI divisors of bug #943 are. Each comment names its
+    /// use site. Random-draw bounds are checked in <see cref="ValidateRngBounds"/> instead.
+    /// </summary>
+    private static void ValidateRuntimeDivisors(string documentPath, Ruleset ruleset)
+    {
+        // economy.taxRateDivisor: TaxIncome: taxBase * rate / this.
+        RequirePositiveDivisor(documentPath, ruleset.Economy.TaxRateDivisor, "economy.taxRateDivisor");
+        // economy.supplyTonsPerTalent: AutomaticResupply, SupplyPurchase: tons / this.
+        RequirePositiveDivisor(documentPath, ruleset.Economy.SupplyTonsPerTalent, "economy.supplyTonsPerTalent");
+        // economy.armySupplyTonsPerTroops: SupplyCapacity, InstantBattleResolver: troops / this.
+        RequirePositiveDivisor(documentPath, ruleset.Economy.ArmySupplyTonsPerTroops, "economy.armySupplyTonsPerTroops");
+        // economy.mercenaryDesertionSupplyDivisor: MercenaryDesertion: troops / this.
+        RequirePositiveDivisor(documentPath, ruleset.Economy.MercenaryDesertionSupplyDivisor, "economy.mercenaryDesertionSupplyDivisor");
+        // economy.debtWealthDivisor: the debt test: wealth / this.
+        RequirePositiveDivisor(documentPath, ruleset.Economy.DebtWealthDivisor, "economy.debtWealthDivisor");
+        // economy.treasuryCreditTaxBaseQuarterShareDivisor: NationTreasuryCredit: taxBase / this.
+        RequirePositiveDivisor(documentPath, ruleset.Economy.TreasuryCreditTaxBaseQuarterShareDivisor, "economy.treasuryCreditTaxBaseQuarterShareDivisor");
+        // economy.treasuryCreditWealthDivisor: NationTreasuryCredit: wealth / this.
+        RequirePositiveDivisor(documentPath, ruleset.Economy.TreasuryCreditWealthDivisor, "economy.treasuryCreditWealthDivisor");
+        // economy.tradeIncomeTaxBaseDivisor: NationTreasuryCredit: partner taxBase / this.
+        RequirePositiveDivisor(documentPath, ruleset.Economy.TradeIncomeTaxBaseDivisor, "economy.tradeIncomeTaxBaseDivisor");
+        // economy.populationGrowthGapDivisor: CityPopulationGrowth: gap / this.
+        RequirePositiveDivisor(documentPath, ruleset.Economy.PopulationGrowthGapDivisor, "economy.populationGrowthGapDivisor");
+        // economy.populationGrowthTaxDivisor: CityPopulationGrowth: d * tax / this.
+        RequirePositiveDivisor(documentPath, ruleset.Economy.PopulationGrowthTaxDivisor, "economy.populationGrowthTaxDivisor");
+        // economy.populationGrowthMobilizationDivisor: CityPopulationGrowth: mobilization / this.
+        RequirePositiveDivisor(documentPath, ruleset.Economy.PopulationGrowthMobilizationDivisor, "economy.populationGrowthMobilizationDivisor");
+        // economy.unityTaxRateDivisor: the unity update: tax rate / this.
+        RequirePositiveDivisor(documentPath, ruleset.Economy.UnityTaxRateDivisor, "economy.unityTaxRateDivisor");
+        // economy.unityMobilizationDivisor: the unity update: mobilization / this.
+        RequirePositiveDivisor(documentPath, ruleset.Economy.UnityMobilizationDivisor, "economy.unityMobilizationDivisor");
+        // economy.loyaltyFallTaxDivisor: CityLoyaltyDraws: NextInt(taxRate) / this.
+        RequirePositiveDivisor(documentPath, ruleset.Economy.LoyaltyFallTaxDivisor, "economy.loyaltyFallTaxDivisor");
+        // economy.citySupplyProductionDivisor: city supply: production / this.
+        RequirePositiveDivisor(documentPath, ruleset.Economy.CitySupplyProductionDivisor, "economy.citySupplyProductionDivisor");
+        // economy.citySupplyMobilizationDivisor: city supply: mobilization / this.
+        RequirePositiveDivisor(documentPath, ruleset.Economy.CitySupplyMobilizationDivisor, "economy.citySupplyMobilizationDivisor");
+        // economy.supplyPercentNumerator: SupplyCapacity, EndTurnWarnings: troops / this (a percent scale used as a divisor).
+        RequirePositiveDivisor(documentPath, ruleset.Economy.SupplyPercentNumerator, "economy.supplyPercentNumerator");
+        // economy.supplyConsumption.consumptionDivisor: SupplyConsumption: x * troops / this.
+        RequirePositiveDivisor(documentPath, ruleset.Economy.SupplyConsumption.ConsumptionDivisor, "economy.supplyConsumption.consumptionDivisor");
+        // economy.supplyConsumption.fleetEmbarkedDivisor: SupplyConsumption: embarked troops / this.
+        RequirePositiveDivisor(documentPath, ruleset.Economy.SupplyConsumption.FleetEmbarkedDivisor, "economy.supplyConsumption.fleetEmbarkedDivisor");
+        // economy.supplyMorale.movesTroopDivisor: SupplyMoraleRule: troops / this.
+        RequirePositiveDivisor(documentPath, ruleset.Economy.SupplyMorale.MovesTroopDivisor, "economy.supplyMorale.movesTroopDivisor");
+        // endTurnWarnings.fleetSupplyShipsDivisor: EndTurnWarnings: ships / this.
+        RequirePositiveDivisor(documentPath, ruleset.EndTurnWarnings.FleetSupplyShipsDivisor, "endTurnWarnings.fleetSupplyShipsDivisor");
+        // recruitment.troopsPerCostUnit: StandingRecruitmentCost, ArmyUpkeep: troops / this.
+        RequirePositiveDivisor(documentPath, ruleset.Recruitment.TroopsPerCostUnit, "recruitment.troopsPerCostUnit");
+        // recruitment.mercenaryHireTroopDivisor: MercenaryHireCost: troops * price / this.
+        RequirePositiveDivisor(documentPath, ruleset.Recruitment.MercenaryHireTroopDivisor, "recruitment.mercenaryHireTroopDivisor");
+        // recruitment.mercenaryUpkeepQualityDivisor: ArmyUpkeep: cost * quality / this.
+        RequirePositiveDivisor(documentPath, ruleset.Recruitment.MercenaryUpkeepQualityDivisor, "recruitment.mercenaryUpkeepQualityDivisor");
+        // recruitment.mercenaryRestockTroopsScaleDenominator: mercenary restock: troops scale / this.
+        RequirePositiveDivisor(documentPath, ruleset.Recruitment.MercenaryRestockTroopsScaleDenominator, "recruitment.mercenaryRestockTroopsScaleDenominator");
+        // recruitment.mobilizationQualityDivisor: MobilizationReadiness: state code / this.
+        RequirePositiveDivisor(documentPath, ruleset.Recruitment.MobilizationQualityDivisor, "recruitment.mobilizationQualityDivisor");
+        // naval.repairCostDivisor: RepairFleetCommandHandler: ships * points / this.
+        RequirePositiveDivisor(documentPath, ruleset.Naval.RepairCostDivisor, "naval.repairCostDivisor");
+        // naval.stormDamageRandomDivisor: FleetAttritionRule: raw storm draw / this.
+        RequirePositiveDivisor(documentPath, ruleset.Naval.StormDamageRandomDivisor, "naval.stormDamageRandomDivisor");
+        // naval.stormNearCoastDamageDivisor: FleetAttritionRule: damage /= this.
+        RequirePositiveDivisor(documentPath, ruleset.Naval.StormNearCoastDamageDivisor, "naval.stormNearCoastDamageDivisor");
+        // naval.stormShipLossRatioScale: FleetAttritionRule: ratio^2 / this.
+        RequirePositiveDivisor(documentPath, ruleset.Naval.StormShipLossRatioScale, "naval.stormShipLossRatioScale");
+        // naval.stormShipLossDivisor: FleetAttritionRule: ships * damage / this.
+        RequirePositiveDivisor(documentPath, ruleset.Naval.StormShipLossDivisor, "naval.stormShipLossDivisor");
+        // naval.movesShipDivisor: FleetAttritionRule: ships / this.
+        RequirePositiveDivisor(documentPath, ruleset.Naval.MovesShipDivisor, "naval.movesShipDivisor");
+        // naval.movesCarriedArmyTroopDivisor: FleetAttritionRule: troops / this.
+        RequirePositiveDivisor(documentPath, ruleset.Naval.MovesCarriedArmyTroopDivisor, "naval.movesCarriedArmyTroopDivisor");
+        // naval.damageSlowdownDivisor: FleetAttritionRule: condition gap / this.
+        RequirePositiveDivisor(documentPath, ruleset.Naval.DamageSlowdownDivisor, "naval.damageSlowdownDivisor");
+        // combat.powerTroopDivisor: ArmyPower: weight * troops / this.
+        RequirePositiveDivisor(documentPath, ruleset.Combat.PowerTroopDivisor, "combat.powerTroopDivisor");
+        // combat.powerDivisor: ArmyPower, SiegeStrength: total / this.
+        RequirePositiveDivisor(documentPath, ruleset.Combat.PowerDivisor, "combat.powerDivisor");
+        // combat.absorbedSupplyTroopDivisor: TacticalWriteBack: troops / this.
+        RequirePositiveDivisor(documentPath, ruleset.Combat.AbsorbedSupplyTroopDivisor, "combat.absorbedSupplyTroopDivisor");
+        // combat.naval.conditionDivisor: FleetPower, AttackLegality: ships * condition / this.
+        RequirePositiveDivisor(documentPath, ruleset.Combat.Naval.ConditionDivisor, "combat.naval.conditionDivisor");
+        // combat.naval.carriedArmyPowerDivisor: FleetPower, AttackLegality: siege strength / this.
+        RequirePositiveDivisor(documentPath, ruleset.Combat.Naval.CarriedArmyPowerDivisor, "combat.naval.carriedArmyPowerDivisor");
+        // combat.naval.winnerDamageDivisor: InstantBattleResolver: winner ships * damage / this.
+        RequirePositiveDivisor(documentPath, ruleset.Combat.Naval.WinnerDamageDivisor, "combat.naval.winnerDamageDivisor");
+        // combat.naval.damageRatioScale: InstantBattleResolver: ratio^2 / this.
+        RequirePositiveDivisor(documentPath, ruleset.Combat.Naval.DamageRatioScale, "combat.naval.damageRatioScale");
+        // combat.naval.unitLossDivisor: InstantBattleResolver: the carried-unit loss divisor.
+        RequirePositiveDivisor(documentPath, ruleset.Combat.Naval.UnitLossDivisor, "combat.naval.unitLossDivisor");
+        // combat.naval.unitySwingShipDivisor: InstantBattleResolver: ships / this.
+        RequirePositiveDivisor(documentPath, ruleset.Combat.Naval.UnitySwingShipDivisor, "combat.naval.unitySwingShipDivisor");
+        // combat.detailedResolver.meleePowerDivisor: TacticalMelee, candidates: x / this.
+        RequirePositiveDivisor(documentPath, ruleset.Combat.DetailedResolver.MeleePowerDivisor, "combat.detailedResolver.meleePowerDivisor");
+        // combat.tactical.copyInColumns: TacticalCopyIn: slot % this and slot / this.
+        RequirePositiveDivisor(documentPath, ruleset.Combat.Tactical.CopyInColumns, "combat.tactical.copyInColumns");
+        // combat.tactical.shotShooterTroopsDivisor: TacticalShooting: shooter troops / this.
+        RequirePositiveDivisor(documentPath, ruleset.Combat.Tactical.ShotShooterTroopsDivisor, "combat.tactical.shotShooterTroopsDivisor");
+        // combat.tactical.shotTargetTroopsDivisor: TacticalShooting: target troops / this.
+        RequirePositiveDivisor(documentPath, ruleset.Combat.Tactical.ShotTargetTroopsDivisor, "combat.tactical.shotTargetTroopsDivisor");
+        // combat.tactical.meleeAttackerExchangeDivisor: TacticalMelee: x / this.
+        RequirePositiveDivisor(documentPath, ruleset.Combat.Tactical.MeleeAttackerExchangeDivisor, "combat.tactical.meleeAttackerExchangeDivisor");
+        // combat.tactical.meleeDefenderExchangeDivisor: TacticalMelee: x / this.
+        RequirePositiveDivisor(documentPath, ruleset.Combat.Tactical.MeleeDefenderExchangeDivisor, "combat.tactical.meleeDefenderExchangeDivisor");
+        // combat.tactical.routTroopsDivisor: TacticalRout: standard size / this.
+        RequirePositiveDivisor(documentPath, ruleset.Combat.Tactical.RoutTroopsDivisor, "combat.tactical.routTroopsDivisor");
+        // combat.tactical.scoreDivisor: GeneralTargeting: score / this.
+        RequirePositiveDivisor(documentPath, ruleset.Combat.Tactical.ScoreDivisor, "combat.tactical.scoreDivisor");
+        // combat.tactical.dangerQualityDivisor: TacticalMovement: troops * quality / this.
+        RequirePositiveDivisor(documentPath, ruleset.Combat.Tactical.DangerQualityDivisor, "combat.tactical.dangerQualityDivisor");
+        // siege.powerDivisor: SiegeStrength: total / this.
+        RequirePositiveDivisor(documentPath, ruleset.Siege.PowerDivisor, "siege.powerDivisor");
+        // siege.highLoyaltyBonusDenominator: SiegeStrength: strength * num / this.
+        RequirePositiveDivisor(documentPath, ruleset.Siege.HighLoyaltyBonusDenominator, "siege.highLoyaltyBonusDenominator");
+        // siege.defenderGarrisonTroopDivisor: CompleteDefenderStrength, InstantBattleResolver: slot troops / this.
+        RequirePositiveDivisor(documentPath, ruleset.Siege.DefenderGarrisonTroopDivisor, "siege.defenderGarrisonTroopDivisor");
+        // siege.defenderNonAllegiantDenominator: SiegeStrength: strength * num / this.
+        RequirePositiveDivisor(documentPath, ruleset.Siege.DefenderNonAllegiantDenominator, "siege.defenderNonAllegiantDenominator");
+        // capture.cascadeAllegiantDefenseDivisor: CityCaptureResolver: defense /= this.
+        RequirePositiveDivisor(documentPath, ruleset.Capture.CascadeAllegiantDefenseDivisor, "capture.cascadeAllegiantDefenseDivisor");
+        // capture.capitalMoveStrengthDivisor: ConquestTrigger: strength / this.
+        RequirePositiveDivisor(documentPath, ruleset.Capture.CapitalMoveStrengthDivisor, "capture.capitalMoveStrengthDivisor");
+        // diplomacy.reparationsWealthDivisor: ReparationsFormula: taxBase / this.
+        RequirePositiveDivisor(documentPath, ruleset.Diplomacy.ReparationsWealthDivisor, "diplomacy.reparationsWealthDivisor");
+        // diplomacy.aiOwnDiplomacy.powerWealthDivisor: AiOwnDiplomacyRule: wealth / this.
+        RequirePositiveDivisor(documentPath, ruleset.Diplomacy.AiOwnDiplomacy.PowerWealthDivisor, "diplomacy.aiOwnDiplomacy.powerWealthDivisor");
+        // diplomacy.aiOwnDiplomacy.powerUnityDivisor: AiOwnDiplomacyRule: unity / this.
+        RequirePositiveDivisor(documentPath, ruleset.Diplomacy.AiOwnDiplomacy.PowerUnityDivisor, "diplomacy.aiOwnDiplomacy.powerUnityDivisor");
+
+        // cityOrders.orders[].inProgressEncodingRadix: FortificationCode: code % this and code / this.
+        for (var i = 0; i < ruleset.CityOrders.Orders.Count; i++)
+        {
+            RequirePositiveDivisor(
+                documentPath,
+                ruleset.CityOrders.Orders[i].InProgressEncodingRadix,
+                $"cityOrders.orders[{i}].inProgressEncodingRadix");
+        }
+    }
+
+    /// <summary>
+    /// Bug #979: <c>AiFaithfulEconomy.RollTroops</c> draws <c>NextInt(span)</c> with
+    /// <c>span = standardBattalionSize * faithfulAmountSpanNumerator / faithfulAmountSpanDenominator</c>,
+    /// so the span must be at least 1 for every unit type the recruit-type draw can pick. Run after the
+    /// divisor and bound checks, so each of its inputs is already known to be positive.
+    /// </summary>
+    private static void ValidateRollTroopsSpan(string documentPath, Ruleset ruleset)
+    {
+        var ai = ruleset.Ai;
+        foreach (var bucket in ai.FaithfulRecruitTypeBuckets)
+        {
+            var type = ruleset.UnitTypeById(bucket.UnitTypeId);
+            if (type is null)
+            {
+                continue;
+            }
+
+            var span = (long)type.StandardBattalionSize * ai.FaithfulAmountSpanNumerator / ai.FaithfulAmountSpanDenominator;
+            if (span < 1)
+            {
+                throw new MalformedGameDataException(
+                    documentPath,
+                    $"'ai.faithfulAmountSpanNumerator'/'ai.faithfulAmountSpanDenominator' give a recruit-amount span of {span} "
+                    + $"for unit type '{type.Id}' (standardBattalionSize {type.StandardBattalionSize}); it is a random-draw bound and must be at least 1.");
+            }
+        }
     }
 
     /// <summary>
