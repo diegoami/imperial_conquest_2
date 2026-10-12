@@ -533,9 +533,9 @@ public sealed class ChangeUnitsModel
     /// <summary>Split unit composes <c>split-unit</c>.</summary>
     public string SplitUnitLine(int unitIndex, int troops) => $"split-unit {ArmyId} {unitIndex} {troops}";
 
-    /// <summary>Join units composes <c>join-units</c>, the first index surviving.</summary>
-    public string JoinUnitsLine(int firstUnitIndex, int secondUnitIndex) =>
-        $"join-units {ArmyId} {firstUnitIndex} {secondUnitIndex}";
+    /// <summary>Join units composes <c>join-units</c> over every selected unit, the first index surviving.</summary>
+    public string JoinUnitsLine(params int[] unitIndexes) =>
+        $"join-units {ArmyId} {string.Join(' ', unitIndexes)}";
 
     /// <summary>Disband composes <c>disband-unit</c>.</summary>
     public string DisbandUnitLine(int unitIndex) => $"disband-unit {ArmyId} {unitIndex}";

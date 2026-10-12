@@ -226,7 +226,7 @@ Commands:
   attack-fleet <fleet> <target-fleet> - attack another nation's fleet (declares war first if needed)
   disband-army <army> - disband an army near one of your own cities
   join-armies <survivor-army> <absorbed-army> - merge one army into another
-  join-units <army> <unit-index> <unit-index> - merge two of an army's own unit slots
+  join-units <army> <unit-index> <unit-index> [<unit-index> ...] - merge two or more of an army's own unit slots
   split-army <army> <new-army> <i,j,...> [supply=<tons>] [money=<talents>] - split units, supply and money off into a new army
   order-city <city> <order-id> <points> - place a standing order on one of your own cities
   declare-war <nation> - declare war on another nation
