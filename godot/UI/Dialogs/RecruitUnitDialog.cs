@@ -155,15 +155,11 @@ public partial class RecruitUnitDialog : Control
         // city: the capital, a town whose current fortification level is at or above the ruleset's
         // recruitTownMinFortificationPercent, or a town with units in training (so they can still be
         // mobilized or disbanded from here). Recruit is then offered only where the order would be
-        // accepted — see Refresh. The "All cities" entry is a recruitment convenience the clone does
-        // not model. The dropdown is rebuilt from the model's list after each submit.
+        // accepted — see Refresh. T162 (bug #1001) adds the original's "All cities" entry last: it lists
+        // every regiment in training with its city and offers no Recruit. The dropdown is rebuilt from
+        // the model's list after each submit.
         _cityDropdown = new OptionButton();
-        foreach (var city in _model.ListedCities)
-        {
-            _cityDropdown.AddItem(city.Name);
-            _cityDropdown.SetItemMetadata(_cityDropdown.ItemCount - 1, city.Id);
-            _cityIds.Add(city.Id);
-        }
+        FillCityDropdown();
 
         _cityDropdown.ItemSelected += _ =>
         {
@@ -253,10 +249,11 @@ public partial class RecruitUnitDialog : Control
             _typeButtons[0].ButtonPressed = true;
         }
 
-        // Default the city selection to the first owned city.
+        // Opening rule (T162): All cities when any regiment trains at a city other than the capital,
+        // so nothing hides behind the dropdown; otherwise the first listed town, as before.
         if (_cityDropdown.ItemCount > 0)
         {
-            _cityDropdown.Select(0);
+            _cityDropdown.Select(_model.OpensOnAllCities ? _cityDropdown.ItemCount - 1 : 0);
         }
 
         Refresh();
@@ -299,8 +296,8 @@ public partial class RecruitUnitDialog : Control
             _mobTargetLabel.Text = string.Empty;
         }
 
-        _mobilizeButton.Disabled = selectedRow is not { IsReady: true };
-        _disbandButton.Disabled = selectedRow is null;
+        _mobilizeButton.Disabled = !RecruitUnitDialogModel.MayMobilize(selectedRow);
+        _disbandButton.Disabled = !RecruitUnitDialogModel.MayDisband(selectedRow);
 
         // T155 (#515): Recruit is offered only in a town the order accepts — the engine's own
         // capital-or-threshold rule (RecruitUnit's raw word), with its reason on the button for the
@@ -310,14 +307,29 @@ public partial class RecruitUnitDialog : Control
         _recruitButton.TooltipText = recruitRefusal ?? string.Empty;
     }
 
+    /// <summary>Fills the dropdown: the listed towns, then All cities (T162). <see cref="_cityIds"/>
+    /// holds the towns only.</summary>
+    private void FillCityDropdown()
+    {
+        foreach (var city in _model.ListedCities)
+        {
+            _cityDropdown.AddItem(city.Name);
+            _cityDropdown.SetItemMetadata(_cityDropdown.ItemCount - 1, city.Id);
+            _cityIds.Add(city.Id);
+        }
+
+        _cityDropdown.AddItem(RecruitUnitDialogModel.AllCitiesLabel);
+        _cityDropdown.SetItemMetadata(_cityDropdown.ItemCount - 1, RecruitUnitDialogModel.AllCitiesId);
+    }
+
     private void RefreshTrainingList()
     {
         _trainingList.Clear();
-        _trainingRows = _model.TrainingAtCity(SelectedCityIdForCheck);
+        _trainingRows = _model.TrainingFor(SelectedCityIdForCheck);
         var reselectRow = -1;
         for (var i = 0; i < _trainingRows.Count; i++)
         {
-            _trainingList.AddItem(FormatTrainingRow(_trainingRows[i]));
+            _trainingList.AddItem(FormatTrainingRow(_trainingRows[i], RecruitUnitDialogModel.IsAllCities(SelectedCityIdForCheck)));
             if (_trainingRows[i].SlotIndex == _selectedSlotIndex)
             {
                 reselectRow = i;
@@ -332,8 +344,10 @@ public partial class RecruitUnitDialog : Control
         }
     }
 
-    private static string FormatTrainingRow(TrainingRegimentView row) =>
-        $"{row.UnitTypeId} — {row.Troops} troops — {row.ReadinessText}";
+    private string FormatTrainingRow(TrainingRegimentView row, bool withCity) =>
+        withCity
+            ? $"{_model.CityName(row.TargetCityId)} — {row.UnitTypeId} — {row.Troops} troops — {row.ReadinessText}"
+            : $"{row.UnitTypeId} — {row.Troops} troops — {row.ReadinessText}";
 
     /// <summary>
     /// The slot-table index the selected training row names, or <see langword="null"/>. This is the
@@ -345,7 +359,7 @@ public partial class RecruitUnitDialog : Control
     private void SubmitRecruit()
     {
         var cityId = SelectedCityIdForCheck;
-        if (string.IsNullOrEmpty(cityId))
+        if (string.IsNullOrEmpty(cityId) || RecruitUnitDialogModel.IsAllCities(cityId))
         {
             return;
         }
@@ -427,14 +441,11 @@ public partial class RecruitUnitDialog : Control
         var selectedId = SelectedCityIdForCheck;
         _cityDropdown.Clear();
         _cityIds.Clear();
-        foreach (var city in _model.ListedCities)
-        {
-            _cityDropdown.AddItem(city.Name);
-            _cityDropdown.SetItemMetadata(_cityDropdown.ItemCount - 1, city.Id);
-            _cityIds.Add(city.Id);
-        }
+        FillCityDropdown();
 
-        var keep = _cityIds.FindIndex(id => string.Equals(id, selectedId, StringComparison.Ordinal));
+        var keep = RecruitUnitDialogModel.IsAllCities(selectedId)
+            ? _cityDropdown.ItemCount - 1
+            : _cityIds.FindIndex(id => string.Equals(id, selectedId, StringComparison.Ordinal));
         if (keep < 0 && _cityDropdown.ItemCount > 0)
         {
             keep = 0;
@@ -499,6 +510,24 @@ public partial class RecruitUnitDialog : Control
             }
         }
     }
+
+    /// <summary>Selects the All cities entry, exactly as the dropdown does — exposed for the headless check (T162).</summary>
+    public void SelectAllCitiesForCheck()
+    {
+        _cityDropdown.Select(_cityDropdown.ItemCount - 1);
+        _selectedSlotIndex = null;
+        Refresh();
+    }
+
+    /// <summary>The training list's rows as shown, in order — exposed for the headless check (T162).</summary>
+    public IReadOnlyList<TrainingRegimentView> TrainingRowsForCheck => _trainingRows;
+
+    /// <summary>The training list's row texts as shown — exposed for the headless check (T162).</summary>
+    public IReadOnlyList<string> TrainingRowTextsForCheck =>
+        Enumerable.Range(0, _trainingList.ItemCount).Select(i => _trainingList.GetItemText(i)).ToList();
+
+    /// <summary>Whether the Mobilize button is enabled — exposed for the headless check (T162).</summary>
+    public bool MobilizeEnabledForCheck => !_mobilizeButton.Disabled;
 
     /// <summary>Selects a unit type by id, exactly as a type-button press does — exposed for the headless check.</summary>
     public void SelectUnitTypeForCheck(string unitTypeId)

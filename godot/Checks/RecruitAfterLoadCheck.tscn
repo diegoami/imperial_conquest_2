@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Checks/RecruitAfterLoadCheck.cs" id="1_recruit_after_load"]
+
+[node name="RecruitAfterLoadCheck" type="Node"]
+script = ExtResource("1_recruit_after_load")
