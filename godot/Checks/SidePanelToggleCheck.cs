@@ -50,9 +50,7 @@ public partial class SidePanelToggleCheck : Control
         _mainGame = Build();
         _clickScreen = _mainGame;
         _stateAtStart = _mainGame.Session.State;
-        _mainGame.CommandIssued += _ => _commandsSeen++;
-        _mainGame.MapView.CommandIssued += _ => _commandsSeen++;
-        _mainGame.ContextPanel.CommandIssued += _ => _commandsSeen++;
+        WireCommandSeams(_mainGame);
         _mainGame.MapView.ArmySelected += _ => _armySelections++;
         _mainGame.MapView.SelectionCleared += () => _selectionsCleared++;
 
@@ -309,10 +307,18 @@ public partial class SidePanelToggleCheck : Control
         CheckNoCommands("after closing the overlay");
     }
 
+    private void WireCommandSeams(MainGameScreen screen)
+    {
+        screen.CommandIssued += _ => _commandsSeen++;
+        screen.MapView.CommandIssued += _ => _commandsSeen++;
+        screen.ContextPanel.CommandIssued += _ => _commandsSeen++;
+    }
+
     private void BuildSecond()
     {
         Check(!_mainGame.SideColumn.Visible, "the first screen is hidden before the New Game");
         _second = Build();
+        WireCommandSeams(_second);
     }
 
     private void CheckSecondHidden()
@@ -329,9 +335,11 @@ public partial class SidePanelToggleCheck : Control
 
     private void CheckBothShown()
     {
-        Check(_mainGame.SideColumn.Visible && _second!.SideColumn.Visible, "toggling after the second screen is built shows both columns");
-        Check(_mainGame.SidePanelButton.Text == "»" && _second!.SidePanelButton.Text == "»", "both buttons read » and agree");
-        Check(_mainGame.SidePanelButton.TooltipText == _second.SidePanelButton.TooltipText, "both tooltips agree");
+        var second = _second;
+        if (second == null) { Check(false, "the second screen was built"); return; }
+        Check(_mainGame.SideColumn.Visible && second.SideColumn.Visible, "toggling after the second screen is built shows both columns");
+        Check(_mainGame.SidePanelButton.Text == "»" && second.SidePanelButton.Text == "»", "both buttons read » and agree");
+        Check(_mainGame.SidePanelButton.TooltipText == second.SidePanelButton.TooltipText, "both tooltips agree");
     }
 
     private void CheckBothHidden()
