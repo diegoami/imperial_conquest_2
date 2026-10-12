@@ -314,6 +314,18 @@ public partial class SoundCuesCheck : Control
                     break;
 
                 case 8 when _frame >= TeardownFrames:
+                    // Bug #1056: the screens' C# wrappers of build-time Images (terrain and splat
+                    // textures) were still unreclaimed at engine teardown on the Linux CI runner
+                    // ("Leaked unsafe reference ... Image", leaked DummyTexture RIDs, then SIGSEGV).
+                    // Reclaim the managed wrappers now, with the engine still running, then give the
+                    // engine a few frames to process the resulting frees before quitting.
+                    ReclaimManagedWrappers();
+                    _step = 9;
+                    _frame = 0;
+                    break;
+
+                case 9 when _frame >= TeardownFrames:
+                    ReclaimManagedWrappers();
                     Finish();
                     break;
             }
@@ -620,6 +632,13 @@ public partial class SoundCuesCheck : Control
         {
             StopAllPlayers(child);
         }
+    }
+
+    private static void ReclaimManagedWrappers()
+    {
+        System.GC.Collect();
+        System.GC.WaitForPendingFinalizers();
+        System.GC.Collect();
     }
 
     private void Finish()
