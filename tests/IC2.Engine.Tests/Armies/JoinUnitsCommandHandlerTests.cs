@@ -217,13 +217,16 @@ public sealed class JoinUnitsCommandHandlerTests
     public void Join_ThreeUnitsWhoseQualityDoesNotDivideEvenly_TruncatesTheAverage()
     {
         var army = Army("join-units-n", NorthNationId, 3, 3,
-            new[] { Li("a", 100, 6), Li("b", 100, 7), Li("c", 100, 7) });
+            new[] { Li("a", 100, 4), Li("b", 100, 5), Li("c", 100, 8) });
         var state = WithArmies(InitialState(), army);
 
         var result = Dispatcher().Dispatch(state, new JoinUnitsCommand(NorthNationId, "join-units-n", new[] { 0, 1, 2 }));
 
         Assert.True(result.IsAccepted, result.ToString());
-        Assert.Equal(6, result.State.ArmyById("join-units-n")!.Units[0].Quality); // 20 / 3 = 6, truncated.
+        var units = result.State.ArmyById("join-units-n")!.Units;
+        Assert.Single(units);
+        // 17 / 3 = 5 truncated: not 6 (rounded to nearest), not 4 (the first two alone, (4 + 5) / 2).
+        Assert.Equal(5, units[0].Quality);
     }
 
     [Fact]
