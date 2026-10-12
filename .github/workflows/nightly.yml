@@ -1,0 +1,109 @@
+name: Nightly
+
+# T28 (issue #28): the nightly regression and soak gate. It runs `dotnet test IC2.sln`, which is the
+# whole suite in one command: the golden-fixture tests (IC2.Data.Tests, which read the private
+# diegoami/ic2-test-fixtures clone) and the 50-seed all-AI soak (IC2.Engine.Tests/Ai, AiTestbed.SoakSeeds
+# = seeds 1..SoakSeedCount, SoakSeedCount = 50). The soak has no test category or trait: it is part of
+# the ordinary run, so no filter is needed or used. When the run fails on a schedule or a manual
+# dispatch, the `report-failure` job opens an issue.
+#
+# Fixtures: ci.yml already clones the private fixtures repo with the repository secret FIXTURES_TOKEN
+# (read-only, scoped to that one repository). This workflow reuses that same existing secret, the same
+# way, and adds none. A run that cannot get it (the token empty or the clone failing) fails the
+# "Fetch test fixtures" step rather than silently skipping, because a nightly gate that skips the
+# golden fixtures would be green for the wrong reason. Without the clone, every [SkippableFact] /
+# [SkippableTheory] in IC2.Data.Tests (DAT, corpus and save-dependent tests) would skip.
+#
+# GitHub dispatches a workflow_dispatch workflow only once its file is on the default branch, so the PR
+# that adds this file cannot test itself by dispatch. The pull_request trigger, limited to this
+# file by `paths`, runs it once on the PR (as release.yml does); the issue-opening job never runs on a
+# pull_request. The `force_fail` dispatch input makes one step fail on purpose, so that a failing run
+# can be checked to open an issue.
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      force_fail:
+        description: "Fail one step on purpose, to check that a failing run opens an issue"
+        type: boolean
+        default: false
+  pull_request:
+    paths:
+      - ".github/workflows/nightly.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    # The soak and golden fixtures take well under 5 minutes in ci.yml (its build-and-test job has a
+    # 20-minute guard); the same guard here.
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore IC2.sln
+
+      - name: Build
+        run: dotnet build IC2.sln --no-restore --configuration Release
+
+      # Same one-shot header clone as ci.yml (the token is never in the URL, and the base64 form is
+      # masked). Unlike ci.yml there is no fork guard: schedule and dispatch always run on this
+      # repository, and on a same-repo pull_request the secret is available.
+      - name: Fetch test fixtures
+        env:
+          FIXTURES_TOKEN: ${{ secrets.FIXTURES_TOKEN }}
+        run: |
+          set -eu
+          dir="${RUNNER_TEMP}/ic2-test-fixtures"
+          auth="$(printf 'x-access-token:%s' "$FIXTURES_TOKEN" | base64 -w0)"
+          echo "::add-mask::${auth}"
+          git -c http.extraheader="AUTHORIZATION: basic ${auth}" \
+            clone --depth 1 https://github.com/diegoami/ic2-test-fixtures.git "$dir"
+          test -f "$dir/Imperial Conquest 2.dat"
+          echo "IC2_FIXTURES_DIR=$dir" >> "$GITHUB_ENV"
+
+      - name: Full suite (golden fixtures and the 50-seed AI soak)
+        run: dotnet test IC2.sln --no-build --configuration Release --logger "console;verbosity=normal"
+
+      - name: Deliberate failure (dispatch input force_fail)
+        if: ${{ inputs.force_fail }}
+        run: |
+          echo "force_fail was set: failing on purpose."
+          exit 1
+
+  report-failure:
+    needs: test
+    if: ${{ failure() && github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open an issue for the failed run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TRIGGER: ${{ github.event_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -eu
+          body="The nightly regression and soak gate failed.
+
+          - Run: ${RUN_URL}
+          - Trigger: ${TRIGGER}
+          - Commit: ${SHA}
+
+          The run covers the golden-fixture suite and the 50-seed AI soak. Open the run's \`test\` job for the failing test."
+          gh issue create --title "Nightly gate failed ($(date -u +%Y-%m-%d))" --body "$body"
