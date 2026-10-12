@@ -13,8 +13,10 @@ namespace IC2.Engine.Persistence;
 /// <remarks>
 /// Each step takes the envelope at version <c>N</c> and returns it re-shaped as version <c>N + 1</c>,
 /// touching only what that version actually changed — <see cref="MigrateV1ToV2"/>,
-/// <see cref="MigrateV2ToV3"/> and <see cref="MigrateV3ToV4"/> are the three steps so far, because
-/// <see cref="SaveFormat.CurrentVersion"/> has only ever been 1, 2, 3 or 4.
+/// <see cref="MigrateV2ToV3"/>, <see cref="MigrateV3ToV4"/>, <see cref="MigrateV4ToV5"/> (T67: drops
+/// <c>cities[].underSiege</c>) and <see cref="MigrateV5ToV6"/> (T81: adds the empty
+/// <c>state.roughSeaCells</c> overlay) are the five steps so far, because
+/// <see cref="SaveFormat.CurrentVersion"/> has only ever been 1, 2, 3, 4, 5 or 6.
 /// </remarks>
 internal static class SaveMigrations
 {
@@ -187,6 +189,30 @@ internal static class SaveMigrations
     }
 
     /// <summary>
+    /// Version 5 to version 6 (T81, bug #339): gives the state the weekly rough-sea overlay
+    /// (<c>state.roughSeaCells</c>) it never had. No source can recover last week's roll, so a migrated
+    /// save starts with an <em>empty</em> overlay and the next weekly roll paints a new one. A save that
+    /// already carries the key keeps it.
+    /// </summary>
+    private static JsonObject MigrateV5ToV6(string documentPath, JsonObject v5)
+    {
+        var v6 = (JsonObject)v5.DeepClone();
+        v6[SaveFormat.VersionField] = 6;
+
+        var save = EnvelopeJson.RequireObject(documentPath, v6, SaveFormat.PayloadField, "the version-5 envelope");
+        var state = EnvelopeJson.RequireObject(documentPath, save, "state", "the version-5 save");
+
+        // T81: the weekly rough-sea overlay did not exist, so a migrated save starts with none; the next
+        // weekly roll paints a new one. A save that somehow carries the key keeps it.
+        if (!state.ContainsKey("roughSeaCells"))
+        {
+            state["roughSeaCells"] = new JsonArray();
+        }
+
+        return v6;
+    }
+
+    /// <summary>
     /// Version 3 to version 4 (T76): gives every occupied mercenary-pool slot the <c>x</c>/<c>y</c>
     /// city-tile position <see cref="MercenaryPoolSlot"/> now carries. A pre-T76 save never persisted it,
     /// and no source can recover where an offer stood: searched
@@ -209,24 +235,6 @@ internal static class SaveMigrations
     /// The envelope is not a well-formed version-3 save (<c>state.mercenaryPool</c> is not a JSON array),
     /// or one of its entries is not a JSON object.
     /// </exception>
-    private static JsonObject MigrateV5ToV6(string documentPath, JsonObject v5)
-    {
-        var v6 = (JsonObject)v5.DeepClone();
-        v6[SaveFormat.VersionField] = 6;
-
-        var save = EnvelopeJson.RequireObject(documentPath, v6, SaveFormat.PayloadField, "the version-5 envelope");
-        var state = EnvelopeJson.RequireObject(documentPath, save, "state", "the version-5 save");
-
-        // T81: the weekly rough-sea overlay did not exist, so a migrated save starts with none; the next
-        // weekly roll paints a new one. A save that somehow carries the key keeps it.
-        if (!state.ContainsKey("roughSeaCells"))
-        {
-            state["roughSeaCells"] = new JsonArray();
-        }
-
-        return v6;
-    }
-
     private static JsonObject MigrateV3ToV4(string documentPath, JsonObject v3)
     {
         var v4 = (JsonObject)v3.DeepClone();
