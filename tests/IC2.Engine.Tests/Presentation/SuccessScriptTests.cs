@@ -93,7 +93,7 @@ namespace IC2.Engine.Tests.Presentation;
 /// <strong>3, 10, 13 and 20</strong>, which produce zero — but at <strong>13 and 20</strong>,
 /// <c>peace-yes</c> itself fails that second way, and not for the same reason at each: at
 /// <strong>seed 13</strong>, the <em>first</em> attack (<c>mac-detached</c>'s) does raise the offer
-/// ("Thracia are willing to end the war"), but the very next <c>end</c> prints
+/// (its four offer lines, the first being "After defeating you in battle Thracia are willing to end their war with you, if you agree to the terms below."), but the very next <c>end</c> prints
 /// <c>"The peace treaty offer has lapsed."</c> (<c>GameSession.cs</c>'s own lapse check) before this
 /// script's own <c>peace-yes</c> line — which comes only after the <em>second</em> attack
 /// (<c>mac-sac-1</c>'s) — is ever reached, so the answer is "no pending offer" because the one real offer
