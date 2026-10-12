@@ -1,4 +1,5 @@
 using IC2.Engine.Core;
+using IC2.Engine.Economy;
 using IC2.Engine.Model;
 
 namespace IC2.Engine.Cities.Orders;
@@ -67,8 +68,10 @@ public sealed class OrderCityCommandHandler : ICommandHandler<OrderCityCommand>
                 $"City '{city.Name}' already has a {command.OrderId} order pending.");
         }
 
-        // Check if under siege (if order refuses under siege)
-        if (orderRule.RefusedWhileUnderSiege && city.UnderSiege)
+        // "Under siege" is the original's FUN_004497cc, the hostile-army-adjacent test (T67, #304;
+        // refusal-texts-and-conditions.md R22: "an own city is selected and an enemy army is next to it"),
+        // not a stored flag.
+        if (orderRule.RefusedWhileUnderSiege && HostileArmyAdjacent.IsThreatened(city, state, ruleset))
         {
             return CommandOutcome.Reject(
                 CityOrderRejections.FortifyRefusedWhileUnderSiege,

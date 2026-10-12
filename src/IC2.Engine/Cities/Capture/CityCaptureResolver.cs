@@ -3,6 +3,8 @@ using IC2.Engine.Core;
 using IC2.Engine.Diplomacy;
 using IC2.Engine.Economy;
 using IC2.Engine.Model;
+using IC2.Engine.Movement;
+using IC2.Engine.Naval;
 using IC2.Engine.Strength;
 
 namespace IC2.Engine.Cities.Capture;
@@ -247,7 +249,7 @@ public static class CityCaptureResolver
     /// (<see cref="CapitalOwnership.IsAnyNationsCapital"/>, T90/#409's own corrected gate). T91: an earlier
     /// revision of this remark called a defection reaching a capital "the pre-existing, out-of-scope
     /// cascade gap <c>RunCascade</c>'s own remarks do not claim to close" — that was true of T17's original
-    /// gate (<see cref="CityState.UnderSiege"/>, which never excluded a capital at all), but T90's
+    /// gate (a stored siege flag, which never excluded a capital at all), but T90's
     /// correction already closes it: the cascade's own gate now excludes a capital candidate before
     /// <see cref="Defect"/> is ever reached for it, so this method cannot be called with a capital city
     /// through that path (it remains directly callable with one, since it is public — see its own summary
@@ -321,7 +323,7 @@ public static class CityCaptureResolver
     /// gate — not <see cref="NationState.CapitalCityId"/> of <em>any</em> of the sixteen nation records
     /// (<see cref="CapitalOwnership.IsAnyNationsCapital"/>, checked before anything else the pseudocode
     /// does; T90/#409, correcting T17's own misreading of that gate as "not already contested",
-    /// <see cref="CityState.UnderSiege"/> — see this method's own remark at the gate below), within
+    /// a stored siege flag (since removed, T67) — see this method's own remark at the gate below), within
     /// <see cref="CaptureRules.CascadeDistanceMax"/> of the besieging army (Chebyshev; see
     /// <see cref="CaptureRules"/>'s own remarks on that field), <strong>the loser's</strong> own unity
     /// still under <see cref="CaptureRules.CascadeUnityThreshold"/> (T91/#415: not the new owner's — see
@@ -362,14 +364,13 @@ public static class CityCaptureResolver
 
             // T90/#409 (bug #407): FUN_0044ba1c's real gate is FUN_0044b8d0(city) -- "is this city any of
             // the sixteen nations' own capital", read live off every NationState.CapitalCityId in
-            // currentState, not T17's CityState.UnderSiege ("if not already contested"), which the
+            // currentState, not T17's stored siege flag ("if not already contested"), which the
             // original's own sweep never checks at all. The read walks every nation record regardless of
             // NationState.Eliminated -- FUN_0044b8d0 has no liveness check of its own, and T86's corrected
             // Defect leaves an eliminated nation's CapitalCityId exactly as it stood (NationElimination's
             // own remarks), so a stale capital pointer into a city the loser now owns is still reachable
-            // here and still gates it. CityState.UnderSiege itself is untouched -- other callers
-            // (AiEconomyPhase, CityOrderProgressSystem, OrderCityCommandHandler) still read it for their
-            // own, unrelated purposes; only this sweep's gate changes. T91: extracted into
+            // here and still gates it. The stored flag has since been removed (T67): "under siege" is
+            // HostileArmyAdjacent, which this sweep never asks. T91 (the gate itself): extracted into
             // CapitalOwnership.IsAnyNationsCapital, the same predicate InstantBattleResolver and
             // ConquestTrigger now share for their own, separate x5/3 capital-strength readings (#409 S4).
             //
@@ -383,7 +384,7 @@ public static class CityCaptureResolver
                 continue;
             }
 
-            if (ChebyshevDistance(candidate.X, candidate.Y, attackerArmy.X, attackerArmy.Y) >= rules.CascadeDistanceMax)
+            if (LandingTile.ChebyshevDistance(new GridPoint(candidate.X, candidate.Y), new GridPoint(attackerArmy.X, attackerArmy.Y)) >= rules.CascadeDistanceMax)
             {
                 continue;
             }
@@ -563,11 +564,4 @@ public static class CityCaptureResolver
             + "term decodes through.",
             nameof(orderId));
     }
-
-    /// <summary>
-    /// Chebyshev (chessboard) distance — <see cref="Battle.ScatterPlacement"/>'s own map-distance
-    /// convention, reused here since the report gives the cascade's distance threshold but not the metric.
-    /// </summary>
-    private static int ChebyshevDistance(int x1, int y1, int x2, int y2) =>
-        Math.Max(Math.Abs(x1 - x2), Math.Abs(y1 - y2));
 }

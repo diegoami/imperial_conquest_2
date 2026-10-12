@@ -162,6 +162,37 @@ public sealed class SaveMigrationTests
     }
 
     /// <summary>
+    /// T67 (#304): the version-4-to-5 step drops <c>cities[].underSiege</c>. A version-4 envelope carrying
+    /// the flag on every city (the shape this build wrote before the flag was deleted) loads, and equals the
+    /// state it was written from; a current save carries no such field.
+    /// </summary>
+    [Fact]
+    public void MigratingAVersion4EnvelopeDropsTheUnderSiegeFlagFromEveryCity()
+    {
+        var toy = PersistenceTestbed.Toy;
+        var state = PersistenceTestbed.PlayTurns(2);
+        var save = new SaveGame(
+            SchemaVersion: state.SchemaVersion, Id: "v4-shape-test", Label: "v4 shape test",
+            ScenarioId: state.ScenarioId, WorldId: state.WorldId, RulesetId: state.RulesetId, State: state);
+
+        var current = SaveManager.Serialize(save);
+        Assert.DoesNotContain("underSiege", current, StringComparison.Ordinal);
+
+        var v4Envelope = (JsonObject)JsonNode.Parse(current)!;
+        v4Envelope[SaveFormat.VersionField] = 4;
+        var cities = (JsonArray)((JsonObject)((JsonObject)v4Envelope[SaveFormat.PayloadField]!)["state"]!)["cities"]!;
+        Assert.NotEmpty(cities);
+        foreach (var city in cities)
+        {
+            ((JsonObject)city!)["underSiege"] = false;
+        }
+
+        var loaded = SaveManager.Load("v4-shape-test.json", v4Envelope.ToJsonString(), toy.World, toy.Ruleset);
+
+        Assert.Equal(state, loaded.State);
+    }
+
+    /// <summary>
     /// T86 Done-when 3's own version step: migrating a version-2 envelope to version 3 makes both new
     /// fields explicit. <c>conqueredBy</c> is always JSON <c>null</c> (a version-2 save never had a
     /// conquest to record). <c>neighbours</c> is populated for real, from

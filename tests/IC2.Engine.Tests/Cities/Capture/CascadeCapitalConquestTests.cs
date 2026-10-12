@@ -9,7 +9,7 @@ namespace IC2.Engine.Tests.Cities.Capture;
 /// <summary>
 /// T90/#409, Done-when 3: bug #407's own symptom, reproduced through the real capture command rather than
 /// asserted against <see cref="CityCaptureResolver.Defect"/> in isolation. Before this fix, a cascade whose
-/// only remaining candidate was the loser's own capital took it anyway (T17's <see cref="CityState.UnderSiege"/>
+/// only remaining candidate was the loser's own capital took it anyway (T17's stored siege flag
 /// gate never excluded a capital), which could empty the loser down to its last city through
 /// <em>defection</em> — publishing no <see cref="NationConquered"/>, crediting no treasury, granting no
 /// conquest unity — instead of through the conquest path <see cref="ConquestCascade"/> owns. This scenario

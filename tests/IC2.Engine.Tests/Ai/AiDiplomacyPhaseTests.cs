@@ -500,15 +500,15 @@ public sealed class AiDiplomacyPhaseTests
             .Select(i => new CityState(
                 $"acting-city-{i}", $"Acting City {i}", X: 0, Y: 0, Owner: Acting, Allegiance: Acting,
                 Loyalty: 80, SupplyTons: 0, FortificationCode: 50, PopulationThousands: 10,
-                MaxPopulationThousands: 10, Tribute: 0, UnderSiege: false, Garrison: ValueList<UnitSlot>.Empty))
+                MaxPopulationThousands: 10, Tribute: 0, Garrison: ValueList<UnitSlot>.Empty))
             .Append(new CityState(
                 "j-city", "J City", X: 0, Y: 0, Owner: "j", Allegiance: "j", Loyalty: 80, SupplyTons: 0,
                 FortificationCode: 50, PopulationThousands: 10, MaxPopulationThousands: 10, Tribute: 0,
-                UnderSiege: false, Garrison: ValueList<UnitSlot>.Empty))
+                Garrison: ValueList<UnitSlot>.Empty))
             .Append(new CityState(
                 "m-city", "M City", X: 0, Y: 0, Owner: "m", Allegiance: "m", Loyalty: 80, SupplyTons: 0,
                 FortificationCode: 50, PopulationThousands: 10, MaxPopulationThousands: 10, Tribute: 0,
-                UnderSiege: false, Garrison: ValueList<UnitSlot>.Empty))
+                Garrison: ValueList<UnitSlot>.Empty))
             .ToArray();
 
         var ids = ValueList.From(nations.Select(n => n.Id));

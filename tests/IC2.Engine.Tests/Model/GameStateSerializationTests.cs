@@ -30,7 +30,6 @@ public class GameStateSerializationTests
         Assert.Contains(state.Armies, a => a.IsEmbarked);
         Assert.Contains(state.Fleets, f => f.IsCarryingArmy);
         Assert.Contains(state.Fleets, f => f.IsUnderConstruction);
-        Assert.Contains(state.Cities, c => c.UnderSiege);
         Assert.Contains(state.Cities, c => c.Garrison.Count > 0);
         Assert.NotEmpty(state.MercenaryPool);
         Assert.NotEmpty(state.NewsLog.Slots);

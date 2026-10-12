@@ -144,7 +144,6 @@ public static class GameStateFactory
                 PopulationThousands: definition.PopulationThousands,
                 MaxPopulationThousands: definition.MaxPopulationThousands,
                 Tribute: definition.Tribute,
-                UnderSiege: false,
                 Garrison: definition.Garrison);
         }
 

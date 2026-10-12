@@ -17,7 +17,7 @@ public sealed class AutomaticResupplyTests
             ValueList<RecruitmentSlot>.Empty, false);
 
     private static CityState City(string owner, int supplyTons) =>
-        new("c1", "City", 0, 0, owner, owner, 80, supplyTons, 100, 10, 10, 0, false, ValueList<UnitSlot>.Empty);
+        new("c1", "City", 0, 0, owner, owner, 80, supplyTons, 100, 10, 10, 0, ValueList<UnitSlot>.Empty);
 
     /// <summary>
     /// Done-when 7, bullet 1: "a 48,173-troop army at its own city with 403 t goes to 481, not 482" --

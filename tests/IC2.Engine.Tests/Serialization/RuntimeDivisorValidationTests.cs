@@ -98,6 +98,16 @@ public class RuntimeDivisorValidationTests
         Assert.Contains($"'{key}'", ex.Message, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void A_non_positive_fortify_weekly_point_cap_is_refused_naming_the_key(int value)
+    {
+        var bad = Toy() with { CityOrders = Toy().CityOrders with { FortifyWeeklyPointCap = value } };
+        var ex = Assert.Throws<MalformedGameDataException>(() => GameDataValidation.Validate(Document, bad));
+        Assert.Contains("'cityOrders.fortifyWeeklyPointCap'", ex.Message, StringComparison.Ordinal);
+    }
+
     public static IEnumerable<object[]> DebtLimitStepMutations()
     {
         yield return new object[] { "economy.balanceSheetDebtLimitLowStep", (Func<Ruleset, int, Ruleset>)((r, v) => r with { Economy = r.Economy with { BalanceSheetDebtLimitLowStep = v } }) };

@@ -22,7 +22,7 @@ namespace IC2.Engine.Tests.Cities.Orders;
 /// </remarks>
 public sealed class OrderCityCommandHandlerTests
 {
-    private const string CityId = "arx"; // owner "north", population 220k, fortificationCode 60.
+    private const string CityId = OrdersTestbed.ArxId; // owner "north", population 220k, fortificationCode 60.
 
     [Fact]
     public void Ordering_costs_population_thousands_times_points_and_debits_the_treasury_exactly()
@@ -80,16 +80,52 @@ public sealed class OrderCityCommandHandlerTests
     }
 
     [Fact]
-    public void Refused_while_under_siege_rejects_and_mutates_nothing()
+    public void Refused_while_a_hostile_army_stands_beside_the_city_rejects_and_mutates_nothing()
     {
+        // T67 (#304): "under siege" is FUN_004497cc, the hostile-army-adjacent test. The state is built by
+        // play: an enemy army is moved next to Arx with a real MoveArmyCommand, no flag is set.
         var dispatcher = OrdersTestbed.Dispatcher();
         var initial = CoreTestbed.InitialState();
-        var before = OrdersTestbed.WithCity(initial, initial.CityById(CityId)! with { UnderSiege = true });
+        var before = OrdersTestbed.WithSouthArmyMovedBesideArx(initial);
 
         var result = dispatcher.Dispatch(before, new OrderCityCommand(before.ActiveNationId, CityId, "fortify", 1));
 
         Assert.Equal(CityOrderRejections.FortifyRefusedWhileUnderSiege, result.Code);
         Assert.Same(before, result.State);
+    }
+
+    /// <summary>The same army beside the city but the nations at peace: not a siege, the order is accepted.</summary>
+    [Fact]
+    public void An_army_beside_the_city_that_is_not_at_war_does_not_refuse_the_order()
+    {
+        var dispatcher = OrdersTestbed.Dispatcher();
+        var before = OrdersTestbed.WithSouthArmyMovedBesideArx(CoreTestbed.InitialState(), atWar: false);
+
+        var result = dispatcher.Dispatch(before, new OrderCityCommand(before.ActiveNationId, CityId, "fortify", 1));
+
+        Assert.True(result.IsAccepted);
+    }
+
+    /// <summary>
+    /// #211 N2: the order-placement cap has a boundary. Ordering exactly <c>MaxOrderablePoints</c> is
+    /// accepted and one more is rejected, so mutating the handler's <c>&gt;</c> to <c>&gt;=</c> fails here.
+    /// </summary>
+    [Fact]
+    public void Ordering_exactly_the_maximum_is_accepted_and_one_more_is_rejected()
+    {
+        var dispatcher = OrdersTestbed.Dispatcher();
+        var initial = CoreTestbed.InitialState();
+        var rich = OrdersTestbed.WithNation(initial, initial.NationById(initial.ActiveNationId)! with { Treasury = 1_000_000 });
+        var rule = OrdersTestbed.FortifyRule;
+        var max = FortificationCode.MaxOrderablePoints(rich.CityById(CityId)!.FortificationCode, rule);
+        Assert.True(max > 1);
+
+        var atMax = dispatcher.Dispatch(rich, new OrderCityCommand(rich.ActiveNationId, CityId, "fortify", max));
+        Assert.True(atMax.IsAccepted);
+
+        var overMax = dispatcher.Dispatch(rich, new OrderCityCommand(rich.ActiveNationId, CityId, "fortify", max + 1));
+        Assert.Equal(CityOrderRejections.InvalidOrderPoints, overMax.Code);
+        Assert.Same(rich, overMax.State);
     }
 
     /// <summary>
@@ -115,7 +151,7 @@ public sealed class OrderCityCommandHandlerTests
         Assert.Equal(CityOrderRejections.FortifyRefusedAtMaxPercent, atMaxResult.Code);
         Assert.Equal(atMaxNationBefore.Treasury, atMaxResult.State.NationById(atMaxNationBefore.Id)!.Treasury);
 
-        var besieged = OrdersTestbed.WithCity(initial, initial.CityById(CityId)! with { UnderSiege = true });
+        var besieged = OrdersTestbed.WithSouthArmyMovedBesideArx(initial);
         var besiegedNationBefore = besieged.NationById(besieged.ActiveNationId)!;
         var besiegedResult = dispatcher.Dispatch(besieged, new OrderCityCommand(besieged.ActiveNationId, CityId, "fortify", 1));
         Assert.Equal(CityOrderRejections.FortifyRefusedWhileUnderSiege, besiegedResult.Code);

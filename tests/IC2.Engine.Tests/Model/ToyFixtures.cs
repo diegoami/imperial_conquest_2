@@ -61,7 +61,7 @@ public static class ToyFixtures
             CoveredTileCode: null));
 
         var cities = initial.Cities.Select(city => city.Id == "meridia"
-            ? city with { UnderSiege = true, Loyalty = ruleset.Loyalty.DefectionFloor }
+            ? city with { Loyalty = ruleset.Loyalty.DefectionFloor }
             : city);
 
         // T35's two model additions get a real, non-default value here too, not just an empty list and

@@ -41,7 +41,7 @@ public sealed class NationTreasuryCreditTests
         CityCountAtStart: 0, RecruitmentSlots: ValueList<RecruitmentSlot>.Empty, Eliminated: false);
 
     private static CityState MakeCity(string id, string owner) => new(
-        id, id, 0, 0, owner, owner, 80, 0, 0, 10, 10, 0, false, ValueList<UnitSlot>.Empty);
+        id, id, 0, 0, owner, owner, 80, 0, 0, 10, 10, 0, ValueList<UnitSlot>.Empty);
 
     /// <summary>The tax income term: <c>taxBase × taxRate / 100</c>.</summary>
     [Fact]

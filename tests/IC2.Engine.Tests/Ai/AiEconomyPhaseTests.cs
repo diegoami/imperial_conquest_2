@@ -126,7 +126,16 @@ public sealed class AiEconomyPhaseTests
     {
         var candidates = Economy(expansionDrive, threatened);
 
-        Assert.Contains(candidates, c => c.Kind == "fortify");
+        // T67 (#304): a threatened city's fortify order is refused by the handler (the original refuses it
+        // too), so the AI proposes none for it; an unthreatened city is still fortified at either end.
+        if (threatened)
+        {
+            Assert.DoesNotContain(candidates, c => c.Kind == "fortify");
+        }
+        else
+        {
+            Assert.Contains(candidates, c => c.Kind == "fortify");
+        }
     }
 
     /// <summary>

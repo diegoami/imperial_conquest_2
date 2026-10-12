@@ -22,7 +22,7 @@ public sealed class SupplyPurchaseTests
     {
         var units = ValueList.Of(new UnitSlot(0, "light_infantry", 30_000, 6, "Test Battalion"));
         var army = new ArmyState("a1", "north", 0, 0, 9, 60, 500, 100, null, null, units);
-        var city = new CityState("c1", "Test City", 0, 0, cityOwner, cityOwner, 80, cityTons, 100, 10, 10, 0, false, ValueList<UnitSlot>.Empty);
+        var city = new CityState("c1", "Test City", 0, 0, cityOwner, cityOwner, 80, cityTons, 100, 10, 10, 0, ValueList<UnitSlot>.Empty);
         var buyerNation = new NationState("north", "North", "#000", "Leader", null, SeatControl.Human, null, 500, 600, 0, 0, 15, 0, 100, 100, 500, 1, ValueList<RecruitmentSlot>.Empty, false);
         var sellerNation = string.Equals(cityOwner, "north", StringComparison.Ordinal)
             ? buyerNation
@@ -174,7 +174,7 @@ public sealed class SupplyPurchaseTests
     {
         var units = ValueList.Of(new UnitSlot(0, "light_infantry", 7_800, 6, "Test Battalion")); // capacity = 7800/100 + 1 = 79.
         var army = new ArmyState("a1", "north", 0, 0, 9, 60, 500, 0, null, null, units);
-        var city = new CityState("c1", "Test City", 0, 0, "south", "south", 80, 90, 100, 10, 10, 0, false, ValueList<UnitSlot>.Empty);
+        var city = new CityState("c1", "Test City", 0, 0, "south", "south", 80, 90, 100, 10, 10, 0, ValueList<UnitSlot>.Empty);
         var buyer = new NationState("north", "North", "#000", "Leader", null, SeatControl.Human, null, 500, 600, 0, 0, 15, 0, 100, 100, 500, 1, ValueList<RecruitmentSlot>.Empty, false);
         var seller = new NationState("south", "South", "#000", "Leader", null, SeatControl.Ai, null, 500, 600, 0, 0, 15, 0, 100, 100, 500, 1, ValueList<RecruitmentSlot>.Empty, false);
 
@@ -211,7 +211,7 @@ public sealed class SupplyPurchaseTests
     {
         var units = ValueList.Of(new UnitSlot(0, "light_infantry", 1_000_000, 6, "Huge Battalion"));
         var poorArmy = new ArmyState("a2", "north", 0, 0, 9, 60, 10, 0, null, null, units);
-        var city = new CityState("c1", "Test City", 0, 0, "south", "south", 80, 1000, 100, 10, 10, 0, false, ValueList<UnitSlot>.Empty);
+        var city = new CityState("c1", "Test City", 0, 0, "south", "south", 80, 1000, 100, 10, 10, 0, ValueList<UnitSlot>.Empty);
         var buyer = new NationState("north", "North", "#000", "Leader", null, SeatControl.Human, null, 500, 600, 0, 0, 15, 0, 100, 100, 500, 1, ValueList<RecruitmentSlot>.Empty, false);
         var seller = new NationState("south", "South", "#000", "Leader", null, SeatControl.Ai, null, 500, 600, 0, 0, 15, 0, 100, 100, 500, 1, ValueList<RecruitmentSlot>.Empty, false);
 
@@ -234,7 +234,7 @@ public sealed class SupplyPurchaseTests
     {
         var units = ValueList.Of(new UnitSlot(0, "light_infantry", 1_000_000, 6, "Huge Battalion"));
         var army = new ArmyState("a2", "north", 0, 0, 9, 60, 10, 0, null, null, units);
-        var city = new CityState("c1", "Test City", 0, 0, "south", "south", 80, 1000, 100, 10, 10, 0, false, ValueList<UnitSlot>.Empty);
+        var city = new CityState("c1", "Test City", 0, 0, "south", "south", 80, 1000, 100, 10, 10, 0, ValueList<UnitSlot>.Empty);
         var buyer = new NationState("north", "North", "#000", "Leader", null, SeatControl.Human, null, 500, 600, 0, 0, 15, 0, 100, 100, 500, 1, ValueList<RecruitmentSlot>.Empty, false);
         var seller = new NationState("south", "South", "#000", "Leader", null, SeatControl.Ai, null, 500, 600, 0, 0, 15, 0, 100, 100, 500, 1, ValueList<RecruitmentSlot>.Empty, false);
 
@@ -301,7 +301,7 @@ public sealed class SupplyPurchaseTests
     {
         var units = ValueList.Of(new UnitSlot(0, "light_infantry", 48_173, 6, "Roman 13-Unit Roster"));
         var army = new ArmyState("roman13", "rome", 0, 0, 9, 60, 500, 403, null, null, units);
-        var city = new CityState("rome-city", "Rome", 0, 0, "rome", "rome", 80, 1810, 100, 10, 10, 0, false, ValueList<UnitSlot>.Empty);
+        var city = new CityState("rome-city", "Rome", 0, 0, "rome", "rome", 80, 1810, 100, 10, 10, 0, ValueList<UnitSlot>.Empty);
         var nation = new NationState("rome", "Rome", "#000", "Leader", null, SeatControl.Human, null, 500, 600, 0, 0, 15, 0, 100, 100, 500, 1, ValueList<RecruitmentSlot>.Empty, false);
 
         Assert.Equal(481, SupplyCapacity.ArmyCapacityTons(army.TotalTroops, EconomyTestbed.Ruleset)); // the general formula, unchanged.
@@ -326,7 +326,7 @@ public sealed class SupplyPurchaseTests
     {
         var units = ValueList.Of(new UnitSlot(0, "light_infantry", 48_173, 6, "Roman 13-Unit Roster"));
         var army = new ArmyState("roman13", "rome", 0, 0, 9, 60, 500, 403, null, null, units);
-        var city = new CityState("carthage-city", "Carthage", 0, 0, "carthage", "carthage", 80, 1810, 100, 10, 10, 0, false, ValueList<UnitSlot>.Empty);
+        var city = new CityState("carthage-city", "Carthage", 0, 0, "carthage", "carthage", 80, 1810, 100, 10, 10, 0, ValueList<UnitSlot>.Empty);
         var buyer = new NationState("rome", "Rome", "#000", "Leader", null, SeatControl.Human, null, 500, 600, 0, 0, 15, 0, 100, 100, 500, 1, ValueList<RecruitmentSlot>.Empty, false);
         var seller = new NationState("carthage", "Carthage", "#000", "Leader", null, SeatControl.Ai, null, 500, 600, 0, 0, 15, 0, 100, 100, 500, 1, ValueList<RecruitmentSlot>.Empty, false);
 
@@ -351,7 +351,7 @@ public sealed class SupplyPurchaseTests
     {
         var units = ValueList.Of(new UnitSlot(0, "light_infantry", 48_173, 6, "Roman 13-Unit Roster"));
         var army = new ArmyState("roman13", "rome", 0, 0, 9, 60, 500, 482, null, null, units); // already at the dialog cap.
-        var city = new CityState("c1", "City", 0, 0, cityOwner, cityOwner, 80, 1810, 100, 10, 10, 0, false, ValueList<UnitSlot>.Empty);
+        var city = new CityState("c1", "City", 0, 0, cityOwner, cityOwner, 80, 1810, 100, 10, 10, 0, ValueList<UnitSlot>.Empty);
         var buyer = new NationState("rome", "Rome", "#000", "Leader", null, SeatControl.Human, null, 500, 600, 0, 0, 15, 0, 100, 100, 500, 1, ValueList<RecruitmentSlot>.Empty, false);
         var seller = string.Equals(cityOwner, "rome", StringComparison.Ordinal)
             ? buyer
@@ -378,7 +378,7 @@ public sealed class SupplyPurchaseTests
     {
         var units = ValueList.Of(new UnitSlot(0, "light_infantry", 40_000, 6, "Over-Supplied Battalion"));
         var army = new ArmyState("a1", "north", 0, 0, 9, 60, 500, 500, null, null, units); // holds 500, cap 401.
-        var city = new CityState("c1", "Test City", 0, 0, "north", "north", 80, 1000, 100, 10, 10, 0, false, ValueList<UnitSlot>.Empty);
+        var city = new CityState("c1", "Test City", 0, 0, "north", "north", 80, 1000, 100, 10, 10, 0, ValueList<UnitSlot>.Empty);
         var nation = new NationState("north", "North", "#000", "Leader", null, SeatControl.Human, null, 500, 600, 0, 0, 15, 0, 100, 100, 500, 1, ValueList<RecruitmentSlot>.Empty, false);
 
         Assert.Equal(401, SupplyCapacity.ArmyDialogCapacityTons(army.TotalTroops, EconomyTestbed.Ruleset));
@@ -400,7 +400,7 @@ public sealed class SupplyPurchaseTests
     {
         var units = ValueList.Of(new UnitSlot(0, "light_infantry", 40_000, 6, "Over-Supplied Battalion"));
         var army = new ArmyState("a1", "north", 0, 0, 9, 60, 500, 500, null, null, units); // holds 500, cap 401.
-        var city = new CityState("c1", "Test City", 0, 0, "south", "south", 80, 1000, 100, 10, 10, 0, false, ValueList<UnitSlot>.Empty);
+        var city = new CityState("c1", "Test City", 0, 0, "south", "south", 80, 1000, 100, 10, 10, 0, ValueList<UnitSlot>.Empty);
         var buyer = new NationState("north", "North", "#000", "Leader", null, SeatControl.Human, null, 500, 600, 0, 0, 15, 0, 100, 100, 500, 1, ValueList<RecruitmentSlot>.Empty, false);
         var seller = new NationState("south", "South", "#000", "Leader", null, SeatControl.Ai, null, 500, 600, 0, 0, 15, 0, 100, 100, 500, 1, ValueList<RecruitmentSlot>.Empty, false);
 
@@ -428,7 +428,7 @@ public sealed class SupplyPurchaseTests
     {
         var units = ValueList.Of(new UnitSlot(0, "light_infantry", 20_000, 6, "Battalion"));
         var army = new ArmyState("a1", "north", 0, 0, 9, 60, 1066, 100, null, null, units); // capacity 201, room 101.
-        var city = new CityState("c1", "Test City", 0, 0, "south", "south", 80, 1000, 100, 10, 10, 0, false, ValueList<UnitSlot>.Empty);
+        var city = new CityState("c1", "Test City", 0, 0, "south", "south", 80, 1000, 100, 10, 10, 0, ValueList<UnitSlot>.Empty);
         var buyer = new NationState("north", "North", "#000", "Leader", null, SeatControl.Human, null, 500, 600, 0, 0, 15, 0, 100, 100, 500, 1, ValueList<RecruitmentSlot>.Empty, false);
         var seller = new NationState("south", "South", "#000", "Leader", null, SeatControl.Ai, null, 500, 600, 0, 0, 15, 0, 100, 100, 500, 1, ValueList<RecruitmentSlot>.Empty, false);
 
@@ -455,7 +455,7 @@ public sealed class SupplyPurchaseTests
     {
         var units = ValueList.Of(new UnitSlot(0, "light_infantry", 10_000, 6, "Over-Supplied Battalion"));
         var army = new ArmyState("a1", "north", 0, 0, 9, 60, 1000, 206, null, null, units); // room 101 − 206 = −105.
-        var city = new CityState("c1", "Test City", 0, 0, "south", "south", 80, 1000, 100, 10, 10, 0, false, ValueList<UnitSlot>.Empty);
+        var city = new CityState("c1", "Test City", 0, 0, "south", "south", 80, 1000, 100, 10, 10, 0, ValueList<UnitSlot>.Empty);
         var buyer = new NationState("north", "North", "#000", "Leader", null, SeatControl.Human, null, 500, 600, 0, 0, 15, 0, 100, 100, 500, 1, ValueList<RecruitmentSlot>.Empty, false);
         var seller = new NationState("south", "South", "#000", "Leader", null, SeatControl.Ai, null, 500, 600, 0, 0, 15, 0, 100, 100, 500, 1, ValueList<RecruitmentSlot>.Empty, false);
 
@@ -514,7 +514,7 @@ public sealed class SupplyPurchaseTests
     {
         var units = ValueList.Of(new UnitSlot(0, "light_infantry", 1_000_000, 6, "Huge Battalion"));
         var poorArmy = new ArmyState("a2", "north", 0, 0, 9, 60, 10, 0, null, null, units);
-        var city = new CityState("c1", "Test City", 0, 0, "south", "south", 80, 1000, 100, 10, 10, 0, false, ValueList<UnitSlot>.Empty);
+        var city = new CityState("c1", "Test City", 0, 0, "south", "south", 80, 1000, 100, 10, 10, 0, ValueList<UnitSlot>.Empty);
         var buyer = new NationState("north", "North", "#000", "Leader", null, SeatControl.Human, null, 500, 600, 0, 0, 15, 0, 100, 100, 500, 1, ValueList<RecruitmentSlot>.Empty, false);
         var seller = new NationState("south", "South", "#000", "Leader", null, SeatControl.Ai, null, 500, 600, 0, 0, 15, 0, 100, 100, 500, 1, ValueList<RecruitmentSlot>.Empty, false);
         var centralized = EconomyTestbed.Ruleset with

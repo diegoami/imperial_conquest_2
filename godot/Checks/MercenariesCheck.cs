@@ -618,20 +618,17 @@ public partial class MercenariesCheck : Control
         var offerCity = new CityState(
             CityId, "T113 offer city", X: OfferCityX, Y: OfferCityY, Owner: RomeId, Allegiance: RomeId,
             Loyalty: 90, SupplyTons: 100, FortificationCode: 0,
-            PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0, UnderSiege: false,
-            Garrison: ValueList<UnitSlot>.Empty);
+            PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0,            Garrison: ValueList<UnitSlot>.Empty);
         var emptyCity = new CityState(
             EmptyCityId, "T113 empty city", X: EmptyCityX, Y: EmptyCityY, Owner: RomeId, Allegiance: RomeId,
             Loyalty: 90, SupplyTons: 100, FortificationCode: 0,
-            PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0, UnderSiege: false,
-            Garrison: ValueList<UnitSlot>.Empty);
+            PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0,            Garrison: ValueList<UnitSlot>.Empty);
 
         // R5: a second offer city for the 19-unit army, also Rome-owned, with one HC offer.
         var fullArmyOfferCity = new CityState(
             "t113-full-offer-city", "T113 full offer city", X: 4, Y: 5, Owner: RomeId, Allegiance: RomeId,
             Loyalty: 90, SupplyTons: 100, FortificationCode: 0,
-            PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0, UnderSiege: false,
-            Garrison: ValueList<UnitSlot>.Empty);
+            PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0,            Garrison: ValueList<UnitSlot>.Empty);
 
         var offers = new List<MercenaryPoolSlot>
         {

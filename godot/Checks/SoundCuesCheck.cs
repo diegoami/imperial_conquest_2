@@ -112,8 +112,7 @@ public partial class SoundCuesCheck : Control
             Owner: "carthage", Allegiance: "carthage",
             Loyalty: 100, SupplyTons: 100, FortificationCode: 0,
             PopulationThousands: 10, MaxPopulationThousands: 20,
-            Tribute: 0, UnderSiege: false,
-            Garrison: IC2.Engine.Model.ValueList<IC2.Engine.Model.UnitSlot>.Empty);
+            Tribute: 0,            Garrison: IC2.Engine.Model.ValueList<IC2.Engine.Model.UnitSlot>.Empty);
 
         // A second test city, far enough away that the no-blocking session's own army can
         // besiege it without conflict. (70, 35) is open land in the same band.
@@ -122,8 +121,7 @@ public partial class SoundCuesCheck : Control
             Owner: "carthage", Allegiance: "carthage",
             Loyalty: 100, SupplyTons: 100, FortificationCode: 0,
             PopulationThousands: 10, MaxPopulationThousands: 20,
-            Tribute: 0, UnderSiege: false,
-            Garrison: IC2.Engine.Model.ValueList<IC2.Engine.Model.UnitSlot>.Empty);
+            Tribute: 0,            Garrison: IC2.Engine.Model.ValueList<IC2.Engine.Model.UnitSlot>.Empty);
 
         // Capture army: one cell west of the enemy city, ready to besiege.
         // Move army: south of the city, on a separate tile, with three free cells north of

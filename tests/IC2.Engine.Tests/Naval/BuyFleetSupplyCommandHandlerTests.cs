@@ -21,8 +21,7 @@ public sealed class BuyFleetSupplyCommandHandlerTests
 
     private static CityState City(string id, int x, int y, string owner, int supply) =>
         new(id, id, x, y, owner, owner, Loyalty: 80, supply, FortificationCode: 0,
-            PopulationThousands: 50, MaxPopulationThousands: 100, Tribute: 0, UnderSiege: false,
-            Garrison: ValueList<UnitSlot>.Empty);
+            PopulationThousands: 50, MaxPopulationThousands: 100, Tribute: 0,            Garrison: ValueList<UnitSlot>.Empty);
 
     /// <summary>DoD 6/7: an own-city purchase is free and clamped by the fleet's cap (ships × 8, no dialog bonus).</summary>
     [Fact]

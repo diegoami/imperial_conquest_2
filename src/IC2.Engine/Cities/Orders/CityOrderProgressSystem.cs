@@ -1,4 +1,5 @@
 using IC2.Engine.Core;
+using IC2.Engine.Economy;
 using IC2.Engine.Model;
 
 namespace IC2.Engine.Cities.Orders;
@@ -17,11 +18,18 @@ namespace IC2.Engine.Cities.Orders;
 ///     else:              fort = fort % 100
 /// </code>
 /// Read literally, a city at exactly 100 with fewer than 10 points pending ends at 0, not 100.
-/// Worked example: 95 with 5 ordered → 599 → 600 → 0. That is either a bug in the original or
+/// Worked example: 95 with 5 ordered → 595 → 600 → 0. That is either a bug in the original or
 /// a misreading. This task implements <strong>completion at 100</strong> rather than the
 /// read-literal zero, with <c>_provenance</c> naming both the transcription and this task's reading
-/// explicitly. The settling evidence would be the report's own controlled check: order a fortification
-/// and save each turn until it completes.
+/// explicitly. T67 (#304): the discrepancy is settled, and it is the original that does this --
+/// <c>2026-09-29-fortification-orders-cost-rate-and-the-100-bug.md</c> §2-§4 (Ariminum 595 → 0 in one
+/// headless turn under Wine). The shipped completion at 100 is therefore a known departure, bug #548;
+/// changing it is that bug's task, not this one's.
+/// </para>
+/// <para>
+/// T67 (#304): there is no stored siege flag. The tick tests <see cref="HostileArmyAdjacent"/>
+/// (<c>FUN_004497cc</c>) and, when it holds, drops the pending points (<c>word %= 100</c>, no refund) --
+/// report §2, seen in one headless turn (Pisae 669 → 69).
 /// </para>
 /// <para>
 /// Runs in <see cref="TurnPhase.CityTick"/> as a round-scope system that updates every city in the game.
@@ -66,9 +74,9 @@ public sealed class CityOrderProgressSystem : IGameSystem
             // See the class remarks for the discrepancy.
 
             int pointsThisWeek;
-            if (city.UnderSiege)
+            if (HostileArmyAdjacent.IsThreatened(city, state, ruleset))
             {
-                // Siege wipes pending order via fort % 100
+                // A hostile army next to the town drops the pending order via fort % 100
                 updatedCities.Add(city with
                 {
                     FortificationCode = FortificationCode.AfterSiegeAttempt(city.FortificationCode, fortifyOrder)
@@ -76,13 +84,13 @@ public sealed class CityOrderProgressSystem : IGameSystem
                 continue;
             }
 
-            // Not under siege: progress the order, up to 10 points a week. The pseudocode's own
+            // No hostile army adjacent: progress the order, up to FortifyWeeklyPointCap points a week. The pseudocode's own
             // "min(10, fort/100)" reads the RAW stored word divided by the radix -- exactly what
             // FortificationCode.PendingPoints already decoded into pendingPoints above. Dividing
             // pendingPoints by 100 a second time (as this line briefly did, unnoticed for want of a
             // test) always yields 0 for any realistic order and freezes every pending order forever;
             // see this class's remarks for the [open] discrepancy this resolves.
-            pointsThisWeek = Math.Min(10, pendingPoints);
+            pointsThisWeek = Math.Min(ruleset.CityOrders.FortifyWeeklyPointCap, pendingPoints);
             var newPendingPoints = pendingPoints - pointsThisWeek;
 
             int newFortificationCode;

@@ -215,10 +215,6 @@ public sealed record PendingDiplomaticOffer(
 /// <param name="FortificationCode">
 /// The raw fortification word with its dual encoding; decode through <see cref="Model.FortificationCode"/>.
 /// </param>
-/// <param name="UnderSiege">
-/// Whether the city is currently besieged, which blocks a fortify order
-/// <strong>[confirmed: decompiled-unit-map-orders-and-record-fields.md]</strong>.
-/// </param>
 public sealed record CityState(
     string Id,
     string Name,
@@ -232,7 +228,6 @@ public sealed record CityState(
     int PopulationThousands,
     int MaxPopulationThousands,
     int Tribute,
-    bool UnderSiege,
     ValueList<UnitSlot> Garrison);
 
 /// <summary>An army's live state.</summary>

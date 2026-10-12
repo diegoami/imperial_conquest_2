@@ -24,7 +24,7 @@ public sealed class CityOwnershipTaxTransferTests
             "naupactus", "Naupactus", 0, 0, "illyria", "illyria",
             Loyalty: 40, SupplyTons: 0, FortificationCode: 0,
             PopulationThousands: 25, MaxPopulationThousands: 30, Tribute: 15,
-            UnderSiege: false, Garrison: ValueList<UnitSlot>.Empty);
+            Garrison: ValueList<UnitSlot>.Empty);
 
         var illyria = MakeNation("illyria", treasury: -2021, taxBase: 396, wealth: 768_000);
         var greece = MakeNation("greece", treasury: 0, taxBase: 2296, wealth: 2_490_000);
@@ -47,7 +47,7 @@ public sealed class CityOwnershipTaxTransferTests
     {
         var ruleset = EconomyTestbed.Ruleset;
         var city = new CityState(
-            "c1", "City", 0, 0, "b", "b", 80, 0, 0, 40, 50, 10, false, ValueList<UnitSlot>.Empty);
+            "c1", "City", 0, 0, "b", "b", 80, 0, 0, 40, 50, 10, ValueList<UnitSlot>.Empty);
         var newOwner = MakeNation("a", 0, taxBase: 100, wealth: 500_000);
         var oldOwner = MakeNation("b", 0, taxBase: 200, wealth: 800_000);
 

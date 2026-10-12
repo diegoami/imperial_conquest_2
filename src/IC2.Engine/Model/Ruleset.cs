@@ -1858,8 +1858,14 @@ public sealed record AiOwnDiplomacyRules(
 /// The generic, data-driven city-orders table (<c>docs/design-audit.md</c> §3 Q7): a list, with
 /// fortification as the only shipped entry rather than the only possible one.
 /// </summary>
+/// <param name="Orders">The order table.</param>
+/// <param name="FortifyWeeklyPointCap">
+/// The most points the weekly tick moves from a pending fortify order into the finished percentage in one
+/// week -- the original's <c>min(10, ...)</c> step (T67, bug #344). 10 in both shipped presets.
+/// </param>
 public sealed record CityOrderRules(
     ValueList<CityOrderRule> Orders,
+    int FortifyWeeklyPointCap,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>

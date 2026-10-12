@@ -59,8 +59,7 @@ public static class MobilizationFixture
     /// <summary>A city fixture at chosen coordinates, owned by <paramref name="owner"/> and with no garrison.</summary>
     public static CityState City(string id, int x, int y, string owner) =>
         new(id, id, x, y, owner, owner, Loyalty: 100, SupplyTons: 0, FortificationCode: 0,
-            PopulationThousands: 10, MaxPopulationThousands: 20, Tribute: 0, UnderSiege: false,
-            Garrison: ValueList<UnitSlot>.Empty);
+            PopulationThousands: 10, MaxPopulationThousands: 20, Tribute: 0,            Garrison: ValueList<UnitSlot>.Empty);
 
     /// <summary>An army fixture at chosen coordinates.</summary>
     public static ArmyState Army(

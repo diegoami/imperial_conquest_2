@@ -930,8 +930,10 @@
         }
       }
     ],
+    "fortifyWeeklyPointCap": 10,
     "_provenance": {
-      "orders": "Shape per docs/design-audit.md §3 Q7, answered by the user: ship a generic, data-driven cityOrders table with fortify as the only shipped entry rather than hardcoding fortification as the only possible city order. docs/design-audit.md §1 also records that the original has no city improvements other than fortification, so one entry is the complete confirmed set, not an omission."
+      "orders": "Shape per docs/design-audit.md §3 Q7, answered by the user: ship a generic, data-driven cityOrders table with fortify as the only shipped entry rather than hardcoding fortification as the only possible city order. docs/design-audit.md §1 also records that the original has no city improvements other than fortification, so one entry is the complete confirmed set, not an omission. T67 (#304), the completion at 100 is settled: an order that ends at exactly 100% with a partial last step (under 10 points) ends at 0 in the original (2026-09-29-fortification-orders-cost-rate-and-the-100-bug.md §2-§4, research 08133a1; Ariminum 595 -> 0 in one headless turn under Wine). The shipped completion at 100 is bug #548, not this table's reading. 'Under siege' is the predicate FUN_004497cc (the hostile-army-adjacent test), not a stored flag: the weekly tick drops the pending points when it holds (same report §2, Pisae 669 -> 69), and the fortify refusal tests it (2026-10-05-refusal-texts-and-conditions.md R22, played as C03).",
+      "fortifyWeeklyPointCap": "confirmed: 2026-09-29-fortification-orders-cost-rate-and-the-100-bug.md §2, §3 (research 08133a1) and city-population-growth.md ~:98 -- the weekly step is 'word += min(10, word / 100)', read instruction by instruction and seen in one headless turn under Wine (2550 -> 1560, 1857 -> 867); that supersedes city-population-growth.md's caveat (~:213) that the step is read from code only. T04 fixtures corpus id: 'cityOrders.fortify.weeklyPointCap'."
     }
   },
   "newsLog": {

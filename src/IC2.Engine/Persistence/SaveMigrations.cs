@@ -52,6 +52,7 @@ internal static class SaveMigrations
                 1 => MigrateV1ToV2(documentPath, current),
                 2 => MigrateV2ToV3(documentPath, current, expectedWorld),
                 3 => MigrateV3ToV4(documentPath, current),
+                4 => MigrateV4ToV5(documentPath, current),
 
                 // A version below SaveFormat.MinimumSupportedVersion (zero, negative, or otherwise never
                 // shipped) is not "a newer build" either, and UnsupportedSaveFormatException's message
@@ -147,6 +148,41 @@ internal static class SaveMigrations
         }
 
         return v3;
+    }
+
+    /// <summary>
+    /// Version 4 to 5 (T67, #304): drops <c>state.cities[].underSiege</c>. The flag was written by nothing and
+    /// read by nothing real; "under siege" is the original's hostile-army-adjacent predicate
+    /// (<c>FUN_004497cc</c>), evaluated from the armies and relations, so a saved copy of it is meaningless.
+    /// The field is removed from every city, and a city without it (a save already written without it) is left as it is.
+    /// </summary>
+    private static JsonObject MigrateV4ToV5(string documentPath, JsonObject v4)
+    {
+        var v5 = (JsonObject)v4.DeepClone();
+        v5[SaveFormat.VersionField] = 5;
+
+        var save = EnvelopeJson.RequireObject(documentPath, v5, SaveFormat.PayloadField, "the version-4 envelope");
+        var state = EnvelopeJson.RequireObject(documentPath, save, "state", "the version-4 save");
+
+        if (!state.TryGetPropertyValue("cities", out var citiesNode) || citiesNode is null)
+        {
+            return v5;
+        }
+
+        if (citiesNode is not JsonArray cities)
+        {
+            throw new MalformedGameDataException(documentPath, "'state.cities' must be a JSON array.");
+        }
+
+        foreach (var cityNode in cities)
+        {
+            if (cityNode is JsonObject city)
+            {
+                city.Remove("underSiege");
+            }
+        }
+
+        return v5;
     }
 
     /// <summary>

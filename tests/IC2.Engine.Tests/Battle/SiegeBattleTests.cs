@@ -390,7 +390,7 @@ public class SiegeBattleTests
                 new CityState(
                     "hamlet", "Hamlet", 4, 3, "south", "south",
                     Loyalty: 10, SupplyTons: 0, FortificationCode: 0, PopulationThousands: 5,
-                    MaxPopulationThousands: 20, Tribute: 0, UnderSiege: false, ValueList<UnitSlot>.Empty),
+                    MaxPopulationThousands: 20, Tribute: 0, ValueList<UnitSlot>.Empty),
             }),
         };
     }

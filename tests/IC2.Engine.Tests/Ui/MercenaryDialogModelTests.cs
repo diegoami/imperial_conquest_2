@@ -78,8 +78,7 @@ public sealed class MercenaryDialogModelTests
         var city = new CityState(
             CityAtArmyId, "T113 city", X: cityX, Y: cityY, Owner: RomeId, Allegiance: RomeId,
             Loyalty: 90, SupplyTons: 100, FortificationCode: 0,
-            PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0, UnderSiege: false,
-            Garrison: ValueList<UnitSlot>.Empty);
+            PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0,            Garrison: ValueList<UnitSlot>.Empty);
 
         var offers = new List<MercenaryPoolSlot>();
         if (withOffer)
@@ -104,8 +103,7 @@ public sealed class MercenaryDialogModelTests
         var hireCity = new CityState(
             HireCityId, "T113 hire city", X: hireCityX, Y: hireCityY, Owner: RomeId, Allegiance: RomeId,
             Loyalty: 90, SupplyTons: 100, FortificationCode: 0,
-            PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0, UnderSiege: false,
-            Garrison: ValueList<UnitSlot>.Empty);
+            PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0,            Garrison: ValueList<UnitSlot>.Empty);
 
         var state = initial with
         {
@@ -183,8 +181,7 @@ public sealed class MercenaryDialogModelTests
         var city = new CityState(
             CityAtArmyId, "T113 dialog city", X: 4, Y: 5, Owner: RomeId, Allegiance: RomeId,
             Loyalty: 90, SupplyTons: 100, FortificationCode: 0,
-            PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0, UnderSiege: false,
-            Garrison: ValueList<UnitSlot>.Empty);
+            PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0,            Garrison: ValueList<UnitSlot>.Empty);
 
         // Two live offers reversed in the pool (slot 4 then slot 3) and the sentinel on slot 5.
         var offers = new List<MercenaryPoolSlot>
@@ -265,8 +262,7 @@ public sealed class MercenaryDialogModelTests
         var city = new CityState(
             "t113-city-amend", "T113 amend city", X: 10, Y: 10, Owner: RomeId, Allegiance: RomeId,
             Loyalty: 90, SupplyTons: 100, FortificationCode: 0,
-            PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0, UnderSiege: false,
-            Garrison: ValueList<UnitSlot>.Empty);
+            PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0,            Garrison: ValueList<UnitSlot>.Empty);
 
         var offers = new List<MercenaryPoolSlot>
         {
@@ -402,8 +398,7 @@ public sealed class MercenaryDialogModelTests
         var city = new CityState(
             CityAtArmyId, "T113 city", X: 4, Y: 5, Owner: RomeId, Allegiance: RomeId,
             Loyalty: 90, SupplyTons: 100, FortificationCode: 0,
-            PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0, UnderSiege: false,
-            Garrison: ValueList<UnitSlot>.Empty);
+            PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0,            Garrison: ValueList<UnitSlot>.Empty);
         var offer = new MercenaryPoolSlot(
             1, X: 4, Y: 5, NameLabel: 0, UnitTypeId: "light_infantry", Troops: 1, Quality: 8);
 
@@ -447,13 +442,11 @@ public sealed class MercenaryDialogModelTests
         var romeCity = new CityState(
             "t113-enemy-rome-city", "T113 enemy rome city", X: 99, Y: 37, Owner: RomeId, Allegiance: RomeId,
             Loyalty: 90, SupplyTons: 100, FortificationCode: 0,
-            PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0, UnderSiege: false,
-            Garrison: ValueList<UnitSlot>.Empty);
+            PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0,            Garrison: ValueList<UnitSlot>.Empty);
         var carthageCity = new CityState(
             "t113-enemy-carthage-city", "T113 enemy carthage city", X: 99, Y: 38, Owner: CarthageId, Allegiance: CarthageId,
             Loyalty: 90, SupplyTons: 100, FortificationCode: 0,
-            PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0, UnderSiege: false,
-            Garrison: ValueList<UnitSlot>.Empty);
+            PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0,            Garrison: ValueList<UnitSlot>.Empty);
 
         var offers = new List<MercenaryPoolSlot>
         {
@@ -493,8 +486,7 @@ public sealed class MercenaryDialogModelTests
         var city = new CityState(
             CityAtArmyId, "T113 city", X: 4, Y: 5, Owner: RomeId, Allegiance: RomeId,
             Loyalty: 90, SupplyTons: 100, FortificationCode: 0,
-            PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0, UnderSiege: false,
-            Garrison: ValueList<UnitSlot>.Empty);
+            PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0,            Garrison: ValueList<UnitSlot>.Empty);
         var offer = new MercenaryPoolSlot(
             1, X: 4, Y: 5, NameLabel: 0, UnitTypeId: "light_infantry", Troops: 100, Quality: 8);
 

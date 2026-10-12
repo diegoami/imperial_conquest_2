@@ -1,6 +1,7 @@
 using IC2.Engine.Ai;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
+using IC2.Engine.Movement.Commands;
 using IC2.Engine.Tests.Battle;
 using IC2.Engine.Tests.Battle.Commands;
 using Xunit;
@@ -259,8 +260,11 @@ public sealed class AiCommandLegalityTests
                 Relations = baseState.Relations.WithRelation(
                     Acting, Other, Ruleset.Diplomacy.StateCodes.Trade),
             },
-            "besieged-city" => WithTreasury(
-                WithActingCity(baseState, c => c with { UnderSiege = true, FortificationCode = 20 }), 100_000),
+            // T67 (#304): "under siege" is the hostile-army-adjacent predicate, so this state is built the way
+            // play builds it -- at war, and the other nation's army moved beside the acting city by a real
+            // MoveArmyCommand -- not by setting a flag.
+            "besieged-city" => BesiegedByPlay(
+                WithTreasury(WithActingCity(baseState, c => c with { FortificationCode = 20 }), 100_000)),
             "army-next-to-an-enemy-city" => WithActingArmy(baseState, a => a with { X = 7, Y = 4 }),
             "army-between-two-enemy-cities" => TwoEnemyCitiesState(),
             // T82 (#359, bug #357): a siege no longer declares war on its own -- it now requires the two
@@ -361,6 +365,42 @@ public sealed class AiCommandLegalityTests
             Armies = ValueList.From(state.Armies.Select(a =>
                 string.Equals(a.Id, "attacker-army", StringComparison.Ordinal) ? change(a) : a)),
         };
+
+    /// <summary>
+    /// Puts <see cref="Acting"/> and <see cref="Other"/> at war and walks the other nation's army to a cell
+    /// beside the acting city with a real <see cref="MoveArmyCommand"/> (that nation's seat made active for
+    /// the command, then put back).
+    /// </summary>
+    private static GameState BesiegedByPlay(GameState state)
+    {
+        var warring = BattleCommandTestbed.AtWar(state, Acting, Other);
+        // Enough moves for the whole walk (the fixture's 5 stop it short on the desert tile in the way).
+        var atWar = warring with
+        {
+            Armies = ValueList.From(warring.Armies.Select(a =>
+                string.Equals(a.Id, "defender-army", StringComparison.Ordinal) ? a with { Moves = 30 } : a)),
+        };
+        var city = atWar.CityById("attacker-city")!;
+        var army = atWar.ArmyById("defender-army")!;
+        var originalSeat = atWar.ActiveSeatIndex;
+        var otherSeat = AiScriptedStates.WithActiveSeat(atWar, Other).ActiveSeatIndex;
+        var dispatcher = BattleCommandTestbed.Dispatcher();
+
+        // Two real marches: the straight line west is blocked by the acting nation's own army, so the
+        // hostile army first steps north, then walks along the row above it to the cell beside the city.
+        var current = atWar with { ActiveSeatIndex = otherSeat };
+        var waypoints = new[] { (army.X, army.Y - 1), (city.X + 1, city.Y + 1) };
+        for (var i = 0; i < waypoints.Length; i++)
+        {
+            var result = dispatcher.Dispatch(current, new MoveArmyCommand(Other, army.Id, waypoints[i].Item1, waypoints[i].Item2));
+            Assert.True(result.IsAccepted, result.Rejection?.ToString());
+            current = result.State;
+        }
+
+        var arrived = current.ArmyById(army.Id)!;
+        Assert.Equal((city.X + 1, city.Y + 1), (arrived.X, arrived.Y));
+        return current with { ActiveSeatIndex = originalSeat };
+    }
 
     private static GameState WithActingCity(GameState state, Func<CityState, CityState> change) =>
         state with
