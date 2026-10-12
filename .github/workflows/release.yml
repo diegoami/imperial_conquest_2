@@ -178,7 +178,7 @@ jobs:
           compression-level: 0
           # [designed] 30 days bounds how long the build's files stay on the run for a refused or
           # failed attach. Searched the T131 entry, docs/packaging.md and ci.yml: no value given.
-          retention-days: 30
+          retention-days: 3
 
   attach:
     needs: build
