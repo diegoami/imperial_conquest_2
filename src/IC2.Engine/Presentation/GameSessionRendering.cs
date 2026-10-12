@@ -356,7 +356,9 @@ public sealed partial class GameSession
             $"  Recruitment slot upkeep: {sheet.RecruitmentSlotUpkeep}",
             $"  Regulars' upkeep: {sheet.RegularsUpkeep}",
             $"  Mercenaries' pay: {sheet.MercenariesPay}",
-            $"  Expenditure total (excludes mercenaries' pay): {sheet.ExpenditureTotal}",
+            sheet.TotalIncludesMercenaries
+                ? $"  Expenditure total: {sheet.ExpenditureTotal}"
+                : $"  Expenditure total (excludes mercenaries' pay): {sheet.ExpenditureTotal}",
             $"  Treasury: {sheet.Treasury}",
             $"  Debt limit: {sheet.DebtLimit}",
         };

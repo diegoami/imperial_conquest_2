@@ -414,6 +414,11 @@ objects documented in their own subsections below.
 | `rebirthTaxRatePercent` | integer | tax rate % | `Rebirth`: the reborn nation's own reset tax rate. |
 | `rebirthMobilizedPercent` | integer | percentage points | `Rebirth`: the reborn nation's own reset mobilization. |
 | `rebirthDefectionRelationPenalty` | integer | relation code | `Rebirth`: the symmetric cooldown written between the reborn nation and each qualifying city's own former owner. |
+| `balanceSheetDebtLimitLowMax` | integer | talents | Balance sheet (flag `balanceSheetTotals` = `original`): a Debt limit up to this figure is rounded down to `balanceSheetDebtLimitLowStep`. |
+| `balanceSheetDebtLimitLowStep` | integer | talents | Balance sheet (`original`): the step a Debt limit up to `balanceSheetDebtLimitLowMax` is rounded down to. |
+| `balanceSheetDebtLimitMidMax` | integer | talents | Balance sheet (`original`): a Debt limit above the low maximum and up to this figure is rounded down to `balanceSheetDebtLimitMidStep`. |
+| `balanceSheetDebtLimitMidStep` | integer | talents | Balance sheet (`original`): the step a Debt limit above the low maximum and up to `balanceSheetDebtLimitMidMax` is rounded down to. |
+| `balanceSheetDebtLimitHighStep` | integer | talents | Balance sheet (`original`): the step a Debt limit above `balanceSheetDebtLimitMidMax` is rounded down to. The deposition test keeps the unrounded figure. |
 | `_provenance` | object | No | Provenance map. |
 
 #### Supply consumption (`economy.supplyConsumption`)
@@ -1047,6 +1052,7 @@ are just two settings of this record.
 | `humanMoveResupply` | enum | `"never"`, `"againstNonHostileCity"` | Whether a human army's move also resupplies it: `never` (`classical-faithful`) runs no automatic resupply on a move, as the original, where only the AI resupplies; `againstNonHostileCity` (`improved`) resupplies an army whose move ends next to a city whose owner is not at war with it, against the first such city. Only the session's `move` reads it; the AI's resupply, buying supply and the Supply army dialog do not. |
 | `endTurnWarningScope` | enum | `"notActedOnly"`, `"everyUnit"` | Whether End turn checks only units whose recomputed weekly allowance is untouched (`classical-faithful`) or every own unit (`improved`). |
 | `newGameTurnOrder` | enum | `"fixed"`, `"shuffle"` | Whether a New Game keeps the world's turn order (`fixed`, `improved` and the toy ruleset) or shuffles it with the original's algorithm (`shuffle`, `classical-faithful`): for each slot in order, swap it with a slot drawn from all of them. Fixed for the whole game once drawn; a resumed save never reshuffles. |
+| `balanceSheetTotals` | enum | `"reconciling"`, `"original"` | How the Balance sheet totals its Expenditure column (`reconciling`: `improved` and the toy ruleset; `original`: `classical-faithful`). `original` includes the Mercenary units line in the Total, counts every owned fleet (finished or under construction) in the Fleet line, and shows the Debt limit rounded down by the `balanceSheetDebtLimit*` keys. No charge changes: only the sheet's figures. |
 | `_provenance` | object | No | Provenance map. |
 
 ---

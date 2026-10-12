@@ -164,6 +164,7 @@ public class ImprovedPresetTests
             "flags.humanMoveResupply",
             "flags.endTurnWarningScope",
             "flags.newGameTurnOrder",
+            "flags.balanceSheetTotals",
             "victory.defaultCondition",
             "victory.defaultTurnLimit",
         };

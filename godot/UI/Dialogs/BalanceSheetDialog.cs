@@ -48,7 +48,8 @@ namespace IC2.Slice.UI;
 /// <see cref="BalanceSheet.ExpenditureTotal"/> excludes it by design: mercenary pay is charged to
 /// the army's own purse, not the nation's treasury, so it does not move the treasury and would not
 /// reconcile with a quarter's treasury change. The dialog lists the line because the original lists
-/// it; the engine's balance sheet records it because the same shared function backs both.
+/// it; the engine's balance sheet records it because the same shared function backs both. Under
+/// <c>classical-faithful</c> (T167) the total includes it, as the original's does.
 /// </para>
 /// </remarks>
 public partial class BalanceSheetDialog : Control

@@ -100,6 +100,7 @@ public class ExportedRulesetTests
         Assert.Equal(HumanMoveResupplyPolicy.Never, ruleset.Flags.HumanMoveResupply);
         Assert.Equal(EndTurnWarningScope.NotActedOnly, ruleset.Flags.EndTurnWarningScope);
         Assert.Equal(NewGameTurnOrderPolicy.Shuffle, ruleset.Flags.NewGameTurnOrder);
+        Assert.Equal(BalanceSheetTotalsPolicy.Original, ruleset.Flags.BalanceSheetTotals);
     }
 
     private static HashSet<string> LoadCorpusIds()

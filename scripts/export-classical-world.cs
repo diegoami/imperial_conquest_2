@@ -805,6 +805,12 @@ rulesetNode["flags"]!["newGameTurnOrder"] = "shuffle";
 ((JsonObject)rulesetNode["flags"]!["_provenance"]!)["newGameTurnOrder"] =
     "T119 (#602), the user's decision of 2026-10-02 (PR #601): classical-faithful shuffles the turn order at New Game with the original's algorithm (FUN_00448AA4, 16 draws of Random(16), each swapping its slot with the drawn one; not Fisher-Yates) [confirmed: code, 2026-10-03-new-game-turn-order-shuffle.md, research 871ca91]; the generator is the clone's own [designed: algorithm parity, not seed-for-seed parity]. improved keeps the world's fixed order. The research supports the algorithm only; searched design-audit.md, docs/game-design.md and the shuffle report for a preset policy or stream name and found none, so the policy rests on the user's decisions of 2026-10-02/03 (stream name new-game.turn-order is designed).";
 
+// ---- T167 (#1043, bug #1038): the toy ruleset keeps the reconciling Balance sheet ("reconciling");
+// classical-faithful plays the original's ("original"), so the exporter owns this value and its note.
+rulesetNode["flags"]!["balanceSheetTotals"] = "original";
+((JsonObject)rulesetNode["flags"]!["_provenance"]!)["balanceSheetTotals"] =
+    "T167 (#1043, bug #1038), the user's decision of 2026-10-12 (PR #1041, question 3), research 89c37ff, 2026-10-11-g1-original-checks.md G2 [confirmed: Wine + code], TBalanceSheet_PaintBalance: the original's Balance sheet totals its Expenditure column including the Mercenary units line (55516, 55534), counts every owned fleet, finished or under construction, in its Fleet line (55471-55480), and shows the Debt limit rounded down (55541-55556; economy.balanceSheetDebtLimit* keys). classical-faithful plays that sheet (original); the other shipped rulesets keep the Total that reconciles with the quarter's treasury change (reconciling). No charge changes: only the sheet's figures.";
+
 // ---- T157 (#926): the toy ruleset keeps the designed AI economy ("designed"); classical-faithful plays the
 // original's ("original"), so the exporter owns this value and its note and never copies the toy's.
 rulesetNode["flags"]!["aiEconomy"] = "original";

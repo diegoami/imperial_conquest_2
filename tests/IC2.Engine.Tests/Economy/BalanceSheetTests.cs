@@ -22,6 +22,18 @@ public sealed class BalanceSheetTests
     private static ResolvedScenario Classical => LazyClassical.Value;
 
     /// <summary>
+    /// classical-faithful with the Balance sheet's totals policy set back to <c>Reconciling</c> (T167): the
+    /// identity tests below (Total matches the treasury change, Debt limit is the deposition's figure) are
+    /// about the reconciling sheet, which <c>improved</c> and the toy ruleset ship. Only the sheet reads the
+    /// flag, so the quarter tick they fire is unaffected.
+    /// </summary>
+    private static Ruleset ReconcilingRuleset =>
+        Classical.Ruleset with
+        {
+            Flags = Classical.Ruleset.Flags with { BalanceSheetTotals = BalanceSheetTotalsPolicy.Reconciling },
+        };
+
+    /// <summary>
     /// A <c>classical-mediterranean</c> state on the last week before a quarter (week 11, the season
     /// boundary the calendar fires on), with every city held at its maximum population and maximum
     /// loyalty. That makes the quarter tick's city loop a no-op for population, ownership and the rebuilt
@@ -96,7 +108,7 @@ public sealed class BalanceSheetTests
     [Fact]
     public void RomeIncomeMinusExpenditure_EqualsItsTreasuryChangeAcrossTheQuarter()
     {
-        var ruleset = Classical.Ruleset;
+        var ruleset = ReconcilingRuleset;
         var before = ClassicalOnTheLastWeekBeforeAQuarter();
         var sheet = BalanceSheet.For(before, "rome", ruleset);
 
@@ -126,7 +138,7 @@ public sealed class BalanceSheetTests
     [Fact]
     public void AFleetAndMercenaryNation_ReconcilesAndItsIncomeLinesMatchTheCredit()
     {
-        var ruleset = Classical.Ruleset;
+        var ruleset = ReconcilingRuleset;
         var before = ClassicalOnTheLastWeekBeforeAQuarter();
         var romeCity = before.Cities.First(city => string.Equals(city.Owner, "rome", StringComparison.Ordinal));
 
@@ -195,7 +207,7 @@ public sealed class BalanceSheetTests
     [InlineData("ptolemaic")]
     public void UnmodifiedFleetAndMercenaryNation_WithUnfundedMercenaries_Reconciles(string nationId)
     {
-        var ruleset = Classical.Ruleset;
+        var ruleset = ReconcilingRuleset;
         var before = ClassicalOnTheLastWeekBeforeAQuarter();
 
         // Keep every nation out of the AI deposition path (order 300, after the credit) so nothing but the
@@ -246,7 +258,7 @@ public sealed class BalanceSheetTests
     [Fact]
     public void DebtLimit_IsTheCappedWealthTermAndTheDepositionBoundary()
     {
-        var ruleset = Classical.Ruleset;
+        var ruleset = ReconcilingRuleset;
         var divisor = ruleset.Economy.DebtWealthDivisor;
         var cap = -ruleset.Economy.DebtTreasuryFloor;
         var state = ClassicalOnTheLastWeekBeforeAQuarter();
@@ -339,7 +351,9 @@ public sealed class BalanceSheetTests
             $"  Recruitment slot upkeep: {sheet.RecruitmentSlotUpkeep}",
             $"  Regulars' upkeep: {sheet.RegularsUpkeep}",
             $"  Mercenaries' pay: {sheet.MercenariesPay}",
-            $"  Expenditure total (excludes mercenaries' pay): {sheet.ExpenditureTotal}",
+            sheet.TotalIncludesMercenaries
+                ? $"  Expenditure total: {sheet.ExpenditureTotal}"
+                : $"  Expenditure total (excludes mercenaries' pay): {sheet.ExpenditureTotal}",
             $"  Treasury: {sheet.Treasury}",
             $"  Debt limit: {sheet.DebtLimit}",
         };
@@ -365,7 +379,7 @@ public sealed class BalanceSheetTests
             "Recruitment slot upkeep:",
             "Regulars' upkeep:",
             "Mercenaries' pay:",
-            "Expenditure total (excludes mercenaries' pay):",
+            "Expenditure total",
             "Treasury:",
             "Debt limit:",
         };

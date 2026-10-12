@@ -25,6 +25,16 @@ namespace IC2.Engine.Economy;
 /// <see cref="MercenariesPay"/> is listed for the player's information. This is why
 /// <c>docs/tasks/T104.md</c>'s Done-when 2 identity holds even for a nation with mercenaries.
 /// </para>
+/// <para>
+/// <strong>T167, <see cref="RulesetFlags.BalanceSheetTotals"/> = <see cref="BalanceSheetTotalsPolicy.Original"/></strong>
+/// (<c>classical-faithful</c>) shows the original's figures instead <strong>[confirmed: Wine + code, research
+/// 89c37ff, 2026-10-11-g1-original-checks.md G2]</strong>: the Total includes <see cref="MercenariesPay"/>,
+/// the Fleet line (<see cref="ShipUpkeep"/>) counts every fleet the nation owns, finished or under
+/// construction, at the per-ship rate, and <see cref="DebtLimit"/> is rounded for display. Only the sheet's
+/// figures change; <see cref="ShipUpkeep.ComputeForNation"/>'s charge, the quarterly tick and
+/// <see cref="Deposition.DebtLimit"/> are untouched, so under this policy the Total no longer reconciles
+/// with the quarter's treasury change.
+/// </para>
 /// </remarks>
 /// <param name="TaxIncome">The credit's tax-income term (<see cref="TaxIncome.Compute"/>).</param>
 /// <param name="TaxBaseQuarterShare">The credit's tax-base quarter-share term.</param>
@@ -43,7 +53,14 @@ namespace IC2.Engine.Economy;
 /// </param>
 /// <param name="MercenariesPay">The nation's deployed mercenaries' quarterly pay (army-purse-charged).</param>
 /// <param name="Treasury">The nation's treasury at projection time.</param>
-/// <param name="DebtLimit">The magnitude of the wealth-based debt line (<see cref="Deposition.DebtLimit"/>).</param>
+/// <param name="DebtLimit">
+/// The magnitude of the wealth-based debt line (<see cref="Deposition.DebtLimit"/>), rounded for display
+/// under <see cref="BalanceSheetTotalsPolicy.Original"/>.
+/// </param>
+/// <param name="TotalIncludesMercenaries">
+/// Whether <see cref="ExpenditureTotal"/> includes <see cref="MercenariesPay"/>
+/// (<see cref="BalanceSheetTotalsPolicy.Original"/>).
+/// </param>
 public sealed record BalanceSheet(
     int TaxIncome,
     int TaxBaseQuarterShare,
@@ -54,17 +71,20 @@ public sealed record BalanceSheet(
     int RegularsUpkeep,
     int MercenariesPay,
     int Treasury,
-    int DebtLimit)
+    int DebtLimit,
+    bool TotalIncludesMercenaries = false)
 {
     /// <summary>The three income lines' total.</summary>
     public int IncomeTotal => TaxIncome + TaxBaseQuarterShare + TradeIncome;
 
     /// <summary>
     /// The treasury-charged expenditure lines' total — the figure that reconciles with the quarter's
-    /// treasury change. <see cref="MercenariesPay"/> is deliberately excluded; see this type's remarks.
+    /// treasury change. <see cref="MercenariesPay"/> is excluded unless <see cref="TotalIncludesMercenaries"/>;
+    /// see this type's remarks.
     /// </summary>
     public int ExpenditureTotal =>
-        CityAndWealthUpkeep + ShipUpkeep + RecruitmentSlotUpkeep + RegularsUpkeep;
+        CityAndWealthUpkeep + ShipUpkeep + RecruitmentSlotUpkeep + RegularsUpkeep
+        + (TotalIncludesMercenaries ? MercenariesPay : 0);
 
     /// <summary>
     /// Projects one nation's budget for the quarter from the state as it stands, with no mutation. Every
@@ -84,17 +104,56 @@ public sealed record BalanceSheet(
             ?? throw new ArgumentException($"Nation '{nationId}' is not in the state.", nameof(nationId));
 
         var (regularsUpkeep, mercenariesPay) = ArmyUpkeep.ComputeForNation(state, nationId, ruleset);
+        var original = ruleset.Flags.BalanceSheetTotals == BalanceSheetTotalsPolicy.Original;
 
         return new BalanceSheet(
             TaxIncome: IC2.Engine.Economy.TaxIncome.Compute(nation.TaxBase, nation.TaxRatePercent, ruleset),
             TaxBaseQuarterShare: NationTreasuryCredit.TaxBaseQuarterShare(nation, ruleset),
             TradeIncome: NationTreasuryCredit.TradeIncome(nation, state, ruleset),
             CityAndWealthUpkeep: NationTreasuryCredit.CityAndWealthUpkeep(nation, state, ruleset),
-            ShipUpkeep: IC2.Engine.Economy.ShipUpkeep.ComputeForNation(state, nationId, ruleset),
+            ShipUpkeep: original
+                ? AllFleetsUpkeep(state, nationId, ruleset)
+                : IC2.Engine.Economy.ShipUpkeep.ComputeForNation(state, nationId, ruleset),
             RecruitmentSlotUpkeep: GarrisonUpkeep.Compute(nation.RecruitmentSlots, ruleset),
             RegularsUpkeep: regularsUpkeep,
             MercenariesPay: mercenariesPay,
             Treasury: nation.Treasury,
-            DebtLimit: Deposition.DebtLimit(nation, ruleset));
+            DebtLimit: original
+                ? RoundDebtLimit(Deposition.DebtLimit(nation, ruleset), ruleset.Economy)
+                : Deposition.DebtLimit(nation, ruleset),
+            TotalIncludesMercenaries: original);
+    }
+
+    /// <summary>
+    /// The Fleet line under <see cref="BalanceSheetTotalsPolicy.Original"/>: <c>ships × rate</c> over every
+    /// fleet the nation owns, with no completion test (<c>TBalanceSheet_PaintBalance</c> 55471-55480). The
+    /// quarterly charge (<see cref="IC2.Engine.Economy.ShipUpkeep.ComputeForNation"/>) still skips fleets under
+    /// construction.
+    /// </summary>
+    private static int AllFleetsUpkeep(GameState state, string nationId, Ruleset ruleset)
+    {
+        var total = 0;
+        foreach (var fleet in state.Fleets)
+        {
+            if (string.Equals(fleet.Nation, nationId, StringComparison.Ordinal))
+            {
+                total += IC2.Engine.Economy.ShipUpkeep.Compute(fleet.Ships, ruleset);
+            }
+        }
+
+        return total;
+    }
+
+    /// <summary>
+    /// Rounds the (already capped) debt limit down for display: to the low step up to the low maximum, to
+    /// the mid step up to the mid maximum, and to the high step above (<c>TBalanceSheet_PaintBalance</c>
+    /// 55541-55556). All thresholds and steps come from the ruleset.
+    /// </summary>
+    private static int RoundDebtLimit(int limit, EconomyRules economy)
+    {
+        var step = limit <= economy.BalanceSheetDebtLimitLowMax ? economy.BalanceSheetDebtLimitLowStep
+            : limit <= economy.BalanceSheetDebtLimitMidMax ? economy.BalanceSheetDebtLimitMidStep
+            : economy.BalanceSheetDebtLimitHighStep;
+        return limit / step * step;
     }
 }
