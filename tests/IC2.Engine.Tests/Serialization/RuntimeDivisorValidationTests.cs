@@ -98,6 +98,53 @@ public class RuntimeDivisorValidationTests
         Assert.Contains($"'{key}'", ex.Message, StringComparison.Ordinal);
     }
 
+    public static IEnumerable<object[]> DebtLimitStepMutations()
+    {
+        yield return new object[] { "economy.balanceSheetDebtLimitLowStep", (Func<Ruleset, int, Ruleset>)((r, v) => r with { Economy = r.Economy with { BalanceSheetDebtLimitLowStep = v } }) };
+        yield return new object[] { "economy.balanceSheetDebtLimitMidStep", (Func<Ruleset, int, Ruleset>)((r, v) => r with { Economy = r.Economy with { BalanceSheetDebtLimitMidStep = v } }) };
+        yield return new object[] { "economy.balanceSheetDebtLimitHighStep", (Func<Ruleset, int, Ruleset>)((r, v) => r with { Economy = r.Economy with { BalanceSheetDebtLimitHighStep = v } }) };
+    }
+
+    [Theory]
+    [MemberData(nameof(DebtLimitStepMutations))]
+    public void A_zero_balance_sheet_debt_limit_step_is_refused_naming_the_key(string key, Func<Ruleset, int, Ruleset> withValue)
+    {
+        var ex = Assert.Throws<MalformedGameDataException>(() => GameDataValidation.Validate(Document, withValue(Toy(), 0)));
+        Assert.Contains($"'{key}'", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [MemberData(nameof(DebtLimitStepMutations))]
+    public void A_negative_balance_sheet_debt_limit_step_is_refused_naming_the_key(string key, Func<Ruleset, int, Ruleset> withValue)
+    {
+        var ex = Assert.Throws<MalformedGameDataException>(() => GameDataValidation.Validate(Document, withValue(Toy(), -1)));
+        Assert.Contains($"'{key}'", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-5)]
+    public void A_non_positive_balance_sheet_debt_limit_low_max_is_refused_naming_the_key(int lowMax)
+    {
+        var r = Toy();
+        var bad = r with { Economy = r.Economy with { BalanceSheetDebtLimitLowMax = lowMax } };
+        var ex = Assert.Throws<MalformedGameDataException>(() => GameDataValidation.Validate(Document, bad));
+        Assert.Contains("'economy.balanceSheetDebtLimitLowMax'", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void A_balance_sheet_debt_limit_low_max_not_below_mid_max_is_refused_naming_both_keys(int midMaxOffsetFromLowMax)
+    {
+        var r = Toy();
+        var low = r.Economy.BalanceSheetDebtLimitLowMax;
+        var bad = r with { Economy = r.Economy with { BalanceSheetDebtLimitMidMax = low + midMaxOffsetFromLowMax } };
+        var ex = Assert.Throws<MalformedGameDataException>(() => GameDataValidation.Validate(Document, bad));
+        Assert.Contains("'economy.balanceSheetDebtLimitLowMax'", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("'economy.balanceSheetDebtLimitMidMax'", ex.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void An_order_with_a_zero_encoding_radix_is_refused_naming_the_key()
     {
