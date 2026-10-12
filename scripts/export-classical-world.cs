@@ -803,7 +803,7 @@ rulesetNode["flags"]!["humanMoveResupply"] = "never";
 // Game with the original's algorithm ("shuffle"), so the exporter owns this value and its note.
 rulesetNode["flags"]!["newGameTurnOrder"] = "shuffle";
 ((JsonObject)rulesetNode["flags"]!["_provenance"]!)["newGameTurnOrder"] =
-    "T119 (#602), the user's decision of 2026-10-02 (PR #601): classical-faithful shuffles the turn order at New Game with the original's algorithm (FUN_00448AA4, 16 draws of Random(16), each swapping its slot with the drawn one; not Fisher-Yates) [confirmed: code, 2026-10-03-new-game-turn-order-shuffle.md, research 871ca91]; the generator is the clone's own [designed: algorithm parity, not seed-for-seed parity]. improved keeps the world's fixed order.";
+    "T119 (#602), the user's decision of 2026-10-02 (PR #601): classical-faithful shuffles the turn order at New Game with the original's algorithm (FUN_00448AA4, 16 draws of Random(16), each swapping its slot with the drawn one; not Fisher-Yates) [confirmed: code, 2026-10-03-new-game-turn-order-shuffle.md, research 871ca91]; the generator is the clone's own [designed: algorithm parity, not seed-for-seed parity]. improved keeps the world's fixed order. The research supports the algorithm only; searched design-audit.md, docs/game-design.md and the shuffle report for a preset policy or stream name and found none, so the policy rests on the user's decisions of 2026-10-02/03 (stream name new-game.turn-order is designed).";
 
 // ---- T157 (#926): the toy ruleset keeps the designed AI economy ("designed"); classical-faithful plays the
 // original's ("original"), so the exporter owns this value and its note and never copies the toy's.

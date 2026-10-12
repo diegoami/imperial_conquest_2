@@ -22,7 +22,11 @@ namespace IC2.Engine.Calendar;
 /// <para>
 /// <strong>The generator is the clone's own</strong> <strong>[designed: the user's decision of
 /// 2026-10-03, algorithm parity and not seed-for-seed parity]</strong>:
-/// <c>SplitMix64Rng.ForStream(state.RandomSeed, "new-game.turn-order")</c>. Deriving a stream does not
+/// <c>SplitMix64Rng.ForStream(state.RandomSeed, "new-game.turn-order")</c>. The cited research supports
+/// the algorithm only. The stream name is <strong>[designed]</strong>: I searched design-audit.md,
+/// docs/game-design.md, the shuffle report and the user's decisions of 2026-10-02/03 on #602 for any
+/// stream name and found none, so it is this task's own. The <c>fixed</c>/<c>shuffle</c> preset split
+/// is the user's decision of 2026-10-02 (PR #601), not a research finding. Deriving a stream does not
 /// advance <c>RandomSeed</c>, so no other draw moves.
 /// </para>
 /// <para>
@@ -37,6 +41,15 @@ public static class NewGameTurnOrder
     /// <summary>The stream name the New Game shuffle derives from the state's root seed.</summary>
     public const string StreamName = "new-game.turn-order";
 
+    [ThreadStatic]
+    private static int _callsOnThisThread;
+
+    /// <summary>
+    /// How many times <see cref="Apply"/> has been called on the current thread. A test
+    /// seam: a resume must leave it unchanged, which no state comparison can show for a discarded call.
+    /// </summary>
+    public static int CallsOnThisThread => _callsOnThisThread;
+
     /// <summary>
     /// Shuffles the state's turn order from its own seed when the ruleset says <c>shuffle</c>; returns the
     /// state unchanged under <c>fixed</c>.
@@ -45,6 +58,7 @@ public static class NewGameTurnOrder
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(ruleset);
+        _callsOnThisThread++;
         return ruleset.Flags.NewGameTurnOrder == NewGameTurnOrderPolicy.Shuffle
             ? Shuffle(state, SplitMix64Rng.ForStream(state.RandomSeed, StreamName))
             : state;

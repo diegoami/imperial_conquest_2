@@ -263,12 +263,18 @@ public sealed class NewGameTurnOrderTests : IDisposable
     public void A_save_round_trip_and_resume_keeps_the_order_and_the_active_seat_and_draws_nothing()
     {
         var (world, ruleset, scenario) = Classical;
+        var callsAtStart = NewGameTurnOrder.CallsOnThisThread;
         var session = new GameSession(world, ruleset, scenario, 12345UL, world.TurnOrder[3]);
+        Assert.Equal(callsAtStart + 1, NewGameTurnOrder.CallsOnThisThread);
         var path = Path.Combine(_directory, "t119.sav");
         session.Submit($"save {path}");
 
         var save = SaveManager.LoadFile(path, world, ruleset);
+        var callsBefore = NewGameTurnOrder.CallsOnThisThread;
         var resumed = new GameSession(world, ruleset, scenario, save);
+
+        // R1: a discarded Apply call would leave the state identical, so count invocations instead.
+        Assert.Equal(callsBefore, NewGameTurnOrder.CallsOnThisThread);
 
         Assert.Equal(session.State.TurnOrder, resumed.State.TurnOrder);
         Assert.Equal(session.State.ActiveSeatIndex, resumed.State.ActiveSeatIndex);

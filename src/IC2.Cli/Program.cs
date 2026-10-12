@@ -9,8 +9,9 @@ namespace IC2.Cli;
 
 /// <summary>
 /// A thin console wrapper around <see cref="GameSession"/> — <c>docs/task-catalogue.md</c> "T41 Thin CLI
-/// demo on the toy world (a walking skeleton)". Holds no game rule and no parsing beyond its own five
-/// arguments (<c>--script</c>, <c>--seed</c>, <c>--turn-order</c> <c>fixed|shuffle</c>, <c>--scenario</c>, <c>--ruleset</c>, <c>--seat</c>): every
+/// demo on the toy world (a walking skeleton)". Holds no game rule and no parsing beyond its own seven
+/// arguments (<c>--script</c>, <c>--seed</c>, <c>--turn-order</c> <c>fixed|shuffle</c>, <c>--scenario</c>,
+/// <c>--ruleset</c>, <c>--seat</c>, <c>--load</c>): every
 /// command line it reads is handed to <see cref="GameSession.Submit"/> verbatim, and every line it prints
 /// to standard output is exactly what that call returned.
 /// </summary>
