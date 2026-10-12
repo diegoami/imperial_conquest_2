@@ -47,16 +47,38 @@ public sealed class PeaceTreatySystem : IGameSystem
         ArgumentNullException.ThrowIfNull(context);
 
         var state = context.State;
-        foreach (var published in context.PublishedEvents)
+        var published = context.PublishedEvents;
+        for (var i = 0; i < published.Count; i++)
         {
-            if (published.Event is PeaceTreatyTriggered treaty)
+            if (published[i].Event is PeaceTreatyTriggered treaty)
             {
+                // #1040: the original writes "<W> destroys army of <L>." and only then the treaty block, so the
+                // battle's own line (published directly before the trigger) is written here, ahead of the
+                // block; NewsLogWriterSeatEnd skips it (IsDestroyedLineWrittenByTreaty).
+                if (IsDestroyedLineWrittenByTreaty(published, i - 1))
+                {
+                    state = NewsLogWriter.Append(
+                        state, new[] { published[i - 1].Event }, context.Ruleset.NewsLog);
+                }
+
                 state = Apply(state, context.Ruleset, context.World, treaty, context.Rng);
             }
         }
 
         return state;
     }
+
+    /// <summary>
+    /// True when the event at <paramref name="index"/> is a <see cref="BattleArmyDestroyed"/> directly
+    /// followed by a <see cref="PeaceTreatyTriggered"/> (the order <c>InstantBattleResolver</c> publishes
+    /// them in): <see cref="Execute"/> then writes that line itself, just before the treaty block, and the
+    /// news writer must not write it a second time (#1040).
+    /// </summary>
+    internal static bool IsDestroyedLineWrittenByTreaty(IReadOnlyList<PublishedEvent> published, int index)
+        => index >= 0
+            && index + 1 < published.Count
+            && published[index].Event is BattleArmyDestroyed
+            && published[index + 1].Event is PeaceTreatyTriggered;
 
     /// <summary>
     /// The pure treaty reaction, directly callable so a test can drive it from a fabricated

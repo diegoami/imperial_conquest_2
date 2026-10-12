@@ -149,11 +149,11 @@ Now: Week 7, Spring 270 BC. Active seat: Macedonia (macedonia).
 News:
    
   Week  7      Spring      270BC
+  Seleucid destroys army of Bithynia.
   Bithynia sues Seleucid for peace and;
       Bithynia ends all current trading agreements.
       Bithynia  ends all current alliances.
       Bithynia pays reparations of 281 talents.
-  Seleucid destroys army of Bithynia.
 
 > move army-8 135 52
 army-8 moved from (137,50) to (136,51), spending 1 of 10 moves.
@@ -238,11 +238,11 @@ News:
   A fleet belonging to Ptolemaic is damaged in a storm.
    
   Week  1      Summer      270BC
+  Seleucid destroys army of Galatia.
   Galatia sues Seleucid for peace and;
       Galatia ends all current trading agreements.
       Galatia  ends all current alliances.
       Galatia pays reparations of 169 talents.
-  Seleucid destroys army of Galatia.
 
 > move mac-sac-1 151 31
 mac-sac-1 moved from (137,52) to (140,47), spending 8 of 9 moves.
@@ -295,11 +295,11 @@ Now: Week 5, Summer 270 BC. Active seat: Macedonia (macedonia).
 News:
    
   Week  5      Summer      270BC
+  Carthage destroys army of Celtiberia.
   Celtiberia sues Carthage for peace and;
       Celtiberia ends all current trading agreements.
       Celtiberia  ends all current alliances.
       Celtiberia pays reparations of 359 talents.
-  Carthage destroys army of Celtiberia.
 
 > mobilize 2 mac-recruit-0
 recruitment.mobilize-recruit-slot accepted.
@@ -433,8 +433,8 @@ Now: Week 11, Summer 270 BC. Active seat: Macedonia (macedonia).
 News:
    
   Week  11      Summer      270BC
-  Ptolemaic and Seleucid have agreed to end their war.
   Ptolemaic destroys army of Seleucid.
+  Ptolemaic and Seleucid have agreed to end their war.
 
 > end
 Macedonia (macedonia) ends its turn.
@@ -520,8 +520,8 @@ Seleucid (seleucid) takes its turn: 13 orders issued.
 Ptolemaic (ptolemaic) takes its turn: 12 orders issued.
 Now: Week 5, Autumn 270 BC. Active seat: Macedonia (macedonia).
 News:
-  Greece and Illyria have agreed to end their war.
   Greece destroys army of Illyria.
+  Greece and Illyria have agreed to end their war.
   Thracia destroys army of Macedonia.
    
   Week  5      Autumn      270BC
@@ -952,11 +952,11 @@ News log:
   Week  3      Summer      270BC
    
   Week  5      Summer      270BC
+  Carthage destroys army of Celtiberia.
   Celtiberia sues Carthage for peace and;
       Celtiberia ends all current trading agreements.
       Celtiberia  ends all current alliances.
       Celtiberia pays reparations of 359 talents.
-  Carthage destroys army of Celtiberia.
   A fleet belonging to Carthage is lost at sea.
    
   Week  7      Summer      270BC
@@ -970,8 +970,8 @@ News log:
   Thracia destroys army of Macedonia.
    
   Week  11      Summer      270BC
-  Ptolemaic and Seleucid have agreed to end their war.
   Ptolemaic destroys army of Seleucid.
+  Ptolemaic and Seleucid have agreed to end their war.
   Macedonia finishes a new fleet at Amphipolis.
   Media depose their leader Samsuiluna.
    
@@ -979,8 +979,8 @@ News log:
   Carthage declares war on Rome.
    
   Week  3      Autumn      270BC
-  Greece and Illyria have agreed to end their war.
   Greece destroys army of Illyria.
+  Greece and Illyria have agreed to end their war.
   Thracia destroys army of Macedonia.
    
   Week  5      Autumn      270BC
