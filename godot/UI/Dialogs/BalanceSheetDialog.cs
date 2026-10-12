@@ -13,9 +13,12 @@ namespace IC2.Slice.UI;
 /// <remarks>
 /// <para>
 /// <strong>Every figure is <see cref="BalanceSheet.For"/>.</strong> The dialog reads each line from
-/// the engine's own projection — never a restated formula — so a ruleset change moves the dialog and
-/// the engine's quarterly credit together (T104's own design, see
-/// <c>docs/tasks/T104.md</c>).
+/// the engine's own projection — never a restated formula — so under
+/// <c>BalanceSheetTotalsPolicy.Reconciling</c> a ruleset change moves the dialog and the engine's quarterly
+/// credit together (T104's own design, see <c>docs/tasks/T104.md</c>). Under <c>Original</c>
+/// (<c>classical-faithful</c>, T167) the sheet follows the original's display (g1 G2) instead, and two lines
+/// differ from what the tick charges and tests: the Fleet line counts fleets under construction, and the
+/// Debt limit is rounded for display (the deposition test keeps the unrounded figure).
 /// </para>
 /// <para>
 /// <strong>The captions are the original's, the terms are the engine's.</strong> The original's

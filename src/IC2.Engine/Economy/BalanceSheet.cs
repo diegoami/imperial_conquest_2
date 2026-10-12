@@ -9,12 +9,16 @@ namespace IC2.Engine.Economy;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The original's <c>TBalanceSheet</c> is a read-only dialog whose terms are exactly the quarterly
+/// The original's <c>TBalanceSheet</c> is a read-only dialog whose terms, under
+/// <see cref="BalanceSheetTotalsPolicy.Reconciling"/>, are exactly the quarterly
 /// treasury credit (<see cref="NationTreasuryCredit"/>) and the upkeep bill
 /// (<see cref="QuarterlyEconomySystem"/>, <see cref="ShipUpkeep"/>, <see cref="GarrisonUpkeep"/>,
 /// <see cref="ArmyUpkeep"/>), plus the treasury and the debt line
 /// <strong>[confirmed: decompiled-quarterly-billing-and-economy.md, upkeep-payment-and-desertion.md]</strong>.
-/// Every field below is produced by that same shared function, never a second copy of a formula.
+/// Every field below is produced by that same shared function, never a second copy of a formula. Under
+/// <see cref="BalanceSheetTotalsPolicy.Original"/> the sheet instead follows the original's display
+/// (g1 G2), and two lines differ from what the tick charges and tests: the Fleet line counts fleets under
+/// construction, and the Debt limit is rounded for display.
 /// </para>
 /// <para>
 /// <strong>Under <see cref="BalanceSheetTotalsPolicy.Reconciling"/> (<c>improved</c>, the toy ruleset),
@@ -96,7 +100,9 @@ public sealed record BalanceSheet(
 
     /// <summary>
     /// Projects one nation's budget for the quarter from the state as it stands, with no mutation. Every
-    /// figure comes from the same function the quarterly systems call.
+    /// figure comes from the same function the quarterly systems call. Under
+    /// <see cref="BalanceSheetTotalsPolicy.Original"/> the Fleet line and the Debt limit are then adjusted to
+    /// the original's display (g1 G2); the charges themselves are unchanged.
     /// </summary>
     /// <param name="state">The state to project from.</param>
     /// <param name="nationId">The nation whose sheet is wanted.</param>
