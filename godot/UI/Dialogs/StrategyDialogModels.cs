@@ -611,7 +611,9 @@ public sealed class RecruitUnitDialogModel
     /// <see langword="null"/> when the order would be accepted.
     /// </summary>
     public string? RecruitRefusalReasonAt(string cityId) =>
-        _state.CityById(cityId) is { } city
+        IsAllCities(cityId)
+            ? AllCitiesRecruitReason
+            : _state.CityById(cityId) is { } city
         && !RecruitmentEligibility.MayTakeOrder(city, Nation, _ruleset)
             ? RecruitmentEligibility.RefusalReason(city, Nation, _ruleset)
             : null;
@@ -643,6 +645,59 @@ public sealed class RecruitUnitDialogModel
     /// </summary>
     public IReadOnlyList<TrainingRegimentView> TrainingAtCity(string cityId) =>
         RecruitmentPanelViewModel.TrainingAtCity(_state, _ruleset, Nation.Id, cityId);
+
+    /// <summary>The dropdown's id for the <strong>All cities</strong> entry (T162, bug #1001): no city
+    /// has this id, so it can never collide with a real selection.</summary>
+    public const string AllCitiesId = "*all-cities*";
+
+    /// <summary>The All cities entry's label.</summary>
+    public const string AllCitiesLabel = "All cities";
+
+    /// <summary>Whether <paramref name="selectionId"/> names the All cities entry.</summary>
+    public static bool IsAllCities(string selectionId) =>
+        string.Equals(selectionId, AllCitiesId, StringComparison.Ordinal);
+
+    /// <summary>
+    /// The training list for a dropdown selection: every regiment of the nation, in queue order, for
+    /// All cities (T162); otherwise only <paramref name="selectionId"/>'s own, as before.
+    /// </summary>
+    public IReadOnlyList<TrainingRegimentView> TrainingFor(string selectionId) =>
+        IsAllCities(selectionId)
+            ? RecruitmentPanelViewModel.TrainingForNation(_state, _ruleset, Nation.Id)
+            : TrainingAtCity(selectionId);
+
+    /// <summary>
+    /// The rule the dialog opens by: on All cities when the nation has a regiment in training at any
+    /// city other than its capital (so nothing is hidden behind the dropdown), otherwise on the
+    /// first listed town, as before (T162).
+    /// </summary>
+    public bool OpensOnAllCities
+    {
+        get
+        {
+            foreach (var slot in Nation.RecruitmentSlots)
+            {
+                if (!string.Equals(slot.TargetCityId, Nation.CapitalCityId, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    /// <summary>A city's display name, or its id when the state has no such city (T162's row text).</summary>
+    public string CityName(string cityId) => _state.CityById(cityId)?.Name ?? cityId;
+
+    /// <summary>Whether Mobilize is offered for <paramref name="row"/>: only a ready regiment (T162).</summary>
+    public static bool MayMobilize(TrainingRegimentView? row) => row is { IsReady: true };
+
+    /// <summary>Whether Disband is offered for <paramref name="row"/>: any selected regiment (T162).</summary>
+    public static bool MayDisband(TrainingRegimentView? row) => row is not null;
+
+    /// <summary>Why Recruit is not offered on the All cities entry: a new order needs one city (T162).</summary>
+    public const string AllCitiesRecruitReason = "Pick a city to recruit: All cities only lists units in training.";
 
     /// <summary>
     /// The <c>recruit-standing</c> line the Recruit unit button submits, with the chosen city, type
