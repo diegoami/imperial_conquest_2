@@ -316,7 +316,7 @@ public partial class ContextPanel : Control
         // "extras" the clone keeps (the heads-up "Under siege" line, the per-city tax rate, the
         // garrison and "In training here") — bug #608's tax-rate line is the third, the garrison is
         // here for the player until T113 hands the city's right click to its mercenaries.
-        Fact(city.UnderSiege ? "Under siege." : "Not under siege.");
+        Fact(IC2.Engine.Economy.HostileArmyAdjacent.IsThreatened(city, Session.State, Session.Ruleset) ? "Under siege." : "Not under siege.");
 
         var owner = Session.State.NationById(city.Owner);
         Fact($"Tax rate: {(owner?.TaxRatePercent.ToString() ?? "?")}%  (display-only — no command sets it; see this class's remarks)");

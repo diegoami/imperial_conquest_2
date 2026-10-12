@@ -56,8 +56,7 @@ public sealed class SupplyDialogModelTests
 
     private static CityState City(string id, string name, int X, int Y, string Owner, int supplyTons) => new(
         id, name, X, Y, Owner, Owner, Loyalty: 90, SupplyTons: supplyTons, FortificationCode: 0,
-        PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0, UnderSiege: false,
-        Garrison: ValueList<UnitSlot>.Empty);
+        PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0,        Garrison: ValueList<UnitSlot>.Empty);
 
     private static FleetState Fleet(string id, int X, int Y, int supplyTons) => new(
         id, ArmyNationId, X, Y, Moves: 4, Ships: 10, ConditionPercent: 100, Money: 0, SupplyTons: supplyTons,

@@ -9,7 +9,7 @@ namespace IC2.Engine.Tests.Cities.Capture;
 /// <summary>
 /// <c>FUN_0044ba1c</c>'s own confirmed cascade gate, each term pinned independently: not any of the
 /// sixteen nations' own <see cref="NationState.CapitalCityId"/> (<c>FUN_0044b8d0</c>; T90/#409, replacing
-/// T17's invented <see cref="CityState.UnderSiege"/> reading — see the "no siege gate" tests below), within
+/// T17's invented stored-siege-flag reading — see the "no siege gate" tests below), within
 /// <see cref="CaptureRules.CascadeDistanceMax"/>, <strong>the loser's</strong> own unity under
 /// <see cref="CaptureRules.CascadeUnityThreshold"/> (T91/#415, replacing T17's own misreading of that gate
 /// as the new owner's unity — see the unity-gate tests below), the candidate's own loyalty under
@@ -50,7 +50,6 @@ public sealed class CascadeGateTests
         int candidateLoyalty = 10,
         string? candidateAllegiance = null,
         int candidateDistance = 1,
-        bool candidateUnderSiege = false,
         int loserUnity = 500,
         int attackerTroops = 50_000,
         int attackerMorale = 80,
@@ -65,8 +64,7 @@ public sealed class CascadeGateTests
 
         var candidate = CaptureTestbed.City(
             CandidateId, "Candidate", candidateDistance, 0, OldOwner, candidateAllegiance ?? OldOwner,
-            candidateLoyalty, fortificationCode: 0, populationThousands: 1, maxPopulationThousands: 10, tribute: 0,
-            underSiege: candidateUnderSiege);
+            candidateLoyalty, fortificationCode: 0, populationThousands: 1, maxPopulationThousands: 10, tribute: 0);
 
         var oldOwnerIsCandidateCapital = string.Equals(candidateCapitalOfNationId, OldOwner, StringComparison.Ordinal);
         var oldOwner = CaptureTestbed.Nation(OldOwner, unity: loserUnity, capitalCityId: oldOwnerIsCandidateCapital ? CandidateId : null);
@@ -146,15 +144,24 @@ public sealed class CascadeGateTests
         Assert.False(CandidateDefected(state, ruleset));
     }
 
-    // ---- Done-when 2: no siege gate. FUN_0044ba1c's own sweep never reads CityState.UnderSiege at all --
-    // T17 invented that reading in the capital gate's place. A besieged, non-capital candidate that passes
-    // every other gate now defects like any other. Restoring the old UnderSiege gate fails this test. ----
+    // ---- Done-when 2: no siege gate. FUN_0044ba1c's own sweep never asks whether the candidate is contested --
+    // T17 invented that reading in the capital gate's place, and T67 removed the stored flag it used. A
+    // candidate with the attacking army standing beside it at war (HostileArmyAdjacent holds for it, the
+    // original's "under siege") that passes every other gate defects like any other. ----
 
     [Fact]
-    public void UnderSiege_NoLongerExcludesTheCandidateFromTheCascade()
+    public void AContestedCandidate_HostileArmyBesideItAtWar_StillDefects()
     {
-        var (state, ruleset) = BuildScenario(candidateUnderSiege: true);
-        Assert.True(CandidateDefected(state, ruleset));
+        var (state, ruleset) = BuildScenario(candidateDistance: 1);
+        var atWar = state with
+        {
+            Relations = DiplomaticRelations.Uniform(
+                ValueList.From(state.Nations.Select(n => n.Id)), ruleset.Diplomacy.StateCodes.Peace)
+                .WithRelation(OldOwner, NewOwner, ruleset.Diplomacy.StateCodes.War),
+        };
+        Assert.True(IC2.Engine.Economy.HostileArmyAdjacent.IsThreatened(atWar.CityById(CandidateId)!, atWar, ruleset));
+
+        Assert.True(CandidateDefected(atWar, ruleset));
     }
 
     // ---- B2 / N1: distance gate, exclusive threshold (Chebyshev < 10, i.e. >= 10 excludes). ----

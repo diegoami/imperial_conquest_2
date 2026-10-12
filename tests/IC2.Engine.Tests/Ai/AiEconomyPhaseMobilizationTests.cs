@@ -124,7 +124,7 @@ public sealed class AiEconomyPhaseMobilizationTests
         slots.Add(new RecruitmentSlot(HomeCityId, "light_infantry", 1000, Recruitment.MobilizationMinStateCodeAiSeat));
         Assert.Equal(Recruitment.MaxSlots, slots.Count);
 
-        var candidates = Propose(StateWith(slots, underSiege: false));
+        var candidates = Propose(StateWith(slots));
 
         Assert.DoesNotContain(candidates, c => c.Kind == "recruit");
         Assert.Contains(candidates, c => c.Kind == "mobilize");
@@ -133,9 +133,26 @@ public sealed class AiEconomyPhaseMobilizationTests
     [Fact]
     public void A_city_under_siege_is_not_mobilized_at()
     {
-        var candidates = Propose(OneSlotState(Recruitment.MobilizationMinStateCodeAiSeat, underSiege: true));
+        // T67 (#304): "under siege" is the hostile-army-adjacent predicate. The state is built by play: the
+        // other nation, at war with the acting one, walks an army beside the training city with a real
+        // MoveArmyCommand. The control is the same state before the march.
+        var before = OneSlotState(Recruitment.MobilizationMinStateCodeAiSeat);
+        before = BattleCommandTestbed.AtWar(before, Acting, Other);
+        before = before with
+        {
+            Armies = ValueList.Of(
+                CaptureFixtures.Army("hostile", Other, 2, 4, 60, CaptureFixtures.Unit("light_infantry", 10000)) with { Moves = 20 }),
+        };
+        Assert.Contains(Propose(before), c => c.Kind == "mobilize");
 
-        Assert.DoesNotContain(candidates, c => c.Kind == "mobilize");
+        var home = before.CityById(HomeCityId)!;
+        var march = BattleCommandTestbed.Dispatcher().Dispatch(
+            AiScriptedStates.WithActiveSeat(before, Other),
+            new IC2.Engine.Movement.Commands.MoveArmyCommand(Other, "hostile", home.X - 1, home.Y - 1));
+        Assert.True(march.IsAccepted, march.Rejection?.ToString());
+        Assert.Equal((home.X - 1, home.Y - 1), (march.State.ArmyById("hostile")!.X, march.State.ArmyById("hostile")!.Y));
+
+        Assert.DoesNotContain(Propose(march.State), c => c.Kind == "mobilize");
     }
 
     [Fact]
@@ -347,7 +364,7 @@ public sealed class AiEconomyPhaseMobilizationTests
         // the one candidate this generates. Otherwise a same-city recruit order (still under
         // AiScriptedStates.Ruleset.Ai.MaxOpenRecruitmentOrdersPerCity) could add a THIRD slot and confound the "the
         // untouched slot survives verbatim" assertion below.
-        var state = StateWith(new List<RecruitmentSlot> { notReadySlot, readySlot }, underSiege: false, treasury: -1);
+        var state = StateWith(new List<RecruitmentSlot> { notReadySlot, readySlot }, treasury: -1);
 
         var candidates = Propose(state);
 
@@ -383,7 +400,7 @@ public sealed class AiEconomyPhaseMobilizationTests
         var slotB = new RecruitmentSlot(HomeCityId, "light_infantry", 2000, Recruitment.MobilizationMinStateCodeAiSeat);
 
         // In debt for the same reason as above: nothing but the two mobilize candidates is proposed.
-        var state = StateWith(new List<RecruitmentSlot> { slotA, slotB }, underSiege: false, treasury: -1);
+        var state = StateWith(new List<RecruitmentSlot> { slotA, slotB }, treasury: -1);
 
         var candidates = Propose(state);
 
@@ -420,13 +437,12 @@ public sealed class AiEconomyPhaseMobilizationTests
         return candidates;
     }
 
-    private static GameState OneSlotState(int stateCode, bool underSiege = false, int treasury = Treasury) =>
+    private static GameState OneSlotState(int stateCode, int treasury = Treasury) =>
         StateWith(
             new List<RecruitmentSlot> { new(HomeCityId, "light_infantry", 1000, stateCode) },
-            underSiege,
             treasury);
 
-    private static GameState StateWith(List<RecruitmentSlot> slots, bool underSiege, int treasury = Treasury)
+    private static GameState StateWith(List<RecruitmentSlot> slots, int treasury = Treasury)
     {
         var nations = new[]
         {
@@ -439,7 +455,7 @@ public sealed class AiEconomyPhaseMobilizationTests
         {
             CaptureFixtures.City(
                 HomeCityId, "Home", 5, 5, Acting, Acting, loyalty: 80, fortificationCode: 20,
-                populationThousands: 10, maxPopulationThousands: 100, tribute: 10, underSiege: underSiege),
+                populationThousands: 10, maxPopulationThousands: 100, tribute: 10),
         };
 
         var state = BattleCommandTestbed.StateWith(nations, cities);

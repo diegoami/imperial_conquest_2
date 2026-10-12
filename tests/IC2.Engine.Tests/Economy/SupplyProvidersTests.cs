@@ -80,8 +80,7 @@ public sealed class SupplyProvidersTests
 
     private static CityState City(string id, int X, int Y, string Owner) => new(
         id, id, X, Y, Owner, Owner, Loyalty: 90, SupplyTons: 100, FortificationCode: 0,
-        PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0, UnderSiege: false,
-        Garrison: ValueList<UnitSlot>.Empty);
+        PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0,        Garrison: ValueList<UnitSlot>.Empty);
 
     private static FleetState Fleet(string id, string nation, int X, int Y, bool underConstruction) => new(
         id, nation, X, Y, Moves: 4, Ships: 10, ConditionPercent: 100, Money: 0, SupplyTons: 100,

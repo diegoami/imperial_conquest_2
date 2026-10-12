@@ -415,7 +415,10 @@ public static class AiEconomyPhase
         }
 
         var fortifyWeights = view.Ruleset.Ai;
-        var score = fortifyWeights.FortifyBaseScore + (threatened ? fortifyWeights.ThreatenedCityBonus : 0);
+        // T67 (#304): no threatened bonus here. A threatened city's fortify order is refused by the handler (as the
+        // original refuses it, refusal-texts-and-conditions.md R22), so such a city never reaches this line; the
+        // bonus would only have been dead weight. ThreatenedCityBonus still weights recruitment.
+        var score = fortifyWeights.FortifyBaseScore;
 
         // The mirror of recruitment's scaling: fortifying is what a nation does instead of expanding, so
         // it is worth most to the least expansionist personality. At expansion 0 the multiplier is 2,

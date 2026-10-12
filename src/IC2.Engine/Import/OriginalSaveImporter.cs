@@ -179,8 +179,8 @@ public static class OriginalSaveImporter
         }
 
         // ---- Cities: positional, straight from WorldPrefix — identical shape to the exporter's own
-        // CityDefinition mapping, minus the world-only Id/garrison-absence provenance. UnderSiege is
-        // never derived (#220, planned as T67: nothing writes it yet).
+        // CityDefinition mapping, minus the world-only Id/garrison-absence provenance. "Under siege"
+        // is not stored at all (T67, #220): it is the hostile-army-adjacent predicate.
         var cities = new CityState[worldPrefix.Cities.Count];
         for (var i = 0; i < worldPrefix.Cities.Count; i++)
         {
@@ -198,7 +198,6 @@ public static class OriginalSaveImporter
                 PopulationThousands: c.PopulationThousands,
                 MaxPopulationThousands: c.ReferencePopulationThousands,
                 Tribute: c.TributeTalents,
-                UnderSiege: false,
                 Garrison: ValueList<UnitSlot>.Empty);
         }
 

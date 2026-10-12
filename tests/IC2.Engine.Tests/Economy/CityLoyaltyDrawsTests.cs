@@ -16,7 +16,7 @@ public sealed class CityLoyaltyDrawsTests
     private static readonly EconomyRules Economy = EconomyTestbed.Ruleset.Economy;
 
     private static CityState City(int loyalty) => new(
-        "c1", "City", 0, 0, "north", "north", loyalty, 0, 0, 10, 10, 0, false, ValueList<UnitSlot>.Empty);
+        "c1", "City", 0, 0, "north", "north", loyalty, 0, 0, 10, 10, 0, ValueList<UnitSlot>.Empty);
 
     [Fact]
     public void ALowTaxCity_RisesByExactlyTheDraw()

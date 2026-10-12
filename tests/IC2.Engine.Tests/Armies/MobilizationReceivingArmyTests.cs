@@ -23,7 +23,7 @@ public sealed class MobilizationReceivingArmyTests
     private static CityState CityAt(int x, int y, string owner = ArmiesTestbed.NorthNationId) =>
         new("fixture-city", "Fixture", x, y, owner, owner, Loyalty: 100, SupplyTons: 0,
             FortificationCode: 0, PopulationThousands: 10, MaxPopulationThousands: 20, Tribute: 0,
-            UnderSiege: false, Garrison: ValueList<UnitSlot>.Empty);
+            Garrison: ValueList<UnitSlot>.Empty);
 
     /// <summary>
     /// Done-when 5: "<c>FUN_0044a66c</c> returns one past the highest occupied slot", not the first

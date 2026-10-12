@@ -515,6 +515,15 @@ public static class GameDataValidation
                 ruleset.CityOrders.Orders[i].InProgressEncodingRadix,
                 $"cityOrders.orders[{i}].inProgressEncodingRadix");
         }
+
+        // T67 (#344): cityOrders.fortifyWeeklyPointCap bounds the weekly fortify step; 0 or less would freeze
+        // every pending order forever.
+        if (ruleset.CityOrders.FortifyWeeklyPointCap <= 0)
+        {
+            throw new MalformedGameDataException(
+                documentPath,
+                $"'cityOrders.fortifyWeeklyPointCap' must be greater than 0 (a pending fortify order would never advance); got {ruleset.CityOrders.FortifyWeeklyPointCap}.");
+        }
     }
 
     /// <summary>

@@ -199,7 +199,6 @@ public static class BattleTestbed
                 PopulationThousands: 10,
                 MaxPopulationThousands: 20,
                 Tribute: 0,
-                UnderSiege: false,
                 ValueList<UnitSlot>.Empty);
         }
     }

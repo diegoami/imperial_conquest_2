@@ -852,6 +852,7 @@ the only shipped entry, not the only possible one.
 | Field | Type | Meaning |
 |-------|------|---------|
 | `orders` | array of `CityOrderRule` | The order table. See below. |
+| `fortifyWeeklyPointCap` | integer | points, > 0 | The most points the weekly tick moves from a pending fortify order into the finished percentage in one week (the original's `min(10, ...)` step; 10 in both shipped presets). |
 | `_provenance` | object | Provenance map. |
 
 `CityOrderRule` (one entry per order type):

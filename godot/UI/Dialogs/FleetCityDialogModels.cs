@@ -1,3 +1,4 @@
+using IC2.Engine.Economy;
 using IC2.Engine.Model;
 using IC2.Engine.Movement;
 using IC2.Engine.Naval;
@@ -559,10 +560,12 @@ public sealed class FortifyCityModel
 
     private readonly CityState _city;
     private readonly CityOrderRule? _rule;
+    private readonly bool _underSiege;
 
-    private FortifyCityModel(CityState city, Ruleset ruleset, CityOrderRule? rule)
+    private FortifyCityModel(CityState city, bool underSiege, CityOrderRule? rule)
     {
         _city = city;
+        _underSiege = underSiege;
         _rule = rule;
     }
 
@@ -574,7 +577,8 @@ public sealed class FortifyCityModel
         ArgumentNullException.ThrowIfNull(ruleset);
         var rule = ruleset.CityOrders.Orders.FirstOrDefault(
             candidate => string.Equals(candidate.Id, FortifyOrderId, StringComparison.Ordinal));
-        return new FortifyCityModel(city, ruleset, rule);
+        // T67 (#304): "under siege" is the original's FUN_004497cc, the hostile-army-adjacent test, not a stored flag.
+        return new FortifyCityModel(city, HostileArmyAdjacent.IsThreatened(city, state, ruleset), rule);
     }
 
     /// <summary>The city being fortified.</summary>
@@ -601,10 +605,10 @@ public sealed class FortifyCityModel
     public bool CanFortify =>
         _rule is not null
         && FortificationCode.CanPlaceOrder(_city.FortificationCode, _rule)
-        && !(_rule.RefusedWhileUnderSiege && _city.UnderSiege);
+        && !(_rule.RefusedWhileUnderSiege && _underSiege);
 
     /// <summary>Whether the city is under siege.</summary>
-    public bool UnderSiege => _city.UnderSiege;
+    public bool UnderSiege => _underSiege;
 
     /// <summary>The refusal to show when <see cref="CanFortify"/> is false, or <see langword="null"/>.</summary>
     public string? RefusalMessage
@@ -626,7 +630,7 @@ public sealed class FortifyCityModel
                 return "This city cannot be fortified any further.";
             }
 
-            if (_rule.RefusedWhileUnderSiege && _city.UnderSiege)
+            if (_rule.RefusedWhileUnderSiege && _underSiege)
             {
                 return "You cannot fortify a city which is under siege.";
             }

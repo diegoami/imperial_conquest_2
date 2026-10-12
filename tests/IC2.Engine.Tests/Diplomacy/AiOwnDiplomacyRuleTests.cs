@@ -535,7 +535,7 @@ public sealed class AiOwnDiplomacyRuleTests
             .SelectMany(s => Enumerable.Range(0, s.Cities).Select(i => new CityState(
                 $"{s.Id}-city-{i}", $"{s.Id} City {i}", X: 0, Y: 0, Owner: s.Id, Allegiance: s.Id,
                 Loyalty: 80, SupplyTons: 0, FortificationCode: 50, PopulationThousands: 10,
-                MaxPopulationThousands: 10, Tribute: 0, UnderSiege: false, Garrison: ValueList<UnitSlot>.Empty)))
+                MaxPopulationThousands: 10, Tribute: 0, Garrison: ValueList<UnitSlot>.Empty)))
             .ToArray();
 
         var ids = ValueList.From(nations.Select(n => n.Id));

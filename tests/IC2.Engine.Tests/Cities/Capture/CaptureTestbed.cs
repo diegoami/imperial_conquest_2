@@ -54,8 +54,7 @@ public static class CaptureTestbed
         int fortificationCode,
         int populationThousands,
         int maxPopulationThousands,
-        int tribute,
-        bool underSiege = false) =>
+        int tribute) =>
         new(
             id, name, x, y, owner, allegiance, loyalty,
             SupplyTons: 0,
@@ -63,7 +62,6 @@ public static class CaptureTestbed
             populationThousands,
             maxPopulationThousands,
             tribute,
-            underSiege,
             ValueList<UnitSlot>.Empty);
 
     /// <summary>One nation record with every field a capture/defection/elimination test might read or write.</summary>

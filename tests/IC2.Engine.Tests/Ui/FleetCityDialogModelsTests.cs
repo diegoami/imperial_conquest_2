@@ -1,3 +1,4 @@
+using IC2.Engine.Core;
 using IC2.Engine.Model;
 using IC2.Engine.Naval.Commands;
 using IC2.Engine.Serialization;
@@ -42,10 +43,10 @@ public sealed class FleetCityDialogModelsTests
         SupplyTons: supply, ConstructionTicksRemaining: null, BuildCityId: null,
         CarriedArmyId: carriedArmyId, CoveredTileCode: null);
 
-    private static CityState City(int fortificationCode = 40, int population = 100, bool underSiege = false) => new(
+    private static CityState City(int fortificationCode = 40, int population = 100) => new(
         CityId, "T112 city", X: 4, Y: 2, Owner: NationId, Allegiance: NationId, Loyalty: 90,
         SupplyTons: 330, FortificationCode: fortificationCode, PopulationThousands: population,
-        MaxPopulationThousands: 100, Tribute: 0, UnderSiege: underSiege, Garrison: ValueList<UnitSlot>.Empty);
+        MaxPopulationThousands: 100, Tribute: 0, Garrison: ValueList<UnitSlot>.Empty);
 
     private static GameState State(FleetState fleet, FleetState? partner = null, CityState? city = null)
     {
@@ -57,6 +58,11 @@ public sealed class FleetCityDialogModelsTests
         {
             Fleets = fleets,
             Cities = ValueList.Of(new[] { city ?? City() }),
+            // The fixture's city belongs to "rome", which the toy scenario's matrix does not cover; the
+            // hostile-army-adjacent predicate reads the matrix, so it must (everyone at peace).
+            Relations = DiplomaticRelations.Uniform(
+                ValueList.From(initial.Nations.Select(n => n.Id).Append(NationId)),
+                ClassicalRuleset.Diplomacy.StateCodes.Peace),
         };
     }
 
@@ -390,12 +396,39 @@ public sealed class FleetCityDialogModelsTests
         Assert.False(pendingModel.CanFortify);
         Assert.Null(pendingModel.ComposeOk(1));
 
-        var besieged = State(Fleet(), city: City(underSiege: true));
+        // T67 (#304): "under siege" is the hostile-army-adjacent predicate. Built by play: the other
+        // nation, at war with the city's owner, walks an army beside the city with a real MoveArmyCommand.
+        var calm = State(Fleet(), city: City());
+        var calmModel = FortifyCityModel.ForCity(calm, calm.CityById(CityId)!, ruleset);
+        Assert.False(calmModel.UnderSiege);
+        Assert.True(calmModel.CanFortify);
+
+        var besieged = HostileArmyMovedBesideCity(calm, ruleset);
         var besiegedModel = FortifyCityModel.ForCity(besieged, besieged.CityById(CityId)!, ruleset);
+        Assert.True(besiegedModel.UnderSiege);
+        Assert.Equal("You cannot fortify a city which is under siege.", besiegedModel.RefusalMessage);
         if (rule.RefusedWhileUnderSiege)
         {
             Assert.False(besiegedModel.CanFortify);
             Assert.Null(besiegedModel.ComposeOk(1));
         }
+    }
+
+    private static GameState HostileArmyMovedBesideCity(GameState state, Ruleset ruleset)
+    {
+        var city = state.CityById(CityId)!;
+        var owner = NationId;
+        var enemy = state.Nations.First(n => n.Id != owner).Id;
+        var armyId = state.Armies.First(a => a.Nation == enemy).Id;
+        var armed = state with
+        {
+            Relations = state.Relations.WithRelation(owner, enemy, ruleset.Diplomacy.StateCodes.War),
+            Armies = ValueList.From(state.Armies.Select(a => a.Id == armyId ? a with { Moves = 30 } : a)),
+            ActiveSeatIndex = state.TurnOrder.ToList().IndexOf(enemy),
+        };
+        var dispatcher = new CommandDispatcher(SystemRegistry.FromEngineAssembly(), CoreTestbed.Toy.Ruleset, CoreTestbed.Toy.World, NullEventSink.Instance);
+        var result = dispatcher.Dispatch(armed, new IC2.Engine.Movement.Commands.MoveArmyCommand(enemy, armyId, city.X, city.Y + 1));
+        Assert.True(result.IsAccepted, result.Rejection?.ToString());
+        return result.State with { ActiveSeatIndex = state.ActiveSeatIndex };
     }
 }
