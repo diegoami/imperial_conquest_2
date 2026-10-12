@@ -241,7 +241,16 @@ public partial class ScreensCheck : Node
 
         var mainGame = new MainGameScreen
         {
-            Session = new GameSession(world, resolved.Ruleset, scenario),
+            // T119: the shuffle is off here -- the siege this check reproduces was set up on the world's own order
+            // (Rome first); AI seats ahead of Rome would move the armies before the first click.
+            Session = new GameSession(
+                world,
+                resolved.Ruleset with
+                {
+                    Flags = resolved.Ruleset.Flags with { NewGameTurnOrder = NewGameTurnOrderPolicy.Fixed },
+                },
+                scenario),
+
             RepositoryRoot = GameDataContext.RepositoryRoot,
         };
         AddChild(mainGame);
