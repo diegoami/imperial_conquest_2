@@ -646,6 +646,23 @@ function Invoke-ReviewParserSelfTest {
     $p2 = Get-ReviewWorktreePath -WorkRoot $colRoot -Pr 862 -Name 'sol' -Stamp '20261009-120000'
     $ruleChecks += [pscustomobject]@{ Name = 'a same-second second attempt gets its own tree (suffix), never reuse or overwrite'; Ok = ($p2 -eq (Join-Path $colRoot '862-review-sol-20261009-120000-1')) }
     $ruleChecks += [pscustomobject]@{ Name = 'the script no longer runs `git worktree remove` (T151: a review never deletes its worktree)'; Ok = ((Get-Content -Raw -LiteralPath $PSCommandPath) -notmatch 'worktree\s+remove\s+--force') }
+    # --- T154 Done-when 2: the brief is copied into the worktree, byte for byte, git-ignored -----
+    $wtProbe = Join-Path ([System.IO.Path]::GetTempPath()) "ic2-brief-wt-$([guid]::NewGuid().ToString('N').Substring(0, 8))"
+    New-Item -ItemType Directory -Force -Path $wtProbe | Out-Null
+    try {
+        $null = git -C $wtProbe init -q 2>&1
+        Set-Content -LiteralPath (Join-Path $wtProbe '.gitignore') -Value '/rendered/' -Encoding utf8
+        $srcBrief = Join-Path $wtProbe 'src-brief.txt'
+        [System.IO.File]::WriteAllBytes($srcBrief, [byte[]](0x50, 0x52, 0x20, 0x72, 0x65, 0x76, 0x69, 0x65, 0x77, 0x20, 0x28, 0x53, 0x6F, 0x6C, 0x29, 0x0D, 0x0A, 0xC3, 0xA9, 0x0A, 0x00, 0x7F))
+        $null = git -C $wtProbe add .gitignore 2>&1
+        $copied = Copy-BriefIntoWorktree -Source $srcBrief -Worktree $wtProbe
+        $inside = (Resolve-Path -LiteralPath $copied).Path.StartsWith((Resolve-Path -LiteralPath $wtProbe).Path)
+        $same = (Test-Path -LiteralPath $copied) -and ([System.Convert]::ToBase64String([System.IO.File]::ReadAllBytes($copied)) -eq [System.Convert]::ToBase64String([System.IO.File]::ReadAllBytes($srcBrief)))
+        $status = @(git -C $wtProbe status --porcelain 2>&1 | Where-Object { $_ -match 'rendered' })
+        $ruleChecks += [pscustomobject]@{ Name = 'T154: the brief copy exists inside the worktree at rendered/brief.md'; Ok = ($inside -and $copied.Replace([string][char]92, '/').EndsWith('rendered/brief.md')) }
+        $ruleChecks += [pscustomobject]@{ Name = 'T154: the brief copy matches the source byte for byte'; Ok = $same }
+        $ruleChecks += [pscustomobject]@{ Name = 'T154: the brief copy is git-ignored (git status --porcelain shows nothing for it)'; Ok = ($status.Count -eq 0) }
+    } finally { Remove-Item -LiteralPath $wtProbe -Recurse -Force -ErrorAction SilentlyContinue }
     New-Item -ItemType Directory -Force -Path $probeDir | Out-Null
     $probeBrief = Join-Path $probeDir "selftest-brief-$([guid]::NewGuid().ToString('N').Substring(0, 8)).md"
     Set-Content -LiteralPath $probeBrief -Value "T0 review (Sol)`nself-test probe brief" -Encoding utf8
@@ -1246,6 +1263,17 @@ function Get-ReviewWorktreePath {
     return $path
 }
 
+function Copy-BriefIntoWorktree {
+    # T154 Done-when 1: the brief is a file inside the review worktree, at the implementer's
+    # rendered/brief.md (git-ignored by /rendered/), so a reviewer that re-reads it is not stopped by
+    # the external_directory guard. A byte-for-byte copy; returns the copy's path.
+    param([string] $Source, [string] $Worktree)
+    $dest = Join-Path $Worktree 'rendered/brief.md'
+    New-Item -ItemType Directory -Force -Path (Split-Path $dest -Parent) | Out-Null
+    Copy-Item -LiteralPath $Source -Destination $dest -Force
+    return $dest
+}
+
 if ($SelfTest) { exit (Invoke-ReviewParserSelfTest) }
 if ($ResumeSession -and -not $ResumeWorktree) { throw '-ResumeSession needs -ResumeWorktree (the interrupted attempt''s kept worktree).' }
 if ($ResumeSession -and $Reviewer -eq 'auto') { throw '-ResumeSession needs the explicit -Reviewer that ran the interrupted session.' }
@@ -1372,6 +1400,7 @@ if ($WhatIf) {
     # No PR fetch, no worktree, no OpenCode, no billing: only the argument line each chain reviewer would get.
     foreach ($name in $chain) {
         Write-Host "would attempt: $($displayNames[$name])"
+        Write-Host "brief: $BriefFile -> <review worktree>/rendered/brief.md"
         $null = Invoke-OpenCodeWatched -WhatIf -Agent 'external-reviewer' -Model $resolved[$name].Model -Variant $variants[$name] -Prompt $brief `
             -WorkDir $(if ($ResumeWorktree) { $ResumeWorktree } else { (Get-Location).Path }) -Title "ic2-pr$Pr-$name" -ResumeSessionId $ResumeSession
     }
@@ -1426,6 +1455,13 @@ function Invoke-ReviewAttempt([string] $Name) {
     # it (as from T151 until 2026-10-10), the first attempt's rules named no path at all and a later
     # attempt's named the previous attempt's tree, and a reviewer that checks its tree stopped.
     $rules = Get-ReviewOutputRules -Header $header -Worktree $worktree -HeadSha $headSha
+    # T154: the brief is copied into this worktree and the prompt is read from the copy (same bytes,
+    # so the header and body are unchanged); the log prints where it is.
+    $briefPath = Copy-BriefIntoWorktree -Source $BriefFile -Worktree $worktree
+    Write-Host "brief: $BriefFile -> $briefPath"
+    $copyLines = (Get-Content -Raw -LiteralPath $briefPath) -split "`r?`n"
+    $briefRest = ($copyLines | Select-Object -Skip 1) -join "`n"
+    $rules += "`n`nYour brief is copied into your worktree at $briefPath (git-ignored). Read it there, never from the main checkout."
     $prompt = $header + "`n" + $briefRest + $rules
     if ($ResumeSession) {
         # The session already holds the brief: tell it why it stopped and to finish the same review.
