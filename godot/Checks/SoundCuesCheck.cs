@@ -286,7 +286,9 @@ public partial class SoundCuesCheck : Control
                     _frame = 0;
                     break;
 
-                case 5 when Time.GetTicksMsec() - _r1SubmitMs >= 800:
+                case 5 when Time.GetTicksMsec() - _r1SubmitMs >= 800
+                    && (Time.GetTicksMsec() - _r1SubmitMs >= PlayOutTimeoutMs
+                        || FinishCount(_moveMainGame, _r1Log) >= 3):
                     CheckThreeCompletedStepPlays();
                     // R2: bind a 0.5 s stream to sfx.unit_move so the second order's step
                     // run meets a key that is still playing when its cue is due.
@@ -304,8 +306,14 @@ public partial class SoundCuesCheck : Control
                     _frame = 0;
                     break;
 
-                case 7 when Time.GetTicksMsec() - _r2SubmitMs >= 1500:
+                case 7 when Time.GetTicksMsec() - _r2SubmitMs >= 1500
+                    && (Time.GetTicksMsec() - _r2SubmitMs >= PlayOutTimeoutMs
+                        || FinishCount(_restartMainGame, _r2Log) >= 2):
                     CheckSecondOrderPlaysOutAfterFinish();
+                    BeginTeardown();
+                    break;
+
+                case 8 when _frame >= TeardownFrames:
                     Finish();
                     break;
             }
@@ -557,6 +565,61 @@ public partial class SoundCuesCheck : Control
         }
 
         return true;
+    }
+
+    /// <summary>Upper bound (ms, wall clock) for waiting on the Finished signals of the R1 and R2
+    /// plays (bug #1027 rework). The audio thread's Finished callbacks reach the main thread late
+    /// on a loaded runner, so the check waits for the finish count it asserts, not a fixed delay;
+    /// the minimum delays stay so an extra, wrong start is still caught, and this bound only
+    /// stops a hang (the assertion then fails as before).</summary>
+    private const ulong PlayOutTimeoutMs = 8000;
+
+    /// <summary>Drains the screen's playback log into <paramref name="acc"/> and returns how many
+    /// sfx.unit_move plays have finished so far.</summary>
+    private static int FinishCount(MainGameScreen screen, List<SoundPlayer.PlaybackLogEntry> acc)
+    {
+        acc.AddRange(screen.SoundPlayerForCheck.PlaybackLogForCheck);
+        return acc.Count(e => e.Key == AssetKeys.SfxUnitMove && !e.Started);
+    }
+
+    /// <summary>Frames to let freed screens and stopped players settle before quitting.</summary>
+    private const int TeardownFrames = 5;
+
+    /// <summary>
+    /// Bug #1027: godot-headless CI saw this scene exit 139 (SIGSEGV) intermittently AFTER its
+    /// "exiting with code 0" line, in engine teardown (leaked-reference errors, then the crash)
+    /// while screens with live AudioStreamPlayers were still in the tree. The check stops every
+    /// player and frees the screens, then lets a few frames pass, so the engine quits with no
+    /// audio node alive.
+    /// </summary>
+    private void BeginTeardown()
+    {
+        StopAllPlayers(this);
+        foreach (var screen in new[] { _mainGame, _moveMainGame, _noBlockingMainGame, _restartMainGame })
+        {
+            if (GodotObject.IsInstanceValid(screen))
+            {
+                screen.GetParent()?.RemoveChild(screen);
+                screen.QueueFree();
+            }
+        }
+
+        _step = 8;
+        _frame = 0;
+    }
+
+    private static void StopAllPlayers(Node node)
+    {
+        if (node is AudioStreamPlayer player)
+        {
+            player.Stop();
+            player.Stream = null;
+        }
+
+        foreach (var child in node.GetChildren())
+        {
+            StopAllPlayers(child);
+        }
     }
 
     private void Finish()
