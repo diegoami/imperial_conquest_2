@@ -409,6 +409,156 @@
       "kind": "surface",
       "prompt": "A seamless top-down terrain texture of deep open sea for a strategy map: darker blue water with the same gentle repeating wave pattern and a few soft darker flecks, evenly and flatly lit, the motif continuing across the whole square frame edge to edge with no clear centre, designed to tile seamlessly in every direction. No sky, no horizon, no shoreline, no border, no frame, no text, no shadow from any direction.",
       "source": "docs/asset-specification.md 4.5 terrain palette (the plain bright green, the forest darker green, the mountain grey rock with snow, the desert olive-to-tan, lighter shallow and darker deep water)"
+    },
+    {
+      "key": "battle.unit.light_infantry.small",
+      "kind": "battle_unit",
+      "prompt": "A pixel-art unit icon for a tactical battle board of the ancient Mediterranean world, showing light infantry: a lightly clad foot soldier with a round shield and a spear: a single small figure in the middle of the square, a few pixels across. A square 32x32 icon with a flat, limited palette of exactly four colours and no others: a solid purple (#800080) filling the whole square as the background, pure white (#FFFFFF) for the main shapes of the figures, pure blue (#0000FF) for their shields, cloaks or other accents, and black for thin outlines. Bold, simple, hard-edged shapes with no anti-aliasing, no gradient, no shading and no other colour, readable at 32x32 pixels. The figures face the viewer or stand in side profile. No border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 tactical battle screen: 15 unit icons, 32 x 32, five types at three sizes; this is light_infantry at the small size, drawn in the three recolourable regions (purple, white, blue) [designed] - the clone's own drawing, the source game's art cannot ship"
+    },
+    {
+      "key": "battle.unit.light_infantry.medium",
+      "kind": "battle_unit",
+      "prompt": "A pixel-art unit icon for a tactical battle board of the ancient Mediterranean world, showing light infantry: a lightly clad foot soldier with a round shield and a spear: a group of two or three figures filling about half of the square. A square 32x32 icon with a flat, limited palette of exactly four colours and no others: a solid purple (#800080) filling the whole square as the background, pure white (#FFFFFF) for the main shapes of the figures, pure blue (#0000FF) for their shields, cloaks or other accents, and black for thin outlines. Bold, simple, hard-edged shapes with no anti-aliasing, no gradient, no shading and no other colour, readable at 32x32 pixels. The figures face the viewer or stand in side profile. No border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 tactical battle screen: 15 unit icons, 32 x 32, five types at three sizes; this is light_infantry at the medium size, drawn in the three recolourable regions (purple, white, blue) [designed] - the clone's own drawing, the source game's art cannot ship"
+    },
+    {
+      "key": "battle.unit.light_infantry.large",
+      "kind": "battle_unit",
+      "prompt": "A pixel-art unit icon for a tactical battle board of the ancient Mediterranean world, showing light infantry: a lightly clad foot soldier with a round shield and a spear: a dense crowd of five or six figures filling most of the square. A square 32x32 icon with a flat, limited palette of exactly four colours and no others: a solid purple (#800080) filling the whole square as the background, pure white (#FFFFFF) for the main shapes of the figures, pure blue (#0000FF) for their shields, cloaks or other accents, and black for thin outlines. Bold, simple, hard-edged shapes with no anti-aliasing, no gradient, no shading and no other colour, readable at 32x32 pixels. The figures face the viewer or stand in side profile. No border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 tactical battle screen: 15 unit icons, 32 x 32, five types at three sizes; this is light_infantry at the large size, drawn in the three recolourable regions (purple, white, blue) [designed] - the clone's own drawing, the source game's art cannot ship"
+    },
+    {
+      "key": "battle.unit.heavy_infantry.small",
+      "kind": "battle_unit",
+      "prompt": "A pixel-art unit icon for a tactical battle board of the ancient Mediterranean world, showing heavy infantry: a soldier in heavy armour behind a large shield with crossed swords: a single small figure in the middle of the square, a few pixels across. A square 32x32 icon with a flat, limited palette of exactly four colours and no others: a solid purple (#800080) filling the whole square as the background, pure white (#FFFFFF) for the main shapes of the figures, pure blue (#0000FF) for their shields, cloaks or other accents, and black for thin outlines. Bold, simple, hard-edged shapes with no anti-aliasing, no gradient, no shading and no other colour, readable at 32x32 pixels. The figures face the viewer or stand in side profile. No border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 tactical battle screen: 15 unit icons, 32 x 32, five types at three sizes; this is heavy_infantry at the small size, drawn in the three recolourable regions (purple, white, blue) [designed] - the clone's own drawing, the source game's art cannot ship"
+    },
+    {
+      "key": "battle.unit.heavy_infantry.medium",
+      "kind": "battle_unit",
+      "prompt": "A pixel-art unit icon for a tactical battle board of the ancient Mediterranean world, showing heavy infantry: a soldier in heavy armour behind a large shield with crossed swords: a group of two or three figures filling about half of the square. A square 32x32 icon with a flat, limited palette of exactly four colours and no others: a solid purple (#800080) filling the whole square as the background, pure white (#FFFFFF) for the main shapes of the figures, pure blue (#0000FF) for their shields, cloaks or other accents, and black for thin outlines. Bold, simple, hard-edged shapes with no anti-aliasing, no gradient, no shading and no other colour, readable at 32x32 pixels. The figures face the viewer or stand in side profile. No border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 tactical battle screen: 15 unit icons, 32 x 32, five types at three sizes; this is heavy_infantry at the medium size, drawn in the three recolourable regions (purple, white, blue) [designed] - the clone's own drawing, the source game's art cannot ship"
+    },
+    {
+      "key": "battle.unit.heavy_infantry.large",
+      "kind": "battle_unit",
+      "prompt": "A pixel-art unit icon for a tactical battle board of the ancient Mediterranean world, showing heavy infantry: a soldier in heavy armour behind a large shield with crossed swords: a dense crowd of five or six figures filling most of the square. A square 32x32 icon with a flat, limited palette of exactly four colours and no others: a solid purple (#800080) filling the whole square as the background, pure white (#FFFFFF) for the main shapes of the figures, pure blue (#0000FF) for their shields, cloaks or other accents, and black for thin outlines. Bold, simple, hard-edged shapes with no anti-aliasing, no gradient, no shading and no other colour, readable at 32x32 pixels. The figures face the viewer or stand in side profile. No border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 tactical battle screen: 15 unit icons, 32 x 32, five types at three sizes; this is heavy_infantry at the large size, drawn in the three recolourable regions (purple, white, blue) [designed] - the clone's own drawing, the source game's art cannot ship"
+    },
+    {
+      "key": "battle.unit.archers.small",
+      "kind": "battle_unit",
+      "prompt": "A pixel-art unit icon for a tactical battle board of the ancient Mediterranean world, showing archers: a bowman drawing a bow: a single small figure in the middle of the square, a few pixels across. A square 32x32 icon with a flat, limited palette of exactly four colours and no others: a solid purple (#800080) filling the whole square as the background, pure white (#FFFFFF) for the main shapes of the figures, pure blue (#0000FF) for their shields, cloaks or other accents, and black for thin outlines. Bold, simple, hard-edged shapes with no anti-aliasing, no gradient, no shading and no other colour, readable at 32x32 pixels. The figures face the viewer or stand in side profile. No border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 tactical battle screen: 15 unit icons, 32 x 32, five types at three sizes; this is archers at the small size, drawn in the three recolourable regions (purple, white, blue) [designed] - the clone's own drawing, the source game's art cannot ship"
+    },
+    {
+      "key": "battle.unit.archers.medium",
+      "kind": "battle_unit",
+      "prompt": "A pixel-art unit icon for a tactical battle board of the ancient Mediterranean world, showing archers: a bowman drawing a bow: a group of two or three figures filling about half of the square. A square 32x32 icon with a flat, limited palette of exactly four colours and no others: a solid purple (#800080) filling the whole square as the background, pure white (#FFFFFF) for the main shapes of the figures, pure blue (#0000FF) for their shields, cloaks or other accents, and black for thin outlines. Bold, simple, hard-edged shapes with no anti-aliasing, no gradient, no shading and no other colour, readable at 32x32 pixels. The figures face the viewer or stand in side profile. No border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 tactical battle screen: 15 unit icons, 32 x 32, five types at three sizes; this is archers at the medium size, drawn in the three recolourable regions (purple, white, blue) [designed] - the clone's own drawing, the source game's art cannot ship"
+    },
+    {
+      "key": "battle.unit.archers.large",
+      "kind": "battle_unit",
+      "prompt": "A pixel-art unit icon for a tactical battle board of the ancient Mediterranean world, showing archers: a bowman drawing a bow: a dense crowd of five or six figures filling most of the square. A square 32x32 icon with a flat, limited palette of exactly four colours and no others: a solid purple (#800080) filling the whole square as the background, pure white (#FFFFFF) for the main shapes of the figures, pure blue (#0000FF) for their shields, cloaks or other accents, and black for thin outlines. Bold, simple, hard-edged shapes with no anti-aliasing, no gradient, no shading and no other colour, readable at 32x32 pixels. The figures face the viewer or stand in side profile. No border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 tactical battle screen: 15 unit icons, 32 x 32, five types at three sizes; this is archers at the large size, drawn in the three recolourable regions (purple, white, blue) [designed] - the clone's own drawing, the source game's art cannot ship"
+    },
+    {
+      "key": "battle.unit.light_cavalry.small",
+      "kind": "battle_unit",
+      "prompt": "A pixel-art unit icon for a tactical battle board of the ancient Mediterranean world, showing light cavalry: a rider on a horse carrying a javelin: a single small figure in the middle of the square, a few pixels across. A square 32x32 icon with a flat, limited palette of exactly four colours and no others: a solid purple (#800080) filling the whole square as the background, pure white (#FFFFFF) for the main shapes of the figures, pure blue (#0000FF) for their shields, cloaks or other accents, and black for thin outlines. Bold, simple, hard-edged shapes with no anti-aliasing, no gradient, no shading and no other colour, readable at 32x32 pixels. The figures face the viewer or stand in side profile. No border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 tactical battle screen: 15 unit icons, 32 x 32, five types at three sizes; this is light_cavalry at the small size, drawn in the three recolourable regions (purple, white, blue) [designed] - the clone's own drawing, the source game's art cannot ship"
+    },
+    {
+      "key": "battle.unit.light_cavalry.medium",
+      "kind": "battle_unit",
+      "prompt": "A pixel-art unit icon for a tactical battle board of the ancient Mediterranean world, showing light cavalry: a rider on a horse carrying a javelin: a group of two or three figures filling about half of the square. A square 32x32 icon with a flat, limited palette of exactly four colours and no others: a solid purple (#800080) filling the whole square as the background, pure white (#FFFFFF) for the main shapes of the figures, pure blue (#0000FF) for their shields, cloaks or other accents, and black for thin outlines. Bold, simple, hard-edged shapes with no anti-aliasing, no gradient, no shading and no other colour, readable at 32x32 pixels. The figures face the viewer or stand in side profile. No border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 tactical battle screen: 15 unit icons, 32 x 32, five types at three sizes; this is light_cavalry at the medium size, drawn in the three recolourable regions (purple, white, blue) [designed] - the clone's own drawing, the source game's art cannot ship"
+    },
+    {
+      "key": "battle.unit.light_cavalry.large",
+      "kind": "battle_unit",
+      "prompt": "A pixel-art unit icon for a tactical battle board of the ancient Mediterranean world, showing light cavalry: a rider on a horse carrying a javelin: a dense crowd of five or six figures filling most of the square. A square 32x32 icon with a flat, limited palette of exactly four colours and no others: a solid purple (#800080) filling the whole square as the background, pure white (#FFFFFF) for the main shapes of the figures, pure blue (#0000FF) for their shields, cloaks or other accents, and black for thin outlines. Bold, simple, hard-edged shapes with no anti-aliasing, no gradient, no shading and no other colour, readable at 32x32 pixels. The figures face the viewer or stand in side profile. No border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 tactical battle screen: 15 unit icons, 32 x 32, five types at three sizes; this is light_cavalry at the large size, drawn in the three recolourable regions (purple, white, blue) [designed] - the clone's own drawing, the source game's art cannot ship"
+    },
+    {
+      "key": "battle.unit.heavy_cavalry.small",
+      "kind": "battle_unit",
+      "prompt": "A pixel-art unit icon for a tactical battle board of the ancient Mediterranean world, showing heavy cavalry: an armoured rider on an armoured horse with a lance: a single small figure in the middle of the square, a few pixels across. A square 32x32 icon with a flat, limited palette of exactly four colours and no others: a solid purple (#800080) filling the whole square as the background, pure white (#FFFFFF) for the main shapes of the figures, pure blue (#0000FF) for their shields, cloaks or other accents, and black for thin outlines. Bold, simple, hard-edged shapes with no anti-aliasing, no gradient, no shading and no other colour, readable at 32x32 pixels. The figures face the viewer or stand in side profile. No border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 tactical battle screen: 15 unit icons, 32 x 32, five types at three sizes; this is heavy_cavalry at the small size, drawn in the three recolourable regions (purple, white, blue) [designed] - the clone's own drawing, the source game's art cannot ship"
+    },
+    {
+      "key": "battle.unit.heavy_cavalry.medium",
+      "kind": "battle_unit",
+      "prompt": "A pixel-art unit icon for a tactical battle board of the ancient Mediterranean world, showing heavy cavalry: an armoured rider on an armoured horse with a lance: a group of two or three figures filling about half of the square. A square 32x32 icon with a flat, limited palette of exactly four colours and no others: a solid purple (#800080) filling the whole square as the background, pure white (#FFFFFF) for the main shapes of the figures, pure blue (#0000FF) for their shields, cloaks or other accents, and black for thin outlines. Bold, simple, hard-edged shapes with no anti-aliasing, no gradient, no shading and no other colour, readable at 32x32 pixels. The figures face the viewer or stand in side profile. No border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 tactical battle screen: 15 unit icons, 32 x 32, five types at three sizes; this is heavy_cavalry at the medium size, drawn in the three recolourable regions (purple, white, blue) [designed] - the clone's own drawing, the source game's art cannot ship"
+    },
+    {
+      "key": "battle.unit.heavy_cavalry.large",
+      "kind": "battle_unit",
+      "prompt": "A pixel-art unit icon for a tactical battle board of the ancient Mediterranean world, showing heavy cavalry: an armoured rider on an armoured horse with a lance: a dense crowd of five or six figures filling most of the square. A square 32x32 icon with a flat, limited palette of exactly four colours and no others: a solid purple (#800080) filling the whole square as the background, pure white (#FFFFFF) for the main shapes of the figures, pure blue (#0000FF) for their shields, cloaks or other accents, and black for thin outlines. Bold, simple, hard-edged shapes with no anti-aliasing, no gradient, no shading and no other colour, readable at 32x32 pixels. The figures face the viewer or stand in side profile. No border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 tactical battle screen: 15 unit icons, 32 x 32, five types at three sizes; this is heavy_cavalry at the large size, drawn in the three recolourable regions (purple, white, blue) [designed] - the clone's own drawing, the source game's art cannot ship"
+    },
+    {
+      "key": "battle.ground",
+      "kind": "tile",
+      "prompt": "Open grassland for a tactical battlefield: a bright green base with a few thin brown contour lines curving across it and a handful of small darker-green and lighter-green speckles. Pixel-art ground tile for a top-down battle board, filling the entire square frame edge to edge: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No units, no border, no frame, no vignette, no text.",
+      "source": "docs/asset-specification.md 4.7 tactical battle screen: one ground tile (grass with brown contour lines; the battlefield has no terrain) [designed] - the clone's own drawing"
+    },
+    {
+      "key": "battle.cursor",
+      "kind": "sprite",
+      "prompt": "A square selection cursor for a tactical battle board: four bold corner brackets of a hollow square, drawn as a bold, simple silhouette in light grey to near-white, with strong simple shapes that stay readable when the whole image is scaled down to 32x32 pixels, and nothing in the middle of the square. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 tactical battle screen: one selection cursor [designed] - the clone's own drawing"
+    },
+    {
+      "key": "battle.toolbar.unit_moves",
+      "kind": "battle_glyph",
+      "prompt": "A simple pictorial user-interface toolbar glyph showing a small figure with an arrow pointing to the right. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 20x20 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 tactical battle screen: eight 20 x 20 toolbar glyphs; this is the 'unit_moves' button [designed] - the clone's own drawing"
+    },
+    {
+      "key": "battle.toolbar.friendly_units",
+      "kind": "battle_glyph",
+      "prompt": "A simple pictorial user-interface toolbar glyph showing a shield in a friendly blue-green colour with a small plus sign. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 20x20 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 tactical battle screen: eight 20 x 20 toolbar glyphs; this is the 'friendly_units' button [designed] - the clone's own drawing"
+    },
+    {
+      "key": "battle.toolbar.enemy_units",
+      "kind": "battle_glyph",
+      "prompt": "A simple pictorial user-interface toolbar glyph showing a shield in a hostile red with a small cross sign. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 20x20 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 tactical battle screen: eight 20 x 20 toolbar glyphs; this is the 'enemy_units' button [designed] - the clone's own drawing"
+    },
+    {
+      "key": "battle.toolbar.cancel_selection",
+      "kind": "battle_glyph",
+      "prompt": "A simple pictorial user-interface toolbar glyph showing a circle with a diagonal slash. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 20x20 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 tactical battle screen: eight 20 x 20 toolbar glyphs; this is the 'cancel_selection' button [designed] - the clone's own drawing"
+    },
+    {
+      "key": "battle.toolbar.end_turn",
+      "kind": "battle_glyph",
+      "prompt": "A simple pictorial user-interface toolbar glyph showing an hourglass. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 20x20 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 tactical battle screen: eight 20 x 20 toolbar glyphs; this is the 'end_turn' button [designed] - the clone's own drawing"
+    },
+    {
+      "key": "battle.toolbar.change_pauses",
+      "kind": "battle_glyph",
+      "prompt": "A simple pictorial user-interface toolbar glyph showing two parallel vertical bars, a pause symbol, with a small circular arrow beside it. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 20x20 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 tactical battle screen: eight 20 x 20 toolbar glyphs; this is the 'change_pauses' button [designed] - the clone's own drawing"
+    },
+    {
+      "key": "battle.toolbar.computer_general",
+      "kind": "battle_glyph",
+      "prompt": "A simple pictorial user-interface toolbar glyph showing a helmeted commander's head with a small gear. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 20x20 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 tactical battle screen: eight 20 x 20 toolbar glyphs; this is the 'computer_general' button [designed] - the clone's own drawing"
+    },
+    {
+      "key": "battle.toolbar.surrender",
+      "kind": "battle_glyph",
+      "prompt": "A simple pictorial user-interface toolbar glyph showing a white flag on a pole. Flat game-UI icon: a single centred subject with clear empty margins, drawn with bold, simple, readable shapes in a small flat palette of a few saturated colours and a dark outline, in the clean style of a classic strategy-game toolbar button, staying legible when scaled down to 20x20 pixels. The background is a solid, flat, pure magenta (#FF00FF) filling the entire frame, with no shadow, no gradient, no ground line, no scenery and no shading, and with no magenta on the subject itself; no border, no frame, no text.",
+      "source": "docs/asset-specification.md 4.7 tactical battle screen: eight 20 x 20 toolbar glyphs; this is the 'surrender' button [designed] - the clone's own drawing"
     }
   ]
 }

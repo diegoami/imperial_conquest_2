@@ -120,7 +120,18 @@ BOX = getattr(getattr(Image, "Resampling", Image), "BOX")
 ESTIMATED_PROMPT_TOKENS = 120
 ESTIMATED_IMAGE_OUTPUT_TOKENS = 1300
 
-VALID_KINDS = ("sprite", "ui", "tile", "surface", "sfx")
+VALID_KINDS = ("sprite", "ui", "tile", "surface", "sfx", "battle_unit", "battle_glyph")
+
+# T128: the tactical battle screen's assets (docs/asset-specification.md 4.7). A battle unit icon is a
+# 32x32 24-bit opaque image painted in exactly the three marker colours the nation recolour replaces
+# (purple 0x800080, white, blue 0x0000FF) plus black, so a draw-time pixel substitution finds them;
+# a battle toolbar glyph is a 20x20 32-bit BGRA full-colour icon.
+BATTLE_GLYPH_SIZE = 20
+BATTLE_MARKER_PURPLE = (128, 0, 128)
+BATTLE_MARKER_WHITE = (255, 255, 255)
+BATTLE_MARKER_BLUE = (0, 0, 255)
+BATTLE_UNIT_PALETTE = (BATTLE_MARKER_PURPLE, BATTLE_MARKER_WHITE, BATTLE_MARKER_BLUE, (0, 0, 0))
+BATTLE_FRAME_LIME = (0, 255, 0)
 
 
 # --- Key conventions (docs/asset-specification.md par. 1.5) ------------------------------
@@ -141,7 +152,13 @@ def kind_for_key(key: str) -> str:
         return "sfx"
     if key.startswith("ui.command."):
         return "ui"
-    return "sprite"  # unit icons and army/fleet/city markers
+    if key.startswith("battle.unit."):
+        return "battle_unit"
+    if key.startswith("battle.toolbar."):
+        return "battle_glyph"
+    if key == "battle.ground":
+        return "tile"  # grass: 24-bit opaque, like a terrain tile
+    return "sprite"  # unit icons, army/fleet/city markers and battle.cursor
 
 
 def asset_relpath(key: str) -> str:
@@ -519,6 +536,53 @@ def conform_ui_icon(img: Image.Image) -> Image.Image:
 def conform_ui(img: Image.Image) -> bytes:
     """conform_ui_icon, serialized as a 32-bit BGRA BMP."""
     return bmp_bytes(conform_ui_icon(img), 32)
+
+
+def conform_battle_unit_image(img: Image.Image) -> Image.Image:
+    """A battle unit icon (`battle.unit.*`, T128) as a 32x32 RGB image in exactly four colours:
+    area-average to 32x32, snap every pixel to the nearest of purple 0x800080, white, blue
+    0x0000FF and black, and draw the lime dotted frame the original keeps. The three marker
+    colours must all survive, or the icon cannot be recoloured (a ConformError, not a bad file)."""
+    small = img.convert("RGB").resize((SIZE, SIZE), BOX)
+    pixels = small.load()
+    seen = set()
+    for y in range(SIZE):
+        for x in range(SIZE):
+            r, g, b = pixels[x, y]
+            nearest = min(BATTLE_UNIT_PALETTE,
+                          key=lambda c: (c[0] - r) ** 2 + (c[1] - g) ** 2 + (c[2] - b) ** 2)
+            pixels[x, y] = nearest
+            seen.add(nearest)
+    missing = [name for name, colour in (("purple", BATTLE_MARKER_PURPLE),
+                                         ("white", BATTLE_MARKER_WHITE),
+                                         ("blue", BATTLE_MARKER_BLUE)) if colour not in seen]
+    if missing:
+        raise ConformError("the icon has no " + ", ".join(missing)
+                           + " region after snapping to the marker palette")
+    for i in range(0, SIZE, 2):
+        pixels[i, 0] = pixels[i, SIZE - 1] = BATTLE_FRAME_LIME
+        pixels[0, i] = pixels[SIZE - 1, i] = BATTLE_FRAME_LIME
+    return small
+
+
+def conform_battle_unit(img: Image.Image) -> bytes:
+    """conform_battle_unit_image, serialized as a 24-bit opaque BMP."""
+    return bmp_bytes(conform_battle_unit_image(img), 24)
+
+
+def conform_battle_glyph(img: Image.Image) -> bytes:
+    """A battle toolbar glyph (`battle.toolbar.*`, T128): keyed to alpha, full colour, 20x20,
+    32-bit BGRA."""
+    canvas = crop_to_subject(key_magenta(img))
+    return bmp_bytes(canvas.resize((BATTLE_GLYPH_SIZE, BATTLE_GLYPH_SIZE), LANCZOS), 32,
+                     expected_size=BATTLE_GLYPH_SIZE)
+
+
+def kind_output_size(kind: str) -> int:
+    """The side in pixels of the file a kind writes."""
+    if kind == "surface":
+        return SURFACE_SIZE
+    return BATTLE_GLYPH_SIZE if kind == "battle_glyph" else SIZE
 
 
 # --- Sound synthesis (deterministic, stdlib only; docs/asset-specification.md par. 1.4) ---
@@ -1553,6 +1617,9 @@ def dry_run(config: dict, entries: list, selection: list, models: list | None) -
           f"({sum(1 for e in image_keys if e['kind'] == 'sprite')} sprites -> 32-bit BGRA "
           f"+ {sum(1 for e in image_keys if e['kind'] == 'ui')} toolbar icons -> 32-bit BGRA "
           f"+ {sum(1 for e in image_keys if e['kind'] == 'tile')} terrain tiles -> 24-bit opaque "
+          f"+ {sum(1 for e in image_keys if e['kind'] == 'battle_unit')} battle unit icons -> 24-bit "
+          f"marker palette + {sum(1 for e in image_keys if e['kind'] == 'battle_glyph')} battle "
+          "glyphs -> 20x20 32-bit BGRA "
           f"+ {sum(1 for e in image_keys if e['kind'] == 'surface')} surface textures -> "
           "256x256 24-bit seamless)")
     print(f"  Not billed: {len(sfx_keys)} sfx synthesized locally "
@@ -1816,7 +1883,7 @@ def generate_selection(config: dict, selection: list, out_dir: str, raw_dir: str
                   f"{kept}{cost_note}; nothing was written to the pack for it; "
                   "continuing with the next key.", file=sys.stderr)
             continue
-        out_size = SURFACE_SIZE if kind == "surface" else SIZE
+        out_size = kind_output_size(kind)
         print(f"  generated {relpath} (source {image.size[0]}x{image.size[1]} kept at "
               f"{os.path.relpath(raw_path, REPO_ROOT)} -> {out_size}x{out_size} {depth}"
               f"{' overwrote' if existed else ''}{cost_note})")
@@ -1849,6 +1916,10 @@ def conform_image(kind: str, image: Image.Image) -> tuple:
         return conform_ui(image), "32-bit BGRA (full-colour icon)"
     if kind == "surface":
         return conform_surface(image), "256x256 24-bit opaque (seamless)"
+    if kind == "battle_unit":
+        return conform_battle_unit(image), "24-bit opaque (marker palette)"
+    if kind == "battle_glyph":
+        return conform_battle_glyph(image), "20x20 32-bit BGRA (full-colour glyph)"
     return conform_tile(image), "24-bit opaque"
 
 
@@ -1892,7 +1963,7 @@ def run_reconform(entries: list, selection: list, out_dir: str, raw_dir: str,
                     handle.write(bmp)
             done.append(key)
             verb = "reconformed" if write else "would reconform"
-            out_size = SURFACE_SIZE if kind == "surface" else SIZE
+            out_size = kind_output_size(kind)
             print(f"  {verb} {relpath} ({image.size[0]}x{image.size[1]} -> "
                   f"{out_size}x{out_size} {depth})")
         if write:
