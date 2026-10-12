@@ -768,72 +768,70 @@ public partial class MainGameScreen : Control
     /// Close asks, and <paramref name="onConfirmed"/> runs only on Yes.</summary>
     public void ConfirmQuit(Action onConfirmed) => ConfirmLeavingGame("quit", onConfirmed);
 
-    /// <summary>Save As: a name prompt, then a save under <c>user://saves</c>. [designed]: the original
-    /// used a file dialog; a Godot file dialog cannot run under the headless checks, and the task's own
-    /// wording is "a name prompt, then a save".</summary>
-    private void ShowSaveAsPrompt()
+    /// <summary>Fix #1081: the folder the last Save As chose this session; the dialog starts there,
+    /// otherwise in the saves folder.</summary>
+    private static string? _lastSaveAsFolder;
+
+    private FileDialog? _saveAsDialog;
+
+    /// <summary>The Save As dialog, created on first use: a native-path file dialog over the whole file
+    /// system in save mode, filtered to <c>*.json</c>, as Load game's Browse is for opening.</summary>
+    public FileDialog SaveAsDialog => _saveAsDialog ??= CreateSaveAsDialog();
+
+    private FileDialog CreateSaveAsDialog()
     {
-        var prompt = new Control { Name = "SaveAsPrompt" };
-
-        var backdrop = new ColorRect { Color = new Color(0f, 0f, 0f, 0.6f), MouseFilter = MouseFilterEnum.Stop };
-        backdrop.SetAnchorsPreset(LayoutPreset.FullRect);
-        prompt.AddChild(backdrop);
-
-        var center = new CenterContainer();
-        center.SetAnchorsPreset(LayoutPreset.FullRect);
-        prompt.AddChild(center);
-
-        var panel = UiKit.MakePanel(UiKit.PanelColor);
-        panel.CustomMinimumSize = new Vector2(440, 0);
-        center.AddChild(panel);
-
-        var column = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        column.AddThemeConstantOverride("separation", 12);
-        panel.AddChild(column);
-
-        column.AddChild(UiKit.MakeLabel("Save As", 18, UiKit.AccentColor));
-        var nameEdit = new LineEdit { Text = $"{Session.Scenario.Id}-save" };
-        column.AddChild(nameEdit);
-
-        var buttons = new HBoxContainer
+        var dialog = new FileDialog
         {
-            SizeFlagsHorizontal = SizeFlags.ExpandFill,
-            Alignment = BoxContainer.AlignmentMode.End,
+            Name = "SaveAsDialog",
+            Access = FileDialog.AccessEnum.Filesystem,
+            FileMode = FileDialog.FileModeEnum.SaveFile,
+            Title = "Save the game as",
+            Filters = new[] { "*.json ; Saved games" },
+            Size = new Vector2I(760, 520),
         };
-        buttons.AddThemeConstantOverride("separation", 10);
-        column.AddChild(buttons);
-
-        buttons.AddChild(UiKit.MakeButton("Cancel", () => CloseOverlay(prompt)));
-        buttons.AddChild(UiKit.MakeButton("Save", () =>
-        {
-            CloseOverlay(prompt);
-            SaveToName(nameEdit.Text);
-        }));
-
-        ShowOverlay(prompt);
+        dialog.FileSelected += SaveToChosenPath;
+        AddChild(dialog);
+        return dialog;
     }
 
-    private void SaveToName(string name)
+    /// <summary>Save As: a system file dialog (fix #1081), starting in the last folder used or the saves
+    /// folder. The chosen file becomes the current file, so a later Save writes back to it. Cancel
+    /// writes nothing.</summary>
+    private void ShowSaveAsPrompt()
     {
-        var cleaned = name.Trim();
-        if (cleaned.Length == 0)
+        var dialog = SaveAsDialog;
+        var folder = _lastSaveAsFolder is { } last && Directory.Exists(last)
+            ? last
+            : ProjectSettings.GlobalizePath(SavesDirectory);
+        Directory.CreateDirectory(folder);
+        dialog.CurrentDir = folder;
+        dialog.CurrentFile = $"{Session.Scenario.Id}-save.json";
+        dialog.PopupCentered();
+    }
+
+    /// <summary>Check hook: Save As as if the dialog had chosen <paramref name="path"/>.</summary>
+    public void SaveAsForCheck(string path) => SaveToChosenPath(path);
+
+    private void SaveToChosenPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
         {
-            cleaned = $"{Session.Scenario.Id}-save";
+            return;
         }
 
-        foreach (var invalid in Path.GetInvalidFileNameChars())
+        if (!path.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
         {
-            cleaned = cleaned.Replace(invalid, '_');
+            path += ".json";
         }
 
-        if (!cleaned.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+        var directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(directory))
         {
-            cleaned += ".json";
+            Directory.CreateDirectory(directory);
+            _lastSaveAsFolder = directory;
         }
 
-        var directory = ProjectSettings.GlobalizePath(SavesDirectory);
-        Directory.CreateDirectory(directory);
-        SaveToFile(Path.Combine(directory, cleaned));
+        SaveToFile(path);
     }
 
     /// <summary>Show hints: flips the menu bar's and toolbar's tooltips and the menu check mark together

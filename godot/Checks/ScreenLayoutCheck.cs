@@ -449,12 +449,6 @@ public partial class ScreenLayoutCheck : Control
                 screen.CommandTable.TryInvoke("unit_map.army_supply");
             },
             overlay => overlay is SupplyDialog);
-
-        yield return new OverlayCase(
-            "save as",
-            ToySession,
-            screen => screen.CommandTable.TryInvoke("file.save_as"),
-            overlay => overlay is Control && overlay.Name == "SaveAsPrompt");
     }
 
     // ---- fixtures ----
