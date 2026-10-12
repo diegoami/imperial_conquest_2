@@ -43,6 +43,12 @@ namespace IC2.Engine.Model;
 /// order and keyed by index — or <see langword="null"/> when the world carries none (the toy world),
 /// in which case the restock and the fill have nothing to draw and change nothing.
 /// </param>
+/// <param name="WeatherCentres">
+/// T81: the 20 fixed centres of the weekly rough-sea overlay (<c>DAT_00479540</c>, DAT <c>0x1F876</c>),
+/// in the DAT's order -- the draw order of the weekly roll -- or <see langword="null"/> when the world
+/// has none (the toy world): a world without centres has no weather. <strong>[confirmed:
+/// decompiled-map-code1-overlay.md §1]</strong> The saved game does not store them.
+/// </param>
 /// <remarks>
 /// Deliberately free of any 320×140 / 16-nation / 334-city assumption: the original's data becomes
 /// one shipped <see cref="World"/> (task T29) among possibly many, and the toy fixture under
@@ -65,6 +71,7 @@ public sealed record World(
     NewsLog? StartingNews = null,
     ValueList<NationNeighbours>? StartingNeighbours = null,
     ValueList<MercenaryTemplate>? MercenaryTemplates = null,
+    ValueList<WeatherCentre>? WeatherCentres = null,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null) : IVersionedDocument
 {
     /// <summary>Finds a tile type by its id, or <see langword="null"/>.</summary>
@@ -609,3 +616,8 @@ public sealed record StartingFleet(
     int SupplyTons,
     int Moves,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
+
+/// <summary>One centre of the weekly rough-sea overlay: a tile the weather rolls around.</summary>
+/// <param name="X">The tile's column.</param>
+/// <param name="Y">The tile's row.</param>
+public sealed record WeatherCentre(int X, int Y);

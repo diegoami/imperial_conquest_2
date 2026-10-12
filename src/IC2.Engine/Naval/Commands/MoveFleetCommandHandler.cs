@@ -109,12 +109,22 @@ public sealed class MoveFleetCommandHandler : ICommandHandler<MoveFleetCommand>
         }
 
         var from = new GridPoint(fleet.X, fleet.Y);
+        // T81: the weekly overlay's rough cells cost RoughSeaMoveCost to enter, against the terrain table's
+        // price for a calm one (FUN_0044dd70, decompiled-map-code1-overlay.md §2); the fleet carries the
+        // rough code as its covered cell while it sits there, and a calm destination restores the
+        // terrain's own code, as the original's +24 swap does.
+        var weather = context.Ruleset.Economy.Weather;
+        int? RoughSeaPrice(GridPoint point) => state.IsRoughSea(point.X, point.Y) ? weather.RoughSeaMoveCost : null;
+
         var walk = MovementWalker.Walk(
-            from, destination, fleet.Moves, context.Ruleset.Terrain, TileTypeIdAt, IsBlocked, context.Events);
+            from, destination, fleet.Moves, context.Ruleset.Terrain, TileTypeIdAt, IsBlocked, context.Events,
+            RoughSeaPrice);
 
         var finalPosition = walk.FinalPosition;
         var coveredTileCode = InBounds(finalPosition, world)
-            ? terrainCells[(finalPosition.Y * world.Width) + finalPosition.X]
+            ? state.IsRoughSea(finalPosition.X, finalPosition.Y)
+                ? weather.RoughSeaTileCode
+                : terrainCells[(finalPosition.Y * world.Width) + finalPosition.X]
             : fleet.CoveredTileCode;
 
         var updatedFleet = fleet with

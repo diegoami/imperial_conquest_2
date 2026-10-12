@@ -30,6 +30,14 @@ namespace IC2.Engine.Model;
 /// test fixture — and <see cref="IC2.Engine.Diplomacy.NeighbourGeography"/> still falls back to the
 /// currently loaded <see cref="World"/>'s own neighbours for exactly that case.
 /// </param>
+/// <param name="RoughSeaCells">
+/// T81 (bug #339): the cells that are rough sea this week -- the original's code-1 cells of the map grid,
+/// kept here as a set apart from the units and sorted by (<c>X</c>, <c>Y</c>) so a save is canonical
+/// <strong>[confirmed: decompiled-map-code1-overlay.md §5]</strong>. <see langword="null"/> is the empty
+/// overlay (a state built before this field existed, or in a world without weather centres); the weekly
+/// <see cref="IC2.Engine.Economy.WeatherEventSystem"/> rewrites it. A fleet standing on one of these
+/// cells carries <see cref="FleetState.CoveredTileCode"/> = 1.
+/// </param>
 public sealed record GameState(
     int SchemaVersion,
     string WorldId,
@@ -47,8 +55,28 @@ public sealed record GameState(
     DiplomaticRelations Relations,
     NewsLog NewsLog,
     PendingDiplomaticOffer? PendingOffer,
-    ValueList<NationNeighbours>? Neighbours = null) : IVersionedDocument
+    ValueList<NationNeighbours>? Neighbours = null,
+    ValueList<RoughSeaCell>? RoughSeaCells = null) : IVersionedDocument
 {
+    /// <summary>Whether (<paramref name="x"/>, <paramref name="y"/>) is rough sea this week.</summary>
+    public bool IsRoughSea(int x, int y)
+    {
+        if (RoughSeaCells is null)
+        {
+            return false;
+        }
+
+        foreach (var cell in RoughSeaCells)
+        {
+            if (cell.X == x && cell.Y == y)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>Finds a nation by id, or <see langword="null"/>.</summary>
     public NationState? NationById(string id) => Nations.FindById(n => n.Id, id);
 
@@ -88,6 +116,11 @@ public sealed record GameState(
         return count;
     }
 }
+
+/// <summary>One rough sea cell of the weekly overlay.</summary>
+/// <param name="X">The cell's column.</param>
+/// <param name="Y">The cell's row.</param>
+public sealed record RoughSeaCell(int X, int Y);
 
 /// <summary>Where the calendar currently stands.</summary>
 /// <param name="Week">The current week value, advanced by <see cref="CalendarRules.WeekStep"/>.</param>

@@ -407,6 +407,31 @@ public static class OriginalSaveImporter
                 CoveredTileCode: coveredTileCode);
         }
 
+        // ---- Rough-sea overlay (T81, bug #339): the saved grid's code-1 cells are the weekly overlay
+        // (decompiled-map-code1-overlay.md), mapped cell for cell. A launched fleet standing on a rough cell
+        // hides the 1 under its marker; its own covered-cell word (+24, imported above as CoveredTileCode)
+        // keeps it, so that cell joins the overlay too. The grid is stored x-major (WorldPrefix.CellAt).
+        var roughCode = ruleset.Economy.Weather.RoughSeaTileCode;
+        var roughSea = new SortedSet<(int X, int Y)>();
+        for (var x = 0; x < WorldPrefix.MapWidth; x++)
+        {
+            for (var y = 0; y < WorldPrefix.MapHeight; y++)
+            {
+                if (worldPrefix.CellAt(x, y) == roughCode)
+                {
+                    roughSea.Add((x, y));
+                }
+            }
+        }
+
+        foreach (var fleet in fleets)
+        {
+            if (!fleet.IsUnderConstruction && fleet.CoveredTileCode == roughCode)
+            {
+                roughSea.Add((fleet.X, fleet.Y));
+            }
+        }
+
         // ---- Mercenary pool: only occupied slots (SaveMercenaryTable.Parse always returns all 50; an
         // empty one carries the consumed/never-offered sentinel or a zero troop count).
         var mercenaryPool = new List<MercenaryPoolSlot>();
@@ -526,7 +551,8 @@ public static class OriginalSaveImporter
             Relations: relations,
             NewsLog: newsLogState,
             PendingOffer: pendingOfferState,
-            Neighbours: ValueList.From(importedNeighbours));
+            Neighbours: ValueList.From(importedNeighbours),
+            RoughSeaCells: ValueList.From(roughSea.Select(c => new RoughSeaCell(c.X, c.Y))));
 
         var save = new SaveGame(
             SchemaVersion: GameDataSchema.CurrentVersion,
@@ -548,9 +574,8 @@ public static class OriginalSaveImporter
         GameDataValidation.Validate(documentPath, save);
 
         var report = new OriginalSaveImportReport(
-            // Derived from the declared mapping (review B1), not a hard-coded empty list: the only
-            // entries are OriginalSaveFieldMapping's DeclaredUnmapped ones, the user's narrow waiver for
-            // MercenaryRecord.X/Y (docs/tasks/T21.md "Mercenary position").
+            // Derived from the declared mapping (review B1), not a hard-coded empty list. T81 closed the
+            // last waiver (WorldPrefix.Cells), so it is empty.
             UnmappedFields: ValueList.From(OriginalSaveFieldMapping.UnmappedFieldNames),
             SkippedArmies: ValueList.From(armyTable.SkippedRecords.Select(s => new SkippedRecordReport(s.Index, s.X, s.Y))),
             SkippedFleets: ValueList.From(fleetTable.SkippedRecords.Select(s => new SkippedRecordReport(s.Index, s.X, s.Y))),

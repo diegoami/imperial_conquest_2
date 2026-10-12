@@ -97,6 +97,12 @@ public static class MovementWalker
     /// Where <see cref="UnpricedTerrainEncountered"/> is published when a reached cell's tile type has no
     /// entry in <paramref name="terrain"/>'s table.
     /// </param>
+    /// <param name="moveCostOverride">
+    /// T81: a per-cell price that replaces the terrain table's, or <see langword="null"/> (the default)
+    /// to price every cell from the table. Returns <see langword="null"/> for a cell the table prices.
+    /// A fleet entering a rough-sea cell pays <see cref="WeatherEventRules.RoughSeaMoveCost"/> through it
+    /// (<c>FUN_0044dcac</c>, decompiled-map-code1-overlay.md §2). Called only for a cell that was not blocked.
+    /// </param>
     /// <exception cref="ArgumentNullException">Any reference parameter is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="movesAvailable"/> is negative.</exception>
     /// <exception cref="InvalidOperationException">
@@ -110,7 +116,8 @@ public static class MovementWalker
         TerrainRules terrain,
         Func<GridPoint, string?> tileTypeIdAt,
         Func<GridPoint, bool> isBlocked,
-        IEventSink events)
+        IEventSink events,
+        Func<GridPoint, int?>? moveCostOverride = null)
     {
         ArgumentNullException.ThrowIfNull(terrain);
         ArgumentNullException.ThrowIfNull(tileTypeIdAt);
@@ -140,19 +147,30 @@ public static class MovementWalker
                 ?? throw new InvalidOperationException(
                     $"No tile type resolves at {cell}; the walker cannot price a cell the world does not map.");
 
-            var lookup = TerrainCostLookup.MoveCostFor(terrain, tileTypeId);
-            if (!lookup.WasPricedByRuleset)
+            var overridden = moveCostOverride?.Invoke(cell);
+            int moveCost;
+            if (overridden is { } price)
             {
-                events.Publish(new UnpricedTerrainEncountered(tileTypeId, cell.X, cell.Y, lookup.MoveCost));
+                moveCost = price;
+            }
+            else
+            {
+                var lookup = TerrainCostLookup.MoveCostFor(terrain, tileTypeId);
+                if (!lookup.WasPricedByRuleset)
+                {
+                    events.Publish(new UnpricedTerrainEncountered(tileTypeId, cell.X, cell.Y, lookup.MoveCost));
+                }
+
+                moveCost = lookup.MoveCost;
             }
 
-            if (lookup.MoveCost > movesLeft)
+            if (moveCost > movesLeft)
             {
                 return new MovementWalkResult(
                     from, entered, movesAvailable - movesLeft, movesLeft, MovementStopReason.InsufficientMoves, null);
             }
 
-            movesLeft -= lookup.MoveCost;
+            movesLeft -= moveCost;
             entered.Add(cell);
         }
 

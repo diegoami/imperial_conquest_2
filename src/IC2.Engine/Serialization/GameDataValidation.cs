@@ -180,6 +180,14 @@ public static class GameDataValidation
             RequireOnMap(documentPath, world, fleet.X, fleet.Y, $"fleet '{fleet.Id}'");
         }
 
+        if (world.WeatherCentres is { } weatherCentres)
+        {
+            for (var i = 0; i < weatherCentres.Count; i++)
+            {
+                RequireOnMap(documentPath, world, weatherCentres[i].X, weatherCentres[i].Y, $"weather centre {i}");
+            }
+        }
+
         if (world.TurnOrder.Count != world.Nations.Count)
         {
             throw new MalformedGameDataException(
@@ -618,18 +626,32 @@ public static class GameDataValidation
         RequireRngBound(documentPath, ruleset.Economy.FamineLoyaltyLossProbabilityDenominator, "economy.famineLoyaltyLossProbabilityDenominator");
         RequireRngBound(documentPath, ruleset.Naval.StormWinterSpikeChanceDenominator, "naval.stormWinterSpikeChanceDenominator");
 
-        // WeatherEventSystem: NextChance(numerator, denominator) per location, then NextInt(effects.Count). An
-        // empty effects list is legitimate (the system returns before any draw), so only the odds are checked,
-        // and only when the system would draw.
+        // WeatherEventSystem (T81): NextChance(numerator, denominator) per centre, NextChance(ring) per outer-ring
+        // cell, and the loops over the radii. Every odds pair must be a valid chance, and every radius and
+        // distance non-negative (a negative radius would silently paint nothing, or loop backwards).
         var weather = ruleset.Economy.Weather;
-        if (weather.Effects.Count > 0)
+        for (var i = 0; i < weather.BySeason.Count; i++)
         {
-            for (var i = 0; i < weather.BySeason.Count; i++)
-            {
-                var odds = weather.BySeason[i];
-                RequireChance(documentPath, odds.EarlyNumerator, odds.EarlyDenominator, $"economy.weather.bySeason[{i}].early");
-                RequireChance(documentPath, odds.LateNumerator, odds.LateDenominator, $"economy.weather.bySeason[{i}].late");
-            }
+            var odds = weather.BySeason[i];
+            RequireChance(documentPath, odds.EarlyNumerator, odds.EarlyDenominator, $"economy.weather.bySeason[{i}].early");
+            RequireChance(documentPath, odds.LateNumerator, odds.LateDenominator, $"economy.weather.bySeason[{i}].late");
+            RequireNonNegative(documentPath, odds.EarlyRadiusTiles, $"economy.weather.bySeason[{i}].earlyRadiusTiles");
+            RequireNonNegative(documentPath, odds.LateRadiusTiles, $"economy.weather.bySeason[{i}].lateRadiusTiles");
+        }
+
+        RequireChance(
+            documentPath, weather.RingChanceNumerator, weather.RingChanceDenominator, "economy.weather.ringChance");
+        RequireNonNegative(documentPath, weather.ClearRadiusTiles, "economy.weather.clearRadiusTiles");
+        RequireNonNegative(documentPath, weather.CityExclusionRadiusTiles, "economy.weather.cityExclusionRadiusTiles");
+        RequireNonNegative(documentPath, weather.RoughSeaMoveCost, "economy.weather.roughSeaMoveCost");
+    }
+
+    private static void RequireNonNegative(string documentPath, int value, string field)
+    {
+        if (value < 0)
+        {
+            throw new MalformedGameDataException(
+                documentPath, $"'{field}' must not be negative; got {value}.");
         }
     }
 

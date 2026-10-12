@@ -197,7 +197,7 @@ public static class GameStateFactory
             YearBc: ruleset.Calendar.StartYearBc,
             TurnIndex: 0);
 
-        return new GameState(
+        var initial = new GameState(
             SchemaVersion: GameDataSchema.CurrentVersion,
             WorldId: world.Id,
             RulesetId: ruleset.Id,
@@ -214,8 +214,24 @@ public static class GameStateFactory
             Relations: StartingRelationsFor(world, ruleset, nations),
             NewsLog: StartingNewsFor(world, ruleset),
             PendingOffer: null,
-            Neighbours: Diplomacy.NeighbourGeography.InitialAdjacency(world));
+            Neighbours: Diplomacy.NeighbourGeography.InitialAdjacency(world),
+            RoughSeaCells: ValueList<RoughSeaCell>.Empty);
+
+        // T81: a new game rolls the weather once, with (Spring, week 1), as FUN_00448AA4 does right after
+        // it sets the date (decompiled-map-code1-overlay.md §1). The draws come from a stream of their own
+        // so they cannot move any other system's roll; a world without weather centres is returned as is.
+        return Economy.WeatherEventSystem.Roll(
+            initial,
+            world,
+            ruleset,
+            ruleset.Economy.Weather.NewGameSeasonIndex,
+            ruleset.Economy.Weather.NewGameWeek,
+            Core.SplitMix64Rng.ForStream(scenario.RandomSeed, NewGameWeatherStream),
+            events: null);
     }
+
+    /// <summary>The name of the random stream the new-game weather roll draws from.</summary>
+    private const string NewGameWeatherStream = "economy.weather-events.new-game";
 
     /// <summary>
     /// The starting relation matrix: the world's own <see cref="World.StartingRelations"/> when it

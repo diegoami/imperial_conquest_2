@@ -53,6 +53,7 @@ internal static class SaveMigrations
                 2 => MigrateV2ToV3(documentPath, current, expectedWorld),
                 3 => MigrateV3ToV4(documentPath, current),
                 4 => MigrateV4ToV5(documentPath, current),
+                5 => MigrateV5ToV6(documentPath, current),
 
                 // A version below SaveFormat.MinimumSupportedVersion (zero, negative, or otherwise never
                 // shipped) is not "a newer build" either, and UnsupportedSaveFormatException's message
@@ -208,6 +209,24 @@ internal static class SaveMigrations
     /// The envelope is not a well-formed version-3 save (<c>state.mercenaryPool</c> is not a JSON array),
     /// or one of its entries is not a JSON object.
     /// </exception>
+    private static JsonObject MigrateV5ToV6(string documentPath, JsonObject v5)
+    {
+        var v6 = (JsonObject)v5.DeepClone();
+        v6[SaveFormat.VersionField] = 6;
+
+        var save = EnvelopeJson.RequireObject(documentPath, v6, SaveFormat.PayloadField, "the version-5 envelope");
+        var state = EnvelopeJson.RequireObject(documentPath, save, "state", "the version-5 save");
+
+        // T81: the weekly rough-sea overlay did not exist, so a migrated save starts with none; the next
+        // weekly roll paints a new one. A save that somehow carries the key keeps it.
+        if (!state.ContainsKey("roughSeaCells"))
+        {
+            state["roughSeaCells"] = new JsonArray();
+        }
+
+        return v6;
+    }
+
     private static JsonObject MigrateV3ToV4(string documentPath, JsonObject v3)
     {
         var v4 = (JsonObject)v3.DeepClone();

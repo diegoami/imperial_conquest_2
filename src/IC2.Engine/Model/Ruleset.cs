@@ -547,55 +547,67 @@ public sealed record EndTurnWarningRules(
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>
-/// The confirmed weather-event frequency curve (<c>decompiled-weather-events.md</c>): a per-season,
-/// per-part-of-season odds table, data-driven so its <c>[designed]</c> effects table can grow without an
-/// engine change. Only the frequency is <c>[confirmed]</c>; what an event actually does is <c>[designed]</c>
-/// (<c>docs/game-design.md</c> §Economy: "effects not fully decompiled").
+/// The weekly rough-sea overlay (T81, bug #339): <c>FUN_00451304</c> / <c>FUN_004511bc</c>
+/// <strong>[confirmed: decompiled-map-code1-overlay.md §1 and §5]</strong>. Each week the overlay
+/// clears every rough cell within <see cref="ClearRadiusTiles"/> of each of the world's weather centres
+/// (<see cref="World.WeatherCentres"/>), then rolls each centre once and paints a square around a hit.
 /// </summary>
 /// <param name="EarlyLateWeekThreshold">
 /// Below this week number a season is in its "early" part; at or above it, "late". The report gives
 /// Spring's boundary as week 6 and Autumn's as week 7; both are represented by this single field
 /// because on this engine's odd-week calendar (weeks 1, 3, 5, 7, 9, 11) the two boundaries select the
-/// same weeks either way — see <c>toy-ruleset.json</c>'s <c>economy.weather._provenance</c> for the
-/// full 6/7 citation. Summer and Winter's <see cref="WeatherSeasonOdds.EarlyNumerator"/>/
-/// <see cref="WeatherSeasonOdds.EarlyDenominator"/> equal their late-part odds, since the source report
-/// gives them one flat rate for the whole season.
+/// same weeks either way. Summer and Winter's early and late entries are equal, since the report gives
+/// them one flat rate for the whole season.
 /// </param>
-/// <param name="BySeason">One entry per <see cref="Model.CalendarState.SeasonIndex"/>.</param>
-/// <param name="LocationCount">
-/// Review round 1, B4: the report's frequency curve is a per-location roll, made independently for
-/// each of this many tracked locations every tick (<c>DAT_00479540</c>), not one roll per tick. Rolling
-/// once per tick understated the confirmed absolute frequency by this factor (the Winter/Summer
-/// <em>ratio</em> DoD 8 checks was unaffected, since both seasons were understated equally). The
-/// locations' own identity is <c>[open]</c>, exactly as the report leaves it — this field only fixes
-/// the roll count.
+/// <param name="BySeason">One entry per <see cref="Model.CalendarState.SeasonIndex"/>: the hit odds and radius.</param>
+/// <param name="ClearRadiusTiles">
+/// The clear box around each centre (10): every rough cell within this Chebyshev distance becomes calm
+/// before the roll. It equals the largest paint reach (<c>2 × 5</c> in Winter), so the overlay lives one
+/// week <strong>[confirmed: decompiled-map-code1-overlay.md §1]</strong>.
 /// </param>
-/// <param name="Effects">
-/// The data-driven effects table a fired event draws from — placeholder entries, each individually
-/// <c>_provenance</c>-tagged <c>designed</c>, since the report identifies the frequency curve but not the
-/// effects themselves (<c>docs/game-design.md</c> §Economy).
+/// <param name="RingChanceNumerator">The numerator of the outer ring's per-cell paint chance (1).</param>
+/// <param name="RingChanceDenominator">
+/// The denominator (2): the ring, from <c>r + 1</c> out to <c>2r</c>, paints a cell when <c>Random(2) == 0</c>.
 /// </param>
+/// <param name="CityExclusionRadiusTiles">
+/// A cell is never painted when a city lies within this Chebyshev distance (1: the 3×3 around it)
+/// <strong>[confirmed: decompiled-map-code1-overlay.md §1]</strong>.
+/// </param>
+/// <param name="CalmSeaTileCode">The terrain code of a calm sea cell (0), the only cell a patch can paint, and the value a fleet's covered cell is reset to each week.</param>
+/// <param name="RoughSeaTileCode">The map code of a rough sea cell (1), which a fleet standing on one carries as its <see cref="FleetState.CoveredTileCode"/>.</param>
+/// <param name="RoughSeaMoveCost">What a fleet pays to enter a rough sea cell (3), against the terrain table's cost for a calm one.</param>
+/// <param name="NewGameSeasonIndex">The season whose odds the new-game roll uses (Spring, 0), as <c>FUN_00448AA4</c> does.</param>
+/// <param name="NewGameWeek">The week whose odds the new-game roll uses (1).</param>
 public sealed record WeatherEventRules(
     int EarlyLateWeekThreshold,
     ValueList<WeatherSeasonOdds> BySeason,
-    int LocationCount,
-    ValueList<WeatherEffectRule> Effects,
+    int ClearRadiusTiles,
+    int RingChanceNumerator,
+    int RingChanceDenominator,
+    int CityExclusionRadiusTiles,
+    int CalmSeaTileCode,
+    int RoughSeaTileCode,
+    int RoughSeaMoveCost,
+    int NewGameSeasonIndex,
+    int NewGameWeek,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
-/// <summary>One season's weather-event odds, confirmed as an <c>numerator</c>-in-<c>denominator</c> roll.</summary>
+/// <summary>One season's rough-sea hit odds (<c>numerator</c> in <c>denominator</c>) and patch radius, early and late part.</summary>
+/// <param name="SeasonIndex">The season.</param>
+/// <param name="EarlyNumerator">Hit chance numerator before the threshold week.</param>
+/// <param name="EarlyDenominator">Hit chance denominator before the threshold week (the report's <c>N</c>).</param>
+/// <param name="EarlyRadiusTiles">The inner square's radius <c>r</c> before the threshold week; the ring reaches <c>2r</c>.</param>
+/// <param name="LateNumerator">Hit chance numerator from the threshold week on.</param>
+/// <param name="LateDenominator">Hit chance denominator from the threshold week on.</param>
+/// <param name="LateRadiusTiles">The inner square's radius from the threshold week on.</param>
 public sealed record WeatherSeasonOdds(
     int SeasonIndex,
     int EarlyNumerator,
     int EarlyDenominator,
+    int EarlyRadiusTiles,
     int LateNumerator,
-    int LateDenominator);
-
-/// <summary>One entry in the weather-effects table a fired event draws from.</summary>
-/// <param name="Id">Stable key, e.g. <c>"storm-damages-fleet"</c>.</param>
-public sealed record WeatherEffectRule(
-    string Id,
-    string Description,
-    [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
+    int LateDenominator,
+    int LateRadiusTiles);
 
 /// <summary>Standing recruitment, mobilization, and the mercenary economy.</summary>
 /// <param name="MaxSlots">
