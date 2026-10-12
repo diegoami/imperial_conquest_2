@@ -337,7 +337,8 @@ try {
     }
     $verify = (Test-Path -LiteralPath (Join-Path $worktree 'godot/Checks/AssetPackSelectionCheck.tscn')) -and -not $SmokeOnly
     if ($verify) { $packageArgs += '-Verify' }
-    $pwshExe = [Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
+    $pwshExe = Join-Path $PSHOME $(if ($IsWindows) { 'pwsh.exe' } else { 'pwsh' })
+    if (-not (Test-Path -LiteralPath $pwshExe)) { $pwshExe = 'pwsh' }
     Write-Step "packaging $Tag$(if ($verify) { ' with -Verify' } else { ' (no -Verify)' })"
     & $pwshExe @packageArgs
     if ($LASTEXITCODE -ne 0) { throw "package.ps1 exited with code $LASTEXITCODE." }
@@ -359,7 +360,7 @@ try {
     $iss = Join-Path $RepoRoot 'installer/ic2.iss'
     if (-not (Test-Path -LiteralPath $iss)) { throw "installer/ic2.iss is missing from $RepoRoot." }
     Write-Step 'building the installer'
-    & $isccExe "/DAppVersion=$Version" "/DSourceDir=$icDir" "/DOutputDir=$OutDir" "/FImperialConquest2-$Tag-windows-x64-setup" $iss
+    & $isccExe "/Q" "/DAppVersion=$Version" "/DSourceDir=$icDir" "/DOutputDir=$OutDir" "/FImperialConquest2-$Tag-windows-x64-setup" $iss
     if ($LASTEXITCODE -ne 0) { throw "ISCC exited with code $LASTEXITCODE." }
     $setupPath = Join-Path $OutDir $SetupName
     if (-not (Test-Path -LiteralPath $setupPath)) { throw "ISCC produced no $setupPath." }
