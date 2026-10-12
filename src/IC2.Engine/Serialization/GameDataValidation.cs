@@ -507,7 +507,18 @@ public static class GameDataValidation
                 continue;
             }
 
-            var span = (long)type.StandardBattalionSize * ai.FaithfulAmountSpanNumerator / ai.FaithfulAmountSpanDenominator;
+            // RollTroops computes size * numerator / denominator in int, left to right: refuse a product
+            // that would wrap, then evaluate the span exactly as the runtime does.
+            var product = (long)type.StandardBattalionSize * ai.FaithfulAmountSpanNumerator;
+            if (product > int.MaxValue || product < int.MinValue)
+            {
+                throw new MalformedGameDataException(
+                    documentPath,
+                    $"'ai.faithfulAmountSpanNumerator' ({ai.FaithfulAmountSpanNumerator}) times unit type '{type.Id}' standardBattalionSize "
+                    + $"({type.StandardBattalionSize}) is {product}, which overflows a 32-bit int in the recruit-amount span (a random-draw bound).");
+            }
+
+            var span = unchecked(type.StandardBattalionSize * ai.FaithfulAmountSpanNumerator) / ai.FaithfulAmountSpanDenominator;
             if (span < 1)
             {
                 throw new MalformedGameDataException(

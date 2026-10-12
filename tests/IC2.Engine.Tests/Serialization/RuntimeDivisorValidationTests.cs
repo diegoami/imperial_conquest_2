@@ -140,4 +140,36 @@ public class RuntimeDivisorValidationTests
             Document,
             r with { UnitTypes = new ValueList<UnitTypeRules>(types), Ai = r.Ai with { FaithfulAmountSpanNumerator = 1, FaithfulAmountSpanDenominator = 2 } });
     }
+
+    [Fact]
+    public void A_recruit_amount_product_that_overflows_int_is_refused_naming_both_keys_and_the_type()
+    {
+        var r = Toy();
+        var typeId = r.Ai.FaithfulRecruitTypeBuckets[0].UnitTypeId;
+        var types = new List<UnitTypeRules>(r.UnitTypes);
+        var i = types.FindIndex(t => t.Id == typeId);
+        types[i] = types[i] with { StandardBattalionSize = 2_000_000_000 };
+        var bad = r with
+        {
+            UnitTypes = new ValueList<UnitTypeRules>(types),
+            Ai = r.Ai with { FaithfulAmountSpanNumerator = 2, FaithfulAmountSpanDenominator = 1 },
+        };
+        var ex = Assert.Throws<MalformedGameDataException>(() => GameDataValidation.Validate(Document, bad));
+        Assert.Contains("ai.faithfulAmountSpanNumerator", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("overflows", ex.Message, StringComparison.Ordinal);
+        Assert.Contains($"'{typeId}'", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_large_recruit_amount_product_that_fits_in_int_is_accepted()
+    {
+        var r = Toy();
+        var typeId = r.Ai.FaithfulRecruitTypeBuckets[0].UnitTypeId;
+        var types = new List<UnitTypeRules>(r.UnitTypes);
+        var i = types.FindIndex(t => t.Id == typeId);
+        types[i] = types[i] with { StandardBattalionSize = 1_000_000_000 };
+        GameDataValidation.Validate(
+            Document,
+            r with { UnitTypes = new ValueList<UnitTypeRules>(types), Ai = r.Ai with { FaithfulAmountSpanNumerator = 2, FaithfulAmountSpanDenominator = 1 } });
+    }
 }
