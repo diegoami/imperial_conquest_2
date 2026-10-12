@@ -444,13 +444,15 @@ function Invoke-ImplementerSelfTest {
         Add "R1: -ModelIds keyed deepseek-pro is still refused with exit 1 (got $LASTEXITCODE)" ($LASTEXITCODE -eq 1 -and $o -like "*$dsReason*")
     } finally { Remove-Item -LiteralPath $probeBriefI -Force -ErrorAction SilentlyContinue }
 
-    # Bug #956: -WhatIf names a worktree the dry run has not made, so the watcher's dry run must
-    # report a working directory that does not exist yet instead of throwing from Resolve-Path.
+    # Bug #956: a dry run may name a work directory that does not exist yet, so the directory
+    # resolution reports its full path instead of throwing (a real run stays strict). Offline: no OpenCode.
     $missingWork = Join-Path ([System.IO.Path]::GetTempPath()) "ic2-implselftest-nowork-$([guid]::NewGuid().ToString('N').Substring(0, 8))"
-    $dryErr = $null; $dryRes = $null
-    try { $dryRes = Invoke-OpenCodeWatched -WhatIf -Agent 'external-implementer' -Model 'minimax/MiniMax-M2.7' -Prompt 'p' -WorkDir $missingWork -Title 'ic2-selftest-956' 6>$null } catch { $dryErr = $_.Exception.Message }
-    Add "#956: -WhatIf against a work directory that does not exist yet does not throw (got '$dryErr')" ($null -eq $dryErr -and $dryRes.WhatIf -and $dryRes.ArgumentLine -like "*$missingWork*")
-    Add '#956: the dry run created no directory' (-not (Test-Path -LiteralPath $missingWork))
+    $dryErr = $null; $dryDir = $null; $realErr = $null
+    try { $dryDir = Resolve-OpenCodeWorkDir -WorkDir $missingWork -DryRun } catch { $dryErr = $_.Exception.Message }
+    Add "#956: a dry run resolves a work directory that does not exist yet to its full path (got '$dryDir', error '$dryErr')" ($null -eq $dryErr -and $dryDir -eq $missingWork)
+    try { $null = Resolve-OpenCodeWorkDir -WorkDir $missingWork } catch { $realErr = $_.Exception.Message }
+    Add '#956: a real run still throws on a missing work directory' ($null -ne $realErr)
+    Add '#956: the resolution created no directory' (-not (Test-Path -LiteralPath $missingWork))
 
     # The chain-spent substitute (T150) never maps an opencode_go row to a DeepSeek alias: the
     # run that picked deepseek-flash from "provider opencode_go, model mimo-v2.6-pro" is the
