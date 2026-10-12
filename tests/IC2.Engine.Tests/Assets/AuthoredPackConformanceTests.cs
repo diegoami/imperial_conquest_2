@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using IC2.Engine.Assets;
 using IC2.Engine.Tests.Fixtures;
+using IC2.Slice.Assets;
 using Xunit;
 
 namespace IC2.Engine.Tests.Assets;
@@ -65,7 +66,8 @@ public sealed class AuthoredPackConformanceTests
         var allPromptKeys = new HashSet<string>(
             entries.Select(e => e.Key).Concat(soundEntries.Select(e => e.Key)),
             StringComparer.Ordinal);
-        var engineKeys = new HashSet<string>(AssetKeys.AllKeys, StringComparer.Ordinal);
+        // T128: the battle screen's 25 keys live in the Godot-side BattleAssetKeys; the whole key set is the union.
+        var engineKeys = new HashSet<string>(AssetKeys.AllKeys.Concat(BattleAssetKeys.AllKeys), StringComparer.Ordinal);
 
         // A key with no prompt fails; a prompt with no key fails; a duplicated key fails too,
         // because a duplicate would silently satisfy the count while leaving one slot ambiguous.
@@ -151,6 +153,7 @@ public sealed class AuthoredPackConformanceTests
         // Surfaces are 256x256, not 32x32, so they are checked by their own test below rather than by
         // this 32x32 structure check.
         var imageKeys = AssetKeys.AllKeys
+            .Concat(BattleAssetKeys.AllKeys) // T128: the battle screen's 25 images (32x32 and 20x20)
             .Where(k => !k.StartsWith("sfx.", StringComparison.Ordinal)
                      && !k.EndsWith(".surface", StringComparison.Ordinal))
             .ToList();
@@ -165,7 +168,7 @@ public sealed class AuthoredPackConformanceTests
 
             // Terrain tiles are 24-bit opaque; every other image asset (unit icons and
             // army/fleet/city markers) is 32-bit BGRA - docs/asset-specification.md 1.2.
-            ValidateBmpStructure(File.ReadAllBytes(fullPath), key, ExpectedBitCount(key));
+            ValidateBmpStructure(File.ReadAllBytes(fullPath), key, ExpectedBitCount(key), ExpectedSize(key));
         }
     }
 
@@ -496,6 +499,9 @@ public sealed class AuthoredPackConformanceTests
     private static string ExpectedKind(string key) => key switch
     {
         _ when key.EndsWith(".surface", StringComparison.Ordinal) => "surface",
+        _ when key.StartsWith("battle.unit.", StringComparison.Ordinal) => "battle_unit",
+        _ when key.StartsWith("battle.toolbar.", StringComparison.Ordinal) => "battle_glyph",
+        _ when key == BattleAssetKeys.Ground => "tile",
         _ when key.StartsWith("terrain.", StringComparison.Ordinal) => "tile",
         _ when key.StartsWith("sfx.", StringComparison.Ordinal) => "sfx",
         _ when key.StartsWith("ui.command.", StringComparison.Ordinal) => "ui",
@@ -503,7 +509,12 @@ public sealed class AuthoredPackConformanceTests
     };
 
     private static int ExpectedBitCount(string key) =>
-        key.StartsWith("terrain.", StringComparison.Ordinal) ? 24 : 32;
+        key.StartsWith("battle.", StringComparison.Ordinal)
+            ? BattleAssetKeys.ExpectedBitCount(key)
+            : key.StartsWith("terrain.", StringComparison.Ordinal) ? 24 : 32;
+
+    private static int ExpectedSize(string key) =>
+        key.StartsWith("battle.", StringComparison.Ordinal) ? BattleAssetKeys.ExpectedSize(key) : 32;
 
     /// <summary>
     /// Parses a BMP's own headers and recomputes every field independently, in the style of
@@ -515,7 +526,7 @@ public sealed class AuthoredPackConformanceTests
     /// size recomputed from width/height/depth with 4-byte row padding, checked against both
     /// the declared image size and the bytes actually present.
     /// </summary>
-    private static void ValidateBmpStructure(byte[] bytes, string assetKey, int expectedBitCount)
+    private static void ValidateBmpStructure(byte[] bytes, string assetKey, int expectedBitCount, int expectedSize = 32)
     {
         Assert.True(bytes.Length >= 54,
             $"{assetKey}: file too short to hold a BMP file header + DIB header ({bytes.Length} bytes)");
@@ -530,8 +541,8 @@ public sealed class AuthoredPackConformanceTests
         Assert.Equal(40u, BitConverter.ToUInt32(bytes, 14));
         var width = BitConverter.ToInt32(bytes, 18);
         var height = BitConverter.ToInt32(bytes, 22);
-        Assert.Equal(32, width);
-        Assert.Equal(32, height);
+        Assert.Equal(expectedSize, width);
+        Assert.Equal(expectedSize, height);
         Assert.True(height > 0, $"{assetKey}: bottom-up DIB expected (positive height)");
         Assert.Equal(1, BitConverter.ToUInt16(bytes, 26)); // colour planes
 

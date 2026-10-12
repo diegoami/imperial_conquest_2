@@ -1,5 +1,6 @@
 using IC2.Engine.Assets;
 using IC2.Engine.Tests.Fixtures;
+using IC2.Slice.Assets;
 using Xunit;
 
 namespace IC2.Engine.Tests.Assets;
@@ -29,6 +30,12 @@ public class AssetSpecificationCoverageTests
     private const string FenceMarker = "```text";
     private const string ClosingFence = "```";
 
+    /// <summary>
+    /// The whole key set: the engine's <see cref="AssetKeys.AllKeys"/> plus T128's Godot-side
+    /// <see cref="BattleAssetKeys.AllKeys"/> (the tactical battle screen's 25 keys), which section 6 lists too.
+    /// </summary>
+    private static IEnumerable<string> AllKeys() => AssetKeys.AllKeys.Concat(BattleAssetKeys.AllKeys);
+
     private static string SpecificationPath =>
         Path.Combine(FixturePaths.RepositoryRoot, "docs", "asset-specification.md");
 
@@ -42,7 +49,7 @@ public class AssetSpecificationCoverageTests
     public void EveryAssetKeysConstant_AppearsInTheGroundTruthBlock()
     {
         var documented = ReadGroundTruthKeys();
-        var engineKeys = AssetKeys.AllKeys.ToList();
+        var engineKeys = AllKeys().ToList();
 
         var missingFromDoc = engineKeys.Where(k => !documented.Contains(k)).ToList();
 
@@ -55,7 +62,7 @@ public class AssetSpecificationCoverageTests
     public void EveryGroundTruthLine_MapsToARealAssetKeysConstant()
     {
         var documented = ReadGroundTruthKeys();
-        var engineKeys = new HashSet<string>(AssetKeys.AllKeys, StringComparer.Ordinal);
+        var engineKeys = new HashSet<string>(AllKeys(), StringComparer.Ordinal);
 
         var strayInDoc = documented.Where(k => !engineKeys.Contains(k)).ToList();
 
@@ -73,7 +80,7 @@ public class AssetSpecificationCoverageTests
         // removed, that is exactly the drift this test exists to catch: update AssetKeys.cs and
         // this specification's §6 block together.
         var documented = ReadGroundTruthKeys();
-        var engineKeyCount = AssetKeys.AllKeys.Count();
+        var engineKeyCount = AllKeys().Count();
 
         Assert.Equal(documented.Count, documented.Distinct(StringComparer.Ordinal).Count());
         Assert.All(documented, key => Assert.False(string.IsNullOrWhiteSpace(key)));
