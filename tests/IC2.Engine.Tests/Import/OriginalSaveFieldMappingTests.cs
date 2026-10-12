@@ -70,21 +70,31 @@ public class OriginalSaveFieldMappingTests
     {
         // docs/tasks/T21.md: the user's waiver of Done-when 2's "zero unmapped fields" was narrow --
         // MercenaryRecord.X/Y ("Mercenary position", #321) and WorldPrefix.Cells ("The map grid's
-        // overlay", the T21 escalation, extended round 3 -- the property carries a dynamic, seasonal
-        // code-1 overlay GameState cannot hold; #339 is its correction). T76 (#330, bug #325) added
-        // MercenaryPoolSlot's own city-tile position, so MercenaryRecord.X/Y are now Mapped and the
-        // waiver is down to that one field. An extra DeclaredUnmapped entry must still fail this test
-        // rather than silently widen the waiver, and so must losing the last one (e.g. WorldPrefix.Cells
-        // reverting to a Derived misclassification, round 2's mistake).
+        // overlay"). T76 (#330) mapped the first pair onto MercenaryPoolSlot's position, and T81 (#339)
+        // maps the second onto GameState.RoughSeaCells, so the waiver is CLOSED: no DeclaredUnmapped
+        // entry is left. An entry appearing again must fail this test rather than silently reopen it.
         var declaredUnmapped = All
             .Where(m => m.Kind == FieldMappingKind.DeclaredUnmapped)
             .Select(m => m.QualifiedName)
             .OrderBy(n => n, StringComparer.Ordinal)
             .ToList();
 
-        Assert.Equal(
-            new[] { "WorldPrefix.Cells" },
-            declaredUnmapped);
+        Assert.Empty(declaredUnmapped);
+    }
+
+    [Fact]
+    public void WorldPrefix_Cells_is_mapped_to_the_rough_sea_overlay_not_waived()
+    {
+        var cells = All.Single(m => m.QualifiedName == "WorldPrefix.Cells");
+
+        Assert.Equal(FieldMappingKind.Mapped, cells.Kind);
+        Assert.Contains("GameState.RoughSeaCells", cells.Reason, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void UnmappedFieldNames_is_empty_because_the_waiver_is_closed()
+    {
+        Assert.Empty(UnmappedFieldNames);
     }
 
     [Fact]

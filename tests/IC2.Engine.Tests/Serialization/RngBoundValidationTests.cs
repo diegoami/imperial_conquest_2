@@ -106,12 +106,33 @@ public class RngBoundValidationTests
         Assert.Contains("economy.weather.bySeason[0].late", ex.Message, StringComparison.Ordinal);
     }
 
-    /// <summary>An empty effects list is legitimate: WeatherEventSystem returns before any draw.</summary>
-    [Fact]
-    public void An_empty_weather_effects_list_is_accepted_because_the_system_skips_the_draw()
+    /// <summary>T81: the ring chance is a random-draw bound too, so it is validated whenever the ruleset loads.</summary>
+    [Theory]
+    [InlineData(1, 0)]
+    [InlineData(-1, 2)]
+    [InlineData(3, 2)]
+    public void A_weather_ring_chance_that_is_not_a_valid_chance_is_refused_naming_the_key(int numerator, int denominator)
     {
         var r = Toy();
-        GameDataValidation.Validate(Document, r with { Economy = r.Economy with { Weather = r.Economy.Weather with { Effects = new ValueList<WeatherEffectRule>(new List<WeatherEffectRule>()) } } });
+        var bad = r with { Economy = r.Economy with { Weather = r.Economy.Weather with { RingChanceNumerator = numerator, RingChanceDenominator = denominator } } };
+        var ex = Assert.Throws<MalformedGameDataException>(() => GameDataValidation.Validate(Document, bad));
+        Assert.Contains("economy.weather.ringChance", ex.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>T81: a negative radius or distance would paint nothing, or loop backwards, silently.</summary>
+    [Fact]
+    public void A_negative_weather_radius_is_refused_naming_the_key()
+    {
+        var r = Toy();
+        var odds = r.Economy.Weather.BySeason[0] with { LateRadiusTiles = -1 };
+        var list = new List<WeatherSeasonOdds>(r.Economy.Weather.BySeason) { [0] = odds };
+        var bad = r with { Economy = r.Economy with { Weather = r.Economy.Weather with { BySeason = new ValueList<WeatherSeasonOdds>(list) } } };
+        var ex = Assert.Throws<MalformedGameDataException>(() => GameDataValidation.Validate(Document, bad));
+        Assert.Contains("economy.weather.bySeason[0].lateRadiusTiles", ex.Message, StringComparison.Ordinal);
+
+        var clear = r with { Economy = r.Economy with { Weather = r.Economy.Weather with { ClearRadiusTiles = -1 } } };
+        var ex2 = Assert.Throws<MalformedGameDataException>(() => GameDataValidation.Validate(Document, clear));
+        Assert.Contains("economy.weather.clearRadiusTiles", ex2.Message, StringComparison.Ordinal);
     }
 
     [Theory]
