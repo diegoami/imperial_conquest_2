@@ -44,7 +44,11 @@ namespace IC2.Engine.Economy;
 /// The credit's two netted deduction terms, as one line — also part of
 /// <see cref="ExpenditureTotal"/>, matching the original dialog's combined "cities and wealth" row.
 /// </param>
-/// <param name="ShipUpkeep">The nation's launched fleets' quarterly upkeep.</param>
+/// <param name="ShipUpkeep">
+/// The Fleet line. Under <see cref="BalanceSheetTotalsPolicy.Reconciling"/>, the launched fleets' quarterly
+/// upkeep (what the tick charges); under <see cref="BalanceSheetTotalsPolicy.Original"/>, every fleet the
+/// nation owns, fleets under construction included, at the per-ship rate (g1 G2).
+/// </param>
 /// <param name="RecruitmentSlotUpkeep">The nation's recruitment slots' quarterly upkeep.</param>
 /// <param name="RegularsUpkeep">
 /// The nation's deployed regulars' quarterly upkeep (treasury-charged) — the sum of
