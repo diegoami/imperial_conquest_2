@@ -6,7 +6,8 @@ namespace IC2.Slice.Checks;
 /// <summary>
 /// Bug #919. Part 1: the window's close request (NotificationWMCloseRequest) with a game open asks the
 /// File -> Close question and quits only on Yes; with no game open it quits at once. Part 2: after
-/// File -> Open, Save rewrites the opened file instead of writing a new default-named one.
+/// File -> Open, Save rewrites the opened file instead of writing a new default-named one. Part 3 (fix #1081):
+/// Save As to a folder outside user://saves becomes the current file, Save writes back to it, Cancel writes nothing.
 /// <code>godot --headless --path godot res://Checks/CloseAndSaveCheck.tscn --quit-after 900</code>
 /// Saves go to user://saves under a check-unique suffix; every file this check creates is removed.
 /// </summary>
@@ -145,6 +146,69 @@ public partial class CloseAndSaveCheck : Node
         Check(File.ReadAllText(saved!) != contentBefore, "Save rewrote the opened file (its content changed)");
         Check(filesAfter.SetEquals(filesBefore), "Save created no new file");
         Check(opened.LastSavedPath == saved, "Save wrote to the opened path");
+
+        // ---- Part 3 (fix #1081): Save As to a folder outside user://saves ----
+        var elsewhere = Path.Combine(Path.GetTempPath(), "ic2-check-1081-" + System.Guid.NewGuid().ToString("N"));
+        try
+        {
+            var target = Path.Combine(elsewhere, "chosen.json");
+            var savedBefore = opened.LastSavedPath;
+
+            opened.SaveAsDialog.Visible = false;
+            opened.SaveAsDialog.EmitSignal(FileDialog.SignalName.Canceled);
+            Check(!Directory.Exists(elsewhere) && opened.LastSavedPath == savedBefore, "Save As cancelled wrote nothing");
+
+            // R4: the command opens the native dialog, configured as Load's Browse is.
+            Check(opened.CommandTable.TryInvoke("file.save_as"), "File > Save As is bound");
+            var dialog = opened.SaveAsDialog;
+            Check(dialog.Access == FileDialog.AccessEnum.Filesystem, "Save As dialog reads the whole file system");
+            Check(dialog.FileMode == FileDialog.FileModeEnum.SaveFile, "Save As dialog is in save mode");
+            Check(dialog.Filters.Length == 1 && dialog.Filters[0].StartsWith("*.json"), "Save As dialog filters to the native format");
+            dialog.Visible = false;
+
+            // R3: a path without the native extension is rejected with a message; nothing is written.
+            var noExt = Path.Combine(elsewhere, "noext");
+            opened.SaveAsForCheck(noExt);
+            Check(!File.Exists(noExt) && !File.Exists(noExt + ".json") && !Directory.Exists(elsewhere)
+                && opened.LastSavedPath == savedBefore, "Save As without .json wrote nothing and kept the current file");
+            Check(opened.SaveMessageForCheck.Contains(".json"), "and said why");
+
+            // R2: an unusable parent folder gives a message, not an exception.
+            Directory.CreateDirectory(elsewhere);
+            var blocker = Path.Combine(elsewhere, "blocker");
+            File.WriteAllText(blocker, "x");
+            opened.SaveAsForCheck(Path.Combine(blocker, "sub", "x.json"));
+            Check(opened.LastSavedPath == savedBefore && opened.SaveMessageForCheck.StartsWith("Not saved"),
+                "Save As under a file used as a folder gave a message and no exception");
+
+            // R1: a failed write leaves the current file unchanged.
+            var asDirectory = Path.Combine(elsewhere, "dir.json");
+            Directory.CreateDirectory(asDirectory);
+            opened.SaveAsForCheck(asDirectory);
+            Check(opened.LastSavedPath == savedBefore, "a failed write did not change the current file");
+            Directory.Delete(asDirectory);
+            File.Delete(blocker);
+            Directory.Delete(elsewhere);
+
+            opened.SaveAsForCheck(target);
+            Check(File.Exists(target), "Save As wrote to a folder outside user://saves");
+            Check(opened.LastSavedPath == target, "the chosen path became the current file");
+
+            opened.SubmitForCheck("end");
+            var contentAs = File.ReadAllText(target);
+            var savesNow = Directory.GetFiles(_savesDirectory).ToHashSet();
+            opened.PressSaveForCheck();
+            Check(File.ReadAllText(target) != contentAs, "a later Save wrote back to the Save As file");
+            Check(opened.LastSavedPath == target, "and kept it as the current file");
+            Check(Directory.GetFiles(_savesDirectory).ToHashSet().SetEquals(savesNow), "and wrote nothing under user://saves");
+        }
+        finally
+        {
+            if (Directory.Exists(elsewhere))
+            {
+                Directory.Delete(elsewhere, true);
+            }
+        }
     }
 
     private bool Check(bool condition, string description)
