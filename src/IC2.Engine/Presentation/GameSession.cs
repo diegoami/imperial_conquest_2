@@ -1809,55 +1809,298 @@ public sealed partial class GameSession
     /// stops the loop instead of pausing on it; both stop-checks are repeated after playing a seat too,
     /// for the ordinary elimination case that check already covered before this task.
     /// </remarks>
-    private void PlayUntilOneFullLapOrRepeat(List<string> lines, HashSet<string> playedThisRound, Func<bool>? stopEarly)
+    private bool PlayUntilOneFullLapOrRepeat(
+        List<string> lines, HashSet<string> playedThisRound, Func<bool>? stopEarly, Action<List<string>>? tail = null)
     {
         while (true)
         {
             DepositActiveHumanSeatIfItShouldFallAtTurnStart(lines);
             if (AnnounceAndAdoptWatchModeIfSeatIsLost(lines) || AnnounceGameOverIfNoHumanSeatRemains(lines))
             {
-                return;
+                break;
             }
 
             if ((stopEarly is not null && stopEarly())
                 || playedThisRound.Contains(State.ActiveNationId)
                 || playedThisRound.Count >= State.TurnOrder.Count)
             {
-                return;
+                break;
             }
 
             var seat = State.ActiveNationId;
             playedThisRound.Add(seat);
-            var nationsBeforeThisSeatsTurn = State.Nations;
-            var result = _coordinator.RunTurn(State);
-            State = result.State;
-
-            // T149: every seat the round plays (the ending seat's own RunTurn, then every AI seat
-            // PlayUntilOneFullLapOrRepeat walks through) contributes its events to the per-Submit
-            // accumulator. The cue list reads the same list a single Submit call drained, so a sound
-            // the AI plays on its own turn still reaches the human.
-            AccumulateEvents(result.Events);
-
-            AppendPerSeatLine(lines, seat, result.Events);
-
-            // T88 (DoD 3, Hazard 1): an AI seat's own turn can resolve a battle that raises a
-            // post-battle treaty for the human, who is not "at the prompt" here -- see
-            // _pendingPeaceTreatyOffers's own remarks for why this cannot block the AI's turn loop.
-            CapturePeaceTreatyOfferIfAny(lines, result.Events);
-            CaptureBattleResultsIfAny(result.Events);
-
-            // T87 rework round 1 (review B3): an AI seat's own turn can eliminate a *different* human
-            // seat outright (a capture taking that human's last city) -- the only path
-            // AnnounceAndAdoptWatchModeIfSeatIsLost (below, --seat-only) and
-            // DepositActiveHumanSeatIfItShouldFallAtTurnStart (above, the *active* seat only) do not
-            // already cover.
-            AppendFallMessagesForNewlyLostHumanSeats(lines, nationsBeforeThisSeatsTurn);
-
-            if (AnnounceAndAdoptWatchModeIfSeatIsLost(lines) || AnnounceGameOverIfNoHumanSeatRemains(lines))
+            var lap = new AiLap(seat, playedThisRound, stopEarly, tail);
+            var step = PlaySeatTurn(lines, lap);
+            if (step == LapStep.Suspended)
             {
-                return;
+                // An AI seat's attack on a human opened a tactical battle (T126): the rest of the lap, and the
+                // tail, run when that battle ends (ResumeAiLap).
+                return true;
+            }
+
+            if (step == LapStep.Stop)
+            {
+                break;
             }
         }
+
+        tail?.Invoke(lines);
+        return false;
+    }
+
+    /// <summary>What <see cref="PlaySeatTurn"/> did with one seat's turn.</summary>
+    private enum LapStep
+    {
+        /// <summary>The turn was played; the lap goes on.</summary>
+        Played,
+
+        /// <summary>The turn was played and the lap must stop (the CLI's seat fell, or no human seat remains).</summary>
+        Stop,
+
+        /// <summary>A tactical battle opened on the board; the lap is stored and resumes when the battle ends.</summary>
+        Suspended,
+    }
+
+    /// <summary>
+    /// One seat's turn of <see cref="PlayUntilOneFullLapOrRepeat"/>'s loop: the pipeline run, then everything that
+    /// follows it. Under <see cref="HumanBattleMode.Tactical"/> an AI seat's attack on a human's army stops the turn
+    /// at that attack (T126, <see cref="AiPhaseBattleGate"/>); the battle opens on the state at the attack and
+    /// <see cref="State"/> is left as it was, so this method is also how the turn is <em>replayed</em> from the
+    /// same pre-turn state when the battle ends, the finished battles injected in order.
+    /// </summary>
+    private LapStep PlaySeatTurn(List<string> lines, AiLap lap)
+    {
+        var seat = lap.Seat;
+        var nationsBeforeThisSeatsTurn = State.Nations;
+        TurnResult result;
+        if (UsesAiPhaseBattleGate())
+        {
+            var gate = new AiPhaseBattleGate(_dispatcher, Ruleset, lap);
+            var gated = new TurnCoordinator(_registry, Ruleset, World, NullEventSink.Instance, gate);
+            try
+            {
+                result = gated.RunTurn(State);
+            }
+            catch (AiPhaseBattleSuspended suspended)
+            {
+                OpenAiPhaseBattle(lines, lap, suspended);
+                return LapStep.Suspended;
+            }
+        }
+        else
+        {
+            result = _coordinator.RunTurn(State);
+        }
+
+        State = result.State;
+
+        // T149: every seat the round plays (the ending seat's own RunTurn, then every AI seat
+        // PlayUntilOneFullLapOrRepeat walks through) contributes its events to the per-Submit
+        // accumulator. The cue list reads the same list a single Submit call drained, so a sound
+        // the AI plays on its own turn still reaches the human.
+        AccumulateEvents(result.Events);
+
+        AppendPerSeatLine(lines, seat, result.Events);
+
+        // T88 (DoD 3, Hazard 1): an AI seat's own turn can resolve a battle that raises a
+        // post-battle treaty for the human, who is not "at the prompt" here -- see
+        // _pendingPeaceTreatyOffers's own remarks for why this cannot block the AI's turn loop.
+        CapturePeaceTreatyOfferIfAny(lines, result.Events);
+        CaptureBattleResultsIfAny(result.Events);
+
+        // T87 rework round 1 (review B3): an AI seat's own turn can eliminate a *different* human
+        // seat outright (a capture taking that human's last city) -- the only path
+        // AnnounceAndAdoptWatchModeIfSeatIsLost (below, --seat-only) and
+        // DepositActiveHumanSeatIfItShouldFallAtTurnStart (above, the *active* seat only) do not
+        // already cover.
+        AppendFallMessagesForNewlyLostHumanSeats(lines, nationsBeforeThisSeatsTurn);
+
+        return AnnounceAndAdoptWatchModeIfSeatIsLost(lines) || AnnounceGameOverIfNoHumanSeatRemains(lines)
+            ? LapStep.Stop
+            : LapStep.Played;
+    }
+
+    // ---- an AI seat's attack on a human's army, fought on the board (T126) ----
+
+    /// <summary>
+    /// The AI-phase battle in progress, if any: the interrupted lap (its <c>playedThisRound</c>, the stop rule and the
+    /// tail) and the battle's state. While it is set <see cref="_battle"/> is open, <see cref="State"/> is the
+    /// <em>pre-turn</em> state of the AI seat that attacked, and <c>save</c> is refused.
+    /// </summary>
+    private AiLap? _lap;
+
+    /// <summary>
+    /// The stored continuation of an interrupted lap (T126). The suspension is a <strong>replay</strong>: nothing
+    /// outside <see cref="Ai.AiTurn"/> can pause a turn inside <see cref="TurnCoordinator.RunTurn"/>, so
+    /// the seat's turn is abandoned at the attack (<see cref="AiPhaseBattleGate"/>), the battle is fought on the state
+    /// at that attack, and when it ends the same seat's turn is run again from the same pre-turn state (hence the
+    /// same seed and the same proposals) with <see cref="Done"/>'s results injected, in order, at their attacks.
+    /// </summary>
+    private sealed class AiLap
+    {
+        public AiLap(string seat, HashSet<string> played, Func<bool>? stopEarly, Action<List<string>>? tail)
+        {
+            Seat = seat;
+            Played = played;
+            StopEarly = stopEarly;
+            Tail = tail;
+        }
+
+        /// <summary>The AI seat whose turn this is.</summary>
+        public string Seat { get; }
+
+        /// <summary>The lap's <c>playedThisRound</c>.</summary>
+        public HashSet<string> Played { get; }
+
+        /// <summary>The lap's stop rule.</summary>
+        public Func<bool>? StopEarly { get; }
+
+        /// <summary>What runs once after the lap ends (the round footer, or nothing).</summary>
+        public Action<List<string>>? Tail { get; }
+
+        /// <summary>The battles of this turn already fought, in the order of their attacks.</summary>
+        public List<AiPhaseBattleResult> Done { get; } = new();
+
+        /// <summary>The game at the attack of the battle now open.</summary>
+        public GameState? AtAttack { get; set; }
+
+        /// <summary>The game the open battle was opened on (the attacker's moves spent, the computer side's army changed).</summary>
+        public GameState? Opened { get; set; }
+    }
+
+    /// <summary>One finished AI-phase battle: the game at its attack, the game after its write-back and the events that raised.</summary>
+    private sealed record AiPhaseBattleResult(GameState AtAttack, GameState After, IReadOnlyList<DomainEvent> Events);
+
+    /// <summary>Thrown by <see cref="AiPhaseBattleGate"/> to abandon an AI seat's turn at an attack that opens a tactical battle.</summary>
+    private sealed class AiPhaseBattleSuspended : Exception
+    {
+        public AiPhaseBattleSuspended(GameState atAttack, AttackArmyCommand command)
+            : base("An AI seat's attack on a human's army opens a tactical battle.")
+        {
+            AtAttack = atAttack;
+            Command = command;
+        }
+
+        public GameState AtAttack { get; }
+
+        public AttackArmyCommand Command { get; }
+    }
+
+    /// <summary>
+    /// Wraps the command dispatcher for an AI seat's turn under <see cref="HumanBattleMode.Tactical"/>. An
+    /// <see cref="AttackArmyCommand"/> by an AI seat on a human's army that the board can host is not dispatched: the
+    /// first time it is met the turn is abandoned (<see cref="AiPhaseBattleSuspended"/>); on the replay, an attack
+    /// whose battle has been fought gets that battle's result instead of the instant resolver's. Every other command
+    /// goes to the inner dispatcher untouched, so a turn with no such attack is the same turn as without the gate.
+    /// </summary>
+    private sealed class AiPhaseBattleGate : ICommandDispatch
+    {
+        private readonly ICommandDispatch _inner;
+        private readonly Ruleset _ruleset;
+        private readonly AiLap _lap;
+        private int _met;
+
+        public AiPhaseBattleGate(ICommandDispatch inner, Ruleset ruleset, AiLap lap)
+        {
+            _inner = inner;
+            _ruleset = ruleset;
+            _lap = lap;
+        }
+
+        public CommandResult Dispatch(GameState state, ICommand command) =>
+            Dispatch(state, command, NullEventSink.Instance);
+
+        public CommandResult Dispatch(GameState state, ICommand command, IEventSink events)
+        {
+            if (!OpensABattle(state, command, out var attack))
+            {
+                return _inner.Dispatch(state, command, events);
+            }
+
+            var index = _met++;
+            if (index >= _lap.Done.Count)
+            {
+                throw new AiPhaseBattleSuspended(state, attack);
+            }
+
+            var done = _lap.Done[index];
+            if (!done.AtAttack.Equals(state))
+            {
+                throw new InvalidOperationException(
+                    "The replay of an AI seat's turn reached its attack in a different state than the first run did.");
+            }
+
+            foreach (var domainEvent in done.Events)
+            {
+                events.Publish(domainEvent);
+            }
+
+            // The write-back already moved the persisted seed once (ApplyTacticalBattleCommandHandler), as one
+            // accepted command does for the instant path (CommandDispatcher), so the state is injected as it is.
+            return CommandResult.Accepted(done.After, command.Kind, ValueList<DomainEvent>.Of(done.Events.ToArray()));
+        }
+
+        private bool OpensABattle(GameState state, ICommand command, out AttackArmyCommand attack)
+        {
+            attack = (command as AttackArmyCommand)!;
+            if (command is not AttackArmyCommand a
+                || state.NationById(a.IssuingNationId)?.Control != SeatControl.Ai
+                || state.ArmyById(a.TargetArmyId) is not { } target
+                || state.NationById(target.Nation)?.Control != SeatControl.Human
+                || AttackLegality.Check(state, _ruleset, a) is not null)
+            {
+                return false;
+            }
+
+            return TacticalBattleSession.CanBeFought(state, a.AttackerArmyId, a.TargetArmyId, _ruleset);
+        }
+    }
+
+    /// <summary>Whether an AI seat's turn is played through <see cref="AiPhaseBattleGate"/>.</summary>
+    private bool UsesAiPhaseBattleGate() =>
+        HumanBattles == HumanBattleMode.Tactical
+        && !IsWatchModeActive
+        && State.Nations.Any(n => !n.Eliminated && n.Control == SeatControl.Human);
+
+    /// <summary>Opens the tactical battle of an AI seat's attack, the human as defender, and stores the lap.</summary>
+    private void OpenAiPhaseBattle(List<string> lines, AiLap lap, AiPhaseBattleSuspended suspended)
+    {
+        var attack = suspended.Command;
+        _battle = TacticalBattleSession.Open(
+            suspended.AtAttack, attack.AttackerArmyId, attack.TargetArmyId, Ruleset, out var opened);
+        lap.AtAttack = suspended.AtAttack;
+        lap.Opened = opened;
+        _lap = lap;
+
+        lines.Add(
+            $"{NationDisplay(lap.Seat)} attacks {NationDisplay(suspended.AtAttack.ArmyById(attack.TargetArmyId)!.Nation)}: "
+            + "the battle opens on the board.");
+        lines.AddRange(_battle.ShowLines());
+        if (_battle.IsOver)
+        {
+            FinishTacticalBattle(lines);
+        }
+    }
+
+    /// <summary>
+    /// The battle of <see cref="_lap"/> has ended and its result is stored: replays the seat's turn with it injected,
+    /// then goes on with the lap and its tail exactly as the uninterrupted lap would have.
+    /// </summary>
+    private void ResumeAiLap(List<string> lines, AiLap lap)
+    {
+        var step = PlaySeatTurn(lines, lap);
+        if (step == LapStep.Suspended)
+        {
+            return;
+        }
+
+        if (step == LapStep.Played)
+        {
+            PlayUntilOneFullLapOrRepeat(lines, lap.Played, lap.StopEarly, lap.Tail);
+            return;
+        }
+
+        lap.Tail?.Invoke(lines);
     }
 
     private void AppendPerSeatLine(List<string> lines, string seatId, IEnumerable<DomainEvent> events)
@@ -1959,9 +2202,11 @@ public sealed partial class GameSession
         var lines = new List<string>();
         var newsBeforeSlots = State.NewsLog.Slots;
 
-        PlayUntilOneFullLapOrRepeat(lines, new HashSet<string>(StringComparer.Ordinal), stopEarly: null);
-
-        AppendRoundFooter(lines, newsBeforeSlots);
+        // T126: the footer is the lap's tail, so it runs once, after the lap ends -- here, or after a lap that a
+        // tactical battle suspended and the battle's end resumed.
+        PlayUntilOneFullLapOrRepeat(
+            lines, new HashSet<string>(StringComparer.Ordinal), stopEarly: null,
+            tail: l => AppendRoundFooter(l, newsBeforeSlots));
         return lines;
     }
 
@@ -2052,13 +2297,18 @@ public sealed partial class GameSession
         AppendFallMessagesForNewlyLostHumanSeats(lines, nationsBeforeThisSeatsTurn);
         CapturePeaceTreatyOfferIfAny(lines, result.Events);
 
+        // T126: the footer is the lap's tail (see HandleEndWatchMode).
+        Action<List<string>> footer = l => AppendRoundFooter(l, newsBeforeSlots);
         if (!AnnounceAndAdoptWatchModeIfSeatIsLost(lines) && !AnnounceGameOverIfNoHumanSeatRemains(lines))
         {
             var playedThisRound = new HashSet<string>(StringComparer.Ordinal) { endingSeat };
-            PlayUntilOneFullLapOrRepeat(lines, playedThisRound, PausesHere);
+            PlayUntilOneFullLapOrRepeat(lines, playedThisRound, PausesHere, footer);
+        }
+        else
+        {
+            footer(lines);
         }
 
-        AppendRoundFooter(lines, newsBeforeSlots);
         return lines;
     }
 

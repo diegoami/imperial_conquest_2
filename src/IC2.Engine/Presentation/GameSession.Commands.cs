@@ -564,6 +564,12 @@ public sealed partial class GameSession
     private void FinishTacticalBattle(List<string> lines)
     {
         var battle = _battle!;
+        if (_lap is { } lap)
+        {
+            FinishAiPhaseBattle(lines, battle, lap);
+            return;
+        }
+
         var nationsBefore = State.Nations;
         var conclusion = battle.Conclude(State, Ruleset);
         if (conclusion.State is null || conclusion.Report is null)
@@ -581,6 +587,31 @@ public sealed partial class GameSession
         CapturePeaceTreatyOfferIfAny(lines, conclusion.Events);
         AppendFallMessagesForNewlyLostHumanSeats(lines, nationsBefore);
         AnnounceGameOverIfNoHumanSeatRemains(lines);
+    }
+
+    /// <summary>
+    /// The end of an AI-phase battle (T126). The write-back is made on the state the battle opened on, and
+    /// is <strong>not</strong> committed to <see cref="State"/>: it is kept in the lap, and the AI seat's turn is
+    /// replayed from the pre-turn state with it injected at the attack, which publishes its events (the news line,
+    /// the peace offer) like any command's and runs every consequence a played turn runs (the fall messages, the
+    /// treaty offer, the game-over check). Then the lap goes on.
+    /// </summary>
+    private void FinishAiPhaseBattle(List<string> lines, TacticalBattleSession battle, AiLap lap)
+    {
+        var conclusion = battle.Conclude(lap.Opened!, Ruleset);
+        if (conclusion.State is null || conclusion.Report is null)
+        {
+            lines.Add($"The battle could not be written back: {conclusion.Rejection}");
+            return;
+        }
+
+        lap.Done.Add(new AiPhaseBattleResult(lap.AtAttack!, conclusion.State, conclusion.Events));
+        _pendingTacticalReport = conclusion.Report;
+        _battle = null;
+        _lap = null;
+
+        lines.AddRange(TacticalBattleSession.ReportLines(conclusion.Report, conclusion.State));
+        ResumeAiLap(lines, lap);
     }
 
     private IReadOnlyList<string> HandleBesiegeCity(string[] tokens)
@@ -1336,6 +1367,12 @@ public sealed partial class GameSession
         if (path is null)
         {
             return new[] { "Usage: save <path>" };
+        }
+
+        // T126: an AI seat's turn is in progress behind an open battle; the continuation is not saved, so nothing is.
+        if (_lap is not null)
+        {
+            return new[] { "Finish the battle first: the turn is in progress." };
         }
 
         if (_pendingPeaceTreatyOffers.Count > 0)
