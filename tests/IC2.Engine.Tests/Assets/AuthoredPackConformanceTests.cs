@@ -58,7 +58,7 @@ public sealed class AuthoredPackConformanceTests
     // --- DoD 1: prompts.json <-> AssetKeys and BattleAssetKeys (the union), both directions (passes from the first commit) ---
 
     [Fact]
-    public void PromptsJson_HasExactlyOnePromptPerAssetKeysConstant()
+    public void PromptFiles_HaveExactlyOnePromptPerKeyOfTheUnion()
     {
         var entries = ReadPromptEntries();
         var soundEntries = ReadSoundPromptEntries();

@@ -7,7 +7,7 @@ namespace IC2.Engine.Tests.Assets;
 
 /// <summary>
 /// T49 DoD 4: <c>docs/asset-specification.md</c> must not silently drift from
-/// <see cref="AssetKeys"/>. The specification carries a fenced "ground truth" block (its §6,
+/// <see cref="AssetKeys"/> and <see cref="BattleAssetKeys"/> (the union). The specification carries a fenced "ground truth" block (its §6,
 /// <c>```text ... ```</c>) that is meant to be read verbatim, and this test is that reading:
 /// </summary>
 /// <remarks>
@@ -48,7 +48,7 @@ public class AssetSpecificationCoverageTests
     }
 
     [Fact]
-    public void EveryAssetKeysConstant_AppearsInTheGroundTruthBlock()
+    public void EveryKeyOfTheUnion_AppearsInTheGroundTruthBlock()
     {
         var documented = ReadGroundTruthKeys();
         var engineKeys = AllKeys().ToList();
@@ -61,7 +61,7 @@ public class AssetSpecificationCoverageTests
     }
 
     [Fact]
-    public void EveryGroundTruthLine_MapsToARealAssetKeysConstant()
+    public void EveryGroundTruthLine_MapsToARealKeyOfTheUnion()
     {
         var documented = ReadGroundTruthKeys();
         var engineKeys = new HashSet<string>(AllKeys(), StringComparer.Ordinal);

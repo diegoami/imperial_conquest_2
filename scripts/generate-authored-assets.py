@@ -5,8 +5,9 @@ A one-shot, re-runnable authoring tool in the shape T29's world export already e
 a human runs it when the prompts change, and the COMMITTED output (assets/packs/authored/)
 is what every build, test and player uses. CI never calls it and holds no key.
 
-It reads assets/prompts.json - one prompt per AssetKeys or BattleAssetKeys constant
-(the union: the engine's keys plus T128's battle-screen keys), authored from
+It reads assets/prompts.json - one prompt per image key of AssetKeys or BattleAssetKeys
+(the union: the engine's keys plus T128's battle-screen keys; the sfx.* prompts are in
+assets/sound-prompts.json), authored from
 docs/asset-specification.md - calls the configured OpenRouter-compatible chat-completions
 endpoint with modalities ["image", "text"] (the image returns as a base64 data URL in the
 assistant message's `images` field), conforms each result to the specification's format
@@ -922,9 +923,10 @@ def _self_check_manifest_merge(failures: list) -> None:
 def self_check() -> list:
     """Run the conforming step on synthetic images drawn in code (never downloaded)
     and validate the output bytes against exactly what the C# conformance test will
-    check: size per kind (32x32, 256x256 surfaces, 20x20 battle.toolbar.* glyphs), BMP
-    structure, bit depth per kind (24-bit tiles and battle.ground, 32-bit BGRA the rest),
-    and transparency for sprites.
+    check for the generic sprite and tile conforming steps (32x32, BMP structure, 32-bit BGRA
+    with the background keyed to alpha for sprites). The per-kind rules of the other
+    kinds (256x256 surfaces, 20x20 battle.toolbar.* glyphs, the opaque battle.unit.* icons and
+    battle.ground) are pinned on the committed files by AuthoredPackConformanceTests, not here.
     Runs automatically before every real generation - the conforming step is proved
     before any money is spent."""
     print("Self-check: conforming step proven on synthetic images (no network, no key; "
