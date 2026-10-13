@@ -158,6 +158,38 @@ public partial class CloseAndSaveCheck : Node
             opened.SaveAsDialog.EmitSignal(FileDialog.SignalName.Canceled);
             Check(!Directory.Exists(elsewhere) && opened.LastSavedPath == savedBefore, "Save As cancelled wrote nothing");
 
+            // R4: the command opens the native dialog, configured as Load's Browse is.
+            Check(opened.CommandTable.TryInvoke("file.save_as"), "File > Save As is bound");
+            var dialog = opened.SaveAsDialog;
+            Check(dialog.Access == FileDialog.AccessEnum.Filesystem, "Save As dialog reads the whole file system");
+            Check(dialog.FileMode == FileDialog.FileModeEnum.SaveFile, "Save As dialog is in save mode");
+            Check(dialog.Filters.Length == 1 && dialog.Filters[0].StartsWith("*.json"), "Save As dialog filters to the native format");
+            dialog.Visible = false;
+
+            // R3: a path without the native extension is rejected with a message; nothing is written.
+            var noExt = Path.Combine(elsewhere, "noext");
+            opened.SaveAsForCheck(noExt);
+            Check(!File.Exists(noExt) && !File.Exists(noExt + ".json") && !Directory.Exists(elsewhere)
+                && opened.LastSavedPath == savedBefore, "Save As without .json wrote nothing and kept the current file");
+            Check(opened.SaveMessageForCheck.Contains(".json"), "and said why");
+
+            // R2: an unusable parent folder gives a message, not an exception.
+            Directory.CreateDirectory(elsewhere);
+            var blocker = Path.Combine(elsewhere, "blocker");
+            File.WriteAllText(blocker, "x");
+            opened.SaveAsForCheck(Path.Combine(blocker, "sub", "x.json"));
+            Check(opened.LastSavedPath == savedBefore && opened.SaveMessageForCheck.StartsWith("Not saved"),
+                "Save As under a file used as a folder gave a message and no exception");
+
+            // R1: a failed write leaves the current file unchanged.
+            var asDirectory = Path.Combine(elsewhere, "dir.json");
+            Directory.CreateDirectory(asDirectory);
+            opened.SaveAsForCheck(asDirectory);
+            Check(opened.LastSavedPath == savedBefore, "a failed write did not change the current file");
+            Directory.Delete(asDirectory);
+            File.Delete(blocker);
+            Directory.Delete(elsewhere);
+
             opened.SaveAsForCheck(target);
             Check(File.Exists(target), "Save As wrote to a folder outside user://saves");
             Check(opened.LastSavedPath == target, "the chosen path became the current file");

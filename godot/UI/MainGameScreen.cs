@@ -812,6 +812,9 @@ public partial class MainGameScreen : Control
     /// <summary>Check hook: Save As as if the dialog had chosen <paramref name="path"/>.</summary>
     public void SaveAsForCheck(string path) => SaveToChosenPath(path);
 
+    /// <summary>Check hook: the text of the save confirmation line.</summary>
+    public string SaveMessageForCheck => _saveConfirmationLabel.Text;
+
     private void SaveToChosenPath(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -821,17 +824,35 @@ public partial class MainGameScreen : Control
 
         if (!path.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
         {
-            path += ".json";
+            ShowSaveAsMessage($"Not saved: '{path}' must end in .json.");
+            return;
         }
 
         var directory = Path.GetDirectoryName(path);
         if (!string.IsNullOrEmpty(directory))
         {
-            Directory.CreateDirectory(directory);
-            _lastSaveAsFolder = directory;
+            try
+            {
+                Directory.CreateDirectory(directory);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+                or ArgumentException or NotSupportedException)
+            {
+                ShowSaveAsMessage($"Not saved: the folder '{directory}' cannot be used ({ex.Message}).");
+                return;
+            }
         }
 
-        SaveToFile(path);
+        if (SaveToFile(path) && !string.IsNullOrEmpty(directory))
+        {
+            _lastSaveAsFolder = directory;
+        }
+    }
+
+    private void ShowSaveAsMessage(string message)
+    {
+        _saveConfirmationLabel.Text = message;
+        _saveConfirmationLabel.TooltipText = message;
     }
 
     /// <summary>Show hints: flips the menu bar's and toolbar's tooltips and the menu check mark together
@@ -1583,7 +1604,7 @@ public partial class MainGameScreen : Control
     /// Writes the current game to <paramref name="path"/> through the real <c>save &lt;path&gt;</c>
     /// command and shows its outcome, the one path both Save and Save As use.
     /// </summary>
-    private void SaveToFile(string path)
+    private bool SaveToFile(string path)
     {
         // T139 [designed wording]: in a hotseat game an offer of peace held for a seat that is not the
         // active one refuses the save, as the engine's `save` does. Say whose answer is owed, and submit
@@ -1598,21 +1619,25 @@ public partial class MainGameScreen : Control
                 $"{owing.Name} must answer an offer of peace at its turn before the game can be saved.";
             _saveConfirmationLabel.Text = refusal;
             _saveConfirmationLabel.TooltipText = refusal;
-            return;
+            return false;
         }
-
-        LastSavedPath = path;
 
         var output = Session.Submit($"save {path}");
         OnCommandIssued(output.Lines);
         var confirmation = CommandOutcomeText.OutcomeBlock(output.Lines);
         _saveConfirmationLabel.Text = confirmation;
         _saveConfirmationLabel.TooltipText = confirmation;
+        var saved = output.Lines.Any(l => l.StartsWith("Saved to", StringComparison.Ordinal));
+        if (saved)
+        {
+            LastSavedPath = path;
+        }
+
+        return saved;
     }
 
     /// <summary>
-    /// The path <see cref="OnSavePressed()"/> last wrote to (or attempted to), set just before it submits
-    /// the real <c>save &lt;path&gt;</c> command — <see langword="null"/> before any save. Exposed, with
+    /// The path <see cref="OnSavePressed()"/> last wrote to, set only after the real <c>save &lt;path&gt;</c> command succeeded (fix #1081) — <see langword="null"/> before any save. Exposed, with
     /// <see cref="PressSaveForCheck"/>, so <c>godot/Checks/SaveResumeCheck.cs</c> and
     /// <c>godot/Checks/SaveResumeScreenshotTour.cs</c> can find the exact file the Save button produced
     /// without duplicating its naming rule.
