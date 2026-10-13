@@ -1,4 +1,6 @@
 using System.Globalization;
+using IC2.Engine.Armies.Commands;
+using IC2.Engine.Core;
 using IC2.Engine.Economy;
 using IC2.Engine.Model;
 
@@ -124,23 +126,33 @@ public sealed class ArmyTransferModel
     private readonly ArmyState _partner;
     private readonly List<int> _unitsToPartner = new();
     private readonly List<int> _unitsBack = new();
+    private readonly GameState? _state;
+    private readonly World? _world;
     private int _supplyNet;
     private int _moneyNet;
+    private CommandDispatcher? _dispatcher;
 
-    private ArmyTransferModel(ArmyState selected, ArmyState partner, Ruleset ruleset)
+    private ArmyTransferModel(ArmyState selected, ArmyState partner, Ruleset ruleset, GameState? state, World? world)
     {
         _selected = selected;
         _partner = partner;
         _ruleset = ruleset;
+        _state = state;
+        _world = world;
     }
 
-    /// <summary>Builds the dialog's model for the selected army A and its game-picked partner B.</summary>
-    public static ArmyTransferModel ForArmies(ArmyState selected, ArmyState partner, Ruleset ruleset)
+    /// <summary>
+    /// Builds the dialog's model for the selected army A and its game-picked partner B. When the live
+    /// <paramref name="state"/> and <paramref name="world"/> are given, the supply "after" amounts are what
+    /// the real <c>army-transfer</c> command would leave (its post-transfer rebalancing included).
+    /// </summary>
+    public static ArmyTransferModel ForArmies(
+        ArmyState selected, ArmyState partner, Ruleset ruleset, GameState? state = null, World? world = null)
     {
         ArgumentNullException.ThrowIfNull(selected);
         ArgumentNullException.ThrowIfNull(partner);
         ArgumentNullException.ThrowIfNull(ruleset);
-        return new ArmyTransferModel(selected, partner, ruleset);
+        return new ArmyTransferModel(selected, partner, ruleset, state, world);
     }
 
     /// <summary>A, the selected army — the command's first id.</summary>
@@ -174,11 +186,53 @@ public sealed class ArmyTransferModel
         _partner.Units.Where((_, i) => !_unitsBack.Contains(i)).Sum(u => u.Troops)
         + _selected.Units.Where((_, i) => _unitsToPartner.Contains(i)).Sum(u => u.Troops);
 
-    /// <summary>A's supply in tons if OK were pressed now (display only; the engine decides on OK).</summary>
-    public int SelectedSupplyAfter => _selected.SupplyTons - _supplyNet;
+    /// <summary>A's supply in tons if OK were pressed now: the real command's result (0 if A is disbanded).</summary>
+    public int SelectedSupplyAfter => Preview().Selected;
 
-    /// <summary>B's supply in tons if OK were pressed now (display only).</summary>
-    public int PartnerSupplyAfter => _partner.SupplyTons + _supplyNet;
+    /// <summary>B's supply in tons if OK were pressed now: the real command's result (0 if B is disbanded).</summary>
+    public int PartnerSupplyAfter => Preview().Partner;
+
+    /// <summary>
+    /// Runs the very command OK would send on the live state through the engine's own dispatcher and reads
+    /// both armies' supply back, so the caption can never disagree with the rebalancing. Without a state, or
+    /// when the engine would refuse, falls back to the staged net alone.
+    /// </summary>
+    private (int Selected, int Partner) Preview()
+    {
+        var netOnly = (_selected.SupplyTons - _supplyNet, _partner.SupplyTons + _supplyNet);
+        if (_state is null || _world is null)
+        {
+            return netOnly;
+        }
+
+        var staged = _unitsToPartner.Count > 0 || _unitsBack.Count > 0 || _supplyNet != 0 || _moneyNet != 0;
+        if (!staged)
+        {
+            return (_selected.SupplyTons, _partner.SupplyTons);
+        }
+
+        var command = new ArmyTransferCommand(
+            _selected.Nation,
+            _selected.Id,
+            _partner.Id,
+            ValueList.From(_unitsToPartner.OrderBy(i => i)),
+            Math.Max(0, _supplyNet),
+            Math.Max(0, _moneyNet),
+            ValueList.From(_unitsBack.OrderBy(i => i)),
+            Math.Max(0, -_supplyNet),
+            Math.Max(0, -_moneyNet));
+        _dispatcher ??= new CommandDispatcher(
+            SystemRegistry.FromEngineAssembly(), _ruleset, _world, NullEventSink.Instance);
+        var result = _dispatcher.Dispatch(_state, command);
+        if (result.IsRejected)
+        {
+            return netOnly;
+        }
+
+        return (
+            result.State.ArmyById(_selected.Id)?.SupplyTons ?? 0,
+            result.State.ArmyById(_partner.Id)?.SupplyTons ?? 0);
+    }
 
     /// <summary>A's supply in tons as the dialog opened.</summary>
     public int SelectedSupplyNow => _selected.SupplyTons;

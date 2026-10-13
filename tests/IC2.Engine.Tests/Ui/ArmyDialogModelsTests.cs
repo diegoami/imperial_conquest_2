@@ -84,7 +84,8 @@ public sealed class ArmyDialogModelsTests
 
     private static ArmyTransferModel Transfer(GameSession session, Ruleset? ruleset = null) =>
         ArmyTransferModel.ForArmies(
-            session.State.ArmyById(ArmyAId)!, session.State.ArmyById(ArmyBId)!, ruleset ?? session.Ruleset);
+            session.State.ArmyById(ArmyAId)!, session.State.ArmyById(ArmyBId)!, ruleset ?? session.Ruleset,
+            session.State, session.World);
 
     // ---- fix 1070: per-side troop totals and the supply caption ----
 
@@ -530,5 +531,65 @@ public sealed class ArmyDialogModelsTests
     public void Quality_caption_maps_the_roster_tiers_and_falls_back_to_the_number(int quality, string expected)
     {
         Assert.Equal(expected, ArmyDialogModels.QualityCaption(quality));
+    }
+
+    // ---- fix 1070 rework 1: the caption's "after" is what the real command leaves ----
+
+    private static (int A, int B) RealSupplies(GameSession session, string line)
+    {
+        var lines = session.Submit(line).Lines;
+        Assert.Contains(lines, l => l.Contains("army-transfer accepted", StringComparison.Ordinal));
+        return (session.State.ArmyById(ArmyAId)?.SupplyTons ?? 0, session.State.ArmyById(ArmyBId)?.SupplyTons ?? 0);
+    }
+
+    [Fact]
+    public void Transfer_caption_after_includes_the_commands_rebalancing_for_a_moved_unit()
+    {
+        // Moving the 5,000-troop unit leaves A far over its new capacity, so the command pushes supply on.
+        var session = Session(aSupply: 200, bSupply: 10);
+        var model = Transfer(session);
+        model.StageUnitToPartner(0);
+        var caption = model.SupplyCaption();
+        var line = model.ComposeOk()!;
+
+        var real = RealSupplies(Session(aSupply: 200, bSupply: 10), line);
+
+        Assert.NotEqual((190, 20), real); // the rebalancing changed the plain net: the case is not vacuous
+        Assert.Equal(real.A, model.SelectedSupplyAfter);
+        Assert.Equal(real.B, model.PartnerSupplyAfter);
+        Assert.Contains($"{ArmyAId} 200 → {real.A} t", caption);
+        Assert.Contains($"{ArmyBId} 10 → {real.B} t", caption);
+    }
+
+    [Fact]
+    public void Transfer_caption_after_matches_the_real_command_for_many_moves()
+    {
+        var cases = new (int[] To, int[] Back, int Net)[]
+        {
+            (new[] { 0 }, System.Array.Empty<int>(), 0),
+            (new[] { 1 }, System.Array.Empty<int>(), 30),
+            (new[] { 0, 1 }, System.Array.Empty<int>(), 0),
+            (System.Array.Empty<int>(), new[] { 0 }, 0),
+            (System.Array.Empty<int>(), new[] { 0 }, -10),
+            (new[] { 0 }, new[] { 0 }, 50),
+            (new[] { 1 }, new[] { 0 }, -10),
+            (System.Array.Empty<int>(), System.Array.Empty<int>(), 100),
+        };
+
+        foreach (var (to, back, net) in cases)
+        {
+            var model = Transfer(Session());
+            foreach (var i in to) { model.StageUnitToPartner(i); }
+            foreach (var i in back) { model.StageUnitBack(i); }
+            model.AdjustSupply(net);
+            var line = model.ComposeOk()!;
+
+            var real = RealSupplies(Session(), line);
+
+            var label = $"{line} (A {model.SelectedSupplyAfter}, B {model.PartnerSupplyAfter})";
+            Assert.True(real.A == model.SelectedSupplyAfter, label + $" real A {real.A}");
+            Assert.True(real.B == model.PartnerSupplyAfter, label + $" real B {real.B}");
+            Assert.Contains($"{ArmyAId} 200 → {real.A} t", model.SupplyCaption());
+        }
     }
 }

@@ -78,7 +78,7 @@ public partial class ArmyTransferDialog : Control
             return;
         }
 
-        _model = ArmyTransferModel.ForArmies(selected, partner, Session.Ruleset);
+        _model = ArmyTransferModel.ForArmies(selected, partner, Session.Ruleset, Session.State, Session.World);
         for (var i = 0; i < selected.Units.Count; i++)
         {
             _rows.Add(new TransferRow(selected.Id, i, selected.Units[i], OnPartnerSide: false));
@@ -268,7 +268,7 @@ public partial class ArmyTransferDialog : Control
             return false;
         }
 
-        _model = ArmyTransferModel.ForArmies(selected, partner, Session.Ruleset);
+        _model = ArmyTransferModel.ForArmies(selected, partner, Session.Ruleset, Session.State, Session.World);
         _rows.Clear();
         for (var i = 0; i < selected.Units.Count; i++)
         {
