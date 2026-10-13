@@ -148,6 +148,9 @@ public partial class MainGameScreen : Control
 
     private readonly Queue<Engine.Battle.BattleResult> _pendingBattleOverlays = new();
 
+    // T127: the army pairs (attacker, defender) the human fought on the board in this screen's life.
+    private readonly HashSet<(string Attacker, string Defender)> _boardBattleArmies = new();
+
     /// <summary>Fix #917: the turn-start offer notices the engine announced, shown one at a time by
     /// <see cref="ShowNextOverlay"/> once any battle, fall, hand-off and peace window has had its turn.</summary>
     private readonly Queue<string> _pendingOfferNotices = new();
@@ -393,6 +396,12 @@ public partial class MainGameScreen : Control
         // follows the new active seat (OnCommandIssued). This also paints the panel's first contents.
         SetViewedNation(Session.State.ActiveNationId);
         RefreshTopBar();
+
+        // T127: a loaded game that holds an open tactical battle reopens the battle screen at once.
+        if (Session.OpenTacticalBattle is not null)
+        {
+            ShowNextOverlay();
+        }
     }
 
     private Control BuildTopBar()
@@ -1619,6 +1628,7 @@ public partial class MainGameScreen : Control
                 $"{owing.Name} must answer an offer of peace at its turn before the game can be saved.";
             _saveConfirmationLabel.Text = refusal;
             _saveConfirmationLabel.TooltipText = refusal;
+            (ActiveOverlay as TacticalBattleScreen)?.ShowMessage(refusal);
             return false;
         }
 
@@ -1627,6 +1637,7 @@ public partial class MainGameScreen : Control
         var confirmation = CommandOutcomeText.OutcomeBlock(output.Lines);
         _saveConfirmationLabel.Text = confirmation;
         _saveConfirmationLabel.TooltipText = confirmation;
+        (ActiveOverlay as TacticalBattleScreen)?.ShowMessage(confirmation);
         var saved = output.Lines.Any(l => l.StartsWith("Saved to", StringComparison.Ordinal));
         if (saved)
         {
@@ -1805,6 +1816,13 @@ public partial class MainGameScreen : Control
         _lastCommandLabel.TooltipText = outcome;
         UpdateLastCommandLinesSkipped();
 
+        // T127: the battle screen covers the map, so it shows the engine's answer itself (a refused Save during an
+        // AI-phase battle shows the engine's own message and nothing else).
+        if (ActiveOverlay is TacticalBattleScreen openBattle)
+        {
+            openBattle.ShowMessage(outcome);
+        }
+
         // T110 [designed]: at every turn start the viewed nation is the active seat's (Scope), even when
         // the active seat itself is unchanged — in a one-human game "end" plays every AI seat and comes
         // back to the same seat, so a seat comparison alone missed the turn boundary and a viewed
@@ -1851,8 +1869,14 @@ public partial class MainGameScreen : Control
             .Where(n => n.Control == SeatControl.Human)
             .Select(n => n.Id)
             .ToList();
+        // T126/T127: a battle the human fought on the board has been seen, so it is shown now, never held.
+        // A tactical battle publishes no BattleResult of its own (the Battle ended window is its report), so
+        // this holds only a result between the very armies a board battle was fought by.
+        var foughtOnBoard = Session.LastBattles
+            .Where(b => _boardBattleArmies.Contains((b.AttackerId, b.DefenderId)))
+            .ToList();
         var battlesToShowNow = _battleReportRouter.Route(
-            Session.LastBattles, humanSeatIds, Session.State.ActiveNationId);
+            Session.LastBattles, humanSeatIds, Session.State.ActiveNationId, foughtOnBoard);
         foreach (var battle in battlesToShowNow)
         {
             _pendingBattleOverlays.Enqueue(battle);
@@ -1987,6 +2011,18 @@ public partial class MainGameScreen : Control
 
     private void ShowNextOverlay()
     {
+        // T127: an open tactical battle is fought on its screen before anything else is shown; the windows
+        // queued behind it wait for the battle's end (its OK calls this again).
+        if (Session.OpenTacticalBattle is { } openBattle)
+        {
+            if (ActiveOverlay is not TacticalBattleScreen)
+            {
+                ShowTacticalBattleOverlay(openBattle);
+            }
+
+            return;
+        }
+
         // T138: a fall window comes after this call's battle windows and before a hotseat hand-off
         // (docs/tasks/T138.md's scope item 4), so the player whose seat fell sees the battle that caused
         // it and then the fall, before the device is passed. With no fall queued, T116's own order stands
@@ -2125,6 +2161,42 @@ public partial class MainGameScreen : Control
             ShowNextOverlay();
         };
         ShowOverlay(screen);
+    }
+
+    /// <summary>
+    /// T127: opens the tactical battle screen for the battle the session holds open (a human's attack, an AI seat's
+    /// attack on a human, or a loaded mid-battle save). Its orders go to the session; when an order ends the
+    /// battle the <em>Battle ended</em> window follows, and its OK carries on with the call's other windows and the
+    /// peace offer.
+    /// </summary>
+    private void ShowTacticalBattleOverlay(TacticalBattleView view)
+    {
+        _boardBattleArmies.Add((view.AttackerArmyId, view.DefenderArmyId));
+        var screen = new TacticalBattleScreen { Session = Session, InitialView = view, RepositoryRoot = RepositoryRoot };
+        screen.OrderIssued += output => OnCommandIssued(output.Lines);
+        screen.BattleEnded += output => ShowBattleEndedOverlay(screen, output);
+        screen.SaveRequested += () => CommandTable.TryInvoke("file.save");
+        screen.SaveAsRequested += () => CommandTable.TryInvoke("file.save_as");
+        ShowOverlay(screen);
+    }
+
+    private void ShowBattleEndedOverlay(TacticalBattleScreen battleScreen, SessionOutput output)
+    {
+        CloseOverlay(battleScreen);
+        var report = output.EndedBattleReport!;
+        var ended = new BattleEndedScreen
+        {
+            Model = BattleEndedViewModel.FromReport(report, Session.State, Session.Ruleset),
+        };
+        ended.Closed += () =>
+        {
+            CloseOverlay(ended);
+
+            // The engine wrote the battle back in the call that ended it; OK carries on with that call's own
+            // windows (the battle results routed to this seat, a fall, a hand-off) and then the peace offer.
+            OnCommandIssued(output.Lines);
+        };
+        ShowOverlay(ended);
     }
 
     private void ShowBattleResultOverlay(Engine.Battle.BattleResult battle)
