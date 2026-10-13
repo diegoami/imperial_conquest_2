@@ -214,4 +214,27 @@ public sealed class RecruitAllCitiesTests
         Assert.True(ready.IsReady);
         Assert.Equal("ready", ready.ReadinessText);
     }
+
+    /// <summary>Fix 1069: the dialog shows the troop box's maximum and step, from the very bounds the box uses.</summary>
+    [Fact]
+    public void TroopBoundsText_names_the_maximum_and_step_of_the_spinners_own_bounds()
+    {
+        var model = Model(RomeSession());
+        var types = model.UnitTypes.Select(u => u.Id).ToList();
+        Assert.True(types.Count > 1);
+        var texts = new List<string>();
+        foreach (var id in types)
+        {
+            var bounds = model.TroopBoundsFor(id);
+            var text = model.TroopBoundsText(id);
+            Assert.Contains(bounds.Maximum.ToString(System.Globalization.CultureInfo.InvariantCulture), text, StringComparison.Ordinal);
+            Assert.Contains(bounds.Step.ToString(System.Globalization.CultureInfo.InvariantCulture), text, StringComparison.Ordinal);
+            Assert.Contains("max", text, StringComparison.OrdinalIgnoreCase);
+            texts.Add(text);
+        }
+
+        // It follows the type: types with different maxima give different texts.
+        var maxima = types.Select(id => model.TroopBoundsFor(id).Maximum).Distinct().Count();
+        Assert.Equal(maxima > 1, texts.Distinct().Count() > 1);
+    }
 }
