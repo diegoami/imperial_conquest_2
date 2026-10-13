@@ -23,7 +23,7 @@ twice, so the committed images are the source of truth, exactly as T29's exporte
 This script never regenerates anything unless asked, and the pack's tests pin conformance,
 never byte equality.
 
-Cost model: dry run by default (DoD 3); a real, billable run needs --key <AssetKey>
+Cost model: dry run by default (DoD 3); a real, billable run needs --key <key of AssetKeys or BattleAssetKeys>
 (repeatable, DoD 4) or an explicit --all. The API key comes from assets-generator.local.ini
 (git-ignored; copy assets-generator.example.ini) or the OPENROUTER_API_KEY environment
 variable, is never printed, and request headers are never echoed. One run at a time: the
@@ -41,7 +41,7 @@ never eaten), the magenta spill is removed from the anti-aliased edge, the resul
 cropped to the subject's bounding box, padded to a square, downscaled with Lanczos, and
 made a solid silhouette (alpha 255 or 0).
 
-Sound effects (the three sfx.* keys) are synthesized locally and deterministically in the
+Sound effects (the three sfx.* keys with a synthesizer; the other sfx.* keys come from sound-prompts.json) are synthesized locally and deterministically in the
 mono 44.1 kHz 16-bit PCM shape of docs/asset-specification.md par. 1.4 - no image API
 produces audio - from the same prompts.json entries that describe them.
 
@@ -922,7 +922,9 @@ def _self_check_manifest_merge(failures: list) -> None:
 def self_check() -> list:
     """Run the conforming step on synthetic images drawn in code (never downloaded)
     and validate the output bytes against exactly what the C# conformance test will
-    check: 32x32, BMP structure, bit depth per kind, and transparency for sprites.
+    check: size per kind (32x32, 256x256 surfaces, 20x20 battle.toolbar.* glyphs), BMP
+    structure, bit depth per kind (24-bit tiles and battle.ground, 32-bit BGRA the rest),
+    and transparency for sprites.
     Runs automatically before every real generation - the conforming step is proved
     before any money is spent."""
     print("Self-check: conforming step proven on synthetic images (no network, no key; "
@@ -2010,7 +2012,7 @@ def main(argv: list | None = None) -> int:
                              "36 toolbar icons, 15 battle unit icons, 8 tiles incl. battle.ground, "
                              "8 battle toolbar glyphs, 6 surface textures; 3 sfx "
                              "synthesized locally, not billed)")
-    parser.add_argument("--key", action="append", default=[], metavar="AssetKey",
+    parser.add_argument("--key", action="append", default=[], metavar="KEY",
                         help="REAL RUN: regenerate only this key (repeatable). Any "
                              "selection without --dry-run is a billable run.")
     parser.add_argument("--reconform", action="store_true",
