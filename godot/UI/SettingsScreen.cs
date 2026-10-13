@@ -1,4 +1,5 @@
 using Godot;
+using IC2.Slice.Screens;
 
 namespace IC2.Slice.UI;
 
@@ -50,6 +51,27 @@ public partial class SettingsScreen : Control
     /// (which reads <see cref="SoundEnabled"/> on every event) is what mutes the player.
     /// </summary>
     public static void SetSoundEnabledForCheck(bool enabled) => SoundEnabled = enabled;
+
+    /// <summary>
+    /// T127: the tactical battle screen's pause after a shot, in seconds (0 to 3.0 in 0.1 s steps; default 0). A
+    /// display-only player setting kept beside <see cref="SelectedPackId"/>: it is never in a save or a ruleset, and the
+    /// engine never waits (the user's decisions of 2026-10-04 on #496).
+    /// </summary>
+    public static double BattleShotDelaySeconds { get; private set; }
+
+    /// <summary>T127: the pause after a melee attack, in seconds (0 to 3.0 in 1.0 s steps; default 0). See <see cref="BattleShotDelaySeconds"/>.</summary>
+    public static double BattleAttackDelaySeconds { get; private set; }
+
+    /// <summary>
+    /// T127: sets both battle pauses, snapped to the original's <c>TBattleDelays</c> grid (<see cref="BattlePauses"/>).
+    /// </summary>
+    /// <param name="shotSeconds">The pause after a shot.</param>
+    /// <param name="attackSeconds">The pause after an attack.</param>
+    public static void SetBattlePauses(double shotSeconds, double attackSeconds)
+    {
+        BattleShotDelaySeconds = BattlePauses.SnapShot(shotSeconds);
+        BattleAttackDelaySeconds = BattlePauses.SnapAttack(attackSeconds);
+    }
 
     public override void _Ready()
     {
@@ -114,6 +136,41 @@ public partial class SettingsScreen : Control
         };
         soundCheck.Toggled += pressed => SoundEnabled = pressed;
         column.AddChild(soundCheck);
+
+        // T127: the tactical battle's two display-only pauses, as the original's Change pauses dialog offers them.
+        column.AddChild(UiKit.MakeLabel("Battle pauses (seconds):", 16, UiKit.TextColor));
+        column.AddChild(MakePauseRow(
+            "After a shot", BattlePauses.ShotStepSeconds, BattleShotDelaySeconds,
+            value => SetBattlePauses(value, BattleAttackDelaySeconds)));
+        column.AddChild(MakePauseRow(
+            "After an attack", BattlePauses.AttackStepSeconds, BattleAttackDelaySeconds,
+            value => SetBattlePauses(BattleShotDelaySeconds, value)));
+    }
+
+    private static HBoxContainer MakePauseRow(string caption, double step, double current, Action<double> onChanged)
+    {
+        var row = new HBoxContainer();
+        row.AddThemeConstantOverride("separation", 12);
+        var name = UiKit.MakeLabel(caption, 14, UiKit.TextColor);
+        name.CustomMinimumSize = new Vector2(130, 0);
+        row.AddChild(name);
+        var slider = new HSlider
+        {
+            MinValue = 0,
+            MaxValue = BattlePauses.MaxSeconds,
+            Step = step,
+            Value = current,
+            CustomMinimumSize = new Vector2(220, 24),
+        };
+        var value = UiKit.MakeLabel(current.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture), 14, UiKit.MutedTextColor);
+        slider.ValueChanged += v =>
+        {
+            onChanged(v);
+            value.Text = v.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+        };
+        row.AddChild(slider);
+        row.AddChild(value);
+        return row;
     }
 
     private static List<string> DiscoverPacks()
