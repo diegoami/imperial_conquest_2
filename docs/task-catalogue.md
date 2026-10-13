@@ -228,6 +228,7 @@ graph TD
   T119 --> T167[T167 faithful balance sheet]
   T168[T168 UI evaluation]
   T168 --> T169[T169 UI theme]
+  T170[T170 sea terrain rename]
   T156[T156 AI army target tree]
   T23 --> T26[T26 scenario docs+examples]
   T29 --> T26
@@ -1309,6 +1310,10 @@ UI evaluation (from #899, the user's priority of 2026-10-12; ships in `v0.6.0`) 
 
 UI theme (from #899 and the user's pick at T168's review; ships in `v0.6.0`) → [full entry](tasks/T169.md) · [#1073](https://github.com/diegoami/imperial_conquest_2/issues/1073)
 
+#### T170 Rename the sea terrain to what it is: calm sea and rough sea
+
+Sea terrain ids (from #1068, deferred from T81; ships in `v0.6.0`) → [full entry](tasks/T170.md) · [#1089](https://github.com/diegoami/imperial_conquest_2/issues/1089)
+
 ---
 
 #### T25 Battle result, diplomacy, and hotseat handoff screens
@@ -1509,3 +1514,4 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T167](#t167-under-classical-faithful-the-balance-sheet-totals-as-the-original-does-mercenaries-fleets-under-construction-a-rounded-debt-limit) | Faithful balance sheet | none | the user's choice | Medium | the user's choice | T119 | [#1043](https://github.com/diegoami/imperial_conquest_2/issues/1043) |
 | [T168](#t168-the-uis-look-evaluated-against-the-original-with-font-and-palette-candidates-for-the-user-to-choose) | UI evaluation | M18 | the user's choice | Medium | the user's choice | none | [#1072](https://github.com/diegoami/imperial_conquest_2/issues/1072) |
 | [T169](#t169-one-theme-for-the-whole-app-the-chosen-fonts-a-compact-type-scale-and-the-new-palette-and-no-godot-splash) | UI theme | M18 | the user's choice | High | the user's choice | T168 | [#1073](https://github.com/diegoami/imperial_conquest_2/issues/1073) |
+| [T170](#t170-rename-the-sea-terrain-to-what-it-is-calm-sea-and-rough-sea) | Sea terrain rename | M18 | the user's choice | Medium | the user's choice | none | [#1089](https://github.com/diegoami/imperial_conquest_2/issues/1089) |
