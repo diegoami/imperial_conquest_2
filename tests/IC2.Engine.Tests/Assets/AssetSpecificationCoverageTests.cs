@@ -56,7 +56,7 @@ public class AssetSpecificationCoverageTests
         var missingFromDoc = engineKeys.Where(k => !documented.Contains(k)).ToList();
 
         Assert.True(missingFromDoc.Count == 0,
-            "AssetKeys constants missing from docs/asset-specification.md §6: " +
+            "AssetKeys/BattleAssetKeys constants missing from docs/asset-specification.md §6: " +
             string.Join(", ", missingFromDoc));
     }
 
@@ -69,7 +69,7 @@ public class AssetSpecificationCoverageTests
         var strayInDoc = documented.Where(k => !engineKeys.Contains(k)).ToList();
 
         Assert.True(strayInDoc.Count == 0,
-            "docs/asset-specification.md §6 names keys that AssetKeys.AllKeys does not: " +
+            "docs/asset-specification.md §6 names keys that neither AssetKeys.AllKeys nor BattleAssetKeys.AllKeys has: " +
             string.Join(", ", strayInDoc));
     }
 
@@ -78,8 +78,8 @@ public class AssetSpecificationCoverageTests
     {
         // A cheap sanity check on the parse itself: distinct, non-empty keys, and — asserted
         // directly here, not just implied by the other two tests — exactly as many of them as
-        // AssetKeys.AllKeys yields today. If this ever fails because a real key was added or
-        // removed, that is exactly the drift this test exists to catch: update AssetKeys.cs and
+        // AssetKeys.AllKeys plus BattleAssetKeys.AllKeys yield today. If this ever fails because a real key was added or
+        // removed, that is exactly the drift this test exists to catch: update AssetKeys.cs / BattleAssetKeys.cs and
         // this specification's §6 block together.
         var documented = ReadGroundTruthKeys();
         var engineKeyCount = AllKeys().Count();

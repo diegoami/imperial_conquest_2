@@ -28,7 +28,7 @@ namespace IC2.Engine.Tests.Assets;
 /// palette (<c>docs/asset-specification.md</c> §2.3) is applied at DRAW time by tinting each
 /// marker with its owner's colour, not baked into sixteen per-nation variants, because the
 /// asset keys are one per tier, not one per nation. Terrain tiles are full-colour, fully
-/// opaque, 24-bit, per §1.2. T101's <c>ui.command.*</c> icons are the deliberate exception:
+/// opaque, 24-bit, per §1.2 (T128's <c>battle.ground</c> is a tile too). T101's <c>ui.command.*</c> icons are the deliberate exception:
 /// pictorial, full-colour 32-bit BGRA on a transparent background, never tinted, checked by
 /// their own format/size/transparency test rather than the silhouette test.
 /// </para>
@@ -53,7 +53,7 @@ public sealed class AuthoredPackConformanceTests
     private static readonly string SoundPromptsFilePath =
         Path.Combine(FixturePaths.RepositoryRoot, "assets", "sound-prompts.json");
 
-    // --- DoD 1: prompts.json <-> AssetKeys, both directions (passes from the first commit) ---
+    // --- DoD 1: prompts.json <-> AssetKeys and BattleAssetKeys (the union), both directions (passes from the first commit) ---
 
     [Fact]
     public void PromptsJson_HasExactlyOnePromptPerAssetKeysConstant()
@@ -61,8 +61,8 @@ public sealed class AuthoredPackConformanceTests
         var entries = ReadPromptEntries();
         var soundEntries = ReadSoundPromptEntries();
 
-        // The two prompt files together cover every AssetKey: prompts.json for the image
-        // generation keys, sound-prompts.json for the sfx.* keys (T149 split).
+        // The two prompt files together cover every key of the union AssetKeys.AllKeys + BattleAssetKeys.AllKeys:
+        // prompts.json for the image keys (the engine's and the battle screen's), sound-prompts.json for the sfx.* keys (T149 split).
         var allPromptKeys = new HashSet<string>(
             entries.Select(e => e.Key).Concat(soundEntries.Select(e => e.Key)),
             StringComparer.Ordinal);
@@ -98,8 +98,8 @@ public sealed class AuthoredPackConformanceTests
                 $"{entry.Key}: the source field is empty - DoD 1 requires every prompt to cite the "
                 + "docs/asset-specification.md depiction line it was written from");
 
-            // The kind drives the format conformance (sprite -> 32-bit BGRA, tile -> 24-bit opaque,
-            // sfx -> WAV), so it must agree with the key's own category, not just be any string.
+            // The kind drives the format conformance (sprite/ui -> 32-bit BGRA, tile -> 24-bit opaque,
+            // battle_unit -> 32-bit opaque BGRA, battle_glyph -> 20x20 32-bit BGRA, sfx -> WAV), so it must agree with the key's own category, not just be any string.
             Assert.Equal(ExpectedKind(entry.Key), entry.Kind);
         });
     }
@@ -166,8 +166,9 @@ public sealed class AuthoredPackConformanceTests
 
             Assert.True(File.Exists(fullPath), $"Image file not found: {key} ({fullPath})");
 
-            // Terrain tiles are 24-bit opaque; every other image asset (unit icons and
-            // army/fleet/city markers) is 32-bit BGRA - docs/asset-specification.md 1.2.
+            // Terrain tiles and battle.ground are 24-bit opaque; every other image asset (unit icons,
+            // army/fleet/city markers, battle.unit.* icons - opaque, alpha 255 - battle.cursor and the
+            // 20x20 battle.toolbar.* glyphs) is 32-bit BGRA - docs/asset-specification.md 1.2, 4.7.
             ValidateBmpStructure(File.ReadAllBytes(fullPath), key, ExpectedBitCount(key), ExpectedSize(key));
         }
     }
