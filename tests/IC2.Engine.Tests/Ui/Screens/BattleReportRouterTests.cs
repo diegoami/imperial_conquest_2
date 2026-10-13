@@ -102,6 +102,25 @@ public sealed class BattleReportRouterTests
         Assert.Equal(new[] { humanVersusHuman }, router.HeldFor("seleucid"));
     }
 
+    /// <summary>
+    /// T126: a battle the human already fought on the board (here against an AI seat's attack, while another
+    /// seat is active) is shown now and not held for the human's turn start; a battle of the same call that was
+    /// not fought on the board is still held.
+    /// </summary>
+    [Fact]
+    public void A_battle_the_human_fought_on_the_board_is_not_held_for_the_turn_start()
+    {
+        var router = new IC2.Slice.Screens.BattleReportRouter();
+        var fought = Battle("carthage", "rome", attackerId: "carthage-army-1", defenderId: "rome-army-1");
+        var notFought = Battle("macedonia", "rome", attackerId: "macedonia-army-1", defenderId: "rome-army-2");
+        var humans = new[] { "rome", "seleucid" };
+
+        var shown = router.Route(new[] { fought, notFought }, humans, "seleucid", new[] { fought });
+
+        Assert.Equal(new[] { fought }, shown);
+        Assert.Equal(new[] { notFought }, router.HeldFor("rome"));
+    }
+
     private static BattleResult Battle(
         string attackerNation, string defenderNation, string attackerId, string defenderId) => new(
         Kind: BattleKind.Field,

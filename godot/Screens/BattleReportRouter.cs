@@ -65,6 +65,11 @@ public sealed class BattleReportRouter
     /// eliminated mid-call is already gone here.
     /// </param>
     /// <param name="activeNationId">The nation that is active once the call returns.</param>
+    /// <param name="foughtOnBoard">
+    /// T126: the call's battles the human already fought on the board (a tactical battle, against an AI seat's
+    /// attack or the human's own). Such a battle has been seen, so it is shown now whichever seat is active and is
+    /// never held for a turn start. <see langword="null"/> (the default) is T116's rule alone.
+    /// </param>
     /// <returns>
     /// The battle windows to show now, in order: first any battles previously held for the now-active
     /// seat (which is what makes a held report appear at that seat's own turn start), then this call's
@@ -73,7 +78,8 @@ public sealed class BattleReportRouter
     public IReadOnlyList<BattleResult> Route(
         IReadOnlyList<BattleResult> battles,
         IReadOnlyCollection<string> humanSeatIds,
-        string activeNationId)
+        string activeNationId,
+        IReadOnlyCollection<BattleResult>? foughtOnBoard = null)
     {
         ArgumentNullException.ThrowIfNull(battles);
         ArgumentNullException.ThrowIfNull(humanSeatIds);
@@ -100,6 +106,13 @@ public sealed class BattleReportRouter
 
         foreach (var battle in battles)
         {
+            if (foughtOnBoard is not null && foughtOnBoard.Contains(battle))
+            {
+                // T126: fought on the board by the human, so it is not held for a turn start.
+                showNow.Add(battle);
+                continue;
+            }
+
             var humanSides = HumanSidesOf(battle, humans);
             if (humanSides.Count == 0)
             {
