@@ -37,7 +37,7 @@ internal static class BattleFixtures
 
     /// <summary>The block of a block save.</summary>
     public static SaveBattleBlock Block(string relative) =>
-        SaveTurnState.Parse(Read(relative)).BattleBlock
+        SaveTurnState.Parse(Read(relative)).GetBattleBlock()
         ?? throw new InvalidDataException($"'{relative}' carries no battle block.");
 
     /// <summary>Imports a save through T21's importer.</summary>

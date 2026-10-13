@@ -62,7 +62,7 @@ public class SaveBattleBlockTests
             var data = File.ReadAllBytes(path);
             Assert.True(data.Length == BlockSaveLength, $"{Path.GetFileName(path)}: {data.Length} bytes, expected {BlockSaveLength}");
 
-            var block = SaveTurnState.Parse(data).BattleBlock;
+            var block = SaveTurnState.Parse(data).GetBattleBlock();
 
             Assert.True(block is not null, $"{Path.GetFileName(path)}: no battle block parsed");
             Assert.Equal(SaveBattleBlock.Length, block!.Raw.Count);
@@ -88,7 +88,7 @@ public class SaveBattleBlockTests
         {
             var data = File.ReadAllBytes(path);
             Assert.True(data.Length == BaseSaveLength, $"{Path.GetFileName(path)}: {data.Length} bytes, expected {BaseSaveLength}");
-            Assert.Null(SaveTurnState.Parse(data).BattleBlock);
+            Assert.Null(SaveTurnState.Parse(data).GetBattleBlock());
         }
     }
 
@@ -101,7 +101,7 @@ public class SaveBattleBlockTests
         var broken = new List<string>();
         foreach (var path in BlockSaves())
         {
-            var block = SaveTurnState.Parse(File.ReadAllBytes(path)).BattleBlock!;
+            var block = SaveTurnState.Parse(File.ReadAllBytes(path)).GetBattleBlock()!;
             var follows = IconGridFollowsRule(block);
             if (CraftedToBreakGrid(path))
             {
@@ -137,7 +137,7 @@ public class SaveBattleBlockTests
         Assert.NotEmpty(firstFiles);
         foreach (var path in firstFiles)
         {
-            var block = SaveTurnState.Parse(File.ReadAllBytes(path)).BattleBlock!;
+            var block = SaveTurnState.Parse(File.ReadAllBytes(path)).GetBattleBlock()!;
             foreach (var slot in block.Slots.Where(s => s.Troops > 0))
             {
                 Assert.True(

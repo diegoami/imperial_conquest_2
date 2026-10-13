@@ -12,7 +12,7 @@ namespace IC2.Data;
 /// week, <c>+42</c> year BC, <c>+44</c> season, <c>+46</c> 8 bytes of main-window geometry (UI state,
 /// not parsed here), <c>+54</c> a 1-byte battle-in-progress flag, read by
 /// <see cref="LocateTrailerStart"/> to pick the trailer's position and by <see cref="Parse"/>, which
-/// exposes the block it announces as <see cref="BattleBlock"/>. See
+/// exposes the block it announces through <see cref="GetBattleBlock"/>. See
 /// https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-sav-file-layout.md,
 /// the 2026-09-14 correction, checked on 54 saves.
 /// <para>A save written during a tactical battle sets that flag to 1 and writes the
@@ -37,7 +37,7 @@ public sealed class SaveTurnState
     private SaveTurnState(ushort currentNationCode, ushort week, ushort yearBc, ushort seasonCode,
         ushort[] turnOrder, ushort turnOrderIndex, SaveBattleBlock? battleBlock)
     {
-        BattleBlock = battleBlock;
+        _battleBlock = battleBlock;
         CurrentNationCode = currentNationCode;
         Week = week;
         YearBc = yearBc;
@@ -49,9 +49,14 @@ public sealed class SaveTurnState
         TurnOrderIndex = turnOrderIndex;
     }
 
+    private readonly SaveBattleBlock? _battleBlock;
+
     /// <summary>The tactical-battle block, when the trailer's battle flag (<c>+54</c>) is set; otherwise
-    /// <see langword="null"/>. The block is the <see cref="BattleBlockLength"/> bytes after the trailer.</summary>
-    public SaveBattleBlock? BattleBlock { get; }
+    /// <see langword="null"/>. The block is the <see cref="BattleBlockLength"/> bytes after the trailer.
+    /// A method, not a property, on purpose: the block is not a field of the strategic game state, so it has
+    /// no row in the importer's field mapping; the battle importer reads it
+    /// (<c>OriginalBattleBlockImport</c>).</summary>
+    public SaveBattleBlock? GetBattleBlock() => _battleBlock;
 
     public ushort CurrentNationCode { get; }
     public ushort Week { get; }
