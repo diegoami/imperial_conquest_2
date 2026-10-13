@@ -159,4 +159,4 @@ The 13 candidate boards (`rendered/candidates/`): `00-baseline.png`; `01..04` pa
 
 ## 7. The user's decision
 
-*To be recorded by the main session after the review: the pairing, the palette and the scale the user picks (or the changes the user asks for), and T169's entry updated to name them before T169 is dispatched.*
+The user's pick at T168's review (2026-10-12): **pairing A** (Cinzel for titles, headers and the menu bar; Source Sans 3 for panels, tables and the news log), the **Bronze Night** palette, and the **compact type scale proposed in section 4**, unchanged. [T169](../tasks/T169.md) applies it.
