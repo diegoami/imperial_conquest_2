@@ -28,8 +28,8 @@ Cost model: dry run by default (DoD 3); a real, billable run needs --key <a key 
 AssetKeys or BattleAssetKeys, or one of the three sfx.* keys it lists> (repeatable, DoD 4) or an explicit --all. The API key comes from assets-generator.local.ini
 (git-ignored; copy assets-generator.example.ini) or the OPENROUTER_API_KEY environment
 variable, is never printed, and request headers are never echoed. One run at a time: the
-run is long, billable and network-bound, and the script takes a lock file to keep two
-runs from double-billing.
+run is long, billable and network-bound (the three locally synthesized sfx.* keys alone bill nothing and
+need no network), and the script takes a lock file to keep two runs from double-billing.
 
 Originals and offline re-conforming: every real run first saves the full-resolution image
 exactly as the model returned it to rendered/authored-raw/<asset-key>.png (git-ignored),
@@ -1713,7 +1713,7 @@ def dry_run(config: dict, entries: list, selection: list, models: list | None) -
 
 def run_real(config: dict, entries: list, selection: list, out_dir: str,
              prompts_path: str, raw_dir: str = DEFAULT_RAW_DIR) -> int:
-    print("T51 asset generator - REAL RUN (billable, network-bound, single-instance)")
+    print("T51 asset generator - REAL RUN (billable and network-bound for image keys; single-instance)")
 
     if "config_error" in config:
         print(f"error: {config['config_error']}", file=sys.stderr)
@@ -2006,7 +2006,7 @@ def main(argv: list | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="generate-authored-assets.py",
         description="T51's prompt-driven asset generator. Dry run by default; a real, "
-        "billable run needs --key or --all.",
+        "billable run needs --key or --all (a selection of only the three local sfx.* keys bills nothing).",
     )
     parser.add_argument("--dry-run", action="store_true",
                         help="force a dry run even with --key/--all (the default without "
@@ -2017,8 +2017,9 @@ def main(argv: list | None = None) -> int:
                              "8 battle toolbar glyphs, 6 surface textures; 3 sfx "
                              "synthesized locally, not billed)")
     parser.add_argument("--key", action="append", default=[], metavar="KEY",
-                        help="REAL RUN: regenerate only this key (repeatable). Any "
-                             "selection without --dry-run is a billable run.")
+                        help="REAL RUN: regenerate only this key (repeatable). A selection "
+                             "with any image key and without --dry-run is a billable run; the three "
+                             "synthesized sfx.* keys are generated locally and bill nothing.")
     parser.add_argument("--reconform", action="store_true",
                         help="OFFLINE and FREE (no network, no key): rebuild the pack "
                              "(images plus manifest) from the full-resolution originals "
