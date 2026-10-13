@@ -12,7 +12,7 @@
   },
   "tileTypes": [
     {
-      "id": "sea_coastal",
+      "id": "sea_calm",
       "code": 0,
       "name": "Sea",
       "passableByArmies": false,
@@ -22,7 +22,7 @@
       }
     },
     {
-      "id": "sea_deep",
+      "id": "sea_rough",
       "code": 1,
       "name": "Sea",
       "passableByArmies": false,

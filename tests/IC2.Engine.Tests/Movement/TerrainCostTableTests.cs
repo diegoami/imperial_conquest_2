@@ -65,8 +65,8 @@ public sealed class TerrainCostTableTests
     }
 
     [Theory]
-    [InlineData("sea_coastal", 1)]
-    [InlineData("sea_deep", 3)]
+    [InlineData("sea_calm", 1)]
+    [InlineData("sea_rough", 3)]
     [InlineData("plain", 1)]
     [InlineData("desert", 1)]
     [InlineData("forest", 2)]

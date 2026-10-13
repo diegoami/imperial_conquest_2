@@ -252,9 +252,9 @@ var terrainGrid = new TerrainGrid(TerrainEncoding.Base64, Runs: null, Data: Conv
 //    one world, so it is transcribed here rather than re-derived.
 // ============================================================================================
 var tileTypes = ValueList.Of(
-    TileType("sea_coastal", 0, "Sea", passableByArmies: false, passableByFleets: true,
+    TileType("sea_calm", 0, "Sea", passableByArmies: false, passableByFleets: true,
         "confirmed: terrain-move-cost-table-in-dat.md -- cell code 0, named 'Sea' in the DAT terrain table at 0x1F622; corpus id terrain.moveCost.code0."),
-    TileType("sea_deep", 1, "Sea", passableByArmies: false, passableByFleets: true,
+    TileType("sea_rough", 1, "Sea", passableByArmies: false, passableByFleets: true,
         "confirmed: terrain-move-cost-table-in-dat.md -- cell code 1, a second 'Sea' entry distinguished only by its higher move cost; corpus id terrain.moveCost.code1."),
     TileType("plain", 2, "Plain", passableByArmies: true, passableByFleets: false,
         "confirmed: terrain-move-cost-table-in-dat.md; corpus id terrain.moveCost.code2."),

@@ -304,7 +304,7 @@ public class ScatteredDefeatTests
         var naval = BattleTestbed.Scatter.Naval;
 
         // An all-deep-sea world with one irrelevant speck of land, so the destination's code is known
-        // without depending on the toy map's coastline: every sea tile here is sea_deep, which is also
+        // without depending on the toy map's coastline: every sea tile here is sea_rough, which is also
         // the ruleset's storm-tripling code.
         var deepSea = BattleTestbed.IslandWorld(8, (7, 7));
 
@@ -330,7 +330,7 @@ public class ScatteredDefeatTests
         var expected = terrain[(survivor.Y * deepSea.Width) + survivor.X];
 
         Assert.Equal(expected, survivor.CoveredTileCode);
-        Assert.Equal("sea_deep", deepSea.TileTypeByCode(expected)!.Id);
+        Assert.Equal("sea_rough", deepSea.TileTypeByCode(expected)!.Id);
 
         // The consequence the finding is about: the survivor is on deep sea now, so its storm-tripling
         // branch reflects where it actually is rather than where it used to be.

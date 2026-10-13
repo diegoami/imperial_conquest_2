@@ -164,7 +164,7 @@ public class AssetKeysTests
             "terrain.forest.surface",
             "terrain.mountain.surface",
             "terrain.sea_shallow.surface",
-            "terrain.sea_deep.surface",
+            "terrain.sea_open.surface",
         };
 
         Assert.Equal(6, expected.Length);
@@ -179,8 +179,8 @@ public class AssetKeysTests
             AssetKeys.TerrainForestTile,
             AssetKeys.TerrainMountainTile,
             AssetKeys.TerrainRiverTile,
-            AssetKeys.TerrainSeaCoastalTile,
-            AssetKeys.TerrainSeaDeepTile,
+            AssetKeys.TerrainSeaCalmTile,
+            AssetKeys.TerrainSeaRoughTile,
         };
         Assert.All(tileKeys, key => Assert.Contains(key, AssetKeys.AllKeys));
 
@@ -189,7 +189,7 @@ public class AssetKeysTests
         Assert.Equal(AssetKeys.TerrainForestSurface, expected[2]);
         Assert.Equal(AssetKeys.TerrainMountainSurface, expected[3]);
         Assert.Equal(AssetKeys.TerrainSeaShallowSurface, expected[4]);
-        Assert.Equal(AssetKeys.TerrainSeaDeepSurface, expected[5]);
+        Assert.Equal(AssetKeys.TerrainSeaOpenSurface, expected[5]);
     }
 
     /// <summary>

@@ -276,7 +276,7 @@ public sealed class TerrainSplatMap
         AssetKeys.TerrainForestSurface,
         AssetKeys.TerrainMountainSurface,
         AssetKeys.TerrainSeaShallowSurface,
-        AssetKeys.TerrainSeaDeepSurface,
+        AssetKeys.TerrainSeaOpenSurface,
     };
 
     /// <summary>Bakes the map's terrain grid.</summary>

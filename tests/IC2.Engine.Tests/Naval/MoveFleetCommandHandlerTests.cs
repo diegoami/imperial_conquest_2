@@ -17,7 +17,7 @@ public sealed class MoveFleetCommandHandlerTests
     public void MovingOntoAnAdjacentSeaTile_ChargesTheConfirmedSeaCostAndAdvances()
     {
         var state = NavalTestbed.InitialState();
-        var fleet = state.Fleets[0]; // "north-fleet-1", (0, 3), 4 moves, sea_deep under it.
+        var fleet = state.Fleets[0]; // "north-fleet-1", (0, 3), 4 moves, sea_rough under it.
         Assert.Equal(4, fleet.Moves);
 
         var dispatcher = NavalTestbed.RealEngineDispatcher();
@@ -27,7 +27,7 @@ public sealed class MoveFleetCommandHandlerTests
         var moved = result.State.FleetById(fleet.Id)!;
         Assert.Equal(0, moved.X);
         Assert.Equal(4, moved.Y);
-        Assert.Equal(3, moved.Moves); // sea_coastal costs 1, per the ruleset's own terrain table.
+        Assert.Equal(3, moved.Moves); // sea_calm costs 1, per the ruleset's own terrain table.
     }
 
     [Fact]
@@ -84,7 +84,7 @@ public sealed class MoveFleetCommandHandlerTests
     [Fact]
     public void PricingGoesThroughTheTerrainCostLookup_NotThroughRulesetMoveCostFor()
     {
-        // The confirmed sea costs (1 for sea_coastal, 3 for sea_deep) come from the same terrain table
+        // The confirmed sea costs (1 for sea_calm, 3 for sea_rough) come from the same terrain table
         // Ruleset.MoveCostFor also reads, so this is asserted structurally instead: a cell whose tile
         // type the ruleset's table does not carry raises UnpricedTerrainEncountered, the fallback warning
         // that only MovementWalker/TerrainCostLookup raise (Ruleset.MoveCostFor has no such event and

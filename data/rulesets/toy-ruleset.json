@@ -143,8 +143,8 @@
   "archerUnitTypeId": "archers",
   "terrain": {
     "moveCosts": [
-      { "tileTypeId": "sea_coastal", "moveCost": 1 },
-      { "tileTypeId": "sea_deep", "moveCost": 3 },
+      { "tileTypeId": "sea_calm", "moveCost": 1 },
+      { "tileTypeId": "sea_rough", "moveCost": 3 },
       { "tileTypeId": "plain", "moveCost": 1 },
       { "tileTypeId": "desert", "moveCost": 1 },
       { "tileTypeId": "forest", "moveCost": 2 },

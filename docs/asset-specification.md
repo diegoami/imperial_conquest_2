@@ -661,8 +661,8 @@ recorded deliberate difference (`[designed]`, the user's decision of 2026-10-11 
 | `terrain.forest.tile` | Wooded terrain — green base with a dense tree/brush motif | T48 | Yes |
 | `terrain.mountain.tile` | Mountainous terrain — grey base, jagged black peaks, white snow caps, a dark red-brown foothill band | T48 | Yes |
 | `terrain.river.tile` | A river-bearing tile | T48 | Yes, but see below |
-| `terrain.sea_coastal.tile` | Shallow/coastal sea — lighter blue, wave motif | T48 | Yes |
-| `terrain.sea_deep.tile` | Deep sea — darker blue, same wave motif | T48 | Yes |
+| `terrain.sea_calm.tile` | Shallow/coastal sea — lighter blue, wave motif | T48 | Yes |
+| `terrain.sea_rough.tile` | Deep sea — darker blue, same wave motif | T48 | Yes |
 
 **Correction (rework round 1): the plain and mountain depictions above were wrong, and the desert
 `[designed]` tag missed evidence the corpus holds.** Direct pixel sampling of
@@ -985,14 +985,14 @@ terrain.desert.tile
 terrain.forest.tile
 terrain.mountain.tile
 terrain.river.tile
-terrain.sea_coastal.tile
-terrain.sea_deep.tile
+terrain.sea_calm.tile
+terrain.sea_rough.tile
 terrain.plain.surface
 terrain.desert.surface
 terrain.forest.surface
 terrain.mountain.surface
 terrain.sea_shallow.surface
-terrain.sea_deep.surface
+terrain.sea_open.surface
 sfx.city_captured
 sfx.battle
 sfx.unit_move

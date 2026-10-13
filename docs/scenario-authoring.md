@@ -102,7 +102,7 @@ Each tile type in `tileTypes` is an object with:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `id` | string | Yes | Unique identifier for this terrain type (e.g., "plain", "forest", "sea_coastal"). |
+| `id` | string | Yes | Unique identifier for this terrain type (e.g., "plain", "forest", "sea_calm"). |
 | `code` | integer | Yes | Numeric code used in the terrain grid (0–255). No two tile types may share a code. |
 | `name` | string | Yes | Display name (e.g., "Plain", "Forest", "Sea"). |
 | `passableByArmies` | boolean | Yes | Whether armies can move through this terrain. |

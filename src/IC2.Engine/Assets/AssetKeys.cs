@@ -128,10 +128,10 @@ public static class AssetKeys
     public const string TerrainRiverTile = "terrain.river.tile";
 
     /// <summary>Tile sprite for shallow sea terrain.</summary>
-    public const string TerrainSeaCoastalTile = "terrain.sea_coastal.tile";
+    public const string TerrainSeaCalmTile = "terrain.sea_calm.tile";
 
     /// <summary>Tile sprite for deep sea terrain.</summary>
-    public const string TerrainSeaDeepTile = "terrain.sea_deep.tile";
+    public const string TerrainSeaRoughTile = "terrain.sea_rough.tile";
 
     // ===== Terrain surfaces =====
     //
@@ -159,7 +159,7 @@ public static class AssetKeys
     public const string TerrainSeaShallowSurface = "terrain.sea_shallow.surface";
 
     /// <summary>Seamless surface texture for deep sea terrain.</summary>
-    public const string TerrainSeaDeepSurface = "terrain.sea_deep.surface";
+    public const string TerrainSeaOpenSurface = "terrain.sea_open.surface";
 
     // ===== Sound effects =====
     //
@@ -374,8 +374,8 @@ public static class AssetKeys
             yield return TerrainForestTile;
             yield return TerrainMountainTile;
             yield return TerrainRiverTile;
-            yield return TerrainSeaCoastalTile;
-            yield return TerrainSeaDeepTile;
+            yield return TerrainSeaCalmTile;
+            yield return TerrainSeaRoughTile;
 
             // Terrain surfaces (T148)
             yield return TerrainPlainSurface;
@@ -383,7 +383,7 @@ public static class AssetKeys
             yield return TerrainForestSurface;
             yield return TerrainMountainSurface;
             yield return TerrainSeaShallowSurface;
-            yield return TerrainSeaDeepSurface;
+            yield return TerrainSeaOpenSurface;
 
             // Sound effects
             yield return SfxCityCaptured;
