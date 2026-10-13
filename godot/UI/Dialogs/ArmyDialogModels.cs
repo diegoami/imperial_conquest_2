@@ -161,6 +161,48 @@ public sealed class ArmyTransferModel
     /// <summary>The staged money net: positive is A → B, negative is B → A.</summary>
     public int MoneyNet => _moneyNet;
 
+    /// <summary>
+    /// The troops now listed under A: A's units that are not staged to B, plus B's units staged back
+    /// (the sum of the troops of the units the dialog shows in A's list).
+    /// </summary>
+    public int SelectedTroopTotal =>
+        _selected.Units.Where((_, i) => !_unitsToPartner.Contains(i)).Sum(u => u.Troops)
+        + _partner.Units.Where((_, i) => _unitsBack.Contains(i)).Sum(u => u.Troops);
+
+    /// <summary>The troops now listed under B: B's units not staged back, plus A's units staged to B.</summary>
+    public int PartnerTroopTotal =>
+        _partner.Units.Where((_, i) => !_unitsBack.Contains(i)).Sum(u => u.Troops)
+        + _selected.Units.Where((_, i) => _unitsToPartner.Contains(i)).Sum(u => u.Troops);
+
+    /// <summary>A's supply in tons if OK were pressed now (display only; the engine decides on OK).</summary>
+    public int SelectedSupplyAfter => _selected.SupplyTons - _supplyNet;
+
+    /// <summary>B's supply in tons if OK were pressed now (display only).</summary>
+    public int PartnerSupplyAfter => _partner.SupplyTons + _supplyNet;
+
+    /// <summary>A's supply in tons as the dialog opened.</summary>
+    public int SelectedSupplyNow => _selected.SupplyTons;
+
+    /// <summary>B's supply in tons as the dialog opened.</summary>
+    public int PartnerSupplyNow => _partner.SupplyTons;
+
+    /// <summary>
+    /// The supply row's caption: which army sends to which and how much, then each side's stock now and
+    /// after the pending change, e.g. <c>Supply: 10 t from A1 to A2  ·  A1 40 → 30 t  ·  A2 5 → 15 t</c>.
+    /// </summary>
+    public string SupplyCaption()
+    {
+        var a = SelectedArmyId;
+        var b = PartnerArmyId;
+        var move = _supplyNet switch
+        {
+            > 0 => $"{_supplyNet} t from {a} to {b}",
+            < 0 => $"{-_supplyNet} t from {b} to {a}",
+            _ => $"none moved (up to {MaxSupplyToPartner} t from {a} to {b}, {MaxSupplyBack} t from {b} to {a})",
+        };
+        return $"Supply: {move}  ·  {a} {SelectedSupplyNow} → {SelectedSupplyAfter} t  ·  {b} {PartnerSupplyNow} → {PartnerSupplyAfter} t";
+    }
+
     /// <summary>The most supply A can send B: <c>min(A's supply, B's room)</c>.</summary>
     public int MaxSupplyToPartner =>
         Math.Max(0, Math.Min(_selected.SupplyTons, Room(_partner)));

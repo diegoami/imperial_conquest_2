@@ -86,6 +86,76 @@ public sealed class ArmyDialogModelsTests
         ArmyTransferModel.ForArmies(
             session.State.ArmyById(ArmyAId)!, session.State.ArmyById(ArmyBId)!, ruleset ?? session.Ruleset);
 
+    // ---- fix 1070: per-side troop totals and the supply caption ----
+
+    private static int Troops(GameSession session, string armyId) =>
+        session.State.ArmyById(armyId)!.Units.Sum(u => u.Troops);
+
+    [Fact]
+    public void Transfer_shows_each_sides_troop_total_and_updates_it_when_a_unit_moves()
+    {
+        var session = Session();
+        var model = Transfer(session);
+        var a = session.State.ArmyById(ArmyAId)!;
+        var b = session.State.ArmyById(ArmyBId)!;
+
+        Assert.Equal(Troops(session, ArmyAId), model.SelectedTroopTotal);
+        Assert.Equal(Troops(session, ArmyBId), model.PartnerTroopTotal);
+
+        model.StageUnitToPartner(0);
+        Assert.Equal(Troops(session, ArmyAId) - a.Units[0].Troops, model.SelectedTroopTotal);
+        Assert.Equal(Troops(session, ArmyBId) + a.Units[0].Troops, model.PartnerTroopTotal);
+
+        model.StageUnitBack(0);
+        Assert.Equal(Troops(session, ArmyAId) - a.Units[0].Troops + b.Units[0].Troops, model.SelectedTroopTotal);
+        Assert.Equal(Troops(session, ArmyBId) + a.Units[0].Troops - b.Units[0].Troops, model.PartnerTroopTotal);
+
+        model.UnstageUnitToPartner(0);
+        model.UnstageUnitBack(0);
+        Assert.Equal(Troops(session, ArmyAId), model.SelectedTroopTotal);
+        Assert.Equal(Troops(session, ArmyBId), model.PartnerTroopTotal);
+    }
+
+    [Fact]
+    public void Transfer_supply_caption_names_both_armies_and_shows_each_stock_now_and_after()
+    {
+        var session = Session(aSupply: 20, bSupply: 10);
+        var model = Transfer(session);
+
+        var idle = model.SupplyCaption();
+        Assert.Contains(ArmyAId, idle);
+        Assert.Contains(ArmyBId, idle);
+        Assert.Contains($"{ArmyAId} 20 → 20 t", idle);
+        Assert.Contains($"{ArmyBId} 10 → 10 t", idle);
+
+        model.AdjustSupply(ArmyDialogModels.SupplyStepTons);
+        var forward = model.SupplyCaption();
+        Assert.Contains($"10 t from {ArmyAId} to {ArmyBId}", forward);
+        Assert.Contains($"{ArmyAId} 20 → 10 t", forward);
+        Assert.Contains($"{ArmyBId} 10 → 20 t", forward);
+        Assert.Equal(10, model.SelectedSupplyAfter);
+        Assert.Equal(20, model.PartnerSupplyAfter);
+
+        model.AdjustSupply(-2 * ArmyDialogModels.SupplyStepTons);
+        var back = model.SupplyCaption();
+        Assert.Contains($"10 t from {ArmyBId} to {ArmyAId}", back);
+        Assert.Contains($"{ArmyAId} 20 → 30 t", back);
+        Assert.Contains($"{ArmyBId} 10 → 0 t", back);
+    }
+
+    [Fact]
+    public void Transfer_with_an_empty_partner_shows_a_total_of_zero_and_a_sensible_caption()
+    {
+        var session = Session(bSupply: 0);
+        var a = session.State.ArmyById(ArmyAId)!;
+        var empty = (session.State.ArmyById(ArmyBId)! with { Units = ValueList.From(Array.Empty<UnitSlot>()) });
+        var model = ArmyTransferModel.ForArmies(a, empty, session.Ruleset);
+
+        Assert.Equal(0, model.PartnerTroopTotal);
+        Assert.Equal(Troops(session, ArmyAId), model.SelectedTroopTotal);
+        Assert.Contains($"{ArmyBId} 0 → 0 t", model.SupplyCaption());
+    }
+
     // ---- Done-when 1: ArmyTransferModel ----
 
     [Fact]

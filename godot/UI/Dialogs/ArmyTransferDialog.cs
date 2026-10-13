@@ -46,6 +46,8 @@ public partial class ArmyTransferDialog : Control
     private ItemList _selectedList = null!;
     private ItemList _partnerList = null!;
     private Label _figuresLabel = null!;
+    private Label _selectedTitle = null!;
+    private Label _partnerTitle = null!;
     private SpinBox _supplySpin = null!;
     private SpinBox _moneySpin = null!;
     private Label _supplyLabel = null!;
@@ -119,6 +121,7 @@ public partial class ArmyTransferDialog : Control
         column.AddChild(lists);
         _selectedList = BuildSide(lists, $"Army {ArmyId}", isSelectedSide: true);
         _partnerList = BuildSide(lists, $"Army {PartnerId}", isSelectedSide: false);
+        // Each side's heading carries its troop total (set in Refresh).
 
         column.AddChild(new HSeparator());
         column.AddChild(BuildSupplyRow());
@@ -145,7 +148,16 @@ public partial class ArmyTransferDialog : Control
         var box = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         box.AddThemeConstantOverride("separation", 4);
         parent.AddChild(box);
-        box.AddChild(UiKit.MakeLabel(title, 15, UiKit.TextColor));
+        var heading = UiKit.MakeLabel(title, 15, UiKit.TextColor);
+        box.AddChild(heading);
+        if (isSelectedSide)
+        {
+            _selectedTitle = heading;
+        }
+        else
+        {
+            _partnerTitle = heading;
+        }
 
         var list = new ItemList { CustomMinimumSize = new Vector2(320, 140), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         box.AddChild(list);
@@ -162,7 +174,7 @@ public partial class ArmyTransferDialog : Control
     {
         var row = new HBoxContainer();
         row.AddThemeConstantOverride("separation", 6);
-        row.AddChild(UiKit.MakeLabel("Supply", 14, UiKit.TextColor));
+        row.AddChild(UiKit.MakeLabel($"Supply {ArmyId} → {PartnerId}", 14, UiKit.TextColor));
         row.AddChild(UiKit.MakeButton("-100 t", () => PressSupply(-ArmyDialogModels.SupplyLargeStepTons)));
         _supplySpin = new SpinBox { Step = ArmyDialogModels.SupplyStepTons, CustomMinimumSize = new Vector2(120, 0) };
         _supplySpin.ValueChanged += _ => SpinSupply();
@@ -438,8 +450,10 @@ public partial class ArmyTransferDialog : Control
         var partner = Session.State.ArmyById(PartnerId);
         _figuresLabel.Text = selected is null || partner is null
             ? string.Empty
-            : $"{ArmyId}: {selected.TotalTroops} troops · {selected.SupplyTons} t · {selected.Money} talents"
-              + $"   |   {PartnerId}: {partner.TotalTroops} troops · {partner.SupplyTons} t · {partner.Money} talents";
+            : $"{ArmyId}: {selected.SupplyTons} t · {selected.Money} talents"
+              + $"   |   {PartnerId}: {partner.SupplyTons} t · {partner.Money} talents";
+        _selectedTitle.Text = $"Army {ArmyId} — {_model.SelectedTroopTotal} troops";
+        _partnerTitle.Text = $"Army {PartnerId} — {_model.PartnerTroopTotal} troops";
 
         Fill(_selectedList, Rows(isSelectedSide: true));
         Fill(_partnerList, Rows(isSelectedSide: false));
@@ -453,7 +467,7 @@ public partial class ArmyTransferDialog : Control
         _moneySpin.Value = _model.MoneyNet;
         _updatingSpinners = false;
 
-        _supplyLabel.Text = NetLabel("Supply", _model.SupplyNet, _model.MaxSupplyToPartner, _model.MaxSupplyBack);
+        _supplyLabel.Text = _model.SupplyCaption();
         _moneyLabel.Text = NetLabel("Money", _model.MoneyNet, _model.MaxMoneyToPartner, _model.MaxMoneyBack);
     }
 
