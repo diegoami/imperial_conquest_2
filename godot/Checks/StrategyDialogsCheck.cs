@@ -405,12 +405,31 @@ public partial class StrategyDialogsCheck : Control
     private void SwitchUnitTypeUpdatesBounds()
     {
         var dialog = (RecruitUnitDialog)_mainGame.ActiveOverlay!;
-        var firstBounds = dialog.ModelForCheck.TroopBoundsFor(dialog.SelectedUnitTypeForCheck);
+        var firstType = dialog.SelectedUnitTypeForCheck;
+        var firstBounds = dialog.ModelForCheck.TroopBoundsFor(firstType);
         var archers = "archers";
         dialog.SelectUnitTypeForCheck(archers);
         var secondBounds = dialog.ModelForCheck.TroopBoundsFor(archers);
         Check(secondBounds.Maximum != firstBounds.Maximum, "switching the unit type moves the troop range");
         Check(dialog.TroopsForCheck == secondBounds.DefaultValue, "the troop box re-applies the new type's default");
+
+        // fix 1069: the label beside the box names the CURRENT type's maximum and step, and follows a switch.
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        var archersText = dialog.TroopBoundsLabelForCheck;
+        Check(
+            archersText.Contains(secondBounds.Maximum.ToString(inv), StringComparison.Ordinal)
+            && archersText.Contains(secondBounds.Step.ToString(inv), StringComparison.Ordinal),
+            $"the dialog shows archers' maximum {secondBounds.Maximum} and step {secondBounds.Step} (got '{archersText}')");
+        dialog.SelectUnitTypeForCheck(firstType);
+        var firstText = dialog.TroopBoundsLabelForCheck;
+        Check(
+            firstText != archersText && firstText.Contains(firstBounds.Maximum.ToString(inv), StringComparison.Ordinal),
+            $"switching back to {firstType} shows its maximum {firstBounds.Maximum} (got '{firstText}')");
+        dialog.SelectCityForCheck(RomeCityId);
+        Check(
+            dialog.TroopBoundsLabelForCheck == firstText,
+            "changing the city keeps the label on the selected type's bounds");
+        dialog.SelectUnitTypeForCheck(archers);
     }
 
     private void SubmitRecruitUnit()

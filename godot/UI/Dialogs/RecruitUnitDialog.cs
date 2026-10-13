@@ -120,6 +120,9 @@ public partial class RecruitUnitDialog : Control
     /// </summary>
     public string RecruitReasonForCheck => _recruitButton.TooltipText ?? string.Empty;
 
+    /// <summary>The line beside the troop box naming the maximum and the step — exposed for the headless check (fix 1069).</summary>
+    public string TroopBoundsLabelForCheck => _troopBoundsLabel.Text;
+
     /// <summary>The Cost line's text — exposed for the headless check (bug #903).</summary>
     public string CostLabelForCheck => _costLabel.Text;
 
@@ -199,7 +202,7 @@ public partial class RecruitUnitDialog : Control
         _troops.ValueChanged += _ => Refresh();
         column.AddChild(_troops);
 
-        _troopBoundsLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.MutedTextColor);
+        _troopBoundsLabel = UiKit.MakeLabel(string.Empty, color: UiKit.MutedTextColor);
         column.AddChild(_troopBoundsLabel);
 
         _costLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.TextColor);
