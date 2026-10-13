@@ -1,0 +1,165 @@
+> move north-army-1 4 3
+north-army-1 moved from (3,2) to (4,3), spending 4 of 5 moves.
+
+> attack-army north-army-1 south-army-1
+diplomacy.declare-war accepted (composed ahead of the attack).
+battle.attack-army accepted: the battle opens on the board.
+Battle: north-army-1 (north) attacks south-army-1 (south).
+Half-round 2: placement; the attacker (north) to place.
+Attacker units (slot: type, troops, quality, morale, moves, shots, cell, target):
+  0: light_infantry, 15000 troops, q6, morale 87, moves 4, shots 7, (0,0), no target "2nd Foot Battalion"
+  1: archers, 3500 troops, q7, morale 70, moves 4, shots 25, (1,0), no target "Gallic Bowmen"
+Defender units (slot: type, troops, quality, morale, moves, shots, cell, target):
+  20: heavy_infantry, 6000 troops, q6, morale 75, moves 2, shots 0, (10,9), no target "1st Guards Battalion"
+Board (attacker 01234, defender abcde = light_infantry, heavy_infantry, archers, light_cavalry, heavy_cavalry; . empty):
+    01234567890123
+  0 02............
+  1 ..............
+  2 ..............
+  3 ..............
+  4 ..............
+  5 ..............
+  6 ..............
+  7 ..............
+  8 ..............
+  9 ..........b...
+ 10 ..............
+ 11 ..............
+
+> battle place 1 1 2
+Unit 1 placed at (1,2).
+
+> battle end
+Half-round 3: the attacker (north) to move.
+
+> battle move 0 8 5
+Unit 0 moved to (4,3), 0 moves left.
+
+> battle move 1 6 3
+Unit 1 moved to (5,3), 0 moves left.
+
+> battle end
+Half-round 4: the defender (south) to move.
+Unit 20 moved to (8,7), 0 moves left.
+Half-round 5: the attacker (north) to move.
+
+> battle move 0 8 6
+Unit 0 moved to (8,6), 0 moves left.
+
+> battle move 1 8 5
+Unit 1 moved to (8,5), 1 moves left.
+
+> battle shoot 1 20
+Unit 1 shoots unit 20: 24 troops lost, 5976 left, morale 75.
+
+> battle end
+Half-round 6: the defender (south) to move.
+Unit 20 moved to (7,6), 1 moves left.
+Unit 20 will attack unit 1 in melee.
+Unit 20 fights unit 1: attacker loses 15 (5961 left, morale 77), defender loses 1401 (2099 left, morale 67).
+Half-round 7: the attacker (north) to move.
+
+> battle attack 0 20
+Unit 0 will attack unit 20 in melee.
+
+> battle shoot 1 20
+Unit 1 shoots unit 20: 12 troops lost, 5949 left, morale 77.
+
+> battle end
+Unit 0 fights unit 20: attacker loses 5566 (9434 left, morale 84), defender loses 37 (5912 left, morale 79).
+Half-round 8: the defender (south) to move.
+Unit 20 will attack unit 1 in melee.
+Unit 20 fights unit 1: attacker loses 3 (5909 left, morale 81), defender loses 840 (1259 left, morale 64).
+Half-round 9: the attacker (north) to move.
+
+> battle general on
+Computer general is on for the attacker.
+Unit 0 shoots unit 20: 36 troops lost, 5873 left, morale 81.
+Unit 0 shoots unit 20: 36 troops lost, 5837 left, morale 81.
+Unit 0 shoots unit 20: 38 troops lost, 5799 left, morale 81.
+Unit 0 will attack unit 20 in melee.
+Unit 1 shoots unit 20: 17 troops lost, 5782 left, morale 81.
+Unit 1 shoots unit 20: 8 troops lost, 5774 left, morale 81.
+Unit 1 shoots unit 20: 12 troops lost, 5762 left, morale 81.
+Unit 1 shoots unit 20: 13 troops lost, 5749 left, morale 81.
+Unit 0 fights unit 20: attacker loses 3774 (5660 left, morale 81), defender loses 71 (5678 left, morale 83).
+Half-round 10: the defender (south) to move.
+Unit 20 will attack unit 1 in melee.
+Unit 20 fights unit 1: attacker loses 3 (5675 left, morale 85), defender loses 504 (755 left, morale 61).
+Half-round 11: the attacker (north) to move.
+Unit 0 shoots unit 20: 31 troops lost, 5644 left, morale 85.
+Unit 0 shoots unit 20: 22 troops lost, 5622 left, morale 85.
+Unit 0 shoots unit 20: 54 troops lost, 5568 left, morale 85.
+Unit 0 will attack unit 20 in melee.
+Unit 1 shoots unit 20: 15 troops lost, 5553 left, morale 85.
+Unit 1 shoots unit 20: 9 troops lost, 5544 left, morale 85.
+Unit 1 shoots unit 20: 7 troops lost, 5537 left, morale 85.
+Unit 1 shoots unit 20: 13 troops lost, 5524 left, morale 85.
+Unit 0 fights unit 20: attacker loses 2265 (3395 left, morale 78), defender loses 8 (5516 left, morale 87).
+Half-round 12: the defender (south) to move.
+Unit 20 will attack unit 1 in melee.
+Unit 20 fights unit 1: attacker loses 1 (5515 left, morale 89), defender loses 303 (452 left, morale 58).
+Half-round 13: the attacker (north) to move.
+Unit 0 shoots unit 20: 20 troops lost, 5495 left, morale 89.
+Unit 0 will attack unit 20 in melee.
+Unit 1 shoots unit 20: 3 troops lost, 5492 left, morale 89.
+Unit 1 shoots unit 20: 6 troops lost, 5486 left, morale 89.
+Unit 1 shoots unit 20: 1 troops lost, 5485 left, morale 89.
+Unit 1 shoots unit 20: 3 troops lost, 5482 left, morale 89.
+Unit 0 fights unit 20: attacker loses 1359 (2036 left, morale 75), defender loses 45 (5437 left, morale 91).
+Half-round 14: the defender (south) to move.
+Unit 20 will attack unit 1 in melee.
+Unit 20 fights unit 1: attacker loses 1 (5436 left, morale 93), defender loses 181 (271 left, morale 55).
+Half-round 15: the attacker (north) to move.
+Unit 0 will attack unit 20 in melee.
+Unit 1 shoots unit 20: 2 troops lost, 5434 left, morale 93.
+Unit 1 shoots unit 20: 1 troops lost, 5433 left, morale 93.
+Unit 1 shoots unit 20: 1 troops lost, 5432 left, morale 93.
+Unit 1 shoots unit 20: 4 troops lost, 5428 left, morale 93.
+Unit 0 fights unit 20: attacker loses 815 (1221 left, morale 72), defender loses 16 (5412 left, morale 95).
+Half-round 16: the defender (south) to move.
+Unit 20 will attack unit 1 in melee.
+Unit 20 fights unit 1: attacker loses 1 (5411 left, morale 97), defender loses 109 (162 left, morale 52).
+Half-round 17: the attacker (north) to move.
+Unit 0 will attack unit 20 in melee.
+Unit 1 shoots unit 20: 0 troops lost, 5411 left, morale 97.
+Unit 1 shoots unit 20: 0 troops lost, 5411 left, morale 97.
+Unit 1 shoots unit 20: 0 troops lost, 5411 left, morale 97.
+Unit 1 shoots unit 20: 0 troops lost, 5411 left, morale 97.
+Unit 0 fights unit 20: attacker loses 489 (732 left, morale 69), defender loses 8 (5403 left, morale 99).
+Half-round 18: the defender (south) to move.
+Unit 20 will attack unit 1 in melee.
+Unit 20 fights unit 1: attacker loses 1 (5402 left, morale 99), defender loses 65 (97 left, morale 49).
+Unit 1 routs.
+Half-round 19: the attacker (north) to move.
+Unit 0 will attack unit 20 in melee.
+Unit 0 fights unit 20: attacker loses 293 (439 left, morale 60), defender loses 6 (5396 left, morale 99).
+Unit 0 routs.
+The battle is over.
+Battle ended.
+Southern League's army defeats Northern League's army.
+Winner: 6000 troops at the start, 5396 at the end.
+Loser: 18500 troops at the start, 0 at the end.
+The army of Southern League captured 756 talents.
+The army of Southern League captured 185 tons of supplies.
+
+> news
+News log:
+  NORTHERN LEAGUE DECLARES WAR ON SOUTHERN LEAGUE.
+  Southern League destroys army of Northern League.
+
+> status mine
+Nation: Northern League (north, human): treasury 0, unity 575, tax 15%
+
+Armies:
+
+Fleets:
+  north-fleet-1 (Northern League) @ (0,3): 10 ships, condition 100%, supply 50t, moves 4
+
+Cities:
+  arx "Arx" @ (2,1), owner Northern League: supply 400t, loyalty 90, fortification 60%
+  portus "Portus" @ (5,2), owner Northern League: supply 250t, loyalty 70, fortification 40%
+
+> quit
+Goodbye.
+
