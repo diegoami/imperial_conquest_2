@@ -63,6 +63,9 @@ public partial class TacticalBattleScreen : Control
     /// <summary>Whether the screen is replaying the exchanges of the last order.</summary>
     public bool IsPlayingBack => _playback is not null;
 
+    /// <summary>How many exchanges the replay has shown so far, for <c>godot/Checks/**</c>.</summary>
+    public int ExchangesShown { get; private set; }
+
     /// <summary>Whether the surrender confirmation is open.</summary>
     public bool SurrenderPromptOpen => _dialogKind == DialogKind.Surrender;
 
@@ -493,6 +496,7 @@ public partial class TacticalBattleScreen : Control
 
         var exchange = playback.Queue.Dequeue();
         _lastExchange = exchange;
+        ExchangesShown++;
         playback.Remaining = exchange.Kind == BattleExchangeKind.Shot
             ? SettingsScreen.BattleShotDelaySeconds
             : SettingsScreen.BattleAttackDelaySeconds;
