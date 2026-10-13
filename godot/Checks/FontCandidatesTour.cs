@@ -177,12 +177,32 @@ public partial class FontCandidatesTour : Control
         armies.Add(Roman("tour-b", 100, 99, ("light_cavalry", 4_000, 7), ("light_infantry", 1_000, 5)));
         var fleets = resolved.World.StartingFleets.ToList();
         fleets.Add(new StartingFleet("tour-fleet", "rome", 100, 120, Ships: 10, ConditionPercent: 80, Money: 0, SupplyTons: 300, Moves: 8));
+        fleets.Add(new StartingFleet("tour-fleet-b", "rome", 100, 121, Ships: 6, ConditionPercent: 100, Money: 50, SupplyTons: 150, Moves: 8));
         var world = resolved.World with
         {
             StartingArmies = ValueList.From(armies),
             StartingFleets = ValueList.From(fleets),
         };
-        return new GameSession(world, resolved.Ruleset, resolved.Scenario, seedOverride: 1, humanSeatNationId: "rome");
+        var initial = new GameSession(world, resolved.Ruleset, resolved.Scenario, seedOverride: 1, humanSeatNationId: "rome");
+
+        // A Roman city one tile from tour-a (a supply provider, and the place mercenaries are offered) and
+        // two mercenary offers there, so Supply army and Recruit mercenaries open on the sample game.
+        var city = new CityState(
+            "tour-city", "Tour city", X: 101, Y: 100, Owner: "rome", Allegiance: "rome",
+            Loyalty: 90, SupplyTons: 500, FortificationCode: 0,
+            PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0, Garrison: ValueList<UnitSlot>.Empty);
+        var offers = new List<MercenaryPoolSlot>
+        {
+            new(900, X: 101, Y: 100, NameLabel: 0, UnitTypeId: "heavy_cavalry", Troops: 960, Quality: 9),
+            new(901, X: 101, Y: 100, NameLabel: 0, UnitTypeId: "light_infantry", Troops: 3_868, Quality: 8),
+        };
+        var state = initial.State with
+        {
+            Cities = ValueList.From(initial.State.Cities.Concat(new[] { city })),
+            MercenaryPool = ValueList.From(initial.State.MercenaryPool.Concat(offers)),
+        };
+        var save = new SaveGame(state.SchemaVersion, "font-tour", "font-tour", state.ScenarioId, state.WorldId, state.RulesetId, state);
+        return new GameSession(world, resolved.Ruleset, resolved.Scenario, save);
     }
 
     private void ProcessAsIs()
@@ -213,7 +233,7 @@ public partial class FontCandidatesTour : Control
         open();
         if (name.Contains("dialog") && (_game.ActiveOverlay is null || ReferenceEquals(_game.ActiveOverlay, before)))
         {
-            GD.Print($"FontCandidatesTour (asis): {name} did not open; skipped.");
+            GD.Print($"FontCandidatesTour (asis): {name} did not open; skipped ({_game.LastMessageForCheck}).");
             _frame = 0;
             return;
         }
