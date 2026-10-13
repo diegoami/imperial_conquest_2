@@ -628,6 +628,17 @@ public sealed class RecruitUnitDialogModel
     public RecruitTroopBounds TroopBoundsFor(string unitTypeId) =>
         RecruitTroopBounds.For(_ruleset, unitTypeId);
 
+    /// <summary>
+    /// The line shown beside the troop box (fix 1069, [designed]): the maximum and the step, read from
+    /// <see cref="TroopBoundsFor"/> — the very bounds the box is set from, so the two never disagree.
+    /// </summary>
+    public string TroopBoundsText(string unitTypeId)
+    {
+        var bounds = TroopBoundsFor(unitTypeId);
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        return $"Max {bounds.Maximum.ToString(inv)} troops, in steps of {bounds.Step.ToString(inv)}";
+    }
+
     /// <summary>The one-time cost for <paramref name="troops"/> troops of <paramref name="unitTypeId"/>.</summary>
     public int InitialCostFor(int troops, string unitTypeId) =>
         StandingRecruitmentCost.InitialCost(troops, unitTypeId, _ruleset);

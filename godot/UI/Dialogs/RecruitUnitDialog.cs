@@ -62,6 +62,7 @@ public partial class RecruitUnitDialog : Control
     private readonly List<Button> _typeButtons = new();
     private string _selectedUnitTypeId = string.Empty;
     private SpinBox _troops = null!;
+    private Label _troopBoundsLabel = null!;
     private Label _costLabel = null!;
     private ItemList _trainingList = null!;
     private Button _recruitButton = null!;
@@ -198,6 +199,9 @@ public partial class RecruitUnitDialog : Control
         _troops.ValueChanged += _ => Refresh();
         column.AddChild(_troops);
 
+        _troopBoundsLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.MutedTextColor);
+        column.AddChild(_troopBoundsLabel);
+
         _costLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.TextColor);
         column.AddChild(_costLabel);
 
@@ -279,6 +283,7 @@ public partial class RecruitUnitDialog : Control
         }
 
         var troops = (int)_troops.Value;
+        _troopBoundsLabel.Text = _model.TroopBoundsText(_selectedUnitTypeId);
         _costLabel.Text =
             $"Cost: {_model.InitialCostFor(troops, _selectedUnitTypeId).ToString(System.Globalization.CultureInfo.InvariantCulture)}"
             + $"  ·  quarterly: {_model.QuarterlyCostFor(troops, _selectedUnitTypeId).ToString(System.Globalization.CultureInfo.InvariantCulture)}";
