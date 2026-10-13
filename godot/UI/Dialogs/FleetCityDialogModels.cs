@@ -620,20 +620,20 @@ public sealed class FortifyCityModel
                 return "This ruleset has no fortify order.";
             }
 
-            // The original checks under siege (R22) before the maximum (R23) and a pending order (R24).
+            // The original checks under siege (R22) before the maximum (R23) and a pending order (R24), as OrderCityCommandHandler does.
             if (_rule.RefusedWhileUnderSiege && _underSiege)
             {
                 return "You cannot fortify a city which is under siege.";
             }
 
-            if (FortificationCode.IsOrderInProgress(_city.FortificationCode, _rule))
-            {
-                return "This city is already being fortified.";
-            }
-
             if (CurrentPercent >= _rule.MaxPercent)
             {
                 return "This city cannot be fortified any further.";
+            }
+
+            if (FortificationCode.IsOrderInProgress(_city.FortificationCode, _rule))
+            {
+                return "This city is already being fortified.";
             }
 
             return null;
