@@ -437,6 +437,34 @@ public sealed class FleetCityDialogModelsTests
         }
     }
 
+    // Bug #1067: with no siege the maximum (R23) is checked before a pending order (R24), as the engine does.
+    // The shipped ruleset (max 100, radix 100) cannot hold both, so the rule is loosened to max 50 < radix 100.
+    [Fact]
+    public void Fortify_gives_the_maximum_refusal_before_the_pending_order_refusal()
+    {
+        var shipped = ClassicalRuleset;
+        var loosened = shipped with
+        {
+            CityOrders = shipped.CityOrders with
+            {
+                Orders = ValueList.From(shipped.CityOrders.Orders.Select(
+                    order => order.Id == FortifyCityModel.FortifyOrderId ? order with { MaxPercent = 50 } : order)),
+            },
+        };
+        var rule = loosened.CityOrders.Orders.Single(order => order.Id == FortifyCityModel.FortifyOrderId);
+
+        string Refusal(int code)
+        {
+            var state = State(Fleet(), city: City(fortificationCode: code));
+            return FortifyCityModel.ForCity(state, state.CityById(CityId)!, loosened).RefusalMessage!;
+        }
+
+        // Finished 50 (= max) with 1 point pending: both conditions hold; the engine says "any further".
+        Assert.Equal("This city cannot be fortified any further.", Refusal(50 + rule.InProgressEncodingRadix));
+        Assert.Equal("This city cannot be fortified any further.", Refusal(50));
+        Assert.Equal("This city is already being fortified.", Refusal(20 + rule.InProgressEncodingRadix));
+    }
+
     private static GameState HostileArmyMovedBesideCity(GameState state, Ruleset ruleset)
     {
         var city = state.CityById(CityId)!;
