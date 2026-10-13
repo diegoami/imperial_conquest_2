@@ -127,8 +127,9 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
     OpenAI's main quota like Sol, and is judged on that window. Only when OpenAI is exhausted does
     Luna's own limit matter: `/quota/openai` then lists the alias under `when_exhausted.usable_models`,
     and Luna alone can still run (the user's decision of 2026-10-09; the scripts read that field).
-    The OpenAI heavy model (`sol`) and the GPT-6 line are never the reviewer (the alias is fixed,
-    the model id under it comes from `opencode models`). A Luna on OpenCode Go (`opencode-go/…`) is a
+    The OpenAI heavy model (`sol`) is never the reviewer (the alias is fixed, the model id under it
+    comes from `opencode models`). The Luna alias is the only OpenAI reviewer here; the heavier
+    OpenAI line never implements or reviews. A Luna on OpenCode Go (`opencode-go/…`) is a
     known fault, not a ban: a proxy behind it has returned `Bad Request` in long agent loops.
 
 20. **Use the providers' pricing windows deliberately, not by chance** (advice the main session gives the user when they choose a model, rule 17) (the owner's decision of
