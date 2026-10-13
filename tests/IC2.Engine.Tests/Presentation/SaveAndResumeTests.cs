@@ -153,19 +153,13 @@ public sealed class SaveAndResumeTests : IDisposable
     {
         var follow = new[] { "end", "status" };
 
-        // One shared "end" runs identically in both branches before either saves or diverges. This steps
-        // around a REAL, documented resume gap (rework round 2, R2-B1; the user's decision on #469,
-        // 2026-09-28, accepted as a gap rather than fixed -- see GameSession.ResumeFrom's own remarks and
-        // follow-up #487 item 1): a save made before the saving session's own first "end" loses
-        // GameSession's _pendingNewsBaseline (T87 N4's pre-seat news snapshot, restored to null by
-        // ResumeFrom rather than persisted -- nothing in SaveGame records it), so a RESUMED session's own
-        // first "end" shows only that round's own news, where the UNINTERRUPTED session's first "end"
-        // would also have shown the pre-seat AI turns' news bundled in. Running one "end" here, identically
-        // in both branches, before either saves or diverges, consumes that baseline on both sides while
-        // they are still guaranteed identical -- so the save happens strictly after the gap could bite,
-        // and this test is free to prove what it actually sets out to prove (B1's own claim: save refuses
-        // while an offer is pending, succeeds once answered, and the resumed game then continues exactly
-        // like the uninterrupted one) without also tripping over R2-B1's separate, accepted gap.
+        // One shared "end" runs identically in both branches before either saves or diverges. In OfferFixture
+        // the human seat plays first, so no pre-seat AI news is owed (T137 carries that in the save); the lines
+        // a resumed first "end" lacked here came from the human's own commands issued before it, which is bug
+        // #486's half: the first "end" footer lists them and no later "end" does, resumed or not. Running one
+        // "end" in both branches first consumes that on both sides, so the test proves what it sets out to
+        // prove (B1: save refuses while an offer is pending, succeeds once answered, and the resumed game then
+        // continues exactly like the uninterrupted one) without tripping over #486.
         var uninterrupted = OfferFixture();
         uninterrupted.Submit("attack-army north-army-1 south-army-1");
         uninterrupted.Submit("peace-yes");

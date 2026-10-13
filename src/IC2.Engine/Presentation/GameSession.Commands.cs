@@ -1447,7 +1447,10 @@ public sealed partial class GameSession
         WorldId: State.WorldId,
         RulesetId: State.RulesetId,
         State: State,
-        Battle: _battle?.ToSaved());
+        Battle: _battle?.ToSaved(),
+        FirstEndNewsOwed: _pendingNewsBaseline is { } baseline
+            ? CountNewsAppendedSince(baseline, State.NewsLog.Slots)
+            : null);
 
     /// <summary>
     /// Everything after <paramref name="trimmedLine"/>'s first space, or <see langword="null"/> if there

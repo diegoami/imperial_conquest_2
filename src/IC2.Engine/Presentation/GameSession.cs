@@ -823,31 +823,23 @@ public sealed partial class GameSession
     /// prelude field is simply cleared.
     /// </para>
     /// <para>
-    /// <strong>Documented gap — rework round 2, R2-B1 (the user's decision on
-    /// <see href="https://github.com/diegoami/imperial_conquest_2/issues/469">#469</see>, 2026-09-28):
-    /// a save made before the saving session's own first <c>end</c> resumes with a different first
-    /// <c>end</c> footer.</strong> <see cref="_pendingNewsBaseline"/> is cleared here rather than
-    /// restored, same as <see cref="_pendingPrelude"/> just above — but unlike the prelude's own
-    /// narration (which the <em>saving</em> session already flushed on its own first <see cref="Submit"/>
-    /// call, whichever command that was, so it is never lost), the baseline itself is what T87 N4's
-    /// <see cref="HandleEndSeated"/> reads for its own <em>first-ever</em> call's "News:" section — the
-    /// pre-seat AI turns' own news, snapshotted at construction, shown bundled into whichever <c>end</c>
-    /// happens to be the human's first. A save taken before that first <c>end</c> has no such snapshot to
-    /// give a resumed session (nothing in <see cref="Model.SaveGame"/> records it), so the resumed
-    /// session's own first <c>end</c> shows only that round's own news, while the uninterrupted session's
-    /// first <c>end</c> would have shown the pre-seat news too — the independent reviewer's own probe: 13
-    /// of classical-mediterranean's 16 <c>--seat</c> choices lose 4–5 News lines this way, including a
-    /// player's own city falling. <strong>Not a state divergence</strong>: <see cref="State"/> is
-    /// identical either way, every <c>end</c> from the second one on matches, and every entry is still in
-    /// <see cref="Model.GameState.NewsLog"/> — the <c>news</c> command shows them regardless. No in-Owns
-    /// fix is clean (nothing in a save records whether the baseline was already consumed, and a heuristic
-    /// keyed on the turn index is wrong for a hotseat game saved on a later human's own first turn), so
-    /// this is accepted as a documented gap rather than fixed — see
-    /// <see href="https://github.com/diegoami/imperial_conquest_2/issues/487">#487</see> (item 1) for the
-    /// follow-up, and <see href="https://github.com/diegoami/imperial_conquest_2/issues/486">#486</see>
-    /// for the pre-existing T87 inconsistency (the same baseline is also never restored for a session's
-    /// own <em>later</em> commands issued before its first <c>end</c>, uninterrupted or not) that produces
-    /// the toy-world half of this same symptom.
+    /// <strong>R2-B1 (the user's decision on
+    /// <see href="https://github.com/diegoami/imperial_conquest_2/issues/469">#469</see>, 2026-09-28),
+    /// corrected by T137: a save made before the saving session's own first <c>end</c> carries the news
+    /// that first <c>end</c> still owes.</strong> <see cref="_pendingNewsBaseline"/> is what T87 N4's
+    /// <see cref="HandleEndSeated"/> reads for its own <em>first-ever</em> call's "News:" section: the pre-seat
+    /// AI turns' news, snapshotted at construction. A save cannot carry the snapshot (it is a list of
+    /// references), so <see cref="Model.SaveGame.FirstEndNewsOwed"/> carries a count, written only while the
+    /// baseline is still pending, and this method rebuilds the baseline as the loaded log without its newest
+    /// that-many entries. The resumed session's first <c>end</c> then lists the same lines the uninterrupted
+    /// session's does (on classical, 13 of the 16 <c>--seat</c> choices would otherwise have lost 4-5 News
+    /// lines, a player's own city falling among them). A save with no such member (made after the first
+    /// <c>end</c>, or any older save) resumes with no baseline, as before. <strong>Never a state
+    /// divergence</strong>: <see cref="State"/> is identical either way. See
+    /// <see href="https://github.com/diegoami/imperial_conquest_2/issues/487">#487</see> (item 1). Bug
+    /// <see href="https://github.com/diegoami/imperial_conquest_2/issues/486">#486</see> is unchanged: the
+    /// first <c>end</c>'s footer includes news from the human's own commands issued before it, and no later
+    /// <c>end</c> does, whether the session was resumed or not.
     /// </para>
     /// <para>
     /// <strong>Not restored, and now refused rather than silently dropped — rework round 1, B1 (the
@@ -925,7 +917,11 @@ public sealed partial class GameSession
         _seatLost = false;
         _gameOver = false;
         _pendingPrelude = null;
-        _pendingNewsBaseline = null;
+        // T137: rebuilt from the loaded log by count (the save cannot carry references): the log without its
+        // newest FirstEndNewsOwed entries, so the first end lists those and its own round's. Null otherwise.
+        _pendingNewsBaseline = save.FirstEndNewsOwed is { } owed && !_isWatchMode
+            ? State.NewsLog.Slots.Take(Math.Max(0, State.NewsLog.Slots.Count - owed)).ToList()
+            : null;
         _pendingPeaceTreatyOffers.Clear();
         _pendingBattleResults.Clear();
         LastBattles = Array.Empty<Battle.BattleResult>();
