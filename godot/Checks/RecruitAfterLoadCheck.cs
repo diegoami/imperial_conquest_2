@@ -1,5 +1,6 @@
 using Godot;
 using IC2.Engine.Recruitment;
+using IC2.Slice.Screens;
 using IC2.Slice.UI;
 
 namespace IC2.Slice.Checks;
@@ -120,6 +121,7 @@ public partial class RecruitAfterLoadCheck : Node
                 resumed.Session.State, resumed.Session.Ruleset, nation.Id);
             if (rows.Any(r => r.SlotIndex == recruitedSlot && r.IsReady)) { break; }
             resumed.SubmitForCheck("end");
+            DriveBattles(resumed);
         }
 
         resumed.MenuBar.PressItemForCheck("strategy.recruit_unit");
@@ -133,6 +135,30 @@ public partial class RecruitAfterLoadCheck : Node
         Check(resumed.Session.State.NationById(nation.Id)!.RecruitmentSlots.Count == slotsNow - 1,
             $"mobilizing removed the slot (reply: {dialog.ReplyForCheck})");
         Check(resumed.Session.State.Armies.Count >= armiesBefore, "the regiment joined or formed an army");
+    }
+
+    /// <summary>
+    /// T127: the Godot UI fights a battle with a human side on the board, so an AI seat's attack on Rome during an
+    /// <c>end</c> opens the battle screen. This check is about recruiting, not battles: it plays each battle out with
+    /// <em>Computer general on</em> and closes the <em>Battle ended</em> window, as a player who lets the general fight would.
+    /// </summary>
+    private static void DriveBattles(MainGameScreen screen)
+    {
+        for (var guard = 0; guard < 20; guard++)
+        {
+            if (screen.ActiveOverlay is TacticalBattleScreen battle)
+            {
+                battle.PressToolbarButton("computer_general");
+            }
+            else if (screen.ActiveOverlay is BattleEndedScreen ended)
+            {
+                ended.Close();
+            }
+            else
+            {
+                return;
+            }
+        }
     }
 
     private bool Check(bool condition, string description)
