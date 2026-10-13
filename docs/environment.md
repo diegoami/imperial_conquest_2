@@ -33,7 +33,9 @@ Each provider reports these fields:
 
 ### Models per provider, and this repository's names for them
 
-**DeepSeek is not used** (the user's decision of 2026-10-09): no DeepSeek model, on any route, implements or reviews. OpenCode Go's heavy and light models are MiMo v2.6 Pro and Flash, tested on implement, fix and review tasks that day, and MiMo is a family of its own for the reviewer rule.
+**Lifted on 2026-10-13 (the user's decision): no limit applies to which model implements or reviews** (no family rule, no DeepSeek ban, no Alibaba-only-on-request). What follows describes what `scripts/Choose-Model.ps1`, `external-implement.ps1` and `external-review.ps1` still enforce until the tooling task that removes it merges (issue filed with this change); the policy is off, the scripts are not yet.
+
+**DeepSeek is not used** (the user's decision of 2026-10-09, lifted on 2026-10-13): no DeepSeek model, on any route, implements or reviews. OpenCode Go's heavy and light models are MiMo v2.6 Pro and Flash, tested on implement, fix and review tasks that day, and MiMo is a family of its own for the reviewer rule.
 
 The scripts' names are `-Reviewer` / `-Model` values for `scripts/external-review.ps1` and `scripts/external-implement.ps1`. Model ids always come from the provider's live list (`opencode models <provider>`), never from memory.
 

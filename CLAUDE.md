@@ -113,9 +113,10 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
       for more.
 
     `curl -s 'localhost:8765/recommend?tier=heavy'` (or `tier=light`) is shown with each question as
-    a **suggestion only**: its `pick` or `pair`, with rank, outlook and reliability. The few fixed
-    rules: the reviewer is never of the implementer's family; DeepSeek is never used; Alibaba only when
-    the user asks. Log each choice on the issue or PR. This works whatever model the orchestrator
+    a **suggestion only**: its `pick` or `pair`, with rank, outlook and reliability. There are
+    no fixed model rules (the user's decision of 2026-10-13, which lifts the family rule, the DeepSeek ban
+    and the Alibaba-only-on-request rule): any model the user names may implement or review, the
+    implementer's own family and DeepSeek and the Alibaba routes included. Log each choice on the issue or PR. This works whatever model the orchestrator
     itself runs on (Claude, GLM, MiniMax): nothing here names the orchestrator's own model. Model ids
     come from the provider's live list (`opencode models <provider>`), never memory. Heavy models run
     at `medium` effort rather than `high` (the user's decision of 2026-10-05). If the quota service
@@ -126,11 +127,11 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
     Sol, and is judged on that window. Only when OpenAI is exhausted does Luna's own limit matter:
     `/quota/openai` then lists `gpt-5.6-luna` under `when_exhausted.usable_models`, and Luna alone
     can still run (the user's decision of 2026-10-09; the scripts read that field). It is not
-    GPT-6 Luna (`openai/gpt-6-luna`), which is never the reviewer. Never use a Luna on OpenCode Go (`opencode-go/…`): a proxy behind it returns
+    GPT-6 Luna (`openai/gpt-6-luna`). A Luna on OpenCode Go (`opencode-go/…`) is a known fault, not a ban: a proxy behind it has returned
     `Bad Request` in long agent loops.
 
 20. **Use the providers' pricing windows deliberately, not by chance** (advice the main session gives the user when they choose a model, rule 17) (the owner's decision of
-    2026-10-06). Alibaba runs only when the user asks (rule 17); when they do, for a Qwen
+    2026-10-06). Alibaba is a route like any other (rule 17); for a Qwen
     route (`ali-qwen-*`; `-Route alibaba` or a `qwen*` model), read
     `curl -s localhost:8765/quota/alibaba | jq .pricing`: when `discount_now` is false, prefer
     another entry for a long run, or start it after `next_change_at`. Alibaba's GLM (`ali-glm`) has
@@ -138,7 +139,7 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
     `curl -s localhost:8765/quota/zai | jq .pricing`: when `peak_now` is true (Mon–Fri 14:00–18:00
     UTC+8; a promotion keeps it off-peak until the tracker's `promo_off_peak_until`, 2026-10-07 16:00
     UTC, so peaks start on 8 October, as the owner's note says), `glm-5.3` costs 3× quota, so prefer another provider for a
-    long run then (not `ali-glm` unless the user asks). If the tracker does not answer, run as usual; never block on it.
+    long run then (not `ali-glm`). If the tracker does not answer, run as usual; never block on it.
 
 ---
 
