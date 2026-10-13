@@ -1,0 +1,18 @@
+move north-army-1 4 3
+attack-army north-army-1 south-army-1
+battle place 1 1 2
+battle end
+battle move 0 8 5
+battle move 1 6 3
+battle end
+battle move 0 8 6
+battle move 1 8 5
+battle shoot 1 20
+battle end
+battle attack 0 20
+battle shoot 1 20
+battle end
+battle general on
+news
+status mine
+quit

@@ -15,8 +15,9 @@ namespace IC2.Engine.Persistence;
 /// touching only what that version actually changed — <see cref="MigrateV1ToV2"/>,
 /// <see cref="MigrateV2ToV3"/>, <see cref="MigrateV3ToV4"/>, <see cref="MigrateV4ToV5"/> (T67: drops
 /// <c>cities[].underSiege</c>) and <see cref="MigrateV5ToV6"/> (T81: adds the empty
-/// <c>state.roughSeaCells</c> overlay) are the five steps so far, because
-/// <see cref="SaveFormat.CurrentVersion"/> has only ever been 1, 2, 3, 4, 5 or 6.
+/// <c>state.roughSeaCells</c> overlay) and <see cref="MigrateV6ToV7"/> (T125: the optional open-battle member,
+/// absent on a migrated save) are the six steps so far, because
+/// <see cref="SaveFormat.CurrentVersion"/> has only ever been 1, 2, 3, 4, 5, 6 or 7.
 /// </remarks>
 internal static class SaveMigrations
 {
@@ -56,6 +57,7 @@ internal static class SaveMigrations
                 3 => MigrateV3ToV4(documentPath, current),
                 4 => MigrateV4ToV5(documentPath, current),
                 5 => MigrateV5ToV6(documentPath, current),
+                6 => MigrateV6ToV7(documentPath, current),
 
                 // A version below SaveFormat.MinimumSupportedVersion (zero, negative, or otherwise never
                 // shipped) is not "a newer build" either, and UnsupportedSaveFormatException's message
@@ -210,6 +212,21 @@ internal static class SaveMigrations
         }
 
         return v6;
+    }
+
+    /// <summary>
+    /// Version 6 to version 7 (T125): the save may carry the tactical battle that was open when it was written
+    /// (<c>save.battle</c>). A version-6 save was written by a build with no tactical battle, so a migrated save
+    /// has none: the member stays absent and only the format version changes.
+    /// </summary>
+    private static JsonObject MigrateV6ToV7(string documentPath, JsonObject v6)
+    {
+        var v7 = (JsonObject)v6.DeepClone();
+        v7[SaveFormat.VersionField] = 7;
+
+        // Checked so that a malformed envelope is reported here, as every other step does, rather than later.
+        EnvelopeJson.RequireObject(documentPath, v7, SaveFormat.PayloadField, "the version-6 envelope");
+        return v7;
     }
 
     /// <summary>

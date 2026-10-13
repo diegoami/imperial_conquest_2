@@ -9,9 +9,9 @@ namespace IC2.Cli;
 
 /// <summary>
 /// A thin console wrapper around <see cref="GameSession"/> — <c>docs/task-catalogue.md</c> "T41 Thin CLI
-/// demo on the toy world (a walking skeleton)". Holds no game rule and no parsing beyond its own seven
+/// demo on the toy world (a walking skeleton)". Holds no game rule and no parsing beyond its own eight
 /// arguments (<c>--script</c>, <c>--seed</c>, <c>--turn-order</c> <c>fixed|shuffle</c>, <c>--scenario</c>,
-/// <c>--ruleset</c>, <c>--seat</c>, <c>--load</c>): every
+/// <c>--ruleset</c>, <c>--seat</c>, <c>--load</c>, <c>--human-battles</c> <c>instant|tactical</c>): every
 /// command line it reads is handed to <see cref="GameSession.Submit"/> verbatim, and every line it prints
 /// to standard output is exactly what that call returned.
 /// </summary>
@@ -64,6 +64,13 @@ namespace IC2.Cli;
 /// error, if they are). <c>--seed</c> and <c>--seat</c> are ignored the same way: Done-when 3's random
 /// stream and Done-when 4's human seat both come from the save itself, never from a flag.
 /// </remarks>
+/// <remarks>
+/// <strong><c>--human-battles &lt;instant|tactical&gt;</c> (<c>docs/tasks/T125.md</c>, #666).</strong> How a field
+/// battle with a human side is fought: <c>instant</c> (the default, so every existing transcript is unchanged)
+/// resolves it at once; <c>tactical</c> opens the battle on the board, fought with the <c>battle</c> verbs. A session
+/// switch, never saved: <c>--load</c> takes the switch given here, and a save that holds an open battle reopens it
+/// whatever the switch is.
+/// </remarks>
 internal static class Program
 {
     /// <summary>The scenario loaded when <c>--scenario</c> is not given — unchanged from before DoD 5.</summary>
@@ -83,6 +90,7 @@ internal static class Program
         string? seatNationId = null;
         string? loadPath = null;
         NewGameTurnOrderPolicy? turnOrderOverride = null;
+        var humanBattles = HumanBattleMode.Instant;
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -122,6 +130,20 @@ internal static class Program
 
                     i++;
                     turnOrderOverride = parsedOrder;
+                    break;
+
+                case "--human-battles":
+                    // T125: a session switch, never a rule; the default keeps every existing transcript.
+                    if (i + 1 >= args.Length
+                        || !Enum.TryParse<HumanBattleMode>(args[i + 1], ignoreCase: true, out var parsedMode)
+                        || !Enum.IsDefined(parsedMode))
+                    {
+                        Console.Error.WriteLine("--human-battles requires instant or tactical.");
+                        return 1;
+                    }
+
+                    i++;
+                    humanBattles = parsedMode;
                     break;
 
                 case "--scenario":
@@ -190,7 +212,7 @@ internal static class Program
                         + "--scenario/--ruleset/--seat/--seed are ignored.");
                 }
 
-                var (loadedSession, loadError) = LoadSession(repository, loadPath);
+                var (loadedSession, loadError) = LoadSession(repository, loadPath, humanBattles);
                 if (loadError is not null)
                 {
                     Console.Error.WriteLine(loadError);
@@ -249,7 +271,10 @@ internal static class Program
                 Console.Error.WriteLine(
                     $"Loaded scenario '{resolved.Scenario.Id}': world '{resolved.World.Id}', ruleset '{resolved.Ruleset.Id}'.");
 
-                session = new GameSession(resolved.World, resolved.Ruleset, resolved.Scenario, seed, seatNationId);
+                session = new GameSession(resolved.World, resolved.Ruleset, resolved.Scenario, seed, seatNationId)
+                {
+                    HumanBattles = humanBattles,
+                };
             }
         }
         catch (GameDataException ex)
@@ -287,7 +312,8 @@ internal static class Program
     /// any of the three refusals <c>docs/tasks/T95.md</c> Done-when 5 names: a missing file, a malformed
     /// save, or a save recorded against a world/ruleset/scenario this build does not have.
     /// </returns>
-    private static (GameSession? Session, string? Error) LoadSession(GameDataRepository repository, string loadPath)
+    private static (GameSession? Session, string? Error) LoadSession(
+        GameDataRepository repository, string loadPath, HumanBattleMode humanBattles)
     {
         SaveSummary summary;
         try
@@ -323,7 +349,7 @@ internal static class Program
             $"Loaded save '{summary.Label}': scenario '{scenario.Id}', world '{world.Id}', "
             + $"ruleset '{ruleset.Id}', turn {summary.TurnIndex}.");
 
-        return (new GameSession(world, ruleset, scenario, save), null);
+        return (new GameSession(world, ruleset, scenario, save) { HumanBattles = humanBattles }, null);
     }
 
     private static IEnumerable<string> ReadLines(string? scriptPath)

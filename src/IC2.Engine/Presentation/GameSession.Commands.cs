@@ -280,9 +280,307 @@ public sealed partial class GameSession
             return new[] { "Usage: attack-army <army> <target-army>" };
         }
 
+        // T125: under HumanBattles = Tactical a human's attack opens the battle on the board instead.
+        if (TryOpenTacticalBattle(tokens[1], tokens[2]) is { } opened)
+        {
+            return opened;
+        }
+
         return ComposeDeclareWarIfNeeded(
             new AttackArmyCommand(State.ActiveNationId, tokens[1], tokens[2]),
             State.ArmyById(tokens[2])?.Nation);
+    }
+
+    // ---- the tactical battle (T125) ----
+
+    /// <summary>The routed verb for a line refused while a tactical battle is open; it contains a space, so no typed verb can equal it.</summary>
+    private const string BattleOpenRefusedVerb = " battle-open";
+
+    private TacticalBattleSession? _battle;
+
+    private IC2.Engine.Battle.Tactical.TacticalBattleReport? _pendingTacticalReport;
+
+    /// <summary>
+    /// The tactical battle that is open, or <see langword="null"/>. For the battle screen (T127); every order also
+    /// goes through <see cref="Submit"/> as a <c>battle</c> line, which is how the CLI gives them.
+    /// </summary>
+    public TacticalBattleView? OpenTacticalBattle => _battle?.View();
+
+    /// <summary><c>battle place</c> as a method for the UI: the same line, the same output.</summary>
+    /// <param name="unit">The unit's slot.</param>
+    /// <param name="x">The column.</param>
+    /// <param name="y">The row.</param>
+    /// <returns>What <see cref="Submit"/> returns for the line.</returns>
+    public SessionOutput BattlePlace(int unit, int x, int y) =>
+        Submit(string.Create(CultureInfo.InvariantCulture, $"battle place {unit} {x} {y}"));
+
+    /// <summary><c>battle move</c> as a method for the UI.</summary>
+    /// <param name="unit">The unit's slot.</param>
+    /// <param name="x">The column.</param>
+    /// <param name="y">The row.</param>
+    /// <returns>What <see cref="Submit"/> returns for the line.</returns>
+    public SessionOutput BattleMove(int unit, int x, int y) =>
+        Submit(string.Create(CultureInfo.InvariantCulture, $"battle move {unit} {x} {y}"));
+
+    /// <summary><c>battle attack</c> as a method for the UI (sets a melee target).</summary>
+    /// <param name="unit">The unit's slot.</param>
+    /// <param name="enemy">The enemy's slot.</param>
+    /// <returns>What <see cref="Submit"/> returns for the line.</returns>
+    public SessionOutput BattleAttack(int unit, int enemy) =>
+        Submit(string.Create(CultureInfo.InvariantCulture, $"battle attack {unit} {enemy}"));
+
+    /// <summary><c>battle shoot</c> as a method for the UI.</summary>
+    /// <param name="unit">The shooter's slot.</param>
+    /// <param name="enemy">The enemy's slot.</param>
+    /// <returns>What <see cref="Submit"/> returns for the line.</returns>
+    public SessionOutput BattleShoot(int unit, int enemy) =>
+        Submit(string.Create(CultureInfo.InvariantCulture, $"battle shoot {unit} {enemy}"));
+
+    /// <summary><c>battle clear</c> as a method for the UI.</summary>
+    /// <param name="unit">The unit's slot.</param>
+    /// <returns>What <see cref="Submit"/> returns for the line.</returns>
+    public SessionOutput BattleClear(int unit) =>
+        Submit(string.Create(CultureInfo.InvariantCulture, $"battle clear {unit}"));
+
+    /// <summary><c>battle end</c> as a method for the UI.</summary>
+    /// <returns>What <see cref="Submit"/> returns for the line.</returns>
+    public SessionOutput BattleEnd() => Submit("battle end");
+
+    /// <summary><c>battle general on|off</c> as a method for the UI.</summary>
+    /// <param name="on">Whether <em>Computer general</em> is turned on.</param>
+    /// <returns>What <see cref="Submit"/> returns for the line.</returns>
+    public SessionOutput BattleGeneral(bool on) => Submit(on ? "battle general on" : "battle general off");
+
+    /// <summary><c>battle surrender</c> as a method for the UI; <paramref name="confirmed"/> is the confirmation.</summary>
+    /// <param name="confirmed">Whether the player confirmed.</param>
+    /// <returns>What <see cref="Submit"/> returns for the line.</returns>
+    public SessionOutput BattleSurrender(bool confirmed) => Submit(confirmed ? "battle surrender yes" : "battle surrender");
+
+    private string RouteVerb(string verb) =>
+        _battle is not null && verb is not ("help" or "quit" or "save" or "battle") ? BattleOpenRefusedVerb : verb;
+
+    private SessionOutput WithTacticalBattle(SessionOutput output)
+    {
+        var report = _pendingTacticalReport;
+        _pendingTacticalReport = null;
+        return output with { OpenBattleView = _battle?.View(), EndedBattleReport = report };
+    }
+
+    private static IReadOnlyList<string> RefuseWhileBattleOpen(string verb) =>
+        new[]
+        {
+            $"A battle is open: '{verb}' is refused until it ends. Use the battle verbs "
+            + "(battle show | place | move | attack | shoot | clear | end | general on|off | surrender), help, save or quit.",
+        };
+
+    private IReadOnlyList<string> RenderBattleHelpRows() =>
+        _battle is null
+            ? Array.Empty<string>()
+            : new[]
+            {
+                "A tactical battle is open. Every other line is refused until it ends, except help, save and quit:",
+                "  battle show - show the board and both sides' units (units are named by slot number)",
+                "  battle place <unit> <x> <y> - during placement, move one of your units to an empty cell of your home rows",
+                "  battle move <unit> <x> <y> - walk one of your units toward an empty cell",
+                "  battle attack <unit> <enemy> - set an adjacent enemy as the unit's melee target",
+                "  battle shoot <unit> <enemy> - shoot an enemy within range",
+                "  battle clear <unit> - clear the unit's melee target",
+                "  battle end - end your half-round",
+                "  battle general on|off - let the computer general play your side, or take it back",
+                "  battle surrender - surrender (asks to confirm with 'battle surrender yes')",
+            };
+
+    /// <summary>
+    /// The tactical branch of <c>attack-army</c> (T125; <c>FUN_0044AEE4</c>): under <see cref="HumanBattleMode.Tactical"/>,
+    /// a legal attack by or on a human seat zeroes the attacker's moves and opens the battle instead of dispatching
+    /// <see cref="AttackArmyCommand"/>. Returns <see langword="null"/> whenever the instant path applies (the mode is
+    /// instant, the session is in watch mode, no side is human, the board cannot host the armies, or the order is
+    /// illegal -- the ordinary path then reports the refusal), leaving the state untouched.
+    /// </summary>
+    /// <remarks>
+    /// The war the order declares (as <see cref="ComposeDeclareWarIfNeeded"/> does, "attacking IS declaring war") is
+    /// committed only together with an opened battle, so a refused attack leaves no declaration behind.
+    /// </remarks>
+    private IReadOnlyList<string>? TryOpenTacticalBattle(string attackerArmyId, string defenderArmyId)
+    {
+        if (HumanBattles != HumanBattleMode.Tactical || IsWatchModeActive)
+        {
+            return null;
+        }
+
+        var targetNationId = State.ArmyById(defenderArmyId)?.Nation;
+        if (targetNationId is null || string.Equals(targetNationId, State.ActiveNationId, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var command = new AttackArmyCommand(State.ActiveNationId, attackerArmyId, defenderArmyId);
+        var candidate = State;
+        var lines = new List<string>();
+        IReadOnlyList<DomainEvent> declaredEvents = Array.Empty<DomainEvent>();
+        if (!IsAtWar(State.ActiveNationId, targetNationId))
+        {
+            var declare = new DeclareWarCommand(State.ActiveNationId, targetNationId);
+            var declared = _dispatcher.Dispatch(State, declare);
+            if (declared.IsRejected)
+            {
+                return null;
+            }
+
+            candidate = NewsLogWriter.Append(declared.State, declared.Events, Ruleset.NewsLog);
+            declaredEvents = declared.Events;
+            lines.Add($"{declare.Kind} accepted (composed ahead of the attack).");
+        }
+
+        if (AttackLegality.Check(candidate, Ruleset, command) is not null)
+        {
+            return null;
+        }
+
+        var attacker = candidate.ArmyById(attackerArmyId);
+        var defender = candidate.ArmyById(defenderArmyId);
+        var humanSide = attacker is not null && defender is not null
+                        && (candidate.NationById(attacker.Nation)?.Control == SeatControl.Human
+                            || candidate.NationById(defender.Nation)?.Control == SeatControl.Human);
+        if (!humanSide || !TacticalBattleSession.CanBeFought(candidate, attackerArmyId, defenderArmyId, Ruleset))
+        {
+            return null;
+        }
+
+        AccumulateEvents(declaredEvents);
+        _battle = TacticalBattleSession.Open(candidate, attackerArmyId, defenderArmyId, Ruleset, out var opened);
+        State = opened;
+
+        lines.Add($"{command.Kind} accepted: the battle opens on the board.");
+        lines.AddRange(_battle.ShowLines());
+        if (_battle.IsOver)
+        {
+            FinishTacticalBattle(lines);
+        }
+
+        return lines;
+    }
+
+    /// <summary>
+    /// <c>battle &lt;verb&gt; ...</c>: the human's orders of the open battle, each one human order of T123 (T125; the verbs
+    /// are <strong>[designed]</strong>). Searched and found empty: <c>2026-10-04-decompiled-tactical-battle-rules.md</c> (the toolbar table and the
+    /// Surrender, End turn and Computer general paragraphs) names the original's GUI controls (clicks on
+    /// the grid, the eight toolbar buttons, the surrender confirmation "Are you sure you want to surrender ?") and no text command exists in any
+    /// report or decompile, since the original has no command line. The words <c>show place move attack shoot clear end general on|off surrender [yes]</c>
+    /// are therefore this CLI's default: one word per confirmed action of the report (placement, move, melee, shot, End turn, Computer general,
+    /// Surrender), with <c>yes</c> standing in for the confirmation dialog. A unit is named by its slot number, which <c>battle show</c> prints.
+    /// </summary>
+    private IReadOnlyList<string> HandleBattle(string[] tokens)
+    {
+        if (_battle is null)
+        {
+            return new[] { "There is no battle to fight." };
+        }
+
+        const string usage =
+            "Usage: battle show | place <unit> <x> <y> | move <unit> <x> <y> | attack <unit> <enemy> | shoot <unit> <enemy> "
+            + "| clear <unit> | end | general on|off | surrender [yes]";
+
+        if (tokens.Length < 2)
+        {
+            return new[] { usage };
+        }
+
+        TacticalBattleOrderResult? result;
+        switch (tokens[1].ToLowerInvariant())
+        {
+            case "show" when tokens.Length == 2:
+                return _battle.ShowLines();
+            case "place" when TryInts(tokens, 3, out var p):
+                result = _battle.Place(p[0], p[1], p[2]);
+                break;
+            case "move" when TryInts(tokens, 3, out var m):
+                result = _battle.Move(m[0], m[1], m[2]);
+                break;
+            case "attack" when TryInts(tokens, 2, out var a):
+                result = _battle.Attack(a[0], a[1]);
+                break;
+            case "shoot" when TryInts(tokens, 2, out var h):
+                result = _battle.Shoot(h[0], h[1]);
+                break;
+            case "clear" when TryInts(tokens, 1, out var c):
+                result = _battle.Clear(c[0]);
+                break;
+            case "end" when tokens.Length == 2:
+                result = _battle.EndHalfRound();
+                break;
+            case "general" when tokens.Length == 3 && tokens[2].Equals("on", StringComparison.OrdinalIgnoreCase):
+                result = _battle.GeneralOn();
+                break;
+            case "general" when tokens.Length == 3 && tokens[2].Equals("off", StringComparison.OrdinalIgnoreCase):
+                result = _battle.GeneralOff();
+                break;
+            case "surrender" when tokens.Length == 2:
+                return new[]
+                {
+                    "Surrender? The surrendering side's units are removed and the battle is lost. "
+                    + "Type 'battle surrender yes' to confirm.",
+                };
+            case "surrender" when tokens.Length == 3 && tokens[2].Equals("yes", StringComparison.OrdinalIgnoreCase):
+                result = _battle.Surrender();
+                break;
+            default:
+                return new[] { usage };
+        }
+
+        var lines = new List<string>(result.Lines);
+        if (result.Accepted && _battle.IsOver)
+        {
+            FinishTacticalBattle(lines);
+        }
+
+        return lines;
+    }
+
+    private static bool TryInts(string[] tokens, int count, out int[] values)
+    {
+        values = new int[count];
+        if (tokens.Length != count + 2)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < count; i++)
+        {
+            if (!int.TryParse(tokens[2 + i], NumberStyles.Integer, CultureInfo.InvariantCulture, out values[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// The end of a tactical battle: the write-back through <see cref="TacticalBattleSession.Conclude"/>, the news line,
+    /// the peace treaty offer between a human and an AI side, and then every consequence that follows an instant battle
+    /// today (the fall messages of a human seat the battle eliminated, the game-over check).
+    /// </summary>
+    private void FinishTacticalBattle(List<string> lines)
+    {
+        var battle = _battle!;
+        var nationsBefore = State.Nations;
+        var conclusion = battle.Conclude(State, Ruleset);
+        if (conclusion.State is null || conclusion.Report is null)
+        {
+            lines.Add($"The battle could not be written back: {conclusion.Rejection}");
+            return;
+        }
+
+        AccumulateEvents(conclusion.Events);
+        State = NewsLogWriter.Append(conclusion.State, conclusion.Events, Ruleset.NewsLog);
+        _pendingTacticalReport = conclusion.Report;
+        _battle = null;
+
+        lines.AddRange(TacticalBattleSession.ReportLines(conclusion.Report, State));
+        CapturePeaceTreatyOfferIfAny(lines, conclusion.Events);
+        AppendFallMessagesForNewlyLostHumanSeats(lines, nationsBefore);
+        AnnounceGameOverIfNoHumanSeatRemains(lines);
     }
 
     private IReadOnlyList<string> HandleBesiegeCity(string[] tokens)
@@ -1111,7 +1409,8 @@ public sealed partial class GameSession
         ScenarioId: State.ScenarioId,
         WorldId: State.WorldId,
         RulesetId: State.RulesetId,
-        State: State);
+        State: State,
+        Battle: _battle?.ToSaved());
 
     /// <summary>
     /// Everything after <paramref name="trimmedLine"/>'s first space, or <see langword="null"/> if there

@@ -929,6 +929,15 @@ public sealed partial class GameSession
         _pendingPeaceTreatyOffers.Clear();
         _pendingBattleResults.Clear();
         LastBattles = Array.Empty<Battle.BattleResult>();
+
+        // T125: a save that holds an open tactical battle reopens it, whatever HumanBattles says -- the battle is
+        // already being fought. T123's Resume re-runs the half-round setup of the side to move (classical-faithful's
+        // policy); the exact-restore path is taken only when the ruleset asks for it, and none does yet.
+        _battle = save.Battle is null
+            ? null
+            : TacticalBattleSession.Reopen(
+                State, Ruleset, save.Battle, TacticalBattleSession.RulesetAsksForExactRestore(Ruleset));
+        _pendingTacticalReport = null;
         _pendingSeatFalls.Clear();
         LastSeatFalls = Array.Empty<SeatFall>();
 
@@ -946,6 +955,12 @@ public sealed partial class GameSession
             }
 
             _pendingPrelude = lines.Count > 0 ? lines : null;
+        }
+
+        if (_battle is not null)
+        {
+            (_pendingPrelude ??= new List<string>()).Add(
+                $"A tactical battle is open again (half-round {_battle.Battle.Counter}): 'battle show' shows the board.");
         }
     }
 
@@ -1201,6 +1216,20 @@ public sealed partial class GameSession
     public GameState State { get; private set; }
 
     /// <summary>
+    /// T125: how a field battle with a human side is fought. <see cref="HumanBattleMode.Instant"/> (the default)
+    /// resolves the human's <c>attack-army</c> at once through the instant resolver, exactly as before;
+    /// <see cref="HumanBattleMode.Tactical"/> opens the battle on the board (<c>battle show</c>, <c>battle place</c>,
+    /// <c>battle move</c>, <c>battle attack</c>, <c>battle shoot</c>, <c>battle clear</c>, <c>battle end</c>,
+    /// <c>battle general on|off</c>, <c>battle surrender</c>) and writes its result back when it ends. A battle with no
+    /// human seat, every siege and every naval battle are resolved at once under both. <strong>A session switch, never
+    /// a rule:</strong> it is not saved and no ruleset names it, so a reloaded game takes the switch of the session that
+    /// loads it; a save that holds an open battle reopens it whatever the switch is. The CLI defaults to
+    /// <see cref="HumanBattleMode.Instant"/> (<c>--human-battles</c>); the Godot UI sets <see cref="HumanBattleMode.Tactical"/>
+    /// (T127).
+    /// </summary>
+    public HumanBattleMode HumanBattles { get; init; } = HumanBattleMode.Instant;
+
+    /// <summary>
     /// T25 (plan #474): the same <see cref="Battle.BattleResult"/> list the most recent <see cref="Submit"/>
     /// call returned as <see cref="SessionOutput.Battles"/> — mirrored here so a caller that only sees a
     /// command's rendered lines (<see cref="GameMapView"/>'s and <see cref="ContextPanel"/>'s own
@@ -1269,8 +1298,8 @@ public sealed partial class GameSession
         if (trimmed.Length == 0)
         {
             lines.Add(string.Empty);
-            var emptyOutput = new SessionOutput(
-                lines, shouldExit, FlushPendingBattleResults(), FlushPendingSeatFalls(), IsGameOver);
+            var emptyOutput = WithTacticalBattle(new SessionOutput(
+                lines, shouldExit, FlushPendingBattleResults(), FlushPendingSeatFalls(), IsGameOver));
             FlushEventsAndPublish();
             return emptyOutput;
         }
@@ -1288,8 +1317,8 @@ public sealed partial class GameSession
         {
             lines.Add("The game is over. No further commands are accepted.");
             lines.Add(string.Empty);
-            var gameOverOutput = new SessionOutput(
-                lines, true, FlushPendingBattleResults(), FlushPendingSeatFalls(), IsGameOver);
+            var gameOverOutput = WithTacticalBattle(new SessionOutput(
+                lines, true, FlushPendingBattleResults(), FlushPendingSeatFalls(), IsGameOver));
             FlushEventsAndPublish();
             return gameOverOutput;
         }
@@ -1304,8 +1333,15 @@ public sealed partial class GameSession
         // IssueCommand (src/IC2.Engine/Presentation/GameSession.Commands.cs) for every verb below except
         // move and buy, which gate themselves the same way -- so an unrecognised verb still falls straight
         // through to this switch's own "default" case, in watch mode or not.
-        switch (verb)
+        // T125: while a tactical battle is open every line but help, quit, save and the battle verbs is refused.
+        switch (RouteVerb(verb))
         {
+            case BattleOpenRefusedVerb:
+                lines.AddRange(RefuseWhileBattleOpen(tokens[0]));
+                break;
+            case "battle":
+                lines.AddRange(HandleBattle(tokens));
+                break;
             case "status":
                 lines.AddRange(RenderStatusCommand(tokens));
                 break;
@@ -1452,6 +1488,7 @@ public sealed partial class GameSession
                 break;
             case "help":
                 lines.AddRange(RenderHelp());
+                lines.AddRange(RenderBattleHelpRows());
                 break;
             case "quit":
                 lines.Add("Goodbye.");
@@ -1467,8 +1504,8 @@ public sealed partial class GameSession
         // T87, DoD 3: whichever command's own processing first found no human seat left (an "end" that
         // played the last human seat's fall, or a human-issued capture that eliminated the last other
         // human seat) also ends the session -- the same signal `quit` already uses.
-        var normalOutput = new SessionOutput(
-            lines, shouldExit || _gameOver, FlushPendingBattleResults(), FlushPendingSeatFalls(), IsGameOver);
+        var normalOutput = WithTacticalBattle(new SessionOutput(
+            lines, shouldExit || _gameOver, FlushPendingBattleResults(), FlushPendingSeatFalls(), IsGameOver));
         FlushEventsAndPublish();
         return normalOutput;
     }
