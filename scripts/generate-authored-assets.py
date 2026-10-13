@@ -24,8 +24,8 @@ twice, so the committed images are the source of truth, exactly as T29's exporte
 This script never regenerates anything unless asked, and the pack's tests pin conformance,
 never byte equality.
 
-Cost model: dry run by default (DoD 3); a real, billable run needs --key <key of AssetKeys or BattleAssetKeys>
-(repeatable, DoD 4) or an explicit --all. The API key comes from assets-generator.local.ini
+Cost model: dry run by default (DoD 3); a real, billable run needs --key <a key of assets/prompts.json: an image key of
+AssetKeys or BattleAssetKeys, or one of the three sfx.* keys it lists> (repeatable, DoD 4) or an explicit --all. The API key comes from assets-generator.local.ini
 (git-ignored; copy assets-generator.example.ini) or the OPENROUTER_API_KEY environment
 variable, is never printed, and request headers are never echoed. One run at a time: the
 run is long, billable and network-bound, and the script takes a lock file to keep two
@@ -42,7 +42,8 @@ never eaten), the magenta spill is removed from the anti-aliased edge, the resul
 cropped to the subject's bounding box, padded to a square, downscaled with Lanczos, and
 made a solid silhouette (alpha 255 or 0).
 
-Sound effects (the three sfx.* keys with a synthesizer; the other sfx.* keys come from sound-prompts.json) are synthesized locally and deterministically in the
+Sound effects (only the three sfx.* keys that assets/prompts.json lists and this script synthesizes: sfx.city_captured,
+sfx.battle, sfx.unit_move; every other sfx.* key belongs to the sound script and assets/sound-prompts.json, and --key does not accept it) are synthesized locally and deterministically in the
 mono 44.1 kHz 16-bit PCM shape of docs/asset-specification.md par. 1.4 - no image API
 produces audio - from the same prompts.json entries that describe them.
 
@@ -923,10 +924,11 @@ def _self_check_manifest_merge(failures: list) -> None:
 def self_check() -> list:
     """Run the conforming step on synthetic images drawn in code (never downloaded)
     and validate the output bytes against exactly what the C# conformance test will
-    check for the generic sprite and tile conforming steps (32x32, BMP structure, 32-bit BGRA
-    with the background keyed to alpha for sprites). The per-kind rules of the other
-    kinds (256x256 surfaces, 20x20 battle.toolbar.* glyphs, the opaque battle.unit.* icons and
-    battle.ground) are pinned on the committed files by AuthoredPackConformanceTests, not here.
+    check: the sprite, tile and surface conforming steps (size, BMP structure, bit depth,
+    keyed alpha for sprites), the WAV round-trip and the manifest merge. The battle_unit and
+    battle_glyph conforming steps (32x32 opaque battle.unit.* icons, 20x20 battle.toolbar.*
+    glyphs) are not exercised on synthetic images here; their sizes and bit depths are pinned
+    on the committed files by AuthoredPackConformanceTests.
     Runs automatically before every real generation - the conforming step is proved
     before any money is spent."""
     print("Self-check: conforming step proven on synthetic images (no network, no key; "

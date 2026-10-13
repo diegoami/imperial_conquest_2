@@ -9,7 +9,7 @@ namespace IC2.Engine.Tests.Assets;
 
 /// <summary>
 /// T51's conformance tests for the authored pack (<c>assets/packs/authored/</c>, produced by
-/// <c>scripts/generate-authored-assets.py</c> from <c>assets/prompts.json</c>) — DoD 1, 5 and 6.
+/// <c>scripts/generate-authored-assets.py</c> from <c>assets/prompts.json</c>; the other sfx.* prompts are in <c>assets/sound-prompts.json</c>) — DoD 1, 5 and 6.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -55,7 +55,7 @@ public sealed class AuthoredPackConformanceTests
     private static readonly string SoundPromptsFilePath =
         Path.Combine(FixturePaths.RepositoryRoot, "assets", "sound-prompts.json");
 
-    // --- DoD 1: prompts.json <-> AssetKeys and BattleAssetKeys (the union), both directions (passes from the first commit) ---
+    // --- DoD 1: prompts.json + sound-prompts.json <-> AssetKeys and BattleAssetKeys (the union), both directions (passes from the first commit) ---
 
     [Fact]
     public void PromptFiles_HaveExactlyOnePromptPerKeyOfTheUnion()
