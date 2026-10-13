@@ -363,7 +363,7 @@ public sealed partial class GameSession
     {
         var report = _pendingTacticalReport;
         _pendingTacticalReport = null;
-        return output with { TacticalBattle = _battle?.View(), TacticalBattleReport = report };
+        return output with { OpenBattleView = _battle?.View(), EndedBattleReport = report };
     }
 
     private static IReadOnlyList<string> RefuseWhileBattleOpen(string verb) =>

@@ -71,12 +71,14 @@ public sealed record TacticalBattleOrderResult(bool Accepted, IReadOnlyList<stri
 /// <param name="State">The game after the write-back; <see langword="null"/> when the write-back was refused.</param>
 /// <param name="Report">The report; <see langword="null"/> when the write-back was refused.</param>
 /// <param name="PeaceOffered">Whether the post-battle peace treaty offer fired.</param>
+/// <param name="PeaceDrawn">Whether the peace dialog's <c>Random(5)</c> was drawn (only when the three other tests pass).</param>
 /// <param name="Events">The domain events, in order (the news event, then the offer).</param>
 /// <param name="Rejection">Why the write-back was refused, or <see langword="null"/>.</param>
 public sealed record TacticalBattleConclusion(
     GameState? State,
     TacticalBattleReport? Report,
     bool PeaceOffered,
+    bool PeaceDrawn,
     IReadOnlyList<DomainEvent> Events,
     string? Rejection);
 
@@ -487,7 +489,7 @@ public sealed class TacticalBattleSession
             + " = "
             + string.Join(", ", _context.Ruleset.UnitTypes.Select(t => t.Id))
             + "; . empty):");
-        lines.Add("    " + string.Join(string.Empty, Enumerable.Range(0, rules.BoardWidth).Select(x => (x % 10).ToString(CultureInfo.InvariantCulture))));
+        lines.Add("    " + string.Join(string.Empty, Enumerable.Range(0, rules.BoardWidth).Select(x => x.ToString(CultureInfo.InvariantCulture)[^1..])));
         for (var y = 0; y < rules.BoardHeight; y++)
         {
             var row = new System.Text.StringBuilder();
@@ -536,22 +538,40 @@ public sealed class TacticalBattleSession
         ArgumentNullException.ThrowIfNull(game);
         ArgumentNullException.ThrowIfNull(ruleset);
 
-        var sink = new RecordingEventSink();
-        var command = new ApplyTacticalBattleCommand(game.ActiveNationId, Battle, _rng.State);
-        var outcome = new ApplyTacticalBattleCommandHandler().Handle(command, game, ruleset, sink);
-        if (outcome.Rejection is { } rejection)
+        if (!Battle.IsOver)
         {
-            return new TacticalBattleConclusion(null, null, false, Array.Empty<DomainEvent>(), rejection.Message);
+            return new TacticalBattleConclusion(null, null, false, false, Array.Empty<DomainEvent>(), "The battle has not ended.");
+        }
+
+        // The write-back draws from the battle's own stream (the promotions), and the peace dialog's draw follows
+        // from the same stream, so both read the one live generator.
+        TacticalWriteBackResult? written = null;
+        var sink = new RecordingEventSink();
+        var command = new ApplyTacticalBattleCommand(
+            game.ActiveNationId,
+            Battle.AttackerArmyId,
+            Battle.DefenderArmyId,
+            (state, events) =>
+            {
+                written = TacticalWriteBack.Apply(state, Battle, _context, _draws, events);
+                return written.Game;
+            });
+        var outcome = new ApplyTacticalBattleCommandHandler().Handle(command, game, sink);
+        if (outcome.Rejection is not null || written is null)
+        {
+            return new TacticalBattleConclusion(
+                null, null, false, false, Array.Empty<DomainEvent>(), outcome.Rejection?.Message ?? "The write-back did not run.");
         }
 
         var after = outcome.State!;
-        var report = outcome.Report!;
+        var report = written.Report;
         var events = new List<DomainEvent>(sink.Events);
 
         var combat = ruleset.Combat;
         var winner = after.NationById(report.WinnerNationId);
         var loser = after.NationById(report.LoserNationId);
         var offered = false;
+        var drawn = false;
         if (winner is not null && loser is not null && (winner.Control == SeatControl.Human) != (loser.Control == SeatControl.Human))
         {
             var gates = TotalArmyPower(after, winner.Id, ruleset) < TotalArmyPower(after, loser.Id, ruleset)
@@ -559,15 +579,19 @@ public sealed class TacticalBattleSession
                         && after.CountCitiesOwnedBy(loser.Id) > combat.AutoPeaceLoserCityThreshold;
 
             // The draw comes from the battle's stream after the promotions, and only when the three tests pass.
-            var stream = new RngBattleDraws(new SplitMix64Rng(outcome.DrawState));
-            offered = gates && stream.Random(combat.AutoPeaceChanceDenominator) < combat.AutoPeaceChanceNumerator;
+            if (gates)
+            {
+                drawn = true;
+                offered = _draws.Random(combat.AutoPeaceChanceDenominator) < combat.AutoPeaceChanceNumerator;
+            }
+
             if (offered)
             {
                 events.Add(new PeaceTreatyOffered(winner.Id, loser.Id));
             }
         }
 
-        return new TacticalBattleConclusion(after, report, offered, events, null);
+        return new TacticalBattleConclusion(after, report, offered, drawn, events, null);
     }
 
     /// <summary>The lines of the <em>Battle ended</em> window (<c>TBattleOver_InitializeForm</c>).</summary>

@@ -46,12 +46,12 @@ public sealed record SessionOutput(
     /// T125: the tactical battle open once this call returned (the board, the 40 slots, who is to move), or
     /// <see langword="null"/> when none is open. A snapshot for the battle screen; nothing here is a rule.
     /// </summary>
-    public TacticalBattleView? TacticalBattle { get; init; }
+    public TacticalBattleView? OpenBattleView { get; init; }
 
     /// <summary>
     /// T125: the <em>Battle ended</em> window's contents when this call ended a tactical battle (the winner, the
     /// per-type start and finish troops, the captured money and supplies, the exchange log), or
     /// <see langword="null"/> when it did not.
     /// </summary>
-    public IC2.Engine.Battle.Tactical.TacticalBattleReport? TacticalBattleReport { get; init; }
+    public IC2.Engine.Battle.Tactical.TacticalBattleReport? EndedBattleReport { get; init; }
 }

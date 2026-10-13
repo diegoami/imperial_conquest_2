@@ -1,5 +1,5 @@
-using IC2.Engine.Battle.Tactical;
 using IC2.Engine.Core;
+using IC2.Engine.Model;
 
 namespace IC2.Engine.Battle.Commands;
 
@@ -9,24 +9,34 @@ namespace IC2.Engine.Battle.Commands;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>Deliberately not an <see cref="ICommand"/> (a conflict with the task entry, reported).</strong> The
-/// entry asks for the write-back to be "dispatched like any command". The engine's reflection-driven checks
-/// (<c>CommandCoverageTests</c>, <c>CommandOutcomeWordingTests</c>, the Godot <c>CommandVerbCatalog</c>) list every
-/// <see cref="ICommand"/> type and demand a CLI verb, an accepted golden line and a readable wording for each,
-/// and the entry forbids changing those tests and <c>godot/</c>. The write-back is an internal step of a battle
-/// that an <c>attack-army</c> order opened, not a verb of its own, so it has the shape of a command (an issuer, a
-/// kind, a handler that accepts or rejects, one advance of the state's random seed) without joining the registry.
+/// <strong>Two conflicts with the task entry, reported.</strong> (1) The command is deliberately not an
+/// <see cref="ICommand"/>: the engine's reflection-driven checks (<c>CommandCoverageTests</c>,
+/// <c>CommandOutcomeWordingTests</c>, the Godot <c>CommandVerbCatalog</c>) list every <see cref="ICommand"/> type and
+/// demand a CLI verb, an accepted golden line and a readable wording for each, and the entry forbids changing those
+/// tests and <c>godot/</c>. The write-back is an internal step of a battle that an <c>attack-army</c> order opened,
+/// not a verb of its own, so it has the shape of a command (an issuer, a kind, a handler that accepts or rejects,
+/// one advance of the state's random seed) without joining the registry. (2) <c>BattleDeterminismTests</c> forbids
+/// any file under <c>Battle/</c> outside <c>Battle/Tactical/</c> to name the tactical battle's types, so this file
+/// cannot call the tactical write-back itself: the session, which may, hands the actual write-back in as
+/// <see cref="WriteBack"/>, and the handler runs the checks around it.
 /// </para>
 /// <para>
-/// The battle's draw stream travels as <see cref="DrawState"/>, the raw state of the stream the session derived
-/// at the battle's start, so the promotions' draws continue the battle's own stream and the session can take the
-/// peace dialog's draw from the same stream afterwards.
+/// The write-back draws from the battle's own stream (the promotions, then the peace dialog's draw), which the
+/// session's closure holds; no stream of this command is used.
 /// </para>
 /// </remarks>
 /// <param name="IssuingNationId">The nation that ordered the attack, the active seat.</param>
-/// <param name="Battle">The ended battle (<see cref="TacticalBattleState.IsOver"/>).</param>
-/// <param name="DrawState">The raw state of the battle's draw stream (<see cref="IRng.State"/>).</param>
-public sealed record ApplyTacticalBattleCommand(string IssuingNationId, TacticalBattleState Battle, ulong DrawState)
+/// <param name="AttackerArmyId">The battle's attacking army.</param>
+/// <param name="DefenderArmyId">The battle's defending army.</param>
+/// <param name="WriteBack">
+/// The write-back itself (steps 1 to 5 of the original's battle-over routine): the game before it and the sink for its
+/// news event in, the game after it out.
+/// </param>
+public sealed record ApplyTacticalBattleCommand(
+    string IssuingNationId,
+    string AttackerArmyId,
+    string DefenderArmyId,
+    Func<GameState, IEventSink, GameState> WriteBack)
 {
     /// <summary>The command's kind, in the engine's <c>area.verb</c> form.</summary>
     public string Kind => "battle.apply-tactical";
@@ -43,9 +53,6 @@ public static class ApplyTacticalBattleRejections
 
     /// <summary>The issuing nation is not the active seat.</summary>
     public static readonly RejectionCode NotActiveSeat = new("battle.tactical-not-active-seat");
-
-    /// <summary>The battle has not ended.</summary>
-    public static readonly RejectionCode NotOver = new("battle.tactical-not-over");
 
     /// <summary>One of the battle's armies is no longer in the game.</summary>
     public static readonly RejectionCode UnknownArmy = new("battle.tactical-unknown-army");
