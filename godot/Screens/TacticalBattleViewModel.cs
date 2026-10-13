@@ -309,16 +309,18 @@ public sealed class TacticalBattleViewModel
     /// <returns>The slot.</returns>
     public int SlotAt(int x, int y)
     {
+        // The engine's contract: when several live units share a cell, the last slot wins.
+        var found = -1;
         for (var s = 0; s < _view.Slots.Count; s++)
         {
             var unit = _view.Slots[s];
             if (unit.IsLive && unit.X == x && unit.Y == y)
             {
-                return s;
+                found = s;
             }
         }
 
-        return -1;
+        return found;
     }
 
     /// <summary>The nation id whose colours a cell's icon is tinted with.</summary>

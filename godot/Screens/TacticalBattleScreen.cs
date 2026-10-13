@@ -29,9 +29,12 @@ namespace IC2.Slice.Screens;
 /// </remarks>
 public partial class TacticalBattleScreen : Control
 {
-    private const int CellPixels = 40;
+    /// <summary>The board's cell side: 32 px, as the original's (T127's entry) and as the 32 x 32 battle assets are drawn.</summary>
+    private const int CellPixels = 32;
 
-    private static readonly Color GroundFallback = new(0.28f, 0.42f, 0.2f);
+    // Used only when the pack has no ground tile: the mean colour of assets/packs/authored/battle/ground.bmp (32 x 32),
+    // measured over all its pixels (R 0.526, G 0.722, B 0.371), so the fallback matches the real tile's overall tone.
+    private static readonly Color GroundFallback = new(0.526f, 0.722f, 0.371f);
 
     /// <summary>The game whose battle this is.</summary>
     public required GameSession Session { get; init; }

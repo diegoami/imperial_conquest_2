@@ -72,6 +72,24 @@ public sealed class TacticalBattleViewModelTests
     }
 
     [Fact]
+    public void Two_live_units_in_one_cell_resolve_to_the_last_slot_as_the_engine_does()
+    {
+        var (_, view, display) = Opened();
+        var live = Enumerable.Range(0, view.Slots.Count).Where(s => view.Slots[s].IsLive).ToList();
+        var first = live[0];
+        var last = live[^1];
+        Assert.NotEqual(first, last);
+
+        // Put the last live slot on the first's cell: both are live there, and the later slot wins.
+        var slots = view.Slots.ToList();
+        slots[last] = slots[last] with { X = slots[first].X, Y = slots[first].Y };
+        var shared = view with { Slots = new IC2.Engine.Model.ValueList<TacticalSlot>(slots) };
+        var model = TacticalBattleViewModel.From(shared, display);
+
+        Assert.Equal(last, model.SlotAt(slots[first].X, slots[first].Y));
+    }
+
+    [Fact]
     public void The_caption_names_both_sides_and_the_side_to_move_in_each_phase()
     {
         var (session, view, display) = Opened();
