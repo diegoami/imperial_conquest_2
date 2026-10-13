@@ -768,29 +768,38 @@ section actually require:
   in the published mockup. **No new asset key is required for any current DoD.** If a future task wants a
   visual flourish (a victory/defeat banner), that is a new gap to record *then*, tagged `[designed]` at
   that point — inventing one now would be art direction this document is not supposed to specify.
-- **The original's tactical battle screen: what it draws, for whichever task builds one.** No current
-  DoD needs these, and no key is proposed here; the inventory is recorded so that the task that builds
-  a battlefield ([#496](https://github.com/diegoami/imperial_conquest_2/issues/496)) starts from it
-  **[confirmed: code and the `TBATTLEMAP` resource, static, not yet compared with the running game:
-  [`2026-10-04-decompiled-tactical-battle-rules.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-04-decompiled-tactical-battle-rules.md) §10]**:
-  - **15 unit icons, 32 × 32**: the five unit types at **three sizes** each (small, medium, large),
-    the size being `min(2, troops div (standardBattalionSize div 3))` and recomputed after every loss.
-    These are not §4.1's five strategic icons: §4.1's roster is complete for the strategic map only.
-  - **Three recolourable regions per icon**: purple `0x800080`, white and blue are replaced by the
-    nation's three colours (nation `+0x424`, `+0x428`, `+0x42C`), once per side; the green dotted cell
-    border is kept. The attacker's copies are images 0–14 and the defender's 15–29. The colours are each
-    nation's `battleColorsHex`, the same dwords that recolour the unit map's army and fleet icons (§2).
-    Rome, Gaul and an edited Numidian army were drawn in Wine, and every sprite equals its template
-    recoloured, pixel for pixel **[confirmed: decompile; the drawn match a Wine candidate, [`2026-10-09-battle-map-units-use-the-nation-recolour.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-battle-map-units-use-the-nation-recolour.md), research `ef19e2c`;
-    [`2026-10-09-numidian-battle-drawn-in-wine.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-numidian-battle-drawn-in-wine.md), research `ca08a33`]**. The templates are `BatMapList` images 0–14 of 17, with a lime frame
-    that is not recoloured. Image 15 is the ground tile (lime, with green, olive, white and black). Image 16
-    is not identified. Numidia's background colour is lime, so a Numidian unit is a flat lime square with a
-    black outline and a grey fill on the lime ground. Macedonia, Numidia and Gaul all have a grey fill.
-  - **One ground tile** (grass with brown contour lines; the battlefield has no terrain) and **one
-    selection cursor** (drawn with an erase raster op). There is no routed, selected or wounded image:
-    a routed unit's cell becomes empty ground.
-  - **Eight 20 × 20 toolbar glyphs**: Unit moves, Friendly units, Enemy units, Cancel selection, End
-    turn, Change pauses, Computer general on, Surrender.
+- **The original's tactical battle screen: the 25 keys it draws** (T128, [#669](https://github.com/diegoami/imperial_conquest_2/issues/669); the battle screen is T127,
+  [#496](https://github.com/diegoami/imperial_conquest_2/issues/496)). The inventory is
+  **[confirmed: code and the `TBATTLEMAP` resource, static:
+  [`2026-10-04-decompiled-tactical-battle-rules.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-04-decompiled-tactical-battle-rules.md) §10]**,
+  and the running game confirms the toolbar's eight buttons and their order (the battle window is 448 × 414, and a tooltip scan found *Computer general on* seventh)
+  **[Wine candidate: [`2026-10-04-battle-probe.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-04-battle-probe.md) item 1, research `dee8150`]**.
+  The key names are **[designed]**, following §1.5's convention, and the pictures are the clone's own drawings: the report's descriptions are a guide, never a copy, and no bitmap, resource or screenshot of the original enters either pack.
+  The constants are `godot/Assets/BattleAssetKeys.cs` (Godot-free, so the front end alone draws them); §6 lists them after the engine's `AssetKeys`, and the drift test reads both.
+
+  | Key | File | Size | Depth | Draws |
+  | --- | --- | --- | --- | --- |
+  | `battle.unit.<type>.<small\|medium\|large>` (15: the five types of §4.1 at three sizes) | `battle/unit_<type>_<size>.bmp` | 32 × 32 | 32-bit BGRA, alpha 255 throughout | a unit on the board; three recolourable regions (below). §1.2 makes every non-terrain asset 32-bit BGRA; a unit icon fills its cell, so it is opaque, which is the case §1.2 allows ("may fill every pixel opaque") |
+  | `battle.ground` | `battle/ground.bmp` | 32 × 32 | 24-bit opaque | the one ground tile, a full-tile background like a terrain tile (§1.2's terrain rule): grass with brown contour lines (the battlefield has no terrain) |
+  | `battle.cursor` | `battle/cursor.bmp` | 32 × 32 | 32-bit BGRA | the one selection cursor (the original draws it with an erase raster op) |
+  | `battle.toolbar.<unit_moves\|friendly_units\|enemy_units\|cancel_selection\|end_turn\|change_pauses\|computer_general\|surrender>` (8) | `battle/toolbar_<button>.bmp` | 20 × 20 | 32-bit BGRA | the eight toolbar buttons, in the original's order |
+
+  - **The size of a unit's icon**: `min(2, troops div (standardBattalionSize div 3))`, recomputed after every loss, 0 = small, 1 = medium, 2 = large
+    **[confirmed: code]**. The running game agrees: on both sides an icon changes size at exactly `std div 3` and `2 × (std div 3)` troops (light infantry 5,000 / 10,000, heavy infantry 2,000 / 4,000,
+    archers 1,166 / 2,332, light cavalry 2,333 / 4,666, heavy cavalry 833 / 1,666), and the 30 (type, side, size) combinations draw 30 distinct 26 × 26 tile interiors, one per icon code
+    **[Wine candidate: [`2026-10-04-tactical-battle-sweep.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-04-tactical-battle-sweep.md) B8, research `87d1571`]**.
+    That is a reading of the original's pixels for the rule only: the clone's icons stay its own drawings. These are not §4.1's five strategic icons: §4.1's roster is complete for the strategic map only.
+  - **Three recolourable regions per unit icon**: the original's purple `0x800080`, white and blue are replaced by the nation's three colours (nation `+0x424`, `+0x428`, `+0x42C`), once per side;
+    the green dotted cell border is kept **[confirmed: code, `FUN_0044A6C8`]**. The colours are each nation's `battleColorsHex`, the same dwords that recolour the unit map's army and fleet icons (§2).
+    `godot/Assets/BattleIconTint.cs` maps purple to the first, white to the second and blue to the third, and a world without the field falls back to the nation's `colorHex`, white and `glyphColorHex` **[designed]**.
+    So every `battle.unit.*` file is painted in exactly four colours: purple `(128, 0, 128)`, white `(255, 255, 255)`, blue `(0, 0, 255)` and black outlines, with a lime dotted frame; `BattleAssetKeysTests` pins the three marker colours in every file.
+    The attacker's copies in the original are images 0–14 and the defender's 15–29. Rome, Gaul and an edited Numidian army were drawn in Wine, and every sprite equals its template recoloured, pixel for pixel
+    **[confirmed: decompile; the drawn match a Wine candidate, [`2026-10-09-battle-map-units-use-the-nation-recolour.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-battle-map-units-use-the-nation-recolour.md), research `ef19e2c`;
+    [`2026-10-09-numidian-battle-drawn-in-wine.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-numidian-battle-drawn-in-wine.md), research `ca08a33`]**.
+    The templates are `BatMapList` images 0–14 of 17, with a lime frame that is not recoloured. Image 15 is the ground tile (lime, with green, olive, white and black). Image 16 is not identified.
+    Numidia's background colour is lime, so a Numidian unit is a flat lime square with a black outline and a grey fill on the lime ground. Macedonia, Numidia and Gaul all have a grey fill.
+  - **The ground tile and the cursor** keep the static tag: they were not compared with the running game. There is no routed, selected or wounded image: a routed unit's cell becomes empty ground.
+  - **The eight glyphs**: Unit moves, Friendly units, Enemy units, Cancel selection, End turn, Change pauses, Computer general on, Surrender.
   - The board is 14 × 12 cells of 32 px, a 448 × 414 client area.
 - **T17/T18 fortification and siege states: no sprite is confirmed needed, from the one data point
   available.** Checked the original's own screenshots directly — **correction (rework round 1): the
@@ -950,8 +959,9 @@ this task's Owns list to change.
 
 The exact 75 keys `AssetKeys.AllKeys` yields today (the original sprite, tile and sound keys with T163's
 `city.tier4.icon`, T148's six seamless terrain surface keys and T101's 36 toolbar commands), one per line, in the same eight-group order as
-`AssetKeys.cs` itself. This block is read verbatim by `AssetSpecificationCoverageTests.cs`; do not
-reformat it without updating that test's expectations.
+`AssetKeys.cs` itself, followed by the 25 `battle.*` keys of `godot/Assets/BattleAssetKeys.cs` (T128: the tactical battle screen's assets, §4.7), which are Godot-side
+constants and so not in the engine's `AssetKeys`. This block is read verbatim by `AssetSpecificationCoverageTests.cs`, which takes the union of `AssetKeys.AllKeys` and
+`BattleAssetKeys.AllKeys` (100 keys); do not reformat it without updating that test's expectations.
 
 ```text
 unit.light_infantry.icon
@@ -1029,6 +1039,31 @@ ui.command.fleet_join.icon
 ui.command.fleet_scuttle.icon
 ui.command.city_fortify.icon
 ui.command.cancel_selection.icon
+battle.unit.light_infantry.small
+battle.unit.light_infantry.medium
+battle.unit.light_infantry.large
+battle.unit.heavy_infantry.small
+battle.unit.heavy_infantry.medium
+battle.unit.heavy_infantry.large
+battle.unit.archers.small
+battle.unit.archers.medium
+battle.unit.archers.large
+battle.unit.light_cavalry.small
+battle.unit.light_cavalry.medium
+battle.unit.light_cavalry.large
+battle.unit.heavy_cavalry.small
+battle.unit.heavy_cavalry.medium
+battle.unit.heavy_cavalry.large
+battle.ground
+battle.cursor
+battle.toolbar.unit_moves
+battle.toolbar.friendly_units
+battle.toolbar.enemy_units
+battle.toolbar.cancel_selection
+battle.toolbar.end_turn
+battle.toolbar.change_pauses
+battle.toolbar.computer_general
+battle.toolbar.surrender
 ```
 
 ---

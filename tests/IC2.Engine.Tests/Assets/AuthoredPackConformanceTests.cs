@@ -2,13 +2,14 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using IC2.Engine.Assets;
 using IC2.Engine.Tests.Fixtures;
+using IC2.Slice.Assets;
 using Xunit;
 
 namespace IC2.Engine.Tests.Assets;
 
 /// <summary>
 /// T51's conformance tests for the authored pack (<c>assets/packs/authored/</c>, produced by
-/// <c>scripts/generate-authored-assets.py</c> from <c>assets/prompts.json</c>) — DoD 1, 5 and 6.
+/// <c>scripts/generate-authored-assets.py</c> from <c>assets/prompts.json</c>; the other sfx.* prompts are in <c>assets/sound-prompts.json</c>) — DoD 1, 5 and 6.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -27,7 +28,9 @@ namespace IC2.Engine.Tests.Assets;
 /// palette (<c>docs/asset-specification.md</c> §2.3) is applied at DRAW time by tinting each
 /// marker with its owner's colour, not baked into sixteen per-nation variants, because the
 /// asset keys are one per tier, not one per nation. Terrain tiles are full-colour, fully
-/// opaque, 24-bit, per §1.2. T101's <c>ui.command.*</c> icons are the deliberate exception:
+/// opaque, 24-bit, per §1.2 (T128's <c>battle.ground</c> is a tile too); T128's <c>battle.unit.*</c> icons are
+/// 32-bit opaque BGRA (alpha 255), <c>battle.cursor</c> is 32-bit BGRA and the 20 x 20 <c>battle.toolbar.*</c> glyphs
+/// are 32-bit BGRA (§4.7), none of them nation-tinted by this pack. T101's <c>ui.command.*</c> icons are the deliberate exception:
 /// pictorial, full-colour 32-bit BGRA on a transparent background, never tinted, checked by
 /// their own format/size/transparency test rather than the silhouette test.
 /// </para>
@@ -48,24 +51,25 @@ public sealed class AuthoredPackConformanceTests
     // T149: sound keys (sfx.*) are generated through a separate prompt file because they are
     // produced by ElevenLabs' sound-effects API rather than an image model, and the existing
     // prompts.json structure (text prompt + source citation + kind) is the image generation
-    // contract. The "every AssetKey has a prompt" rule below therefore reads both files.
+    // contract. The "every key of AssetKeys and BattleAssetKeys has a prompt" rule below therefore reads both files.
     private static readonly string SoundPromptsFilePath =
         Path.Combine(FixturePaths.RepositoryRoot, "assets", "sound-prompts.json");
 
-    // --- DoD 1: prompts.json <-> AssetKeys, both directions (passes from the first commit) ---
+    // --- DoD 1: prompts.json + sound-prompts.json <-> AssetKeys and BattleAssetKeys (the union), both directions (passes from the first commit) ---
 
     [Fact]
-    public void PromptsJson_HasExactlyOnePromptPerAssetKeysConstant()
+    public void PromptFiles_HaveExactlyOnePromptPerKeyOfTheUnion()
     {
         var entries = ReadPromptEntries();
         var soundEntries = ReadSoundPromptEntries();
 
-        // The two prompt files together cover every AssetKey: prompts.json for the image
-        // generation keys, sound-prompts.json for the sfx.* keys (T149 split).
+        // The two prompt files together cover every key of the union AssetKeys.AllKeys + BattleAssetKeys.AllKeys:
+        // prompts.json for the image keys (the engine's and the battle screen's), sound-prompts.json for the sfx.* keys (T149 split).
         var allPromptKeys = new HashSet<string>(
             entries.Select(e => e.Key).Concat(soundEntries.Select(e => e.Key)),
             StringComparer.Ordinal);
-        var engineKeys = new HashSet<string>(AssetKeys.AllKeys, StringComparer.Ordinal);
+        // T128: the battle screen's 25 keys live in the Godot-side BattleAssetKeys; the whole key set is the union.
+        var engineKeys = new HashSet<string>(AssetKeys.AllKeys.Concat(BattleAssetKeys.AllKeys), StringComparer.Ordinal);
 
         // A key with no prompt fails; a prompt with no key fails; a duplicated key fails too,
         // because a duplicate would silently satisfy the count while leaving one slot ambiguous.
@@ -75,10 +79,10 @@ public sealed class AuthoredPackConformanceTests
             .Where(g => g.Count() > 1).Select(g => g.Key).ToList();
 
         Assert.True(missingPrompts.Count == 0,
-            "AssetKeys constants with no prompt in assets/prompts.json or assets/sound-prompts.json: " +
+            "AssetKeys/BattleAssetKeys constants with no prompt in assets/prompts.json or assets/sound-prompts.json: " +
             string.Join(", ", missingPrompts));
         Assert.True(unknownKeys.Count == 0,
-            "prompt files carry entries for keys AssetKeys does not define: " + string.Join(", ", unknownKeys));
+            "prompt files carry entries for keys neither AssetKeys nor BattleAssetKeys defines: " + string.Join(", ", unknownKeys));
         Assert.True(duplicateKeys.Count == 0,
             "prompt files carry duplicate keys: " + string.Join(", ", duplicateKeys));
     }
@@ -96,8 +100,8 @@ public sealed class AuthoredPackConformanceTests
                 $"{entry.Key}: the source field is empty - DoD 1 requires every prompt to cite the "
                 + "docs/asset-specification.md depiction line it was written from");
 
-            // The kind drives the format conformance (sprite -> 32-bit BGRA, tile -> 24-bit opaque,
-            // sfx -> WAV), so it must agree with the key's own category, not just be any string.
+            // The kind drives the format conformance (sprite/ui -> 32-bit BGRA, tile -> 24-bit opaque,
+            // battle_unit -> 32-bit opaque BGRA, battle_glyph -> 20x20 32-bit BGRA, sfx -> WAV), so it must agree with the key's own category, not just be any string.
             Assert.Equal(ExpectedKind(entry.Key), entry.Kind);
         });
     }
@@ -148,9 +152,11 @@ public sealed class AuthoredPackConformanceTests
     {
         var pack = AssetLoader.LoadManifest(Path.Combine(AuthoredPackDirectory, "manifest.json"));
 
-        // Surfaces are 256x256, not 32x32, so they are checked by their own test below rather than by
-        // this 32x32 structure check.
+        // Surfaces are 256x256, so they are checked by their own test below rather than by this
+        // structure check, which takes each key's size from ExpectedSize (32x32 for the engine's keys, 32x32 or
+        // 20x20 for the battle screen's).
         var imageKeys = AssetKeys.AllKeys
+            .Concat(BattleAssetKeys.AllKeys) // T128: the battle screen's 25 images (32x32 and 20x20)
             .Where(k => !k.StartsWith("sfx.", StringComparison.Ordinal)
                      && !k.EndsWith(".surface", StringComparison.Ordinal))
             .ToList();
@@ -163,9 +169,10 @@ public sealed class AuthoredPackConformanceTests
 
             Assert.True(File.Exists(fullPath), $"Image file not found: {key} ({fullPath})");
 
-            // Terrain tiles are 24-bit opaque; every other image asset (unit icons and
-            // army/fleet/city markers) is 32-bit BGRA - docs/asset-specification.md 1.2.
-            ValidateBmpStructure(File.ReadAllBytes(fullPath), key, ExpectedBitCount(key));
+            // Terrain tiles and battle.ground are 24-bit opaque; every other image asset (unit icons,
+            // army/fleet/city markers, ui.command.* icons, battle.unit.* icons - opaque, alpha 255 - battle.cursor and the
+            // 20x20 battle.toolbar.* glyphs) is 32-bit BGRA - docs/asset-specification.md 1.2, 4.7.
+            ValidateBmpStructure(File.ReadAllBytes(fullPath), key, ExpectedBitCount(key), ExpectedSize(key));
         }
     }
 
@@ -185,7 +192,9 @@ public sealed class AuthoredPackConformanceTests
     {
         var pack = AssetLoader.LoadManifest(Path.Combine(AuthoredPackDirectory, "manifest.json"));
 
-        // T101: narrowed to the MARKER categories. A unit icon or an army/fleet/city marker is
+        // T101: narrowed to the MARKER categories (the engine's AssetKeys only: T128's battle.* images are checked
+        // for format by the test above and are not silhouettes - battle.unit.* icons are opaque and carry tint markers).
+        // A unit icon or an army/fleet/city marker is
         // a neutral light silhouette so the draw-time nation tint (the #173 decision) stays
         // visible. A ui.command icon is pictorial and full-colour and is never tinted, so it is
         // deliberately excluded here and checked by its own test below.
@@ -490,12 +499,17 @@ public sealed class AuthoredPackConformanceTests
 
     /// <summary>
     /// The kind implied by the key's own first segment: terrain tiles are opaque 24-bit, sfx are
-    /// WAV, and everything else (unit icons and army/fleet/city markers) are transparent 32-bit
-    /// BGRA sprites - the same split <c>scripts/generate-authored-assets.py</c> conforms by.
+    /// WAV, T128's <c>battle.ground</c> is a "tile" too (24-bit opaque), T128's <c>battle.unit.*</c>
+    /// and <c>battle.toolbar.*</c> have their own kinds (32-bit BGRA: opaque unit icons, 20 x 20 glyphs),
+    /// and everything else (unit icons, army/fleet/city markers, <c>battle.cursor</c>) are 32-bit BGRA
+    /// sprites - the same split <c>scripts/generate-authored-assets.py</c> conforms by.
     /// </summary>
     private static string ExpectedKind(string key) => key switch
     {
         _ when key.EndsWith(".surface", StringComparison.Ordinal) => "surface",
+        _ when key.StartsWith("battle.unit.", StringComparison.Ordinal) => "battle_unit",
+        _ when key.StartsWith("battle.toolbar.", StringComparison.Ordinal) => "battle_glyph",
+        _ when key == BattleAssetKeys.Ground => "tile",
         _ when key.StartsWith("terrain.", StringComparison.Ordinal) => "tile",
         _ when key.StartsWith("sfx.", StringComparison.Ordinal) => "sfx",
         _ when key.StartsWith("ui.command.", StringComparison.Ordinal) => "ui",
@@ -503,19 +517,26 @@ public sealed class AuthoredPackConformanceTests
     };
 
     private static int ExpectedBitCount(string key) =>
-        key.StartsWith("terrain.", StringComparison.Ordinal) ? 24 : 32;
+        key.StartsWith("battle.", StringComparison.Ordinal)
+            ? BattleAssetKeys.ExpectedBitCount(key)
+            : key.StartsWith("terrain.", StringComparison.Ordinal) ? 24 : 32;
+
+    private static int ExpectedSize(string key) =>
+        key.StartsWith("battle.", StringComparison.Ordinal) ? BattleAssetKeys.ExpectedSize(key) : 32;
 
     /// <summary>
     /// Parses a BMP's own headers and recomputes every field independently, in the style of
     /// T11's <c>PlaceholderPackIntegrationTests.ValidateBMPStructure</c> (that file is T11's to
     /// edit, so the equivalent lives here parameterized on the expected bit depth): the "BM"
     /// signature; the declared file size against the actual length; the 54-byte header offset;
-    /// the 40-byte BITMAPINFOHEADER; 32x32 bottom-up dimensions; 1 colour plane; the per-kind
-    /// bit depth (24 for terrain, 32 for sprites); BI_RGB compression; and the pixel array's
+    /// the 40-byte BITMAPINFOHEADER; square bottom-up dimensions of the expected size (32x32, or
+    /// 20x20 for <c>battle.toolbar.*</c>); 1 colour plane; the per-kind bit depth (24 for terrain tiles and
+    /// <c>battle.ground</c>, 32 for every sprite, UI, <c>battle.unit.*</c>, <c>battle.cursor</c> and
+    /// <c>battle.toolbar.*</c> image); BI_RGB compression; and the pixel array's
     /// size recomputed from width/height/depth with 4-byte row padding, checked against both
     /// the declared image size and the bytes actually present.
     /// </summary>
-    private static void ValidateBmpStructure(byte[] bytes, string assetKey, int expectedBitCount)
+    private static void ValidateBmpStructure(byte[] bytes, string assetKey, int expectedBitCount, int expectedSize = 32)
     {
         Assert.True(bytes.Length >= 54,
             $"{assetKey}: file too short to hold a BMP file header + DIB header ({bytes.Length} bytes)");
@@ -530,15 +551,15 @@ public sealed class AuthoredPackConformanceTests
         Assert.Equal(40u, BitConverter.ToUInt32(bytes, 14));
         var width = BitConverter.ToInt32(bytes, 18);
         var height = BitConverter.ToInt32(bytes, 22);
-        Assert.Equal(32, width);
-        Assert.Equal(32, height);
+        Assert.Equal(expectedSize, width);
+        Assert.Equal(expectedSize, height);
         Assert.True(height > 0, $"{assetKey}: bottom-up DIB expected (positive height)");
         Assert.Equal(1, BitConverter.ToUInt16(bytes, 26)); // colour planes
 
         var bitCount = BitConverter.ToUInt16(bytes, 28);
         Assert.True(bitCount == expectedBitCount,
             $"{assetKey}: bit depth is {bitCount}, expected {expectedBitCount} "
-            + "(docs/asset-specification.md 1.2: 24-bit opaque terrain, 32-bit BGRA sprites)");
+            + "(docs/asset-specification.md 1.2, 4.7: 24-bit opaque terrain tiles and battle.ground, 32-bit BGRA everything else)");
 
         Assert.Equal(0u, BitConverter.ToUInt32(bytes, 30)); // BI_RGB, uncompressed
 

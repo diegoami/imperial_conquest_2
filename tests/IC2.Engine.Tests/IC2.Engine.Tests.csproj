@@ -108,6 +108,14 @@
     <Compile Include="../../godot/Assets/MarkerTint.cs" Link="Ui/MarkerTint.cs" />
 
     <!--
+      T128 (tests/IC2.Engine.Tests/Ui/Assets/BattleAssetKeysTests.cs): the tactical battle screen's
+      Godot-free key constants and three-region recolour, godot/Assets/BattleAssetKeys.cs and
+      BattleIconTint.cs (one wildcard line; the asset tests under Assets/ read the keys too). No
+      `using Godot` anywhere; never a second, hand-maintained copy.
+    -->
+    <Compile Include="../../godot/Assets/Battle*.cs" Link="Ui/%(Filename)%(Extension)" />
+
+    <!--
       Fix #513 (tests/IC2.Engine.Tests/Ui/**): the same seam again. RecruitmentPanelViewModel.cs is the
       Godot-free model behind the city panel's "In training here" list, the nation overview's
       "Regiments in training" list and the army panel's mobilize choice, so the fix's own test can

@@ -13,8 +13,7 @@ The directory to write the asset pack to. Created if it doesn't exist.
 #>
 
 param(
-    [Parameter(Mandatory=$true)]
-    [string]$OutputPath,
+    [string]$OutputPath = (Join-Path -Path $PSScriptRoot -ChildPath "../assets/packs/placeholder"),
     [int]$Seed = 42
 )
 
@@ -27,7 +26,7 @@ if (!(Test-Path $OutputPath)) {
 }
 
 # Create subdirectories
-foreach ($dir in @('units', 'army', 'fleet', 'city', 'terrain', 'sfx', 'ui')) {
+foreach ($dir in @('units', 'army', 'fleet', 'city', 'terrain', 'sfx', 'ui', 'battle')) {
     $subdir = Join-Path -Path $OutputPath -ChildPath $dir
     if (!(Test-Path $subdir)) {
         $null = New-Item -ItemType Directory -Path $subdir -Force
@@ -391,6 +390,228 @@ foreach ($command in $uiCommands) {
     Write-Host "  + $file"
 }
 
+# --- T128: the tactical battle screen's assets (docs/asset-specification.md 4.7) -------------------
+# 15 recolourable unit icons (32x32, 32-bit BGRA, alpha 255 throughout), the ground tile (32x32, 24-bit), the cursor
+# (32x32, 32-bit BGRA) and eight toolbar glyphs (20x20, 32-bit BGRA). A unit icon is drawn in the
+# three marker colours the nation recolour replaces (purple 0x800080, white, blue 0x0000FF) plus a
+# black outline and the lime dotted frame the original keeps; the figure grows with the size index.
+# Everything is integer arithmetic on a byte buffer - no GDI+, no RNG - so a second run is
+# byte-identical.
+function New-RgbaBuffer {
+    param([int]$Width, [int]$Height, [int[]]$Fill)
+    $buffer = New-Object byte[] ($Width * $Height * 4)
+    for ($i = 0; $i -lt ($Width * $Height); $i++) {
+        $buffer[$i * 4] = [byte]$Fill[0]; $buffer[$i * 4 + 1] = [byte]$Fill[1]
+        $buffer[$i * 4 + 2] = [byte]$Fill[2]; $buffer[$i * 4 + 3] = [byte]$Fill[3]
+    }
+    return ,$buffer
+}
+
+function Set-RgbaPixel {
+    param([byte[]]$Buffer, [int]$Width, [int]$Height, [int]$X, [int]$Y, [int[]]$Color)
+    if ($X -lt 0 -or $Y -lt 0 -or $X -ge $Width -or $Y -ge $Height) { return }
+    $i = ($Y * $Width + $X) * 4
+    $Buffer[$i] = [byte]$Color[0]; $Buffer[$i + 1] = [byte]$Color[1]
+    $Buffer[$i + 2] = [byte]$Color[2]; $Buffer[$i + 3] = [byte]$Color[3]
+}
+
+function Set-RgbaRect {
+    param([byte[]]$Buffer, [int]$Width, [int]$Height, [int]$X0, [int]$Y0, [int]$X1, [int]$Y1, [int[]]$Color)
+    for ($y = $Y0; $y -le $Y1; $y++) {
+        for ($x = $X0; $x -le $X1; $x++) {
+            Set-RgbaPixel -Buffer $Buffer -Width $Width -Height $Height -X $x -Y $y -Color $Color
+        }
+    }
+}
+
+# A filled rectangle with a one-pixel black outline.
+function Set-OutlinedRect {
+    param([byte[]]$Buffer, [int]$Width, [int]$Height, [int]$X0, [int]$Y0, [int]$X1, [int]$Y1, [int[]]$Fill)
+    Set-RgbaRect -Buffer $Buffer -Width $Width -Height $Height -X0 ($X0 - 1) -Y0 ($Y0 - 1) -X1 ($X1 + 1) -Y1 ($Y1 + 1) -Color @(0, 0, 0, 255)
+    Set-RgbaRect -Buffer $Buffer -Width $Width -Height $Height -X0 $X0 -Y0 $Y0 -X1 $X1 -Y1 $Y1 -Color $Fill
+}
+
+# Writes an RGBA buffer (top-down) as an uncompressed BMP, 24-bit (alpha dropped) or 32-bit BGRA.
+function Write-BmpFromRgba {
+    param([string]$Path, [byte[]]$Buffer, [int]$Width, [int]$Height, [int]$BitCount)
+    $bytesPerPixel = $BitCount / 8
+    $rowUnpadded = $Width * $bytesPerPixel
+    $rowPadding = (4 - ($rowUnpadded % 4)) % 4
+    $rowSize = $rowUnpadded + $rowPadding
+    $pixelDataSize = [uint32]($rowSize * $Height)
+    $pixelDataOffset = [uint32]54
+    $fileSize = [uint32]($pixelDataOffset + $pixelDataSize)
+
+    $fileHeader = [byte[]]@(0x42, 0x4D)
+    $fileHeader += [BitConverter]::GetBytes($fileSize)
+    $fileHeader += [byte[]]@(0, 0, 0, 0)
+    $fileHeader += [BitConverter]::GetBytes($pixelDataOffset)
+
+    $infoHeader = [BitConverter]::GetBytes([uint32]40)
+    $infoHeader += [BitConverter]::GetBytes([int32]$Width)
+    $infoHeader += [BitConverter]::GetBytes([int32]$Height)
+    $infoHeader += [BitConverter]::GetBytes([uint16]1)
+    $infoHeader += [BitConverter]::GetBytes([uint16]$BitCount)
+    $infoHeader += [BitConverter]::GetBytes([uint32]0)
+    $infoHeader += [BitConverter]::GetBytes($pixelDataSize)
+    $infoHeader += [BitConverter]::GetBytes([int32]0)
+    $infoHeader += [BitConverter]::GetBytes([int32]0)
+    $infoHeader += [BitConverter]::GetBytes([uint32]0)
+    $infoHeader += [BitConverter]::GetBytes([uint32]0)
+
+    $pixelData = New-Object byte[] $pixelDataSize
+    for ($y = 0; $y -lt $Height; $y++) {
+        $rowIndex = $Height - 1 - $y
+        for ($x = 0; $x -lt $Width; $x++) {
+            $src = ($y * $Width + $x) * 4
+            $idx = ($rowIndex * $rowSize) + ($x * $bytesPerPixel)
+            $pixelData[$idx] = $Buffer[$src + 2]
+            $pixelData[$idx + 1] = $Buffer[$src + 1]
+            $pixelData[$idx + 2] = $Buffer[$src]
+            if ($bytesPerPixel -eq 4) { $pixelData[$idx + 3] = $Buffer[$src + 3] }
+        }
+    }
+
+    [System.IO.File]::WriteAllBytes($Path, ($fileHeader + $infoHeader + $pixelData))
+}
+
+# One unit icon: a purple field, a white figure that grows with the size index (0 small .. 2 large),
+# a blue accent whose place depends on the type, a black outline and the lime dotted frame.
+function New-BattleUnitBMP {
+    param([string]$Path, [int]$TypeIndex, [int]$SizeIndex)
+    $n = 32
+    $purple = @(128, 0, 128, 255); $white = @(255, 255, 255, 255)
+    $blue = @(0, 0, 255, 255); $lime = @(0, 255, 0, 255)
+    $buffer = New-RgbaBuffer -Width $n -Height $n -Fill $purple
+
+    $half = 3 + 2 * $SizeIndex            # half width of the body: 3, 5 or 7
+    $top = 16 - (4 + 2 * $SizeIndex)      # the body's top row
+    $bottom = 16 + (4 + 2 * $SizeIndex)   # and bottom row
+    $cx = 16
+
+    switch ($TypeIndex) {
+        0 { # light infantry: a body and a spear
+            Set-OutlinedRect $buffer $n $n ($cx - $half + 2) ($top + 3) ($cx + $half - 2) $bottom $white
+            Set-RgbaRect $buffer $n $n ($cx + $half - 1) 4 ($cx + $half - 1) ($bottom - 2) $white
+            Set-RgbaRect $buffer $n $n ($cx - $half + 3) ($top + 5) ($cx - $half + 4) ($top + 6) $blue
+        }
+        1 { # heavy infantry: a broad body and a shield
+            Set-OutlinedRect $buffer $n $n ($cx - $half) ($top + 2) ($cx + $half) $bottom $white
+            Set-RgbaRect $buffer $n $n ($cx - 1) ($top + 3) ($cx + 1) ($bottom - 1) $blue
+            Set-RgbaRect $buffer $n $n ($cx - $half + 1) ($top + 5) ($cx + $half - 1) ($top + 6) $blue
+        }
+        2 { # archers: a body and a bow
+            Set-OutlinedRect $buffer $n $n ($cx - $half + 3) ($top + 3) ($cx + $half - 3) $bottom $white
+            for ($k = 0; $k -le (2 * $half); $k++) {
+                $arc = [int](($k - $half) * ($k - $half) / (2 * $half))
+                Set-RgbaPixel $buffer $n $n ($cx + $half - $arc) ($top + $k) $blue
+                Set-RgbaPixel $buffer $n $n ($cx + $half - $arc + 1) ($top + $k) $blue
+            }
+        }
+        3 { # light cavalry: a long low body and a rider
+            Set-OutlinedRect $buffer $n $n ($cx - $half - 3) ($top + 6) ($cx + $half + 3) ($bottom - 2) $white
+            Set-RgbaRect $buffer $n $n ($cx - 1) ($top) ($cx + 1) ($top + 5) $white
+            Set-RgbaRect $buffer $n $n ($cx - $half - 1) ($top + 8) ($cx - $half + 1) ($top + 9) $blue
+        }
+        4 { # heavy cavalry: a long body, a rider and a blue barding stripe
+            Set-OutlinedRect $buffer $n $n ($cx - $half - 3) ($top + 6) ($cx + $half + 3) $bottom $white
+            Set-OutlinedRect $buffer $n $n ($cx - 2) ($top - 1) ($cx + 2) ($top + 5) $white
+            Set-RgbaRect $buffer $n $n ($cx - $half - 2) ($bottom - 4) ($cx + $half + 2) ($bottom - 3) $blue
+        }
+    }
+
+    # The lime dotted frame: every second pixel of the outermost ring.
+    for ($i = 0; $i -lt $n; $i += 2) {
+        Set-RgbaPixel $buffer $n $n $i 0 $lime
+        Set-RgbaPixel $buffer $n $n $i ($n - 1) $lime
+        Set-RgbaPixel $buffer $n $n 0 $i $lime
+        Set-RgbaPixel $buffer $n $n ($n - 1) $i $lime
+    }
+    Write-BmpFromRgba -Path $Path -Buffer $buffer -Width $n -Height $n -BitCount 32
+}
+
+# The ground: grass green with brown contour lines (a battlefield has no terrain).
+function New-BattleGroundBMP {
+    param([string]$Path)
+    $n = 32
+    $buffer = New-RgbaBuffer -Width $n -Height $n -Fill @(70, 140, 60, 255)
+    for ($y = 0; $y -lt $n; $y++) {
+        for ($x = 0; $x -lt $n; $x++) {
+            if ((($x + 2 * $y) % 11) -eq 0) {
+                Set-RgbaPixel $buffer $n $n $x $y @(120, 90, 50, 255)
+            } elseif ((($x * 3 + $y) % 17) -eq 0) {
+                Set-RgbaPixel $buffer $n $n $x $y @(90, 160, 70, 255)
+            }
+        }
+    }
+    Write-BmpFromRgba -Path $Path -Buffer $buffer -Width $n -Height $n -BitCount 24
+}
+
+# The cursor: white corner brackets with a black inner shadow on a transparent cell.
+function New-BattleCursorBMP {
+    param([string]$Path)
+    $n = 32
+    $buffer = New-RgbaBuffer -Width $n -Height $n -Fill @(0, 0, 0, 0)
+    foreach ($ring in @(@(0, @(255, 255, 255, 255)), @(1, @(0, 0, 0, 255)))) {
+        $o = $ring[0]; $c = $ring[1]
+        for ($i = $o; $i -lt ($n - $o); $i++) {
+            if (($i - $o) -lt 8 -or ($i - $o) -ge ($n - 2 * $o - 8)) {
+                Set-RgbaPixel $buffer $n $n $i $o $c
+                Set-RgbaPixel $buffer $n $n $i ($n - 1 - $o) $c
+                Set-RgbaPixel $buffer $n $n $o $i $c
+                Set-RgbaPixel $buffer $n $n ($n - 1 - $o) $i $c
+            }
+        }
+    }
+    Write-BmpFromRgba -Path $Path -Buffer $buffer -Width $n -Height $n -BitCount 32
+}
+
+# A toolbar glyph stand-in: a SHA-256-derived mirrored identicon of 2-pixel cells (5 x 10 mirrored
+# to 10 x 10) in two flat colours on a transparent 20x20 cell, as for the ui.command stand-ins.
+function New-BattleGlyphBMP {
+    param([string]$Path, [string]$Key)
+    $n = 20
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    $hash = $sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($Key))
+    $buffer = New-RgbaBuffer -Width $n -Height $n -Fill @(0, 0, 0, 0)
+    $c1 = @((60 + [int]($hash[8] % 150)), (60 + [int]($hash[9] % 150)), (60 + [int]($hash[10] % 150)), 255)
+    $c2 = @((20 + [int]($hash[11] % 120)), (20 + [int]($hash[12] % 120)), (20 + [int]($hash[13] % 120)), 255)
+    for ($cy = 0; $cy -lt 10; $cy++) {
+        for ($cx = 0; $cx -lt 5; $cx++) {
+            $bitIndex = $cy * 5 + $cx
+            $bit = ($hash[3 + [int][math]::Floor($bitIndex / 8)] -shr ($bitIndex % 8)) -band 1
+            if ($bit -eq 1) {
+                $color = if ((($cx + $cy) % 2) -eq 0) { $c1 } else { $c2 }
+                Set-RgbaRect $buffer $n $n (2 * $cx) (2 * $cy) (2 * $cx + 1) (2 * $cy + 1) $color
+                Set-RgbaRect $buffer $n $n (2 * (9 - $cx)) (2 * $cy) (2 * (9 - $cx) + 1) (2 * $cy + 1) $color
+            }
+        }
+    }
+    Write-BmpFromRgba -Path $Path -Buffer $buffer -Width $n -Height $n -BitCount 32
+}
+
+$battleUnitTypes = @("light_infantry", "heavy_infantry", "archers", "light_cavalry", "heavy_cavalry")
+$battleSizes = @("small", "medium", "large")
+$battleToolbar = @("unit_moves", "friendly_units", "enemy_units", "cancel_selection", "end_turn", "change_pauses", "computer_general", "surrender")
+
+Write-Host "Generating battle screen placeholder assets..."
+for ($t = 0; $t -lt $battleUnitTypes.Count; $t++) {
+    for ($s = 0; $s -lt 3; $s++) {
+        $file = "battle/unit_$($battleUnitTypes[$t])_$($battleSizes[$s]).bmp"
+        New-BattleUnitBMP -Path (Join-Path -Path $OutputPath -ChildPath $file) -TypeIndex $t -SizeIndex $s
+        Write-Host "  + $file"
+    }
+}
+New-BattleGroundBMP -Path (Join-Path -Path $OutputPath -ChildPath "battle/ground.bmp")
+Write-Host "  + battle/ground.bmp"
+New-BattleCursorBMP -Path (Join-Path -Path $OutputPath -ChildPath "battle/cursor.bmp")
+Write-Host "  + battle/cursor.bmp"
+foreach ($button in $battleToolbar) {
+    $file = "battle/toolbar_$button.bmp"
+    New-BattleGlyphBMP -Path (Join-Path -Path $OutputPath -ChildPath $file) -Key "battle.toolbar.$button"
+    Write-Host "  + $file"
+}
+
 Write-Host "Generating WAV files..."
 foreach ($sfx in @("city_captured", "battle", "unit_move", "fleet_move", "battle_arrows", "battle_javelin", "battle_melee", "siege_failed", "fleet_sunk", "nation_conquered")) {
     $filepath = Join-Path -Path $OutputPath -ChildPath "sfx/$sfx.wav"
@@ -436,12 +657,39 @@ foreach ($command in $uiCommands) {
     $manifest.assets["ui.command.$command.icon"] = "ui/command_$command.bmp"
 }
 
+# T128: the battle screen's 25 keys, in a separate ordered list that is appended after the
+# serialised JSON (below): a hashtable reshuffles every existing line when a key is added, and the
+# battle keys must be additions only.
+$battleManifest = [ordered]@{}
+for ($t = 0; $t -lt $battleUnitTypes.Count; $t++) {
+    for ($s = 0; $s -lt 3; $s++) {
+        $battleManifest["battle.unit.$($battleUnitTypes[$t]).$($battleSizes[$s])"] = "battle/unit_$($battleUnitTypes[$t])_$($battleSizes[$s]).bmp"
+    }
+}
+$battleManifest["battle.ground"] = "battle/ground.bmp"
+$battleManifest["battle.cursor"] = "battle/cursor.bmp"
+foreach ($button in $battleToolbar) {
+    $battleManifest["battle.toolbar.$button"] = "battle/toolbar_$button.bmp"
+}
+
 $manifestPath = Join-Path -Path $OutputPath -ChildPath "manifest.json"
 $json = ConvertTo-Json $manifest -Depth 10
 # LF, matching the repository's .gitattributes (`* text=auto eol=lf`): ConvertTo-Json emits
 # CRLF on Windows, which would make the regenerated manifest differ from the committed one
 # byte for byte and fail the determinism check (repo-audit-2026-09-18.md §4.8).
 $json = $json -replace "`r`n", "`n"
+# T128: append the battle keys after the last "assets" line, in whatever indent and separator the
+# serialiser used for it (Windows PowerShell 5.1 and PowerShell 7 format ConvertTo-Json differently).
+$assetsStart = $json.IndexOf('"assets"')
+if ($assetsStart -lt 0) { throw "Could not find the assets block in the manifest JSON." }
+$assetsClose = $assetsStart + [regex]::Match($json.Substring($assetsStart), '
+[ ]*\}').Index
+$lastLine = [regex]::Match($json.Substring(0, $assetsClose), '(?<indent>[ ]+)"[^"]+":(?<sep>[ ]+)"[^"]*"\z')
+if (-not $lastLine.Success) { throw "Could not find the last assets line in the manifest JSON." }
+$battleLines = foreach ($key in $battleManifest.Keys) {
+    $lastLine.Groups['indent'].Value + '"' + $key + '":' + $lastLine.Groups['sep'].Value + '"' + $battleManifest[$key] + '"'
+}
+$json = $json.Substring(0, $assetsClose) + ",`n" + ($battleLines -join ",`n") + $json.Substring($assetsClose)
 [System.IO.File]::WriteAllText($manifestPath, $json)
 
 Write-Host "Success: Generated placeholder asset pack at: $OutputPath"

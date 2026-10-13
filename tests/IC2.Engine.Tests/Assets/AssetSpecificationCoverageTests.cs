@@ -1,26 +1,29 @@
 using IC2.Engine.Assets;
 using IC2.Engine.Tests.Fixtures;
+using IC2.Slice.Assets;
 using Xunit;
 
 namespace IC2.Engine.Tests.Assets;
 
 /// <summary>
 /// T49 DoD 4: <c>docs/asset-specification.md</c> must not silently drift from
-/// <see cref="AssetKeys"/>. The specification carries a fenced "ground truth" block (its §6,
+/// <see cref="AssetKeys"/> and <see cref="BattleAssetKeys"/> (the union). The specification carries a fenced "ground truth" block (its §6,
 /// <c>```text ... ```</c>) that is meant to be read verbatim, and this test is that reading:
 /// </summary>
 /// <remarks>
 /// <para>
 /// 1. Every key <see cref="AssetKeys.AllKeys"/> yields today (read live from the compiled engine,
-/// never copied into this test) must appear as a line inside that block.
+/// never copied into this test), and every key of T128's Godot-side
+/// <see cref="BattleAssetKeys.AllKeys"/>, must appear as a line inside that block.
 /// </para>
 /// <para>
-/// 2. Every line inside that block must be a real <see cref="AssetKeys"/> constant — so a stray or
+/// 2. Every line inside that block must be a real <see cref="AssetKeys"/> or
+/// <see cref="BattleAssetKeys"/> constant — so a stray or
 /// misspelled "existing" key claimed in the document fails exactly as loudly as a missing one.
 /// </para>
 /// <para>
 /// Gap/candidate keys discussed elsewhere in the document (candidate new sfx keys) are deliberately
-/// outside this block: this test only requires the *existing* keys - all 67 after T101 and T148 - to
+/// outside this block: this test only requires the *existing* keys - the engine's 75 plus T128's 25 battle keys - to
 /// round-trip, and a proposed key must not affect it either way.
 /// </para>
 /// </remarks>
@@ -28,6 +31,12 @@ public class AssetSpecificationCoverageTests
 {
     private const string FenceMarker = "```text";
     private const string ClosingFence = "```";
+
+    /// <summary>
+    /// The whole key set: the engine's <see cref="AssetKeys.AllKeys"/> plus T128's Godot-side
+    /// <see cref="BattleAssetKeys.AllKeys"/> (the tactical battle screen's 25 keys), which section 6 lists too.
+    /// </summary>
+    private static IEnumerable<string> AllKeys() => AssetKeys.AllKeys.Concat(BattleAssetKeys.AllKeys);
 
     private static string SpecificationPath =>
         Path.Combine(FixturePaths.RepositoryRoot, "docs", "asset-specification.md");
@@ -39,28 +48,28 @@ public class AssetSpecificationCoverageTests
     }
 
     [Fact]
-    public void EveryAssetKeysConstant_AppearsInTheGroundTruthBlock()
+    public void EveryKeyOfTheUnion_AppearsInTheGroundTruthBlock()
     {
         var documented = ReadGroundTruthKeys();
-        var engineKeys = AssetKeys.AllKeys.ToList();
+        var engineKeys = AllKeys().ToList();
 
         var missingFromDoc = engineKeys.Where(k => !documented.Contains(k)).ToList();
 
         Assert.True(missingFromDoc.Count == 0,
-            "AssetKeys constants missing from docs/asset-specification.md §6: " +
+            "AssetKeys/BattleAssetKeys constants missing from docs/asset-specification.md §6: " +
             string.Join(", ", missingFromDoc));
     }
 
     [Fact]
-    public void EveryGroundTruthLine_MapsToARealAssetKeysConstant()
+    public void EveryGroundTruthLine_MapsToARealKeyOfTheUnion()
     {
         var documented = ReadGroundTruthKeys();
-        var engineKeys = new HashSet<string>(AssetKeys.AllKeys, StringComparer.Ordinal);
+        var engineKeys = new HashSet<string>(AllKeys(), StringComparer.Ordinal);
 
         var strayInDoc = documented.Where(k => !engineKeys.Contains(k)).ToList();
 
         Assert.True(strayInDoc.Count == 0,
-            "docs/asset-specification.md §6 names keys that AssetKeys.AllKeys does not: " +
+            "docs/asset-specification.md §6 names keys that neither AssetKeys.AllKeys nor BattleAssetKeys.AllKeys has: " +
             string.Join(", ", strayInDoc));
     }
 
@@ -69,11 +78,11 @@ public class AssetSpecificationCoverageTests
     {
         // A cheap sanity check on the parse itself: distinct, non-empty keys, and — asserted
         // directly here, not just implied by the other two tests — exactly as many of them as
-        // AssetKeys.AllKeys yields today. If this ever fails because a real key was added or
-        // removed, that is exactly the drift this test exists to catch: update AssetKeys.cs and
+        // AssetKeys.AllKeys plus BattleAssetKeys.AllKeys yield today. If this ever fails because a real key was added or
+        // removed, that is exactly the drift this test exists to catch: update AssetKeys.cs / BattleAssetKeys.cs and
         // this specification's §6 block together.
         var documented = ReadGroundTruthKeys();
-        var engineKeyCount = AssetKeys.AllKeys.Count();
+        var engineKeyCount = AllKeys().Count();
 
         Assert.Equal(documented.Count, documented.Distinct(StringComparer.Ordinal).Count());
         Assert.All(documented, key => Assert.False(string.IsNullOrWhiteSpace(key)));

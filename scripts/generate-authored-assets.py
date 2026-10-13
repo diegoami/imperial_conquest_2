@@ -5,13 +5,18 @@ A one-shot, re-runnable authoring tool in the shape T29's world export already e
 a human runs it when the prompts change, and the COMMITTED output (assets/packs/authored/)
 is what every build, test and player uses. CI never calls it and holds no key.
 
-It reads assets/prompts.json - one prompt per AssetKeys constant, authored from
+It reads assets/prompts.json - one prompt per image key of AssetKeys or BattleAssetKeys
+(the union: the engine's keys plus T128's battle-screen keys; the sfx.* prompts are in
+assets/sound-prompts.json), authored from
 docs/asset-specification.md - calls the configured OpenRouter-compatible chat-completions
 endpoint with modalities ["image", "text"] (the image returns as a base64 data URL in the
 assistant message's `images` field), conforms each result to the specification's format
 rules (docs/asset-specification.md par. 1: 32x32 BMP, 24-bit opaque terrain tiles, 32-bit
-BGRA sprites with the background keyed out to alpha, and T101's 32-bit BGRA ui.command.*
-toolbar icons - keyed to alpha but kept full-colour, never neutral-silhouetted), and writes
+BGRA sprites with the background keyed out to alpha, T101's 32-bit BGRA ui.command.*
+toolbar icons - keyed to alpha but kept full-colour, never neutral-silhouetted - and T128's
+tactical-battle assets: 32x32 32-bit BGRA battle.unit.* icons snapped to the four-colour marker
+palette with alpha 255 throughout, a 24-bit opaque battle.ground tile, a 32-bit battle.cursor
+and 20x20 32-bit BGRA battle.toolbar.* glyphs; the prompts cover all of those kinds), and writes
 assets/packs/authored/ with a manifest in the same shape as T11's placeholder pack.
 
 Non-determinism is the defining constraint: the same prompt does not give the same pixels
@@ -19,12 +24,12 @@ twice, so the committed images are the source of truth, exactly as T29's exporte
 This script never regenerates anything unless asked, and the pack's tests pin conformance,
 never byte equality.
 
-Cost model: dry run by default (DoD 3); a real, billable run needs --key <AssetKey>
-(repeatable, DoD 4) or an explicit --all. The API key comes from assets-generator.local.ini
+Cost model: dry run by default (DoD 3); a real, billable run needs --key <a key of assets/prompts.json: an image key of
+AssetKeys or BattleAssetKeys, or one of the three sfx.* keys it lists> (repeatable, DoD 4) or an explicit --all. The API key comes from assets-generator.local.ini
 (git-ignored; copy assets-generator.example.ini) or the OPENROUTER_API_KEY environment
 variable, is never printed, and request headers are never echoed. One run at a time: the
-run is long, billable and network-bound, and the script takes a lock file to keep two
-runs from double-billing.
+run is long, billable and network-bound (the three locally synthesized sfx.* keys alone bill nothing and
+need no network), and the script takes a lock file to keep two runs from double-billing.
 
 Originals and offline re-conforming: every real run first saves the full-resolution image
 exactly as the model returned it to rendered/authored-raw/<asset-key>.png (git-ignored),
@@ -37,7 +42,8 @@ never eaten), the magenta spill is removed from the anti-aliased edge, the resul
 cropped to the subject's bounding box, padded to a square, downscaled with Lanczos, and
 made a solid silhouette (alpha 255 or 0).
 
-Sound effects (the three sfx.* keys) are synthesized locally and deterministically in the
+Sound effects (only the three sfx.* keys that assets/prompts.json lists and this script synthesizes: sfx.city_captured,
+sfx.battle, sfx.unit_move; every other sfx.* key belongs to the sound script and assets/sound-prompts.json, and --key does not accept it) are synthesized locally and deterministically in the
 mono 44.1 kHz 16-bit PCM shape of docs/asset-specification.md par. 1.4 - no image API
 produces audio - from the same prompts.json entries that describe them.
 
@@ -120,7 +126,19 @@ BOX = getattr(getattr(Image, "Resampling", Image), "BOX")
 ESTIMATED_PROMPT_TOKENS = 120
 ESTIMATED_IMAGE_OUTPUT_TOKENS = 1300
 
-VALID_KINDS = ("sprite", "ui", "tile", "surface", "sfx")
+VALID_KINDS = ("sprite", "ui", "tile", "surface", "sfx", "battle_unit", "battle_glyph")
+
+# T128: the tactical battle screen's assets (docs/asset-specification.md 4.7). A battle unit icon is a
+# 32x32 32-bit BGRA image (alpha 255 throughout: it fills its cell, par. 1.2) painted in exactly the
+# three marker colours the nation recolour replaces (purple 0x800080, white, blue 0x0000FF) plus
+# black, so a draw-time pixel substitution finds them;
+# a battle toolbar glyph is a 20x20 32-bit BGRA full-colour icon.
+BATTLE_GLYPH_SIZE = 20
+BATTLE_MARKER_PURPLE = (128, 0, 128)
+BATTLE_MARKER_WHITE = (255, 255, 255)
+BATTLE_MARKER_BLUE = (0, 0, 255)
+BATTLE_UNIT_PALETTE = (BATTLE_MARKER_PURPLE, BATTLE_MARKER_WHITE, BATTLE_MARKER_BLUE, (0, 0, 0))
+BATTLE_FRAME_LIME = (0, 255, 0)
 
 
 # --- Key conventions (docs/asset-specification.md par. 1.5) ------------------------------
@@ -141,7 +159,13 @@ def kind_for_key(key: str) -> str:
         return "sfx"
     if key.startswith("ui.command."):
         return "ui"
-    return "sprite"  # unit icons and army/fleet/city markers
+    if key.startswith("battle.unit."):
+        return "battle_unit"
+    if key.startswith("battle.toolbar."):
+        return "battle_glyph"
+    if key == "battle.ground":
+        return "tile"  # grass: 24-bit opaque, like a terrain tile
+    return "sprite"  # unit icons, army/fleet/city markers and battle.cursor
 
 
 def asset_relpath(key: str) -> str:
@@ -521,6 +545,54 @@ def conform_ui(img: Image.Image) -> bytes:
     return bmp_bytes(conform_ui_icon(img), 32)
 
 
+def conform_battle_unit_image(img: Image.Image) -> Image.Image:
+    """A battle unit icon (`battle.unit.*`, T128) as a 32x32 RGB image in exactly four colours:
+    area-average to 32x32, snap every pixel to the nearest of purple 0x800080, white, blue
+    0x0000FF and black, and draw the lime dotted frame the original keeps. The three marker
+    colours must all survive, or the icon cannot be recoloured (a ConformError, not a bad file)."""
+    small = img.convert("RGB").resize((SIZE, SIZE), BOX)
+    pixels = small.load()
+    seen = set()
+    for y in range(SIZE):
+        for x in range(SIZE):
+            r, g, b = pixels[x, y]
+            nearest = min(BATTLE_UNIT_PALETTE,
+                          key=lambda c: (c[0] - r) ** 2 + (c[1] - g) ** 2 + (c[2] - b) ** 2)
+            pixels[x, y] = nearest
+            seen.add(nearest)
+    missing = [name for name, colour in (("purple", BATTLE_MARKER_PURPLE),
+                                         ("white", BATTLE_MARKER_WHITE),
+                                         ("blue", BATTLE_MARKER_BLUE)) if colour not in seen]
+    if missing:
+        raise ConformError("the icon has no " + ", ".join(missing)
+                           + " region after snapping to the marker palette")
+    for i in range(0, SIZE, 2):
+        pixels[i, 0] = pixels[i, SIZE - 1] = BATTLE_FRAME_LIME
+        pixels[0, i] = pixels[SIZE - 1, i] = BATTLE_FRAME_LIME
+    return small
+
+
+def conform_battle_unit(img: Image.Image) -> bytes:
+    """conform_battle_unit_image, serialized as a 32-bit BGRA BMP with alpha 255 throughout (par. 1.2:
+    every non-terrain asset is 32-bit BGRA; a unit icon fills its cell, so it is opaque)."""
+    return bmp_bytes(conform_battle_unit_image(img).convert("RGBA"), 32)
+
+
+def conform_battle_glyph(img: Image.Image) -> bytes:
+    """A battle toolbar glyph (`battle.toolbar.*`, T128): keyed to alpha, full colour, 20x20,
+    32-bit BGRA."""
+    canvas = crop_to_subject(key_magenta(img))
+    return bmp_bytes(canvas.resize((BATTLE_GLYPH_SIZE, BATTLE_GLYPH_SIZE), LANCZOS), 32,
+                     expected_size=BATTLE_GLYPH_SIZE)
+
+
+def kind_output_size(kind: str) -> int:
+    """The side in pixels of the file a kind writes."""
+    if kind == "surface":
+        return SURFACE_SIZE
+    return BATTLE_GLYPH_SIZE if kind == "battle_glyph" else SIZE
+
+
 # --- Sound synthesis (deterministic, stdlib only; docs/asset-specification.md par. 1.4) ---
 
 SAMPLE_RATE = 44100
@@ -852,7 +924,11 @@ def _self_check_manifest_merge(failures: list) -> None:
 def self_check() -> list:
     """Run the conforming step on synthetic images drawn in code (never downloaded)
     and validate the output bytes against exactly what the C# conformance test will
-    check: 32x32, BMP structure, bit depth per kind, and transparency for sprites.
+    check: the sprite, tile and surface conforming steps (size, BMP structure, bit depth,
+    keyed alpha for sprites), the WAV round-trip and the manifest merge. The battle_unit and
+    battle_glyph conforming steps (32x32 opaque battle.unit.* icons, 20x20 battle.toolbar.*
+    glyphs) are not exercised on synthetic images here; their sizes and bit depths are pinned
+    on the committed files by AuthoredPackConformanceTests.
     Runs automatically before every real generation - the conforming step is proved
     before any money is spent."""
     print("Self-check: conforming step proven on synthetic images (no network, no key; "
@@ -1446,10 +1522,11 @@ def manifest_document(entries: list, existing: dict | None = None,
         "name": "Authored Asset Pack",
         "description": (
             "Generated by scripts/generate-authored-assets.py from assets/prompts.json "
-            "(T51): image-model sprites, terrain tiles and seamless 256x256 surface textures "
+            "(T51): image-model sprites, toolbar icons, terrain tiles, seamless 256x256 surface textures and the tactical battle screen's assets "
             "conformed to docs/asset-specification.md par. 1 (32x32 BMP; 24-bit opaque terrain "
             "tiles; 32-bit BGRA sprites keyed to alpha, tinted per nation at draw time; "
-            "256x256 24-bit seamless surfaces), plus locally synthesized sound cues. The same "
+            "256x256 24-bit seamless surfaces; battle.unit.* 32-bit opaque BGRA icons, battle.ground 24-bit opaque, "
+            "battle.cursor 32-bit BGRA, battle.toolbar.* 20x20 32-bit BGRA), plus locally synthesized sound cues. The same "
             "shape as the placeholder pack's manifest."
         ),
         "assets": assets,
@@ -1553,6 +1630,9 @@ def dry_run(config: dict, entries: list, selection: list, models: list | None) -
           f"({sum(1 for e in image_keys if e['kind'] == 'sprite')} sprites -> 32-bit BGRA "
           f"+ {sum(1 for e in image_keys if e['kind'] == 'ui')} toolbar icons -> 32-bit BGRA "
           f"+ {sum(1 for e in image_keys if e['kind'] == 'tile')} terrain tiles -> 24-bit opaque "
+          f"+ {sum(1 for e in image_keys if e['kind'] == 'battle_unit')} battle unit icons -> 32-bit "
+          f"BGRA marker palette + {sum(1 for e in image_keys if e['kind'] == 'battle_glyph')} battle "
+          "glyphs -> 20x20 32-bit BGRA "
           f"+ {sum(1 for e in image_keys if e['kind'] == 'surface')} surface textures -> "
           "256x256 24-bit seamless)")
     print(f"  Not billed: {len(sfx_keys)} sfx synthesized locally "
@@ -1633,7 +1713,7 @@ def dry_run(config: dict, entries: list, selection: list, models: list | None) -
 
 def run_real(config: dict, entries: list, selection: list, out_dir: str,
              prompts_path: str, raw_dir: str = DEFAULT_RAW_DIR) -> int:
-    print("T51 asset generator - REAL RUN (billable, network-bound, single-instance)")
+    print("T51 asset generator - REAL RUN (billable and network-bound for image keys; single-instance)")
 
     if "config_error" in config:
         print(f"error: {config['config_error']}", file=sys.stderr)
@@ -1710,7 +1790,7 @@ def run_generation(config: dict, entries: list, selection: list, out_dir: str, r
                 print(f"    {key}")
             print("  rerun with those --key values (or --all) to finish the pack.")
         else:
-            print("  pack complete: every AssetKeys constant resolves to a file - "
+            print("  pack complete: every AssetKeys and BattleAssetKeys constant resolves to a file - "
                   "AssetLoader.ValidateAssets will report zero missing.")
         print(f"real run finished: {generated} asset(s) generated into "
               f"{os.path.relpath(out_dir, REPO_ROOT)}")
@@ -1816,7 +1896,7 @@ def generate_selection(config: dict, selection: list, out_dir: str, raw_dir: str
                   f"{kept}{cost_note}; nothing was written to the pack for it; "
                   "continuing with the next key.", file=sys.stderr)
             continue
-        out_size = SURFACE_SIZE if kind == "surface" else SIZE
+        out_size = kind_output_size(kind)
         print(f"  generated {relpath} (source {image.size[0]}x{image.size[1]} kept at "
               f"{os.path.relpath(raw_path, REPO_ROOT)} -> {out_size}x{out_size} {depth}"
               f"{' overwrote' if existed else ''}{cost_note})")
@@ -1849,6 +1929,10 @@ def conform_image(kind: str, image: Image.Image) -> tuple:
         return conform_ui(image), "32-bit BGRA (full-colour icon)"
     if kind == "surface":
         return conform_surface(image), "256x256 24-bit opaque (seamless)"
+    if kind == "battle_unit":
+        return conform_battle_unit(image), "32-bit BGRA, opaque (marker palette)"
+    if kind == "battle_glyph":
+        return conform_battle_glyph(image), "20x20 32-bit BGRA (full-colour glyph)"
     return conform_tile(image), "24-bit opaque"
 
 
@@ -1892,7 +1976,7 @@ def run_reconform(entries: list, selection: list, out_dir: str, raw_dir: str,
                     handle.write(bmp)
             done.append(key)
             verb = "reconformed" if write else "would reconform"
-            out_size = SURFACE_SIZE if kind == "surface" else SIZE
+            out_size = kind_output_size(kind)
             print(f"  {verb} {relpath} ({image.size[0]}x{image.size[1]} -> "
                   f"{out_size}x{out_size} {depth})")
         if write:
@@ -1922,18 +2006,20 @@ def main(argv: list | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="generate-authored-assets.py",
         description="T51's prompt-driven asset generator. Dry run by default; a real, "
-        "billable run needs --key or --all.",
+        "billable run needs --key or --all (a selection of only the three local sfx.* keys bills nothing).",
     )
     parser.add_argument("--dry-run", action="store_true",
                         help="force a dry run even with --key/--all (the default without "
                              "them)")
     parser.add_argument("--all", action="store_true",
-                        help="REAL RUN: regenerate every key (64 billable images: 15 sprites, "
-                             "36 toolbar icons, 7 terrain tiles, 6 surface textures; 3 sfx "
+                        help="REAL RUN: regenerate every key (90 billable images: 17 sprites incl. battle.cursor, "
+                             "36 toolbar icons, 15 battle unit icons, 8 tiles incl. battle.ground, "
+                             "8 battle toolbar glyphs, 6 surface textures; 3 sfx "
                              "synthesized locally, not billed)")
-    parser.add_argument("--key", action="append", default=[], metavar="AssetKey",
-                        help="REAL RUN: regenerate only this key (repeatable). Any "
-                             "selection without --dry-run is a billable run.")
+    parser.add_argument("--key", action="append", default=[], metavar="KEY",
+                        help="REAL RUN: regenerate only this key (repeatable). A selection "
+                             "with any image key and without --dry-run is a billable run; the three "
+                             "synthesized sfx.* keys are generated locally and bill nothing.")
     parser.add_argument("--reconform", action="store_true",
                         help="OFFLINE and FREE (no network, no key): rebuild the pack "
                              "(images plus manifest) from the full-resolution originals "
