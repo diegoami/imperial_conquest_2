@@ -22,7 +22,7 @@ public sealed class FleetMoveAndScuttleEventsTests
     public void Accepted_fleet_move_publishes_FleetMoved_with_endpoints()
     {
         var state = NavalTestbed.InitialState();
-        var fleet = state.Fleets[0]; // "north-fleet-1", (0, 3), 4 moves, sea_deep under it.
+        var fleet = state.Fleets[0]; // "north-fleet-1", (0, 3), 4 moves, sea_rough under it.
         var fromX = fleet.X;
         var fromY = fleet.Y;
         Assert.Equal(0, fromX); // sanity

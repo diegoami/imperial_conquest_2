@@ -129,13 +129,13 @@
       "source": "docs/asset-specification.md 4.5 terrain tiles table: 'A river-bearing tile' - one static sprite for the six-way river connectivity problem is the gap 4.5 itself records; a single straight horizontal reach is this pack's designed choice"
     },
     {
-      "key": "terrain.sea_coastal.tile",
+      "key": "terrain.sea_calm.tile",
       "kind": "tile",
       "prompt": "Shallow coastal sea: light blue water with a gentle repeating wave motif in lighter and darker blue. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
       "source": "docs/asset-specification.md 4.5 terrain tiles table: 'Shallow/coastal sea - lighter blue, wave motif'"
     },
     {
-      "key": "terrain.sea_deep.tile",
+      "key": "terrain.sea_rough.tile",
       "kind": "tile",
       "prompt": "Deep open sea: dark blue water with the same gentle repeating wave motif in slightly lighter blue. Pixel-art terrain tile for a top-down strategy map, filling the entire square frame edge to edge with a repeating-map-texture look: flat colours and simple shapes that stay readable when the whole image is scaled down to 32x32 pixels. No border, no frame, no vignette, no text.",
       "source": "docs/asset-specification.md 4.5 terrain tiles table: 'Deep sea - darker blue, same wave motif'"
@@ -405,7 +405,7 @@
       "source": "docs/asset-specification.md 4.5 terrain palette (the plain bright green, the forest darker green, the mountain grey rock with snow, the desert olive-to-tan, lighter shallow and darker deep water)"
     },
     {
-      "key": "terrain.sea_deep.surface",
+      "key": "terrain.sea_open.surface",
       "kind": "surface",
       "prompt": "A seamless top-down terrain texture of deep open sea for a strategy map: darker blue water with the same gentle repeating wave pattern and a few soft darker flecks, evenly and flatly lit, the motif continuing across the whole square frame edge to edge with no clear centre, designed to tile seamlessly in every direction. No sky, no horizon, no shoreline, no border, no frame, no text, no shadow from any direction.",
       "source": "docs/asset-specification.md 4.5 terrain palette (the plain bright green, the forest darker green, the mountain grey rock with snow, the desert olive-to-tan, lighter shallow and darker deep water)"

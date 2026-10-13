@@ -215,7 +215,7 @@ public static class BattleTestbed
     {
         ArgumentNullException.ThrowIfNull(land);
 
-        var sea = World.TileTypes.FindById(t => t.Id, "sea_deep")!;
+        var sea = World.TileTypes.FindById(t => t.Id, "sea_rough")!;
         var plain = World.TileTypes.FindById(t => t.Id, "plain")!;
 
         var codes = new int[size * size];

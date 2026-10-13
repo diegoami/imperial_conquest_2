@@ -222,8 +222,8 @@ public class ModelCoverageTests
         Assert.Equal(2, ruleset.MoveCostFor("forest"));
         Assert.Equal(4, ruleset.MoveCostFor("mountains"));
         Assert.Equal(4, ruleset.MoveCostFor("river_1"));
-        Assert.Equal(1, ruleset.MoveCostFor("sea_coastal"));
-        Assert.Equal(3, ruleset.MoveCostFor("sea_deep"));
+        Assert.Equal(1, ruleset.MoveCostFor("sea_calm"));
+        Assert.Equal(3, ruleset.MoveCostFor("sea_rough"));
 
         // A thirteenth type is loadable without any engine change, and a ruleset that does not price it
         // falls back to the documented default rather than refusing the world.

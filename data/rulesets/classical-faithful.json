@@ -146,11 +146,11 @@
   "terrain": {
     "moveCosts": [
       {
-        "tileTypeId": "sea_coastal",
+        "tileTypeId": "sea_calm",
         "moveCost": 1
       },
       {
-        "tileTypeId": "sea_deep",
+        "tileTypeId": "sea_rough",
         "moveCost": 3
       },
       {

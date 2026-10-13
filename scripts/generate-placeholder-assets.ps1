@@ -337,8 +337,8 @@ $bmpMappings = @{
     "terrain/forest.bmp" = $colors["forest"]
     "terrain/mountain.bmp" = $colors["mountain"]
     "terrain/river.bmp" = $colors["river"]
-    "terrain/sea_coastal.bmp" = $colors["coastal"]
-    "terrain/sea_deep.bmp" = $colors["deep"]
+    "terrain/sea_calm.bmp" = $colors["coastal"]
+    "terrain/sea_rough.bmp" = $colors["deep"]
 }
 
 foreach ($file in $bmpMappings.Keys) {
@@ -356,7 +356,7 @@ $surfaceColors = @{
     "forest" = $colors["forest"]
     "mountain" = $colors["mountain"]
     "sea_shallow" = $colors["coastal"]
-    "sea_deep" = $colors["deep"]
+    "sea_open" = $colors["deep"]
 }
 foreach ($surface in $surfaceColors.Keys) {
     $color = $surfaceColors[$surface]
@@ -640,12 +640,12 @@ $manifest.assets["city.tier4.icon"] = "city/tier4.bmp"
 
 $manifest.assets["city.capital.icon"] = "city/capital.bmp"
 
-foreach ($terrain in @("plain", "desert", "forest", "mountain", "river", "sea_coastal", "sea_deep")) {
+foreach ($terrain in @("plain", "desert", "forest", "mountain", "river", "sea_calm", "sea_rough")) {
     $manifest.assets["terrain.$terrain.tile"] = "terrain/$terrain.bmp"
 }
 
 # T148: the six seamless surface textures.
-foreach ($surface in @("plain", "desert", "forest", "mountain", "sea_shallow", "sea_deep")) {
+foreach ($surface in @("plain", "desert", "forest", "mountain", "sea_shallow", "sea_open")) {
     $manifest.assets["terrain.$surface.surface"] = "terrain/${surface}_surface.bmp"
 }
 
