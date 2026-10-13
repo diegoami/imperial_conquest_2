@@ -6,6 +6,7 @@ using IC2.Engine.Battle.Tactical;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
 using IC2.Engine.Presentation;
+using IC2.Engine.Tests.Core;
 using Xunit;
 
 namespace IC2.Engine.Tests.Presentation;
@@ -119,6 +120,59 @@ public sealed class AiPhaseTacticalBattleTests
         var reference = ReferenceTurn(instant, preTurn, humanBattles: false);
         Assert.Equal(reference.State, instant.State);
         Assert.Single(output.Lines, l => l.Contains("takes its turn", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void An_ai_versus_ai_battle_in_the_same_turn_resolves_at_once_in_both_modes()
+    {
+        var toy = CoreTestbed.Toy;
+        var codes = toy.Ruleset.Diplomacy.StateCodes;
+        var east = toy.World.NationById("south")! with { Id = "east", Name = "Eastern League", CapitalCityId = "orient" };
+        var world = toy.World with
+        {
+            Nations = ValueList.Of(toy.World.NationById("north")!, toy.World.NationById("south")!, east),
+            Cities = ValueList.Of(
+                toy.World.CityById("arx")!,
+                toy.World.CityById("portus")!,
+                toy.World.CityById("meridia")!,
+                toy.World.CityById("meridia")! with { Id = "orient", Name = "Orient", X = 7, Y = 0, Owner = "east", Allegiance = "east" }),
+            StartingArmies = ValueList.From(new List<StartingArmy>
+            {
+                TacticalSessionTestbed.Army(
+                    "south-army-1", "south", 4, 2, 59, TacticalSessionTestbed.Unit("heavy_infantry", 6000, 6, "Guards")),
+                TacticalSessionTestbed.Army(
+                    "east-army-1", "east", 5, 2, 68, TacticalSessionTestbed.Unit("light_infantry", 400, 6, "1st Foot")),
+            }),
+            StartingFleets = ValueList<StartingFleet>.Empty,
+            TurnOrder = ValueList.Of("north", "south", "east"),
+            StartingRelations = DiplomaticRelations.Uniform(ValueList.Of("north", "south", "east"), codes.Peace)
+                .WithRelation("south", "east", codes.War),
+        };
+        var scenario = toy.Scenario with
+        {
+            Seats = ValueList.Of(
+                toy.Scenario.Seats[0],
+                toy.Scenario.Seats[1],
+                toy.Scenario.Seats[1] with { Nation = "east" }),
+        };
+
+        var outputs = new List<SessionOutput>();
+        var states = new List<GameState>();
+        foreach (var mode in new[] { HumanBattleMode.Tactical, HumanBattleMode.Instant })
+        {
+            var session = new GameSession(world, toy.Ruleset, scenario, seedOverride: 1) { HumanBattles = mode };
+            outputs.Add(session.Submit("end"));
+            states.Add(session.State);
+        }
+
+        foreach (var output in outputs)
+        {
+            Assert.Null(output.OpenBattleView);
+            Assert.Contains(output.Battles, b => b.AttackerNationId == "south" && b.DefenderNationId == "east");
+        }
+
+        Assert.Equal(states[1], states[0]);
+        Assert.Equal(outputs[1].Lines, outputs[0].Lines);
     }
 
     [Fact]
