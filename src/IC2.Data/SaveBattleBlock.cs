@@ -12,9 +12,9 @@ namespace IC2.Data;
 /// against what the original wrote, stale cells and out-of-range values included.</summary>
 /// <param name="X">Word 0, column.</param>
 /// <param name="Y">Word 1, row.</param>
-/// <param name="Origin">Word 2, origin label: 0 national, non-zero mercenary.</param>
+/// <param name="Origin">Word 2, origin label, unsigned: 0 national, non-zero mercenary.</param>
 /// <param name="Type">Word 3, unit type: 0 LI, 1 HI, 2 archers, 3 LC, 4 HC.</param>
-/// <param name="Troops">Word 4, troops; 0 means not in the battle.</param>
+/// <param name="Troops">Word 4, troops, unsigned like the army table's; 0 means not in the battle.</param>
 /// <param name="Quality">Word 5.</param>
 /// <param name="Morale">Word 6, battle morale.</param>
 /// <param name="Moves">Word 7, moves left this half-round.</param>
@@ -24,9 +24,9 @@ namespace IC2.Data;
 public sealed record SaveBattleSlot(
     short X,
     short Y,
-    short Origin,
+    ushort Origin,
     short Type,
-    short Troops,
+    ushort Troops,
     short Quality,
     short Morale,
     short Moves,
@@ -139,8 +139,8 @@ public sealed class SaveBattleBlock
         {
             var o = HeaderLength + (i * SlotLength);
             slots[i] = new SaveBattleSlot(
-                ReadShort(block, o), ReadShort(block, o + 2), ReadShort(block, o + 4), ReadShort(block, o + 6),
-                ReadShort(block, o + 8), ReadShort(block, o + 10), ReadShort(block, o + 12), ReadShort(block, o + 14),
+                ReadShort(block, o), ReadShort(block, o + 2), ReadUShort(block, o + 4), ReadShort(block, o + 6),
+                ReadUShort(block, o + 8), ReadShort(block, o + 10), ReadShort(block, o + 12), ReadShort(block, o + 14),
                 ReadShort(block, o + 16), ReadShort(block, o + 18),
                 Array.AsReadOnly(block.Slice(o + 20, NameLength).ToArray()));
         }
@@ -156,6 +156,9 @@ public sealed class SaveBattleBlock
             ReadShort(block, 0), ReadShort(block, 2), ReadShort(block, 4), block[6], ReadShort(block, 7),
             slots, grid, block.ToArray());
     }
+
+    private static ushort ReadUShort(ReadOnlySpan<byte> data, int offset) =>
+        BinaryPrimitives.ReadUInt16LittleEndian(data.Slice(offset, 2));
 
     private static short ReadShort(ReadOnlySpan<byte> data, int offset) =>
         BinaryPrimitives.ReadInt16LittleEndian(data.Slice(offset, 2));
