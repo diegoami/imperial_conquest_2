@@ -26,6 +26,13 @@ namespace IC2.Engine.Model;
 /// battle is byte-identical to a version-6 save apart from its format version). The clone's own JSON
 /// format, never an original <c>.sav</c> (design principle 6).
 /// </param>
+/// <param name="FirstEndNewsOwed">
+/// T137 (no format bump: optional, and its absence means what it meant before): the number of news entries
+/// the saving session's log had gained since its construction-time snapshot, written only while that session
+/// had not yet had its first <c>end</c>; a resumed session rebuilds the snapshot from the loaded log without its
+/// newest this-many entries, so its first <c>end</c> lists them too. <see langword="null"/> (absent from the
+/// JSON) for a save made after the first <c>end</c> and for every older save.
+/// </param>
 public sealed record SaveGame(
     int SchemaVersion,
     string Id,
@@ -35,7 +42,8 @@ public sealed record SaveGame(
     string RulesetId,
     GameState State,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SavedTacticalBattle? Battle = null) : IVersionedDocument;
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SavedTacticalBattle? Battle = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? FirstEndNewsOwed = null) : IVersionedDocument;
 
 /// <summary>
 /// An open tactical battle as a save holds it: the original's battle block (<c>2026-10-04-decompiled-tactical-battle-rules.md</c>
