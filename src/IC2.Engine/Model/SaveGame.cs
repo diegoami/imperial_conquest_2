@@ -44,7 +44,11 @@ public sealed record SaveGame(
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>[designed: the JSON shape; confirmed: the block's fields]</strong>. The trace (the battle's event log)
+/// <strong>[designed: the JSON shape; confirmed: the block's fields]</strong>. Searched and found empty for the shape:
+/// <c>2026-10-04-decompiled-tactical-battle-rules.md</c> §1 gives the original's byte layout (the table of addresses, the 22-word unit slot, the
+/// 14 × 12 grid) and <c>2026-10-04-tactical-battle-sweep.md</c> (B2) decodes the same block from crafted saves; both describe the original <c>.sav</c>
+/// bytes, and neither says anything about a JSON form. This clone saves its own JSON format, never the original <c>.sav</c> (the original's
+/// byte layout belongs to T129), so the member names and nesting are this engine's default, named after the report's fields. The trace (the battle's event log)
 /// is not part of the block and is not saved: a reloaded battle's exchange log starts at its reload.
 /// </para>
 /// <para>

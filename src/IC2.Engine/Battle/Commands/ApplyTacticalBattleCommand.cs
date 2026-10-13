@@ -9,6 +9,12 @@ namespace IC2.Engine.Battle.Commands;
 /// </summary>
 /// <remarks>
 /// <para>
+/// <strong>[designed]</strong>, the shape only. Searched and found empty: <c>2026-10-04-decompiled-tactical-battle-rules.md</c> (the "After the battle" steps
+/// and the TBattleOver description) and <c>decompiled-diplomacy-peace-terms-and-instant-battles.md</c> settle WHAT the write-back does (the order of its
+/// effects and its draws, confirmed), and say nothing about how a clone packages it: the original runs it inline in <c>TBattleOver_OK</c>, with no
+/// command or registry. The command shape below is therefore this engine's default, chosen to fit the engine's rules.
+/// </para>
+/// <para>
 /// <strong>Two conflicts with the task entry, reported.</strong> (1) The command is deliberately not an
 /// <see cref="ICommand"/>: the engine's reflection-driven checks (<c>CommandCoverageTests</c>,
 /// <c>CommandOutcomeWordingTests</c>, the Godot <c>CommandVerbCatalog</c>) list every <see cref="ICommand"/> type and

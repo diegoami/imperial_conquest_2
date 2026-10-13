@@ -163,6 +163,15 @@ public sealed class TacticalBattleSession
     /// The name of the battle's draw stream: <c>battle.tactical:&lt;attackerArmyId&gt;:&lt;defenderArmyId&gt;:&lt;turnIndex&gt;</c>
     /// <strong>[designed]</strong>.
     /// </summary>
+    /// <remarks>
+    /// Searched and found empty: the original has no named streams at all. <c>2026-10-04-decompiled-tactical-battle-rules.md</c> (the section "Every Random call, in
+    /// draw order") and <c>2026-10-04-battle-exchange-hook.md</c> (the 14 <c>Random</c> call sites of the battle module and TBattleOver) show
+    /// one global <c>RandSeed</c> that every draw advances and that <c>TBattlePols</c> reseeds (<c>2026-09-29-loading-a-save-does-not-reseed.md</c>,
+    /// <c>RandSeed = winner + loser</c>); <c>2026-10-04-tactical-battle-sweep.md</c> only bakes a lab seed in. No report names a per-battle key, so
+    /// the key is this engine's default: it follows the engine's rule of one derived <c>IRng</c> stream per random event, built from the state's seed
+    /// and a stable key made of the two armies and the turn index, which tells two battles of one game apart. The draw ORDER inside the
+    /// stream is confirmed by the first report; only the key is designed.
+    /// </remarks>
     /// <param name="attackerArmyId">The attacking army.</param>
     /// <param name="defenderArmyId">The defending army.</param>
     /// <param name="turnIndex">The calendar's turn index when the battle opened.</param>

@@ -463,7 +463,12 @@ public sealed partial class GameSession
 
     /// <summary>
     /// <c>battle &lt;verb&gt; ...</c>: the human's orders of the open battle, each one human order of T123 (T125; the verbs
-    /// are <strong>[designed]</strong>). A unit is named by its slot number, which <c>battle show</c> prints.
+    /// are <strong>[designed]</strong>). Searched and found empty: <c>2026-10-04-decompiled-tactical-battle-rules.md</c> (the toolbar table and the
+    /// Surrender, End turn and Computer general paragraphs) names the original's GUI controls (clicks on
+    /// the grid, the eight toolbar buttons, the surrender confirmation "Are you sure you want to surrender ?") and no text command exists in any
+    /// report or decompile, since the original has no command line. The words <c>show place move attack shoot clear end general on|off surrender [yes]</c>
+    /// are therefore this CLI's default: one word per confirmed action of the report (placement, move, melee, shot, End turn, Computer general,
+    /// Surrender), with <c>yes</c> standing in for the confirmation dialog. A unit is named by its slot number, which <c>battle show</c> prints.
     /// </summary>
     private IReadOnlyList<string> HandleBattle(string[] tokens)
     {
