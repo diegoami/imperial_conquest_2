@@ -83,7 +83,7 @@ Every system is written against these interfaces and registers itself, so no two
 | **Reviewer** | The OpenCode model the user names at each review (`scripts/external-review.ps1 -Reviewer <alias>`), the user's choice (CLAUDE.md rule 17, the user's decision of 2026-10-11); never of the implementer's model family | Independently re-runs the DoD commands at the PR head **in its own worktree**, audits provenance and scope, posts its findings as a PR comment, and applies `status:approved` or `status:rework` (with two or three reviews, the main session applies it from all of them). It is never the agent that implemented. |
 | **Researcher** | Opus subagents | Evidence work in the research repository: the two `/process-evidence` stages ([evidence-pipeline.md](evidence-pipeline.md)) and targeted research passes. |
 
-**Only one task is in flight at a time per machine** ([§8](#8-two-machines)): its implementer, then its reviewer, then any rework. Pipeline agents never work in the main checkout (`C:\Users\diego\projects\imperial_conquest_2`). Each creates its own worktree ([§7](#7-concurrency-single-instance-and-local-only)). The main checkout belongs to the main session.
+**Within each task**, implementation, independent review and any rework proceed in order. Separate file-disjoint tasks may run in parallel on one machine or several ([§8](#8-two-machines)). One task at a time per machine is advisory only for Godot work ([§7](#7-concurrency-single-instance-and-local-only)), not a dispatch limit. Pipeline agents never work in the main checkout (`C:\Users\diego\projects\imperial_conquest_2`). Each creates its own worktree ([§7](#7-concurrency-single-instance-and-local-only)). The main checkout belongs to the main session.
 
 ### 3.2 The effort scale
 
@@ -349,7 +349,7 @@ A bug qualifies for the fix lane when its fix **stays within the files the bug n
 
 A fix:
 - **has no catalogue entry and no `T` number.** The bug issue is the contract. Its Owns is the files the bug names, read from the issue body, plus gate 4's implicit set ([§4.2](#42-what-the-reviewer-checks)); once the PR exists, its file list is the authority for [§8](#8-two-machines)'s disjointness check; its DoD is the bug's reproduction turned into a test that fails before the change and passes after it, plus a green `dotnet build IC2.sln` and `dotnet test IC2.sln`.
-- **runs through the same labels as a task** (`status:in-progress`, `in-review`, `approved` or `rework`, `merged`), the same `machine:*` claim, and `local-only` or `single-instance` where they apply. It is the machine's one task while it runs ([§7](#7-concurrency-single-instance-and-local-only), [§8](#8-two-machines)), and its files must be disjoint from every task in flight.
+- **runs through the same labels as a task** (`status:in-progress`, `in-review`, `approved` or `rework`, `merged`), the same `machine:*` claim, and `local-only` or `single-instance` where they apply. It follows the same Godot concurrency advice ([§7](#7-concurrency-single-instance-and-local-only), [§8](#8-two-machines)); its files must be disjoint from other parallel tasks in flight.
 - **is dispatched by `/run-task #<issue>`** ([Appendix C](#appendix-c-the-run-task-skill)): implementer the user's choice (CLAUDE.md rule 17: the main session or a subagent, and which model; `/recommend` is a suggestion only) in worktree `ic2-work\fix-<issue>` on branch `fix/<issue>-<slug>`, with the bug body in place of the task entry in Appendix A's brief, commit subject `fix <issue>: <subject>` (no `#`, so the squash closes nothing early), PR body `Closes #<issue>` as Appendix A already allows, reviewer the user's choice at each review (CLAUDE.md rule 17; never the implementer's family) at gates 0, 1, 3 and 4 plus a read of the diff. Gate 2 reduces to confirming no constant changed; the mutation protocol does not apply.
 - **on a maintenance line** (a bug labelled for a `v0.4.x`, [release-plan.md §2.2.2](release-plan.md#222-two-release-lines-a-maintenance-branch-per-patched-minor)) branches from `origin/release/0.4`, targets it with `--base release/0.4`, says `Refs #<issue>` in place of `Closes`, and is then ported forward to `main` by a cherry-pick PR that closes the issue. A v0.4.x task runs the same way. [Appendix C](#appendix-c-the-run-task-skill) lists the overrides.
 - **gets one rework round** ([§4.4](#44-rework)). A review that fails while the issue carries `review-round:1` turns it into a correction task: the main session files the task at the contract tier, keeps the branch, and stops.
@@ -367,7 +367,7 @@ The user's decision of 2026-10-09. A task whose parts can merge on their own is 
 2. one part has an open question or depends on research, and the other does not;
 3. the planned diff exceeds about 400 changed lines of non-generated code, or the entry needs more than about 6 Done-when lines.
 
-**Keep it whole** when the parts share a file that a reviewer would read for both anyway, or when one part is meaningless without the other (a rule without its refusal message, a dialog without the command it submits). Folding a small bug into a task that already owns its file stays preferred over a separate fix (T155 folded #903 this way): each task carries a fixed cost (a plan PR, an implementer run, a review, CI and a merge), and splits run one after another, since a machine runs one task at a time ([§7](#7-concurrency-single-instance-and-local-only)).
+**Keep it whole** when the parts share a file that a reviewer would read for both anyway, or when one part is meaningless without the other (a rule without its refusal message, a dialog without the command it submits). Folding a small bug into a task that already owns its file stays preferred over a separate fix (T155 folded #903 this way): each task carries a fixed cost (a plan PR, an implementer run, a review, CI and a merge), and splits run in dependency order when needed; independent file-disjoint parts may run in parallel ([§7](#7-concurrency-single-instance-and-local-only)).
 
 **The plan PR says which:** it names the split, with each part's own entry and a merge-after edge where one part needs the other, or it states in one line why the task stays whole. A reviewer of the plan PR may ask for a split under these criteria.
 
@@ -426,7 +426,7 @@ Retired labels from the orchestrator era: `docs:pending`, `orchestrator:pause`, 
 
 ## 7. Concurrency, single-instance, and local-only
 
-- **One task in flight at a time per machine**: its implementer, its reviewer, and its rework, one after another. With two machines, two tasks may be in flight at once under §8's conditions.
+- **Godot concurrency advice** (the user’s clarification of 2026-10-14): prefer one Godot-requiring task at a time on a machine to reduce runtime and editor contention. This is advice, not a hard dispatch rule. Non-Godot tasks may run in parallel in their separate worktrees under §8's disjointness conditions. Implementation, independent review and rework remain sequential within each task.
 - **A subagent cannot be pointed at a worktree.** Every agent starts in the session's working
   directory, the main checkout; an agent works in its worktree only because its brief tells it to
   use `git -C <worktree>` or to `cd` there first. That shell directory is **not inherited** by
@@ -448,7 +448,7 @@ Retired labels from the orchestrator era: `docs:pending`, `orchestrator:pause`, 
 - **`local-only` tasks** need the user's original DAT and saves via `assets.local.ini`. The file is git-ignored, so the agent copies it from the main checkout into its worktree's root. The tasks that launch Godot need a Godot install. These tests **skip explicitly** when the prerequisite is absent, so CI on GitHub's runners stays green.
 
   For `IC2.Data.Tests` that is not the whole picture: since T53, **CI fetches the fixtures** from the private `ic2-test-fixtures` repository and runs those tests for real, while a **worktree** without `assets.local.ini` still skips them, because the file is per-checkout. A brief never quotes a skip count (incident 11). The Godot checks no longer skip: since 2026-09-28 the `godot-headless` job runs the T24 and T25 check scenes in CI, and a check scene a Godot task adds gets its own step there (a one-line follow-up once the task merges, since `.github/workflows/ci.yml` is outside a task's Owns). Only the screenshot tours skip in CI, since the headless driver cannot capture.
-- **`single-instance` tasks** may not run two at once on one machine: the ones that launch or export Godot 4.7.2, and any whose entry says why. The Godot tasks form one serial chain, ordered by their merge-after and never-in-flight lines.
+- **Godot runtime coordination.** A `single-instance` label on Godot work identifies launch/export steps that share the machine's Godot installation. Coordinate those steps to avoid simultaneous Godot processes; do not serialize whole task lifetimes solely because they require Godot. Explicit merge-after and never-in-flight constraints, and non-Godot single-instance reasons stated in a task entry, still apply.
 - **Two tasks that both write `tests/fixtures/**`** (corpus top-ups) never run back to back without a rebase.
 - **Tasks that redefine engine seams** (T03, T40) run with nothing else in flight.
 
@@ -485,8 +485,8 @@ A machine claims only tasks whose labels it can satisfy. A task that turns out t
 files or Godot without carrying the label gets the label added, and the claim moves to a machine
 that can run it.
 
-**What may run at once.** Each machine runs **one task at a time** (§7). Two tasks on two machines may
-be in flight together only when:
+**What may run at once.** Tasks may run in parallel on the same machine or different machines, subject
+to the Godot advice and runtime coordination in §7. Parallel tasks must meet all of these conditions:
 - their Owns lists are disjoint, counting the §2.3 shared files (the CLI goldens, the
   `scenario-authoring.md` field reference) as overlapping if both might touch them. Each task's Owns
   includes its implicitly owned files ([§4.2](#42-what-the-reviewer-checks) gate 4: the tests of its
@@ -498,7 +498,7 @@ be in flight together only when:
 When both PRs touch a shared file anyway, the second to merge brings `main` in and re-runs CI. It never
 force-pushes.
 
-**Which task next, until v0.5.0** (the user's decision of 2026-10-05, *"Gate first"*; it replaces the UI chain, T24, then T25, then T27, which ran first until v0.4.0 by the user's decisions of 2026-09-28 and 2026-10-03). The rule takes effect once the main session has applied the label moves the plan PR of 2026-10-04 lists under "After the merge" ([release-plan.md §2](release-plan.md#2-the-release-ladder), "The labels move first"); that is the first step after that PR merges. From then on, when a main session looks for its next task, it takes the next ready task or fix labelled `release:v0.5.0` before any other task, on whichever machine is running. Two kinds of item may run alongside the gate, never displacing a gate task that is ready and disjoint: a v0.4.x patch item (a task or fix labelled `release:v0.4.x`, such as T133 and T134, and whatever the user lists after playing a v0.4.x), on the `release/0.4` line ([release-plan.md §2.2.2](release-plan.md#222-two-release-lines-a-maintenance-branch-per-patched-minor)); and a task the user names on its issue. Every other task waits until the tag, T131 included unless the user lists it. No machine is bound to a lane. `single-instance` still means only one Godot task is in flight, so a second machine that comes online while a Godot gate task runs takes the next ready gate task that is not `single-instance`, or a v0.4.x item. A `fix` labelled `release:v0.5.0` counts as a gate task here.
+**Which task next, until v0.5.0** (the user's decision of 2026-10-05, *"Gate first"*; it replaces the UI chain, T24, then T25, then T27, which ran first until v0.4.0 by the user's decisions of 2026-09-28 and 2026-10-03). The rule takes effect once the main session has applied the label moves the plan PR of 2026-10-04 lists under "After the merge" ([release-plan.md §2](release-plan.md#2-the-release-ladder), "The labels move first"); that is the first step after that PR merges. From then on, when a main session looks for its next task, it takes the next ready task or fix labelled `release:v0.5.0` before any other task, on whichever machine is running. Two kinds of item may run alongside the gate, never displacing a gate task that is ready and disjoint: a v0.4.x patch item (a task or fix labelled `release:v0.4.x`, such as T133 and T134, and whatever the user lists after playing a v0.4.x), on the `release/0.4` line ([release-plan.md §2.2.2](release-plan.md#222-two-release-lines-a-maintenance-branch-per-patched-minor)); and a task the user names on its issue. Every other task waits until the tag, T131 included unless the user lists it. No machine is bound to a lane. Godot launch/export steps are coordinated as §7 describes; a `single-instance` label is not a machine-wide limit on whole task lifetimes. A `fix` labelled `release:v0.5.0` counts as a gate task here.
 
 **Who does what.**
 - **Each machine merges only the PRs of tasks it claimed**, after its own review and green CI (§4),
@@ -543,7 +543,7 @@ Decided by the user; in force until changed.
 - **Q-C, cost profile.**
   - Opus implements the tasks [§3.3](#33-model-selection)'s criteria name, and reviews the very complex PRs that Claude did not implement ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers)'s review tiers, the user's decision of 2026-10-03; it reviewed the fidelity-critical PRs before).
   - `/code-review --effort ultra` runs on the architecture PRs.
-  - One task is in flight at a time per machine; two machines may run two file-disjoint tasks at once (§8).
+  - Prefer one Godot-requiring task at a time per machine as advice, not a dispatch gate; independent non-Godot tasks may run in parallel in separate worktrees (§7, §8).
   - There is no orchestrator layer and no per-merge documentation agent (incident 13).
 - **Q-D, open audit questions become ruleset flags.** Every affected task ships the confirmed behaviour behind a named ruleset flag. The flags are grouped into two user-facing presets, `classical-faithful` and `improved`, chosen at New Game (`game-design.md` "Two shipped presets"). The mapping:
   - Q3 → T19's `diplomacy.model`;
