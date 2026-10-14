@@ -111,8 +111,8 @@
     ic2-test-fixtures, assets.local.ini, IC2_FIXTURES_DIR, a .dat or .sav path, a secret prefix, a key assignment, a long
     high-entropy string or a key variable's value is refused (exit 1, naming the rule only), as is
     -FixturesDir, and its OpenCode runs without IC2_FIXTURES_DIR (docs/environment.md).
-    OpenCode reads CLAUDE.md as its instructions file when no AGENTS.md exists; that is
-    harmless here (the reviewer gets the token-economy rules) and no AGENTS.md is added.
+    OpenCode reads AGENTS.md, which routes to the shared CLAUDE.md rules and preserves
+    the external-reviewer role and supplied brief. Main-session duties are not delegated.
 
 .PARAMETER Pr
     The pull request number.

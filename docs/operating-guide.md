@@ -40,6 +40,7 @@ gh issue list --label triage:needed --state open         # untriaged bugs and fo
 | [README.md](../README.md) | The front door: what the project is, how to build it, the inspector tools |
 | [operating-guide.md](operating-guide.md) | This document |
 | [CLAUDE.md](../CLAUDE.md) | Auto-loaded into every Claude Code session: a pointer to this guide, and the rules that must never be forgotten |
+| [AGENTS.md](../AGENTS.md) and [codex.md](codex.md) | Codex/OpenCode entry point and tool mappings; reuse the shared rules and process contracts |
 | [build-process.md](build-process.md) | The process contract: roles, the task loop, review gates, bugs and follow-ups, prompt templates, `/run-task` |
 | [task-catalogue.md](task-catalogue.md) | The index: the dependency graph and a stub per task linking to its entry |
 | [tasks/](tasks/) | One file per task, `T<nn>.md`: the task's contract (Owns, Scope, Done when) |
@@ -143,7 +144,7 @@ The in-game battle pacing delay is a per-nation preference (the `TBattleDelays` 
 
 ### 2.1 Who does what
 
-The **main session runs on Opus** and is the one the user talks to. It plans, runs tasks, triages bugs and follow-ups, runs `/process-evidence`, and brings design decisions and escalations to the user. There is no orchestrator agent.
+The **main session** is the one the user talks to: Opus in Claude Code, or the user's active Codex session ([Codex tool mapping](codex.md)). It plans, runs tasks, triages bugs and follow-ups, runs `/process-evidence`, and brings design decisions and escalations to the user. There is no orchestrator agent. This role mapping does not replace an explicit model choice for a delegated run.
 
 | Role | Dispatched as | Works in | Reference |
 | --- | --- | --- | --- |
@@ -167,6 +168,8 @@ Give it task ids to run them in order, or nothing to take the next ready task. I
 **Checking which model an agent ran on.** The Agent tool's `opus` and `sonnet` aliases resolve to the newest model in the family, so entries need no version pin. To check, grep the subagent transcript, never read it whole. The transcripts are at `%USERPROFILE%\.claude\projects\<project>\<session-id>\subagents\agent-<id>.jsonl`; the task `.output` files are often empty. Use `grep -oE '"model" ?: ?"claude-[^"]*"' agent-<id>.jsonl | sort | uniq -c`. Don't spawn a probe agent: one cost about 54,000 tokens of startup context.
 
 ### 2.3 The two skills
+
+Codex uses the tracked adapters under `.agents/skills/` for `$run-task`, `$process-evidence` and `$parse-recording`; see [codex.md](codex.md). The Claude installation instructions below remain unchanged, and both tools use the same repository process sources.
 
 Both are **local, git-ignored installs** under `.claude/skills/`, and the fenced text in the repository is the source of truth. If a skill is missing, reinstall it verbatim from its fenced block. Skills load when a session starts, so a newly installed skill needs a fresh session.
 
