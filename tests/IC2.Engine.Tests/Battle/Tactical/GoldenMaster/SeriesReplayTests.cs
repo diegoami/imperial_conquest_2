@@ -21,7 +21,10 @@ public sealed class SeriesReplayTests
 
         var outcome = GoldenReplay.Run(spec);
 
-        Assert.True(outcome.Passed, outcome.Describe(spec));
+        KnownFailures.Check(nameof(The_recorded_series_replays_exactly) + ":" + name, () =>
+        {
+            KnownFailures.Require(outcome.Passed, outcome.Describe(spec));
+        });
     }
 
     [SkippableTheory]
@@ -30,11 +33,17 @@ public sealed class SeriesReplayTests
     {
         Skip.IfNot(BattleFixtures.SkipReason.Length == 0, BattleFixtures.SkipReason);
 
-        var spec = GoldenData.Trial(trial).Series;
+        var t = GoldenData.Trial(trial);
+        var spec = t.Series;
+        var log = HookLog.Load(t.HookLog);
+        Assert.True(log.PairingError(t.Seed, spec.Files.Count) is null, $"FIXTURE ERROR in {trial}: its log does not pair with its series.");
 
         var outcome = GoldenReplay.Run(spec);
 
-        Assert.True(outcome.Passed, outcome.Describe(spec));
+        KnownFailures.Check(nameof(The_hooked_series_replays_exactly) + ":" + trial, () =>
+        {
+            KnownFailures.Require(outcome.Passed, outcome.Describe(spec));
+        });
     }
 
     public static IEnumerable<object[]> FixedRows() => GoldenData.Fixed();

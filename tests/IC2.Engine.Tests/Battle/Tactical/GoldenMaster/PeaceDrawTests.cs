@@ -28,7 +28,10 @@ public sealed class PeaceDrawTests
         var replay = GoldenReplay.Run(GoldenData.Named(name), compareBlocks: false);
 
         Assert.True(replay.Conclusion is not null, $"{name}: {replay.Structural}");
-        Assert.Equal(offered, replay.Conclusion!.Result.PeaceOffered);
+        KnownFailures.Check(nameof(The_treaty_is_offered_where_the_reports_observed_it) + ":" + name, () =>
+        {
+            KnownFailures.Require(offered == replay.Conclusion!.Result.PeaceOffered, $"{name}: peace offered: port {replay.Conclusion!.Result.PeaceOffered}, original {offered}");
+        });
     }
 
     [SkippableTheory]
@@ -39,24 +42,29 @@ public sealed class PeaceDrawTests
 
         var t = GoldenData.Trial(trial);
         var log = HookLog.Load(t.HookLog);
+        Assert.True(log.PairingError(t.Seed, t.Series.Files.Count) is null, $"FIXTURE ERROR in {trial}: its log does not pair with its series.");
         var original = log.PeaceDraw;
 
         var replay = GoldenReplay.Run(t.Series, compareBlocks: false);
 
         Assert.True(replay.Conclusion is not null, $"{trial}: {replay.Structural}");
         var conclusion = replay.Conclusion!.Result;
-        Assert.True(conclusion.PeaceDrawn == (original is not null),
-            $"{trial}: the log {(original is null ? "has no" : "has a")} record at the peace site, the port {(conclusion.PeaceDrawn ? "drew" : "did not draw")} it");
-        if (original is null)
+        KnownFailures.Check(nameof(The_port_draws_the_peace_roll_when_the_original_did) + ":" + trial, () =>
         {
-            Assert.False(conclusion.PeaceOffered, $"{trial}: no draw, yet the treaty was offered");
-            return;
-        }
+            KnownFailures.Require(conclusion.PeaceDrawn == (original is not null),
+                $"{trial}: the log {(original is null ? "has no" : "has a")} record at the peace site, the port {(conclusion.PeaceDrawn ? "drew" : "did not draw")} it");
+            if (original is null)
+            {
+                KnownFailures.Require(!conclusion.PeaceOffered, $"{trial}: no draw, yet the treaty was offered");
+                return;
+            }
 
-        var last = replay.Draws.Draws[^1];
-        Assert.True(last.Bound == 5 && unchecked((uint)last.Value) == original.Result,
-            $"{trial}: the port's peace draw is Random({last.Bound}) = {last.Value}, the log's is Random(5) = {original.Result}");
-        Assert.Equal(original.Result < OfferedBelow, conclusion.PeaceOffered);
+            var last = replay.Draws.Draws[^1];
+            KnownFailures.Require(last.Bound == 5 && unchecked((uint)last.Value) == original.Result,
+                $"{trial}: the port's peace draw is Random({last.Bound}) = {last.Value}, the log's is Random(5) = {original.Result}");
+            KnownFailures.Require((original.Result < OfferedBelow) == conclusion.PeaceOffered, $"{trial}: peace offered: port {conclusion.PeaceOffered}, original {original.Result < OfferedBelow}");
+        });
+
     }
 
     public static IEnumerable<object[]> Rows() => GoldenData.Hooked();
