@@ -1,3 +1,4 @@
+using System.Text;
 using IC2.Data;
 using IC2.Engine.Battle.Tactical;
 
@@ -15,8 +16,8 @@ internal sealed record BlockDifference(string Where, string Field, string Port, 
 
 /// <summary>
 /// Compares the port's <see cref="TacticalBattleState"/> with an original <see cref="SaveBattleBlock"/>: the 9 header
-/// bytes, the 40 slots and the 168 cells, with no tolerance and no repair. The name is compared as the text before
-/// the first 0 byte (the port keeps a string, not the original's 24 raw bytes).
+/// bytes, the 40 slots and the 168 cells, with no tolerance and no repair. Each name is compared against all 24
+/// original bytes, including padding, using the port string encoded as ASCII and zero-padded.
 /// </summary>
 internal static class BlockComparison
 {
@@ -63,7 +64,7 @@ internal static class BlockComparison
                 Check(where, "moves", p.Moves, o.Moves),
                 Check(where, "shots", p.Shots, o.Shots),
                 Check(where, "target", p.Target, o.Target),
-                string.Equals(p.Name, o.Name, StringComparison.Ordinal) ? null : new BlockDifference(where, "name", p.Name, o.Name),
+                NameDifference(where, p.Name, o),
             };
             foreach (var d in fields.Where(d => d is not null))
             {
@@ -81,6 +82,27 @@ internal static class BlockComparison
                 yield return d;
             }
         }
+    }
+
+    private static BlockDifference? NameDifference(string where, string port, SaveBattleSlot original)
+    {
+        if (!string.Equals(port, original.Name, StringComparison.Ordinal))
+        {
+            return new BlockDifference(where, "name", port, original.Name);
+        }
+
+        var encoded = Encoding.ASCII.GetBytes(port);
+        for (var i = 0; i < SaveBattleBlock.NameLength; i++)
+        {
+            var value = i < encoded.Length ? encoded[i] : 0;
+            var difference = Check(where, $"name byte {i}", value, original.NameBytes[i]);
+            if (difference is not null)
+            {
+                return difference;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>The army-table index in an imported army id (<c>army-12</c> gives 12).</summary>

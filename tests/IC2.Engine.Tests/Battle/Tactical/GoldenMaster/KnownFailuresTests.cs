@@ -39,6 +39,15 @@ public sealed class KnownFailuresTests
         new KnownFailureRegistry(Listed).ValidateCases(new[] { "case" });
     }
 
+    [Theory]
+    [InlineData("not JSON")]
+    [InlineData("[{\"Case\":\"case\",\"FirstDifference\":\"difference\",\"Issue\":\"1103\"}]")]
+    [InlineData("[{\"Case\":\"case\",\"FirstDifference\":\"difference\",\"Issue\":1103.5}]")]
+    [InlineData("[{\"Case\":\"case\",\"FirstDifference\":\"difference\",\"Issue\":2147483648}]")]
+    [InlineData("[{\"Case\":7,\"FirstDifference\":\"difference\",\"Issue\":1103}]")]
+    public void Invalid_JSON_syntax_and_field_types_are_fixture_errors(string json) =>
+        Assert.Throws<InvalidDataException>(() => new KnownFailureRegistry(json));
+
     [SkippableFact]
     public void Every_entry_names_a_current_comparison_case()
     {

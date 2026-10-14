@@ -21,9 +21,6 @@ internal sealed class HookLog
     /// <summary>The site of the peace dialog's <c>Random(5)</c>.</summary>
     public const int PeaceSite = 0x45951C;
 
-    /// <summary>The site of the last promotion draw.</summary>
-    public const int PromotionSite = 0x4592BD;
-
     public HookLog(IReadOnlyList<HookRecord> records) => Records = records;
 
     public IReadOnlyList<HookRecord> Records { get; }

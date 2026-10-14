@@ -15,7 +15,7 @@ internal sealed class KnownFailureRegistry
 
     public KnownFailureRegistry(string json)
     {
-        using var document = JsonDocument.Parse(json);
+        using var document = ParseDocument(json);
         if (document.RootElement.ValueKind != JsonValueKind.Array)
             throw new InvalidDataException("KnownFailures must be an array.");
         var entries = new Dictionary<string, Entry>(StringComparer.Ordinal);
@@ -26,15 +26,25 @@ internal sealed class KnownFailureRegistry
             var properties = row.EnumerateObject().Select(p => p.Name).ToArray();
             if (properties.Length != 3 || !properties.ToHashSet(StringComparer.Ordinal).SetEquals(new[] { "Case", "FirstDifference", "Issue" }))
                 throw new InvalidDataException("KnownFailures entries require exactly Case, FirstDifference and Issue.");
+            if (row.GetProperty("Case").ValueKind != JsonValueKind.String ||
+                row.GetProperty("FirstDifference").ValueKind != JsonValueKind.String ||
+                row.GetProperty("Issue").ValueKind != JsonValueKind.Number ||
+                !row.GetProperty("Issue").TryGetInt32(out var issue))
+                throw new InvalidDataException("KnownFailures requires string Case/FirstDifference and integer Issue.");
             var id = row.GetProperty("Case").GetString();
             var difference = row.GetProperty("FirstDifference").GetString();
-            var issue = row.GetProperty("Issue").GetInt32();
             if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(difference) || issue is < 1103 or > 1107)
                 throw new InvalidDataException("KnownFailures has an empty id/discrepancy or an issue outside bugs 1103–1107.");
             if (!entries.TryAdd(id, new Entry(id, difference, issue)))
                 throw new InvalidDataException($"Duplicate known failure: {id}.");
         }
         _entries = entries;
+    }
+
+    private static JsonDocument ParseDocument(string json)
+    {
+        try { return JsonDocument.Parse(json); }
+        catch (JsonException error) { throw new InvalidDataException("KnownFailures contains invalid JSON.", error); }
     }
 
     public IReadOnlyCollection<Entry> Entries => _entries.Values.ToArray();
