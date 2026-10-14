@@ -94,7 +94,7 @@ internal sealed class ReplayOutcome
     public bool BlocksPassed => Structural is null && FirstBlockDifference is null;
 
     /// <summary>Whether the blocks matched and the post-battle fields equal the post save's.</summary>
-    public bool Passed => BlocksPassed && PostDifference is null;
+    public bool Passed => BlocksPassed && Conclusion is { WriteBackDifference: null } && PostDifference is null;
 
     /// <summary>The report line of a failure: the first differing field, or the structural reason.</summary>
     public string Describe(SeriesSpec spec) =>
@@ -102,9 +102,13 @@ internal sealed class ReplayOutcome
             ? $"{spec.Name}: {Structural}"
             : FirstBlockDifference is { } f
                 ? $"{spec.Name}: {f.File} (file {f.Index + 1} of {spec.Files.Count}), {f.Difference}"
+                : Conclusion?.WriteBackDifference is { } refused
+                    ? $"{spec.Name}: {refused}"
                 : PostDifference is not null
                     ? $"{spec.Name}: post-battle fields differ: {PostDifference}"
-                    : $"{spec.Name}: replays exactly ({spec.Files.Count} files)";
+                    : Conclusion is null
+                        ? $"{spec.Name}: the port produced no battle conclusion"
+                        : $"{spec.Name}: replays exactly ({spec.Files.Count} files)";
 }
 
 /// <summary>
@@ -215,10 +219,15 @@ internal static class GoldenReplay
         if (state.IsOver && outcome.Structural is null)
         {
             outcome.Conclusion = Conclude(outcome, draws);
-            if (compareBlocks && spec.Post is not null && outcome.Conclusion.Result.State is not null)
+            if (outcome.Conclusion.WriteBackDifference is { } refusal)
+            {
+                outcome.Structural = refusal;
+            }
+
+            if (compareBlocks && spec.Post is not null)
             {
                 outcome.PostDifference = PostBattle.FirstDifference(
-                    outcome.Conclusion.GameWithNews, BattleFixtures.Import(spec.Post).Save.State);
+                    outcome.Conclusion, BattleFixtures.Import(spec.Post).Save.State);
             }
         }
 
@@ -226,7 +235,12 @@ internal static class GoldenReplay
     }
 
     /// <summary>What the port's own conclusion produced after a replayed battle.</summary>
-    internal sealed record Conclusion(TacticalBattleConclusion Result, GameState GameWithNews);
+    internal sealed record Conclusion(TacticalBattleConclusion Result, GameState GameWithNews)
+    {
+        public string? WriteBackDifference => Result.Rejection is not null
+            ? $"the battle write-back was refused: {Result.Rejection}"
+            : Result.State is null ? "the battle write-back produced no strategic state" : null;
+    }
 
     /// <summary>
     /// Runs the port's real <see cref="TacticalBattleSession.Conclude"/> (the write-back, the promotions' draws and the

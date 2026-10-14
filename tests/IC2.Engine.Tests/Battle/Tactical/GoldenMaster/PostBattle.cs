@@ -9,6 +9,10 @@ namespace IC2.Engine.Tests.Battle.Tactical.GoldenMaster;
 /// </summary>
 internal static class PostBattle
 {
+    /// <summary>A refused or missing write-back cannot bypass the strategic comparison.</summary>
+    public static string? FirstDifference(GoldenReplay.Conclusion port, GameState original) =>
+        port.WriteBackDifference ?? FirstDifference(port.GameWithNews, original);
+
     /// <summary>The first difference between <paramref name="port"/> and <paramref name="original"/>, or <see langword="null"/>.</summary>
     public static string? FirstDifference(GameState port, GameState original)
     {
@@ -51,6 +55,13 @@ internal static class PostBattle
             }
         }
 
+        var portNationIds = port.Nations.Select(n => n.Id);
+        var originalNationIds = original.Nations.Select(n => n.Id);
+        if (!portNationIds.SequenceEqual(originalNationIds))
+        {
+            return $"nations: port [{string.Join(",", portNationIds)}], original [{string.Join(",", originalNationIds)}]";
+        }
+
         foreach (var o in original.Nations)
         {
             var p = port.NationById(o.Id)!;
@@ -63,6 +74,11 @@ internal static class PostBattle
         if (port.NewsLog.MostRecentSlot != original.NewsLog.MostRecentSlot)
         {
             return $"news: most recent slot port {port.NewsLog.MostRecentSlot}, original {original.NewsLog.MostRecentSlot}";
+        }
+
+        if (port.NewsLog.Slots.Count != original.NewsLog.Slots.Count)
+        {
+            return $"news: slot count port {port.NewsLog.Slots.Count}, original {original.NewsLog.Slots.Count}";
         }
 
         for (var i = 0; i < original.NewsLog.Slots.Count; i++)
