@@ -229,6 +229,11 @@ graph TD
   T168[T168 UI evaluation]
   T168 --> T169[T169 UI theme]
   T81 --> T170[T170 sea terrain rename]
+  T157 --> T171[T171 faithful mobilisation gates]
+  T87 --> T172[T172 faithful rebirth relations]
+  T146 --> T172
+  T129 --> T173[T173 copy-in targets]
+  T129 --> T174[T174 exhausted-move ordering]
   T156[T156 AI army target tree]
   T23 --> T26[T26 scenario docs+examples]
   T29 --> T26
@@ -1314,6 +1319,23 @@ UI theme (from #899 and the user's pick at T168's review; ships in `v0.6.0`) →
 
 Sea terrain ids (from #1068, deferred from T81; ships in `v0.6.0`) → [full entry](tasks/T170.md) · [#1089](https://github.com/diegoami/imperial_conquest_2/issues/1089)
 
+
+#### T171 Faithful AI mobilises ready recruits only under the original threat and proximity gates
+
+Correction from [issue 1084](https://github.com/diegoami/imperial_conquest_2/issues/1084) → [full entry](tasks/T171.md).
+
+#### T172 Faithful rebirth preserves one-sided relations and round-trips them through saves
+
+Correction from [issue 1087](https://github.com/diegoami/imperial_conquest_2/issues/1087) → [full entry](tasks/T172.md).
+
+#### T173 Tactical copy-in retains original attacker targets until its first setup
+
+Correction from [issue 1103](https://github.com/diegoami/imperial_conquest_2/issues/1103) → [full entry](tasks/T173.md).
+
+#### T174 Tactical walking checks exhausted moves before computer targeting
+
+Correction from [issue 1105](https://github.com/diegoami/imperial_conquest_2/issues/1105) → [full entry](tasks/T174.md).
+
 ---
 
 #### T25 Battle result, diplomacy, and hotseat handoff screens
@@ -1515,3 +1537,7 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T168](#t168-the-uis-look-evaluated-against-the-original-with-font-and-palette-candidates-for-the-user-to-choose) | UI evaluation | M18 | the user's choice | Medium | the user's choice | none | [#1072](https://github.com/diegoami/imperial_conquest_2/issues/1072) |
 | [T169](#t169-one-theme-for-the-whole-app-the-chosen-fonts-a-compact-type-scale-and-the-new-palette-and-no-godot-splash) | UI theme | M18 | the user's choice | High | the user's choice | T168 | [#1073](https://github.com/diegoami/imperial_conquest_2/issues/1073) |
 | [T170](#t170-rename-the-sea-terrain-to-what-it-is-calm-sea-and-rough-sea) | Sea terrain rename | M18 | the user's choice | Medium | the user's choice | T81 | [#1089](https://github.com/diegoami/imperial_conquest_2/issues/1089) |
+| [T171](#t171-faithful-ai-mobilises-ready-recruits-only-under-the-original-threat-and-proximity-gates) | Faithful mobilisation gates | M12 | the user's choice | the user's choice | the user's choice | T157 | [#1084](https://github.com/diegoami/imperial_conquest_2/issues/1084) |
+| [T172](#t172-faithful-rebirth-preserves-onesided-relations-and-roundtrips-them-through-saves) | Faithful rebirth relations | M12 | the user's choice | the user's choice | the user's choice | T87, T146 | [#1087](https://github.com/diegoami/imperial_conquest_2/issues/1087) |
+| [T173](#t173-tactical-copyin-retains-original-attacker-targets-until-its-first-setup) | Copy-in targets | M21 | the user's choice | the user's choice | the user's choice | T129 | [#1103](https://github.com/diegoami/imperial_conquest_2/issues/1103) |
+| [T174](#t174-tactical-walking-checks-exhausted-moves-before-computer-targeting) | Exhausted-move ordering | M21 | the user's choice | the user's choice | the user's choice | T129 | [#1105](https://github.com/diegoami/imperial_conquest_2/issues/1105) |
