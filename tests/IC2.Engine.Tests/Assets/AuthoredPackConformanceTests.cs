@@ -55,36 +55,102 @@ public sealed class AuthoredPackConformanceTests
     private static readonly string SoundPromptsFilePath =
         Path.Combine(FixturePaths.RepositoryRoot, "assets", "sound-prompts.json");
 
+    private static readonly HashSet<string> IntentionalCrossFilePromptKeys = new(StringComparer.Ordinal)
+    {
+        "sfx.city_captured",
+        "sfx.battle",
+        "sfx.unit_move"
+    };
+
     // --- DoD 1: prompts.json + sound-prompts.json <-> AssetKeys and BattleAssetKeys (the union), both directions (passes from the first commit) ---
 
     [Fact]
-    public void PromptFiles_HaveExactlyOnePromptPerKeyOfTheUnion()
+    public void PromptFiles_CoverTheUnionWithOnlyTheThreeIntentionalSoundKeyOverlaps()
     {
         var entries = ReadPromptEntries();
         var soundEntries = ReadSoundPromptEntries();
 
-        // The two prompt files together cover every key of the union AssetKeys.AllKeys + BattleAssetKeys.AllKeys:
-        // prompts.json for the image keys (the engine's and the battle screen's), sound-prompts.json for the sfx.* keys (T149 split).
-        var allPromptKeys = new HashSet<string>(
-            entries.Select(e => e.Key).Concat(soundEntries.Select(e => e.Key)),
-            StringComparer.Ordinal);
+        // The files cover the union of AssetKeys and BattleAssetKeys. These three sfx keys
+        // intentionally occur once in each file: the local authored-asset and sound generators
+        // both consume them. No other cross-file overlap is allowed.
         // T128: the battle screen's 25 keys live in the Godot-side BattleAssetKeys; the whole key set is the union.
         var engineKeys = new HashSet<string>(AssetKeys.AllKeys.Concat(BattleAssetKeys.AllKeys), StringComparer.Ordinal);
+        var violations = FindPromptKeyContractViolations(
+            entries.Select(e => e.Key), soundEntries.Select(e => e.Key), engineKeys);
 
-        // A key with no prompt fails; a prompt with no key fails; a duplicated key fails too,
-        // because a duplicate would silently satisfy the count while leaving one slot ambiguous.
-        var missingPrompts = engineKeys.Where(k => !allPromptKeys.Contains(k)).ToList();
-        var unknownKeys = allPromptKeys.Where(k => !engineKeys.Contains(k)).ToList();
-        var duplicateKeys = allPromptKeys.GroupBy(k => k, StringComparer.Ordinal)
-            .Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+        Assert.Empty(violations);
+    }
 
-        Assert.True(missingPrompts.Count == 0,
-            "AssetKeys/BattleAssetKeys constants with no prompt in assets/prompts.json or assets/sound-prompts.json: " +
-            string.Join(", ", missingPrompts));
-        Assert.True(unknownKeys.Count == 0,
-            "prompt files carry entries for keys neither AssetKeys nor BattleAssetKeys defines: " + string.Join(", ", unknownKeys));
-        Assert.True(duplicateKeys.Count == 0,
-            "prompt files carry duplicate keys: " + string.Join(", ", duplicateKeys));
+    [Fact]
+    public void PromptKeyGuard_RejectsExtraMissingAndWithinFileOverlapRegressions()
+    {
+        var engineKeys = new[]
+        {
+            "sfx.city_captured", "sfx.battle", "sfx.unit_move", "sfx.other",
+            "sprite.example", "sound.example"
+        };
+        var promptKeys = new[]
+        {
+            "sfx.city_captured", "sfx.battle", "sfx.unit_move", "sprite.example"
+        };
+        var soundKeys = new[]
+        {
+            "sfx.city_captured", "sfx.battle", "sfx.unit_move", "sfx.other", "sound.example"
+        };
+
+        Assert.Empty(FindPromptKeyContractViolations(promptKeys, soundKeys, engineKeys));
+        Assert.Contains("unexpected cross-file overlap: sprite.example",
+            FindPromptKeyContractViolations(promptKeys, soundKeys.Append("sprite.example"), engineKeys));
+        Assert.Contains("missing intentional cross-file overlap: sfx.unit_move",
+            FindPromptKeyContractViolations(promptKeys, soundKeys.Where(k => k != "sfx.unit_move"), engineKeys));
+        Assert.Contains("duplicate keys in assets/prompts.json: sprite.example",
+            FindPromptKeyContractViolations(promptKeys.Append("sprite.example"), soundKeys, engineKeys));
+    }
+
+    private static List<string> FindPromptKeyContractViolations(
+        IEnumerable<string> promptKeys,
+        IEnumerable<string> soundKeys,
+        IEnumerable<string> engineKeys)
+    {
+        var prompts = promptKeys.ToList();
+        var sounds = soundKeys.ToList();
+        var knownKeys = new HashSet<string>(engineKeys, StringComparer.Ordinal);
+        var promptSet = new HashSet<string>(prompts, StringComparer.Ordinal);
+        var soundSet = new HashSet<string>(sounds, StringComparer.Ordinal);
+        var allPromptKeys = new HashSet<string>(promptSet.Concat(soundSet), StringComparer.Ordinal);
+        var overlaps = new HashSet<string>(promptSet.Intersect(soundSet, StringComparer.Ordinal), StringComparer.Ordinal);
+        var violations = new List<string>();
+
+        var missingPrompts = knownKeys.Where(k => !allPromptKeys.Contains(k)).OrderBy(k => k, StringComparer.Ordinal);
+        if (missingPrompts.Any())
+            violations.Add("missing prompt keys: " + string.Join(", ", missingPrompts));
+
+        var unknownKeys = allPromptKeys.Where(k => !knownKeys.Contains(k)).OrderBy(k => k, StringComparer.Ordinal);
+        if (unknownKeys.Any())
+            violations.Add("unknown prompt keys: " + string.Join(", ", unknownKeys));
+
+        AddDuplicates(violations, prompts, "assets/prompts.json");
+        AddDuplicates(violations, sounds, "assets/sound-prompts.json");
+
+        var unexpectedOverlaps = overlaps.Except(IntentionalCrossFilePromptKeys, StringComparer.Ordinal)
+            .OrderBy(k => k, StringComparer.Ordinal);
+        if (unexpectedOverlaps.Any())
+            violations.Add("unexpected cross-file overlap: " + string.Join(", ", unexpectedOverlaps));
+
+        var missingOverlaps = IntentionalCrossFilePromptKeys.Except(overlaps, StringComparer.Ordinal)
+            .OrderBy(k => k, StringComparer.Ordinal);
+        if (missingOverlaps.Any())
+            violations.Add("missing intentional cross-file overlap: " + string.Join(", ", missingOverlaps));
+
+        return violations;
+    }
+
+    private static void AddDuplicates(List<string> violations, List<string> keys, string fileName)
+    {
+        var duplicates = keys.GroupBy(k => k, StringComparer.Ordinal)
+            .Where(g => g.Count() > 1).Select(g => g.Key).OrderBy(k => k, StringComparer.Ordinal).ToList();
+        if (duplicates.Count > 0)
+            violations.Add($"duplicate keys in {fileName}: " + string.Join(", ", duplicates));
     }
 
     [Fact]
@@ -592,7 +658,7 @@ public sealed class AuthoredPackConformanceTests
     /// <see cref="ReadPromptEntries"/> (no <c>source</c> field — the prompt text is enough
     /// provenance for an API call whose output is a binary the conformance test inspects), so
     /// the DTO is a separate, narrower type. Every entry carries the asset key, the prompt
-    /// text and a target duration, exactly the three fields
+    /// text, a target duration, and optional <c>tickTrimSeconds</c>, which
     /// <c>scripts/generate-sounds.py</c> consumes.
     /// </summary>
     private static List<SoundPromptEntry> ReadSoundPromptEntries()
