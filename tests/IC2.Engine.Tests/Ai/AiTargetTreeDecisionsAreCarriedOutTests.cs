@@ -534,6 +534,7 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
                 && subjectBattles[0].i > death && subjectBattles[0].i < boundary
                 && attack.Result.Kind == (city ? BattleKind.Siege : BattleKind.Field)
                 && Same(attack.Result.AttackerId, earlier.ArmyId) && Same(attack.Result.DefenderId, newTarget)
+                && !(Same(attack.Result.LoserId, earlier.ArmyId) && attack.Result.LoserFate == LoserFate.Scattered)
                 && ResolveNation(world, attack.Result.AttackerNationId) == earlier.NationId
                 && ResolveNation(world, attack.Result.DefenderNationId) is { } defender
                 && !Same(defender, earlier.NationId)

@@ -190,12 +190,24 @@ public sealed class AiConfirmedDestructionSupersessionTests
         Assert.False(Classify(e));
     }
 
+    [Fact]
+    public void Unique_display_names_resolve_to_the_exact_round_start_nation_ids()
+    {
+        var e = Valid();
+        var ownName = e.World.Nations.Single(n => n.Id == Me).Name;
+        var foeName = e.World.Nations.Single(n => n.Id == Foe).Name;
+        e.Events[0] = Win(winNation: ownName, loseNation: foeName);
+        e.Events[1] = ((ArmyMoved)e.Events[1]) with { NationId = ownName };
+        Assert.True(Classify(e));
+    }
+
     [Theory]
     [InlineData("wrong-target")]
     [InlineData("wrong-attacker")]
     [InlineData("wrong-attacker-nation")]
     [InlineData("wrong-defender-nation")]
     [InlineData("wrong-battle-kind")]
+    [InlineData("subject-scatter-in-battle-result")]
     public void Accepted_attack_must_match_the_later_retarget_and_nations(string mutation)
     {
         var e = Valid();
@@ -206,6 +218,7 @@ public sealed class AiConfirmedDestructionSupersessionTests
             "wrong-attacker" => attack with { AttackerId = "w" },
             "wrong-attacker-nation" => attack with { AttackerNationId = Foe },
             "wrong-defender-nation" => attack with { DefenderNationId = Me },
+            "subject-scatter-in-battle-result" => attack with { Winner = BattleSide.Defender, LoserFate = LoserFate.Scattered },
             _ => attack with { Kind = BattleKind.Siege },
         };
         e.Events[1] = new BattleResolved(attack);
