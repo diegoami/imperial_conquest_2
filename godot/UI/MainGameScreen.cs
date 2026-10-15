@@ -301,7 +301,9 @@ public partial class MainGameScreen : Control
         // heights lays out three lines but lets GetVisibleLineCount() count just two. The explicit size
         // also keeps the block's last-lines view (below) from ever collapsing.
         var lineSpacing = _lastCommandLabel.GetThemeConstant("line_spacing");
-        var linePitch = _lastCommandLabel.GetLineHeight() + lineSpacing;
+        // T169: negative spacing compacts gaps, but the floor still needs three glyph heights
+        // for GetVisibleLineCount() to retain the final Now: Week line.
+        var linePitch = _lastCommandLabel.GetLineHeight() + Mathf.Max(0, lineSpacing);
         _lastCommandLabel.CustomMinimumSize = new Vector2(
             0, Mathf.Ceil(LastCommandVisibleLineCount * linePitch));
 
