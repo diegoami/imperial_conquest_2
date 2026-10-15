@@ -120,14 +120,14 @@ public static class TacticalMovement
 
         while (px != x || py != y)
         {
-            if (computer && ComputerChecks(board, slot, x, y))
-            {
-                return Arrived(board, slot, x, y);
-            }
-
             if (board.Slots[slot].Moves < 1)
             {
                 break;
+            }
+
+            if (computer && ComputerChecks(board, slot, x, y))
+            {
+                return Arrived(board, slot, x, y);
             }
 
             // The path cursor's next cell: an optional minor step, then the major step.
