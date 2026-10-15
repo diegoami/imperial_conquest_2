@@ -408,6 +408,10 @@ public static class AiMilitaryPhase
                 break;
         }
 
+        // Keep the original tree record only when that branch actually offered a command. A fallback
+        // has its own candidate rationale; it must not inherit a rejected attack's decision record.
+        var originalActionOffered = into.Count > candidatesBefore;
+
         // The original's tree always ends in an action for an army with moves: when the chosen branch
         // produced no executable command (nothing proposable to march at, an adjacent target whose
         // attack is not legal), the garrison fallback (FUN_0044ebe8) picks the destination. The
@@ -436,11 +440,9 @@ public static class AiMilitaryPhase
             }
         }
 
-        // The decision log (Done-when 6) records a decision of the turn. An army that has not marched is
-        // decided here; one that has marched is decided again only to find the attack its march brought
-        // within reach, and is recorded only when that attack is offered: it is not decided again
-        // otherwise, its turn is spent.
-        if (mayMarch || into.Count > candidatesBefore)
+        // This also retains attacks offered after an army has already marched, while omitting
+        // rejected branches and boxed-in armies that offered no original action.
+        if (originalActionOffered)
         {
             AiArmyTargetTree.LogDecision(decisionRecord);
         }

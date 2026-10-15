@@ -61,1593 +61,1593 @@
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-ar-half_s1_r5_hook",
-    "FirstDifference": "ar-ar-half_s1_r5_hook: hook/ar-ar-half_s1_r5_hook_BATTLE01.SAV (file 1 of 16), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-ar-half_s1_r5_hook: hook/ar-ar-half_s1_r5_hook_BATTLE03.SAV (file 3 of 16), slot 0, y: port 6, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-ar-half_s2_r5_hook",
-    "FirstDifference": "ar-ar-half_s2_r5_hook: hook/ar-ar-half_s2_r5_hook_BATTLE01.SAV (file 1 of 14), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-ar-half_s2_r5_hook: hook/ar-ar-half_s2_r5_hook_BATTLE03.SAV (file 3 of 14), slot 0, x: port 7, original 5",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-ar-half_s3_r5_hook",
-    "FirstDifference": "ar-ar-half_s3_r5_hook: hook/ar-ar-half_s3_r5_hook_BATTLE01.SAV (file 1 of 14), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-ar-half_s3_r5_hook: hook/ar-ar-half_s3_r5_hook_BATTLE03.SAV (file 3 of 14), slot 0, x: port 8, original 10",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-ar-one_s1_r5_hook",
-    "FirstDifference": "ar-ar-one_s1_r5_hook: hook/ar-ar-one_s1_r5_hook_BATTLE01.SAV (file 1 of 16), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-ar-one_s1_r5_hook: hook/ar-ar-one_s1_r5_hook_BATTLE03.SAV (file 3 of 16), slot 0, y: port 6, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-ar-one_s2_r5_hook",
-    "FirstDifference": "ar-ar-one_s2_r5_hook: hook/ar-ar-one_s2_r5_hook_BATTLE01.SAV (file 1 of 14), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-ar-one_s2_r5_hook: hook/ar-ar-one_s2_r5_hook_BATTLE03.SAV (file 3 of 14), slot 0, x: port 7, original 5",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-ar-one_s3_r5_hook",
-    "FirstDifference": "ar-ar-one_s3_r5_hook: hook/ar-ar-one_s3_r5_hook_BATTLE01.SAV (file 1 of 16), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-ar-one_s3_r5_hook: hook/ar-ar-one_s3_r5_hook_BATTLE03.SAV (file 3 of 16), slot 0, x: port 8, original 10",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-ar-three_s1_r5_hook",
-    "FirstDifference": "ar-ar-three_s1_r5_hook: hook/ar-ar-three_s1_r5_hook_BATTLE01.SAV (file 1 of 16), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-ar-three_s1_r5_hook: hook/ar-ar-three_s1_r5_hook_BATTLE03.SAV (file 3 of 16), slot 0, y: port 6, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-ar-three_s2_r5_hook",
-    "FirstDifference": "ar-ar-three_s2_r5_hook: hook/ar-ar-three_s2_r5_hook_BATTLE01.SAV (file 1 of 16), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-ar-three_s2_r5_hook: hook/ar-ar-three_s2_r5_hook_BATTLE03.SAV (file 3 of 16), slot 0, x: port 7, original 9",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-ar-three_s3_r5_hook",
-    "FirstDifference": "ar-ar-three_s3_r5_hook: hook/ar-ar-three_s3_r5_hook_BATTLE01.SAV (file 1 of 18), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-ar-three_s3_r5_hook: hook/ar-ar-three_s3_r5_hook_BATTLE03.SAV (file 3 of 18), slot 0, y: port 6, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hc-half-one_s1_r5_hook",
-    "FirstDifference": "ar-hc-half-one_s1_r5_hook: hook/ar-hc-half-one_s1_r5_hook_BATTLE01.SAV (file 1 of 16), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hc-half-one_s1_r5_hook: hook/ar-hc-half-one_s1_r5_hook_BATTLE03.SAV (file 3 of 16), slot 0, x: port 6, original 4",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hc-half-one_s2_r5_hook",
-    "FirstDifference": "ar-hc-half-one_s2_r5_hook: hook/ar-hc-half-one_s2_r5_hook_BATTLE01.SAV (file 1 of 16), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hc-half-one_s2_r5_hook: hook/ar-hc-half-one_s2_r5_hook_BATTLE03.SAV (file 3 of 16), slot 0, y: port 6, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hc-half-one_s3_r5_hook",
-    "FirstDifference": "ar-hc-half-one_s3_r5_hook: hook/ar-hc-half-one_s3_r5_hook_BATTLE01.SAV (file 1 of 18), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hc-half-one_s3_r5_hook: hook/ar-hc-half-one_s3_r5_hook_BATTLE03.SAV (file 3 of 18), slot 0, x: port 6, original 9",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hc-half-three_s1_r5_hook",
-    "FirstDifference": "ar-hc-half-three_s1_r5_hook: hook/ar-hc-half-three_s1_r5_hook_BATTLE01.SAV (file 1 of 10), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hc-half-three_s1_r5_hook: hook/ar-hc-half-three_s1_r5_hook_BATTLE03.SAV (file 3 of 10), slot 0, x: port 8, original 5",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hc-half-three_s2_r5_hook",
-    "FirstDifference": "ar-hc-half-three_s2_r5_hook: hook/ar-hc-half-three_s2_r5_hook_BATTLE01.SAV (file 1 of 10), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hc-half-three_s2_r5_hook: hook/ar-hc-half-three_s2_r5_hook_BATTLE03.SAV (file 3 of 10), slot 0, x: port 5, original 6",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hc-half-three_s3_r5_hook",
-    "FirstDifference": "ar-hc-half-three_s3_r5_hook: hook/ar-hc-half-three_s3_r5_hook_BATTLE01.SAV (file 1 of 10), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hc-half-three_s3_r5_hook: hook/ar-hc-half-three_s3_r5_hook_BATTLE03.SAV (file 3 of 10), slot 0, x: port 6, original 7",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hc-half_s1_r5_hook",
-    "FirstDifference": "ar-hc-half_s1_r5_hook: hook/ar-hc-half_s1_r5_hook_BATTLE01.SAV (file 1 of 16), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hc-half_s1_r5_hook: hook/ar-hc-half_s1_r5_hook_BATTLE03.SAV (file 3 of 16), slot 0, x: port 6, original 4",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hc-half_s2_r5_hook",
-    "FirstDifference": "ar-hc-half_s2_r5_hook: hook/ar-hc-half_s2_r5_hook_BATTLE01.SAV (file 1 of 16), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hc-half_s2_r5_hook: hook/ar-hc-half_s2_r5_hook_BATTLE03.SAV (file 3 of 16), slot 0, y: port 6, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hc-half_s3_r5_hook",
-    "FirstDifference": "ar-hc-half_s3_r5_hook: hook/ar-hc-half_s3_r5_hook_BATTLE01.SAV (file 1 of 18), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hc-half_s3_r5_hook: hook/ar-hc-half_s3_r5_hook_BATTLE03.SAV (file 3 of 18), slot 0, x: port 6, original 9",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hc-one-half_s1_r5_hook",
-    "FirstDifference": "ar-hc-one-half_s1_r5_hook: hook/ar-hc-one-half_s1_r5_hook_BATTLE01.SAV (file 1 of 20), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hc-one-half_s1_r5_hook: hook/ar-hc-one-half_s1_r5_hook_BATTLE03.SAV (file 3 of 20), slot 0, x: port 6, original 4",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hc-one-half_s2_r5_hook",
-    "FirstDifference": "ar-hc-one-half_s2_r5_hook: hook/ar-hc-one-half_s2_r5_hook_BATTLE01.SAV (file 1 of 20), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hc-one-half_s2_r5_hook: hook/ar-hc-one-half_s2_r5_hook_BATTLE03.SAV (file 3 of 20), slot 0, y: port 6, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hc-one-half_s3_r5_hook",
-    "FirstDifference": "ar-hc-one-half_s3_r5_hook: hook/ar-hc-one-half_s3_r5_hook_BATTLE01.SAV (file 1 of 22), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hc-one-half_s3_r5_hook: hook/ar-hc-one-half_s3_r5_hook_BATTLE03.SAV (file 3 of 22), slot 0, x: port 6, original 9",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hc-one-three_s1_r5_hook",
-    "FirstDifference": "ar-hc-one-three_s1_r5_hook: hook/ar-hc-one-three_s1_r5_hook_BATTLE01.SAV (file 1 of 12), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hc-one-three_s1_r5_hook: hook/ar-hc-one-three_s1_r5_hook_BATTLE03.SAV (file 3 of 12), slot 0, x: port 8, original 5",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hc-one-three_s2_r5_hook",
-    "FirstDifference": "ar-hc-one-three_s2_r5_hook: hook/ar-hc-one-three_s2_r5_hook_BATTLE01.SAV (file 1 of 12), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hc-one-three_s2_r5_hook: hook/ar-hc-one-three_s2_r5_hook_BATTLE03.SAV (file 3 of 12), slot 0, x: port 5, original 6",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hc-one-three_s3_r5_hook",
-    "FirstDifference": "ar-hc-one-three_s3_r5_hook: hook/ar-hc-one-three_s3_r5_hook_BATTLE01.SAV (file 1 of 12), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hc-one-three_s3_r5_hook: hook/ar-hc-one-three_s3_r5_hook_BATTLE03.SAV (file 3 of 12), slot 0, x: port 6, original 7",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hc-one_s1_r5_hook",
-    "FirstDifference": "ar-hc-one_s1_r5_hook: hook/ar-hc-one_s1_r5_hook_BATTLE01.SAV (file 1 of 20), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hc-one_s1_r5_hook: hook/ar-hc-one_s1_r5_hook_BATTLE03.SAV (file 3 of 20), slot 0, x: port 6, original 4",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hc-one_s2_r5_hook",
-    "FirstDifference": "ar-hc-one_s2_r5_hook: hook/ar-hc-one_s2_r5_hook_BATTLE01.SAV (file 1 of 20), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hc-one_s2_r5_hook: hook/ar-hc-one_s2_r5_hook_BATTLE03.SAV (file 3 of 20), slot 0, y: port 6, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hc-one_s3_r5_hook",
-    "FirstDifference": "ar-hc-one_s3_r5_hook: hook/ar-hc-one_s3_r5_hook_BATTLE01.SAV (file 1 of 22), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hc-one_s3_r5_hook: hook/ar-hc-one_s3_r5_hook_BATTLE03.SAV (file 3 of 22), slot 0, x: port 6, original 9",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hc-three-half_s1_r5_hook",
-    "FirstDifference": "ar-hc-three-half_s1_r5_hook: hook/ar-hc-three-half_s1_r5_hook_BATTLE01.SAV (file 1 of 11), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hc-three-half_s1_r5_hook: hook/ar-hc-three-half_s1_r5_hook_BATTLE03.SAV (file 3 of 11), slot 0, x: port 7, original 5",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hc-three-half_s2_r5_hook",
-    "FirstDifference": "ar-hc-three-half_s2_r5_hook: hook/ar-hc-three-half_s2_r5_hook_BATTLE01.SAV (file 1 of 11), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hc-three-half_s2_r5_hook: hook/ar-hc-three-half_s2_r5_hook_BATTLE03.SAV (file 3 of 11), slot 0, x: port 4, original 6",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hc-three-half_s3_r5_hook",
-    "FirstDifference": "ar-hc-three-half_s3_r5_hook: hook/ar-hc-three-half_s3_r5_hook_BATTLE01.SAV (file 1 of 11), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hc-three-half_s3_r5_hook: hook/ar-hc-three-half_s3_r5_hook_BATTLE03.SAV (file 3 of 11), slot 0, x: port 5, original 7",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hc-three-one_s1_r5_hook",
-    "FirstDifference": "ar-hc-three-one_s1_r5_hook: hook/ar-hc-three-one_s1_r5_hook_BATTLE01.SAV (file 1 of 13), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hc-three-one_s1_r5_hook: hook/ar-hc-three-one_s1_r5_hook_BATTLE03.SAV (file 3 of 13), slot 0, x: port 7, original 5",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hc-three-one_s2_r5_hook",
-    "FirstDifference": "ar-hc-three-one_s2_r5_hook: hook/ar-hc-three-one_s2_r5_hook_BATTLE01.SAV (file 1 of 17), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hc-three-one_s2_r5_hook: hook/ar-hc-three-one_s2_r5_hook_BATTLE03.SAV (file 3 of 17), slot 0, x: port 4, original 6",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hc-three-one_s3_r5_hook",
-    "FirstDifference": "ar-hc-three-one_s3_r5_hook: hook/ar-hc-three-one_s3_r5_hook_BATTLE01.SAV (file 1 of 17), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hc-three-one_s3_r5_hook: hook/ar-hc-three-one_s3_r5_hook_BATTLE03.SAV (file 3 of 17), slot 0, x: port 5, original 7",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hc-three_s1_r5_hook",
-    "FirstDifference": "ar-hc-three_s1_r5_hook: hook/ar-hc-three_s1_r5_hook_BATTLE01.SAV (file 1 of 24), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hc-three_s1_r5_hook: hook/ar-hc-three_s1_r5_hook_BATTLE03.SAV (file 3 of 24), slot 0, x: port 2, original 4",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hc-three_s2_r5_hook",
-    "FirstDifference": "ar-hc-three_s2_r5_hook: hook/ar-hc-three_s2_r5_hook_BATTLE01.SAV (file 1 of 22), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hc-three_s2_r5_hook: hook/ar-hc-three_s2_r5_hook_BATTLE03.SAV (file 3 of 22), slot 0, x: port 6, original 9",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hc-three_s3_r5_hook",
-    "FirstDifference": "ar-hc-three_s3_r5_hook: hook/ar-hc-three_s3_r5_hook_BATTLE01.SAV (file 1 of 23), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hc-three_s3_r5_hook: hook/ar-hc-three_s3_r5_hook_BATTLE03.SAV (file 3 of 23), slot 0, x: port 4, original 6",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hi-half_s1_r5_hook",
-    "FirstDifference": "ar-hi-half_s1_r5_hook: hook/ar-hi-half_s1_r5_hook_BATTLE01.SAV (file 1 of 16), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hi-half_s1_r5_hook: hook/ar-hi-half_s1_r5_hook_BATTLE03.SAV (file 3 of 16), slot 0, y: port 6, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hi-half_s2_r5_hook",
-    "FirstDifference": "ar-hi-half_s2_r5_hook: hook/ar-hi-half_s2_r5_hook_BATTLE01.SAV (file 1 of 16), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hi-half_s2_r5_hook: hook/ar-hi-half_s2_r5_hook_BATTLE03.SAV (file 3 of 16), slot 0, x: port 7, original 5",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hi-half_s3_r5_hook",
-    "FirstDifference": "ar-hi-half_s3_r5_hook: hook/ar-hi-half_s3_r5_hook_BATTLE01.SAV (file 1 of 16), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hi-half_s3_r5_hook: hook/ar-hi-half_s3_r5_hook_BATTLE03.SAV (file 3 of 16), slot 0, x: port 8, original 10",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hi-one_s1_r5_hook",
-    "FirstDifference": "ar-hi-one_s1_r5_hook: hook/ar-hi-one_s1_r5_hook_BATTLE01.SAV (file 1 of 19), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hi-one_s1_r5_hook: hook/ar-hi-one_s1_r5_hook_BATTLE03.SAV (file 3 of 19), slot 0, y: port 6, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hi-one_s2_r5_hook",
-    "FirstDifference": "ar-hi-one_s2_r5_hook: hook/ar-hi-one_s2_r5_hook_BATTLE01.SAV (file 1 of 19), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hi-one_s2_r5_hook: hook/ar-hi-one_s2_r5_hook_BATTLE03.SAV (file 3 of 19), slot 0, x: port 7, original 5",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hi-one_s3_r5_hook",
-    "FirstDifference": "ar-hi-one_s3_r5_hook: hook/ar-hi-one_s3_r5_hook_BATTLE01.SAV (file 1 of 19), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hi-one_s3_r5_hook: hook/ar-hi-one_s3_r5_hook_BATTLE03.SAV (file 3 of 19), slot 0, x: port 8, original 10",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hi-three_s1_r5_hook",
-    "FirstDifference": "ar-hi-three_s1_r5_hook: hook/ar-hi-three_s1_r5_hook_BATTLE01.SAV (file 1 of 20), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hi-three_s1_r5_hook: hook/ar-hi-three_s1_r5_hook_BATTLE03.SAV (file 3 of 20), slot 0, y: port 6, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hi-three_s2_r5_hook",
-    "FirstDifference": "ar-hi-three_s2_r5_hook: hook/ar-hi-three_s2_r5_hook_BATTLE01.SAV (file 1 of 20), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hi-three_s2_r5_hook: hook/ar-hi-three_s2_r5_hook_BATTLE03.SAV (file 3 of 20), slot 0, x: port 7, original 9",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-hi-three_s3_r5_hook",
-    "FirstDifference": "ar-hi-three_s3_r5_hook: hook/ar-hi-three_s3_r5_hook_BATTLE01.SAV (file 1 of 22), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-hi-three_s3_r5_hook: hook/ar-hi-three_s3_r5_hook_BATTLE03.SAV (file 3 of 22), slot 0, y: port 6, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-lc-half_s1_r5_hook",
-    "FirstDifference": "ar-lc-half_s1_r5_hook: hook/ar-lc-half_s1_r5_hook_BATTLE01.SAV (file 1 of 10), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-lc-half_s1_r5_hook: hook/ar-lc-half_s1_r5_hook_BATTLE03.SAV (file 3 of 10), slot 0, x: port 7, original 5",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-lc-half_s2_r5_hook",
-    "FirstDifference": "ar-lc-half_s2_r5_hook: hook/ar-lc-half_s2_r5_hook_BATTLE01.SAV (file 1 of 10), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-lc-half_s2_r5_hook: hook/ar-lc-half_s2_r5_hook_BATTLE03.SAV (file 3 of 10), slot 0, x: port 2, original 4",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-lc-half_s3_r5_hook",
-    "FirstDifference": "ar-lc-half_s3_r5_hook: hook/ar-lc-half_s3_r5_hook_BATTLE01.SAV (file 1 of 10), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-lc-half_s3_r5_hook: hook/ar-lc-half_s3_r5_hook_BATTLE03.SAV (file 3 of 10), slot 0, x: port 7, original 9",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-lc-one_s1_r5_hook",
-    "FirstDifference": "ar-lc-one_s1_r5_hook: hook/ar-lc-one_s1_r5_hook_BATTLE01.SAV (file 1 of 10), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-lc-one_s1_r5_hook: hook/ar-lc-one_s1_r5_hook_BATTLE03.SAV (file 3 of 10), slot 0, x: port 7, original 5",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-lc-one_s2_r5_hook",
-    "FirstDifference": "ar-lc-one_s2_r5_hook: hook/ar-lc-one_s2_r5_hook_BATTLE01.SAV (file 1 of 10), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-lc-one_s2_r5_hook: hook/ar-lc-one_s2_r5_hook_BATTLE03.SAV (file 3 of 10), slot 0, x: port 2, original 4",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-lc-one_s3_r5_hook",
-    "FirstDifference": "ar-lc-one_s3_r5_hook: hook/ar-lc-one_s3_r5_hook_BATTLE01.SAV (file 1 of 10), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-lc-one_s3_r5_hook: hook/ar-lc-one_s3_r5_hook_BATTLE03.SAV (file 3 of 10), slot 0, x: port 7, original 9",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-lc-three_s1_r5_hook",
-    "FirstDifference": "ar-lc-three_s1_r5_hook: hook/ar-lc-three_s1_r5_hook_BATTLE01.SAV (file 1 of 12), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-lc-three_s1_r5_hook: hook/ar-lc-three_s1_r5_hook_BATTLE03.SAV (file 3 of 12), slot 0, x: port 7, original 5",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-lc-three_s2_r5_hook",
-    "FirstDifference": "ar-lc-three_s2_r5_hook: hook/ar-lc-three_s2_r5_hook_BATTLE01.SAV (file 1 of 10), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-lc-three_s2_r5_hook: hook/ar-lc-three_s2_r5_hook_BATTLE03.SAV (file 3 of 10), slot 0, x: port 11, original 10",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-lc-three_s3_r5_hook",
-    "FirstDifference": "ar-lc-three_s3_r5_hook: hook/ar-lc-three_s3_r5_hook_BATTLE01.SAV (file 1 of 12), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-lc-three_s3_r5_hook: hook/ar-lc-three_s3_r5_hook_BATTLE03.SAV (file 3 of 12), slot 0, x: port 5, original 7",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-li-half_s1_r5_hook",
-    "FirstDifference": "ar-li-half_s1_r5_hook: hook/ar-li-half_s1_r5_hook_BATTLE01.SAV (file 1 of 10), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-li-half_s1_r5_hook: hook/ar-li-half_s1_r5_hook_BATTLE03.SAV (file 3 of 10), slot 0, x: port 2, original 4",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-li-half_s2_r5_hook",
-    "FirstDifference": "ar-li-half_s2_r5_hook: hook/ar-li-half_s2_r5_hook_BATTLE01.SAV (file 1 of 10), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-li-half_s2_r5_hook: hook/ar-li-half_s2_r5_hook_BATTLE03.SAV (file 3 of 10), slot 0, x: port 6, original 4",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-li-half_s3_r5_hook",
-    "FirstDifference": "ar-li-half_s3_r5_hook: hook/ar-li-half_s3_r5_hook_BATTLE01.SAV (file 1 of 10), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-li-half_s3_r5_hook: hook/ar-li-half_s3_r5_hook_BATTLE03.SAV (file 3 of 10), slot 0, y: port 6, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-li-one_s1_r5_hook",
-    "FirstDifference": "ar-li-one_s1_r5_hook: hook/ar-li-one_s1_r5_hook_BATTLE01.SAV (file 1 of 12), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-li-one_s1_r5_hook: hook/ar-li-one_s1_r5_hook_BATTLE03.SAV (file 3 of 12), slot 0, x: port 2, original 4",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-li-one_s2_r5_hook",
-    "FirstDifference": "ar-li-one_s2_r5_hook: hook/ar-li-one_s2_r5_hook_BATTLE01.SAV (file 1 of 10), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-li-one_s2_r5_hook: hook/ar-li-one_s2_r5_hook_BATTLE03.SAV (file 3 of 10), slot 0, x: port 6, original 4",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-li-one_s3_r5_hook",
-    "FirstDifference": "ar-li-one_s3_r5_hook: hook/ar-li-one_s3_r5_hook_BATTLE01.SAV (file 1 of 10), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-li-one_s3_r5_hook: hook/ar-li-one_s3_r5_hook_BATTLE03.SAV (file 3 of 10), slot 0, y: port 6, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-li-three_s1_r5_hook",
-    "FirstDifference": "ar-li-three_s1_r5_hook: hook/ar-li-three_s1_r5_hook_BATTLE01.SAV (file 1 of 10), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-li-three_s1_r5_hook: hook/ar-li-three_s1_r5_hook_BATTLE03.SAV (file 3 of 10), slot 0, x: port 6, original 4",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-li-three_s2_r5_hook",
-    "FirstDifference": "ar-li-three_s2_r5_hook: hook/ar-li-three_s2_r5_hook_BATTLE01.SAV (file 1 of 12), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-li-three_s2_r5_hook: hook/ar-li-three_s2_r5_hook_BATTLE03.SAV (file 3 of 12), slot 0, x: port 9, original 10",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:ar-li-three_s3_r5_hook",
-    "FirstDifference": "ar-li-three_s3_r5_hook: hook/ar-li-three_s3_r5_hook_BATTLE01.SAV (file 1 of 12), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "ar-li-three_s3_r5_hook: hook/ar-li-three_s3_r5_hook_BATTLE03.SAV (file 3 of 12), slot 0, x: port 9, original 7",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-ar-half_s1_r5_hook",
-    "FirstDifference": "hc-ar-half_s1_r5_hook: hook/hc-ar-half_s1_r5_hook_BATTLE01.SAV (file 1 of 19), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-ar-half_s1_r5_hook: hook/hc-ar-half_s1_r5_hook_BATTLE03.SAV (file 3 of 19), slot 0, x: port 5, original 7",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-ar-half_s2_r5_hook",
-    "FirstDifference": "hc-ar-half_s2_r5_hook: hook/hc-ar-half_s2_r5_hook_BATTLE01.SAV (file 1 of 19), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-ar-half_s2_r5_hook: hook/hc-ar-half_s2_r5_hook_BATTLE03.SAV (file 3 of 19), slot 0, x: port 9, original 7",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-ar-half_s3_r5_hook",
-    "FirstDifference": "hc-ar-half_s3_r5_hook: hook/hc-ar-half_s3_r5_hook_BATTLE01.SAV (file 1 of 17), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-ar-half_s3_r5_hook: hook/hc-ar-half_s3_r5_hook_BATTLE03.SAV (file 3 of 17), slot 0, x: port 6, original 4",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-ar-one_s1_r5_hook",
-    "FirstDifference": "hc-ar-one_s1_r5_hook: hook/hc-ar-one_s1_r5_hook_BATTLE01.SAV (file 1 of 20), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-ar-one_s1_r5_hook: hook/hc-ar-one_s1_r5_hook_BATTLE03.SAV (file 3 of 20), slot 0, x: port 5, original 7",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-ar-one_s2_r5_hook",
-    "FirstDifference": "hc-ar-one_s2_r5_hook: hook/hc-ar-one_s2_r5_hook_BATTLE01.SAV (file 1 of 20), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-ar-one_s2_r5_hook: hook/hc-ar-one_s2_r5_hook_BATTLE03.SAV (file 3 of 20), slot 0, x: port 9, original 7",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-ar-one_s3_r5_hook",
-    "FirstDifference": "hc-ar-one_s3_r5_hook: hook/hc-ar-one_s3_r5_hook_BATTLE01.SAV (file 1 of 20), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-ar-one_s3_r5_hook: hook/hc-ar-one_s3_r5_hook_BATTLE03.SAV (file 3 of 20), slot 0, x: port 6, original 4",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-ar-three_s1_r5_hook",
-    "FirstDifference": "hc-ar-three_s1_r5_hook: hook/hc-ar-three_s1_r5_hook_BATTLE01.SAV (file 1 of 24), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-ar-three_s1_r5_hook: hook/hc-ar-three_s1_r5_hook_BATTLE03.SAV (file 3 of 24), slot 0, x: port 5, original 7",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-ar-three_s2_r5_hook",
-    "FirstDifference": "hc-ar-three_s2_r5_hook: hook/hc-ar-three_s2_r5_hook_BATTLE01.SAV (file 1 of 25), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-ar-three_s2_r5_hook: hook/hc-ar-three_s2_r5_hook_BATTLE03.SAV (file 3 of 25), slot 0, x: port 5, original 4",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-ar-three_s3_r5_hook",
-    "FirstDifference": "hc-ar-three_s3_r5_hook: hook/hc-ar-three_s3_r5_hook_BATTLE01.SAV (file 1 of 24), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-ar-three_s3_r5_hook: hook/hc-ar-three_s3_r5_hook_BATTLE03.SAV (file 3 of 24), slot 0, x: port 8, original 10",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-hc-half_s1_r5_hook",
-    "FirstDifference": "hc-hc-half_s1_r5_hook: hook/hc-hc-half_s1_r5_hook_BATTLE01.SAV (file 1 of 20), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-hc-half_s1_r5_hook: hook/hc-hc-half_s1_r5_hook_BATTLE03.SAV (file 3 of 20), slot 0, y: port 7, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-hc-half_s2_r5_hook",
-    "FirstDifference": "hc-hc-half_s2_r5_hook: hook/hc-hc-half_s2_r5_hook_BATTLE01.SAV (file 1 of 19), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-hc-half_s2_r5_hook: hook/hc-hc-half_s2_r5_hook_BATTLE03.SAV (file 3 of 19), slot 0, x: port 5, original 7",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-hc-half_s3_r5_hook",
-    "FirstDifference": "hc-hc-half_s3_r5_hook: hook/hc-hc-half_s3_r5_hook_BATTLE01.SAV (file 1 of 15), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-hc-half_s3_r5_hook: hook/hc-hc-half_s3_r5_hook_BATTLE03.SAV (file 3 of 15), slot 0, x: port 2, original 4",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-hc-one_s1_r5_hook",
-    "FirstDifference": "hc-hc-one_s1_r5_hook: hook/hc-hc-one_s1_r5_hook_BATTLE01.SAV (file 1 of 21), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-hc-one_s1_r5_hook: hook/hc-hc-one_s1_r5_hook_BATTLE03.SAV (file 3 of 21), slot 0, y: port 7, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-hc-one_s2_r5_hook",
-    "FirstDifference": "hc-hc-one_s2_r5_hook: hook/hc-hc-one_s2_r5_hook_BATTLE01.SAV (file 1 of 20), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-hc-one_s2_r5_hook: hook/hc-hc-one_s2_r5_hook_BATTLE03.SAV (file 3 of 20), slot 0, x: port 5, original 7",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-hc-one_s3_r5_hook",
-    "FirstDifference": "hc-hc-one_s3_r5_hook: hook/hc-hc-one_s3_r5_hook_BATTLE01.SAV (file 1 of 17), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-hc-one_s3_r5_hook: hook/hc-hc-one_s3_r5_hook_BATTLE03.SAV (file 3 of 17), slot 0, x: port 2, original 4",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-hc-three_s1_r5_hook",
-    "FirstDifference": "hc-hc-three_s1_r5_hook: hook/hc-hc-three_s1_r5_hook_BATTLE01.SAV (file 1 of 24), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-hc-three_s1_r5_hook: hook/hc-hc-three_s1_r5_hook_BATTLE03.SAV (file 3 of 24), slot 0, x: port 3, original 6",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-hc-three_s2_r5_hook",
-    "FirstDifference": "hc-hc-three_s2_r5_hook: hook/hc-hc-three_s2_r5_hook_BATTLE01.SAV (file 1 of 21), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-hc-three_s2_r5_hook: hook/hc-hc-three_s2_r5_hook_BATTLE03.SAV (file 3 of 21), slot 0, x: port 3, original 4",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-hc-three_s3_r5_hook",
-    "FirstDifference": "hc-hc-three_s3_r5_hook: hook/hc-hc-three_s3_r5_hook_BATTLE01.SAV (file 1 of 35), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-hc-three_s3_r5_hook: hook/hc-hc-three_s3_r5_hook_BATTLE03.SAV (file 3 of 35), slot 0, x: port 5, original 9",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-hi-half_s1_r5_hook",
-    "FirstDifference": "hc-hi-half_s1_r5_hook: hook/hc-hi-half_s1_r5_hook_BATTLE01.SAV (file 1 of 13), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-hi-half_s1_r5_hook: hook/hc-hi-half_s1_r5_hook_BATTLE03.SAV (file 3 of 13), slot 0, x: port 5, original 7",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-hi-half_s2_r5_hook",
-    "FirstDifference": "hc-hi-half_s2_r5_hook: hook/hc-hi-half_s2_r5_hook_BATTLE01.SAV (file 1 of 13), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-hi-half_s2_r5_hook: hook/hc-hi-half_s2_r5_hook_BATTLE03.SAV (file 3 of 13), slot 0, x: port 9, original 7",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-hi-half_s3_r5_hook",
-    "FirstDifference": "hc-hi-half_s3_r5_hook: hook/hc-hi-half_s3_r5_hook_BATTLE01.SAV (file 1 of 15), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-hi-half_s3_r5_hook: hook/hc-hi-half_s3_r5_hook_BATTLE03.SAV (file 3 of 15), slot 0, x: port 6, original 4",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-hi-one_s1_r5_hook",
-    "FirstDifference": "hc-hi-one_s1_r5_hook: hook/hc-hi-one_s1_r5_hook_BATTLE01.SAV (file 1 of 15), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-hi-one_s1_r5_hook: hook/hc-hi-one_s1_r5_hook_BATTLE03.SAV (file 3 of 15), slot 0, x: port 5, original 7",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-hi-one_s2_r5_hook",
-    "FirstDifference": "hc-hi-one_s2_r5_hook: hook/hc-hi-one_s2_r5_hook_BATTLE01.SAV (file 1 of 14), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-hi-one_s2_r5_hook: hook/hc-hi-one_s2_r5_hook_BATTLE03.SAV (file 3 of 14), slot 0, x: port 9, original 7",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-hi-one_s3_r5_hook",
-    "FirstDifference": "hc-hi-one_s3_r5_hook: hook/hc-hi-one_s3_r5_hook_BATTLE01.SAV (file 1 of 16), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-hi-one_s3_r5_hook: hook/hc-hi-one_s3_r5_hook_BATTLE03.SAV (file 3 of 16), slot 0, x: port 6, original 4",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-hi-three_s1_r5_hook",
-    "FirstDifference": "hc-hi-three_s1_r5_hook: hook/hc-hi-three_s1_r5_hook_BATTLE01.SAV (file 1 of 24), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-hi-three_s1_r5_hook: hook/hc-hi-three_s1_r5_hook_BATTLE03.SAV (file 3 of 24), slot 0, x: port 5, original 7",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-hi-three_s2_r5_hook",
-    "FirstDifference": "hc-hi-three_s2_r5_hook: hook/hc-hi-three_s2_r5_hook_BATTLE01.SAV (file 1 of 18), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-hi-three_s2_r5_hook: hook/hc-hi-three_s2_r5_hook_BATTLE03.SAV (file 3 of 18), slot 0, x: port 5, original 4",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-hi-three_s3_r5_hook",
-    "FirstDifference": "hc-hi-three_s3_r5_hook: hook/hc-hi-three_s3_r5_hook_BATTLE01.SAV (file 1 of 21), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-hi-three_s3_r5_hook: hook/hc-hi-three_s3_r5_hook_BATTLE03.SAV (file 3 of 21), slot 0, x: port 8, original 10",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-lc-half_s1_r5_hook",
-    "FirstDifference": "hc-lc-half_s1_r5_hook: hook/hc-lc-half_s1_r5_hook_BATTLE01.SAV (file 1 of 11), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-lc-half_s1_r5_hook: hook/hc-lc-half_s1_r5_hook_BATTLE03.SAV (file 3 of 11), slot 0, x: port 9, original 7",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-lc-half_s2_r5_hook",
-    "FirstDifference": "hc-lc-half_s2_r5_hook: hook/hc-lc-half_s2_r5_hook_BATTLE01.SAV (file 1 of 11), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-lc-half_s2_r5_hook: hook/hc-lc-half_s2_r5_hook_BATTLE03.SAV (file 3 of 11), slot 0, x: port 3, original 6",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-lc-half_s3_r5_hook",
-    "FirstDifference": "hc-lc-half_s3_r5_hook: hook/hc-lc-half_s3_r5_hook_BATTLE01.SAV (file 1 of 11), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-lc-half_s3_r5_hook: hook/hc-lc-half_s3_r5_hook_BATTLE03.SAV (file 3 of 11), slot 0, y: port 7, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-lc-one_s1_r5_hook",
-    "FirstDifference": "hc-lc-one_s1_r5_hook: hook/hc-lc-one_s1_r5_hook_BATTLE01.SAV (file 1 of 12), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-lc-one_s1_r5_hook: hook/hc-lc-one_s1_r5_hook_BATTLE03.SAV (file 3 of 12), slot 0, x: port 9, original 7",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-lc-one_s2_r5_hook",
-    "FirstDifference": "hc-lc-one_s2_r5_hook: hook/hc-lc-one_s2_r5_hook_BATTLE01.SAV (file 1 of 11), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-lc-one_s2_r5_hook: hook/hc-lc-one_s2_r5_hook_BATTLE03.SAV (file 3 of 11), slot 0, x: port 3, original 6",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-lc-one_s3_r5_hook",
-    "FirstDifference": "hc-lc-one_s3_r5_hook: hook/hc-lc-one_s3_r5_hook_BATTLE01.SAV (file 1 of 12), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-lc-one_s3_r5_hook: hook/hc-lc-one_s3_r5_hook_BATTLE03.SAV (file 3 of 12), slot 0, y: port 7, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-lc-three_s1_r5_hook",
-    "FirstDifference": "hc-lc-three_s1_r5_hook: hook/hc-lc-three_s1_r5_hook_BATTLE01.SAV (file 1 of 12), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-lc-three_s1_r5_hook: hook/hc-lc-three_s1_r5_hook_BATTLE03.SAV (file 3 of 12), slot 0, x: port 9, original 7",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-lc-three_s2_r5_hook",
-    "FirstDifference": "hc-lc-three_s2_r5_hook: hook/hc-lc-three_s2_r5_hook_BATTLE01.SAV (file 1 of 17), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-lc-three_s2_r5_hook: hook/hc-lc-three_s2_r5_hook_BATTLE03.SAV (file 3 of 17), slot 0, x: port 9, original 5",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-lc-three_s3_r5_hook",
-    "FirstDifference": "hc-lc-three_s3_r5_hook: hook/hc-lc-three_s3_r5_hook_BATTLE01.SAV (file 1 of 16), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-lc-three_s3_r5_hook: hook/hc-lc-three_s3_r5_hook_BATTLE03.SAV (file 3 of 16), slot 0, x: port 6, original 9",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-li-half_s1_r5_hook",
-    "FirstDifference": "hc-li-half_s1_r5_hook: hook/hc-li-half_s1_r5_hook_BATTLE01.SAV (file 1 of 12), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-li-half_s1_r5_hook: hook/hc-li-half_s1_r5_hook_BATTLE03.SAV (file 3 of 12), slot 0, x: port 3, original 6",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-li-half_s2_r5_hook",
-    "FirstDifference": "hc-li-half_s2_r5_hook: hook/hc-li-half_s2_r5_hook_BATTLE01.SAV (file 1 of 12), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-li-half_s2_r5_hook: hook/hc-li-half_s2_r5_hook_BATTLE03.SAV (file 3 of 12), slot 0, y: port 7, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-li-half_s3_r5_hook",
-    "FirstDifference": "hc-li-half_s3_r5_hook: hook/hc-li-half_s3_r5_hook_BATTLE01.SAV (file 1 of 12), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-li-half_s3_r5_hook: hook/hc-li-half_s3_r5_hook_BATTLE03.SAV (file 3 of 12), slot 0, x: port 8, original 5",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-li-one_s1_r5_hook",
-    "FirstDifference": "hc-li-one_s1_r5_hook: hook/hc-li-one_s1_r5_hook_BATTLE01.SAV (file 1 of 13), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-li-one_s1_r5_hook: hook/hc-li-one_s1_r5_hook_BATTLE03.SAV (file 3 of 13), slot 0, x: port 3, original 6",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-li-one_s2_r5_hook",
-    "FirstDifference": "hc-li-one_s2_r5_hook: hook/hc-li-one_s2_r5_hook_BATTLE01.SAV (file 1 of 12), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-li-one_s2_r5_hook: hook/hc-li-one_s2_r5_hook_BATTLE03.SAV (file 3 of 12), slot 0, y: port 7, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-li-one_s3_r5_hook",
-    "FirstDifference": "hc-li-one_s3_r5_hook: hook/hc-li-one_s3_r5_hook_BATTLE01.SAV (file 1 of 12), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-li-one_s3_r5_hook: hook/hc-li-one_s3_r5_hook_BATTLE03.SAV (file 3 of 12), slot 0, x: port 8, original 5",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-li-three_s1_r5_hook",
-    "FirstDifference": "hc-li-three_s1_r5_hook: hook/hc-li-three_s1_r5_hook_BATTLE01.SAV (file 1 of 12), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-li-three_s1_r5_hook: hook/hc-li-three_s1_r5_hook_BATTLE03.SAV (file 3 of 12), slot 0, y: port 7, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-li-three_s2_r5_hook",
-    "FirstDifference": "hc-li-three_s2_r5_hook: hook/hc-li-three_s2_r5_hook_BATTLE01.SAV (file 1 of 18), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-li-three_s2_r5_hook: hook/hc-li-three_s2_r5_hook_BATTLE03.SAV (file 3 of 18), slot 0, x: port 7, original 5",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hc-li-three_s3_r5_hook",
-    "FirstDifference": "hc-li-three_s3_r5_hook: hook/hc-li-three_s3_r5_hook_BATTLE01.SAV (file 1 of 14), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hc-li-three_s3_r5_hook: hook/hc-li-three_s3_r5_hook_BATTLE03.SAV (file 3 of 14), slot 0, y: port 7, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-ar-half_s1_r5_hook",
-    "FirstDifference": "hi-ar-half_s1_r5_hook: hook/hi-ar-half_s1_r5_hook_BATTLE01.SAV (file 1 of 15), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-ar-half_s1_r5_hook: hook/hi-ar-half_s1_r5_hook_BATTLE03.SAV (file 3 of 15), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-ar-half_s2_r5_hook",
-    "FirstDifference": "hi-ar-half_s2_r5_hook: hook/hi-ar-half_s2_r5_hook_BATTLE01.SAV (file 1 of 15), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-ar-half_s2_r5_hook: hook/hi-ar-half_s2_r5_hook_BATTLE03.SAV (file 3 of 15), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-ar-half_s3_r5_hook",
-    "FirstDifference": "hi-ar-half_s3_r5_hook: hook/hi-ar-half_s3_r5_hook_BATTLE01.SAV (file 1 of 15), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-ar-half_s3_r5_hook: hook/hi-ar-half_s3_r5_hook_BATTLE03.SAV (file 3 of 15), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-ar-one_s1_r5_hook",
-    "FirstDifference": "hi-ar-one_s1_r5_hook: hook/hi-ar-one_s1_r5_hook_BATTLE01.SAV (file 1 of 18), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-ar-one_s1_r5_hook: hook/hi-ar-one_s1_r5_hook_BATTLE03.SAV (file 3 of 18), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-ar-one_s2_r5_hook",
-    "FirstDifference": "hi-ar-one_s2_r5_hook: hook/hi-ar-one_s2_r5_hook_BATTLE01.SAV (file 1 of 18), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-ar-one_s2_r5_hook: hook/hi-ar-one_s2_r5_hook_BATTLE03.SAV (file 3 of 18), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-ar-one_s3_r5_hook",
-    "FirstDifference": "hi-ar-one_s3_r5_hook: hook/hi-ar-one_s3_r5_hook_BATTLE01.SAV (file 1 of 18), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-ar-one_s3_r5_hook: hook/hi-ar-one_s3_r5_hook_BATTLE03.SAV (file 3 of 18), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-ar-three_s1_r5_hook",
-    "FirstDifference": "hi-ar-three_s1_r5_hook: hook/hi-ar-three_s1_r5_hook_BATTLE01.SAV (file 1 of 20), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-ar-three_s1_r5_hook: hook/hi-ar-three_s1_r5_hook_BATTLE03.SAV (file 3 of 20), slot 3, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-ar-three_s2_r5_hook",
-    "FirstDifference": "hi-ar-three_s2_r5_hook: hook/hi-ar-three_s2_r5_hook_BATTLE01.SAV (file 1 of 21), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-ar-three_s2_r5_hook: hook/hi-ar-three_s2_r5_hook_BATTLE03.SAV (file 3 of 21), slot 3, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-ar-three_s3_r5_hook",
-    "FirstDifference": "hi-ar-three_s3_r5_hook: hook/hi-ar-three_s3_r5_hook_BATTLE01.SAV (file 1 of 19), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-ar-three_s3_r5_hook: hook/hi-ar-three_s3_r5_hook_BATTLE03.SAV (file 3 of 19), slot 3, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hc-half_s1_r5_hook",
-    "FirstDifference": "hi-hc-half_s1_r5_hook: hook/hi-hc-half_s1_r5_hook_BATTLE01.SAV (file 1 of 14), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hc-half_s1_r5_hook: hook/hi-hc-half_s1_r5_hook_BATTLE03.SAV (file 3 of 14), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hc-half_s2_r5_hook",
-    "FirstDifference": "hi-hc-half_s2_r5_hook: hook/hi-hc-half_s2_r5_hook_BATTLE01.SAV (file 1 of 13), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hc-half_s2_r5_hook: hook/hi-hc-half_s2_r5_hook_BATTLE03.SAV (file 3 of 13), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hc-half_s3_r5_hook",
-    "FirstDifference": "hi-hc-half_s3_r5_hook: hook/hi-hc-half_s3_r5_hook_BATTLE01.SAV (file 1 of 17), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hc-half_s3_r5_hook: hook/hi-hc-half_s3_r5_hook_BATTLE03.SAV (file 3 of 17), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hc-one_s1_r5_hook",
-    "FirstDifference": "hi-hc-one_s1_r5_hook: hook/hi-hc-one_s1_r5_hook_BATTLE01.SAV (file 1 of 16), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hc-one_s1_r5_hook: hook/hi-hc-one_s1_r5_hook_BATTLE03.SAV (file 3 of 16), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hc-one_s2_r5_hook",
-    "FirstDifference": "hi-hc-one_s2_r5_hook: hook/hi-hc-one_s2_r5_hook_BATTLE01.SAV (file 1 of 14), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hc-one_s2_r5_hook: hook/hi-hc-one_s2_r5_hook_BATTLE03.SAV (file 3 of 14), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hc-one_s3_r5_hook",
-    "FirstDifference": "hi-hc-one_s3_r5_hook: hook/hi-hc-one_s3_r5_hook_BATTLE01.SAV (file 1 of 18), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hc-one_s3_r5_hook: hook/hi-hc-one_s3_r5_hook_BATTLE03.SAV (file 3 of 18), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hc-three_s1_r5_hook",
-    "FirstDifference": "hi-hc-three_s1_r5_hook: hook/hi-hc-three_s1_r5_hook_BATTLE01.SAV (file 1 of 23), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hc-three_s1_r5_hook: hook/hi-hc-three_s1_r5_hook_BATTLE03.SAV (file 3 of 23), slot 3, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hc-three_s2_r5_hook",
-    "FirstDifference": "hi-hc-three_s2_r5_hook: hook/hi-hc-three_s2_r5_hook_BATTLE01.SAV (file 1 of 25), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hc-three_s2_r5_hook: hook/hi-hc-three_s2_r5_hook_BATTLE03.SAV (file 3 of 25), slot 3, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hc-three_s3_r5_hook",
-    "FirstDifference": "hi-hc-three_s3_r5_hook: hook/hi-hc-three_s3_r5_hook_BATTLE01.SAV (file 1 of 23), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hc-three_s3_r5_hook: hook/hi-hc-three_s3_r5_hook_BATTLE03.SAV (file 3 of 23), slot 3, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hi-half-one_s1_r5_hook",
-    "FirstDifference": "hi-hi-half-one_s1_r5_hook: hook/hi-hi-half-one_s1_r5_hook_BATTLE01.SAV (file 1 of 12), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hi-half-one_s1_r5_hook: hook/hi-hi-half-one_s1_r5_hook_BATTLE03.SAV (file 3 of 12), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hi-half-one_s2_r5_hook",
-    "FirstDifference": "hi-hi-half-one_s2_r5_hook: hook/hi-hi-half-one_s2_r5_hook_BATTLE01.SAV (file 1 of 12), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hi-half-one_s2_r5_hook: hook/hi-hi-half-one_s2_r5_hook_BATTLE03.SAV (file 3 of 12), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hi-half-one_s3_r5_hook",
-    "FirstDifference": "hi-hi-half-one_s3_r5_hook: hook/hi-hi-half-one_s3_r5_hook_BATTLE01.SAV (file 1 of 11), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hi-half-one_s3_r5_hook: hook/hi-hi-half-one_s3_r5_hook_BATTLE03.SAV (file 3 of 11), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hi-half-three_s1_r5_hook",
-    "FirstDifference": "hi-hi-half-three_s1_r5_hook: hook/hi-hi-half-three_s1_r5_hook_BATTLE01.SAV (file 1 of 8), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hi-half-three_s1_r5_hook: hook/hi-hi-half-three_s1_r5_hook_BATTLE03.SAV (file 3 of 8), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hi-half-three_s2_r5_hook",
-    "FirstDifference": "hi-hi-half-three_s2_r5_hook: hook/hi-hi-half-three_s2_r5_hook_BATTLE01.SAV (file 1 of 8), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hi-half-three_s2_r5_hook: hook/hi-hi-half-three_s2_r5_hook_BATTLE03.SAV (file 3 of 8), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hi-half-three_s3_r5_hook",
-    "FirstDifference": "hi-hi-half-three_s3_r5_hook: hook/hi-hi-half-three_s3_r5_hook_BATTLE01.SAV (file 1 of 8), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hi-half-three_s3_r5_hook: hook/hi-hi-half-three_s3_r5_hook_BATTLE03.SAV (file 3 of 8), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hi-half_s1_r5_hook",
-    "FirstDifference": "hi-hi-half_s1_r5_hook: hook/hi-hi-half_s1_r5_hook_BATTLE01.SAV (file 1 of 18), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hi-half_s1_r5_hook: hook/hi-hi-half_s1_r5_hook_BATTLE03.SAV (file 3 of 18), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hi-half_s2_r5_hook",
-    "FirstDifference": "hi-hi-half_s2_r5_hook: hook/hi-hi-half_s2_r5_hook_BATTLE01.SAV (file 1 of 17), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hi-half_s2_r5_hook: hook/hi-hi-half_s2_r5_hook_BATTLE03.SAV (file 3 of 17), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hi-half_s3_r5_hook",
-    "FirstDifference": "hi-hi-half_s3_r5_hook: hook/hi-hi-half_s3_r5_hook_BATTLE01.SAV (file 1 of 13), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hi-half_s3_r5_hook: hook/hi-hi-half_s3_r5_hook_BATTLE03.SAV (file 3 of 13), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hi-one-half_s1_r5_hook",
-    "FirstDifference": "hi-hi-one-half_s1_r5_hook: hook/hi-hi-one-half_s1_r5_hook_BATTLE01.SAV (file 1 of 13), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hi-one-half_s1_r5_hook: hook/hi-hi-one-half_s1_r5_hook_BATTLE03.SAV (file 3 of 13), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hi-one-half_s2_r5_hook",
-    "FirstDifference": "hi-hi-one-half_s2_r5_hook: hook/hi-hi-one-half_s2_r5_hook_BATTLE01.SAV (file 1 of 12), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hi-one-half_s2_r5_hook: hook/hi-hi-one-half_s2_r5_hook_BATTLE03.SAV (file 3 of 12), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hi-one-half_s3_r5_hook",
-    "FirstDifference": "hi-hi-one-half_s3_r5_hook: hook/hi-hi-one-half_s3_r5_hook_BATTLE01.SAV (file 1 of 14), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hi-one-half_s3_r5_hook: hook/hi-hi-one-half_s3_r5_hook_BATTLE03.SAV (file 3 of 14), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hi-one-three_s1_r5_hook",
-    "FirstDifference": "hi-hi-one-three_s1_r5_hook: hook/hi-hi-one-three_s1_r5_hook_BATTLE01.SAV (file 1 of 10), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hi-one-three_s1_r5_hook: hook/hi-hi-one-three_s1_r5_hook_BATTLE03.SAV (file 3 of 10), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hi-one-three_s2_r5_hook",
-    "FirstDifference": "hi-hi-one-three_s2_r5_hook: hook/hi-hi-one-three_s2_r5_hook_BATTLE01.SAV (file 1 of 9), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hi-one-three_s2_r5_hook: hook/hi-hi-one-three_s2_r5_hook_BATTLE03.SAV (file 3 of 9), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hi-one-three_s3_r5_hook",
-    "FirstDifference": "hi-hi-one-three_s3_r5_hook: hook/hi-hi-one-three_s3_r5_hook_BATTLE01.SAV (file 1 of 10), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hi-one-three_s3_r5_hook: hook/hi-hi-one-three_s3_r5_hook_BATTLE03.SAV (file 3 of 10), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hi-one_s1_r5_hook",
-    "FirstDifference": "hi-hi-one_s1_r5_hook: hook/hi-hi-one_s1_r5_hook_BATTLE01.SAV (file 1 of 19), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hi-one_s1_r5_hook: hook/hi-hi-one_s1_r5_hook_BATTLE03.SAV (file 3 of 19), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hi-one_s2_r5_hook",
-    "FirstDifference": "hi-hi-one_s2_r5_hook: hook/hi-hi-one_s2_r5_hook_BATTLE01.SAV (file 1 of 18), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hi-one_s2_r5_hook: hook/hi-hi-one_s2_r5_hook_BATTLE03.SAV (file 3 of 18), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hi-one_s3_r5_hook",
-    "FirstDifference": "hi-hi-one_s3_r5_hook: hook/hi-hi-one_s3_r5_hook_BATTLE01.SAV (file 1 of 15), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hi-one_s3_r5_hook: hook/hi-hi-one_s3_r5_hook_BATTLE03.SAV (file 3 of 15), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hi-three-half_s1_r5_hook",
-    "FirstDifference": "hi-hi-three-half_s1_r5_hook: hook/hi-hi-three-half_s1_r5_hook_BATTLE01.SAV (file 1 of 9), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hi-three-half_s1_r5_hook: hook/hi-hi-three-half_s1_r5_hook_BATTLE03.SAV (file 3 of 9), slot 3, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hi-three-half_s2_r5_hook",
-    "FirstDifference": "hi-hi-three-half_s2_r5_hook: hook/hi-hi-three-half_s2_r5_hook_BATTLE01.SAV (file 1 of 9), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hi-three-half_s2_r5_hook: hook/hi-hi-three-half_s2_r5_hook_BATTLE03.SAV (file 3 of 9), slot 3, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hi-three-half_s3_r5_hook",
-    "FirstDifference": "hi-hi-three-half_s3_r5_hook: hook/hi-hi-three-half_s3_r5_hook_BATTLE01.SAV (file 1 of 9), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hi-three-half_s3_r5_hook: hook/hi-hi-three-half_s3_r5_hook_BATTLE03.SAV (file 3 of 9), slot 3, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hi-three-one_s1_r5_hook",
-    "FirstDifference": "hi-hi-three-one_s1_r5_hook: hook/hi-hi-three-one_s1_r5_hook_BATTLE01.SAV (file 1 of 11), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hi-three-one_s1_r5_hook: hook/hi-hi-three-one_s1_r5_hook_BATTLE03.SAV (file 3 of 11), slot 3, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hi-three-one_s2_r5_hook",
-    "FirstDifference": "hi-hi-three-one_s2_r5_hook: hook/hi-hi-three-one_s2_r5_hook_BATTLE01.SAV (file 1 of 11), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hi-three-one_s2_r5_hook: hook/hi-hi-three-one_s2_r5_hook_BATTLE03.SAV (file 3 of 11), slot 3, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hi-three-one_s3_r5_hook",
-    "FirstDifference": "hi-hi-three-one_s3_r5_hook: hook/hi-hi-three-one_s3_r5_hook_BATTLE01.SAV (file 1 of 11), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hi-three-one_s3_r5_hook: hook/hi-hi-three-one_s3_r5_hook_BATTLE03.SAV (file 3 of 11), slot 3, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hi-three_s1_r5_hook",
-    "FirstDifference": "hi-hi-three_s1_r5_hook: hook/hi-hi-three_s1_r5_hook_BATTLE01.SAV (file 1 of 34), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hi-three_s1_r5_hook: hook/hi-hi-three_s1_r5_hook_BATTLE03.SAV (file 3 of 34), slot 3, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hi-three_s2_r5_hook",
-    "FirstDifference": "hi-hi-three_s2_r5_hook: hook/hi-hi-three_s2_r5_hook_BATTLE01.SAV (file 1 of 28), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hi-three_s2_r5_hook: hook/hi-hi-three_s2_r5_hook_BATTLE03.SAV (file 3 of 28), slot 3, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-hi-three_s3_r5_hook",
-    "FirstDifference": "hi-hi-three_s3_r5_hook: hook/hi-hi-three_s3_r5_hook_BATTLE01.SAV (file 1 of 30), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hi-three_s3_r5_hook: hook/hi-hi-three_s3_r5_hook_BATTLE03.SAV (file 3 of 30), slot 3, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-lc-half_s1_r5_hook",
-    "FirstDifference": "hi-lc-half_s1_r5_hook: hook/hi-lc-half_s1_r5_hook_BATTLE01.SAV (file 1 of 15), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-lc-half_s1_r5_hook: hook/hi-lc-half_s1_r5_hook_BATTLE03.SAV (file 3 of 15), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-lc-half_s2_r5_hook",
-    "FirstDifference": "hi-lc-half_s2_r5_hook: hook/hi-lc-half_s2_r5_hook_BATTLE01.SAV (file 1 of 15), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-lc-half_s2_r5_hook: hook/hi-lc-half_s2_r5_hook_BATTLE03.SAV (file 3 of 15), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-lc-half_s3_r5_hook",
-    "FirstDifference": "hi-lc-half_s3_r5_hook: hook/hi-lc-half_s3_r5_hook_BATTLE01.SAV (file 1 of 15), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-lc-half_s3_r5_hook: hook/hi-lc-half_s3_r5_hook_BATTLE03.SAV (file 3 of 15), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-lc-one_s1_r5_hook",
-    "FirstDifference": "hi-lc-one_s1_r5_hook: hook/hi-lc-one_s1_r5_hook_BATTLE01.SAV (file 1 of 16), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-lc-one_s1_r5_hook: hook/hi-lc-one_s1_r5_hook_BATTLE03.SAV (file 3 of 16), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-lc-one_s2_r5_hook",
-    "FirstDifference": "hi-lc-one_s2_r5_hook: hook/hi-lc-one_s2_r5_hook_BATTLE01.SAV (file 1 of 16), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-lc-one_s2_r5_hook: hook/hi-lc-one_s2_r5_hook_BATTLE03.SAV (file 3 of 16), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-lc-one_s3_r5_hook",
-    "FirstDifference": "hi-lc-one_s3_r5_hook: hook/hi-lc-one_s3_r5_hook_BATTLE01.SAV (file 1 of 16), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-lc-one_s3_r5_hook: hook/hi-lc-one_s3_r5_hook_BATTLE03.SAV (file 3 of 16), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-lc-three_s1_r5_hook",
-    "FirstDifference": "hi-lc-three_s1_r5_hook: hook/hi-lc-three_s1_r5_hook_BATTLE01.SAV (file 1 of 19), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-lc-three_s1_r5_hook: hook/hi-lc-three_s1_r5_hook_BATTLE03.SAV (file 3 of 19), slot 3, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-lc-three_s2_r5_hook",
-    "FirstDifference": "hi-lc-three_s2_r5_hook: hook/hi-lc-three_s2_r5_hook_BATTLE01.SAV (file 1 of 23), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-lc-three_s2_r5_hook: hook/hi-lc-three_s2_r5_hook_BATTLE03.SAV (file 3 of 23), slot 3, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-lc-three_s3_r5_hook",
-    "FirstDifference": "hi-lc-three_s3_r5_hook: hook/hi-lc-three_s3_r5_hook_BATTLE01.SAV (file 1 of 21), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-lc-three_s3_r5_hook: hook/hi-lc-three_s3_r5_hook_BATTLE03.SAV (file 3 of 21), slot 3, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-li-half-one_s1_r5_hook",
-    "FirstDifference": "hi-li-half-one_s1_r5_hook: hook/hi-li-half-one_s1_r5_hook_BATTLE01.SAV (file 1 of 13), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-li-half-one_s1_r5_hook: hook/hi-li-half-one_s1_r5_hook_BATTLE03.SAV (file 3 of 13), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-li-half-one_s2_r5_hook",
-    "FirstDifference": "hi-li-half-one_s2_r5_hook: hook/hi-li-half-one_s2_r5_hook_BATTLE01.SAV (file 1 of 13), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-li-half-one_s2_r5_hook: hook/hi-li-half-one_s2_r5_hook_BATTLE03.SAV (file 3 of 13), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-li-half-one_s3_r5_hook",
-    "FirstDifference": "hi-li-half-one_s3_r5_hook: hook/hi-li-half-one_s3_r5_hook_BATTLE01.SAV (file 1 of 12), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-li-half-one_s3_r5_hook: hook/hi-li-half-one_s3_r5_hook_BATTLE03.SAV (file 3 of 12), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-li-half-three_s1_r5_hook",
-    "FirstDifference": "hi-li-half-three_s1_r5_hook: hook/hi-li-half-three_s1_r5_hook_BATTLE01.SAV (file 1 of 10), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-li-half-three_s1_r5_hook: hook/hi-li-half-three_s1_r5_hook_BATTLE03.SAV (file 3 of 10), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-li-half-three_s2_r5_hook",
-    "FirstDifference": "hi-li-half-three_s2_r5_hook: hook/hi-li-half-three_s2_r5_hook_BATTLE01.SAV (file 1 of 10), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-li-half-three_s2_r5_hook: hook/hi-li-half-three_s2_r5_hook_BATTLE03.SAV (file 3 of 10), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-li-half-three_s3_r5_hook",
-    "FirstDifference": "hi-li-half-three_s3_r5_hook: hook/hi-li-half-three_s3_r5_hook_BATTLE01.SAV (file 1 of 9), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-li-half-three_s3_r5_hook: hook/hi-li-half-three_s3_r5_hook_BATTLE03.SAV (file 3 of 9), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-li-half_s1_r5_hook",
-    "FirstDifference": "hi-li-half_s1_r5_hook: hook/hi-li-half_s1_r5_hook_BATTLE01.SAV (file 1 of 11), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-li-half_s1_r5_hook: hook/hi-li-half_s1_r5_hook_BATTLE03.SAV (file 3 of 11), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-li-half_s2_r5_hook",
-    "FirstDifference": "hi-li-half_s2_r5_hook: hook/hi-li-half_s2_r5_hook_BATTLE01.SAV (file 1 of 10), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-li-half_s2_r5_hook: hook/hi-li-half_s2_r5_hook_BATTLE03.SAV (file 3 of 10), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-li-half_s3_r5_hook",
-    "FirstDifference": "hi-li-half_s3_r5_hook: hook/hi-li-half_s3_r5_hook_BATTLE01.SAV (file 1 of 11), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-li-half_s3_r5_hook: hook/hi-li-half_s3_r5_hook_BATTLE03.SAV (file 3 of 11), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-li-one-half_s1_r5_hook",
-    "FirstDifference": "hi-li-one-half_s1_r5_hook: hook/hi-li-one-half_s1_r5_hook_BATTLE01.SAV (file 1 of 11), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-li-one-half_s1_r5_hook: hook/hi-li-one-half_s1_r5_hook_BATTLE03.SAV (file 3 of 11), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-li-one-half_s2_r5_hook",
-    "FirstDifference": "hi-li-one-half_s2_r5_hook: hook/hi-li-one-half_s2_r5_hook_BATTLE01.SAV (file 1 of 10), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-li-one-half_s2_r5_hook: hook/hi-li-one-half_s2_r5_hook_BATTLE03.SAV (file 3 of 10), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-li-one-half_s3_r5_hook",
-    "FirstDifference": "hi-li-one-half_s3_r5_hook: hook/hi-li-one-half_s3_r5_hook_BATTLE01.SAV (file 1 of 10), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-li-one-half_s3_r5_hook: hook/hi-li-one-half_s3_r5_hook_BATTLE03.SAV (file 3 of 10), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-li-one-three_s1_r5_hook",
-    "FirstDifference": "hi-li-one-three_s1_r5_hook: hook/hi-li-one-three_s1_r5_hook_BATTLE01.SAV (file 1 of 21), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-li-one-three_s1_r5_hook: hook/hi-li-one-three_s1_r5_hook_BATTLE03.SAV (file 3 of 21), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-li-one-three_s2_r5_hook",
-    "FirstDifference": "hi-li-one-three_s2_r5_hook: hook/hi-li-one-three_s2_r5_hook_BATTLE01.SAV (file 1 of 21), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-li-one-three_s2_r5_hook: hook/hi-li-one-three_s2_r5_hook_BATTLE03.SAV (file 3 of 21), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-li-one-three_s3_r5_hook",
-    "FirstDifference": "hi-li-one-three_s3_r5_hook: hook/hi-li-one-three_s3_r5_hook_BATTLE01.SAV (file 1 of 21), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-li-one-three_s3_r5_hook: hook/hi-li-one-three_s3_r5_hook_BATTLE03.SAV (file 3 of 21), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-li-one_s1_r5_hook",
-    "FirstDifference": "hi-li-one_s1_r5_hook: hook/hi-li-one_s1_r5_hook_BATTLE01.SAV (file 1 of 13), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-li-one_s1_r5_hook: hook/hi-li-one_s1_r5_hook_BATTLE03.SAV (file 3 of 13), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-li-one_s2_r5_hook",
-    "FirstDifference": "hi-li-one_s2_r5_hook: hook/hi-li-one_s2_r5_hook_BATTLE01.SAV (file 1 of 12), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-li-one_s2_r5_hook: hook/hi-li-one_s2_r5_hook_BATTLE03.SAV (file 3 of 12), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-li-one_s3_r5_hook",
-    "FirstDifference": "hi-li-one_s3_r5_hook: hook/hi-li-one_s3_r5_hook_BATTLE01.SAV (file 1 of 12), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-li-one_s3_r5_hook: hook/hi-li-one_s3_r5_hook_BATTLE03.SAV (file 3 of 12), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-li-three-half_s1_r5_hook",
-    "FirstDifference": "hi-li-three-half_s1_r5_hook: hook/hi-li-three-half_s1_r5_hook_BATTLE01.SAV (file 1 of 8), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-li-three-half_s1_r5_hook: hook/hi-li-three-half_s1_r5_hook_BATTLE03.SAV (file 3 of 8), slot 3, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-li-three-half_s2_r5_hook",
-    "FirstDifference": "hi-li-three-half_s2_r5_hook: hook/hi-li-three-half_s2_r5_hook_BATTLE01.SAV (file 1 of 8), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-li-three-half_s2_r5_hook: hook/hi-li-three-half_s2_r5_hook_BATTLE03.SAV (file 3 of 8), slot 3, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-li-three-half_s3_r5_hook",
-    "FirstDifference": "hi-li-three-half_s3_r5_hook: hook/hi-li-three-half_s3_r5_hook_BATTLE01.SAV (file 1 of 9), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-li-three-half_s3_r5_hook: hook/hi-li-three-half_s3_r5_hook_BATTLE03.SAV (file 3 of 9), slot 3, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-li-three-one_s1_r5_hook",
-    "FirstDifference": "hi-li-three-one_s1_r5_hook: hook/hi-li-three-one_s1_r5_hook_BATTLE01.SAV (file 1 of 9), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-li-three-one_s1_r5_hook: hook/hi-li-three-one_s1_r5_hook_BATTLE03.SAV (file 3 of 9), slot 3, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-li-three-one_s2_r5_hook",
-    "FirstDifference": "hi-li-three-one_s2_r5_hook: hook/hi-li-three-one_s2_r5_hook_BATTLE01.SAV (file 1 of 9), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-li-three-one_s2_r5_hook: hook/hi-li-three-one_s2_r5_hook_BATTLE03.SAV (file 3 of 9), slot 3, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-li-three-one_s3_r5_hook",
-    "FirstDifference": "hi-li-three-one_s3_r5_hook: hook/hi-li-three-one_s3_r5_hook_BATTLE01.SAV (file 1 of 9), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-li-three-one_s3_r5_hook: hook/hi-li-three-one_s3_r5_hook_BATTLE03.SAV (file 3 of 9), slot 3, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-li-three_s1_r5_hook",
-    "FirstDifference": "hi-li-three_s1_r5_hook: hook/hi-li-three_s1_r5_hook_BATTLE01.SAV (file 1 of 15), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-li-three_s1_r5_hook: hook/hi-li-three_s1_r5_hook_BATTLE03.SAV (file 3 of 15), slot 3, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-li-three_s2_r5_hook",
-    "FirstDifference": "hi-li-three_s2_r5_hook: hook/hi-li-three_s2_r5_hook_BATTLE01.SAV (file 1 of 13), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-li-three_s2_r5_hook: hook/hi-li-three_s2_r5_hook_BATTLE03.SAV (file 3 of 13), slot 3, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:hi-li-three_s3_r5_hook",
-    "FirstDifference": "hi-li-three_s3_r5_hook: hook/hi-li-three_s3_r5_hook_BATTLE01.SAV (file 1 of 15), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-li-three_s3_r5_hook: hook/hi-li-three_s3_r5_hook_BATTLE03.SAV (file 3 of 15), slot 3, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-ar-half-one_s1_r5_hook",
-    "FirstDifference": "lc-ar-half-one_s1_r5_hook: hook/lc-ar-half-one_s1_r5_hook_BATTLE01.SAV (file 1 of 19), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-ar-half-one_s1_r5_hook: hook/lc-ar-half-one_s1_r5_hook_BATTLE03.SAV (file 3 of 19), slot 0, x: port 5, original 9",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-ar-half-one_s2_r5_hook",
-    "FirstDifference": "lc-ar-half-one_s2_r5_hook: hook/lc-ar-half-one_s2_r5_hook_BATTLE01.SAV (file 1 of 19), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-ar-half-one_s2_r5_hook: hook/lc-ar-half-one_s2_r5_hook_BATTLE03.SAV (file 3 of 19), slot 0, y: port 8, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-ar-half-one_s3_r5_hook",
-    "FirstDifference": "lc-ar-half-one_s3_r5_hook: hook/lc-ar-half-one_s3_r5_hook_BATTLE01.SAV (file 1 of 19), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-ar-half-one_s3_r5_hook: hook/lc-ar-half-one_s3_r5_hook_BATTLE03.SAV (file 3 of 19), slot 0, x: port 6, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-ar-half-three_s1_r5_hook",
-    "FirstDifference": "lc-ar-half-three_s1_r5_hook: hook/lc-ar-half-three_s1_r5_hook_BATTLE01.SAV (file 1 of 10), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-ar-half-three_s1_r5_hook: hook/lc-ar-half-three_s1_r5_hook_BATTLE03.SAV (file 3 of 10), slot 0, x: port 8, original 10",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-ar-half-three_s2_r5_hook",
-    "FirstDifference": "lc-ar-half-three_s2_r5_hook: hook/lc-ar-half-three_s2_r5_hook_BATTLE01.SAV (file 1 of 10), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-ar-half-three_s2_r5_hook: hook/lc-ar-half-three_s2_r5_hook_BATTLE03.SAV (file 3 of 10), slot 0, x: port 6, original 4",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-ar-half-three_s3_r5_hook",
-    "FirstDifference": "lc-ar-half-three_s3_r5_hook: hook/lc-ar-half-three_s3_r5_hook_BATTLE01.SAV (file 1 of 12), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-ar-half-three_s3_r5_hook: hook/lc-ar-half-three_s3_r5_hook_BATTLE03.SAV (file 3 of 12), slot 0, x: port 7, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-ar-half_s1_r5_hook",
-    "FirstDifference": "lc-ar-half_s1_r5_hook: hook/lc-ar-half_s1_r5_hook_BATTLE01.SAV (file 1 of 11), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-ar-half_s1_r5_hook: hook/lc-ar-half_s1_r5_hook_BATTLE03.SAV (file 3 of 11), slot 0, x: port 5, original 9",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-ar-half_s2_r5_hook",
-    "FirstDifference": "lc-ar-half_s2_r5_hook: hook/lc-ar-half_s2_r5_hook_BATTLE01.SAV (file 1 of 13), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-ar-half_s2_r5_hook: hook/lc-ar-half_s2_r5_hook_BATTLE03.SAV (file 3 of 13), slot 0, y: port 8, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-ar-half_s3_r5_hook",
-    "FirstDifference": "lc-ar-half_s3_r5_hook: hook/lc-ar-half_s3_r5_hook_BATTLE01.SAV (file 1 of 11), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-ar-half_s3_r5_hook: hook/lc-ar-half_s3_r5_hook_BATTLE03.SAV (file 3 of 11), slot 0, x: port 6, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-ar-one-half_s1_r5_hook",
-    "FirstDifference": "lc-ar-one-half_s1_r5_hook: hook/lc-ar-one-half_s1_r5_hook_BATTLE01.SAV (file 1 of 11), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-ar-one-half_s1_r5_hook: hook/lc-ar-one-half_s1_r5_hook_BATTLE03.SAV (file 3 of 11), slot 0, x: port 5, original 9",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-ar-one-half_s2_r5_hook",
-    "FirstDifference": "lc-ar-one-half_s2_r5_hook: hook/lc-ar-one-half_s2_r5_hook_BATTLE01.SAV (file 1 of 11), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-ar-one-half_s2_r5_hook: hook/lc-ar-one-half_s2_r5_hook_BATTLE03.SAV (file 3 of 11), slot 0, y: port 8, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-ar-one-half_s3_r5_hook",
-    "FirstDifference": "lc-ar-one-half_s3_r5_hook: hook/lc-ar-one-half_s3_r5_hook_BATTLE01.SAV (file 1 of 11), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-ar-one-half_s3_r5_hook: hook/lc-ar-one-half_s3_r5_hook_BATTLE03.SAV (file 3 of 11), slot 0, x: port 6, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-ar-one-three_s1_r5_hook",
-    "FirstDifference": "lc-ar-one-three_s1_r5_hook: hook/lc-ar-one-three_s1_r5_hook_BATTLE01.SAV (file 1 of 14), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-ar-one-three_s1_r5_hook: hook/lc-ar-one-three_s1_r5_hook_BATTLE03.SAV (file 3 of 14), slot 0, x: port 8, original 10",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-ar-one-three_s2_r5_hook",
-    "FirstDifference": "lc-ar-one-three_s2_r5_hook: hook/lc-ar-one-three_s2_r5_hook_BATTLE01.SAV (file 1 of 12), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-ar-one-three_s2_r5_hook: hook/lc-ar-one-three_s2_r5_hook_BATTLE03.SAV (file 3 of 12), slot 0, x: port 6, original 4",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-ar-one-three_s3_r5_hook",
-    "FirstDifference": "lc-ar-one-three_s3_r5_hook: hook/lc-ar-one-three_s3_r5_hook_BATTLE01.SAV (file 1 of 16), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-ar-one-three_s3_r5_hook: hook/lc-ar-one-three_s3_r5_hook_BATTLE03.SAV (file 3 of 16), slot 0, x: port 7, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-ar-one_s1_r5_hook",
-    "FirstDifference": "lc-ar-one_s1_r5_hook: hook/lc-ar-one_s1_r5_hook_BATTLE01.SAV (file 1 of 13), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-ar-one_s1_r5_hook: hook/lc-ar-one_s1_r5_hook_BATTLE03.SAV (file 3 of 13), slot 0, x: port 5, original 9",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-ar-one_s2_r5_hook",
-    "FirstDifference": "lc-ar-one_s2_r5_hook: hook/lc-ar-one_s2_r5_hook_BATTLE01.SAV (file 1 of 17), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-ar-one_s2_r5_hook: hook/lc-ar-one_s2_r5_hook_BATTLE03.SAV (file 3 of 17), slot 0, y: port 8, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-ar-one_s3_r5_hook",
-    "FirstDifference": "lc-ar-one_s3_r5_hook: hook/lc-ar-one_s3_r5_hook_BATTLE01.SAV (file 1 of 15), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-ar-one_s3_r5_hook: hook/lc-ar-one_s3_r5_hook_BATTLE03.SAV (file 3 of 15), slot 0, x: port 6, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-ar-three-half_s1_r5_hook",
-    "FirstDifference": "lc-ar-three-half_s1_r5_hook: hook/lc-ar-three-half_s1_r5_hook_BATTLE01.SAV (file 1 of 9), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-ar-three-half_s1_r5_hook: hook/lc-ar-three-half_s1_r5_hook_BATTLE03.SAV (file 3 of 9), slot 0, x: port 7, original 10",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-ar-three-half_s2_r5_hook",
-    "FirstDifference": "lc-ar-three-half_s2_r5_hook: hook/lc-ar-three-half_s2_r5_hook_BATTLE01.SAV (file 1 of 9), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-ar-three-half_s2_r5_hook: hook/lc-ar-three-half_s2_r5_hook_BATTLE03.SAV (file 3 of 9), slot 0, y: port 8, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-ar-three-half_s3_r5_hook",
-    "FirstDifference": "lc-ar-three-half_s3_r5_hook: hook/lc-ar-three-half_s3_r5_hook_BATTLE01.SAV (file 1 of 9), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-ar-three-half_s3_r5_hook: hook/lc-ar-three-half_s3_r5_hook_BATTLE03.SAV (file 3 of 9), slot 0, x: port 7, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-ar-three-one_s1_r5_hook",
-    "FirstDifference": "lc-ar-three-one_s1_r5_hook: hook/lc-ar-three-one_s1_r5_hook_BATTLE01.SAV (file 1 of 9), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-ar-three-one_s1_r5_hook: hook/lc-ar-three-one_s1_r5_hook_BATTLE03.SAV (file 3 of 9), slot 0, x: port 7, original 10",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-ar-three-one_s2_r5_hook",
-    "FirstDifference": "lc-ar-three-one_s2_r5_hook: hook/lc-ar-three-one_s2_r5_hook_BATTLE01.SAV (file 1 of 9), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-ar-three-one_s2_r5_hook: hook/lc-ar-three-one_s2_r5_hook_BATTLE03.SAV (file 3 of 9), slot 0, y: port 8, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-ar-three-one_s3_r5_hook",
-    "FirstDifference": "lc-ar-three-one_s3_r5_hook: hook/lc-ar-three-one_s3_r5_hook_BATTLE01.SAV (file 1 of 9), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-ar-three-one_s3_r5_hook: hook/lc-ar-three-one_s3_r5_hook_BATTLE03.SAV (file 3 of 9), slot 0, x: port 7, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-ar-three_s1_r5_hook",
-    "FirstDifference": "lc-ar-three_s1_r5_hook: hook/lc-ar-three_s1_r5_hook_BATTLE01.SAV (file 1 of 11), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-ar-three_s1_r5_hook: hook/lc-ar-three_s1_r5_hook_BATTLE03.SAV (file 3 of 11), slot 0, x: port 5, original 9",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-ar-three_s2_r5_hook",
-    "FirstDifference": "lc-ar-three_s2_r5_hook: hook/lc-ar-three_s2_r5_hook_BATTLE01.SAV (file 1 of 13), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-ar-three_s2_r5_hook: hook/lc-ar-three_s2_r5_hook_BATTLE03.SAV (file 3 of 13), slot 0, x: port 4, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-ar-three_s3_r5_hook",
-    "FirstDifference": "lc-ar-three_s3_r5_hook: hook/lc-ar-three_s3_r5_hook_BATTLE01.SAV (file 1 of 13), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-ar-three_s3_r5_hook: hook/lc-ar-three_s3_r5_hook_BATTLE03.SAV (file 3 of 13), slot 0, x: port 6, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-hc-half_s1_r5_hook",
-    "FirstDifference": "lc-hc-half_s1_r5_hook: hook/lc-hc-half_s1_r5_hook_BATTLE01.SAV (file 1 of 14), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-hc-half_s1_r5_hook: hook/lc-hc-half_s1_r5_hook_BATTLE03.SAV (file 3 of 14), slot 0, x: port 7, original 10",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-hc-half_s2_r5_hook",
-    "FirstDifference": "lc-hc-half_s2_r5_hook: hook/lc-hc-half_s2_r5_hook_BATTLE01.SAV (file 1 of 13), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-hc-half_s2_r5_hook: hook/lc-hc-half_s2_r5_hook_BATTLE03.SAV (file 3 of 13), slot 0, x: port 5, original 9",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-hc-half_s3_r5_hook",
-    "FirstDifference": "lc-hc-half_s3_r5_hook: hook/lc-hc-half_s3_r5_hook_BATTLE01.SAV (file 1 of 14), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-hc-half_s3_r5_hook: hook/lc-hc-half_s3_r5_hook_BATTLE03.SAV (file 3 of 14), slot 0, y: port 8, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-hc-one_s1_r5_hook",
-    "FirstDifference": "lc-hc-one_s1_r5_hook: hook/lc-hc-one_s1_r5_hook_BATTLE01.SAV (file 1 of 15), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-hc-one_s1_r5_hook: hook/lc-hc-one_s1_r5_hook_BATTLE03.SAV (file 3 of 15), slot 0, x: port 7, original 10",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-hc-one_s2_r5_hook",
-    "FirstDifference": "lc-hc-one_s2_r5_hook: hook/lc-hc-one_s2_r5_hook_BATTLE01.SAV (file 1 of 14), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-hc-one_s2_r5_hook: hook/lc-hc-one_s2_r5_hook_BATTLE03.SAV (file 3 of 14), slot 0, x: port 5, original 9",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-hc-one_s3_r5_hook",
-    "FirstDifference": "lc-hc-one_s3_r5_hook: hook/lc-hc-one_s3_r5_hook_BATTLE01.SAV (file 1 of 16), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-hc-one_s3_r5_hook: hook/lc-hc-one_s3_r5_hook_BATTLE03.SAV (file 3 of 16), slot 0, y: port 8, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-hc-three_s1_r5_hook",
-    "FirstDifference": "lc-hc-three_s1_r5_hook: hook/lc-hc-three_s1_r5_hook_BATTLE01.SAV (file 1 of 23), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-hc-three_s1_r5_hook: hook/lc-hc-three_s1_r5_hook_BATTLE03.SAV (file 3 of 23), slot 0, x: port 4, original 9",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-hc-three_s2_r5_hook",
-    "FirstDifference": "lc-hc-three_s2_r5_hook: hook/lc-hc-three_s2_r5_hook_BATTLE01.SAV (file 1 of 17), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-hc-three_s2_r5_hook: hook/lc-hc-three_s2_r5_hook_BATTLE03.SAV (file 3 of 17), slot 0, x: port 2, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-hc-three_s3_r5_hook",
-    "FirstDifference": "lc-hc-three_s3_r5_hook: hook/lc-hc-three_s3_r5_hook_BATTLE01.SAV (file 1 of 17), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-hc-three_s3_r5_hook: hook/lc-hc-three_s3_r5_hook_BATTLE03.SAV (file 3 of 17), slot 0, y: port 8, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-hi-half_s1_r5_hook",
-    "FirstDifference": "lc-hi-half_s1_r5_hook: hook/lc-hi-half_s1_r5_hook_BATTLE01.SAV (file 1 of 13), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-hi-half_s1_r5_hook: hook/lc-hi-half_s1_r5_hook_BATTLE03.SAV (file 3 of 13), slot 0, x: port 5, original 9",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-hi-half_s2_r5_hook",
-    "FirstDifference": "lc-hi-half_s2_r5_hook: hook/lc-hi-half_s2_r5_hook_BATTLE01.SAV (file 1 of 13), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-hi-half_s2_r5_hook: hook/lc-hi-half_s2_r5_hook_BATTLE03.SAV (file 3 of 13), slot 0, y: port 8, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-hi-half_s3_r5_hook",
-    "FirstDifference": "lc-hi-half_s3_r5_hook: hook/lc-hi-half_s3_r5_hook_BATTLE01.SAV (file 1 of 15), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-hi-half_s3_r5_hook: hook/lc-hi-half_s3_r5_hook_BATTLE03.SAV (file 3 of 15), slot 0, x: port 6, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-hi-one_s1_r5_hook",
-    "FirstDifference": "lc-hi-one_s1_r5_hook: hook/lc-hi-one_s1_r5_hook_BATTLE01.SAV (file 1 of 15), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-hi-one_s1_r5_hook: hook/lc-hi-one_s1_r5_hook_BATTLE03.SAV (file 3 of 15), slot 0, x: port 5, original 9",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-hi-one_s2_r5_hook",
-    "FirstDifference": "lc-hi-one_s2_r5_hook: hook/lc-hi-one_s2_r5_hook_BATTLE01.SAV (file 1 of 14), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-hi-one_s2_r5_hook: hook/lc-hi-one_s2_r5_hook_BATTLE03.SAV (file 3 of 14), slot 0, y: port 8, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-hi-one_s3_r5_hook",
-    "FirstDifference": "lc-hi-one_s3_r5_hook: hook/lc-hi-one_s3_r5_hook_BATTLE01.SAV (file 1 of 16), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-hi-one_s3_r5_hook: hook/lc-hi-one_s3_r5_hook_BATTLE03.SAV (file 3 of 16), slot 0, x: port 6, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-hi-three_s1_r5_hook",
-    "FirstDifference": "lc-hi-three_s1_r5_hook: hook/lc-hi-three_s1_r5_hook_BATTLE01.SAV (file 1 of 24), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-hi-three_s1_r5_hook: hook/lc-hi-three_s1_r5_hook_BATTLE03.SAV (file 3 of 24), slot 0, x: port 5, original 9",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-hi-three_s2_r5_hook",
-    "FirstDifference": "lc-hi-three_s2_r5_hook: hook/lc-hi-three_s2_r5_hook_BATTLE01.SAV (file 1 of 22), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-hi-three_s2_r5_hook: hook/lc-hi-three_s2_r5_hook_BATTLE03.SAV (file 3 of 22), slot 0, x: port 4, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-hi-three_s3_r5_hook",
-    "FirstDifference": "lc-hi-three_s3_r5_hook: hook/lc-hi-three_s3_r5_hook_BATTLE01.SAV (file 1 of 22), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-hi-three_s3_r5_hook: hook/lc-hi-three_s3_r5_hook_BATTLE03.SAV (file 3 of 22), slot 0, x: port 6, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-lc-half_s1_r5_hook",
-    "FirstDifference": "lc-lc-half_s1_r5_hook: hook/lc-lc-half_s1_r5_hook_BATTLE01.SAV (file 1 of 13), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-lc-half_s1_r5_hook: hook/lc-lc-half_s1_r5_hook_BATTLE03.SAV (file 3 of 13), slot 0, y: port 8, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-lc-half_s2_r5_hook",
-    "FirstDifference": "lc-lc-half_s2_r5_hook: hook/lc-lc-half_s2_r5_hook_BATTLE01.SAV (file 1 of 17), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-lc-half_s2_r5_hook: hook/lc-lc-half_s2_r5_hook_BATTLE03.SAV (file 3 of 17), slot 0, x: port 4, original 9",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-lc-half_s3_r5_hook",
-    "FirstDifference": "lc-lc-half_s3_r5_hook: hook/lc-lc-half_s3_r5_hook_BATTLE01.SAV (file 1 of 13), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-lc-half_s3_r5_hook: hook/lc-lc-half_s3_r5_hook_BATTLE03.SAV (file 3 of 13), slot 0, x: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-lc-one_s1_r5_hook",
-    "FirstDifference": "lc-lc-one_s1_r5_hook: hook/lc-lc-one_s1_r5_hook_BATTLE01.SAV (file 1 of 15), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-lc-one_s1_r5_hook: hook/lc-lc-one_s1_r5_hook_BATTLE03.SAV (file 3 of 15), slot 0, y: port 8, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-lc-one_s2_r5_hook",
-    "FirstDifference": "lc-lc-one_s2_r5_hook: hook/lc-lc-one_s2_r5_hook_BATTLE01.SAV (file 1 of 18), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-lc-one_s2_r5_hook: hook/lc-lc-one_s2_r5_hook_BATTLE03.SAV (file 3 of 18), slot 0, x: port 4, original 9",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-lc-one_s3_r5_hook",
-    "FirstDifference": "lc-lc-one_s3_r5_hook: hook/lc-lc-one_s3_r5_hook_BATTLE01.SAV (file 1 of 15), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-lc-one_s3_r5_hook: hook/lc-lc-one_s3_r5_hook_BATTLE03.SAV (file 3 of 15), slot 0, x: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-lc-three_s1_r5_hook",
-    "FirstDifference": "lc-lc-three_s1_r5_hook: hook/lc-lc-three_s1_r5_hook_BATTLE01.SAV (file 1 of 21), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-lc-three_s1_r5_hook: hook/lc-lc-three_s1_r5_hook_BATTLE03.SAV (file 3 of 21), slot 0, y: port 8, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-lc-three_s2_r5_hook",
-    "FirstDifference": "lc-lc-three_s2_r5_hook: hook/lc-lc-three_s2_r5_hook_BATTLE01.SAV (file 1 of 26), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-lc-three_s2_r5_hook: hook/lc-lc-three_s2_r5_hook_BATTLE03.SAV (file 3 of 26), slot 0, x: port 7, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-lc-three_s3_r5_hook",
-    "FirstDifference": "lc-lc-three_s3_r5_hook: hook/lc-lc-three_s3_r5_hook_BATTLE01.SAV (file 1 of 20), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-lc-three_s3_r5_hook: hook/lc-lc-three_s3_r5_hook_BATTLE03.SAV (file 3 of 20), slot 0, x: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-li-half_s1_r5_hook",
-    "FirstDifference": "lc-li-half_s1_r5_hook: hook/lc-li-half_s1_r5_hook_BATTLE01.SAV (file 1 of 17), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-li-half_s1_r5_hook: hook/lc-li-half_s1_r5_hook_BATTLE03.SAV (file 3 of 17), slot 0, x: port 4, original 9",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-li-half_s2_r5_hook",
-    "FirstDifference": "lc-li-half_s2_r5_hook: hook/lc-li-half_s2_r5_hook_BATTLE01.SAV (file 1 of 14), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-li-half_s2_r5_hook: hook/lc-li-half_s2_r5_hook_BATTLE03.SAV (file 3 of 14), slot 0, x: port 7, original 10",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-li-half_s3_r5_hook",
-    "FirstDifference": "lc-li-half_s3_r5_hook: hook/lc-li-half_s3_r5_hook_BATTLE01.SAV (file 1 of 17), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-li-half_s3_r5_hook: hook/lc-li-half_s3_r5_hook_BATTLE03.SAV (file 3 of 17), slot 0, x: port 7, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-li-one_s1_r5_hook",
-    "FirstDifference": "lc-li-one_s1_r5_hook: hook/lc-li-one_s1_r5_hook_BATTLE01.SAV (file 1 of 18), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-li-one_s1_r5_hook: hook/lc-li-one_s1_r5_hook_BATTLE03.SAV (file 3 of 18), slot 0, x: port 4, original 9",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-li-one_s2_r5_hook",
-    "FirstDifference": "lc-li-one_s2_r5_hook: hook/lc-li-one_s2_r5_hook_BATTLE01.SAV (file 1 of 15), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-li-one_s2_r5_hook: hook/lc-li-one_s2_r5_hook_BATTLE03.SAV (file 3 of 15), slot 0, x: port 7, original 10",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-li-one_s3_r5_hook",
-    "FirstDifference": "lc-li-one_s3_r5_hook: hook/lc-li-one_s3_r5_hook_BATTLE01.SAV (file 1 of 18), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-li-one_s3_r5_hook: hook/lc-li-one_s3_r5_hook_BATTLE03.SAV (file 3 of 18), slot 0, x: port 7, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-li-three_s1_r5_hook",
-    "FirstDifference": "lc-li-three_s1_r5_hook: hook/lc-li-three_s1_r5_hook_BATTLE01.SAV (file 1 of 28), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-li-three_s1_r5_hook: hook/lc-li-three_s1_r5_hook_BATTLE03.SAV (file 3 of 28), slot 0, x: port 7, original 10",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-li-three_s2_r5_hook",
-    "FirstDifference": "lc-li-three_s2_r5_hook: hook/lc-li-three_s2_r5_hook_BATTLE01.SAV (file 1 of 19), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-li-three_s2_r5_hook: hook/lc-li-three_s2_r5_hook_BATTLE03.SAV (file 3 of 19), slot 0, x: port 7, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:lc-li-three_s3_r5_hook",
-    "FirstDifference": "lc-li-three_s3_r5_hook: hook/lc-li-three_s3_r5_hook_BATTLE01.SAV (file 1 of 18), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "lc-li-three_s3_r5_hook: hook/lc-li-three_s3_r5_hook_BATTLE03.SAV (file 3 of 18), slot 0, x: port 7, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-ar-half_s1_r5_hook",
-    "FirstDifference": "li-ar-half_s1_r5_hook: hook/li-ar-half_s1_r5_hook_BATTLE01.SAV (file 1 of 11), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-ar-half_s1_r5_hook: hook/li-ar-half_s1_r5_hook_BATTLE03.SAV (file 3 of 11), slot 0, x: port 3, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-ar-half_s2_r5_hook",
-    "FirstDifference": "li-ar-half_s2_r5_hook: hook/li-ar-half_s2_r5_hook_BATTLE01.SAV (file 1 of 13), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-ar-half_s2_r5_hook: hook/li-ar-half_s2_r5_hook_BATTLE03.SAV (file 3 of 13), slot 0, x: port 5, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-ar-half_s3_r5_hook",
-    "FirstDifference": "li-ar-half_s3_r5_hook: hook/li-ar-half_s3_r5_hook_BATTLE01.SAV (file 1 of 11), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-ar-half_s3_r5_hook: hook/li-ar-half_s3_r5_hook_BATTLE03.SAV (file 3 of 11), slot 0, y: port 6, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-ar-one_s1_r5_hook",
-    "FirstDifference": "li-ar-one_s1_r5_hook: hook/li-ar-one_s1_r5_hook_BATTLE01.SAV (file 1 of 13), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-ar-one_s1_r5_hook: hook/li-ar-one_s1_r5_hook_BATTLE03.SAV (file 3 of 13), slot 0, x: port 3, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-ar-one_s2_r5_hook",
-    "FirstDifference": "li-ar-one_s2_r5_hook: hook/li-ar-one_s2_r5_hook_BATTLE01.SAV (file 1 of 13), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-ar-one_s2_r5_hook: hook/li-ar-one_s2_r5_hook_BATTLE03.SAV (file 3 of 13), slot 0, x: port 5, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-ar-one_s3_r5_hook",
-    "FirstDifference": "li-ar-one_s3_r5_hook: hook/li-ar-one_s3_r5_hook_BATTLE01.SAV (file 1 of 13), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-ar-one_s3_r5_hook: hook/li-ar-one_s3_r5_hook_BATTLE03.SAV (file 3 of 13), slot 0, y: port 6, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-ar-three_s1_r5_hook",
-    "FirstDifference": "li-ar-three_s1_r5_hook: hook/li-ar-three_s1_r5_hook_BATTLE01.SAV (file 1 of 13), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-ar-three_s1_r5_hook: hook/li-ar-three_s1_r5_hook_BATTLE03.SAV (file 3 of 13), slot 0, x: port 3, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-ar-three_s2_r5_hook",
-    "FirstDifference": "li-ar-three_s2_r5_hook: hook/li-ar-three_s2_r5_hook_BATTLE01.SAV (file 1 of 13), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-ar-three_s2_r5_hook: hook/li-ar-three_s2_r5_hook_BATTLE03.SAV (file 3 of 13), slot 0, x: port 6, original 7",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-ar-three_s3_r5_hook",
-    "FirstDifference": "li-ar-three_s3_r5_hook: hook/li-ar-three_s3_r5_hook_BATTLE01.SAV (file 1 of 13), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-ar-three_s3_r5_hook: hook/li-ar-three_s3_r5_hook_BATTLE03.SAV (file 3 of 13), slot 0, x: port 6, original 4",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hc-half_s1_r5_hook",
-    "FirstDifference": "li-hc-half_s1_r5_hook: hook/li-hc-half_s1_r5_hook_BATTLE01.SAV (file 1 of 21), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hc-half_s1_r5_hook: hook/li-hc-half_s1_r5_hook_BATTLE03.SAV (file 3 of 21), slot 0, x: port 4, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hc-half_s2_r5_hook",
-    "FirstDifference": "li-hc-half_s2_r5_hook: hook/li-hc-half_s2_r5_hook_BATTLE01.SAV (file 1 of 17), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hc-half_s2_r5_hook: hook/li-hc-half_s2_r5_hook_BATTLE03.SAV (file 3 of 17), slot 0, x: port 3, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hc-half_s3_r5_hook",
-    "FirstDifference": "li-hc-half_s3_r5_hook: hook/li-hc-half_s3_r5_hook_BATTLE01.SAV (file 1 of 24), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hc-half_s3_r5_hook: hook/li-hc-half_s3_r5_hook_BATTLE03.SAV (file 3 of 24), slot 0, x: port 4, original 6",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hc-one_s1_r5_hook",
-    "FirstDifference": "li-hc-one_s1_r5_hook: hook/li-hc-one_s1_r5_hook_BATTLE01.SAV (file 1 of 21), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hc-one_s1_r5_hook: hook/li-hc-one_s1_r5_hook_BATTLE03.SAV (file 3 of 21), slot 0, x: port 4, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hc-one_s2_r5_hook",
-    "FirstDifference": "li-hc-one_s2_r5_hook: hook/li-hc-one_s2_r5_hook_BATTLE01.SAV (file 1 of 20), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hc-one_s2_r5_hook: hook/li-hc-one_s2_r5_hook_BATTLE03.SAV (file 3 of 20), slot 0, x: port 3, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hc-one_s3_r5_hook",
-    "FirstDifference": "li-hc-one_s3_r5_hook: hook/li-hc-one_s3_r5_hook_BATTLE01.SAV (file 1 of 26), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hc-one_s3_r5_hook: hook/li-hc-one_s3_r5_hook_BATTLE03.SAV (file 3 of 26), slot 0, x: port 4, original 6",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hc-three_s1_r5_hook",
-    "FirstDifference": "li-hc-three_s1_r5_hook: hook/li-hc-three_s1_r5_hook_BATTLE01.SAV (file 1 of 22), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hc-three_s1_r5_hook: hook/li-hc-three_s1_r5_hook_BATTLE03.SAV (file 3 of 22), slot 0, y: port 6, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hc-three_s2_r5_hook",
-    "FirstDifference": "li-hc-three_s2_r5_hook: hook/li-hc-three_s2_r5_hook_BATTLE01.SAV (file 1 of 23), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hc-three_s2_r5_hook: hook/li-hc-three_s2_r5_hook_BATTLE03.SAV (file 3 of 23), slot 0, x: port 4, original 6",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hc-three_s3_r5_hook",
-    "FirstDifference": "li-hc-three_s3_r5_hook: hook/li-hc-three_s3_r5_hook_BATTLE01.SAV (file 1 of 23), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hc-three_s3_r5_hook: hook/li-hc-three_s3_r5_hook_BATTLE03.SAV (file 3 of 23), slot 0, x: port 2, original 4",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hi-half-one_s1_r5_hook",
-    "FirstDifference": "li-hi-half-one_s1_r5_hook: hook/li-hi-half-one_s1_r5_hook_BATTLE01.SAV (file 1 of 11), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hi-half-one_s1_r5_hook: hook/li-hi-half-one_s1_r5_hook_BATTLE03.SAV (file 3 of 11), slot 0, x: port 3, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hi-half-one_s2_r5_hook",
-    "FirstDifference": "li-hi-half-one_s2_r5_hook: hook/li-hi-half-one_s2_r5_hook_BATTLE01.SAV (file 1 of 12), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hi-half-one_s2_r5_hook: hook/li-hi-half-one_s2_r5_hook_BATTLE03.SAV (file 3 of 12), slot 0, x: port 5, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hi-half-one_s3_r5_hook",
-    "FirstDifference": "li-hi-half-one_s3_r5_hook: hook/li-hi-half-one_s3_r5_hook_BATTLE01.SAV (file 1 of 11), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hi-half-one_s3_r5_hook: hook/li-hi-half-one_s3_r5_hook_BATTLE03.SAV (file 3 of 11), slot 0, y: port 6, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hi-half-three_s1_r5_hook",
-    "FirstDifference": "li-hi-half-three_s1_r5_hook: hook/li-hi-half-three_s1_r5_hook_BATTLE01.SAV (file 1 of 10), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hi-half-three_s1_r5_hook: hook/li-hi-half-three_s1_r5_hook_BATTLE03.SAV (file 3 of 10), slot 0, x: port 5, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hi-half-three_s2_r5_hook",
-    "FirstDifference": "li-hi-half-three_s2_r5_hook: hook/li-hi-half-three_s2_r5_hook_BATTLE01.SAV (file 1 of 9), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hi-half-three_s2_r5_hook: hook/li-hi-half-three_s2_r5_hook_BATTLE03.SAV (file 3 of 9), slot 0, x: port 8, original 9",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hi-half-three_s3_r5_hook",
-    "FirstDifference": "li-hi-half-three_s3_r5_hook: hook/li-hi-half-three_s3_r5_hook_BATTLE01.SAV (file 1 of 10), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hi-half-three_s3_r5_hook: hook/li-hi-half-three_s3_r5_hook_BATTLE03.SAV (file 3 of 10), slot 0, x: port 8, original 5",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hi-half_s1_r5_hook",
-    "FirstDifference": "li-hi-half_s1_r5_hook: hook/li-hi-half_s1_r5_hook_BATTLE01.SAV (file 1 of 12), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hi-half_s1_r5_hook: hook/li-hi-half_s1_r5_hook_BATTLE03.SAV (file 3 of 12), slot 0, x: port 3, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hi-half_s2_r5_hook",
-    "FirstDifference": "li-hi-half_s2_r5_hook: hook/li-hi-half_s2_r5_hook_BATTLE01.SAV (file 1 of 12), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hi-half_s2_r5_hook: hook/li-hi-half_s2_r5_hook_BATTLE03.SAV (file 3 of 12), slot 0, x: port 5, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hi-half_s3_r5_hook",
-    "FirstDifference": "li-hi-half_s3_r5_hook: hook/li-hi-half_s3_r5_hook_BATTLE01.SAV (file 1 of 12), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hi-half_s3_r5_hook: hook/li-hi-half_s3_r5_hook_BATTLE03.SAV (file 3 of 12), slot 0, y: port 6, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hi-one-half_s1_r5_hook",
-    "FirstDifference": "li-hi-one-half_s1_r5_hook: hook/li-hi-one-half_s1_r5_hook_BATTLE01.SAV (file 1 of 14), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hi-one-half_s1_r5_hook: hook/li-hi-one-half_s1_r5_hook_BATTLE03.SAV (file 3 of 14), slot 0, x: port 3, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hi-one-half_s2_r5_hook",
-    "FirstDifference": "li-hi-one-half_s2_r5_hook: hook/li-hi-one-half_s2_r5_hook_BATTLE01.SAV (file 1 of 14), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hi-one-half_s2_r5_hook: hook/li-hi-one-half_s2_r5_hook_BATTLE03.SAV (file 3 of 14), slot 0, x: port 5, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hi-one-half_s3_r5_hook",
-    "FirstDifference": "li-hi-one-half_s3_r5_hook: hook/li-hi-one-half_s3_r5_hook_BATTLE01.SAV (file 1 of 14), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hi-one-half_s3_r5_hook: hook/li-hi-one-half_s3_r5_hook_BATTLE03.SAV (file 3 of 14), slot 0, y: port 6, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hi-one-three_s1_r5_hook",
-    "FirstDifference": "li-hi-one-three_s1_r5_hook: hook/li-hi-one-three_s1_r5_hook_BATTLE01.SAV (file 1 of 10), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hi-one-three_s1_r5_hook: hook/li-hi-one-three_s1_r5_hook_BATTLE03.SAV (file 3 of 10), slot 0, x: port 5, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hi-one-three_s2_r5_hook",
-    "FirstDifference": "li-hi-one-three_s2_r5_hook: hook/li-hi-one-three_s2_r5_hook_BATTLE01.SAV (file 1 of 10), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hi-one-three_s2_r5_hook: hook/li-hi-one-three_s2_r5_hook_BATTLE03.SAV (file 3 of 10), slot 0, x: port 8, original 9",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hi-one-three_s3_r5_hook",
-    "FirstDifference": "li-hi-one-three_s3_r5_hook: hook/li-hi-one-three_s3_r5_hook_BATTLE01.SAV (file 1 of 10), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hi-one-three_s3_r5_hook: hook/li-hi-one-three_s3_r5_hook_BATTLE03.SAV (file 3 of 10), slot 0, x: port 8, original 5",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hi-one_s1_r5_hook",
-    "FirstDifference": "li-hi-one_s1_r5_hook: hook/li-hi-one_s1_r5_hook_BATTLE01.SAV (file 1 of 13), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hi-one_s1_r5_hook: hook/li-hi-one_s1_r5_hook_BATTLE03.SAV (file 3 of 13), slot 0, x: port 3, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hi-one_s2_r5_hook",
-    "FirstDifference": "li-hi-one_s2_r5_hook: hook/li-hi-one_s2_r5_hook_BATTLE01.SAV (file 1 of 14), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hi-one_s2_r5_hook: hook/li-hi-one_s2_r5_hook_BATTLE03.SAV (file 3 of 14), slot 0, x: port 5, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hi-one_s3_r5_hook",
-    "FirstDifference": "li-hi-one_s3_r5_hook: hook/li-hi-one_s3_r5_hook_BATTLE01.SAV (file 1 of 13), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hi-one_s3_r5_hook: hook/li-hi-one_s3_r5_hook_BATTLE03.SAV (file 3 of 13), slot 0, y: port 6, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hi-three-half_s1_r5_hook",
-    "FirstDifference": "li-hi-three-half_s1_r5_hook: hook/li-hi-three-half_s1_r5_hook_BATTLE01.SAV (file 1 of 10), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hi-three-half_s1_r5_hook: hook/li-hi-three-half_s1_r5_hook_BATTLE03.SAV (file 3 of 10), slot 0, x: port 4, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hi-three-half_s2_r5_hook",
-    "FirstDifference": "li-hi-three-half_s2_r5_hook: hook/li-hi-three-half_s2_r5_hook_BATTLE01.SAV (file 1 of 11), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hi-three-half_s2_r5_hook: hook/li-hi-three-half_s2_r5_hook_BATTLE03.SAV (file 3 of 11), slot 0, x: port 7, original 9",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hi-three-half_s3_r5_hook",
-    "FirstDifference": "li-hi-three-half_s3_r5_hook: hook/li-hi-three-half_s3_r5_hook_BATTLE01.SAV (file 1 of 11), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hi-three-half_s3_r5_hook: hook/li-hi-three-half_s3_r5_hook_BATTLE03.SAV (file 3 of 11), slot 0, x: port 7, original 5",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hi-three-one_s1_r5_hook",
-    "FirstDifference": "li-hi-three-one_s1_r5_hook: hook/li-hi-three-one_s1_r5_hook_BATTLE01.SAV (file 1 of 22), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hi-three-one_s1_r5_hook: hook/li-hi-three-one_s1_r5_hook_BATTLE03.SAV (file 3 of 22), slot 0, x: port 4, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hi-three-one_s2_r5_hook",
-    "FirstDifference": "li-hi-three-one_s2_r5_hook: hook/li-hi-three-one_s2_r5_hook_BATTLE01.SAV (file 1 of 21), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hi-three-one_s2_r5_hook: hook/li-hi-three-one_s2_r5_hook_BATTLE03.SAV (file 3 of 21), slot 0, x: port 7, original 9",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hi-three-one_s3_r5_hook",
-    "FirstDifference": "li-hi-three-one_s3_r5_hook: hook/li-hi-three-one_s3_r5_hook_BATTLE01.SAV (file 1 of 22), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hi-three-one_s3_r5_hook: hook/li-hi-three-one_s3_r5_hook_BATTLE03.SAV (file 3 of 22), slot 0, x: port 7, original 5",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hi-three_s1_r5_hook",
-    "FirstDifference": "li-hi-three_s1_r5_hook: hook/li-hi-three_s1_r5_hook_BATTLE01.SAV (file 1 of 14), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hi-three_s1_r5_hook: hook/li-hi-three_s1_r5_hook_BATTLE03.SAV (file 3 of 14), slot 0, x: port 3, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hi-three_s2_r5_hook",
-    "FirstDifference": "li-hi-three_s2_r5_hook: hook/li-hi-three_s2_r5_hook_BATTLE01.SAV (file 1 of 16), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hi-three_s2_r5_hook: hook/li-hi-three_s2_r5_hook_BATTLE03.SAV (file 3 of 16), slot 0, x: port 6, original 7",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-hi-three_s3_r5_hook",
-    "FirstDifference": "li-hi-three_s3_r5_hook: hook/li-hi-three_s3_r5_hook_BATTLE01.SAV (file 1 of 14), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-hi-three_s3_r5_hook: hook/li-hi-three_s3_r5_hook_BATTLE03.SAV (file 3 of 14), slot 0, x: port 6, original 4",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-lc-half_s1_r5_hook",
-    "FirstDifference": "li-lc-half_s1_r5_hook: hook/li-lc-half_s1_r5_hook_BATTLE01.SAV (file 1 of 15), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-lc-half_s1_r5_hook: hook/li-lc-half_s1_r5_hook_BATTLE03.SAV (file 3 of 15), slot 0, x: port 5, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-lc-half_s2_r5_hook",
-    "FirstDifference": "li-lc-half_s2_r5_hook: hook/li-lc-half_s2_r5_hook_BATTLE01.SAV (file 1 of 12), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-lc-half_s2_r5_hook: hook/li-lc-half_s2_r5_hook_BATTLE03.SAV (file 3 of 12), slot 0, y: port 6, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-lc-half_s3_r5_hook",
-    "FirstDifference": "li-lc-half_s3_r5_hook: hook/li-lc-half_s3_r5_hook_BATTLE01.SAV (file 1 of 12), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-lc-half_s3_r5_hook: hook/li-lc-half_s3_r5_hook_BATTLE03.SAV (file 3 of 12), slot 0, x: port 5, original 7",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-lc-one_s1_r5_hook",
-    "FirstDifference": "li-lc-one_s1_r5_hook: hook/li-lc-one_s1_r5_hook_BATTLE01.SAV (file 1 of 17), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-lc-one_s1_r5_hook: hook/li-lc-one_s1_r5_hook_BATTLE03.SAV (file 3 of 17), slot 0, x: port 5, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-lc-one_s2_r5_hook",
-    "FirstDifference": "li-lc-one_s2_r5_hook: hook/li-lc-one_s2_r5_hook_BATTLE01.SAV (file 1 of 14), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-lc-one_s2_r5_hook: hook/li-lc-one_s2_r5_hook_BATTLE03.SAV (file 3 of 14), slot 0, y: port 6, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-lc-one_s3_r5_hook",
-    "FirstDifference": "li-lc-one_s3_r5_hook: hook/li-lc-one_s3_r5_hook_BATTLE01.SAV (file 1 of 13), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-lc-one_s3_r5_hook: hook/li-lc-one_s3_r5_hook_BATTLE03.SAV (file 3 of 13), slot 0, x: port 5, original 7",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-lc-three_s1_r5_hook",
-    "FirstDifference": "li-lc-three_s1_r5_hook: hook/li-lc-three_s1_r5_hook_BATTLE01.SAV (file 1 of 14), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-lc-three_s1_r5_hook: hook/li-lc-three_s1_r5_hook_BATTLE03.SAV (file 3 of 14), slot 0, x: port 5, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-lc-three_s2_r5_hook",
-    "FirstDifference": "li-lc-three_s2_r5_hook: hook/li-lc-three_s2_r5_hook_BATTLE01.SAV (file 1 of 18), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-lc-three_s2_r5_hook: hook/li-lc-three_s2_r5_hook_BATTLE03.SAV (file 3 of 18), slot 0, x: port 9, original 8",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-lc-three_s3_r5_hook",
-    "FirstDifference": "li-lc-three_s3_r5_hook: hook/li-lc-three_s3_r5_hook_BATTLE01.SAV (file 1 of 20), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-lc-three_s3_r5_hook: hook/li-lc-three_s3_r5_hook_BATTLE03.SAV (file 3 of 20), slot 0, y: port 6, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-li-half_s1_r5_hook",
-    "FirstDifference": "li-li-half_s1_r5_hook: hook/li-li-half_s1_r5_hook_BATTLE01.SAV (file 1 of 18), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-li-half_s1_r5_hook: hook/li-li-half_s1_r5_hook_BATTLE03.SAV (file 3 of 18), slot 0, y: port 6, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-li-half_s2_r5_hook",
-    "FirstDifference": "li-li-half_s2_r5_hook: hook/li-li-half_s2_r5_hook_BATTLE01.SAV (file 1 of 14), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-li-half_s2_r5_hook: hook/li-li-half_s2_r5_hook_BATTLE03.SAV (file 3 of 14), slot 0, x: port 4, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-li-half_s3_r5_hook",
-    "FirstDifference": "li-li-half_s3_r5_hook: hook/li-li-half_s3_r5_hook_BATTLE01.SAV (file 1 of 14), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-li-half_s3_r5_hook: hook/li-li-half_s3_r5_hook_BATTLE03.SAV (file 3 of 14), slot 0, x: port 9, original 7",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-li-one_s1_r5_hook",
-    "FirstDifference": "li-li-one_s1_r5_hook: hook/li-li-one_s1_r5_hook_BATTLE01.SAV (file 1 of 20), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-li-one_s1_r5_hook: hook/li-li-one_s1_r5_hook_BATTLE03.SAV (file 3 of 20), slot 0, y: port 6, original 3",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-li-one_s2_r5_hook",
-    "FirstDifference": "li-li-one_s2_r5_hook: hook/li-li-one_s2_r5_hook_BATTLE01.SAV (file 1 of 16), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-li-one_s2_r5_hook: hook/li-li-one_s2_r5_hook_BATTLE03.SAV (file 3 of 16), slot 0, x: port 4, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-li-one_s3_r5_hook",
-    "FirstDifference": "li-li-one_s3_r5_hook: hook/li-li-one_s3_r5_hook_BATTLE01.SAV (file 1 of 15), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-li-one_s3_r5_hook: hook/li-li-one_s3_r5_hook_BATTLE03.SAV (file 3 of 15), slot 0, x: port 9, original 7",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-li-three_s1_r5_hook",
-    "FirstDifference": "li-li-three_s1_r5_hook: hook/li-li-three_s1_r5_hook_BATTLE01.SAV (file 1 of 20), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-li-three_s1_r5_hook: hook/li-li-three_s1_r5_hook_BATTLE03.SAV (file 3 of 20), slot 0, x: port 4, original 2",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-li-three_s2_r5_hook",
-    "FirstDifference": "li-li-three_s2_r5_hook: hook/li-li-three_s2_r5_hook_BATTLE01.SAV (file 1 of 20), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-li-three_s2_r5_hook: hook/li-li-three_s2_r5_hook_BATTLE03.SAV (file 3 of 20), slot 0, x: port 8, original 7",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:li-li-three_s3_r5_hook",
-    "FirstDifference": "li-li-three_s3_r5_hook: hook/li-li-three_s3_r5_hook_BATTLE01.SAV (file 1 of 16), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "li-li-three_s3_r5_hook: hook/li-li-three_s3_r5_hook_BATTLE03.SAV (file 3 of 16), slot 0, x: port 7, original 5",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:mix-rg_s1_r5_hook",
-    "FirstDifference": "mix-rg_s1_r5_hook: hook/mix-rg_s1_r5_hook_BATTLE01.SAV (file 1 of 15), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "mix-rg_s1_r5_hook: hook/mix-rg_s1_r5_hook_BATTLE03.SAV (file 3 of 15), slot 1, x: port 5, original 7",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:mix-rg_s2_r5_hook",
-    "FirstDifference": "mix-rg_s2_r5_hook: hook/mix-rg_s2_r5_hook_BATTLE01.SAV (file 1 of 18), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "mix-rg_s2_r5_hook: hook/mix-rg_s2_r5_hook_BATTLE03.SAV (file 3 of 18), slot 1, x: port 11, original 10",
+    "Issue": 1104
   },
   {
     "Case": "The_hooked_series_replays_exactly:mix-rg_s3_r5_hook",
-    "FirstDifference": "mix-rg_s3_r5_hook: hook/mix-rg_s3_r5_hook_BATTLE01.SAV (file 1 of 28), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "mix-rg_s3_r5_hook: hook/mix-rg_s3_r5_hook_BATTLE03.SAV (file 3 of 28), slot 1, x: port 3, original 5",
+    "Issue": 1104
   },
   {
     "Case": "The_port_draws_the_peace_roll_when_the_original_did:ar-ar-half_s1_r5_hook",
@@ -3311,28 +3311,28 @@
   },
   {
     "Case": "The_recorded_series_replays_exactly:gate2_a",
-    "FirstDifference": "gate2_a: probe/gate2_a_BATTLE01.SAV (file 1 of 15), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "gate2_a: probe/gate2_a_BATTLE03.SAV (file 3 of 15), slot 1, x: port 5, original 7",
+    "Issue": 1104
   },
   {
     "Case": "The_recorded_series_replays_exactly:gate2_s2a",
-    "FirstDifference": "gate2_s2a: probe/gate2_s2a_BATTLE01.SAV (file 1 of 18), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "gate2_s2a: probe/gate2_s2a_BATTLE03.SAV (file 3 of 18), slot 1, x: port 11, original 10",
+    "Issue": 1104
   },
   {
     "Case": "The_recorded_series_replays_exactly:hi-hi-one_s1_r1",
-    "FirstDifference": "hi-hi-one_s1_r1: hi-hi-one/hi-hi-one_s1_r1_BATTLE01.SAV (file 1 of 19), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hi-one_s1_r1: hi-hi-one/hi-hi-one_s1_r1_BATTLE03.SAV (file 3 of 19), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_recorded_series_replays_exactly:hi-hi-one_s2_r1",
-    "FirstDifference": "hi-hi-one_s2_r1: hi-hi-one/hi-hi-one_s2_r1_BATTLE01.SAV (file 1 of 18), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hi-one_s2_r1: hi-hi-one/hi-hi-one_s2_r1_BATTLE03.SAV (file 3 of 18), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_recorded_series_replays_exactly:hi-hi-one_s3_r1",
-    "FirstDifference": "hi-hi-one_s3_r1: hi-hi-one/hi-hi-one_s3_r1_BATTLE01.SAV (file 1 of 15), slot 0, target: port -1, original 0",
-    "Issue": 1103
+    "FirstDifference": "hi-hi-one_s3_r1: hi-hi-one/hi-hi-one_s3_r1_BATTLE03.SAV (file 3 of 15), slot 1, moves: port 4, original 1",
+    "Issue": 1104
   },
   {
     "Case": "The_resume_gives_the_ten_files_the_original_wrote",
