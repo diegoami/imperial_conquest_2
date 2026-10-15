@@ -2,6 +2,8 @@ config_version=5
 
 [application]
 
+boot_splash/show_image=false
+
 config/name="Imperial Conquest 2 Map Viewer"
 run/main_scene="res://UI/AppRoot.tscn"
 config/features=PackedStringArray("4.7", "C#")
@@ -17,6 +19,10 @@ window/stretch/aspect="expand"
 [dotnet]
 
 project/assembly_name="IC2.MapViewer"
+
+[gui]
+
+theme/custom="res://UI/AppTheme.tres"
 
 [rendering]
 
