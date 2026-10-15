@@ -3,6 +3,8 @@ using IC2.Data;
 using IC2.Engine.Import;
 using IC2.Engine.Model;
 using IC2.Engine.Persistence;
+using IC2.Engine.Presentation;
+using IC2.Engine.Tests.Presentation;
 using IC2.Engine.Serialization;
 using IC2.Engine.Tests.Import;
 using IC2.Slice.UI;
@@ -48,6 +50,98 @@ public class LoadGameModelTests : IDisposable
 
         Assert.Equal(new[] { "a.json", "b.SAV" }, names);
         Assert.Empty(LoadGameModel.ListOpenable(Path.Combine(_dir, "missing")));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(HumanBattleMode.Instant)]
+    [InlineData(HumanBattleMode.Tactical)]
+    public void Native_save_opens_with_requested_or_default_mode(HumanBattleMode? mode)
+    {
+        var repo = Repo();
+        var data = repo.Resolve("classical-mediterranean");
+        var source = new GameSession(data.World, data.Ruleset, data.Scenario);
+        var path = Path.Combine(_dir, "native.json");
+        source.Submit($"save {path}");
+        Assert.True(File.Exists(path));
+
+        var outcome = mode is { } requested
+            ? LoadGameModel.Open(path, repo, requested)
+            : LoadGameModel.Open(path, repo);
+
+        Assert.True(outcome.Succeeded, outcome.Message);
+        Assert.Equal(mode ?? HumanBattleMode.Instant, outcome.Session!.HumanBattles);
+        Assert.Equal(source.State, outcome.Session.State);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(HumanBattleMode.Instant)]
+    [InlineData(HumanBattleMode.Tactical)]
+    public void Native_mid_battle_save_reopens_the_battle_with_requested_or_default_mode(HumanBattleMode? mode)
+    {
+        var source = TacticalSessionTestbed.ToySession(HumanBattleMode.Tactical);
+        var opened = source.Submit("attack-army north-army-1 south-army-1").OpenBattleView;
+        Assert.NotNull(opened);
+        var path = Path.Combine(_dir, "mid-battle.json");
+        source.Submit($"save {path}");
+        Assert.True(File.Exists(path));
+
+        var outcome = mode is { } requested
+            ? LoadGameModel.Open(path, Repo(), requested)
+            : LoadGameModel.Open(path, Repo());
+
+        Assert.True(outcome.Succeeded, outcome.Message);
+        var session = outcome.Session!;
+        Assert.Equal(mode ?? HumanBattleMode.Instant, session.HumanBattles);
+        var repo = Repo();
+        var data = repo.Resolve(source.Scenario.Id);
+        var saved = SaveManager.LoadFile(path, data.World, data.Ruleset);
+        Assert.NotNull(saved.Battle);
+        // Compare against the engine's resume semantics: classical reload may advance placement.
+        var expected = new GameSession(data.World, data.Ruleset, data.Scenario, saved);
+        var before = expected.Submit("battle show").OpenBattleView!;
+        var reopened = session.Submit("battle show").OpenBattleView;
+        Assert.NotNull(reopened);
+        Assert.Equal(before.AttackerArmyId, reopened.AttackerArmyId);
+        Assert.Equal(before.DefenderArmyId, reopened.DefenderArmyId);
+        Assert.Equal(before.Counter, reopened.Counter);
+        Assert.Equal(before.SideToMove, reopened.SideToMove);
+        Assert.Equal(before.Slots, reopened.Slots);
+        Assert.Equal(before.Grid, reopened.Grid);
+    }
+
+    [SkippableTheory]
+    [InlineData(null)]
+    [InlineData(HumanBattleMode.Instant)]
+    [InlineData(HumanBattleMode.Tactical)]
+    public void Original_save_opens_with_requested_or_default_mode(HumanBattleMode? mode)
+    {
+        Skip.IfNot(LocalOriginalAssets.IsConfigured, LocalOriginalAssets.SkipReason);
+        var path = OriginalFixture.ResolveOrThrow(RomeSave);
+        var repo = Repo();
+
+        var outcome = mode is { } requested
+            ? LoadGameModel.Open(path, repo, requested)
+            : LoadGameModel.Open(path, repo);
+
+        Assert.True(outcome.Succeeded, outcome.Message);
+        Assert.Equal(mode ?? HumanBattleMode.Instant, outcome.Session!.HumanBattles);
+        var expected = OriginalSaveImporter.Import(
+            File.ReadAllBytes(path), RomeSave, RealGameData.World, RealGameData.Ruleset, RealGameData.Scenario, "x", "x").Save.State;
+        Assert.Equal(expected, outcome.Session.State);
+    }
+
+    [Theory]
+    [InlineData("missing.json", false)]
+    [InlineData("missing.sav", false)]
+    [InlineData("malformed.json", true)]
+    [InlineData("malformed.sav", true)]
+    public void Requested_mode_preserves_missing_and_malformed_file_feedback(string name, bool exists)
+    {
+        var path = exists ? Write(name, new byte[] { 1, 2, 3 }) : Path.Combine(_dir, name);
+
+        AssertRefused(LoadGameModel.Open(path, Repo(), HumanBattleMode.Tactical), name);
     }
 
     [SkippableFact]
