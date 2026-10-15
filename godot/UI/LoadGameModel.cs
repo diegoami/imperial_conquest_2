@@ -50,7 +50,7 @@ public static class LoadGameModel
     }
 
     /// <summary>Opens <paramref name="path"/>; every failure becomes a message naming the file.</summary>
-    public static Outcome Open(string path, GameDataRepository repository)
+    public static Outcome Open(string path, GameDataRepository repository, HumanBattleMode humanBattles = HumanBattleMode.Instant)
     {
         var name = Path.GetFileName(path);
         try
@@ -62,8 +62,8 @@ public static class LoadGameModel
 
             return Path.GetExtension(path).ToLowerInvariant() switch
             {
-                ".json" => OpenJson(path, repository),
-                ".sav" => OpenOriginal(path, repository),
+                ".json" => OpenJson(path, repository, humanBattles),
+                ".sav" => OpenOriginal(path, repository, humanBattles),
                 _ => Fail(path, $"Could not open '{name}': only .json and .sav files can be loaded."),
             };
         }
@@ -73,7 +73,7 @@ public static class LoadGameModel
         }
     }
 
-    private static Outcome OpenJson(string path, GameDataRepository repository)
+    private static Outcome OpenJson(string path, GameDataRepository repository, HumanBattleMode humanBattles)
     {
         var name = Path.GetFileName(path);
         SaveSummary summary;
@@ -107,10 +107,10 @@ public static class LoadGameModel
             return Fail(path, $"Could not load '{name}': {ex.Message}");
         }
 
-        return new Outcome(new GameSession(world, ruleset, scenario, save), null, path);
+        return new Outcome(new GameSession(world, ruleset, scenario, save) { HumanBattles = humanBattles }, null, path);
     }
 
-    private static Outcome OpenOriginal(string path, GameDataRepository repository)
+    private static Outcome OpenOriginal(string path, GameDataRepository repository, HumanBattleMode humanBattles)
     {
         var name = Path.GetFileName(path);
         var world = repository.WorldById(OriginalSaveImporter.RequiredWorldId);
@@ -143,7 +143,7 @@ public static class LoadGameModel
             return Fail(path, $"Could not import '{name}': the save has no human nation to play.");
         }
 
-        return new Outcome(new GameSession(world, ruleset, scenario, save), null, path);
+        return new Outcome(new GameSession(world, ruleset, scenario, save) { HumanBattles = humanBattles }, null, path);
     }
 
     private static Outcome Fail(string path, string message) => new(null, message, path);
