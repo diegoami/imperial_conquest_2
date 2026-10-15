@@ -221,6 +221,91 @@ public sealed class TacticalBattleSessionTests
         Assert.NotNull(first.Played.Report);
     }
 
+    [Theory]
+    [InlineData(0, true)]
+    [InlineData(0, false)]
+    [InlineData(1, true)]
+    [InlineData(1, false)]
+    public void Conclusion_consumes_injected_promotions_then_peace_in_exact_order(int firstPromotionResult, bool offerPeace)
+    {
+        var combat = TacticalSessionTestbed.Toy.Ruleset.Combat;
+        var baseline = TacticalSessionTestbed.PeaceCase().Conclusion;
+        var count = baseline.Report!.Promotions.Count;
+        Assert.True(count > 0);
+        var expected = Enumerable.Range(0, count)
+            .Select(i => (combat.PromotionChanceDenominator, (i + firstPromotionResult) % 2))
+            .Append((combat.AutoPeaceChanceDenominator, offerPeace ? 0 : combat.AutoPeaceChanceDenominator - 1))
+            .ToArray();
+        var draws = new ConclusionDraws(expected);
+
+        var conclusion = TacticalSessionTestbed.PeaceCase(
+            chanceNumerator: combat.AutoPeaceChanceNumerator, draws: draws).Conclusion;
+
+        Assert.Null(conclusion.Rejection);
+        Assert.Equal(expected, draws.Calls);
+        Assert.True(conclusion.PeaceDrawn);
+        Assert.Equal(offerPeace, conclusion.PeaceOffered);
+        Assert.Equal(offerPeace, conclusion.Events.OfType<PeaceTreatyOffered>().Any());
+        Assert.Null(conclusion.State!.ArmyById(conclusion.Report!.LoserArmyId));
+        var winner = conclusion.State.ArmyById(conclusion.Report.WinnerArmyId)!;
+        Assert.Equal(count, winner.Units.Count);
+        for (var i = 0; i < count; i++)
+        {
+            var promotion = conclusion.Report.Promotions[i];
+            var quality = Math.Max(combat.QualityFloor, promotion.QualityBefore);
+            if (expected[i].Item2 == 0)
+            {
+                quality = Math.Min(combat.QualityCap, quality + 1);
+            }
+
+            Assert.Equal(quality, promotion.QualityAfter);
+            Assert.Equal(quality, winner.Units[i].Quality);
+        }
+    }
+
+    [Fact]
+    public void Conclusion_without_injection_continues_the_live_session_stream()
+    {
+        var toy = TacticalSessionTestbed.Toy;
+        var world = toy.World with { StartingArmies = ValueList.From(TacticalSessionTestbed.WeakAttacker()) };
+        var game = GameStateFactory.CreateInitial(world, toy.Ruleset, toy.Scenario);
+        var battle = TacticalBattleSession.Open(game, "north-army-1", "south-army-1", toy.Ruleset, out var opened);
+        var context = TacticalContext.From(toy.Ruleset);
+        var draws = new RngBattleDraws(SplitMix64Rng.ForStream(game.RandomSeed,
+            TacticalBattleSession.StreamKey("north-army-1", "south-army-1", game.Calendar.TurnIndex)));
+        var general = new IC2.Engine.Battle.Tactical.General.ComputerGeneral();
+        var copied = TacticalCopyIn.Start(game with
+        {
+            Armies = ValueList.From(game.Armies.Select(a => a.Id == "north-army-1" ? a with { Moves = 0 } : a)),
+        }, "north-army-1", "south-army-1", context, draws);
+        var replay = TacticalDriver.Run(copied.Battle, context, draws, general);
+        replay = TacticalOrders.ComputerGeneralOn(replay, context, draws, general).State;
+        battle.GeneralOn();
+        Assert.True(battle.IsOver);
+        Assert.Equal(replay, battle.Battle);
+        var expected = TacticalWriteBack.Apply(opened, replay, context, draws, new RecordingEventSink());
+
+        var conclusion = battle.Conclude(opened, toy.Ruleset);
+
+        Assert.Null(conclusion.Rejection);
+        Assert.Equal(expected.Report, conclusion.Report);
+        Assert.Equal(expected.Game.Armies, conclusion.State!.Armies);
+        Assert.Equal(expected.Game.Nations, conclusion.State.Nations);
+    }
+
+    private sealed class ConclusionDraws((int Bound, int Result)[] expected) : IBattleDraws
+    {
+        public List<(int Bound, int Result)> Calls { get; } = new();
+
+        public int Random(int range)
+        {
+            Assert.True(Calls.Count < expected.Length, "Unexpected extra conclusion draw.");
+            var next = expected[Calls.Count];
+            Assert.Equal(next.Bound, range);
+            Calls.Add((range, next.Result));
+            return next.Result;
+        }
+    }
     // ---- the lines refused while a battle is open ----
 
     [Fact]
@@ -864,7 +949,7 @@ internal static class TacticalSessionTestbed
     /// (<paramref name="unityThresholdDelta"/> 1 puts the unity at the threshold, which fails).
     /// </summary>
     public static PeaceResult PeaceCase(
-        int unityThresholdDelta = 0, int cityThresholdDelta = 0, int strengthDelta = 1, int chanceNumerator = 5)
+        int unityThresholdDelta = 0, int cityThresholdDelta = 0, int strengthDelta = 1, int chanceNumerator = 5, IBattleDraws? draws = null)
     {
         var toy = Toy;
         var probe = Probe();
@@ -879,7 +964,7 @@ internal static class TacticalSessionTestbed
         var game = GameStateFactory.CreateInitial(world, ruleset, toy.Scenario);
         var battle = TacticalBattleSession.Open(game, "north-army-1", "south-army-1", ruleset, out var opened);
         battle.GeneralOn();
-        return new PeaceResult(battle.Conclude(opened, ruleset));
+        return new PeaceResult(battle.Conclude(opened, ruleset, draws));
     }
 
     /// <summary>A full session in which the human loses and the four peace conditions hold.</summary>

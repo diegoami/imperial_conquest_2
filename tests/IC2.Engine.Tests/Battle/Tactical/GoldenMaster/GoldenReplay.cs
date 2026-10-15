@@ -248,20 +248,17 @@ internal static class GoldenReplay
     /// <paramref name="draws"/>, the replay's Delphi generator.
     /// </summary>
     /// <remarks>
-    /// The session builds its own <see cref="IBattleDraws"/> from a <see cref="SplitMix64Rng"/> and offers no seam to
-    /// replace it (a finding for the PR), so the test builds the session through its private constructor and sets its
-    /// private draw field by reflection: the code under test is the production <c>Conclude</c>, unmodified.
+    /// The session is built through its private constructor to hold the replayed battle; its supported conclusion
+    /// draw seam continues the replay generator through the production write-back and peace path.
     /// </remarks>
     public static Conclusion Conclude(ReplayOutcome replay, RecordingDelphiDraws draws)
     {
         var battle = replay.Final ?? throw new InvalidOperationException("The replay produced no final battle.");
         var game = replay.Game!;
         var session = NewSession(replay.Context, battle, game);
-        typeof(TacticalBattleSession).GetField("_draws", BindingFlags.NonPublic | BindingFlags.Instance)!
-            .SetValue(session, draws);
 
         draws.Counter = battle.Counter;
-        var result = session.Conclude(game, RealGameData.Ruleset);
+        var result = session.Conclude(game, RealGameData.Ruleset, draws);
         var withNews = result.State is null
             ? game
             : NewsLogWriter.Append(result.State, result.Events, RealGameData.Ruleset.NewsLog);
