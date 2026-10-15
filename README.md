@@ -73,6 +73,8 @@ Progress lives on GitHub, not in this file: each [task issue](https://github.com
 
 Operating the project — the task loop, the skills, where everything lives, bugs: [docs/operating-guide.md](docs/operating-guide.md).
 
+Codex setup and workflow mappings: [docs/codex.md](docs/codex.md). Claude Code keeps its existing instructions and local skills; both use the same project contracts.
+
 
 ## Building the reimplementation
 

@@ -69,8 +69,9 @@
     luna: the direct OpenAI route, `openai/gpt-5.6-luna`, via the machine's OpenAI login (issue #575).
     The Alibaba Token Plan (`alibaba-token-plan/…`, the user's decision of 2026-10-05) carries
     qwen-flash and (with -Route alibaba) glm only; on 2026-10-09 DeepSeek went out of use
-    (the user's decision: every DeepSeek model on every route), so miMo is the only
-    opencode_go family now. Its key is the user variable ALIBABA_TOKEN_PLAN_API_KEY, loaded
+    (the user's decision: every DeepSeek model on every route), and that ban was lifted on
+    2026-10-13, so any model on a /recommend row may implement now. miMo is the opencode_go
+    family. Its key is the user variable ALIBABA_TOKEN_PLAN_API_KEY, loaded
     into this process when missing and never printed; "Invalid API-key" or "Provider not
     found" from it stops the script (exit 1) with the cause, never a retry.
 
@@ -93,14 +94,11 @@
     -Route alibaba moves it to the Alibaba Token Plan when the user asks, #893),
     miMo Pro (mimo-pro, `opencode-go/mimo-v2.6-pro`, the heavy model on OpenCode Go since
     2026-10-09; the user's decision that day), or miMo Flash (mimo-flash, `opencode-go/mimo-v2.6-flash`).
-    DeepSeek is not used (the user's decision of 2026-10-09); naming a DeepSeek alias is refused with
-    "DeepSeek is not used (the user's decision of 2026-10-09)".
 .PARAMETER Route
     Which provider miMo and glm run through: auto (the default) takes the usual one
-    (OpenCode Go, Z.AI) and warns when quota-tracker's /avoid lists it; it never moves to the
-    Alibaba Token Plan, which is used only when the user asks (#893, the user's decision of
-    2026-10-09: -Route alibaba). go, zai or alibaba force one: an explicit -Model that route does not serve is refused (exit
-    1). The route is printed, logged and named on the
+    (OpenCode Go, Z.AI) and warns when quota-tracker's /avoid lists it; `-Route alibaba`
+    forces the Alibaba Token Plan's id of the model. go, zai or alibaba force one: an explicit
+    -Model that route does not serve is refused (exit 1). The route is printed, logged and named on the
     "implemented by:" line.
 .PARAMETER LocalOnly
     Copy assets.local.ini from the main checkout into the worktree.
@@ -164,7 +162,7 @@ param(
     [string] $Slug,
     [int] $Issue,
     [string] $BriefFile,
-    [ValidateSet('luna', 'glm-flash', 'glm', 'qwen-flash', 'mm-m3', 'mm-m2.7', 'ali-glm', 'mimo-pro', 'mimo-flash')] [ValidateScript({ if ($_ -match 'deepseek') { throw "DeepSeek is not used (the user's decision of 2026-10-09)" }; $true })] [string] $Model,
+    [ValidateSet('luna', 'glm-flash', 'glm', 'qwen-flash', 'mm-m3', 'mm-m2.7', 'ali-glm', 'mimo-pro', 'mimo-flash')] [string] $Model,
     [ValidateSet('auto', 'go', 'zai', 'alibaba')] [string] $Route = 'auto',
     [switch] $LocalOnly,
     [string] $FixturesDir,
@@ -178,28 +176,6 @@ param(
     [int]    $RecommendRetryWaitSec = 0,
     [switch] $SelfTest
 )
-
-# Refuse a DeepSeek alias before any worktree, brief copy or OpenCode call (#908: the user's
-# decision of 2026-10-09). A direct -Model deepseek-flash is refused at binding by the
-# ValidateScript on -Model, with exit 1 and the same reason (it is not in the ValidateSet, so
-# the alias is never usable); this guard covers the -ModelIds override, keys and VALUES (any id
-# containing "deepseek", whatever the provider prefix), before a worktree or an OpenCode call.
-$deepseekRejectMessage = 'DeepSeek is not used (the user''s decision of 2026-10-09)'
-if ($ModelIds) {
-    foreach ($k in @($ModelIds.Keys)) {
-        if ($k -match '^(deepseek|ali-deepseek)') {
-            [Console]::Error.WriteLine("Refused: -ModelId key '$k' names a DeepSeek alias; $deepseekRejectMessage.")
-            exit 1
-        }
-        # An override VALUE is refused too (any id containing "deepseek", whatever the provider
-        # prefix and the case): @{ 'mimo-pro' = 'opencode-go/deepseek-v4-pro' } would otherwise
-        # replace a permitted alias's id with a blacklisted model, on every route.
-        if ("$($ModelIds[$k])" -match '(?i)deepseek') {
-            [Console]::Error.WriteLine("Refused: -ModelId '$k' maps to the DeepSeek model id '$($ModelIds[$k])'; $deepseekRejectMessage.")
-            exit 1
-        }
-    }
-}
 
 # -SelfTest runs offline checks with no worktree, no OpenCode, no PR. Slug / BriefFile /
 # Task / Fix are optional in the param block so a bare `-SelfTest` invocation does not
@@ -420,30 +396,6 @@ function Invoke-ImplementerSelfTest {
     Add 'DW5 R4: the same-cause text names the run log and says the substitute is NOT run' ($sameCauseText -like '*run log: C:\w\ic2-work\T99.implementer.log*' -and $sameCauseText -match 'substitute attempt is NOT run')
     Add 'DW5 R4: the same-cause text carries the outside-paths report' ($sameCauseText -match 'Outside paths touched')
 
-    # --- #908 rework (PR 930): DeepSeek is refused everywhere ---------------------------------------
-    $dsReason = "DeepSeek is not used (the user's decision of 2026-10-09)"
-    $selfPath = $PSCommandPath
-    $probeBriefI = Join-Path ([System.IO.Path]::GetTempPath()) "ic2-implselftest-brief-$([guid]::NewGuid().ToString('N').Substring(0, 8)).md"
-    Set-Content -LiteralPath $probeBriefI -Value 'self-test probe brief' -Encoding utf8
-    try {
-        # R2: a direct -Model deepseek-flash (and the other removed aliases) exits 1 with the reason.
-        foreach ($a in 'deepseek-flash', 'deepseek-pro', 'ali-deepseek-pro', 'ali-deepseek-flash') {
-            $o = (& pwsh -NoProfile -File $selfPath -Task T1 -Slug x -Issue 1 -BriefFile $probeBriefI -Model $a -WhatIf 2>&1 | Out-String)
-            Add "R2: -Model $a exits 1 with '$dsReason' (got $LASTEXITCODE)" ($LASTEXITCODE -eq 1 -and $o -like "*$dsReason*")
-        }
-        $o = (& pwsh -NoProfile -File $selfPath -Task T1 -Slug x -Issue 1 -BriefFile $probeBriefI -Model no-such-alias -WhatIf 2>&1 | Out-String)
-        Add "R2: -Model no-such-alias exits 1 and does not claim the DeepSeek reason (got $LASTEXITCODE)" ($LASTEXITCODE -eq 1 -and $o -notlike '*DeepSeek*')
-        # R1: a DeepSeek id as the VALUE of an allowed key exits 1 with the reason, whatever the prefix or case.
-        foreach ($v in 'opencode-go/deepseek-v4-pro', 'alibaba-token-plan/deepseek-v4.1-flash', 'zai-coding-plan/DeepSeek-V4-Pro', 'openai/deepseek-v4-pro-0813') {
-            $cmd = "& '$selfPath' -Task T1 -Slug x -Issue 1 -BriefFile '$probeBriefI' -Model mimo-pro -ModelIds @{ 'mimo-pro' = '$v' } -WhatIf; exit `$LASTEXITCODE"
-            $o = (& pwsh -NoProfile -Command $cmd 2>&1 | Out-String)
-            Add "R1: -ModelIds @{ mimo-pro = '$v' } exits 1 with '$dsReason' (got $LASTEXITCODE)" ($LASTEXITCODE -eq 1 -and $o -like "*$dsReason*")
-        }
-        $cmd = "& '$selfPath' -Task T1 -Slug x -Issue 1 -BriefFile '$probeBriefI' -Model mimo-pro -ModelIds @{ 'deepseek-pro' = 'opencode-go/mimo-v2.6-pro' } -WhatIf; exit `$LASTEXITCODE"
-        $o = (& pwsh -NoProfile -Command $cmd 2>&1 | Out-String)
-        Add "R1: -ModelIds keyed deepseek-pro is still refused with exit 1 (got $LASTEXITCODE)" ($LASTEXITCODE -eq 1 -and $o -like "*$dsReason*")
-    } finally { Remove-Item -LiteralPath $probeBriefI -Force -ErrorAction SilentlyContinue }
-
     # Bug #956: a dry run may name a work directory that does not exist yet, so the directory
     # resolution reports its full path instead of throwing (a real run stays strict). Offline: no OpenCode.
     $missingWork = Join-Path ([System.IO.Path]::GetTempPath()) "ic2-implselftest-nowork-$([guid]::NewGuid().ToString('N').Substring(0, 8))"
@@ -454,9 +406,8 @@ function Invoke-ImplementerSelfTest {
     Add '#956: a real run still throws on a missing work directory' ($null -ne $realErr)
     Add '#956: the resolution created no directory' (-not (Test-Path -LiteralPath $missingWork))
 
-    # The chain-spent substitute (T150) never maps an opencode_go row to a DeepSeek alias: the
-    # run that picked deepseek-flash from "provider opencode_go, model mimo-v2.6-pro" is the
-    # case. The canned /recommend goes through the real Choose-Model.ps1 -Pick.
+    # The chain-spent substitute (T150) maps an opencode_go row to its MiMo alias: the canned
+    # /recommend goes through the real Choose-Model.ps1 -Pick.
     $subDir = Join-Path ([System.IO.Path]::GetTempPath()) "ic2-implselftest-sub-$([guid]::NewGuid().ToString('N').Substring(0, 8))"
     New-Item -ItemType Directory -Force -Path $subDir | Out-Null
     try {
@@ -465,15 +416,11 @@ function Invoke-ImplementerSelfTest {
         (@{ note = $null; skipped = @(); ranking = @((New-SubRow 'minimax' 'MiniMax-M3' 900), (New-SubRow 'opencode_go' 'mimo-v2.6-pro' 500)) } | ConvertTo-Json -Depth 6) | Set-Content -LiteralPath $recMimo -Encoding utf8
         $why = $null
         $sub = Get-SubstituteModel -ExcludeFamilies @('mm-m3') -Why ([ref]$why) -RecommendFile $recMimo -RecommendRetryWaitSec 0
-        Add "#908 substitute: chain spent (mm-m3), opencode_go + mimo-v2.6-pro row -> mimo-pro, never a deepseek alias (got '$sub')" ($sub -eq 'mimo-pro' -and "$sub" -notmatch 'deepseek')
-        $recDs = Join-Path $subDir 'ds.json'
-        (@{ note = $null; skipped = @(); ranking = @((New-SubRow 'minimax' 'MiniMax-M3' 900), (New-SubRow 'opencode_go' 'deepseek-v4.1-flash' 700), (New-SubRow 'opencode_go' 'deepseek-v4-pro' 600), (New-SubRow 'alibaba' 'deepseek-v4-pro' 500)) } | ConvertTo-Json -Depth 6) | Set-Content -LiteralPath $recDs -Encoding utf8
-        $why2 = $null
-        $sub2 = Get-SubstituteModel -ExcludeFamilies @('mm-m3') -Why ([ref]$why2) -RecommendFile $recDs -RecommendRetryWaitSec 0
-        Add "#908 substitute: chain spent, only DeepSeek rows left -> none, never a deepseek alias (got '$sub2')" (-not $sub2)
+        Add "#908 substitute: chain spent (mm-m3), opencode_go + mimo-v2.6-pro row -> mimo-pro (got '$sub')" ($sub -eq 'mimo-pro')
         $recUnk = Join-Path $subDir 'unk.json'
         (@{ note = $null; skipped = @(); ranking = @((New-SubRow 'minimax' 'MiniMax-M3' 900), (New-SubRow 'opencode_go' 'mimo-future-9' 700)) } | ConvertTo-Json -Depth 6) | Set-Content -LiteralPath $recUnk -Encoding utf8
-        $sub3 = Get-SubstituteModel -ExcludeFamilies @('mm-m3') -Why ([ref]$why2) -RecommendFile $recUnk -RecommendRetryWaitSec 0
+        $why3 = $null
+        $sub3 = Get-SubstituteModel -ExcludeFamilies @('mm-m3') -Why ([ref]$why3) -RecommendFile $recUnk -RecommendRetryWaitSec 0
         Add "#908 substitute: an unknown opencode_go model is unmapped, so none is picked (got '$sub3')" (-not $sub3)
     } finally { Remove-Item -LiteralPath $subDir -Recurse -Force -ErrorAction SilentlyContinue }
 
@@ -677,13 +624,11 @@ function Set-PullRequestSection {
 
 # On 2026-10-01 the user moved the OpenCode runs from OpenCode Zen to OpenCode Go (issue #551):
 # every id is `opencode-go/…` and no Zen model is used, the free ones included. The one exception
-# is luna: the direct OpenAI route, `openai/gpt-5.6-luna`, via the machine's OpenAI login (issue
+# is luna: the direct OpenAI route, via the machine's OpenAI login (issue
 # #575). The main session chooses the implementer model from /recommend (CLAUDE.md rule 17)
-# and passes it as -Model; on 2026-10-09 DeepSeek was blacklisted (the user's decision) and
-# MiMo v2.6 Pro / Flash took its place (#908). GLM left the default implementer side in #573
-# (GLM-5.3 ended T99's run early, mid-exploration, with no error, #557), so glm, glm-flash and
-# luna stay valid only as explicit -Model values, and so does qwen-flash (-AllowAlibaba / the
-# user's decision).
+# and passes it as -Model. GLM left the default implementer side in #573 (GLM-5.3 ended T99's
+# run early, mid-exploration, with no error, #557), so glm, glm-flash and
+# luna stay valid only as explicit -Model values, and so does qwen-flash (-Route alibaba).
 # MiMo Pro and MiMo Flash stay in the table (tested on implement, fix and review tasks on
 # 2026-10-09). Confirm the ids with `opencode models` on first use; -ModelIds overrides any
 # of them.
@@ -693,17 +638,15 @@ $models = @{
     'glm'        = 'zai-coding-plan/glm-5.3'
     'mimo-pro'   = 'opencode-go/mimo-v2.6-pro'
     'mimo-flash' = 'opencode-go/mimo-v2.6-flash'
-    # Qwen3.8 Flash on the Alibaba Token Plan (the user's decision of 2026-10-05).
+    # Qwen Flash on the Alibaba Token Plan (the user's decision of 2026-10-05).
     'qwen-flash' = 'alibaba-token-plan/qwen3.8-flash'
     # MiniMax (minimax.io Token Plan, provider `minimax`) and the Alibaba Token Plan's GLM
-    # under a name of its own (the owner's decision of 2026-10-06; DeepSeek is no longer on
-    # the plan, #908). Explicit -Model values only.
+    # under a name of its own (the owner's decision of 2026-10-06). Explicit -Model values only.
     'mm-m3'   = 'minimax/MiniMax-M3'
     'mm-m2.7' = 'minimax/MiniMax-M2.7'
     'ali-glm' = 'alibaba-token-plan/glm-5.3'
 }
-# The Alibaba Token Plan route of the same models (-Route; the user's decision of 2026-10-05,
-# 2026-10-09: DeepSeek is gone, so the AliDeepSeek* ids are gone too).
+# The Alibaba Token Plan route of the same models (-Route; the user's decision of 2026-10-05).
 $alibabaIds = @{
     'glm' = 'alibaba-token-plan/glm-5.3'
 }

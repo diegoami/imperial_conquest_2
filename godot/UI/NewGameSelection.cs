@@ -110,6 +110,10 @@ public static class GameSessionFactory
             };
         }
 
-        return new GameSession(resolved.World, resolved.Ruleset, scenario, humanSeatNationId: selection.HumanNationId);
+        // T127: the Godot UI fights a human's field battle on the board.
+        return new GameSession(resolved.World, resolved.Ruleset, scenario, humanSeatNationId: selection.HumanNationId)
+        {
+            HumanBattles = HumanBattleMode.Tactical,
+        };
     }
 }
