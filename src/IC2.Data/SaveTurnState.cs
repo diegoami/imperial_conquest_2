@@ -10,15 +10,16 @@ namespace IC2.Data;
 /// <c>+0</c> turn order (16 x int16), <c>+32</c> pending offer (parsed separately by
 /// <see cref="SavePendingOffer"/>), <c>+36</c> current nation, <c>+38</c> turn-order index, <c>+40</c>
 /// week, <c>+42</c> year BC, <c>+44</c> season, <c>+46</c> 8 bytes of main-window geometry (UI state,
-/// not parsed here), <c>+54</c> a 1-byte battle-in-progress flag, read only by
-/// <see cref="LocateTrailerStart"/> to pick the trailer's position. See
+/// not parsed here), <c>+54</c> a 1-byte battle-in-progress flag, read by
+/// <see cref="LocateTrailerStart"/> to pick the trailer's position and by <see cref="Parse"/>, which
+/// exposes the block it announces through <see cref="GetBattleBlock"/>. See
 /// https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/decompiled-sav-file-layout.md,
 /// the 2026-09-14 correction, checked on 54 saves.
 /// <para>A save written during a tactical battle sets that flag to 1 and writes the
 /// <see cref="BattleBlockLength"/>-byte battle block <b>after</b> the trailer, so its trailer is not
 /// the file's last 55 bytes. <see cref="LocateTrailerStart"/> is the one place that knows this;
 /// this class, <see cref="SaveNewsLog"/> and <see cref="SavePendingOffer"/> all use it (bug #675).
-/// The block's contents are not parsed here — that is T129's <c>SaveBattleBlock</c>.</para></summary>
+/// The block's contents are parsed by <see cref="SaveBattleBlock"/> (T129).</para></summary>
 public sealed class SaveTurnState
 {
     /// <summary>The length of the optional battle block an original save carries after the 55-byte
@@ -34,8 +35,9 @@ public sealed class SaveTurnState
     /// <summary>Offset of the 1-byte battle-in-progress flag within the 55-byte trailer.</summary>
     private const int BattleFlagOffset = 54;
     private SaveTurnState(ushort currentNationCode, ushort week, ushort yearBc, ushort seasonCode,
-        ushort[] turnOrder, ushort turnOrderIndex)
+        ushort[] turnOrder, ushort turnOrderIndex, SaveBattleBlock? battleBlock)
     {
+        _battleBlock = battleBlock;
         CurrentNationCode = currentNationCode;
         Week = week;
         YearBc = yearBc;
@@ -46,6 +48,15 @@ public sealed class SaveTurnState
         TurnOrder = Array.AsReadOnly(turnOrder);
         TurnOrderIndex = turnOrderIndex;
     }
+
+    private readonly SaveBattleBlock? _battleBlock;
+
+    /// <summary>The tactical-battle block, when the trailer's battle flag (<c>+54</c>) is set; otherwise
+    /// <see langword="null"/>. The block is the <see cref="BattleBlockLength"/> bytes after the trailer.
+    /// A method, not a property, on purpose: the block is not a field of the strategic game state, so it has
+    /// no row in the importer's field mapping; the battle importer reads it
+    /// (<c>OriginalBattleBlockImport</c>).</summary>
+    public SaveBattleBlock? GetBattleBlock() => _battleBlock;
 
     public ushort CurrentNationCode { get; }
     public ushort Week { get; }
@@ -193,7 +204,14 @@ public sealed class SaveTurnState
                 $"Save trailer's turn order at index {turnOrderIndex} names nation " +
                 $"{turnOrder[turnOrderIndex]}, not the current nation {currentNation}.");
 
-        return new SaveTurnState(currentNation, week, year, season, turnOrder, turnOrderIndex);
+        SaveBattleBlock? battleBlock = null;
+        if (data[start + BattleFlagOffset] == 1)
+        {
+            var blockStart = start + TrailerLength;
+            battleBlock = SaveBattleBlock.Parse(data.AsSpan(blockStart, data.Length - blockStart));
+        }
+
+        return new SaveTurnState(currentNation, week, year, season, turnOrder, turnOrderIndex, battleBlock);
     }
 
     private static ushort ReadWord(byte[] data, int offset) =>
