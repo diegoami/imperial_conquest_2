@@ -271,8 +271,9 @@ public sealed class TacticalBattleSessionTests
         var game = GameStateFactory.CreateInitial(world, toy.Ruleset, toy.Scenario);
         var battle = TacticalBattleSession.Open(game, "north-army-1", "south-army-1", toy.Ruleset, out var opened);
         var context = TacticalContext.From(toy.Ruleset);
-        var draws = new RngBattleDraws(SplitMix64Rng.ForStream(game.RandomSeed,
-            TacticalBattleSession.StreamKey("north-army-1", "south-army-1", game.Calendar.TurnIndex)));
+        var mirrorRng = SplitMix64Rng.ForStream(game.RandomSeed,
+            TacticalBattleSession.StreamKey("north-army-1", "south-army-1", game.Calendar.TurnIndex));
+        var draws = new RngBattleDraws(mirrorRng);
         var general = new IC2.Engine.Battle.Tactical.General.ComputerGeneral();
         var copied = TacticalCopyIn.Start(game with
         {
@@ -283,11 +284,13 @@ public sealed class TacticalBattleSessionTests
         battle.GeneralOn();
         Assert.True(battle.IsOver);
         Assert.Equal(replay, battle.Battle);
+        Assert.Equal(mirrorRng.State, battle.DrawState);
         var expected = TacticalWriteBack.Apply(opened, replay, context, draws, new RecordingEventSink());
 
         var conclusion = battle.Conclude(opened, toy.Ruleset);
 
         Assert.Null(conclusion.Rejection);
+        Assert.Equal(mirrorRng.State, battle.DrawState);
         Assert.Equal(expected.Report, conclusion.Report);
         Assert.Equal(expected.Game.Armies, conclusion.State!.Armies);
         Assert.Equal(expected.Game.Nations, conclusion.State.Nations);
