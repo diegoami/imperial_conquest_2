@@ -541,8 +541,9 @@ public sealed class TacticalBattleSession
     /// </remarks>
     /// <param name="game">The game the battle was fought in.</param>
     /// <param name="ruleset">The ruleset.</param>
+    /// <param name="draws">Optional draws for this conclusion only; otherwise the live battle stream continues.</param>
     /// <returns>The conclusion.</returns>
-    public TacticalBattleConclusion Conclude(GameState game, Ruleset ruleset)
+    public TacticalBattleConclusion Conclude(GameState game, Ruleset ruleset, IBattleDraws? draws = null)
     {
         ArgumentNullException.ThrowIfNull(game);
         ArgumentNullException.ThrowIfNull(ruleset);
@@ -552,8 +553,8 @@ public sealed class TacticalBattleSession
             return new TacticalBattleConclusion(null, null, false, false, Array.Empty<DomainEvent>(), "The battle has not ended.");
         }
 
-        // The write-back draws from the battle's own stream (the promotions), and the peace dialog's draw follows
-        // from the same stream, so both read the one live generator.
+        // The promotions and the following peace draw share the supplied generator, or the live battle stream.
+        var conclusionDraws = draws ?? _draws;
         TacticalWriteBackResult? written = null;
         var sink = new RecordingEventSink();
         var command = new ApplyTacticalBattleCommand(
@@ -562,7 +563,7 @@ public sealed class TacticalBattleSession
             Battle.DefenderArmyId,
             (state, events) =>
             {
-                written = TacticalWriteBack.Apply(state, Battle, _context, _draws, events);
+                written = TacticalWriteBack.Apply(state, Battle, _context, conclusionDraws, events);
                 return written.Game;
             });
         var outcome = new ApplyTacticalBattleCommandHandler().Handle(command, game, sink);
@@ -591,7 +592,7 @@ public sealed class TacticalBattleSession
             if (gates)
             {
                 drawn = true;
-                offered = _draws.Random(combat.AutoPeaceChanceDenominator) < combat.AutoPeaceChanceNumerator;
+                offered = conclusionDraws.Random(combat.AutoPeaceChanceDenominator) < combat.AutoPeaceChanceNumerator;
             }
 
             if (offered)
