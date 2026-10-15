@@ -44,7 +44,7 @@ public partial class FindCityDialog : Control
 
     public override void _Ready()
     {
-        var backdrop = new ColorRect { Color = new Color(0f, 0f, 0f, 0.6f), MouseFilter = MouseFilterEnum.Stop };
+        var backdrop = new ColorRect { Color = AppTheme.Scrim, MouseFilter = MouseFilterEnum.Stop };
         backdrop.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(backdrop);
 
@@ -57,10 +57,10 @@ public partial class FindCityDialog : Control
         center.AddChild(panel);
 
         var column = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        column.AddThemeConstantOverride("separation", 10);
+        column.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         panel.AddChild(column);
 
-        column.AddChild(UiKit.MakeLabel("Find a city", 18, UiKit.AccentColor));
+        column.AddChild(UiKit.MakeLabel("Find a city", AppTheme.Header, UiKit.AccentColor));
 
         _nationDropdown = new OptionButton();
         column.AddChild(_nationDropdown);
@@ -83,7 +83,7 @@ public partial class FindCityDialog : Control
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
             Alignment = BoxContainer.AlignmentMode.End,
         };
-        buttons.AddThemeConstantOverride("separation", 10);
+        buttons.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(buttons);
         buttons.AddChild(UiKit.MakeButton("Cancel", () => Closed?.Invoke()));
         buttons.AddChild(UiKit.MakeButton("Find", Choose));

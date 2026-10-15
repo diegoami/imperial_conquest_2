@@ -66,7 +66,7 @@ public partial class SplitFleetDialog : Control
 
     private void BuildUi()
     {
-        var backdrop = new ColorRect { Color = new Color(0f, 0f, 0f, 0.6f), MouseFilter = MouseFilterEnum.Stop };
+        var backdrop = new ColorRect { Color = AppTheme.Scrim, MouseFilter = MouseFilterEnum.Stop };
         backdrop.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(backdrop);
 
@@ -79,37 +79,37 @@ public partial class SplitFleetDialog : Control
         center.AddChild(panel);
 
         var column = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        column.AddThemeConstantOverride("separation", 8);
+        column.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         panel.AddChild(column);
 
-        column.AddChild(UiKit.MakeLabel("Split fleet", 18, UiKit.AccentColor));
-        _refusalLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.TextColor);
+        column.AddChild(UiKit.MakeLabel("Split fleet", AppTheme.Header, UiKit.AccentColor));
+        _refusalLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         _refusalLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         column.AddChild(_refusalLabel);
 
-        _figuresLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.TextColor);
+        _figuresLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         _figuresLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         column.AddChild(_figuresLabel);
 
         column.AddChild(new HSeparator());
         column.AddChild(BuildStepper("Ships", SplitFleetModelSteps.ShipStep, SplitFleetModelSteps.ShipLargeStep, (int step) => _model.AdjustShips(step)));
-        _shipsLabel = UiKit.MakeLabel(string.Empty, 13, UiKit.MutedTextColor);
+        _shipsLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.MutedTextColor);
         column.AddChild(_shipsLabel);
 
         column.AddChild(BuildStepper("Supply", SplitFleetModelSteps.SupplyStep, SplitFleetModelSteps.SupplyLargeStep, (int step) => _model.AdjustSupply(step)));
-        _supplyLabel = UiKit.MakeLabel(string.Empty, 13, UiKit.MutedTextColor);
+        _supplyLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.MutedTextColor);
         column.AddChild(_supplyLabel);
 
         column.AddChild(BuildStepper("Money", SplitFleetModelSteps.MoneyStep, SplitFleetModelSteps.MoneyLargeStep, (int step) => _model.AdjustMoney(step)));
-        _moneyLabel = UiKit.MakeLabel(string.Empty, 13, UiKit.MutedTextColor);
+        _moneyLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.MutedTextColor);
         column.AddChild(_moneyLabel);
 
-        _newFleetLabel = UiKit.MakeLabel(string.Empty, 13, UiKit.TextColor);
+        _newFleetLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         _newFleetLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         column.AddChild(_newFleetLabel);
 
         column.AddChild(new HSeparator());
-        _replyLabel = UiKit.MakeLabel(string.Empty, 13, UiKit.TextColor);
+        _replyLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         _replyLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         column.AddChild(_replyLabel);
 
@@ -118,7 +118,7 @@ public partial class SplitFleetDialog : Control
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
             Alignment = BoxContainer.AlignmentMode.End,
         };
-        buttons.AddThemeConstantOverride("separation", 10);
+        buttons.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(buttons);
         buttons.AddChild(UiKit.MakeButton("Cancel", Cancel));
         _okButton = UiKit.MakeButton("OK", Ok);
@@ -128,8 +128,8 @@ public partial class SplitFleetDialog : Control
     private Control BuildStepper(string caption, int step, int largeStep, Action<int> adjust)
     {
         var row = new HBoxContainer();
-        row.AddThemeConstantOverride("separation", 6);
-        row.AddChild(UiKit.MakeLabel(caption, 14, UiKit.TextColor));
+        row.AddThemeConstantOverride("separation", AppTheme.DialogGap);
+        row.AddChild(UiKit.MakeLabel(caption, AppTheme.Body, UiKit.TextColor));
         row.AddChild(UiKit.MakeButton($"−{largeStep}", () =>
         {
             adjust(-largeStep);

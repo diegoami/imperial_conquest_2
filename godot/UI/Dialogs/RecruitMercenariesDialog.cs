@@ -75,7 +75,7 @@ public partial class RecruitMercenariesDialog : Control
             // behaviour); with no offers the listing stays empty and the Recruit button is disabled.
         }
 
-        var backdrop = new ColorRect { Color = new Color(0f, 0f, 0f, 0.6f), MouseFilter = MouseFilterEnum.Stop };
+        var backdrop = new ColorRect { Color = AppTheme.Scrim, MouseFilter = MouseFilterEnum.Stop };
         backdrop.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(backdrop);
 
@@ -88,16 +88,16 @@ public partial class RecruitMercenariesDialog : Control
         center.AddChild(panel);
 
         var column = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        column.AddThemeConstantOverride("separation", 8);
+        column.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         panel.AddChild(column);
 
-        column.AddChild(UiKit.MakeLabel("Recruit mercenary unit", 18, UiKit.AccentColor));
-        _summaryLabel = UiKit.MakeLabel(string.Empty, 13, UiKit.TextColor);
+        column.AddChild(UiKit.MakeLabel("Recruit mercenary unit", AppTheme.Header, UiKit.AccentColor));
+        _summaryLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         _summaryLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         column.AddChild(_summaryLabel);
 
         column.AddChild(new HSeparator());
-        column.AddChild(UiKit.MakeLabel("Mercenary offers", 15, UiKit.TextColor));
+        column.AddChild(UiKit.MakeLabel("Mercenary offers", AppTheme.Body, UiKit.TextColor));
         _offerList = new ItemList { CustomMinimumSize = new Vector2(0, 140) };
         _offerList.ItemSelected += _ =>
         {
@@ -110,7 +110,7 @@ public partial class RecruitMercenariesDialog : Control
         column.AddChild(_hireButton);
 
         column.AddChild(new HSeparator());
-        _replyLabel = UiKit.MakeLabel(string.Empty, 13, UiKit.TextColor);
+        _replyLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         _replyLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         column.AddChild(_replyLabel);
 

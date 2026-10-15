@@ -27,7 +27,7 @@ public partial class EndTurnBox : Control
 
     public override void _Ready()
     {
-        var backdrop = new ColorRect { Color = new Color(0, 0, 0, 0.6f) };
+        var backdrop = new ColorRect { Color = AppTheme.Scrim };
         backdrop.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(backdrop);
 
@@ -40,27 +40,27 @@ public partial class EndTurnBox : Control
         center.AddChild(panel);
 
         var column = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        column.AddThemeConstantOverride("separation", 12);
+        column.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         panel.AddChild(column);
 
-        CaptionLabel = UiKit.MakeLabel("End turn ?", 22, UiKit.AccentColor);
+        CaptionLabel = UiKit.MakeLabel("End turn ?", AppTheme.Header, UiKit.AccentColor);
         column.AddChild(CaptionLabel);
 
         foreach (var line in WarningLines)
         {
-            var label = UiKit.MakeLabel(line, 16, UiKit.TextColor);
+            var label = UiKit.MakeLabel(line, AppTheme.Body, UiKit.TextColor);
             label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
             _warningLabels.Add(label);
             column.AddChild(label);
         }
 
         var moreMoves = UiKit.MakeLabel(
-            "If you have not finished your turn click MAKE MORE MOVES.", 15, UiKit.MutedTextColor);
+            "If you have not finished your turn click MAKE MORE MOVES.", AppTheme.Body, UiKit.MutedTextColor);
         moreMoves.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         column.AddChild(moreMoves);
 
         var endTurn = UiKit.MakeLabel(
-            "If you are finished moving this turn click END TURN.", 15, UiKit.MutedTextColor);
+            "If you are finished moving this turn click END TURN.", AppTheme.Body, UiKit.MutedTextColor);
         endTurn.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         column.AddChild(endTurn);
 
@@ -69,7 +69,7 @@ public partial class EndTurnBox : Control
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
             Alignment = BoxContainer.AlignmentMode.End,
         };
-        buttons.AddThemeConstantOverride("separation", 10);
+        buttons.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(buttons);
 
         MakeMoreMovesButton = UiKit.MakeButton("MAKE MORE MOVES", () => Answer(makeMoreMoves: true));

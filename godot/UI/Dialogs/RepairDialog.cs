@@ -59,7 +59,7 @@ public partial class RepairDialog : Control
 
     private void BuildUi()
     {
-        var backdrop = new ColorRect { Color = new Color(0f, 0f, 0f, 0.6f), MouseFilter = MouseFilterEnum.Stop };
+        var backdrop = new ColorRect { Color = AppTheme.Scrim, MouseFilter = MouseFilterEnum.Stop };
         backdrop.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(backdrop);
 
@@ -72,21 +72,21 @@ public partial class RepairDialog : Control
         center.AddChild(panel);
 
         var column = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        column.AddThemeConstantOverride("separation", 8);
+        column.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         panel.AddChild(column);
 
-        column.AddChild(UiKit.MakeLabel($"Repair fleet — {FleetId}", 18, UiKit.AccentColor));
-        _refusalLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.TextColor);
+        column.AddChild(UiKit.MakeLabel($"Repair fleet — {FleetId}", AppTheme.Header, UiKit.AccentColor));
+        _refusalLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         _refusalLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         column.AddChild(_refusalLabel);
 
-        _stateLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.TextColor);
+        _stateLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         _stateLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         column.AddChild(_stateLabel);
 
-        column.AddChild(UiKit.MakeLabel("Repair points", 13, UiKit.MutedTextColor));
+        column.AddChild(UiKit.MakeLabel("Repair points", AppTheme.Body, UiKit.MutedTextColor));
         var row = new HBoxContainer();
-        row.AddThemeConstantOverride("separation", 6);
+        row.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(row);
         row.AddChild(UiKit.MakeButton("−10", () => Adjust(-10)));
         row.AddChild(UiKit.MakeButton("−1", () => Adjust(-1)));
@@ -96,11 +96,11 @@ public partial class RepairDialog : Control
         row.AddChild(UiKit.MakeButton("+1", () => Adjust(1)));
         row.AddChild(UiKit.MakeButton("+10", () => Adjust(10)));
 
-        _costLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.TextColor);
+        _costLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         column.AddChild(_costLabel);
 
         column.AddChild(new HSeparator());
-        _replyLabel = UiKit.MakeLabel(string.Empty, 13, UiKit.TextColor);
+        _replyLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         _replyLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         column.AddChild(_replyLabel);
 
@@ -109,7 +109,7 @@ public partial class RepairDialog : Control
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
             Alignment = BoxContainer.AlignmentMode.End,
         };
-        buttons.AddThemeConstantOverride("separation", 10);
+        buttons.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(buttons);
         buttons.AddChild(UiKit.MakeButton("Cancel", Cancel));
         _okButton = UiKit.MakeButton("OK", Ok);

@@ -192,8 +192,8 @@ public partial class AreaMapView : Control
     public Control BuildStrip()
     {
         var grid = new GridContainer { Columns = StripColumns, SizeFlagsHorizontal = SizeFlags.ShrinkCenter };
-        grid.AddThemeConstantOverride("h_separation", 2);
-        grid.AddThemeConstantOverride("v_separation", 2);
+        grid.AddThemeConstantOverride("h_separation", AppTheme.DialogGap);
+        grid.AddThemeConstantOverride("v_separation", AppTheme.TableRowGap);
 
         foreach (var id in StripOrder)
         {

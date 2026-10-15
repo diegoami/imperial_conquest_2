@@ -137,7 +137,7 @@ public partial class RecruitUnitDialog : Control
 
         _selectedUnitTypeId = _model.UnitTypes[0].Id;
 
-        var backdrop = new ColorRect { Color = new Color(0f, 0f, 0f, 0.6f), MouseFilter = MouseFilterEnum.Stop };
+        var backdrop = new ColorRect { Color = AppTheme.Scrim, MouseFilter = MouseFilterEnum.Stop };
         backdrop.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(backdrop);
 
@@ -150,10 +150,10 @@ public partial class RecruitUnitDialog : Control
         center.AddChild(panel);
 
         var column = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        column.AddThemeConstantOverride("separation", 8);
+        column.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         panel.AddChild(column);
 
-        column.AddChild(UiKit.MakeLabel(StrategyDialogModels.RecruitUnitTitle, 18, UiKit.AccentColor));
+        column.AddChild(UiKit.MakeLabel(StrategyDialogModels.RecruitUnitTitle, AppTheme.Header, UiKit.AccentColor));
 
         // City dropdown: T155 (#515, #904) — the original's town list FUN_004544E0, not every owned
         // city: the capital, a town whose current fortification level is at or above the ruleset's
@@ -175,7 +175,7 @@ public partial class RecruitUnitDialog : Control
 
         // Type buttons: one per ruleset unit type, in the ruleset's own order.
         var typeRow = new HBoxContainer();
-        typeRow.AddThemeConstantOverride("separation", 6);
+        typeRow.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(typeRow);
         foreach (var type in _model.UnitTypes)
         {
@@ -205,11 +205,11 @@ public partial class RecruitUnitDialog : Control
         _troopBoundsLabel = UiKit.MakeLabel(string.Empty, color: UiKit.MutedTextColor);
         column.AddChild(_troopBoundsLabel);
 
-        _costLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.TextColor);
+        _costLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         column.AddChild(_costLabel);
 
         column.AddChild(new HSeparator());
-        column.AddChild(UiKit.MakeLabel("In training here", 14, UiKit.MutedTextColor));
+        column.AddChild(UiKit.MakeLabel("In training here", AppTheme.Body, UiKit.MutedTextColor));
 
         _trainingList = new ItemList { CustomMinimumSize = new Vector2(0, 140) };
         _trainingList.ItemSelected += index =>
@@ -222,7 +222,7 @@ public partial class RecruitUnitDialog : Control
 
         // The action buttons: each reads the same training list selection.
         var actionRow = new HBoxContainer();
-        actionRow.AddThemeConstantOverride("separation", 6);
+        actionRow.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(actionRow);
         _recruitButton = UiKit.MakeButton("Recruit unit", SubmitRecruit);
         actionRow.AddChild(_recruitButton);
@@ -231,12 +231,12 @@ public partial class RecruitUnitDialog : Control
         _disbandButton = UiKit.MakeButton("Disband", SubmitDisband);
         actionRow.AddChild(_disbandButton);
 
-        _mobTargetLabel = UiKit.MakeLabel(string.Empty, 12, UiKit.MutedTextColor);
+        _mobTargetLabel = UiKit.MakeLabel(string.Empty, AppTheme.Note, UiKit.MutedTextColor);
         _mobTargetLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         column.AddChild(_mobTargetLabel);
 
         column.AddChild(new HSeparator());
-        _replyLabel = UiKit.MakeLabel(string.Empty, 13, UiKit.TextColor);
+        _replyLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         _replyLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         column.AddChild(_replyLabel);
 
@@ -245,7 +245,7 @@ public partial class RecruitUnitDialog : Control
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
             Alignment = BoxContainer.AlignmentMode.End,
         };
-        buttons.AddThemeConstantOverride("separation", 10);
+        buttons.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(buttons);
         buttons.AddChild(UiKit.MakeButton("Cancel", Cancel));
         _okButton = UiKit.MakeButton("OK", Ok);

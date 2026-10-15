@@ -42,34 +42,34 @@ public partial class RulesetChooserScreen : Control
 
         var root = new VBoxContainer();
         root.SetAnchorsPreset(LayoutPreset.FullRect);
-        root.AddThemeConstantOverride("separation", 16);
+        root.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         AddChild(root);
 
         var margin = new MarginContainer();
-        margin.AddThemeConstantOverride("margin_left", 32);
-        margin.AddThemeConstantOverride("margin_right", 32);
-        margin.AddThemeConstantOverride("margin_top", 24);
-        margin.AddThemeConstantOverride("margin_bottom", 24);
+        margin.AddThemeConstantOverride("margin_left", AppTheme.ScreenMarginSide);
+        margin.AddThemeConstantOverride("margin_right", AppTheme.ScreenMarginSide);
+        margin.AddThemeConstantOverride("margin_top", AppTheme.ScreenMarginVertical);
+        margin.AddThemeConstantOverride("margin_bottom", AppTheme.ScreenMarginVertical);
         margin.SizeFlagsVertical = SizeFlags.ExpandFill;
         root.AddChild(margin);
 
         var column = new VBoxContainer();
-        column.AddThemeConstantOverride("separation", 16);
+        column.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         margin.AddChild(column);
 
         var header = new HBoxContainer();
-        header.AddThemeConstantOverride("separation", 16);
+        header.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(header);
 
-        var backButton = UiKit.MakeButton("< Back", () => BackRequested?.Invoke(), 14);
+        var backButton = UiKit.MakeButton("< Back", () => BackRequested?.Invoke(), AppTheme.Button);
         backButton.CustomMinimumSize = new Vector2(90, 34);
         header.AddChild(backButton);
 
-        var title = UiKit.MakeLabel("New Game — Choose a Ruleset", 26, UiKit.AccentColor);
+        var title = UiKit.MakeLabel("New Game — Choose a Ruleset", AppTheme.Header, UiKit.AccentColor);
         header.AddChild(title);
 
         var cards = new HBoxContainer();
-        cards.AddThemeConstantOverride("separation", 20);
+        cards.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         cards.SizeFlagsVertical = SizeFlags.ExpandFill;
         column.AddChild(cards);
 
@@ -78,7 +78,7 @@ public partial class RulesetChooserScreen : Control
             cards.AddChild(BuildCard(card));
         }
 
-        _continueButton = UiKit.MakeButton("Continue", OnContinuePressed, 18);
+        _continueButton = UiKit.MakeButton("Continue", OnContinuePressed, AppTheme.Button);
         _continueButton.SizeFlagsHorizontal = SizeFlags.ShrinkEnd;
         column.AddChild(_continueButton);
 
@@ -103,7 +103,7 @@ public partial class RulesetChooserScreen : Control
             SizeFlagsStretchRatio = 1f,
             ClipText = false,
         };
-        button.AddThemeConstantOverride("h_separation", 0);
+        button.AddThemeConstantOverride("h_separation", AppTheme.DialogGap);
         button.Pressed += () => SelectPreset(card.Preset);
         CardButtons[card.Preset] = button;
 
@@ -113,24 +113,24 @@ public partial class RulesetChooserScreen : Control
         // which left T24's first pass with bullet text flush against the card's left/top border.
         var margin = new MarginContainer();
         margin.SetAnchorsPreset(LayoutPreset.FullRect);
-        margin.AddThemeConstantOverride("margin_left", 16);
-        margin.AddThemeConstantOverride("margin_right", 16);
-        margin.AddThemeConstantOverride("margin_top", 14);
-        margin.AddThemeConstantOverride("margin_bottom", 14);
+        margin.AddThemeConstantOverride("margin_left", AppTheme.PanelMarginSide);
+        margin.AddThemeConstantOverride("margin_right", AppTheme.PanelMarginSide);
+        margin.AddThemeConstantOverride("margin_top", AppTheme.PanelMarginSide);
+        margin.AddThemeConstantOverride("margin_bottom", AppTheme.PanelMarginSide);
         button.AddChild(margin);
 
         var content = new VBoxContainer();
-        content.AddThemeConstantOverride("separation", 8);
+        content.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         margin.AddChild(content);
 
-        var name = UiKit.MakeLabel(card.DisplayName, 22, UiKit.TextColor);
+        var name = UiKit.MakeLabel(card.DisplayName, AppTheme.Header, UiKit.TextColor);
         name.HorizontalAlignment = HorizontalAlignment.Center;
         content.AddChild(name);
         CardTitleLabels[card.Preset] = name;
 
         foreach (var line in card.Summary)
         {
-            var label = UiKit.MakeLabel("• " + line, 13, UiKit.MutedTextColor);
+            var label = UiKit.MakeLabel("• " + line, AppTheme.Body, UiKit.MutedTextColor);
             label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
             content.AddChild(label);
         }

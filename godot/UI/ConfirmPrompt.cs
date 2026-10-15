@@ -48,7 +48,7 @@ public partial class ConfirmPrompt : Control
         // A dim full-rect backdrop: the map stays visible behind the prompt but is not clickable
         // while it is open (the overlay covers it), the same modal treatment MainGameScreen's other
         // overlays get.
-        var backdrop = new ColorRect { Color = new Color(0, 0, 0, 0.6f) };
+        var backdrop = new ColorRect { Color = AppTheme.Scrim };
         backdrop.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(backdrop);
 
@@ -61,10 +61,10 @@ public partial class ConfirmPrompt : Control
         box.AddChild(panel);
 
         var column = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        column.AddThemeConstantOverride("separation", 12);
+        column.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         panel.AddChild(column);
 
-        _questionLabel = UiKit.MakeLabel(Question, 16, UiKit.TextColor);
+        _questionLabel = UiKit.MakeLabel(Question, AppTheme.Body, UiKit.TextColor);
         _questionLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         column.AddChild(_questionLabel);
 
@@ -73,7 +73,7 @@ public partial class ConfirmPrompt : Control
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
             Alignment = BoxContainer.AlignmentMode.End,
         };
-        buttons.AddThemeConstantOverride("separation", 10);
+        buttons.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(buttons);
 
         var no = UiKit.MakeButton("No", () => Answer(yes: false));
