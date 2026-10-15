@@ -79,7 +79,7 @@ public static class AiEconomyPhase
 
         // T157 (#926): under the original's economy (classical-faithful) recruitment and the tax belong to
         // AiFaithfulEconomy, which AiTurn runs once a turn before the army phase, and the original never
-        // orders a fortification, so nothing below is proposed. Mobilisation above is unchanged.
+        // orders a fortification, so nothing below is proposed. Mobilisation above is gated by T171; AiTurn runs its faithful pass once before recruitment.
         if (view.Ruleset.Flags.AiEconomy == AiEconomyModel.Original)
         {
             return;
@@ -138,16 +138,25 @@ public static class AiEconomyPhase
     /// names the same requirement for this command.
     /// </para>
     /// </remarks>
-    private static void ProposeMobilization(AiView view, List<AiCandidate> into)
+    internal static void ProposeMobilization(AiView view, List<AiCandidate> into, bool? faithfulGate = null, int firstSlot = 0)
     {
         var nation = view.Nation;
         var recruitment = view.Ruleset.Recruitment;
         var asymmetry = view.Ruleset.Flags.SeatAsymmetry;
 
-        for (var slotIndex = 0; slotIndex < nation.RecruitmentSlots.Count; slotIndex++)
+        if (view.Ruleset.Flags.AiEconomy == AiEconomyModel.Original
+            && !(faithfulGate ?? (AiFaithfulEconomy.Own(view.State, view.Ruleset, view.NationId)
+                < AiFaithfulEconomy.Threat(view.State, view.Ruleset, view.NationId) && FaithfulMobilizationGate(view))))
+        {
+            return;
+        }
+
+        for (var slotIndex = firstSlot; slotIndex < nation.RecruitmentSlots.Count; slotIndex++)
         {
             var slot = nation.RecruitmentSlots[slotIndex];
-            if (!MobilizationReadiness.IsReady(slot.StateCode, nation.Control, recruitment, asymmetry))
+            if (view.Ruleset.Flags.AiEconomy == AiEconomyModel.Original
+                ? slot.Troops <= 0 || slot.StateCode != recruitment.MobilizationMinStateCodeAiSeat
+                : !MobilizationReadiness.IsReady(slot.StateCode, nation.Control, recruitment, asymmetry))
             {
                 continue;
             }
@@ -182,6 +191,40 @@ public static class AiEconomyPhase
                     "mobilize recruitment slot {0} ({1} {2} troops, state {3}) at {4}",
                     slotIndex, slot.Troops, slot.UnitTypeId, slot.StateCode, city.Id)));
         }
+    }
+
+    // [code]: research 0b0b55e, 2026-10-12-g4-followups.md case D; FUN_004504f4
+    // :53751-53782. One pre-scan over the whole queue, before any mobilisation: proximity to ANY
+    // ready slot opens the gate for ALL ready slots. Count only positive-troop state-24 entries.
+    internal static bool FaithfulMobilizationGate(AiView view)
+    {
+        var ready = 0;
+        var near = false;
+        foreach (var slot in view.Nation.RecruitmentSlots)
+        {
+            if (slot.Troops <= 0 || slot.StateCode != view.Ruleset.Recruitment.MobilizationMinStateCodeAiSeat)
+            {
+                continue;
+            }
+
+            ready++;
+            if (view.State.CityById(slot.TargetCityId) is not { } city)
+            {
+                continue;
+            }
+
+            foreach (var army in view.State.Armies)
+            {
+                if (string.Equals(army.Nation, view.NationId, StringComparison.Ordinal)
+                    && AiView.Distance(army.X, army.Y, city.X, city.Y)
+                    < view.Ruleset.Ai.FaithfulMobilizeArmyDistanceBelow)
+                {
+                    near = true;
+                }
+            }
+        }
+
+        return near || ready >= view.Ruleset.Ai.FaithfulMobilizeReadyCountAtLeast;
     }
 
     /// <summary>
