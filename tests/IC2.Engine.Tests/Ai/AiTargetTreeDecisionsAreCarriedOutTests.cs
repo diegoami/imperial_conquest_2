@@ -54,6 +54,7 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
             var captures = 0;
             var exceptions = new List<string>();
             var exempted = new List<string>();
+            var confirmedDestruction = new List<string>();
             var seatName = resolved.World.Nations.Single(n => string.Equals(n.Id, seat, StringComparison.Ordinal)).Name;
 
             for (var r = 1; r <= Rounds; r++)
@@ -98,6 +99,13 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
                             continue;
                         }
 
+                        if (IsSupersededByConfirmedDestruction(roundDecisions, decisionIndex,
+                            startOfRound, session.State, round, resolved.World))
+                        {
+                            confirmedDestruction.Add(Describe(r, decision));
+                            continue;
+                        }
+
                         exceptions.Add(Describe(r, decision));
                     }
                 }
@@ -108,10 +116,15 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
                 + $"{attackDecisions} attack decisions, {checkedDecisions} checked, {captures} AI captures, {carriedOut} carried out, "
                 + $"{allSkipped} candidates skipped by the reachability rule across all {allDecisions} logged decisions "
                 + $"({skipped} of them in attack decisions), "
-                + $"{exceptions.Count} exceptions, {exempted.Count} exempted (superseded, target unreachable)");
+                + $"{exceptions.Count} exceptions, {exempted.Count} exempted (superseded, target unreachable), {confirmedDestruction.Count} superseded by confirmed destruction");
             foreach (var exemption in exempted.Take(12))
             {
                 output.WriteLine("  exempted: " + exemption);
+            }
+
+            foreach (var destroyed in confirmedDestruction)
+            {
+                output.WriteLine("  confirmed destruction: " + destroyed);
             }
 
             foreach (var exception in exceptions.Take(12))
@@ -412,6 +425,139 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
         var view = new AiView(boundaryState, ruleset, world, decision.NationId);
         return !AiArmyTargetTree.IsReachable(view, army with { X = decision.ArmyX, Y = decision.ArmyY }, targetX, targetY);
     }
+
+
+    /// <summary>
+    /// T171 / issue 1122: an absent target alone proves nothing. Independently prove its original
+    /// identity, one accepted own-army destruction, and an actually carried-out later retarget.
+    /// This supplements, and does not change, the existing unreachable-target classification.
+    /// </summary>
+    internal static bool IsSupersededByConfirmedDestruction(
+        List<AiArmyTargetTree.DecisionRecord> decisions, int decisionIndex,
+        GameState start, GameState end, List<DomainEvent> round, World world)
+    {
+        var earlier = decisions[decisionIndex];
+        if (earlier.Kind != AiArmyTargetTree.Kind.AttackArmy || earlier.TargetArmyId is not { } targetId)
+            return false;
+
+        var target = UniqueArmy(start, targetId);
+        var subject = UniqueArmy(start, earlier.ArmyId);
+        if (target is null || subject is null || Same(target.Nation, earlier.NationId)
+            || !Same(subject.Nation, earlier.NationId)
+            || (subject.X, subject.Y) != (earlier.ArmyX, earlier.ArmyY)
+            || ResolveNation(world, target.Nation) != target.Nation
+            || ResolveNation(world, earlier.NationId) != earlier.NationId)
+            return false;
+
+        var boundaries = round.Select((e, i) => (e, i))
+            .Where(x => x.e is AiTurnDecided d && Same(d.NationId, earlier.NationId)).ToArray();
+        if (boundaries.Length != 1) return false;
+        var boundary = boundaries[0].i;
+        var turnStart = round.Take(boundary).Select((e, i) => (e, i))
+            .Where(x => x.e is AiTurnDecided).Select(x => x.i + 1).DefaultIfEmpty(0).Last();
+        var atBoundary = TurnBoundaryState(start, end, round, earlier.NationId);
+        if (atBoundary.ArmyById(targetId) is not null || end.ArmyById(targetId) is not null
+            || atBoundary.ArmyById(earlier.ArmyId) is null
+            || UniqueArmy(end, earlier.ArmyId) is not { } subjectEnd
+            || !Same(subjectEnd.Nation, earlier.NationId))
+            return false;
+
+        // A single field battle names the old target in the entire round. No creation, scattering
+        // or event after its death may silently substitute a different incarnation under the id.
+        var battles = round.Select((e, i) => (e, i)).Where(x =>
+            x.e is BattleResolved b && (Same(b.Result.AttackerId, targetId) || Same(b.Result.DefenderId, targetId))).ToArray();
+        if (battles.Length != 1 || battles[0].e is not BattleResolved destroyed) return false;
+        var death = battles[0].i;
+        var battle = destroyed.Result;
+        if (death < turnStart || death >= boundary || battle.Kind != BattleKind.Field
+            || battle.LoserFate != LoserFate.Destroyed || !Same(battle.LoserId, targetId)
+            || Same(battle.WinnerId, earlier.ArmyId)
+            || ResolveNation(world, battle.LoserNationId) != target.Nation
+            || ResolveNation(world, battle.WinnerNationId) != earlier.NationId
+            || UniqueArmy(start, battle.WinnerId) is not { } winner
+            || !Same(winner.Nation, earlier.NationId))
+            return false;
+
+        var targetPosition = (target.X, target.Y);
+        for (var i = 0; i < round.Count; i++)
+        {
+            switch (round[i])
+            {
+                case RecruitMobilized { ArmyWasCreated: true } c
+                    when Same(c.ArmyId, targetId) || Same(c.ArmyId, earlier.ArmyId) || Same(c.ArmyId, winner.Id):
+                    return false;
+                case ArmyScattered s when Same(s.ArmyId, targetId) || Same(s.ArmyId, earlier.ArmyId):
+                    return false;
+                case ArmyMoved m when Same(m.ArmyId, targetId):
+                    if (i >= death || ResolveNation(world, m.NationId) != target.Nation
+                        || (m.FromX, m.FromY) != targetPosition)
+                        return false;
+                    targetPosition = (m.ToX, m.ToY);
+                    break;
+            }
+        }
+
+        if (targetPosition != (earlier.TargetArmyX, earlier.TargetArmyY)) return false;
+
+        var subjectMoves = round.Select((e, i) => (e, i))
+            .Where(x => x.e is ArmyMoved m && Same(m.ArmyId, earlier.ArmyId)).ToArray();
+        var subjectBattles = round.Select((e, i) => (e, i)).Where(x =>
+            x.e is BattleResolved b && (Same(b.Result.AttackerId, earlier.ArmyId)
+                || Same(b.Result.DefenderId, earlier.ArmyId))).ToArray();
+
+        // Compare log positions, not value-equal records: each of the two earlier duplicate AttackArmy
+        // records in Rome seed 123 must find a strictly later DIFFERENT target independently.
+        foreach (var later in decisions.Skip(decisionIndex + 1))
+        {
+            if (!Same(later.NationId, earlier.NationId) || !Same(later.ArmyId, earlier.ArmyId)
+                || (later.ArmyX, later.ArmyY) != (earlier.ArmyX, earlier.ArmyY)
+                || later.Kind is not (AiArmyTargetTree.Kind.AttackArmy or AiArmyTargetTree.Kind.AttackCity))
+                continue;
+            var city = later.Kind == AiArmyTargetTree.Kind.AttackCity;
+            var newTarget = city ? later.TargetCityId : later.TargetArmyId;
+            if (string.IsNullOrEmpty(newTarget) || Same(newTarget, targetId)) continue;
+            var tx = city ? later.TargetCityX : later.TargetArmyX;
+            var ty = city ? later.TargetCityY : later.TargetArmyY;
+
+            if (subjectMoves.Length == 1 && subjectBattles.Length == 0
+                && subjectMoves[0].e is ArmyMoved moved
+                && subjectMoves[0].i > death && subjectMoves[0].i < boundary
+                && ResolveNation(world, moved.NationId) == earlier.NationId
+                && (moved.FromX, moved.FromY) == (earlier.ArmyX, earlier.ArmyY)
+                && moved.MovesSpent > 0
+                && Distance(moved.ToX, moved.ToY, tx, ty) < Distance(moved.FromX, moved.FromY, tx, ty)
+                && (subjectEnd.X, subjectEnd.Y) == (moved.ToX, moved.ToY))
+                return true;
+
+            if (subjectMoves.Length == 0 && subjectBattles.Length == 1
+                && subjectBattles[0].e is BattleResolved attack
+                && subjectBattles[0].i > death && subjectBattles[0].i < boundary
+                && attack.Result.Kind == (city ? BattleKind.Siege : BattleKind.Field)
+                && Same(attack.Result.AttackerId, earlier.ArmyId) && Same(attack.Result.DefenderId, newTarget)
+                && ResolveNation(world, attack.Result.AttackerNationId) == earlier.NationId
+                && ResolveNation(world, attack.Result.DefenderNationId) is { } defender
+                && !Same(defender, earlier.NationId)
+                && (subjectEnd.X, subjectEnd.Y) == (earlier.ArmyX, earlier.ArmyY))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static ArmyState? UniqueArmy(GameState state, string id)
+    {
+        var matches = state.Armies.Where(a => Same(a.Id, id)).ToArray();
+        return matches.Length == 1 ? matches[0] : null;
+    }
+
+    // BattleResult currently uses nation ids; accepting a display name requires a unique world
+    // mapping too. Never infer identity from a matching id alone when another nation's name collides.
+    private static string? ResolveNation(World world, string value)
+    {
+        var matches = world.Nations.Where(n => Same(n.Id, value) || Same(n.Name, value)).ToArray();
+        return matches.Length == 1 ? matches[0].Id : null;
+    }
+
 
     private static int Distance(int ax, int ay, int bx, int by) => Math.Max(Math.Abs(ax - bx), Math.Abs(ay - by));
 
