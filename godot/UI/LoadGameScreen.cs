@@ -144,15 +144,12 @@ public partial class LoadGameScreen : Control
     /// </summary>
     private void OnContinuePressed(string path)
     {
-        var outcome = LoadGameModel.Open(path, GameDataContext.Repository);
+        var outcome = LoadGameModel.Open(path, GameDataContext.Repository, HumanBattleMode.Tactical);
         if (outcome.Session is not { } session)
         {
             _messageLabel.Text = outcome.Message;
             return;
         }
-
-        // T127: the Godot UI fights human battles on the board.
-        session = WithTacticalBattles(session, path);
 
         // Only a remake .json is written back to by Save (bug #919); an imported original .sav is never
         // overwritten, so Save writes a new .json as it does for a new game.
@@ -168,34 +165,6 @@ public partial class LoadGameScreen : Control
             + $"Active seat: {session.State.NationById(session.State.ActiveNationId)?.Name ?? session.State.ActiveNationId}.";
 
         GameResumed?.Invoke(session);
-    }
-
-    /// <summary>
-    /// T127: <see cref="GameSession.HumanBattles"/> can only be set when a session is built (<c>init</c>), and
-    /// <see cref="LoadGameModel"/> builds the sessions this screen resumes, so the session is built once more here from
-    /// the same file with <see cref="HumanBattleMode.Tactical"/>. A save that holds an open battle reopens it either
-    /// way. If the second build fails for any reason the first session is kept, as it was.
-    /// </summary>
-    private static GameSession WithTacticalBattles(GameSession session, string path)
-    {
-        try
-        {
-            var save = path.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
-                ? SaveManager.LoadFile(path, session.World, session.Ruleset)
-                : IC2.Engine.Import.OriginalSaveImporter.Import(
-                    File.ReadAllBytes(path),
-                    Path.GetFileName(path),
-                    session.World,
-                    session.Ruleset,
-                    session.Scenario,
-                    saveId: "imported-" + Path.GetFileNameWithoutExtension(path),
-                    saveLabel: "Imported " + Path.GetFileNameWithoutExtension(path)).Save;
-            return new GameSession(session.World, session.Ruleset, session.Scenario, save) { HumanBattles = HumanBattleMode.Tactical };
-        }
-        catch (Exception)
-        {
-            return session;
-        }
     }
 
     /// <summary>
