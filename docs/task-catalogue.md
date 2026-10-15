@@ -1323,7 +1323,7 @@ Sea terrain ids (from #1068, deferred from T81; ships in `v0.6.0`) → [full ent
 
 #### T171 Faithful AI mobilises ready recruits only under the original threat and proximity gates
 
-Correction from [issue 1084](https://github.com/diegoami/imperial_conquest_2/issues/1084); merges after T157 and logging fix [1120](https://github.com/diegoami/imperial_conquest_2/issues/1120) → [full entry](tasks/T171.md).
+Correction from [issue 1084](https://github.com/diegoami/imperial_conquest_2/issues/1084); merges after T157 and logging fix [1120](https://github.com/diegoami/imperial_conquest_2/issues/1120). Includes the narrowly proved destroyed-target checker case from [1122](https://github.com/diegoami/imperial_conquest_2/issues/1122) and regeneration of the two directly affected CLI transcripts → [full entry](tasks/T171.md).
 
 #### T172 Faithful rebirth preserves one-sided relations and round-trips them through saves
 
