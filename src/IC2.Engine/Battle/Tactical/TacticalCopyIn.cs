@@ -102,7 +102,9 @@ public static class TacticalCopyIn
             Placed: false,
             Counter: 0,
             IsOver: false,
-            ValueList.From(Enumerable.Repeat(TacticalSlot.Empty, slotCount)),
+            // Fresh BATTLE01 blocks retain zero targets on every idle attacker slot (T173, bug #1103).
+            // FUN_00437DE4 leaves word 9 untouched; FUN_00439968 clears all slots of a side at setup.
+            ValueList.From(Enumerable.Repeat(TacticalSlot.Empty with { Target = 0 }, slotCount)),
             ValueList.From(Enumerable.Repeat(TacticalIcon.Empty, cellCount)),
             ValueList.From(computer),
             ValueList.From(new[] { false, false }),
@@ -181,7 +183,7 @@ public static class TacticalCopyIn
                 morale,
                 Moves: 0,
                 Shots: context.ShotsOf(type),
-                Target: TacticalSlot.NoTarget,
+                Target: board.Slots[first + s].Target,
                 unit.Name);
             board.PaintIcon(first + s);
             board.Log.Add(new TacticalCopiedInEvent(first + s, x, y, morale));
