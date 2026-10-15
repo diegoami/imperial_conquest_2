@@ -51,4 +51,3 @@ public class BoundaryFixtureTests
         TacticalTestbed.AssertGridMatchesSlots(after);
     }
 }
-
