@@ -151,9 +151,6 @@ public partial class LoadGameScreen : Control
             return;
         }
 
-        // T127: the Godot UI fights human battles on the board.
-        session = WithTacticalBattles(session, path);
-
         // Only a remake .json is written back to by Save (bug #919); an imported original .sav is never
         // overwritten, so Save writes a new .json as it does for a new game.
         LastLoadedPath = path.EndsWith(".json", StringComparison.OrdinalIgnoreCase) ? path : null;
