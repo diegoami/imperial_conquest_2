@@ -12,7 +12,8 @@ public partial class DialogFitCheck : Control
 {
     private const int SettleFrames = 12;
     // Measured by this check at pre-theme checkpoint d2643be, fixed 340px context panel, same fixture/23 labels.
-    // Headless viewport was 1500x1500; the content's width (and hence wrapped minimum height) is unchanged.
+    // Baseline viewport was 1500x1500. Both runs retain the 340px panel floor;
+    // any scrollbar narrows text width, making the height comparison conservative.
     private const float BeforeArmyHeight = 661;
     private readonly Queue<Func<Control>> _cases = new();
     private readonly HashSet<string> _covered = new(StringComparer.Ordinal);
