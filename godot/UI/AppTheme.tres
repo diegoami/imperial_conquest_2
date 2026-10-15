@@ -56,6 +56,7 @@ App/font_sizes/menu = 14
 App/font_sizes/spacer = 3
 App/constants/panel_gap = 3
 App/constants/dialog_gap = 4
+App/constants/menu_gap = 2
 App/constants/table_row_gap = 1
 App/constants/panel_margin_side = 12
 App/constants/panel_margin_vertical = 10

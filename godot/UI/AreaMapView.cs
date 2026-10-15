@@ -36,7 +36,7 @@ namespace IC2.Slice.UI;
 public partial class AreaMapView : Control
 {
     private static readonly Color ViewRectColor = new(1f, 0.9f, 0.3f);
-    private static readonly Color BorderColor = new(0f, 0f, 0f, 0.65f);
+    private static readonly Color BorderColor = AppTheme.Scrim;
 
     /// <summary>The tile colour for a terrain name the map does not know (the tile-type list is open).</summary>
     private static readonly Color UnknownTerrainColor = new(0.24f, 0.24f, 0.24f);

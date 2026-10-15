@@ -20,6 +20,7 @@ public static class AppTheme
     public static int Spacer => Size("spacer");
     public static int PanelGap => Metric("panel_gap");
     public static int DialogGap => Metric("dialog_gap");
+    public static int MenuGap => Metric("menu_gap");
     public static int TableRowGap => Metric("table_row_gap");
     public static int PanelMarginSide => Metric("panel_margin_side");
     public static int PanelMarginVertical => Metric("panel_margin_vertical");

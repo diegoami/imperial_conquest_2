@@ -43,7 +43,7 @@ public partial class UnitCommandStrip : PanelContainer
     public override void _Ready()
     {
         _row = new HBoxContainer();
-        _row.AddThemeConstantOverride("separation", 4);
+        _row.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         AddChild(_row);
         Rebuild();
     }
