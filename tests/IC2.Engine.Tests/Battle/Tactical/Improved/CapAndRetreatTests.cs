@@ -116,6 +116,25 @@ public sealed class CapAndRetreatTests
     }
 
     [Fact]
+    public void Cap_skips_a_peace_draw_that_an_ordinary_victory_would_take()
+    {
+        var r=Changed(t=>t with {HalfRoundCap=100});
+        r=r with {Combat=r.Combat with {AutoPeaceLoserUnityThreshold=0,AutoPeaceLoserCityThreshold=-1}};
+        var f=Make(r,new[] {ArmyUnit("light_infantry",3000)},new[] {ArmyUnit("heavy_infantry",6000)});
+        var reserve=f.Game.ArmyById("north-army-1")! with {Id="north-reserve",X=7,Y=5,Morale=99,Units=ValueList.Of(ArmyUnit("heavy_infantry",100000))};
+        f=f with {Game=f.Game with {Armies=ValueList.From(f.Game.Armies.Append(reserve))}};
+        var state=Bind(Arena((0,Unit(LI,0,0,3000)),(D0,Unit(HI,13,11,6000)))) with {Counter=100};
+        var capped=Reopen(state,f);Assert.True(capped.EndHalfRound().Accepted);
+        var capDraws=new ExpectedDraws((3,0));var capResult=capped.Conclude(f.Game,r,capDraws,f.World);
+        Assert.Equal(0,capDraws.Remaining);Assert.False(capResult.PeaceDrawn);Assert.False(capResult.PeaceOffered);
+        Assert.True(capResult.Report!.Capped);
+        var natural=Reopen(state,f);Assert.True(natural.Surrender().Accepted);
+        var normalDraws=new ExpectedDraws((4,0),(5,0));var normalResult=natural.Conclude(f.Game,r,normalDraws,f.World);
+        Assert.Equal(0,normalDraws.Remaining);Assert.True(normalResult.PeaceDrawn);Assert.True(normalResult.PeaceOffered);
+        Assert.False(normalResult.Report!.Capped);
+    }
+
+    [Fact]
     public void Natural_victory_during_the_cap_half_round_takes_priority_and_keeps_normal_rewards()
     {
         var f = Make(Changed(t => t with { HalfRoundCap = 100 }),new[] { ArmyUnit("heavy_infantry",6000) },new[] { ArmyUnit("light_infantry",1) });
@@ -233,6 +252,17 @@ public sealed class CapAndRetreatTests
     }
 
     [Fact]
+    public void Routed_winners_do_not_pursue_and_small_units_can_lose_zero_troops()
+    {
+        var context=TacticalContext.From(Changed(t=>t with {RetreatLosses=true}));
+        var state=Arena((D0,Unit(HI,3,3,1000)));
+        state=state with {Slots=ValueList.From(state.Slots.Select((s,i)=>i==0?s with {RoutedTroops=1000}:s))};
+        Assert.Equal(50,RetreatLosses.Fraction(state,0,1000,context));
+        var units=ValueList.Of(ArmyUnit("light_infantry",1),ArmyUnit("heavy_infantry",19));
+        Assert.Equal(units,RetreatLosses.Apply(units,state,0,context));
+    }
+
+    [Fact]
     public void A_real_rout_saved_at_the_start_restores_exactly_and_reaches_the_same_cap_and_outcome()
     {
         var f=Make(Preset("improved"),new[] { ArmyUnit("light_infantry",3000) },new[] { ArmyUnit("heavy_infantry",1000),ArmyUnit("heavy_infantry",6000) });
@@ -259,6 +289,154 @@ public sealed class CapAndRetreatTests
         var b=restored.Conclude(loaded.State,f.Rules,new Zeros(),f.World);
         Assert.Equal(a.State,b.State);
         Assert.Equal(a.Report! with { ExchangeLog=ValueList<TacticalEvent>.Empty },b.Report! with { ExchangeLog=ValueList<TacticalEvent>.Empty });
+    }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public void Escape_or_boxed_destruction_clears_only_the_losing_armys_fleet_claim(bool boxed)
+    {
+        var r=Changed(t=>t with { RetreatLosses=true });
+        var f=Make(r,new[] {ArmyUnit("light_infantry",1000)},new[] {ArmyUnit("heavy_infantry",1000),ArmyUnit("heavy_infantry",6000)});
+        var carrier=f.Game.Fleets.Single(x=>x.Nation=="south") with {CarriedArmyId="south-army-1"};
+        var unrelated=f.Game.Fleets.Single(x=>x.Nation=="north");
+        f=f with {Game=f.Game with {
+            Fleets=ValueList.From(f.Game.Fleets.Select(x=>x.Id==carrier.Id?carrier:x)),
+            Armies=ValueList.From(f.Game.Armies.Select(x=>x.Id=="south-army-1"?x with {AboardFleetId=carrier.Id}:x))}};
+        var state=Bind(Arena((0,Unit(LI,3,3,1000,morale:99)),(D0,Unit(HI,3,4,1000,morale:0)),(D0+1,Unit(HI,4,4,6000,morale:99)))) with {SideToMove=1};
+        state=TacticalRout.Rout(state,D0,TacticalContext.From(r),NoDraws.Instance);
+        var session=Reopen(state,f);Assert.True(session.Surrender().Accepted);
+        var world=boxed?f.World with {TileTypes=ValueList.From(f.World.TileTypes.Select(t=>t with {PassableByArmies=false}))}:f.World;
+        var result=session.Conclude(f.Game,r,new Zeros(),world);
+        Assert.Null(result.State!.FleetById(carrier.Id)!.CarriedArmyId);
+        Assert.Equal(unrelated,result.State.FleetById(unrelated.Id));
+        if(boxed)
+        {
+            Assert.Null(result.State.ArmyById("south-army-1"));
+            Assert.Single(result.Events.OfType<BattleArmyDestroyed>());
+            Assert.Empty(result.Events.OfType<ArmyScattered>());
+            Assert.Equal(0,result.Report!.LoserFinishTotal);
+        }
+        else
+        {
+            var escaped=result.State.ArmyById("south-army-1")!;
+            Assert.Null(escaped.AboardFleetId);
+            var terrain=world.Terrain.Decode(world.Width,world.Height);
+            Assert.Equal(terrain[escaped.Y*world.Width+escaped.X],escaped.CoveredTileCode);
+            Assert.Single(result.Events.OfType<ArmyScattered>());
+            Assert.Empty(result.Events.OfType<BattleArmyDestroyed>());
+        }
+        GameDataValidation.Validate("fleet-cleanup.json",result.State);
+    }
+
+    [Fact]
+    public void A_zero_remnant_is_destroyed_without_drawing_a_scatter_distance()
+    {
+        var r=Changed(t=>t with {RetreatLosses=true,RetreatLossBase=1000,RetreatLossCap=1000,RetreatLossPursuit=0});
+        GameDataValidation.Validate("full-loss-policy.json",r);
+        var f=Make(r,new[] {ArmyUnit("light_infantry",1000)},new[] {ArmyUnit("heavy_infantry",1000),ArmyUnit("heavy_infantry",6000)});
+        var state=Bind(Arena((0,Unit(LI,3,3,1000,morale:99)),(D0,Unit(HI,3,4,1000,morale:0)),(D0+1,Unit(HI,4,4,6000,morale:99)))) with {SideToMove=1};
+        state=TacticalRout.Rout(state,D0,TacticalContext.From(r),NoDraws.Instance);
+        var session=Reopen(state,f);Assert.True(session.Surrender().Accepted);
+        var draws=new Zeros();var result=session.Conclude(f.Game,r,draws,f.World);
+        Assert.Equal(new[] {4},draws.Bounds);
+        Assert.Null(result.State!.ArmyById("south-army-1"));
+        Assert.Equal(0,result.Report!.LoserFinishTotal);
+        Assert.Single(result.Events.OfType<BattleArmyDestroyed>());
+        Assert.Empty(result.Events.OfType<ArmyScattered>());
+        GameDataValidation.Validate("empty-remnant.json",result.State);
+    }
+
+    [Fact]
+    public void Promotion_then_peace_then_scatter_draws_exclude_rejoined_units_from_promotion()
+    {
+        var r=Changed(t=>t with {RetreatLosses=true,WinnerRoutedUnitsRejoin=true});
+        r=r with {Combat=r.Combat with {AutoPeaceLoserUnityThreshold=0,AutoPeaceLoserCityThreshold=-1}};
+        var f=Make(r,new[] {ArmyUnit("heavy_infantry",1000),ArmyUnit("archers",500)},new[] {ArmyUnit("heavy_infantry",1000),ArmyUnit("heavy_infantry",1000)});
+        var reserve=f.Game.ArmyById("south-army-1")! with {Id="south-reserve",X=7,Y=5,Morale=99,Units=ValueList.Of(ArmyUnit("heavy_infantry",100000))};
+        f=f with {Game=f.Game with {Armies=ValueList.From(f.Game.Armies.Append(reserve))}};
+        var state=Bind(Arena((0,Unit(HI,3,3,1000,morale:99)),(1,Unit(AR,4,3,500,morale:0)),
+            (D0,Unit(HI,3,4,1000,morale:0)),(D0+1,Unit(HI,4,4,1000,morale:99)))) with {SideToMove=1};
+        var context=TacticalContext.From(r);
+        state=TacticalRout.Rout(state,1,context,NoDraws.Instance);
+        state=TacticalRout.Rout(state,D0,context,NoDraws.Instance);
+        var session=Reopen(state,f);Assert.True(session.Surrender().Accepted);
+        var draws=new ExpectedDraws((4,0),(5,0),(3,1));
+        var result=session.Conclude(f.Game,r,draws,f.World);
+        Assert.Equal(0,draws.Remaining);
+        Assert.True(result.PeaceDrawn);Assert.True(result.PeaceOffered);
+        Assert.Single(result.Report!.Promotions);
+        Assert.Equal(5,result.State!.ArmyById("north-army-1")!.Units[1].Quality);
+        Assert.Single(result.Events.OfType<PeaceTreatyOffered>());
+        Assert.Single(result.Events.OfType<ArmyScattered>());
+    }
+
+    [Fact]
+    public void Peace_gates_see_the_loser_removed_before_its_large_remnant_is_restored()
+    {
+        var r=Changed(t=>t with {RetreatLosses=true});
+        r=r with {Combat=r.Combat with {AutoPeaceLoserUnityThreshold=0,AutoPeaceLoserCityThreshold=-1}};
+        var f=Make(r,new[] {ArmyUnit("heavy_infantry",1000)},new[] {ArmyUnit("heavy_infantry",10000),ArmyUnit("heavy_infantry",1000)});
+        var state=Bind(Arena((0,Unit(HI,3,3,1000,morale:99)),(D0,Unit(HI,3,4,10000,morale:0)),(D0+1,Unit(HI,4,4,1000,morale:99)))) with {SideToMove=1};
+        state=TacticalRout.Rout(state,D0,TacticalContext.From(r),NoDraws.Instance);
+        var session=Reopen(state,f);Assert.True(session.Surrender().Accepted);
+        var draws=new ExpectedDraws((4,0),(3,0));var result=session.Conclude(f.Game,r,draws,f.World);
+        Assert.Equal(0,draws.Remaining);Assert.False(result.PeaceDrawn);
+        Assert.True(result.State!.ArmyById("south-army-1")!.TotalTroops>result.State.ArmyById("north-army-1")!.TotalTroops);
+    }
+
+    [Fact]
+    public void Saved_routed_counts_reject_negative_live_excess_and_nonexistent_original_units()
+    {
+        var f=Make(Changed(t=>t with {RetreatLosses=true}),new[] {ArmyUnit("light_infantry",1000)},new[] {ArmyUnit("heavy_infantry",1000)});
+        var session=Reopen(Bind(Arena((0,Unit(LI,3,3,1000)),(D0,Unit(HI,3,4,1000)))),f);
+        var save=Save(f,session);
+        foreach(var invalid in new[] {(Index:0,Troops:0,Routed:-1),(Index:0,Troops:1000,Routed:1),(Index:0,Troops:0,Routed:1001),(Index:1,Troops:0,Routed:1)})
+        {
+            var slots=ValueList.From(save.Battle!.Slots.Select((s,i)=>i==invalid.Index?s with {Troops=invalid.Troops,RoutedTroops=invalid.Routed}:s));
+            var bad=save with {Battle=save.Battle with {Slots=slots}};
+            var error=Assert.Throws<MalformedGameDataException>(()=>SaveManager.Load("invalid-routes.json",SaveManager.Serialize(bad),f.World,f.Rules));
+            Assert.Contains("routedTroops",error.Message,StringComparison.Ordinal);
+        }
+    }
+
+    [Theory]
+    [InlineData("cap")] [InlineData("denominator")] [InlineData("base")] [InlineData("ceiling")]
+    [InlineData("pursuit")] [InlineData("missingWeights")] [InlineData("weightCount")] [InlineData("negativeWeight")] [InlineData("overflow")]
+    public void Invalid_new_tactical_policy_fields_are_rejected(string defect)
+    {
+        var r=Changed(t=>t with {RetreatLosses=true});var t=r.Combat.Tactical;
+        t=defect switch
+        {
+            "cap"=>t with {HalfRoundCap=-1}, "denominator"=>t with {RetreatLossDenominator=0},
+            "base"=>t with {RetreatLossBase=-1}, "ceiling"=>t with {RetreatLossCap=1001},
+            "pursuit"=>t with {RetreatLossPursuit=-1}, "missingWeights"=>t with {RetreatPursuitWeights=null},
+            "weightCount"=>t with {RetreatPursuitWeights=ValueList.Of(1)},
+            "negativeWeight"=>t with {RetreatPursuitWeights=ValueList.Of(1,1,2,-1,3)},
+            _=>t with {RetreatLossPursuit=int.MaxValue,RetreatPursuitWeights=ValueList.Of(int.MaxValue,int.MaxValue,int.MaxValue,int.MaxValue,int.MaxValue)},
+        };
+        r=r with {Combat=r.Combat with {Tactical=t}};
+        Assert.Throws<MalformedGameDataException>(()=>GameDataValidation.Validate("bad-tactical-policy.json",r));
+    }
+
+    [Fact]
+    public void Classical_saves_omit_new_routed_fields_and_legacy_missing_fields_default_to_zero()
+    {
+        var f=Make(Classical,new[] {ArmyUnit("light_infantry",1000)},new[] {ArmyUnit("heavy_infantry",1000)});
+        var session=Reopen(Bind(Arena((0,Unit(LI,3,3,1000)),(D0,Unit(HI,3,4,1000)))),f);
+        var text=SaveManager.Serialize(Save(f,session));
+        Assert.DoesNotContain("routedTroops",text,StringComparison.Ordinal);
+        var loaded=SaveManager.Load("classical-legacy.json",text,f.World,f.Rules);
+        Assert.All(loaded.Battle!.Slots,s=>Assert.Equal(0,s.RoutedTroops));
+        var resumed=TacticalBattleSession.Reopen(loaded.State,f.Rules,loaded.Battle,TacticalBattleSession.RulesetAsksForExactRestore(f.Rules));
+        Assert.Equal(loaded.Battle.Counter+1,resumed.Battle.Counter);
+    }
+
+    private sealed class ExpectedDraws:IBattleDraws
+    {
+        private readonly Queue<(int Bound,int Result)> _expected;
+        public ExpectedDraws(params (int Bound,int Result)[] expected)=>_expected=new(expected);
+        public int Remaining=>_expected.Count;
+        public int Random(int n){Assert.NotEmpty(_expected);var next=_expected.Dequeue();Assert.Equal(next.Bound,n);return next.Result;}
     }
 
     private sealed class Zeros:IBattleDraws
