@@ -1262,6 +1262,14 @@ public sealed record DetailedResolverRules(
 /// <param name="WideArithmetic">[designed, user decision 496] Compute combat products in 64 bits and the shot minimum in 32 bits.</param>
 /// <param name="PlacementStacks">Keep original stacked formations, or find the next empty home cell in row order.</param>
 /// <param name="SlowAdvance">Apply the original computer slow-advance window; false gives full moves from the start.</param>
+/// <param name="HalfRoundCap">Zero preserves unlimited play; otherwise completed half-rounds, including placement, before attacker withdrawal.</param>
+/// <param name="RetreatLosses">Recover the losing side's positive routed troops and apply deterministic pursuit losses; surrendered live troops are captured.</param>
+/// <param name="WinnerRoutedUnitsRejoin">The winner's routed troops rejoin after promotion and peace, without promotion draws.</param>
+/// <param name="RetreatPursuitWeights">Per-type pursuit weight in unitTypes order; counts only the winner's live on-board troops.</param>
+/// <param name="RetreatLossBase">Base loss numerator over RetreatLossDenominator.</param>
+/// <param name="RetreatLossPursuit">Pursuit numerator, multiplied by weighted winner troops and divided by remnant troops.</param>
+/// <param name="RetreatLossCap">Maximum loss numerator over RetreatLossDenominator.</param>
+/// <param name="RetreatLossDenominator">Fraction unit, 1000 for the approved permille policy. All retreat parameters are [designed], approved on PR 1142; the original has no pursuit rule.</param>
 public sealed record TacticalBattleRules(
     int BoardWidth,
     int BoardHeight,
@@ -1308,6 +1316,14 @@ public sealed record TacticalBattleRules(
     bool WideArithmetic = false,
     bool PlacementStacks = true,
     bool SlowAdvance = true,
+    int HalfRoundCap = 0,
+    bool RetreatLosses = false,
+    bool WinnerRoutedUnitsRejoin = false,
+    ValueList<int>? RetreatPursuitWeights = null,
+    int RetreatLossBase = 50,
+    int RetreatLossPursuit = 100,
+    int RetreatLossCap = 500,
+    int RetreatLossDenominator = 1000,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>

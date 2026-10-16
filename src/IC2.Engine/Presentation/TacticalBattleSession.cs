@@ -330,7 +330,7 @@ public sealed class TacticalBattleSession
             saved.Counter,
             IsOver: false,
             ValueList.From(saved.Slots.Select(s => new TacticalSlot(
-                s.X, s.Y, s.Origin, s.Type, s.Troops, s.Quality, s.Morale, s.Moves, s.Shots, s.Target, s.Name))),
+                s.X, s.Y, s.Origin, s.Type, s.Troops, s.Quality, s.Morale, s.Moves, s.Shots, s.Target, s.Name, s.RoutedTroops))),
             saved.Grid,
             saved.ComputerControlled,
             saved.ComputerGeneral,
@@ -349,7 +349,7 @@ public sealed class TacticalBattleSession
             Battle.Placed,
             Battle.Counter,
             ValueList.From(Battle.Slots.Select(s => new SavedTacticalSlot(
-                s.X, s.Y, s.Origin, s.Type, s.Troops, s.Quality, s.Morale, s.Moves, s.Shots, s.Target, s.Name))),
+                s.X, s.Y, s.Origin, s.Type, s.Troops, s.Quality, s.Morale, s.Moves, s.Shots, s.Target, s.Name, s.RoutedTroops))),
             Battle.Grid,
             Battle.ComputerControlled,
             Battle.ComputerGeneral,
@@ -549,7 +549,8 @@ public sealed class TacticalBattleSession
     /// <param name="ruleset">The ruleset.</param>
     /// <param name="draws">Optional draws for this conclusion only; otherwise the live battle stream continues.</param>
     /// <returns>The conclusion.</returns>
-    public TacticalBattleConclusion Conclude(GameState game, Ruleset ruleset, IBattleDraws? draws = null)
+    /// <param name="world">The session world, needed only when a tactical remnant scatters.</param>
+    public TacticalBattleConclusion Conclude(GameState game, Ruleset ruleset, IBattleDraws? draws = null, World? world = null)
     {
         ArgumentNullException.ThrowIfNull(game);
         ArgumentNullException.ThrowIfNull(ruleset);
@@ -558,6 +559,10 @@ public sealed class TacticalBattleSession
         {
             return new TacticalBattleConclusion(null, null, false, false, Array.Empty<DomainEvent>(), "The battle has not ended.");
         }
+
+        // The new survival/cap policies use the same command boundary, with retreat after the ordinary peace draw.
+        if (Battle.Capped || _context.Rules.RetreatLosses || _context.Rules.WinnerRoutedUnitsRejoin)
+            return ConcludeSurvivors(game, ruleset, draws ?? _draws, world);
 
         // The promotions and the following peace draw share the supplied generator, or the live battle stream.
         var conclusionDraws = draws ?? _draws;
@@ -610,6 +615,40 @@ public sealed class TacticalBattleSession
         return new TacticalBattleConclusion(after, report, offered, drawn, events, null);
     }
 
+    /// <summary>combat.tactical survival/cap policies: promotion, optional peace, rejoining/retreat, scatter.</summary>
+    private TacticalBattleConclusion ConcludeSurvivors(GameState game, Ruleset ruleset, IBattleDraws draws, World? world)
+    {
+        TacticalWriteBackResult? written = null;
+        var offered = false;
+        var drawn = false;
+        var sink = new RecordingEventSink();
+        var command = new ApplyTacticalBattleCommand(game.ActiveNationId, Battle.AttackerArmyId, Battle.DefenderArmyId, (state, events) =>
+        {
+            written = TacticalWriteBack.Apply(state, Battle, _context, draws, events);
+            var afterVictory = written.Game;
+            var report = written.Report;
+            var winner = afterVictory.NationById(report.WinnerNationId)!;
+            var loser = afterVictory.NationById(report.LoserNationId)!;
+            var combat = ruleset.Combat;
+            if (!Battle.Capped && (winner.Control == SeatControl.Human) != (loser.Control == SeatControl.Human)
+                && TotalArmyPower(afterVictory, winner.Id, ruleset) < TotalArmyPower(afterVictory, loser.Id, ruleset)
+                && loser.Unity > combat.AutoPeaceLoserUnityThreshold
+                && afterVictory.CountCitiesOwnedBy(loser.Id) > combat.AutoPeaceLoserCityThreshold)
+            {
+                drawn = true;
+                offered = draws.Random(combat.AutoPeaceChanceDenominator) < combat.AutoPeaceChanceNumerator;
+            }
+            written = TacticalWriteBack.CompleteSurvivors(written, state, _context, draws, world, events);
+            return written.Game;
+        });
+        var outcome = new ApplyTacticalBattleCommandHandler().Handle(command, game, sink);
+        if (outcome.Rejection is not null || written is null)
+            return new TacticalBattleConclusion(null, null, false, false, Array.Empty<DomainEvent>(), outcome.Rejection?.Message ?? "The write-back did not run.");
+        var resultEvents = new List<DomainEvent>(sink.Events);
+        if (offered) resultEvents.Add(new PeaceTreatyOffered(written.Report.WinnerNationId, written.Report.LoserNationId));
+        return new TacticalBattleConclusion(outcome.State!, written.Report, offered, drawn, resultEvents, null);
+    }
+
     /// <summary>The lines of the <em>Battle ended</em> window (<c>TBattleOver_InitializeForm</c>).</summary>
     /// <param name="report">The report.</param>
     /// <param name="game">The game after the write-back (for the nations' names).</param>
@@ -623,9 +662,10 @@ public sealed class TacticalBattleSession
         return new[]
         {
             "Battle ended.",
-            $"{winner}'s army defeats {loser}'s army.",
+            report.Capped ? $"{loser}'s army withdraws at the half-round cap; {winner}'s army holds."
+                : $"{winner}'s army defeats {loser}'s army.",
             $"Winner: {report.WinnerStartTotal} troops at the start, {report.WinnerFinishTotal} at the end.",
-            $"Loser: {report.LoserStartTotal} troops at the start, 0 at the end.",
+            $"Loser: {report.LoserStartTotal} troops at the start, {report.LoserFinishTotal} at the end.",
             report.CapturedMoney > 0
                 ? $"The army of {winner} captured {report.CapturedMoney} talents."
                 : $"The army of {winner} captured no money.",
@@ -734,6 +774,9 @@ public sealed class TacticalBattleSession
                     break;
                 case TacticalComputerGeneralEvent general:
                     lines.Add($"Computer general is {(general.On ? "on" : "off")} for the {SideName(general.Side)}.");
+                    break;
+                case TacticalCapReachedEvent capped:
+                    lines.Add($"Half-round cap reached after {capped.Counter} half-rounds; the attacker withdraws.");
                     break;
                 case TacticalBattleOverEvent:
                     lines.Add("The battle is over.");

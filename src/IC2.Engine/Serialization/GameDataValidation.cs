@@ -362,6 +362,7 @@ public static class GameDataValidation
                 documentPath, "'combat.tactical.midBattleSave' must be 'anyTime' or 'halfRoundStart'.");
         }
 
+        ValidateTacticalPolicies(documentPath, ruleset);
         ValidateRuntimeDivisors(documentPath, ruleset);
         ValidateBalanceSheetDebtLimits(documentPath, ruleset);
         ValidateRngBounds(documentPath, ruleset);
@@ -795,6 +796,48 @@ public static class GameDataValidation
         }
     }
 
+    /// <summary>Only the new tactical cap/pursuit fields; no original tactical behavior is revalidated.</summary>
+    private static void ValidateTacticalPolicies(string path, Ruleset ruleset)
+    {
+        var t = ruleset.Combat.Tactical;
+        if (t.HalfRoundCap < 0)
+            throw new MalformedGameDataException(path, "'combat.tactical.halfRoundCap' must be nonnegative.");
+        if (t.RetreatLossDenominator <= 0 || t.RetreatLossBase < 0 || t.RetreatLossPursuit < 0
+            || t.RetreatLossCap < t.RetreatLossBase || t.RetreatLossCap > t.RetreatLossDenominator)
+            throw new MalformedGameDataException(path, "'combat.tactical' retreat fraction requires 0 <= base <= cap <= denominator, positive denominator and nonnegative pursuit.");
+        if (t.RetreatPursuitWeights is null)
+        {
+            if (t.RetreatLosses)
+                throw new MalformedGameDataException(path, "'combat.tactical.retreatPursuitWeights' is required when retreatLosses is enabled.");
+            return;
+        }
+        var weights = t.RetreatPursuitWeights;
+        if (weights.Count != ruleset.UnitTypes.Count || weights.Any(w => w < 0))
+            throw new MalformedGameDataException(path, "'combat.tactical.retreatPursuitWeights' requires a nonnegative weight for each unit type.");
+        // A representability guard, not a balance limit: every runtime pursuit product must fit Int64.
+        var maxPursuit = (Int128)Math.Max(0, ruleset.ArmyManagement.MaxUnitsPerArmy) * int.MaxValue * weights.DefaultIfEmpty(0).Max();
+        if (maxPursuit * t.RetreatLossPursuit + t.RetreatLossBase > long.MaxValue)
+            throw new MalformedGameDataException(path, "'combat.tactical' retreat pursuit product cannot be represented in 64 bits.");
+    }
+
+    /// <summary>Validate only optional new routed counts; absent classical/legacy fields add no validation.</summary>
+    private static void ValidateRoutedTroops(string path, SaveGame save)
+    {
+        if (save.Battle is not { } battle) return;
+        for (var i = 0; i < battle.Slots.Count; i++)
+        {
+            var slot = battle.Slots[i];
+            if (slot.RoutedTroops == 0) continue;
+            if (slot.RoutedTroops < 0 || slot.Troops != 0 || battle.Slots.Count % 2 != 0)
+                throw new MalformedGameDataException(path, $"'battle.slots[{i}].routedTroops' requires a nonnegative count on a removed slot.");
+            var perSide = battle.Slots.Count / 2;
+            var army = save.State.ArmyById(i < perSide ? battle.AttackerArmyId : battle.DefenderArmyId);
+            var index = i % perSide;
+            if (army is null || index >= army.Units.Count || slot.RoutedTroops > army.Units[index].Troops)
+                throw new MalformedGameDataException(path, $"'battle.slots[{i}].routedTroops' exceeds its original army unit.");
+        }
+    }
+
     private static void ValidateSave(string documentPath, SaveGame save)
     {
         // The loader checks the schema version of the root object only, so the nested state's own
@@ -805,6 +848,7 @@ public static class GameDataValidation
         }
 
         ValidateState(documentPath, save.State);
+        ValidateRoutedTroops(documentPath, save);
 
         if (!string.Equals(save.WorldId, save.State.WorldId, StringComparison.Ordinal)
             || !string.Equals(save.RulesetId, save.State.RulesetId, StringComparison.Ordinal)

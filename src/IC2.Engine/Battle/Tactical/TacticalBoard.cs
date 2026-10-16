@@ -21,6 +21,7 @@ internal sealed class TacticalBoard
         Placed = state.Placed;
         Counter = state.Counter;
         IsOver = state.IsOver;
+        Capped = state.Capped;
         Slots = state.Slots.ToArray();
         Grid = state.Grid.ToArray();
         ComputerControlled = state.ComputerControlled.ToArray();
@@ -45,6 +46,8 @@ internal sealed class TacticalBoard
     public int Counter { get; set; }
 
     public bool IsOver { get; set; }
+
+    public bool Capped { get; set; }
 
     public TacticalSlot[] Slots { get; }
 
@@ -95,7 +98,7 @@ internal sealed class TacticalBoard
             ValueList.From(ComputerGeneral),
             ValueList.From(GeneralClaims),
             Selected,
-            ValueList.From(Log));
+            ValueList.From(Log), Capped);
 
     /// <summary>One <c>Random(n)</c> through the seam, recorded on the trace.</summary>
     public int Draw(int n)
@@ -158,16 +161,23 @@ internal sealed class TacticalBoard
     }
 
     /// <summary>Takes a unit out of the battle: troops 0, its cell empty (report §6).</summary>
-    public void Remove(int slot)
+    public void Remove(int slot, bool routed = false)
     {
         var unit = Slots[slot];
-        Slots[slot] = unit with { Troops = 0 };
+        // combat.tactical.retreatLosses / winnerRoutedUnitsRejoin preserve exit troops exactly once.
+        var escaped = unit.RoutedTroops;
+        if (routed && escaped == 0 && (Rules.RetreatLosses || Rules.WinnerRoutedUnitsRejoin))
+        {
+            escaped = Math.Max(0, unit.Troops);
+        }
+        Slots[slot] = unit with { Troops = 0, RoutedTroops = escaped };
         Grid[CellIndex(unit.X, unit.Y)] = TacticalIcon.Empty;
     }
 
     /// <summary>The winner: the attacker if any attacker slot has troops, else the defender (report §8).</summary>
     public int Winner()
     {
+        if (Capped) return TacticalBattleState.DefenderSide;
         for (var s = FirstSlotOf(TacticalBattleState.AttackerSide); s < SlotsPerSide; s++)
         {
             if (IsLive(s))

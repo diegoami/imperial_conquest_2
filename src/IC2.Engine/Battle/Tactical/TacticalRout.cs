@@ -50,7 +50,7 @@ public static class TacticalRout
             }
         }
 
-        board.Remove(slot);
+        board.Remove(slot, routed: true);
         board.Log.Add(new TacticalRoutedEvent(slot));
 
         var side = board.SideOf(slot);
@@ -67,7 +67,7 @@ public static class TacticalRout
             board.Slots[f] = friend with { Morale = morale };
             if (morale < rules.RoutCascadeBelow)
             {
-                board.Remove(f);
+                board.Remove(f, routed: true);
                 board.Log.Add(new TacticalCascadeRemovedEvent(f));
             }
         }

@@ -71,7 +71,8 @@ public sealed record BattleEndedViewModel(
 
         return new BattleEndedViewModel(
             "Battle ended",
-            $"{winner}'s  army  defeats  {loser}'s  army.",
+            report.Capped ? $"{loser}'s army withdraws at the half-round cap; {winner}'s army holds."
+                : $"{winner}'s  army  defeats  {loser}'s  army.",
             winner,
             loser,
             rows,

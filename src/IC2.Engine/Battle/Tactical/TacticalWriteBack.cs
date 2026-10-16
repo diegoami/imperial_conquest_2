@@ -1,5 +1,7 @@
 using IC2.Engine.Core;
+using System.Text.Json.Serialization;
 using IC2.Engine.Model;
+using IC2.Engine.Movement;
 
 namespace IC2.Engine.Battle.Tactical;
 
@@ -22,6 +24,9 @@ namespace IC2.Engine.Battle.Tactical;
 /// <param name="CapturedSupplyTons">The loser's supplies, <c>"… N tons of supplies."</c> (or the original's <c>"no suuplies."</c> at 0).</param>
 /// <param name="ExchangeLog">The battle's shots, melees, routs and surrender, in order.</param>
 /// <param name="Promotions">The write-back's quality step per surviving winner unit, in slot order.</param>
+/// <param name="LoserFinishByType">Optional surviving remnant totals; absent under the original policy.</param>
+/// <param name="LoserFinishTotal">Surviving remnant troops after retreat and placement; zero under the original policy.</param>
+/// <param name="Capped">combat.tactical.halfRoundCap produced an attacker withdrawal, with no ordinary victory rewards.</param>
 public sealed record TacticalBattleReport(
     int WinnerSide,
     string WinnerArmyId,
@@ -37,7 +42,10 @@ public sealed record TacticalBattleReport(
     int CapturedMoney,
     int CapturedSupplyTons,
     ValueList<TacticalEvent> ExchangeLog,
-    ValueList<TacticalPromotionEvent> Promotions);
+    ValueList<TacticalPromotionEvent> Promotions,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ValueList<int>? LoserFinishByType = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] int LoserFinishTotal = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool Capped = false);
 
 /// <summary>The write-back's result.</summary>
 /// <param name="Game">The game state after steps 1–5.</param>
@@ -99,6 +107,8 @@ public static class TacticalWriteBack
             throw new ArgumentException("The battle is not over.", nameof(battle));
         }
 
+        // combat.tactical.halfRoundCap has its own no-reward write-back; natural victories retain the original below.
+        if (battle.Capped) return ApplyCapped(game, battle, context);
         var combat = context.Combat;
         var winnerSide = TacticalSurrender.Winner(battle);
         var winnerId = winnerSide == TacticalBattleState.AttackerSide ? battle.AttackerArmyId : battle.DefenderArmyId;
@@ -173,7 +183,9 @@ public static class TacticalWriteBack
         };
 
         // Step 5: the news line.
-        events.Publish(new BattleArmyDestroyed(NationName(game, winner.Nation), NationName(game, loser.Nation)));
+        // combat.tactical.retreatLosses defers the news until actual escape/destruction is known.
+        if (!context.Rules.RetreatLosses || !SideSlots(battle, 1 - winnerSide).Any(s => s.RoutedTroops > 0))
+            events.Publish(new BattleArmyDestroyed(NationName(game, winner.Nation), NationName(game, loser.Nation)));
 
         var finalBattle = board.Freeze();
         var report = new TacticalBattleReport(
@@ -195,6 +207,102 @@ public static class TacticalWriteBack
 
         return new TacticalWriteBackResult(newGame, finalBattle, report);
     }
+
+    /// <summary>combat.tactical.halfRoundCap: no promotion, transfer, unity or peace draw.</summary>
+    private static TacticalWriteBackResult ApplyCapped(GameState game, TacticalBattleState battle, TacticalContext context)
+    {
+        var winner = game.ArmyById(battle.DefenderArmyId)!;
+        var loser = game.ArmyById(battle.AttackerArmyId)!;
+        var units = ValueList.From(SideSlots(battle, TacticalBattleState.DefenderSide).Where(s => s.IsLive).Select(s => ToUnit(s, s.Troops, context)));
+        var newWinner = winner with { Units = units };
+        var after = game with
+        {
+            Armies = ValueList.From(game.Armies.Where(a => a.Id != loser.Id).Select(a => a.Id == winner.Id ? newWinner : a)),
+            Fleets = ValueList.From(game.Fleets.Select(f => f.CarriedArmyId == loser.Id ? f with { CarriedArmyId = null } : f)),
+        };
+        var report = new TacticalBattleReport(TacticalBattleState.DefenderSide, winner.Id, loser.Id, winner.Nation, loser.Nation,
+            ByType(winner.Units, context), winner.TotalTroops, ByType(units, context), units.Sum(u => u.Troops),
+            ByType(loser.Units, context), loser.TotalTroops, 0, 0, ValueList.From(battle.Log.Where(IsExchange)),
+            ValueList<TacticalPromotionEvent>.Empty, Capped: true);
+        return new TacticalWriteBackResult(after, battle, report);
+    }
+
+    /// <summary>
+    /// combat.tactical.retreatLosses and winnerRoutedUnitsRejoin restore exits after promotion/peace processing.
+    /// halfRoundCap also preserves live withdrawing attackers. Existing ScatterPlacement and distance values are reused unchanged.
+    /// </summary>
+    public static TacticalWriteBackResult CompleteSurvivors(TacticalWriteBackResult initial, GameState before,
+        TacticalContext context, IBattleDraws draws, World? world, IEventSink events)
+    {
+        var battle = initial.Battle;
+        var report = initial.Report;
+        var t = context.Rules;
+        var originalWinner = before.ArmyById(report.WinnerArmyId)!;
+        var originalLoser = before.ArmyById(report.LoserArmyId)!;
+        var winner = initial.Game.ArmyById(report.WinnerArmyId)!;
+        var winnerUnits = new List<UnitSlot>();
+        var live = 0;
+        foreach (var slot in SideSlots(battle, report.WinnerSide))
+        {
+            if (slot.IsLive) winnerUnits.Add(winner.Units[live++]);
+            else if (t.WinnerRoutedUnitsRejoin && slot.RoutedTroops > 0) winnerUnits.Add(ToUnit(slot, slot.RoutedTroops, context));
+        }
+        winner = winner with
+        {
+            Units = ValueList.From(winnerUnits),
+            SupplyTons = Math.Min(battle.Capped ? originalWinner.SupplyTons : unchecked(originalWinner.SupplyTons + originalLoser.SupplyTons),
+                winnerUnits.Sum(u => u.Troops) / context.Combat.AbsorbedSupplyTroopDivisor),
+        };
+        var after = initial.Game with { Armies = ValueList.From(initial.Game.Armies.Select(a => a.Id == winner.Id ? winner : a)) };
+        var remnant = ValueList.From(SideSlots(battle, 1 - report.WinnerSide)
+            .Select(s => ToUnit(s, battle.Capped && s.IsLive ? s.Troops : t.RetreatLosses ? s.RoutedTroops : 0, context))
+            .Where(u => u.Troops > 0));
+        var deferredNews = battle.Capped || (t.RetreatLosses && remnant.Count > 0);
+        var escaped = ValueList<UnitSlot>.Empty;
+        if (remnant.Count > 0)
+        {
+            if (t.RetreatLosses) remnant = RetreatLosses.Apply(remnant, battle, report.WinnerSide, context);
+            if (remnant.Count > 0)
+            {
+                if (world is null) throw new ArgumentNullException(nameof(world), "Tactical escape requires the battle's world.");
+                var scatter = context.Combat.ScatteredDefeat;
+                var distance = scatter.ScatterTilesMin + draws.Random(scatter.ScatterTilesMax - scatter.ScatterTilesMin + 1);
+                var location = ScatterPlacement.Find(new GridPoint(originalLoser.X, originalLoser.Y), new GridPoint(winner.X, winner.Y),
+                    distance, false, originalLoser.Id, after, world, out var terrain);
+                if (location is not null)
+                {
+                    var survivor = originalLoser with
+                    {
+                        X = location.ToX, Y = location.ToY, CoveredTileCode = terrain, AboardFleetId = null, Moves = 0,
+                        Money = battle.Capped ? originalLoser.Money : 0,
+                        SupplyTons = battle.Capped ? Math.Min(originalLoser.SupplyTons, remnant.Sum(u => u.Troops) / context.Combat.AbsorbedSupplyTroopDivisor) : 0,
+                        Units = remnant,
+                    };
+                    var armies = after.Armies.ToList();
+                    var originalIndex = before.Armies.ToList().FindIndex(a => a.Id == survivor.Id);
+                    armies.Insert(Math.Min(originalIndex, armies.Count), survivor);
+                    after = after with { Armies = ValueList.From(armies) };
+                    escaped = remnant;
+                    deferredNews = false;
+                    events.Publish(new ArmyScattered(survivor.Id, survivor.Nation, survivor.X, survivor.Y));
+                }
+            }
+        }
+        if (deferredNews)
+            events.Publish(new BattleArmyDestroyed(NationName(before, winner.Nation), NationName(before, originalLoser.Nation)));
+        return initial with
+        {
+            Game = after,
+            Report = report with { WinnerFinishByType = ByType(winnerUnits, context), WinnerFinishTotal = winner.TotalTroops,
+                LoserFinishByType = ByType(escaped, context), LoserFinishTotal = escaped.Sum(u => u.Troops) },
+        };
+    }
+
+    private static IEnumerable<TacticalSlot> SideSlots(TacticalBattleState battle, int side) =>
+        battle.Slots.Skip(side * battle.SlotsPerSide).Take(battle.SlotsPerSide);
+
+    private static UnitSlot ToUnit(TacticalSlot slot, int troops, TacticalContext context) =>
+        new(slot.Origin, context.TypeOf(slot.Type).Id, troops, slot.Quality, slot.Name);
 
     private static bool IsExchange(TacticalEvent e) =>
         e is TacticalShotEvent or TacticalMeleeEvent or TacticalRoutedEvent or TacticalCascadeRemovedEvent

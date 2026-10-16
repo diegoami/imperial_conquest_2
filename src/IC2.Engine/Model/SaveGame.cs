@@ -106,6 +106,7 @@ public sealed record SavedTacticalBattle(
 /// <param name="Shots">Shots left for the battle.</param>
 /// <param name="Target">The melee target slot, or −1.</param>
 /// <param name="Name">The unit's name.</param>
+/// <param name="RoutedTroops">Optional [designed] exit-strength troops preserved by the tactical survival fields; absent/zero under classical and in legacy saves.</param>
 public sealed record SavedTacticalSlot(
     int X,
     int Y,
@@ -117,4 +118,5 @@ public sealed record SavedTacticalSlot(
     int Moves,
     int Shots,
     int Target,
-    string Name);
+    string Name,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] int RoutedTroops = 0);

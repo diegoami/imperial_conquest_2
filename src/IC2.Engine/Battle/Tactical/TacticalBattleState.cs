@@ -1,4 +1,5 @@
 using IC2.Engine.Model;
+using System.Text.Json.Serialization;
 
 namespace IC2.Engine.Battle.Tactical;
 
@@ -20,6 +21,7 @@ namespace IC2.Engine.Battle.Tactical;
 /// <param name="Shots">Shots left for the battle (word 8). Signed: the computer general's pass 2 can drive it below 0.</param>
 /// <param name="Target">The melee target slot (word 9), <c>−1</c> for none.</param>
 /// <param name="Name">The unit's name (words 10–21).</param>
+/// <param name="RoutedTroops">Optional [designed] positive troop count at rout/cascade exit; zero under the original survival policy.</param>
 public sealed record TacticalSlot(
     int X,
     int Y,
@@ -31,7 +33,8 @@ public sealed record TacticalSlot(
     int Moves,
     int Shots,
     int Target,
-    string Name)
+    string Name,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] int RoutedTroops = 0)
 {
     /// <summary>The <see cref="Target"/> value for "no target", the original's <c>−1</c>.</summary>
     public const int NoTarget = -1;
@@ -74,6 +77,7 @@ public sealed record TacticalSlot(
 /// <param name="GeneralClaims">The computer general's 40 target claims, cleared at every half-round setup (T124 writes them).</param>
 /// <param name="Selected">The slot a human has selected, or <c>−1</c>.</param>
 /// <param name="Log">Every placement, move, exchange, rout and draw, in order.</param>
+/// <param name="Capped">combat.tactical.halfRoundCap ended this battle with an attacker withdrawal.</param>
 public sealed record TacticalBattleState(
     string AttackerArmyId,
     string DefenderArmyId,
@@ -87,7 +91,8 @@ public sealed record TacticalBattleState(
     ValueList<bool> ComputerGeneral,
     ValueList<int> GeneralClaims,
     int Selected,
-    ValueList<TacticalEvent> Log)
+    ValueList<TacticalEvent> Log,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool Capped = false)
 {
     /// <summary>Side 0, the attacker.</summary>
     public const int AttackerSide = 0;
