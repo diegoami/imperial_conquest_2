@@ -620,11 +620,11 @@ foreach ($sfx in @("city_captured", "battle", "unit_move", "fleet_move", "battle
 }
 
 Write-Host "Generating manifest.json..."
-$manifest = @{
+$manifest = [ordered]@{
     schemaVersion = 1
     name = "Placeholder Asset Pack"
     description = "Generated placeholder assets - flat colors, silent audio stubs, good enough for development and testing."
-    assets = @{}
+    assets = [ordered]@{}
 }
 
 foreach ($unit in @("light_infantry", "heavy_infantry", "archers", "light_cavalry", "heavy_cavalry")) {

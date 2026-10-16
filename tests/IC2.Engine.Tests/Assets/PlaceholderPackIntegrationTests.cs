@@ -281,6 +281,52 @@ public class PlaceholderPackIntegrationTests
     }
 
     [Fact]
+    public async Task Generator_is_byte_identical_across_fresh_pwsh_processes()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"ic2-placeholder-pwsh-{Guid.NewGuid():N}");
+        var first = Path.Combine(root, "first");
+        var second = Path.Combine(root, "second");
+        var script = Path.Combine(FixturePaths.RepositoryRoot, "scripts", "generate-placeholder-assets.ps1");
+        try
+        {
+            foreach (var destination in new[] { first, second })
+            {
+                var start = new System.Diagnostics.ProcessStartInfo("pwsh")
+                {
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+                foreach (var argument in new[] { "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, "-OutputPath", destination })
+                    start.ArgumentList.Add(argument);
+                using var process = System.Diagnostics.Process.Start(start)!;
+                var stdout = process.StandardOutput.ReadToEndAsync();
+                var stderr = process.StandardError.ReadToEndAsync();
+                var exited = process.WaitForExit(60000);
+                if (!exited) process.Kill(entireProcessTree: true);
+                Assert.True(exited, "Fresh pwsh generator process timed out");
+                Assert.True(process.ExitCode == 0, $"pwsh generator failed: {await stdout}\n{await stderr}");
+            }
+
+            static string[] Files(string directory) => Directory.GetFiles(directory, "*", SearchOption.AllDirectories)
+                .Select(file => Path.GetRelativePath(directory, file)).OrderBy(file => file, StringComparer.Ordinal).ToArray();
+            var files = Files(first);
+            Assert.NotEmpty(files);
+            Assert.Contains("manifest.json", files);
+            Assert.Equal(files, Files(second));
+            foreach (var file in files)
+                Assert.True(File.ReadAllBytes(Path.Combine(first, file)).SequenceEqual(File.ReadAllBytes(Path.Combine(second, file))),
+                    $"Fresh pwsh processes produced different bytes for {file}");
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+
+    [Fact]
     public void Generator_ProducesDeterministicOutput()
     {
         // DoD 3: Verify that running the generator produces byte-identical output
