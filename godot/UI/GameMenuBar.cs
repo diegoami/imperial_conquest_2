@@ -69,7 +69,7 @@ public partial class GameMenuBar : HBoxContainer
 
     public override void _Ready()
     {
-        AddThemeConstantOverride("separation", 2);
+        AddThemeConstantOverride("separation", AppTheme.MenuGap);
 
         foreach (var menuTitle in MenuOrder)
         {

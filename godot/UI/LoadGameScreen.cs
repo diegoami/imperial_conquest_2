@@ -61,31 +61,31 @@ public partial class LoadGameScreen : Control
 
         var margin = new MarginContainer();
         margin.SetAnchorsPreset(LayoutPreset.FullRect);
-        margin.AddThemeConstantOverride("margin_left", 32);
-        margin.AddThemeConstantOverride("margin_right", 32);
-        margin.AddThemeConstantOverride("margin_top", 24);
-        margin.AddThemeConstantOverride("margin_bottom", 24);
+        margin.AddThemeConstantOverride("margin_left", AppTheme.ScreenMarginSide);
+        margin.AddThemeConstantOverride("margin_right", AppTheme.ScreenMarginSide);
+        margin.AddThemeConstantOverride("margin_top", AppTheme.ScreenMarginVertical);
+        margin.AddThemeConstantOverride("margin_bottom", AppTheme.ScreenMarginVertical);
         AddChild(margin);
 
         var column = new VBoxContainer();
-        column.AddThemeConstantOverride("separation", 12);
+        column.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         margin.AddChild(column);
 
         var header = new HBoxContainer();
-        header.AddThemeConstantOverride("separation", 16);
+        header.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(header);
 
-        var backButton = UiKit.MakeButton("< Back", () => BackRequested?.Invoke(), 14);
+        var backButton = UiKit.MakeButton("< Back", () => BackRequested?.Invoke(), AppTheme.Button);
         backButton.CustomMinimumSize = new Vector2(90, 34);
         header.AddChild(backButton);
-        header.AddChild(UiKit.MakeLabel("Load Game", 26, UiKit.AccentColor));
-        header.AddChild(UiKit.MakeButton("Browse...", OnBrowsePressed, 14));
+        header.AddChild(UiKit.MakeLabel("Load Game", AppTheme.Header, UiKit.AccentColor));
+        header.AddChild(UiKit.MakeButton("Browse...", OnBrowsePressed, AppTheme.Button));
 
         var list = new VBoxContainer();
-        list.AddThemeConstantOverride("separation", 8);
+        list.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(list);
 
-        _messageLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.MutedTextColor);
+        _messageLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.MutedTextColor);
         column.AddChild(_messageLabel);
 
         PopulateSaves(list);
@@ -116,7 +116,7 @@ public partial class LoadGameScreen : Control
     private void AddSaveRow(VBoxContainer list, string path)
     {
         var row = new HBoxContainer();
-        row.AddThemeConstantOverride("separation", 12);
+        row.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         list.AddChild(row);
 
         string label;
@@ -132,8 +132,8 @@ public partial class LoadGameScreen : Control
             label = $"{Path.GetFileName(path)} — could not be read ({ex.Message})";
         }
 
-        row.AddChild(UiKit.MakeLabel(label, 14, UiKit.TextColor));
-        row.AddChild(UiKit.MakeButton("Continue", () => OnContinuePressed(path), 14));
+        row.AddChild(UiKit.MakeLabel(label, AppTheme.Body, UiKit.TextColor));
+        row.AddChild(UiKit.MakeButton("Continue", () => OnContinuePressed(path), AppTheme.Button));
     }
 
     /// <summary>

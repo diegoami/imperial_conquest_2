@@ -36,20 +36,20 @@ public partial class HotseatHandoffScreen : Control
         ModalOverlay.Build(out var root, out var content, UiKit.Background);
         AddChild(root);
 
-        content.AddChild(UiKit.MakeLabel("Pass the Device", 22, UiKit.AccentColor));
+        content.AddChild(UiKit.MakeLabel("Pass the Device", AppTheme.Header, UiKit.AccentColor));
 
-        MessageLabel = UiKit.MakeLabel($"Pass to {Info.NextNationName}.", 18, UiKit.TextColor);
+        MessageLabel = UiKit.MakeLabel($"Pass to {Info.NextNationName}.", AppTheme.Header, UiKit.TextColor);
         content.AddChild(MessageLabel);
 
         if (Info.Blind)
         {
             BlindNoticeLabel = UiKit.MakeLabel(
-                "Blind hotseat: the previous seat's own information stays hidden.", 13, UiKit.MutedTextColor);
+                "Blind hotseat: the previous seat's own information stays hidden.", AppTheme.Body, UiKit.MutedTextColor);
             content.AddChild(BlindNoticeLabel);
         }
         else if (!string.IsNullOrEmpty(CalendarLine))
         {
-            content.AddChild(UiKit.MakeLabel(CalendarLine, 13, UiKit.MutedTextColor));
+            content.AddChild(UiKit.MakeLabel(CalendarLine, AppTheme.Body, UiKit.MutedTextColor));
         }
 
         content.AddChild(new HSeparator());

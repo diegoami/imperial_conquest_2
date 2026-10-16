@@ -58,7 +58,7 @@ public static class ModalOverlay
         center.AddChild(panel);
 
         content = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-        content.AddThemeConstantOverride("separation", 8);
+        content.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         panel.AddChild(content);
     }
 }

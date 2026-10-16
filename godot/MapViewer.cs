@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using Godot;
+using IC2.Slice.UI;
 using IC2.Data;
 
 public partial class MapViewer : Control
@@ -11,7 +12,7 @@ public partial class MapViewer : Control
     private const float MaximumZoom = 10f;
     private const float InitialZoom = 4f;
     private const float DragThreshold = 4f;
-    private static readonly Color Background = new(0.07f, 0.11f, 0.15f);
+    private static readonly Color Background = UiKit.Background;
     private static readonly Color CityColor = new(1.0f, 0.97f, 0.86f);
     private static readonly Color SelectedColor = new(1.0f, 0.40f, 0.25f);
     private static readonly Color RiverColor = new(0.05f, 0.16f, 0.58f);
@@ -48,9 +49,9 @@ public partial class MapViewer : Control
     {
         GetWindow().Mode = Window.ModeEnum.Maximized;
         TextureFilter = TextureFilterEnum.Nearest;
-        _title = MakeLabel("Imperial Conquest 2 · world map", 25);
-        _legend = MakeLabel("Colored squares: cities  ·  flags: armies  ·  sails: fleets  ·  blue lines: rivers", 14);
-        _status = MakeLabel("Loading original data…", 17);
+        _title = MakeLabel("Imperial Conquest 2 · world map", AppTheme.Header);
+        _legend = MakeLabel("Colored squares: cities  ·  flags: armies  ·  sails: fleets  ·  blue lines: rivers", AppTheme.Body);
+        _status = MakeLabel("Loading original data…", AppTheme.Header);
         _title.Position = new Vector2(24, 16);
         _legend.Position = new Vector2(24, 53);
         _fitButton = new Button { Text = "Show whole map", CustomMinimumSize = new Vector2(170f, 38f) };
@@ -67,7 +68,7 @@ public partial class MapViewer : Control
         _detailPanel = new PanelContainer { Visible = false, MouseFilter = MouseFilterEnum.Stop };
         var detailScroll = new ScrollContainer();
         _detailText = new Label { MouseFilter = MouseFilterEnum.Ignore };
-        _detailText.AddThemeFontSizeOverride("font_size", 15);
+        _detailText.AddThemeFontSizeOverride("font_size", AppTheme.Body);
         detailScroll.AddChild(_detailText);
         _detailPanel.AddChild(detailScroll);
         AddChild(_detailPanel);
@@ -750,7 +751,8 @@ public partial class MapViewer : Control
 
     private Label MakeLabel(string text, int fontSize)
     {
-        var label = new Label { Text = text, MouseFilter = MouseFilterEnum.Ignore };
+        var label = UiKit.MakeLabel(text, fontSize);
+        label.MouseFilter = MouseFilterEnum.Ignore;
         label.AddThemeFontSizeOverride("font_size", fontSize);
         AddChild(label);
         return label;

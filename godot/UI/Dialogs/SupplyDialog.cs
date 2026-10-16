@@ -80,7 +80,7 @@ public partial class SupplyDialog : Control
             ? SupplyDialogModel.ForFleet(Session.State, Session.State.FleetById(FleetId!)!, Session.Ruleset)
             : SupplyDialogModel.ForArmy(Session.State, Session.State.ArmyById(ArmyId!)!, Session.Ruleset);
 
-        var backdrop = new ColorRect { Color = new Color(0f, 0f, 0f, 0.6f), MouseFilter = MouseFilterEnum.Stop };
+        var backdrop = new ColorRect { Color = AppTheme.Scrim, MouseFilter = MouseFilterEnum.Stop };
         backdrop.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(backdrop);
 
@@ -93,17 +93,17 @@ public partial class SupplyDialog : Control
         center.AddChild(panel);
 
         var column = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        column.AddThemeConstantOverride("separation", 8);
+        column.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         panel.AddChild(column);
 
         column.AddChild(UiKit.MakeLabel(
-            $"{(IsFleet ? "Supply fleet" : "Supply army")} — {SubjectId}", 18, UiKit.AccentColor));
+            $"{(IsFleet ? "Supply fleet" : "Supply army")} — {SubjectId}", AppTheme.Header, UiKit.AccentColor));
 
-        _figuresLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.TextColor);
+        _figuresLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         _figuresLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         column.AddChild(_figuresLabel);
 
-        column.AddChild(UiKit.MakeLabel("Providers", 15, UiKit.TextColor));
+        column.AddChild(UiKit.MakeLabel("Providers", AppTheme.Body, UiKit.TextColor));
         _providerList = new ItemList { CustomMinimumSize = new Vector2(0, 120) };
         _providerList.ItemSelected += index =>
         {
@@ -117,11 +117,11 @@ public partial class SupplyDialog : Control
         };
         column.AddChild(_providerList);
 
-        _providerKindLabel = UiKit.MakeLabel(string.Empty, 13, UiKit.MutedTextColor);
+        _providerKindLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.MutedTextColor);
         column.AddChild(_providerKindLabel);
 
         var supplyButtons = new HBoxContainer();
-        supplyButtons.AddThemeConstantOverride("separation", 6);
+        supplyButtons.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(supplyButtons);
         supplyButtons.AddChild(UiKit.MakeButton("+10 t", () => PressSupply(SupplyDialogModel.SupplyStepTons)));
         supplyButtons.AddChild(UiKit.MakeButton("+100 t", () => PressSupply(SupplyDialogModel.SupplyLargeStepTons)));
@@ -129,12 +129,12 @@ public partial class SupplyDialog : Control
         _paidOnlyButtons.Add(AddPaidOnly(supplyButtons, "-100 t", () => PressSupply(-SupplyDialogModel.SupplyLargeStepTons)));
         _paidOnlyButtons.Add(AddPaidOnly(supplyButtons, "Transfer", () => SubmitIfAny(_model.TransferStaged())));
 
-        _stagedLabel = UiKit.MakeLabel(string.Empty, 13, UiKit.TextColor);
+        _stagedLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         column.AddChild(_stagedLabel);
 
         column.AddChild(new HSeparator());
-        column.AddChild(UiKit.MakeLabel("Money", 15, UiKit.TextColor));
-        _moneyLabel = UiKit.MakeLabel(string.Empty, 13, UiKit.TextColor);
+        column.AddChild(UiKit.MakeLabel("Money", AppTheme.Body, UiKit.TextColor));
+        _moneyLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         column.AddChild(_moneyLabel);
 
         _viaPicker = new OptionButton { CustomMinimumSize = new Vector2(220, 0) };
@@ -151,7 +151,7 @@ public partial class SupplyDialog : Control
         };
 
         var moneyButtons = new HBoxContainer();
-        moneyButtons.AddThemeConstantOverride("separation", 6);
+        moneyButtons.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(moneyButtons);
         moneyButtons.AddChild(UiKit.MakeButton("+100", () => PressMoney(100)));
         moneyButtons.AddChild(UiKit.MakeButton("+10", () => PressMoney(10)));
@@ -159,7 +159,7 @@ public partial class SupplyDialog : Control
         moneyButtons.AddChild(UiKit.MakeButton("-100", () => PressMoney(-100)));
 
         column.AddChild(new HSeparator());
-        _replyLabel = UiKit.MakeLabel(string.Empty, 13, UiKit.TextColor);
+        _replyLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         _replyLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         column.AddChild(_replyLabel);
 

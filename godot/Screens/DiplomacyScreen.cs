@@ -41,17 +41,17 @@ public partial class DiplomacyScreen : Control
             child.QueueFree();
         }
 
-        ModalOverlay.Build(out var root, out var content, new Color(0f, 0f, 0f, 0.65f), minimumWidth: 560f);
+        ModalOverlay.Build(out var root, out var content, AppTheme.Scrim, minimumWidth: 560f);
         AddChild(root);
         _content = content;
 
-        content.AddChild(UiKit.MakeLabel("International Relations", 22, UiKit.AccentColor));
+        content.AddChild(UiKit.MakeLabel("International Relations", AppTheme.Header, UiKit.AccentColor));
 
         BuildPendingOfferRow();
 
         Grid = new GridContainer { Columns = 6 };
-        Grid.AddThemeConstantOverride("h_separation", 12);
-        Grid.AddThemeConstantOverride("v_separation", 6);
+        Grid.AddThemeConstantOverride("h_separation", AppTheme.DialogGap);
+        Grid.AddThemeConstantOverride("v_separation", AppTheme.TableRowGap);
 
         // The grid has one row per nation (16 in the shipped scenario), taller than the window, so it sits
         // in a scroll container whose height is capped to what the viewport leaves after the title, the
@@ -99,18 +99,18 @@ public partial class DiplomacyScreen : Control
 
     private void AddHeaderRow()
     {
-        Grid.AddChild(UiKit.MakeLabel("Nation", 13, UiKit.MutedTextColor));
-        Grid.AddChild(UiKit.MakeLabel("Relation", 13, UiKit.MutedTextColor));
-        Grid.AddChild(UiKit.MakeLabel("War", 13, UiKit.MutedTextColor));
-        Grid.AddChild(UiKit.MakeLabel("Peace", 13, UiKit.MutedTextColor));
-        Grid.AddChild(UiKit.MakeLabel("Alliance", 13, UiKit.MutedTextColor));
-        Grid.AddChild(UiKit.MakeLabel("Trade", 13, UiKit.MutedTextColor));
+        Grid.AddChild(UiKit.MakeLabel("Nation", AppTheme.Body, UiKit.MutedTextColor));
+        Grid.AddChild(UiKit.MakeLabel("Relation", AppTheme.Body, UiKit.MutedTextColor));
+        Grid.AddChild(UiKit.MakeLabel("War", AppTheme.Body, UiKit.MutedTextColor));
+        Grid.AddChild(UiKit.MakeLabel("Peace", AppTheme.Body, UiKit.MutedTextColor));
+        Grid.AddChild(UiKit.MakeLabel("Alliance", AppTheme.Body, UiKit.MutedTextColor));
+        Grid.AddChild(UiKit.MakeLabel("Trade", AppTheme.Body, UiKit.MutedTextColor));
     }
 
     private void AddNationRow(DiplomacyRelationRow row)
     {
-        Grid.AddChild(UiKit.MakeLabel(row.NationName, 14, UiKit.TextColor));
-        Grid.AddChild(UiKit.MakeLabel(row.RelationLabel, 14, UiKit.TextColor));
+        Grid.AddChild(UiKit.MakeLabel(row.NationName, AppTheme.Body, UiKit.TextColor));
+        Grid.AddChild(UiKit.MakeLabel(row.RelationLabel, AppTheme.Body, UiKit.TextColor));
         Grid.AddChild(MakeActionButton("Declare War", row.CanDeclareWar, () => Issue($"declare-war {row.NationId}")));
         Grid.AddChild(MakeActionButton("Make Peace", row.CanMakePeace, () => Issue($"make-peace {row.NationId}")));
         Grid.AddChild(MakeActionButton("Ally", row.CanProposeAlliance, () => Issue($"propose-alliance {row.NationId}")));
@@ -126,13 +126,13 @@ public partial class DiplomacyScreen : Control
         }
 
         var proposer = Session.State.NationById(offer.ProposingNationId)?.Name ?? offer.ProposingNationId;
-        _content.AddChild(UiKit.MakeLabel($"Pending offer from {proposer}.", 14, UiKit.TextColor));
+        _content.AddChild(UiKit.MakeLabel($"Pending offer from {proposer}.", AppTheme.Body, UiKit.TextColor));
         _content.AddChild(UiKit.MakeButton("Accept Offer", () => Issue("accept-offer")));
     }
 
     private Control MakeActionButton(string label, bool enabled, Action onPressed)
     {
-        var button = UiKit.MakeButton(label, onPressed, 12);
+        var button = UiKit.MakeButton(label, onPressed, AppTheme.Button);
         button.Disabled = !enabled;
         return button;
     }

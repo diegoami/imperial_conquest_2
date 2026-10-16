@@ -71,7 +71,7 @@ public partial class GameMapView : Control
     /// constant.</summary>
     public const float MaxZoom = 12f;
 
-    private static readonly Color BackgroundColor = new(0.05f, 0.08f, 0.11f);
+    private static readonly Color BackgroundColor = UiKit.Background;
     private static readonly Color GridColor = new(0f, 0f, 0f, 0.15f);
     private static readonly Color CityRingColor = new(1.0f, 0.97f, 0.86f);
     private static readonly Color SelectedRingColor = new(0.95f, 0.78f, 0.35f);

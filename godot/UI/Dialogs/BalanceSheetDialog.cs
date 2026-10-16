@@ -77,7 +77,7 @@ public partial class BalanceSheetDialog : Control
     {
         _sheet = BalanceSheet.For(Session.State, Session.State.ActiveNationId, Session.Ruleset);
 
-        var backdrop = new ColorRect { Color = new Color(0f, 0f, 0f, 0.6f), MouseFilter = MouseFilterEnum.Stop };
+        var backdrop = new ColorRect { Color = AppTheme.Scrim, MouseFilter = MouseFilterEnum.Stop };
         backdrop.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(backdrop);
 
@@ -90,12 +90,12 @@ public partial class BalanceSheetDialog : Control
         center.AddChild(panel);
 
         var column = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        column.AddThemeConstantOverride("separation", 6);
+        column.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         panel.AddChild(column);
 
-        column.AddChild(UiKit.MakeLabel(StrategyDialogModels.BalanceSheetTitle, 18, UiKit.AccentColor));
+        column.AddChild(UiKit.MakeLabel(StrategyDialogModels.BalanceSheetTitle, AppTheme.Header, UiKit.AccentColor));
 
-        column.AddChild(UiKit.MakeLabel("Revenue", 14, UiKit.MutedTextColor));
+        column.AddChild(UiKit.MakeLabel("Revenue", AppTheme.Body, UiKit.MutedTextColor));
         AddLine(column, "Taxes", _sheet.TaxIncome);
         AddLine(column, "Tribute", _sheet.TaxBaseQuarterShare);
         AddLine(column, "Trade", _sheet.TradeIncome);
@@ -103,7 +103,7 @@ public partial class BalanceSheetDialog : Control
 
         column.AddChild(new HSeparator());
 
-        column.AddChild(UiKit.MakeLabel("Expenditure", 14, UiKit.MutedTextColor));
+        column.AddChild(UiKit.MakeLabel("Expenditure", AppTheme.Body, UiKit.MutedTextColor));
         AddLine(column, "Administration", _sheet.CityAndWealthUpkeep);
         AddLine(column, "Fleets", _sheet.ShipUpkeep);
         AddLine(column, "Army recruits", _sheet.RecruitmentSlotUpkeep);
@@ -121,7 +121,7 @@ public partial class BalanceSheetDialog : Control
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
             Alignment = BoxContainer.AlignmentMode.End,
         };
-        buttons.AddThemeConstantOverride("separation", 10);
+        buttons.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(buttons);
         _okButton = UiKit.MakeButton("OK", Ok);
         buttons.AddChild(_okButton);
@@ -138,7 +138,7 @@ public partial class BalanceSheetDialog : Control
             Text = caption,
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
         };
-        label.AddThemeFontSizeOverride("font_size", isTotal ? 15 : 14);
+        label.AddThemeFontSizeOverride("font_size", AppTheme.Body);
         label.AddThemeColorOverride("font_color", isTotal ? UiKit.AccentColor : UiKit.TextColor);
         row.AddChild(label);
 
@@ -146,7 +146,7 @@ public partial class BalanceSheetDialog : Control
         {
             Text = value.ToString(System.Globalization.CultureInfo.InvariantCulture),
         };
-        valueLabel.AddThemeFontSizeOverride("font_size", isTotal ? 15 : 14);
+        valueLabel.AddThemeFontSizeOverride("font_size", AppTheme.Body);
         valueLabel.AddThemeColorOverride("font_color", isTotal ? UiKit.AccentColor : UiKit.TextColor);
         row.AddChild(valueLabel);
 

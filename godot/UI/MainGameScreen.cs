@@ -286,7 +286,7 @@ public partial class MainGameScreen : Control
         // Save path. Wrapping at word boundaries, a three-line ceiling with an ellipsis, and the full
         // text in the tooltip keep a long result from widening this full-rect root or pushing the
         // context panel off-screen.
-        _lastCommandLabel = UiKit.MakeLabel(string.Empty, 12, UiKit.MutedTextColor);
+        _lastCommandLabel = UiKit.MakeLabel(string.Empty, AppTheme.Note, UiKit.MutedTextColor);
         _lastCommandLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _lastCommandLabel.MaxLinesVisible = LastCommandVisibleLineCount;
         _lastCommandLabel.ClipText = true;
@@ -301,7 +301,9 @@ public partial class MainGameScreen : Control
         // heights lays out three lines but lets GetVisibleLineCount() count just two. The explicit size
         // also keeps the block's last-lines view (below) from ever collapsing.
         var lineSpacing = _lastCommandLabel.GetThemeConstant("line_spacing");
-        var linePitch = _lastCommandLabel.GetLineHeight() + lineSpacing;
+        // T169: negative spacing compacts gaps, but the floor still needs three glyph heights
+        // for GetVisibleLineCount() to retain the final Now: Week line.
+        var linePitch = _lastCommandLabel.GetLineHeight() + Mathf.Max(0, lineSpacing);
         _lastCommandLabel.CustomMinimumSize = new Vector2(
             0, Mathf.Ceil(LastCommandVisibleLineCount * linePitch));
 
@@ -408,13 +410,13 @@ public partial class MainGameScreen : Control
     {
         var bar = UiKit.MakePanel(UiKit.PanelColorRaised, cornerRadius: 0);
         var row = new HBoxContainer();
-        row.AddThemeConstantOverride("separation", 24);
+        row.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         bar.AddChild(row);
 
-        _calendarLabel = UiKit.MakeLabel(string.Empty, 16, UiKit.TextColor);
+        _calendarLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         row.AddChild(_calendarLabel);
 
-        _activeNationLabel = UiKit.MakeLabel(string.Empty, 16, UiKit.AccentColor);
+        _activeNationLabel = UiKit.MakeLabel(string.Empty, AppTheme.Header, UiKit.AccentColor);
         row.AddChild(_activeNationLabel);
 
         var spacer = new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill };
@@ -430,7 +432,7 @@ public partial class MainGameScreen : Control
         // context panel. It now ellipsizes like _lastCommandLabel (clip + TrimEllipsis, full text in
         // the tooltip) and expands into the free space the spacer leaves, so it is clipped to the bar
         // rather than collapsing to its near-zero clipped minimum.
-        _saveConfirmationLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.MutedTextColor);
+        _saveConfirmationLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.MutedTextColor);
         _saveConfirmationLabel.ClipText = true;
         _saveConfirmationLabel.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
         _saveConfirmationLabel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
@@ -2082,7 +2084,7 @@ public partial class MainGameScreen : Control
 
         public override void _Ready()
         {
-            var backdrop = new ColorRect { Color = new Color(0, 0, 0, 0.6f), MouseFilter = MouseFilterEnum.Stop };
+            var backdrop = new ColorRect { Color = AppTheme.Scrim, MouseFilter = MouseFilterEnum.Stop };
             backdrop.SetAnchorsPreset(LayoutPreset.FullRect);
             AddChild(backdrop);
 
@@ -2095,10 +2097,10 @@ public partial class MainGameScreen : Control
             center.AddChild(panel);
 
             var column = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-            column.AddThemeConstantOverride("separation", 12);
+            column.AddThemeConstantOverride("separation", AppTheme.DialogGap);
             panel.AddChild(column);
 
-            var label = UiKit.MakeLabel(Text, 16, UiKit.TextColor);
+            var label = UiKit.MakeLabel(Text, AppTheme.Body, UiKit.TextColor);
             label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
             column.AddChild(label);
 

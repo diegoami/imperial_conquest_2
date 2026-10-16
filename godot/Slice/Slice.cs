@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using Godot;
+using IC2.Slice.UI;
 using IC2.Engine.Assets;
 using IC2.Engine.Model;
 using IC2.Engine.Presentation;
@@ -36,7 +37,7 @@ namespace IC2.Slice;
 public partial class Slice : Node2D
 {
     private const float TileSize = 72f;
-    private static readonly Color BackgroundColor = new(0.07f, 0.11f, 0.15f);
+    private static readonly Color BackgroundColor = UiKit.Background;
     private static readonly Color GridColor = new(0f, 0f, 0f, 0.28f);
     private static readonly Color CityRingColor = new(1.0f, 0.97f, 0.86f);
     private static readonly Color UnknownTerrainColor = new(0.24f, 0.24f, 0.24f);

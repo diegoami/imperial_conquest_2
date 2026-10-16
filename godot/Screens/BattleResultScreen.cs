@@ -50,7 +50,7 @@ public partial class BattleResultScreen : Control
 
     public override void _Ready()
     {
-        ModalOverlay.Build(out var root, out var content, new Color(0f, 0f, 0f, 0.65f));
+        ModalOverlay.Build(out var root, out var content, AppTheme.Scrim);
         AddChild(root);
 
         var attackerName = DisplayNation(Result.AttackerNationId);
@@ -58,46 +58,46 @@ public partial class BattleResultScreen : Control
         var winnerName = DisplayNation(Result.WinnerNationId);
         var loserName = DisplayNation(Result.LoserNationId);
 
-        content.AddChild(UiKit.MakeLabel("Battle Result", 22, UiKit.AccentColor));
+        content.AddChild(UiKit.MakeLabel("Battle Result", AppTheme.Header, UiKit.AccentColor));
         content.AddChild(UiKit.MakeLabel(
-            $"{attackerName} ({Result.AttackerPower}) vs {defenderName} ({Result.DefenderPower})", 15, UiKit.TextColor));
+            $"{attackerName} ({Result.AttackerPower}) vs {defenderName} ({Result.DefenderPower})", AppTheme.Body, UiKit.TextColor));
 
-        WinnerLabel = UiKit.MakeLabel($"Winner: {winnerName}", 17, UiKit.TextColor);
+        WinnerLabel = UiKit.MakeLabel($"Winner: {winnerName}", AppTheme.Header, UiKit.TextColor);
         content.AddChild(WinnerLabel);
 
-        FateLabel = UiKit.MakeLabel($"{loserName}'s fate: {FateText(Result.LoserFate)}", 15, UiKit.TextColor);
+        FateLabel = UiKit.MakeLabel($"{loserName}'s fate: {FateText(Result.LoserFate)}", AppTheme.Body, UiKit.TextColor);
         content.AddChild(FateLabel);
 
         if (Result.FailedSiegeShortfallText() is { } shortfall)
         {
-            content.AddChild(UiKit.MakeLabel(shortfall, 15, UiKit.TextColor));
+            content.AddChild(UiKit.MakeLabel(shortfall, AppTheme.Body, UiKit.TextColor));
         }
 
         if (Result.EmptiedBesiegerText() is { } emptiedBesieger)
         {
-            content.AddChild(UiKit.MakeLabel(emptiedBesieger, 15, UiKit.TextColor));
+            content.AddChild(UiKit.MakeLabel(emptiedBesieger, AppTheme.Body, UiKit.TextColor));
         }
 
         content.AddChild(new HSeparator());
-        content.AddChild(UiKit.MakeLabel(Result.WinnerCasualtiesText(winnerName), 14, UiKit.MutedTextColor));
-        content.AddChild(UiKit.MakeLabel(Result.LoserCasualtiesText(loserName), 14, UiKit.MutedTextColor));
+        content.AddChild(UiKit.MakeLabel(Result.WinnerCasualtiesText(winnerName), AppTheme.Body, UiKit.MutedTextColor));
+        content.AddChild(UiKit.MakeLabel(Result.LoserCasualtiesText(loserName), AppTheme.Body, UiKit.MutedTextColor));
 
         if (Result.SiegeCityText(CityName(Result.DefenderId)) is { } siegeCity)
         {
-            content.AddChild(UiKit.MakeLabel(siegeCity, 14, UiKit.MutedTextColor));
+            content.AddChild(UiKit.MakeLabel(siegeCity, AppTheme.Body, UiKit.MutedTextColor));
         }
 
         content.AddChild(UiKit.MakeLabel(
             Result.Promotions.Count == 0
                 ? "No promotions."
                 : $"Promotions: {Result.Promotions.Count} unit(s).",
-            14, UiKit.MutedTextColor));
+            AppTheme.Body, UiKit.MutedTextColor));
         content.AddChild(UiKit.MakeLabel(
-            $"Absorbed: {Result.AbsorbedMoney} money, {Result.AbsorbedSupplyTons}t supply", 14, UiKit.MutedTextColor));
+            $"Absorbed: {Result.AbsorbedMoney} money, {Result.AbsorbedSupplyTons}t supply", AppTheme.Body, UiKit.MutedTextColor));
         content.AddChild(UiKit.MakeLabel(
             $"Unity swing: {winnerName} {SignedInt(Result.WinnerUnityDelta)}, {loserName} {SignedInt(Result.LoserUnityDelta)}",
-            14, UiKit.MutedTextColor));
-        content.AddChild(UiKit.MakeLabel(PeaceLineText(), 13, UiKit.MutedTextColor));
+            AppTheme.Body, UiKit.MutedTextColor));
+        content.AddChild(UiKit.MakeLabel(PeaceLineText(), AppTheme.Body, UiKit.MutedTextColor));
 
         content.AddChild(new HSeparator());
         content.AddChild(UiKit.MakeButton("Close", Close));

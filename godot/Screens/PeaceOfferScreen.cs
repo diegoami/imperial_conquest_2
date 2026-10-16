@@ -35,15 +35,15 @@ public partial class PeaceOfferScreen : Control
 
     public override void _Ready()
     {
-        ModalOverlay.Build(out var root, out var content, new Color(0f, 0f, 0f, 0.65f), 520f);
+        ModalOverlay.Build(out var root, out var content, AppTheme.Scrim, 520f);
         AddChild(root);
 
-        TitleLabel = UiKit.MakeLabel(Model.Title, 22, UiKit.AccentColor);
+        TitleLabel = UiKit.MakeLabel(Model.Title, AppTheme.Header, UiKit.AccentColor);
         content.AddChild(TitleLabel);
 
         foreach (var line in Model.Body)
         {
-            var label = UiKit.MakeLabel(line, 16, UiKit.TextColor);
+            var label = UiKit.MakeLabel(line, AppTheme.Body, UiKit.TextColor);
             label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
             _bodyLabels.Add(label);
             content.AddChild(label);

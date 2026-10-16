@@ -73,7 +73,7 @@ public partial class TaxationDialog : Control
     {
         _model = TaxationDialogModel.ForActiveNation(Session.State, Session.Ruleset);
 
-        var backdrop = new ColorRect { Color = new Color(0f, 0f, 0f, 0.6f), MouseFilter = MouseFilterEnum.Stop };
+        var backdrop = new ColorRect { Color = AppTheme.Scrim, MouseFilter = MouseFilterEnum.Stop };
         backdrop.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(backdrop);
 
@@ -86,29 +86,29 @@ public partial class TaxationDialog : Control
         center.AddChild(panel);
 
         var column = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        column.AddThemeConstantOverride("separation", 8);
+        column.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         panel.AddChild(column);
 
-        column.AddChild(UiKit.MakeLabel(StrategyDialogModels.TaxationTitle, 18, UiKit.AccentColor));
+        column.AddChild(UiKit.MakeLabel(StrategyDialogModels.TaxationTitle, AppTheme.Header, UiKit.AccentColor));
 
         var currentBox = new VBoxContainer();
-        currentBox.AddThemeConstantOverride("separation", 2);
+        currentBox.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(currentBox);
-        currentBox.AddChild(UiKit.MakeLabel("Current", 13, UiKit.MutedTextColor));
-        _currentRateLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.TextColor);
+        currentBox.AddChild(UiKit.MakeLabel("Current", AppTheme.Body, UiKit.MutedTextColor));
+        _currentRateLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         currentBox.AddChild(_currentRateLabel);
-        _currentIncomeLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.TextColor);
+        _currentIncomeLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         currentBox.AddChild(_currentIncomeLabel);
 
         column.AddChild(new HSeparator());
 
         var newBox = new VBoxContainer();
-        newBox.AddThemeConstantOverride("separation", 2);
+        newBox.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(newBox);
-        newBox.AddChild(UiKit.MakeLabel("New", 13, UiKit.MutedTextColor));
-        _newRateLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.TextColor);
+        newBox.AddChild(UiKit.MakeLabel("New", AppTheme.Body, UiKit.MutedTextColor));
+        _newRateLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         newBox.AddChild(_newRateLabel);
-        _newIncomeLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.TextColor);
+        _newIncomeLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         newBox.AddChild(_newIncomeLabel);
 
         // The slider: 1 per arrow (Godot's Step) and 5 per Page (handled by the key handler below,
@@ -126,7 +126,7 @@ public partial class TaxationDialog : Control
         column.AddChild(_slider);
 
         column.AddChild(new HSeparator());
-        _replyLabel = UiKit.MakeLabel(string.Empty, 13, UiKit.TextColor);
+        _replyLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         _replyLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         column.AddChild(_replyLabel);
 
@@ -135,7 +135,7 @@ public partial class TaxationDialog : Control
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
             Alignment = BoxContainer.AlignmentMode.End,
         };
-        buttons.AddThemeConstantOverride("separation", 10);
+        buttons.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(buttons);
         buttons.AddChild(UiKit.MakeButton("Cancel", Cancel));
         _okButton = UiKit.MakeButton("OK", Ok);
