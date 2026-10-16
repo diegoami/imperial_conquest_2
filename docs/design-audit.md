@@ -183,6 +183,13 @@ The DAT **does** contain a full 16-record nation table (at `0x1B100`, names in `
 
 The complete read order — decompiled, and summing to all 140,706 bytes of the file exactly, with its season table landing on `0x1F7D8` and so independently corroborating §2.9a — is in [`investigations/dat-file-layout.md`](investigations/dat-file-layout.md). The same pass counted the `IC2.Data` failures properly across the whole local corpus: **3 of 51 saves** fail, all on a single `0xFFFF` army-owner tombstone record each (one more save than the earlier sampled count found), and the DAT fails for the unrelated reason above. Both are owned by build task **T30**.
 
+
+### 2.15 Tactical general: local rules differ from the merged port — **[confirmed: code and x86; complete attribution open]**
+
+The [target/draw report at research `93bee89`](https://github.com/diegoami/imperial-conquest-2-research/blob/93bee8965e5d0d05017deb3b31d5289f7af263c0/docs/reports/2026-10-16-tactical-target-and-draw-attribution.md) corrects the computer-general claims in `game-design.md`: Pass 2 uses weighted, candidate-specific melee eligibility; threat mode and its radius depend on the actor having archer shots; the enemy sort makes one swap after each suffix scan and retains dead-entry sentinels; and equal-Y enemies count with above in flank balance. Minimal original-instruction reproductions differ from the merged port. Later-pass slot order and captured pre-threat flank bounds are source-backed leads; shooting's adjusted divisor is signed-word and its initial best ratio is 20000. Production already puts the shooter bonus inside the divisor. Actor→target claims versus target counts alone prove no defect.
+
+At build `257f2d2`, 318 valid hook pairings give 282 complete exact comparisons and 283 exact draw streams. Of 36 residuals, 35 first differ in draws and one only in state. Local probes demonstrate a discrepancy in 19 series, leaving 17 without one in those probes; **all 36 complete causal paths remain open**. The reviewed T175 control prerequisite is integrated; that does not close [1107](https://github.com/diegoami/imperial_conquest_2/issues/1107). Original logs/saves remain Wine observations; Unicorn executes local original instructions on synthetic/model inputs, not a new native Windows run or a recovered complete original history. See [inventory, production paths and limits](investigations/tactical-target-and-draw-attribution.md). No acceptance gate, fixture, draw bound or expected failure is relaxed by these facts.
+
 ---
 
 ## 3. Open questions for the user

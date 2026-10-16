@@ -72,6 +72,9 @@ Seven releases, anchored to merged task issues, not to dates — this project ha
 
 Notes on the gates:
 
+- **Tactical replay evidence** ([research `93bee89`](https://github.com/diegoami/imperial-conquest-2-research/blob/93bee8965e5d0d05017deb3b31d5289f7af263c0/docs/reports/2026-10-16-tactical-target-and-draw-attribution.md)): the reviewed T175 control prerequisite is integrated at build `257f2d2`. Its pinned unchanged replay measures 282 complete exact comparisons and 283 exact draw streams over 318 hook pairings; 36 residual series include one state-only mismatch. Local rule discrepancies on model inputs do not establish any of those 36 complete causal paths. The existing v0.6.0 fidelity gate still requires state and draw comparison; this evidence changes no gate, original expectation or task contract. [Inventory and provenance limits](investigations/tactical-target-and-draw-attribution.md) distinguish Wine observations from local original-instruction probes.
+
+
 - **`v0.2.0` deliberately stops at T17.** T16 (battle resolution) and T14 (naval) are on the critical path and gate six downstream tasks between them; T17 is the first task that consumes T16 and proves it against a real recorded event (the Galatia elimination, city by city). That is the natural place to stop and write down what fidelity is now proven.
 - **`v0.3.0` includes T23 from Phase 3** because Phase 2's close leaves the engine complete but unreachable. T23's `merge-after` is only T17 and T19, so it is available well before T22 (AI) lands; the tag waits for both.
 - **T21 (original-save import) is `local-only`.** Its tests skip explicitly on a machine without the user's files (T21 DoD 4), so `v0.3.0` can be cut from a clean CI-green tree; the release note must say the import path was verified locally, by whom, and against which saves.

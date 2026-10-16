@@ -1,0 +1,60 @@
+# Tactical target rules and complete replay attribution
+
+This evaluates the original tactical rules clarified by [research `93bee89`](https://github.com/diegoami/imperial-conquest-2-research/blob/93bee8965e5d0d05017deb3b31d5289f7af263c0/docs/reports/2026-10-16-tactical-target-and-draw-attribution.md), together with the updated [tactical code report §7](https://github.com/diegoami/imperial-conquest-2-research/blob/93bee8965e5d0d05017deb3b31d5289f7af263c0/docs/reports/2026-10-04-decompiled-tactical-battle-rules.md#7-the-ai-general-area-7-confirmed-code) and [control/reload prerequisite note](https://github.com/diegoami/imperial-conquest-2-research/blob/93bee8965e5d0d05017deb3b31d5289f7af263c0/docs/reports/2026-10-16-computer-general-predicate-and-reload.md). It records current facts, not a correction task or a release waiver. The broader investigation is [build issue 1107](https://github.com/diegoami/imperial_conquest_2/issues/1107), corresponding to [research issue 25](https://github.com/diegoami/imperial-conquest-2-research/issues/25).
+
+## Provenance and comparison units
+
+**[Reported measurement]** The unchanged production replay at build `257f2d2cd7510451d229a983553a54b89065b06c` includes the reviewed T175 control correction ([PR 1156](https://github.com/diegoami/imperial_conquest_2/pull/1156)). Fixtures are pinned at `6319802a75067e7730e4f6a27dce3b4e296ddd9b`. The report pins the EXE, DAT and decompile hashes and its canonical captures; no raw game files are copied here.
+
+| Unit | Pinned result | Meaning |
+| --- | --- | --- |
+| Valid hook pairings | 318 | Complete production-replay input set |
+| Complete exact comparisons | 282 | Production result, not a new .NET rerun by research intake or this evaluation |
+| Exact bound/result draw streams | 283 | Draw equality alone is weaker than complete state equality |
+| Residual series | 36 | 35 first draw mismatches plus one state-only mismatch |
+| Series with a local discrepancy | 19 | Six Pass 2, fifteen threat, two overlapping |
+| Series without one in those probes | 17 | No local cause established by this probe set |
+
+**All 36 residual complete causal paths remain open.** The state-only case is `ar-hi-three_s3_r5_hook`, BATTLE19, slot 2 Y: port 3 / original 4, with 218 identical draws. Of the 35 first draw mismatches, 30 occur at original site `0x439557`, four at `0x439188`, one at `0x4395ce`. These identify original call sites; the port may already be acting with a different actor or target. All residual start saves parse to turn 0743. [Source: inventory and all-divergences table](https://github.com/diegoami/imperial-conquest-2-research/blob/93bee8965e5d0d05017deb3b31d5289f7af263c0/docs/reports/2026-10-16-tactical-target-and-draw-attribution.md#all-surviving-first-divergences).
+
+**[Provenance limit]** Original logs and SAVs are existing Wine battle-lab observations. Local x86 probes execute original instructions under Unicorn 2.1.4 on synthetic or contemporaneous **model** inputs. This supplies no new native Windows confirmation. Research intake independently checked text hashes, raw draw streams, boundary bytes and inventory counts, but did not rerun .NET, Unicorn, the complete phase observer or original Wine/UI execution. This build-side evaluation reads the promoted reports and current production source; it does not repeat those runs.
+
+Original runtime claims are not serialized in logs or SAVs; the original general pass of a shot is also absent. Recorded original actor/target pairs are available for all 35 first draw divergences, recovered from shot-entry AX/DX or rout-entry AX markers. Model claims/pass tags must not be presented as recovered original observations. [Source: reconstruction limits](https://github.com/diegoami/imperial-conquest-2-research/blob/93bee8965e5d0d05017deb3b31d5289f7af263c0/docs/reports/2026-10-16-tactical-target-and-draw-attribution.md#evidence-and-reconstruction-limits).
+
+## Reproduced local discrepancies
+
+The following original rules have code and x86 evidence. Current production paths below were checked at build HEAD `2ca83490ec862201cdc4dd3daf690d9371f3ad57`; rule corrections belong to the bug lane.
+
+| Rule | Original and local reproduction | Merged production discrepancy |
+| --- | --- | --- |
+| Pass 2 weighted strength and eligibility | `S(u,v)=trunc(troops[u]*quality[u]/100)*morale[u]*M[u][v]`, 32-bit wrapping/signed division. Filter every adjacent candidate by `trunc(2*(S(enemy,actor)-focus*S(enemy,actor))/3) < S(actor,enemy)`, then minimize adjusted strength strictly below 100000000. HI actor 3000/q5/m70 chooses LI20 (4000/q1/m50), rather than HI21 (2000/q9/m90). | [GeneralPassTwo.cs](../../src/IC2.Engine/Battle/Tactical/General/GeneralPassTwo.cs) uses troops alone, selects a global minimum, then tests that candidate against actor troops. Focus already counts dead own target words; keep that behavior. |
+| Actor-selected threat mode and radius | Only an archer **actor with shots > 0** uses `-ShotBound(actor,enemy)` for every enemy and radius 2; otherwise use enemy weighted strengths and radius 1. Synthetic LI actor chooses LI21 before archer20; exhausted-archer slot 2 probes in `ar-hi-three_s2/s3` give original aims (9,3)/(8,4), port (10,3)/(8,3), with identical enemy order. | [GeneralPassThree.cs](../../src/IC2.Engine/Battle/Tactical/General/GeneralPassThree.cs) tests enemy type/shots and reverses shot arguments; [GeneralLine.cs](../../src/IC2.Engine/Battle/Tactical/General/GeneralLine.cs) uses actor type alone for box radius. Keep engage distinct from the threat helper. |
+| One-swap selection sort, dead entries and sentinel | All 20 enemies, dead key 1000000; first strict suffix minimum, one swap after the suffix scan, stop at keys > 999999. Four equal-type enemy troop counts 3000,2000,2000,1000 give original order 23,21,22,20. | `GeneralPassThree.ThreatOrder` filters dead slots and swaps on every smaller key; its order is 23,22,21,20. A library sort cannot be assumed equivalent. |
+| Equal-Y flank balance | Each enemy strictly below contributes +1; every other live enemy contributes -1, including equal Y. HI actor (5,5), two moves, enemies (8,6),(9,6),(8,5),(9,5), seed 1 and captured horizontal flag false: original first Walk arguments are (3,3); port ends at (3,7). | `GeneralPassThree.FlankUnit` ignores equal-Y enemies, making balance +2 rather than 0 and choosing the opposite vertical direction. |
+
+[Source: report sections A–D](https://github.com/diegoami/imperial-conquest-2-research/blob/93bee8965e5d0d05017deb3b31d5289f7af263c0/docs/reports/2026-10-16-tactical-target-and-draw-attribution.md#cause-attributed-local-reproductions-and-exact-source-rules). Six of 84 completed Pass 2 model-input stages differ in target; 24 further stages stopped before shots. Threat probes differ on fifteen actor inputs from fifteen series, including two exhausted-archer radius cases. None proves all earlier original values equal the model input or that one correction resolves a whole battle. The synthetic sort and flank defects have no independently assigned residual battle.
+
+`mix-rg_s1_r5_hook` illustrates the distinction. At draw 24, half-round 6, the original's `Random(1085)=357` is Gaul23→Rome2 melee; the port's `Random(172)=56` is Gaul22→Rome1 melee. Earlier slot 22 movement already differs. On the model input to that threat move, the original helper aims (5,3), port (6,4), exposing a local threat discrepancy. Replacing 172 with 1085 would confuse different exchanges. [Source: mixed starting case](https://github.com/diegoami/imperial-conquest-2-research/blob/93bee8965e5d0d05017deb3b31d5289f7af263c0/docs/reports/2026-10-16-tactical-target-and-draw-attribution.md#mix-rg_s1-the-requested-starting-case).
+
+## Source-backed leads
+
+**[Confirmed: source; whole-path attribution open]** These require separate bounded reproduction/contract work and are not assigned as complete causes of any residual:
+
+- **Iteration:** only Pass 1 uses HI,HC,LC,LI,Ar then ascending slot. Pass 2 and threat/flank loops scan ascending own slot. [GeneralOrders.InOrder](../../src/IC2.Engine/Battle/Tactical/General/GeneralOrders.cs) is reused in every merged pass. A type-sorted army cannot discriminate the two rules.
+- **Captured horizontal flank flag:** `FUN_0043ABB4` captures enemy min/maxX before threat movement and nested Pass 2; merged `FlankUnit` recomputes bounds per actor. Capture timing is separate from the reproduced equal-Y defect.
+- **Shooting target choice:** `FUN_00439d0c` initializes ratio 20000, scans in slot order with strict `<`, stores the adjusted `s + trunc(s/4)` divisor as a signed word, then divides enemy troops by it. `GeneralPassTwo.ShotKey` already places the bonus inside the divisor, but stores it as `int`; its selection accepts the first candidate without the 20000 threshold. No new original shot path ran: the 24 stopped probes remain incomplete. Do not infer a new shooting range from a later mismatching melee draw.
+- **Claims:** original actor→target words and the port's target counts are equivalent for uninterrupted once-per-actor Pass 1. Representation alone is not a proved defect. Interruption/re-enable timelines are distinct inputs, outside this 318-recorded-run comparison.
+
+[Source: section E and shooting clarification](https://github.com/diegoami/imperial-conquest-2-research/blob/93bee8965e5d0d05017deb3b31d5289f7af263c0/docs/reports/2026-10-16-tactical-target-and-draw-attribution.md#e-iteration-claims-and-remaining-flank-details-code-attribution-open).
+
+## Historical inventory reconciliation
+
+**[Reported measurement, recovered-artifact limit]** The recovered T129 survey has 636 rows: 318 emulation-false and 318 emulation-true; that flag is a mode, not a pass/fail result. True mode completed 276, leaving 42 series. Those contain all 41 series represented by 57 issue-1107 case entries at registry `9664936e`; the unregistered 42nd is `hi-ar-three_s3_r5_hook`. The recovered TSV is consistent with historical counts, not authenticated as the exact published survey. Its experimental C# was hashed, never run or imported into the harness.
+
+By baseline `5ca9c3f`, issue 1107 had 63 cases / 48 series: the missing survey series was still omitted and seven others added. T175's **whole** strict registry transition was 633→94 (545 removals and six expressly approved exposed cases); 90 of the 94 point to 1107 and four to [1106](https://github.com/diegoami/imperial_conquest_2/issues/1106). The 90 include non-hook/resume comparisons and are not the 36 hook residual series. [Source: inventory reconciliation](https://github.com/diegoami/imperial-conquest-2-research/blob/93bee8965e5d0d05017deb3b31d5289f7af263c0/docs/reports/2026-10-16-tactical-target-and-draw-attribution.md#inventory-42-5741-6348-and-the-corrected-comparison).
+
+## Consequences for the build
+
+The original-rule claims in [game-design.md](../game-design.md) are corrected independently of runtime implementation. The [audit](../design-audit.md#215-tactical-general-local-rules-differ-from-the-merged-port--confirmed-code-and-x86-complete-attribution-open) and [release gates](../release-plan.md#2-the-release-ladder) retain the distinction between local evidence and complete replay fidelity. The T175 control prerequisite is met; that alone does not close the residual investigation. No new product choice follows from these factual corrections.
+
+A later reviewed correction must retain immutable original fixtures, draw bounds/results and strict state/draw comparisons, then identify which complete trial divergences actually disappear. This evaluation authorizes no fixture/registry edits, expected-failure additions, draw rebaseline or change to `improved`'s separately designed rules. Merged historical task contracts remain historical; no undispatched tactical entry is changed.

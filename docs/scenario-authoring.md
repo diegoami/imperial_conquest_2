@@ -700,12 +700,12 @@ confirmed from the report section named in each field's own provenance note.
 | `routCascadeBelow` | integer | A friend dragged below this morale is removed, one cascade level deep (30). |
 | `routEnemyBonus` | integer | Morale every live enemy gains when a unit routs (5). |
 | `placementFormations` | array of arrays of strings | The computer general's placement table: five rows of four unit-type ids, in block order. |
-| `typeOrder` | array of strings | The computer general's per-half-round unit-type order. |
+| `typeOrder` | array of strings | Merged general: unit-type order reused in every movement pass. Original: Pass 1 only; later passes use ascending own slot ([source clarification](investigations/tactical-target-and-draw-attribution.md#source-backed-leads)). |
 | `targetPreferences` | array of objects | The computer general's target preferences. Each entry has `type` (a unit-type id) and `prefers` (an ordered list of enemy unit-type ids; an entry absent means any enemy). |
 | `scoreDivisor` | integer | Divisor of the computer general's target score (10000). |
 | `claimLimit` | integer | The claim count below which the score is divided by `c + 1`, otherwise doubled (4). |
 | `archerEngageDistance` | integer | Distance strictly below which archers engage instead of moving (3). |
-| `approachBoxRadius` | array of integers | The approach-box radius per unit type, in `unitTypes` order (archers 2, others 1). |
+| `approachBoxRadius` | array of integers | Merged approach-box radius per unit type, in `unitTypes` order (archers 2, others 1). Original threat movement uses radius 2 only for an archer actor with shots > 0, otherwise 1, including exhausted archers; engage is a separate path ([evidence](investigations/tactical-target-and-draw-attribution.md#reproduced-local-discrepancies)). |
 | `flankFlipChanceDenominator` | integer | `Random(this) = 0` flips a flank's horizontal direction (3). |
 | `dangerQualityDivisor` | integer | `quality div this` in the computer general's last-move danger term (100). |
 | `shotsNeverNegative` | boolean | Default false preserves the computer's negative shots; true stops pass 2 at zero. `[designed]`, user decision 496; cite original shooting evidence in `_provenance`. |
