@@ -392,7 +392,7 @@ objects documented in their own subsections below.
 | `supplyDialogArmyCapacityBonus` | integer | tons | Added to `armySupplyTonsPerTroops`'s capacity for the supply *dialog's* transfer cap only (both the free own-city and paid foreign paths); every other supply writer uses the plain capacity. |
 | `autoResupplyPurseTopUpThreshold` | integer | talents | `AutomaticResupply`: below this purse balance (and a positive treasury), the unit's purse is topped up. |
 | `autoResupplyPurseTopUpAmount` | integer | talents | The flat top-up `AutomaticResupply` grants when the threshold above is met. |
-| `autoResupplyRadiusTiles` | integer | tiles (Chebyshev) | Every AI turn, each AI army/fleet runs automatic resupply against every non-hostile city within this radius. |
+| `autoResupplyRadiusTiles` | integer | tiles (Chebyshev) | Merged implementation: every AI turn, armies/fleets run automatic resupply against non-hostile cities within this radius. The original army radius is <= 4 but the fleet radius is < 4 ([evidence](investigations/original-ai-control-and-support.md#automatic-army-and-fleet-support)). |
 | `commandAdjacencyRadiusTiles` | integer | tiles (Chebyshev, `<=`) | The one-tile adjacency test shared by the four supply-purchase command handlers, fleet repair/scuttle, and disembarkation's landing-tile check. |
 | `taxBaseContributionMultiplier` | integer | multiplier | `NationTaxBaseRebuild`/`CityOwnershipTaxTransfer`: a city's tax-base contribution (`tribute × population / maxPopulation`) is multiplied by this before being summed into its owner's tax base. |
 | `wealthPerPopulationThousand` | integer | talents per 1,000 pop | A city's wealth contribution to its owner = `populationThousands × this`. |
@@ -1040,7 +1040,7 @@ one shared scale, so the AI's determinism guarantee never depends on floating-po
 | `faithfulMergeFleetsSurvivorShipsBelow` | int | ships | The AI merges a nearby own fleet into an idle fleet (the survivor) holding strictly fewer than N ships; 40. |
 | `faithfulMergeFleetsDistanceBelow` | int | tiles | ... the absorbed fleet lies at Chebyshev distance strictly below N (33 merges, 34 does not); 34. |
 | `faithfulMergeFleetsCombinedShipsBelow` | int | ships | ... and the two fleets' ships sum to strictly below N; 100. |
-| `cityRegionById` | list | region assignments | Pins cities to region ids (`cityId`, `region`); a coordinate takes the region of the nearest pinned city. Empty in the shipped data: the original's region boxes are not transcribed, so every city is in region 0 and the halving term never fires. |
+| `cityRegionById` | list | region assignments | Pins cities to region ids (`cityId`, `region`); a coordinate takes the region of the nearest pinned city. Empty in the shipped data, so the merged implementation assigns every coordinate region 0 and its penalty never fires. The original coordinate classifier is now transcribed: eight strict boxes plus a coast flag, with index -1 fallback; a nearest-city region list does not reproduce it ([evidence](investigations/original-ai-control-and-support.md#coordinate-regions-and-scorer-arithmetic)). |
 | `cityId` | string | city id | A `cityRegionById` row's city. |
 | `region` | int | region id | A `cityRegionById` row's region. |
 | `_provenance` | object | No | Provenance map. |
