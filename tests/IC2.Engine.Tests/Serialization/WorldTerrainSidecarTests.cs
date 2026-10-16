@@ -559,7 +559,8 @@ public class WorldTerrainExportReproducibilityTests
         // reads the sidecar, so the next run repairs rather than fails. (The backup stays beside the
         // sidecar, which keeps a same-volume move atomic; the restore-on-start is what makes a kill safe.)
         RestoreSidecarFromLeftoverBackup(sidecarPath, backupPath);
-        var expectedHash = Sha256(sidecarPath);
+        using var restore = ExportScriptReproducibilityTests.PreserveExportedFiles();
+        var expectedHash = ExportScriptReproducibilityTests.CommittedSha256(ExportedDataPaths.RepositoryRoot, sidecarPath);
 
         // Review finding B2: comparing the file with itself before and after passes even when a
         // mutated exporter stops writing the sidecar at all -- a file nobody touches still compares
