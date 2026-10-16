@@ -12,9 +12,9 @@ namespace IC2.Engine.Tests.Battle.Tactical.General;
 /// <c>FUN_00439F00</c>.
 /// </summary>
 /// <remarks>
-/// The side to move is a human nation with <em>Computer general</em> on, so T123's movement runs without
-/// its computer-only branches (they key on the nation, T123's choice 5) and each test sees the general's
-/// own decision. Shots draw through <see cref="ZeroDraws"/>: every loss is 0, so no morale moves and no
+/// The side to move is a human nation with <em>Computer general</em> on, so T123's movement runs with
+/// its computer-only branches as well as the general's own decision (the active-side OR predicate,
+/// research500e521). Shots draw through <see cref="ZeroDraws"/>: every loss is 0, so no morale moves and no
 /// rout draws, and the shot count is the number of <c>Random(n)</c> pairs.
 /// </remarks>
 public class EngageTests
@@ -71,14 +71,17 @@ public class EngageTests
     }
 
     [Fact]
-    public void Archers_at_distance_3_do_not_fire_they_approach()
+    public void Archers_at_distance_3_approach_then_Walk_fires_when_in_range()
     {
-        // Distance 3 is not below 3: the line is clear, so the archers walk toward the target and stop
-        // when the path reaches its occupied cell: (1,0), (2,0).
+        // Engage chooses approach at distance 3. After one step to range 2, computer-driven Walk
+        // fires with the three remaining moves: three pairs of Random(61), no further steps.
         var (after, journal, draws) = Engage(General((0, Unit(AR, 0, 0, 1500)), (D0, Unit(LI, 3, 0, 5000))), 0, D0);
 
-        Assert.Empty(draws.Bounds);
-        Assert.Equal(new[] { (1, 0), (2, 0) }, Path(after, 0));
+        Assert.Equal(Enumerable.Repeat(61, 6), draws.Bounds);
+        Assert.Equal(new[] { (1, 0) }, Path(after, 0));
+        Assert.Equal(0, after.Slots[0].Moves);
+        Assert.Equal(22, after.Slots[0].Shots);
+        Assert.Equal(3, after.Log.OfType<TacticalShotEvent>().Count());
         Assert.Equal(new GeneralDecision(0, GeneralStep.ApproachLine, D0, 3, 0), Assert.Single(journal));
     }
 

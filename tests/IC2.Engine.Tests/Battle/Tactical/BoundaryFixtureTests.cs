@@ -27,9 +27,8 @@ public class BoundaryFixtureTests
         state = TacticalHalfRound.End(state, context, draws);
         Assert.Equal((5, 4, 2), (state.Slots[0].X, state.Slots[0].Y, state.Slots[0].Moves));
 
-        // The recorded human nation uses Computer general. Issue 1104 separately concerns that
-        // control distinction. Keep the imported path and also isolate the existing computer gate
-        // with a test-only control flag; no gameplay control predicate is changed by T174.
+        // Preserve T174's boundary under either source of the same OR predicate: the recorded
+        // human/general path and a test-only AI-nation control. Neither changes fixture bytes.
         if (isolateComputerPath)
         {
             state = state with { ComputerControlled = ValueList.From(new[] { true, state.ComputerControlled[1] }) };
@@ -49,5 +48,34 @@ public class BoundaryFixtureTests
         Assert.DoesNotContain(after.Log.OfType<TacticalTargetSetEvent>(), e => e.Slot == 0);
         Assert.Empty(draws.Calls);
         TacticalTestbed.AssertGridMatchesSlots(after);
+    }
+
+    [SkippableFact]
+    public void Gate2_a_placement_budget_then_general_on_first_movement_uses_the_OR_setup()
+    {
+        Skip.IfNot(BattleFixtures.SkipReason.Length == 0, BattleFixtures.SkipReason);
+        const string file = "probe/gate2_a_BATTLE02.SAV";
+        var block = BattleFixtures.Block(file);
+        var moved = BattleFixtures.Block("probe/gate2_a_BATTLE03.SAV");
+        var game = BattleFixtures.Import(file).Save.State;
+        var context = TacticalContext.From(RealGameData.Ruleset);
+        var off = OriginalBattleBlockImport.Import(block, game, new[] { false, false });
+        Assert.False(off.ComputerControlled[0]);
+        Assert.True(off.ComputerControlled[1]);
+        Assert.Equal((0, false, 2), (off.SideToMove, off.Placed, off.Counter));
+        Assert.Equal(new[] { 2, 4, 5, 4, 4, 4, 6, 4, 4 }, off.Slots.Take(9).Select(s => s.Moves));
+        var full = TacticalHalfRound.Setup(off, context);
+        Assert.Equal(off.Slots.Take(9).Select(s => s.Moves), full.Slots.Take(9).Select(s => s.Moves));
+
+        // Enabling after the saved placement setup retains those granted moves. This input is
+        // supplied explicitly; no general flag or exact original toggle time can be decoded.
+        var on = off with { ComputerGeneral = ValueList.Of(true, false) };
+        var firstMovement = TacticalHalfRound.End(on, context, NoDraws.Instance);
+        Assert.Equal((0, true, 3), (firstMovement.SideToMove, firstMovement.Placed, firstMovement.Counter));
+        Assert.Equal(new[] { 2, 1, 1, 1, 1, 1, 1, 1, 1 }, firstMovement.Slots.Take(9).Select(s => s.Moves));
+        Assert.Equal(new[] { 2, 1, 1, 1, 1, 1, 1, 1, 1 }, Enumerable.Range(0, 9).Select(i =>
+            Math.Max(Math.Abs(block.Slots[i].X - moved.Slots[i].X), Math.Abs(block.Slots[i].Y - moved.Slots[i].Y))));
+        Assert.All(moved.Slots.Take(9), s => Assert.Equal(0, s.Moves));
+        Assert.Empty(firstMovement.Log.OfType<TacticalDrawEvent>());
     }
 }

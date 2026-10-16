@@ -63,10 +63,10 @@ public class HalfRoundSetupTests
     }
 
     [Fact]
-    public void A_human_side_never_gets_the_slow_advance_even_with_Computer_general_on()
+    public void A_human_side_gets_the_slow_advance_only_with_its_Computer_general_on()
     {
         Assert.Equal(4, TacticalHalfRound.Setup(Board(5, 3, computer: false), Context).Slots[0].Moves);
-        Assert.Equal(4, TacticalHalfRound.Setup(Board(5, 3, computer: false, general: true), Context).Slots[0].Moves);
+        Assert.Equal(1, TacticalHalfRound.Setup(Board(5, 3, computer: false, general: true), Context).Slots[0].Moves);
     }
 
     [Fact]
