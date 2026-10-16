@@ -176,6 +176,35 @@ public class GeneralControlTests
         Assert.Equal(4, next.Counter);
     }
 
+    [Theory]
+    [InlineData(1, false, false)]
+    [InlineData(1, false, true)]
+    [InlineData(1, true, false)]
+    [InlineData(1, true, true)]
+    [InlineData(2, false, false)]
+    [InlineData(2, false, true)]
+    [InlineData(2, true, false)]
+    [InlineData(2, true, true)]
+    public void Shooting_the_last_shot_rechecks_moves_before_any_step(int moves, bool removesTarget, bool nation)
+    {
+        // Quality-zero target isolates exhaustion from the separate last-move danger forfeiture.
+        var state = Controls(Arena((0, Unit(AR, 0, 0, 1500, moves: moves, shots: 1)),
+            (D0, Unit(LI, 2, 0, removesTarget ? 100 : 5000, quality: 0)),
+            (D0 + 1, Unit(HI, 13, 11, 3000))), 0, nation, !nation);
+        var draws = new ScriptedDraws(0, 0);
+        var after = TacticalMovement.MoveUnit(state, 0, 2, 0, Context, draws);
+        Assert.Equal(moves - 1, after.Slots[0].X);
+        Assert.Equal(0, after.Slots[0].Y);
+        Assert.Equal(0, after.Slots[0].Moves);
+        Assert.Equal(0, after.Slots[0].Shots);
+        Assert.Equal(TacticalSlot.NoTarget, after.Slots[0].Target);
+        Assert.Equal(2, draws.Calls.Count);
+        Assert.Single(after.Log.OfType<TacticalShotEvent>());
+        Assert.Equal(!removesTarget, after.Slots[D0].IsLive);
+        Assert.False(after.IsOver);
+        AssertGridMatchesSlots(after);
+    }
+
     private sealed class BudgetGeneral : ITacticalGeneral
     {
         public List<TacticalBattleState> Seen { get; } = new();

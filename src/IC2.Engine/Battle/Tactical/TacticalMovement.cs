@@ -130,6 +130,13 @@ public static class TacticalMovement
                 return Arrived(board, slot, x, y);
             }
 
+            // ComputerChecks can spend the last move by shooting. FUN_00438A6C checks moves
+            // again before committing a step; keep the initial T174 check before targeting too.
+            if (board.Slots[slot].Moves < 1)
+            {
+                break;
+            }
+
             // The path cursor's next cell: an optional minor step, then the major step.
             var fromX = px;
             var fromY = py;
