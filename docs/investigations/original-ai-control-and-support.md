@@ -192,3 +192,11 @@ on this evidence branch. Existing [759](https://github.com/diegoami/imperial_con
 [823](https://github.com/diegoami/imperial_conquest_2/issues/823) and
 [938](https://github.com/diegoami/imperial_conquest_2/issues/938) cover embarked
 support, fleet support and the missing region classifier respectively.
+
+The separately filed merged-code findings are [1145](https://github.com/diegoami/imperial_conquest_2/issues/1145)
+(field-army strength, winning-distance return and city allegiance defense)
+and [1146](https://github.com/diegoami/imperial_conquest_2/issues/1146)
+(purse-only support discarded as a no-op). The scorer also uses id-based ties
+and wide winning-score storage, unlike the original's first equal candidate
+and word storage; those differences require an explicit fidelity accounting,
+without extrapolating the limited signed-operation probes to all overflow cases.
