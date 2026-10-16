@@ -1344,6 +1344,10 @@ Correction from [issue 1105](https://github.com/diegoami/imperial_conquest_2/iss
 
 Correction from [issue 1104](https://github.com/diegoami/imperial_conquest_2/issues/1104) → [full entry](tasks/T175.md).
 
+#### T176 Faithful AI retains automatic-support changes when no supply moves
+
+Correction from [issue 1146](https://github.com/diegoami/imperial_conquest_2/issues/1146) → [full entry](tasks/T176.md).
+
 ---
 
 #### T25 Battle result, diplomacy, and hotseat handoff screens
@@ -1550,3 +1554,4 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T173](#t173-tactical-copy-in-retains-original-attacker-targets-until-its-first-setup) | Copy-in targets | M21 | the user's choice | the user's choice | the user's choice | T129 | [#1103](https://github.com/diegoami/imperial_conquest_2/issues/1103) |
 | [T174](#t174-tactical-walking-checks-exhausted-moves-before-computer-targeting) | Exhausted-move ordering | M21 | the user's choice | the user's choice | the user's choice | T129 | [#1105](https://github.com/diegoami/imperial_conquest_2/issues/1105) |
 | [T175](#t175-tactical-setup-and-walking-use-the-active-sides-computer-general-control) | General control | M21 | the user's choice | the user's choice | the user's choice | T129, T173, T174 | [#1104](https://github.com/diegoami/imperial_conquest_2/issues/1104) |
+| [T176](#t176-faithful-ai-retains-automatic-support-changes-when-no-supply-moves) | Faithful support writeback | M12 | the user's choice | the user's choice | the user's choice | T60, T157 | [#1146](https://github.com/diegoami/imperial_conquest_2/issues/1146) |
