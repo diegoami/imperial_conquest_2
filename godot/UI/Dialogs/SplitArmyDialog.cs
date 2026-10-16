@@ -82,7 +82,7 @@ public partial class SplitArmyDialog : Control
 
     private void BuildUi()
     {
-        var backdrop = new ColorRect { Color = new Color(0f, 0f, 0f, 0.6f), MouseFilter = MouseFilterEnum.Stop };
+        var backdrop = new ColorRect { Color = AppTheme.Scrim, MouseFilter = MouseFilterEnum.Stop };
         backdrop.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(backdrop);
 
@@ -95,16 +95,16 @@ public partial class SplitArmyDialog : Control
         center.AddChild(panel);
 
         var column = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        column.AddThemeConstantOverride("separation", 8);
+        column.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         panel.AddChild(column);
 
-        column.AddChild(UiKit.MakeLabel("Split army", 18, UiKit.AccentColor));
-        _refusalLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.TextColor);
+        column.AddChild(UiKit.MakeLabel("Split army", AppTheme.Header, UiKit.AccentColor));
+        _refusalLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         _refusalLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         column.AddChild(_refusalLabel);
 
         var lists = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        lists.AddThemeConstantOverride("separation", 12);
+        lists.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(lists);
         _armyList = BuildSide(lists, $"Army {ArmyId}", stagedSide: false);
         _newArmyList = BuildSide(lists, $"New army {NewArmyId}", stagedSide: true);
@@ -114,7 +114,7 @@ public partial class SplitArmyDialog : Control
         column.AddChild(BuildMoneyRow());
 
         column.AddChild(new HSeparator());
-        _replyLabel = UiKit.MakeLabel(string.Empty, 13, UiKit.TextColor);
+        _replyLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         _replyLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         column.AddChild(_replyLabel);
 
@@ -123,7 +123,7 @@ public partial class SplitArmyDialog : Control
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
             Alignment = BoxContainer.AlignmentMode.End,
         };
-        buttons.AddThemeConstantOverride("separation", 10);
+        buttons.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(buttons);
         buttons.AddChild(UiKit.MakeButton("Cancel", Cancel));
         _okButton = UiKit.MakeButton("OK", Ok);
@@ -133,15 +133,15 @@ public partial class SplitArmyDialog : Control
     private ItemList BuildSide(Container parent, string title, bool stagedSide)
     {
         var box = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        box.AddThemeConstantOverride("separation", 4);
+        box.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         parent.AddChild(box);
-        box.AddChild(UiKit.MakeLabel(title, 15, UiKit.TextColor));
+        box.AddChild(UiKit.MakeLabel(title, AppTheme.Body, UiKit.TextColor));
 
         var list = new ItemList { CustomMinimumSize = new Vector2(320, 140), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         box.AddChild(list);
 
         var actions = new HBoxContainer();
-        actions.AddThemeConstantOverride("separation", 6);
+        actions.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         box.AddChild(actions);
         actions.AddChild(UiKit.MakeButton("Transfer", () => TransferSelected(stagedSide)));
         actions.AddChild(UiKit.MakeButton("Disband", () => DisbandSelected(stagedSide)));
@@ -151,14 +151,14 @@ public partial class SplitArmyDialog : Control
     private Control BuildSupplyRow()
     {
         var row = new HBoxContainer();
-        row.AddThemeConstantOverride("separation", 6);
-        row.AddChild(UiKit.MakeLabel("Supply", 14, UiKit.TextColor));
+        row.AddThemeConstantOverride("separation", AppTheme.DialogGap);
+        row.AddChild(UiKit.MakeLabel("Supply", AppTheme.Body, UiKit.TextColor));
         row.AddChild(UiKit.MakeButton("-100 t", () => PressSupply(-ArmyDialogModels.SupplyLargeStepTons)));
         _supplySpin = new SpinBox { Step = ArmyDialogModels.SupplyStepTons, CustomMinimumSize = new Vector2(120, 0) };
         _supplySpin.ValueChanged += _ => SpinSupply();
         row.AddChild(_supplySpin);
         row.AddChild(UiKit.MakeButton("+100 t", () => PressSupply(ArmyDialogModels.SupplyLargeStepTons)));
-        _supplyLabel = UiKit.MakeLabel(string.Empty, 13, UiKit.MutedTextColor);
+        _supplyLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.MutedTextColor);
         row.AddChild(_supplyLabel);
         return row;
     }
@@ -166,14 +166,14 @@ public partial class SplitArmyDialog : Control
     private Control BuildMoneyRow()
     {
         var row = new HBoxContainer();
-        row.AddThemeConstantOverride("separation", 6);
-        row.AddChild(UiKit.MakeLabel("Money", 14, UiKit.TextColor));
+        row.AddThemeConstantOverride("separation", AppTheme.DialogGap);
+        row.AddChild(UiKit.MakeLabel("Money", AppTheme.Body, UiKit.TextColor));
         row.AddChild(UiKit.MakeButton("-100", () => PressMoney(-ArmyDialogModels.MoneyLargeStepTalents)));
         _moneySpin = new SpinBox { Step = ArmyDialogModels.MoneyStepTalents, CustomMinimumSize = new Vector2(120, 0) };
         _moneySpin.ValueChanged += _ => SpinMoney();
         row.AddChild(_moneySpin);
         row.AddChild(UiKit.MakeButton("+100", () => PressMoney(ArmyDialogModels.MoneyLargeStepTalents)));
-        _moneyLabel = UiKit.MakeLabel(string.Empty, 13, UiKit.MutedTextColor);
+        _moneyLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.MutedTextColor);
         row.AddChild(_moneyLabel);
         return row;
     }

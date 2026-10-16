@@ -1095,3 +1095,18 @@ No claim in this document rests on having opened the `.EXE`'s or `.DAT`'s own im
 only on the DAT's *data* tables (nation names, terrain codes, marker arithmetic — all numeric/structural,
 already covered by the project's standing decompilation work), the screenshots corpus, and existing
 research reports.
+
+## App theme (T169)
+
+The project default is `godot/UI/AppTheme.tres`: **Bronze Night**, with Cinzel at weight 500 for titles, headers, menu captions and command buttons, and Source Sans 3 at weight 400 for body text and figures (tabular by default). Both variable fonts ship unmodified under `godot/Assets/Fonts/`, each with its SIL Open Font License 1.1 (`OFL.txt`). Sources: [Cinzel](https://github.com/google/fonts/tree/main/ofl/cinzel) and [Source Sans 3](https://github.com/google/fonts/tree/main/ofl/sourcesans3); local provenance is `godot/Assets/Fonts/SOURCES.txt`.
+
+| Role | Colour |
+| --- | --- |
+| Background | `#14110D` |
+| Panel | `#1E1912` |
+| Raised panel | `#2C251B` |
+| Text | `#EDE3CC` |
+| Muted text | `#B8AB8E` |
+| Accent | `#D9A55B` |
+
+Nation, terrain and map-marker colours retain their game meaning and are independent of this palette.

@@ -26,7 +26,7 @@ public partial class HelpPage : Control
 
     public override void _Ready()
     {
-        var backdrop = new ColorRect { Color = new Color(0f, 0f, 0f, 0.65f), MouseFilter = MouseFilterEnum.Stop };
+        var backdrop = new ColorRect { Color = AppTheme.Scrim, MouseFilter = MouseFilterEnum.Stop };
         backdrop.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(backdrop);
 
@@ -39,10 +39,10 @@ public partial class HelpPage : Control
         center.AddChild(panel);
 
         var column = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        column.AddThemeConstantOverride("separation", 8);
+        column.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         panel.AddChild(column);
 
-        column.AddChild(UiKit.MakeLabel("Help", 22, UiKit.AccentColor));
+        column.AddChild(UiKit.MakeLabel("Help", AppTheme.Header, UiKit.AccentColor));
 
         AddSection(column, "Controls");
         AddLine(column, "Left click: select your army, fleet or city; click a target to give the selected unit an order.");
@@ -82,11 +82,11 @@ public partial class HelpPage : Control
     public void Close() => Closed?.Invoke();
 
     private static void AddSection(VBoxContainer column, string text) =>
-        column.AddChild(UiKit.MakeLabel(text, 16, UiKit.AccentColor));
+        column.AddChild(UiKit.MakeLabel(text, AppTheme.Header, UiKit.AccentColor));
 
     private static void AddLine(VBoxContainer column, string text)
     {
-        var label = UiKit.MakeLabel(text, 14, UiKit.TextColor);
+        var label = UiKit.MakeLabel(text, AppTheme.Body, UiKit.TextColor);
         label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         column.AddChild(label);
     }

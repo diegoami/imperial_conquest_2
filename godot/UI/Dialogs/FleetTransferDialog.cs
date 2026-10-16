@@ -64,7 +64,7 @@ public partial class FleetTransferDialog : Control
 
     private void BuildUi()
     {
-        var backdrop = new ColorRect { Color = new Color(0f, 0f, 0f, 0.6f), MouseFilter = MouseFilterEnum.Stop };
+        var backdrop = new ColorRect { Color = AppTheme.Scrim, MouseFilter = MouseFilterEnum.Stop };
         backdrop.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(backdrop);
 
@@ -77,18 +77,18 @@ public partial class FleetTransferDialog : Control
         center.AddChild(panel);
 
         var column = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        column.AddThemeConstantOverride("separation", 8);
+        column.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         panel.AddChild(column);
 
-        column.AddChild(UiKit.MakeLabel("Fleet to fleet transfer", 18, UiKit.AccentColor));
+        column.AddChild(UiKit.MakeLabel("Fleet to fleet transfer", AppTheme.Header, UiKit.AccentColor));
 
-        _figuresLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.TextColor);
+        _figuresLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         _figuresLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         column.AddChild(_figuresLabel);
 
         var legend = UiKit.MakeLabel(
             "Positive moves the selected fleet's ships, supply and money to the partner; negative moves them back.",
-            12, UiKit.MutedTextColor);
+            AppTheme.Note, UiKit.MutedTextColor);
         legend.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         column.AddChild(legend);
 
@@ -98,7 +98,7 @@ public partial class FleetTransferDialog : Control
             _model.AdjustShips(delta);
             Refresh();
         }));
-        _shipsLabel = UiKit.MakeLabel(string.Empty, 13, UiKit.MutedTextColor);
+        _shipsLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.MutedTextColor);
         column.AddChild(_shipsLabel);
 
         column.AddChild(BuildStepper("Supply", FleetCityDialogModels.SupplyStepTons, FleetCityDialogModels.SupplyLargeStepTons, delta =>
@@ -106,7 +106,7 @@ public partial class FleetTransferDialog : Control
             _model.AdjustSupply(delta);
             Refresh();
         }));
-        _supplyLabel = UiKit.MakeLabel(string.Empty, 13, UiKit.MutedTextColor);
+        _supplyLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.MutedTextColor);
         column.AddChild(_supplyLabel);
 
         column.AddChild(BuildStepper("Money", FleetCityDialogModels.MoneyStepTalents, FleetCityDialogModels.MoneyLargeStepTalents, delta =>
@@ -114,11 +114,11 @@ public partial class FleetTransferDialog : Control
             _model.AdjustMoney(delta);
             Refresh();
         }));
-        _moneyLabel = UiKit.MakeLabel(string.Empty, 13, UiKit.MutedTextColor);
+        _moneyLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.MutedTextColor);
         column.AddChild(_moneyLabel);
 
         column.AddChild(new HSeparator());
-        _replyLabel = UiKit.MakeLabel(string.Empty, 13, UiKit.TextColor);
+        _replyLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         _replyLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         column.AddChild(_replyLabel);
 
@@ -127,7 +127,7 @@ public partial class FleetTransferDialog : Control
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
             Alignment = BoxContainer.AlignmentMode.End,
         };
-        buttons.AddThemeConstantOverride("separation", 10);
+        buttons.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(buttons);
         buttons.AddChild(UiKit.MakeButton("Cancel", Cancel));
         buttons.AddChild(UiKit.MakeButton("OK", Ok));
@@ -136,8 +136,8 @@ public partial class FleetTransferDialog : Control
     private Control BuildStepper(string caption, int step, int largeStep, Action<int> adjust)
     {
         var row = new HBoxContainer();
-        row.AddThemeConstantOverride("separation", 6);
-        row.AddChild(UiKit.MakeLabel(caption, 14, UiKit.TextColor));
+        row.AddThemeConstantOverride("separation", AppTheme.DialogGap);
+        row.AddChild(UiKit.MakeLabel(caption, AppTheme.Body, UiKit.TextColor));
         row.AddChild(UiKit.MakeButton($"−{largeStep}", () => adjust(-largeStep)));
         row.AddChild(UiKit.MakeButton($"−{step}", () => adjust(-step)));
         row.AddChild(UiKit.MakeButton($"+{step}", () => adjust(step)));

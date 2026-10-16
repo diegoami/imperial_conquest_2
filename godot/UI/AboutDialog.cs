@@ -24,7 +24,7 @@ public partial class AboutDialog : Control
 
     public override void _Ready()
     {
-        var backdrop = new ColorRect { Color = new Color(0f, 0f, 0f, 0.65f), MouseFilter = MouseFilterEnum.Stop };
+        var backdrop = new ColorRect { Color = AppTheme.Scrim, MouseFilter = MouseFilterEnum.Stop };
         backdrop.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(backdrop);
 
@@ -37,15 +37,15 @@ public partial class AboutDialog : Control
         center.AddChild(panel);
 
         var column = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        column.AddThemeConstantOverride("separation", 10);
+        column.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         panel.AddChild(column);
 
-        column.AddChild(UiKit.MakeLabel("Imperial Conquest 2", 26, UiKit.AccentColor));
+        column.AddChild(UiKit.MakeLabel("Imperial Conquest 2", AppTheme.Header, UiKit.AccentColor));
 
         VersionText = $"Version {ProjectSettings.GetSetting("application/config/version", "development").AsString()}";
-        column.AddChild(UiKit.MakeLabel(VersionText, 14, UiKit.MutedTextColor));
+        column.AddChild(UiKit.MakeLabel(VersionText, AppTheme.Body, UiKit.MutedTextColor));
 
-        var recreation = UiKit.MakeLabel("A re-creation of the 1996 strategy game.", 14, UiKit.TextColor);
+        var recreation = UiKit.MakeLabel("A re-creation of the 1996 strategy game.", AppTheme.Body, UiKit.TextColor);
         recreation.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         column.AddChild(recreation);
 

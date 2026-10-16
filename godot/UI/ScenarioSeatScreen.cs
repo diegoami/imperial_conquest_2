@@ -44,31 +44,31 @@ public partial class ScenarioSeatScreen : Control
 
         var margin = new MarginContainer();
         margin.SetAnchorsPreset(LayoutPreset.FullRect);
-        margin.AddThemeConstantOverride("margin_left", 32);
-        margin.AddThemeConstantOverride("margin_right", 32);
-        margin.AddThemeConstantOverride("margin_top", 24);
-        margin.AddThemeConstantOverride("margin_bottom", 24);
+        margin.AddThemeConstantOverride("margin_left", AppTheme.ScreenMarginSide);
+        margin.AddThemeConstantOverride("margin_right", AppTheme.ScreenMarginSide);
+        margin.AddThemeConstantOverride("margin_top", AppTheme.ScreenMarginVertical);
+        margin.AddThemeConstantOverride("margin_bottom", AppTheme.ScreenMarginVertical);
         AddChild(margin);
 
         var column = new VBoxContainer();
-        column.AddThemeConstantOverride("separation", 14);
+        column.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         margin.AddChild(column);
 
         var header = new HBoxContainer();
-        header.AddThemeConstantOverride("separation", 16);
+        header.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(header);
 
-        var backButton = UiKit.MakeButton("< Back", () => BackRequested?.Invoke(), 14);
+        var backButton = UiKit.MakeButton("< Back", () => BackRequested?.Invoke(), AppTheme.Button);
         backButton.CustomMinimumSize = new Vector2(90, 34);
         header.AddChild(backButton);
 
         header.AddChild(UiKit.MakeLabel(
-            $"New Game — {Selection.SelectedCard.DisplayName}", 26, UiKit.AccentColor));
-        column.AddChild(UiKit.MakeLabel($"Scenario: {resolved.Scenario.Name}", 16, UiKit.MutedTextColor));
-        column.AddChild(UiKit.MakeLabel($"World: {resolved.World.Id} · {_seatOptions.Count} nations", 14, UiKit.MutedTextColor));
+            $"New Game — {Selection.SelectedCard.DisplayName}", AppTheme.Header, UiKit.AccentColor));
+        column.AddChild(UiKit.MakeLabel($"Scenario: {resolved.Scenario.Name}", AppTheme.Body, UiKit.MutedTextColor));
+        column.AddChild(UiKit.MakeLabel($"World: {resolved.World.Id} · {_seatOptions.Count} nations", AppTheme.Body, UiKit.MutedTextColor));
 
         column.AddChild(new HSeparator());
-        column.AddChild(UiKit.MakeLabel("Play as:", 18, UiKit.TextColor));
+        column.AddChild(UiKit.MakeLabel("Play as:", AppTheme.Header, UiKit.TextColor));
 
         _seatPicker = new OptionButton
         {
@@ -89,14 +89,14 @@ public partial class ScenarioSeatScreen : Control
 
         column.AddChild(new HSeparator());
         column.AddChild(UiKit.MakeLabel(
-            "AI personality (applies to every AI-controlled nation):", 18, UiKit.TextColor));
+            "AI personality (applies to every AI-controlled nation):", AppTheme.Header, UiKit.TextColor));
 
         _aggressionSlider = AddPersonalitySlider(column, "Aggression");
         _expansionSlider = AddPersonalitySlider(column, "Expansion drive");
         _loyaltySlider = AddPersonalitySlider(column, "Loyalty to alliances");
 
         column.AddChild(new Control { CustomMinimumSize = new Vector2(0, 12) });
-        var startButton = UiKit.MakeButton("Start Game", OnStartPressed, 20);
+        var startButton = UiKit.MakeButton("Start Game", OnStartPressed, AppTheme.Button);
         startButton.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
         column.AddChild(startButton);
     }
@@ -104,10 +104,10 @@ public partial class ScenarioSeatScreen : Control
     private HSlider AddPersonalitySlider(VBoxContainer column, string label)
     {
         var row = new HBoxContainer();
-        row.AddThemeConstantOverride("separation", 12);
+        row.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(row);
 
-        var caption = UiKit.MakeLabel(label, 14, UiKit.MutedTextColor);
+        var caption = UiKit.MakeLabel(label, AppTheme.Body, UiKit.MutedTextColor);
         caption.CustomMinimumSize = new Vector2(180, 0);
         row.AddChild(caption);
 

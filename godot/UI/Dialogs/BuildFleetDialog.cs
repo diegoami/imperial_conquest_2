@@ -77,7 +77,7 @@ public partial class BuildFleetDialog : Control
     {
         _model = BuildFleetDialogModel.ForActiveNation(Session.State, Session.Ruleset, Session.World);
 
-        var backdrop = new ColorRect { Color = new Color(0f, 0f, 0f, 0.6f), MouseFilter = MouseFilterEnum.Stop };
+        var backdrop = new ColorRect { Color = AppTheme.Scrim, MouseFilter = MouseFilterEnum.Stop };
         backdrop.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(backdrop);
 
@@ -90,33 +90,33 @@ public partial class BuildFleetDialog : Control
         center.AddChild(panel);
 
         var column = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        column.AddThemeConstantOverride("separation", 8);
+        column.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         panel.AddChild(column);
 
-        column.AddChild(UiKit.MakeLabel(StrategyDialogModels.BuildFleetTitle, 18, UiKit.AccentColor));
+        column.AddChild(UiKit.MakeLabel(StrategyDialogModels.BuildFleetTitle, AppTheme.Header, UiKit.AccentColor));
 
         _contentColumn = new VBoxContainer();
-        _contentColumn.AddThemeConstantOverride("separation", 6);
+        _contentColumn.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(_contentColumn);
 
-        _refusalLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.TextColor);
+        _refusalLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         _refusalLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _contentColumn.AddChild(_refusalLabel);
 
-        _fleetPortLabel = UiKit.MakeLabel(string.Empty, 13, UiKit.MutedTextColor);
+        _fleetPortLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.MutedTextColor);
         _fleetPortLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _contentColumn.AddChild(_fleetPortLabel);
 
-        _underConstructionHeader = UiKit.MakeLabel("Fleets under construction", 14, UiKit.MutedTextColor);
+        _underConstructionHeader = UiKit.MakeLabel("Fleets under construction", AppTheme.Body, UiKit.MutedTextColor);
         _contentColumn.AddChild(_underConstructionHeader);
 
         _underConstructionColumn = new VBoxContainer();
-        _underConstructionColumn.AddThemeConstantOverride("separation", 2);
+        _underConstructionColumn.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         _contentColumn.AddChild(_underConstructionColumn);
 
         column.AddChild(new HSeparator());
 
-        column.AddChild(UiKit.MakeLabel("Ships", 13, UiKit.MutedTextColor));
+        column.AddChild(UiKit.MakeLabel("Ships", AppTheme.Body, UiKit.MutedTextColor));
         _ships = new SpinBox
         {
             MinValue = _model.MinShips,
@@ -130,23 +130,23 @@ public partial class BuildFleetDialog : Control
         // The 1s spinner is the SpinBox's own arrows; the 10s spinner is the pair of buttons beside
         // it and the Page Up / Page Down keys (row S06), clamped to the ruleset's bounds.
         var shipRow = new HBoxContainer();
-        shipRow.AddThemeConstantOverride("separation", 6);
+        shipRow.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         shipRow.AddChild(_ships);
-        var downTen = UiKit.MakeButton($"-{BuildFleetDialogModel.ShipPageStep}", () => StepShips(-BuildFleetDialogModel.ShipPageStep), 14);
+        var downTen = UiKit.MakeButton($"-{BuildFleetDialogModel.ShipPageStep}", () => StepShips(-BuildFleetDialogModel.ShipPageStep), AppTheme.Button);
         shipRow.AddChild(downTen);
-        var upTen = UiKit.MakeButton($"+{BuildFleetDialogModel.ShipPageStep}", () => StepShips(BuildFleetDialogModel.ShipPageStep), 14);
+        var upTen = UiKit.MakeButton($"+{BuildFleetDialogModel.ShipPageStep}", () => StepShips(BuildFleetDialogModel.ShipPageStep), AppTheme.Button);
         shipRow.AddChild(upTen);
         column.AddChild(shipRow);
 
-        _costLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.TextColor);
+        _costLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         column.AddChild(_costLabel);
-        _quarterlyCostLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.TextColor);
+        _quarterlyCostLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         column.AddChild(_quarterlyCostLabel);
-        _capacityLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.TextColor);
+        _capacityLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         column.AddChild(_capacityLabel);
 
         column.AddChild(new HSeparator());
-        _replyLabel = UiKit.MakeLabel(string.Empty, 13, UiKit.TextColor);
+        _replyLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         _replyLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         column.AddChild(_replyLabel);
 
@@ -155,7 +155,7 @@ public partial class BuildFleetDialog : Control
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
             Alignment = BoxContainer.AlignmentMode.End,
         };
-        buttons.AddThemeConstantOverride("separation", 10);
+        buttons.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(buttons);
         buttons.AddChild(UiKit.MakeButton("Cancel", Cancel));
         _okButton = UiKit.MakeButton("OK", Ok);
@@ -212,7 +212,7 @@ public partial class BuildFleetDialog : Control
             {
                 _underConstructionColumn.AddChild(UiKit.MakeLabel(
                     $"A fleet of {fleet.Ships} ships will be ready in {fleet.WeeksRemaining} weeks at {fleet.CityName}.",
-                    13,
+                    AppTheme.Body,
                     UiKit.TextColor));
             }
         }

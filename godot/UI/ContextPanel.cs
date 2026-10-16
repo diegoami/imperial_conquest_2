@@ -75,7 +75,7 @@ public partial class ContextPanel : Control
         panel.AddChild(scroll);
 
         _content = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        _content.AddThemeConstantOverride("separation", 10);
+        _content.AddThemeConstantOverride("separation", AppTheme.PanelGap);
         scroll.AddChild(_content);
 
         ShowNationOverview();
@@ -216,7 +216,7 @@ public partial class ContextPanel : Control
         }
     }
 
-    private void Heading(string text) => _content.AddChild(UiKit.MakeLabel(text, 20, UiKit.AccentColor));
+    private void Heading(string text) => _content.AddChild(UiKit.MakeLabel(text, AppTheme.Header, UiKit.AccentColor));
 
     /// <summary>
     /// Fix #491: an unwrapped <see cref="Label"/>'s minimum size is its full single-line text width, so
@@ -232,20 +232,20 @@ public partial class ContextPanel : Control
 
     private void AddFactLabel(string text, Color color)
     {
-        var label = UiKit.MakeLabel(text, 14, color);
+        var label = UiKit.MakeLabel(text, AppTheme.Body, color);
         label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _content.AddChild(label);
     }
 
     private void Note(string text)
     {
-        var label = UiKit.MakeLabel(text, 12, UiKit.MutedTextColor);
+        var label = UiKit.MakeLabel(text, AppTheme.Note, UiKit.MutedTextColor);
         label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _content.AddChild(label);
     }
 
     /// <summary>An empty <see cref="Label"/> between two fact rows — the original's blank-line spacer.</summary>
-    private void Blank() => _content.AddChild(UiKit.MakeLabel(string.Empty, 8, UiKit.TextColor));
+    private void Blank() => _content.AddChild(UiKit.MakeLabel(string.Empty, AppTheme.Spacer, UiKit.TextColor));
 
     /// <summary>
     /// T140 (bug #718): the viewed nation's status panel, populated from
@@ -285,7 +285,7 @@ public partial class ContextPanel : Control
             var color = line.IsRed ? ConqueredRowColor : UiKit.TextColor;
             if (string.Equals(line.Key, NationStatusModel.TrainingHeaderKey, StringComparison.Ordinal))
             {
-                _content.AddChild(UiKit.MakeLabel(line.Text, 15, color));
+                _content.AddChild(UiKit.MakeLabel(line.Text, AppTheme.Body, color));
             }
             else
             {
@@ -326,7 +326,7 @@ public partial class ContextPanel : Control
         // Fix #513: the regiments this city is training (the clone keeps it below the original's
         // facts so the carry-over from T110 still applies).
         var inTraining = RecruitmentPanelViewModel.TrainingAtCity(Session.State, Session.Ruleset, city.Owner, city.Id);
-        _content.AddChild(UiKit.MakeLabel("In training here", 15, UiKit.TextColor));
+        _content.AddChild(UiKit.MakeLabel("In training here", AppTheme.Body, UiKit.TextColor));
         if (inTraining.Count == 0)
         {
             Note("No regiment is training here.");

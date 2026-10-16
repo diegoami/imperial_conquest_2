@@ -2,28 +2,21 @@ using Godot;
 
 namespace IC2.Slice.UI;
 
-/// <summary>
-/// Small, shared control-building helpers every T24 screen uses, so the same look (colours, padding,
-/// font sizes) does not get re-invented, slightly differently, on each screen. <strong>[designed]</strong>:
-/// no report or design document specifies exact colours for a Godot UI (the decompiled game's own forms
-/// are not a source for a from-scratch Control tree), so this is this task's own presentation choice,
-/// picked for contrast and legibility against <see cref="Background"/> — the same background colour
-/// <c>Slice.cs</c> and <c>MapViewer.cs</c> already use, so the new screens do not look like a different
-/// application from the map they lead into.
-/// </summary>
+/// <summary>Shared control builders reading the project-wide T169 theme.</summary>
 public static class UiKit
 {
-    public static readonly Color Background = new(0.07f, 0.11f, 0.15f);
-    public static readonly Color PanelColor = new(0.11f, 0.16f, 0.22f);
-    public static readonly Color PanelColorRaised = new(0.15f, 0.21f, 0.28f);
-    public static readonly Color AccentColor = new(0.86f, 0.66f, 0.27f);
-    public static readonly Color TextColor = new(0.93f, 0.94f, 0.92f);
-    public static readonly Color MutedTextColor = new(0.68f, 0.71f, 0.74f);
-    public static readonly Color SelectedBorderColor = new(0.95f, 0.78f, 0.35f);
+    public static Color Background => AppTheme.Color("background");
+    public static Color PanelColor => AppTheme.Color("panel");
+    public static Color PanelColorRaised => AppTheme.Color("raised");
+    public static Color AccentColor => AppTheme.Color("accent");
+    public static Color TextColor => AppTheme.Color("text");
+    public static Color MutedTextColor => AppTheme.Color("muted");
+    public static Color SelectedBorderColor => AppTheme.Color("accent");
 
-    public static PanelContainer MakePanel(Color color, float cornerRadius = 8f)
+    public static PanelContainer MakePanel(Color color, float cornerRadius = -1f)
     {
         var panel = new PanelContainer();
+        if (cornerRadius < 0) cornerRadius = AppTheme.CornerRadius;
         var style = new StyleBoxFlat
         {
             BgColor = color,
@@ -31,27 +24,29 @@ public static class UiKit
             CornerRadiusTopRight = (int)cornerRadius,
             CornerRadiusBottomLeft = (int)cornerRadius,
             CornerRadiusBottomRight = (int)cornerRadius,
-            ContentMarginLeft = 12,
-            ContentMarginRight = 12,
-            ContentMarginTop = 10,
-            ContentMarginBottom = 10,
+            ContentMarginLeft = AppTheme.PanelMarginSide,
+            ContentMarginRight = AppTheme.PanelMarginSide,
+            ContentMarginTop = AppTheme.PanelMarginVertical,
+            ContentMarginBottom = AppTheme.PanelMarginVertical,
         };
         panel.AddThemeStyleboxOverride("panel", style);
         return panel;
     }
 
-    public static Label MakeLabel(string text, int fontSize = 16, Color? color = null)
+    public static Label MakeLabel(string text, int fontSize = 0, Color? color = null)
     {
         var label = new Label { Text = text };
+        if (fontSize == 0) fontSize = AppTheme.Body;
+        label.AddThemeFontOverride("font", fontSize == AppTheme.Header || fontSize == AppTheme.Title ? AppTheme.DisplayFont : AppTheme.BodyFont);
         label.AddThemeFontSizeOverride("font_size", fontSize);
         label.AddThemeColorOverride("font_color", color ?? TextColor);
         return label;
     }
 
-    public static Button MakeButton(string text, Action onPressed, int fontSize = 16)
+    public static Button MakeButton(string text, Action onPressed, int fontSize = 0)
     {
-        var button = new Button { Text = text, CustomMinimumSize = new Vector2(0, 40) };
-        button.AddThemeFontSizeOverride("font_size", fontSize);
+        var button = new Button { Text = text, CustomMinimumSize = new Vector2(0, AppTheme.ButtonHeight) };
+        button.AddThemeFontSizeOverride("font_size", fontSize == 0 ? AppTheme.Button : fontSize);
         button.Pressed += onPressed;
         return button;
     }

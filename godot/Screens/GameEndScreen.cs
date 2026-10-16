@@ -54,19 +54,19 @@ public partial class GameEndScreen : Control
 
     public override void _Ready()
     {
-        ModalOverlay.Build(out var root, out var content, new Color(0f, 0f, 0f, 0.65f));
+        ModalOverlay.Build(out var root, out var content, AppTheme.Scrim);
         AddChild(root);
 
-        TitleLabel = UiKit.MakeLabel(Model.Title, 22, UiKit.AccentColor);
+        TitleLabel = UiKit.MakeLabel(Model.Title, AppTheme.Header, UiKit.AccentColor);
         content.AddChild(TitleLabel);
 
-        LeaderLineLabel = UiKit.MakeLabel(Model.LeaderLine, 16, UiKit.TextColor);
+        LeaderLineLabel = UiKit.MakeLabel(Model.LeaderLine, AppTheme.Body, UiKit.TextColor);
         content.AddChild(LeaderLineLabel);
 
-        BodyLabel = UiKit.MakeLabel(Model.Body, 16, UiKit.TextColor);
+        BodyLabel = UiKit.MakeLabel(Model.Body, AppTheme.Body, UiKit.TextColor);
         content.AddChild(BodyLabel);
 
-        YearsLabel = UiKit.MakeLabel(Model.YearsLine, 14, UiKit.MutedTextColor);
+        YearsLabel = UiKit.MakeLabel(Model.YearsLine, AppTheme.Body, UiKit.MutedTextColor);
         content.AddChild(YearsLabel);
 
         content.AddChild(new HSeparator());
@@ -113,7 +113,7 @@ public partial class GameEndScreen : Control
 
     private void AddTableCell(string text, Color color)
     {
-        var label = UiKit.MakeLabel(text, 14, color);
+        var label = UiKit.MakeLabel(text, AppTheme.Body, color);
         _tableLabels.Add(label);
         Table.AddChild(label);
     }

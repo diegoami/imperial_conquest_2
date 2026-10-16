@@ -68,7 +68,7 @@ public partial class ChangeUnitsDialog : Control
 
     private void BuildUi()
     {
-        var backdrop = new ColorRect { Color = new Color(0f, 0f, 0f, 0.6f), MouseFilter = MouseFilterEnum.Stop };
+        var backdrop = new ColorRect { Color = AppTheme.Scrim, MouseFilter = MouseFilterEnum.Stop };
         backdrop.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(backdrop);
 
@@ -81,10 +81,10 @@ public partial class ChangeUnitsDialog : Control
         center.AddChild(panel);
 
         var column = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        column.AddThemeConstantOverride("separation", 8);
+        column.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         panel.AddChild(column);
 
-        column.AddChild(UiKit.MakeLabel("Change units", 18, UiKit.AccentColor));
+        column.AddChild(UiKit.MakeLabel("Change units", AppTheme.Header, UiKit.AccentColor));
         _unitList = new ItemList
         {
             CustomMinimumSize = new Vector2(0, 180),
@@ -93,7 +93,7 @@ public partial class ChangeUnitsDialog : Control
         column.AddChild(_unitList);
 
         var actions = new HBoxContainer();
-        actions.AddThemeConstantOverride("separation", 6);
+        actions.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(actions);
         actions.AddChild(UiKit.MakeButton("Rename unit", ShowRenamePanel));
         actions.AddChild(UiKit.MakeButton("Split unit", ShowSplitPanel));
@@ -106,7 +106,7 @@ public partial class ChangeUnitsDialog : Control
         column.AddChild(_splitPanel);
 
         column.AddChild(new HSeparator());
-        _replyLabel = UiKit.MakeLabel(string.Empty, 13, UiKit.TextColor);
+        _replyLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         _replyLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         column.AddChild(_replyLabel);
 
@@ -115,7 +115,7 @@ public partial class ChangeUnitsDialog : Control
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
             Alignment = BoxContainer.AlignmentMode.End,
         };
-        buttons.AddThemeConstantOverride("separation", 10);
+        buttons.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(buttons);
         buttons.AddChild(UiKit.MakeButton("Cancel", Cancel));
         buttons.AddChild(UiKit.MakeButton("OK", Cancel));
@@ -124,10 +124,10 @@ public partial class ChangeUnitsDialog : Control
     private Control BuildRenamePanel()
     {
         var panel = new VBoxContainer();
-        panel.AddChild(UiKit.MakeLabel("Rename unit", 15, UiKit.TextColor));
-        _renameCurrentLabel = UiKit.MakeLabel(string.Empty, 13, UiKit.MutedTextColor);
+        panel.AddChild(UiKit.MakeLabel("Rename unit", AppTheme.Body, UiKit.TextColor));
+        _renameCurrentLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.MutedTextColor);
         panel.AddChild(_renameCurrentLabel);
-        panel.AddChild(UiKit.MakeLabel("New name", 13, UiKit.MutedTextColor));
+        panel.AddChild(UiKit.MakeLabel("New name", AppTheme.Body, UiKit.MutedTextColor));
         _renameEdit = new LineEdit { CustomMinimumSize = new Vector2(320, 0) };
         panel.AddChild(_renameEdit);
         var row = new HBoxContainer();
@@ -149,15 +149,15 @@ public partial class ChangeUnitsDialog : Control
     private Control BuildSplitPanel()
     {
         var panel = new VBoxContainer();
-        panel.AddChild(UiKit.MakeLabel("Split unit", 15, UiKit.TextColor));
+        panel.AddChild(UiKit.MakeLabel("Split unit", AppTheme.Body, UiKit.TextColor));
 
         var spinners = new HBoxContainer();
-        spinners.AddThemeConstantOverride("separation", 8);
+        spinners.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         panel.AddChild(spinners);
-        spinners.AddChild(UiKit.MakeLabel("1000s", 13, UiKit.MutedTextColor));
+        spinners.AddChild(UiKit.MakeLabel("1000s", AppTheme.Body, UiKit.MutedTextColor));
         _splitThousands = new SpinBox { MinValue = 0, MaxValue = 1_000, Step = 1_000 };
         spinners.AddChild(_splitThousands);
-        spinners.AddChild(UiKit.MakeLabel("100s", 13, UiKit.MutedTextColor));
+        spinners.AddChild(UiKit.MakeLabel("100s", AppTheme.Body, UiKit.MutedTextColor));
         _splitHundreds = new SpinBox { MinValue = 0, MaxValue = 900, Step = 100, Value = 100 };
         spinners.AddChild(_splitHundreds);
 

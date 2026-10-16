@@ -39,19 +39,19 @@ public partial class BattleEndedScreen : Control
 
     public override void _Ready()
     {
-        ModalOverlay.Build(out var root, out var content, new Color(0f, 0f, 0f, 0.65f), 520f);
+        ModalOverlay.Build(out var root, out var content, AppTheme.Scrim, 520f);
         AddChild(root);
 
-        TitleLabel = UiKit.MakeLabel(Model.Title, 22, UiKit.AccentColor);
+        TitleLabel = UiKit.MakeLabel(Model.Title, AppTheme.Header, UiKit.AccentColor);
         content.AddChild(TitleLabel);
-        WinnerLabel = UiKit.MakeLabel(Model.WinnerLine, 17, UiKit.TextColor);
+        WinnerLabel = UiKit.MakeLabel(Model.WinnerLine, AppTheme.Header, UiKit.TextColor);
         WinnerLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         content.AddChild(WinnerLabel);
 
         content.AddChild(new HSeparator());
         var table = new GridContainer { Columns = BattleEndedViewModel.Headers.Count };
-        table.AddThemeConstantOverride("h_separation", 18);
-        table.AddThemeConstantOverride("v_separation", 4);
+        table.AddThemeConstantOverride("h_separation", AppTheme.DialogGap);
+        table.AddThemeConstantOverride("v_separation", AppTheme.TableRowGap);
         content.AddChild(table);
 
         var texts = new List<string>();
@@ -72,9 +72,9 @@ public partial class BattleEndedScreen : Control
         TableTexts = texts;
 
         content.AddChild(new HSeparator());
-        MoneyLabel = UiKit.MakeLabel(Model.MoneyLine, 15, UiKit.TextColor);
+        MoneyLabel = UiKit.MakeLabel(Model.MoneyLine, AppTheme.Body, UiKit.TextColor);
         content.AddChild(MoneyLabel);
-        SuppliesLabel = UiKit.MakeLabel(Model.SuppliesLine, 15, UiKit.TextColor);
+        SuppliesLabel = UiKit.MakeLabel(Model.SuppliesLine, AppTheme.Body, UiKit.TextColor);
         content.AddChild(SuppliesLabel);
 
         content.AddChild(new HSeparator());
@@ -89,7 +89,7 @@ public partial class BattleEndedScreen : Control
 
     private static void AddCell(GridContainer table, List<string> texts, string text, Color color, bool left)
     {
-        var label = UiKit.MakeLabel(text, 14, color);
+        var label = UiKit.MakeLabel(text, AppTheme.Body, color);
         label.HorizontalAlignment = left ? HorizontalAlignment.Left : HorizontalAlignment.Right;
         table.AddChild(label);
         texts.Add(text);

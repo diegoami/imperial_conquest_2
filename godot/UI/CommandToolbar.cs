@@ -69,7 +69,7 @@ public partial class CommandToolbar : PanelContainer
     public override void _Ready()
     {
         var row = new HBoxContainer();
-        row.AddThemeConstantOverride("separation", 6);
+        row.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         AddChild(row);
 
         foreach (var commandId in PictorialOrder)

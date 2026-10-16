@@ -20,20 +20,20 @@ public partial class NewsLogPanel : Control
         Visible = false;
         MouseFilter = MouseFilterEnum.Ignore;
 
-        var panel = UiKit.MakePanel(new Color(UiKit.PanelColor, 0.92f));
+        var panel = UiKit.MakePanel(AppTheme.NewsPanel);
         panel.SetAnchorsPreset(LayoutPreset.FullRect);
         panel.MouseFilter = MouseFilterEnum.Stop;
         AddChild(panel);
 
         var column = new VBoxContainer();
-        column.AddThemeConstantOverride("separation", 6);
+        column.AddThemeConstantOverride("separation", AppTheme.PanelGap);
         panel.AddChild(column);
 
         var header = new HBoxContainer();
-        header.AddThemeConstantOverride("separation", 12);
+        header.AddThemeConstantOverride("separation", AppTheme.PanelGap);
         column.AddChild(header);
-        header.AddChild(UiKit.MakeLabel("News", 18, UiKit.AccentColor));
-        header.AddChild(UiKit.MakeButton("Dismiss", () => Visible = false, 12));
+        header.AddChild(UiKit.MakeLabel("News", AppTheme.Header, UiKit.AccentColor));
+        header.AddChild(UiKit.MakeButton("Dismiss", () => Visible = false, AppTheme.Button));
 
         _text = new RichTextLabel
         {

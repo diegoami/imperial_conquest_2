@@ -150,24 +150,24 @@ public partial class TacticalBattleScreen : Control
         margin.SetAnchorsPreset(LayoutPreset.FullRect);
         foreach (var side in new[] { "margin_left", "margin_right", "margin_top", "margin_bottom" })
         {
-            margin.AddThemeConstantOverride(side, 12);
+            margin.AddThemeConstantOverride(side, AppTheme.PanelMarginSide);
         }
 
         AddChild(margin);
 
         var row = new HBoxContainer();
-        row.AddThemeConstantOverride("separation", 14);
+        row.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         margin.AddChild(row);
 
         var left = new VBoxContainer();
-        left.AddThemeConstantOverride("separation", 8);
+        left.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         row.AddChild(left);
 
-        CaptionLabel = UiKit.MakeLabel(string.Empty, 18, UiKit.AccentColor);
+        CaptionLabel = UiKit.MakeLabel(string.Empty, AppTheme.Header, UiKit.AccentColor);
         left.AddChild(CaptionLabel);
 
         var toolbar = new HBoxContainer();
-        toolbar.AddThemeConstantOverride("separation", 4);
+        toolbar.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         left.AddChild(toolbar);
         for (var i = 0; i < BattleAssetKeys.ToolbarButtons.Count; i++)
         {
@@ -199,19 +199,19 @@ public partial class TacticalBattleScreen : Control
         };
         left.AddChild(_board);
 
-        MessageLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.MutedTextColor);
+        MessageLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.MutedTextColor);
         MessageLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         MessageLabel.CustomMinimumSize = new Vector2(CellPixels * 14, 54);
         left.AddChild(MessageLabel);
 
         var right = new VBoxContainer { CustomMinimumSize = new Vector2(380, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        right.AddThemeConstantOverride("separation", 8);
+        right.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         row.AddChild(right);
 
         var saveRow = new HBoxContainer();
-        saveRow.AddThemeConstantOverride("separation", 8);
-        saveRow.AddChild(UiKit.MakeButton("Save", () => SaveRequested?.Invoke(), 14));
-        saveRow.AddChild(UiKit.MakeButton("Save As...", () => SaveAsRequested?.Invoke(), 14));
+        saveRow.AddThemeConstantOverride("separation", AppTheme.DialogGap);
+        saveRow.AddChild(UiKit.MakeButton("Save", () => SaveRequested?.Invoke(), AppTheme.Button));
+        saveRow.AddChild(UiKit.MakeButton("Save As...", () => SaveAsRequested?.Invoke(), AppTheme.Button));
         right.AddChild(saveRow);
 
         // A click on the side panel during a computer-played half-round turns Computer general off (the entry).
@@ -220,20 +220,20 @@ public partial class TacticalBattleScreen : Control
         panelBox.GuiInput += OnPanelInput;
         right.AddChild(panelBox);
         var panelColumn = new VBoxContainer();
-        panelColumn.AddThemeConstantOverride("separation", 4);
+        panelColumn.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         panelBox.AddChild(panelColumn);
-        panelColumn.AddChild(UiKit.MakeLabel("Selected unit", 14, UiKit.MutedTextColor));
-        PanelLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.TextColor);
+        panelColumn.AddChild(UiKit.MakeLabel("Selected unit", AppTheme.Body, UiKit.MutedTextColor));
+        PanelLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         PanelLabel.CustomMinimumSize = new Vector2(0, 150);
         PanelLabel.MouseFilter = MouseFilterEnum.Ignore;
         panelColumn.AddChild(PanelLabel);
-        panelColumn.AddChild(UiKit.MakeLabel("Last exchange", 14, UiKit.MutedTextColor));
-        ExchangeLabel = UiKit.MakeLabel(string.Empty, 14, UiKit.TextColor);
+        panelColumn.AddChild(UiKit.MakeLabel("Last exchange", AppTheme.Body, UiKit.MutedTextColor));
+        ExchangeLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         ExchangeLabel.CustomMinimumSize = new Vector2(0, 90);
         ExchangeLabel.MouseFilter = MouseFilterEnum.Ignore;
         panelColumn.AddChild(ExchangeLabel);
 
-        _listTitle = UiKit.MakeLabel(string.Empty, 14, UiKit.MutedTextColor);
+        _listTitle = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.MutedTextColor);
         right.AddChild(_listTitle);
         var scroll = new ScrollContainer { SizeFlagsVertical = SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 160) };
         right.AddChild(scroll);
@@ -558,18 +558,18 @@ public partial class TacticalBattleScreen : Control
         _listTitle.Text = list.Title;
 
         var grid = new GridContainer { Columns = list.Headers.Count };
-        grid.AddThemeConstantOverride("h_separation", 14);
+        grid.AddThemeConstantOverride("h_separation", AppTheme.DialogGap);
         _listBox.AddChild(grid);
         foreach (var header in list.Headers)
         {
-            grid.AddChild(UiKit.MakeLabel(header, 12, UiKit.MutedTextColor));
+            grid.AddChild(UiKit.MakeLabel(header, AppTheme.Note, UiKit.MutedTextColor));
         }
 
         foreach (var row in list.Rows)
         {
             foreach (var cell in row.Cells)
             {
-                grid.AddChild(UiKit.MakeLabel(cell, 12, row.Slot == SelectedSlot ? UiKit.AccentColor : UiKit.TextColor));
+                grid.AddChild(UiKit.MakeLabel(cell, AppTheme.Note, row.Slot == SelectedSlot ? UiKit.AccentColor : UiKit.TextColor));
             }
         }
     }
@@ -584,10 +584,10 @@ public partial class TacticalBattleScreen : Control
 
     private void OpenSurrenderPrompt()
     {
-        ModalOverlay.Build(out var root, out var content, new Color(0f, 0f, 0f, 0.55f), 360f);
-        content.AddChild(UiKit.MakeLabel("Are you sure you want to surrender ?", 16, UiKit.TextColor));
+        ModalOverlay.Build(out var root, out var content, AppTheme.Scrim, 360f);
+        content.AddChild(UiKit.MakeLabel("Are you sure you want to surrender ?", AppTheme.Body, UiKit.TextColor));
         var buttons = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.End };
-        buttons.AddThemeConstantOverride("separation", 10);
+        buttons.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         buttons.AddChild(UiKit.MakeButton("Yes", () => AnswerSurrender(true)));
         buttons.AddChild(UiKit.MakeButton("No", () => AnswerSurrender(false)));
         buttons.AddChild(UiKit.MakeButton("Cancel", () => AnswerSurrender(false)));
@@ -597,9 +597,9 @@ public partial class TacticalBattleScreen : Control
 
     private void OpenPausesDialog()
     {
-        ModalOverlay.Build(out var root, out var content, new Color(0f, 0f, 0f, 0.55f), 420f);
-        content.AddChild(UiKit.MakeLabel("Change pauses", 18, UiKit.AccentColor));
-        content.AddChild(UiKit.MakeLabel("Display only: the battle's rules never wait.", 12, UiKit.MutedTextColor));
+        ModalOverlay.Build(out var root, out var content, AppTheme.Scrim, 420f);
+        content.AddChild(UiKit.MakeLabel("Change pauses", AppTheme.Header, UiKit.AccentColor));
+        content.AddChild(UiKit.MakeLabel("Display only: the battle's rules never wait.", AppTheme.Note, UiKit.MutedTextColor));
         content.AddChild(MakePauseRow("After a shot (s)", BattlePauses.ShotStepSeconds, SettingsScreen.BattleShotDelaySeconds,
             value => SettingsScreen.SetBattlePauses(value, SettingsScreen.BattleAttackDelaySeconds)));
         content.AddChild(MakePauseRow("After an attack (s)", BattlePauses.AttackStepSeconds, SettingsScreen.BattleAttackDelaySeconds,
@@ -613,8 +613,8 @@ public partial class TacticalBattleScreen : Control
     private static HBoxContainer MakePauseRow(string caption, double step, double current, Action<double> onChanged)
     {
         var row = new HBoxContainer();
-        row.AddThemeConstantOverride("separation", 10);
-        var name = UiKit.MakeLabel(caption, 14, UiKit.TextColor);
+        row.AddThemeConstantOverride("separation", AppTheme.DialogGap);
+        var name = UiKit.MakeLabel(caption, AppTheme.Body, UiKit.TextColor);
         name.CustomMinimumSize = new Vector2(150, 0);
         row.AddChild(name);
         var slider = new HSlider
@@ -625,7 +625,7 @@ public partial class TacticalBattleScreen : Control
             Value = current,
             CustomMinimumSize = new Vector2(160, 24),
         };
-        var value = UiKit.MakeLabel(current.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture), 14, UiKit.MutedTextColor);
+        var value = UiKit.MakeLabel(current.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture), AppTheme.Body, UiKit.MutedTextColor);
         slider.ValueChanged += v =>
         {
             onChanged(v);
@@ -685,7 +685,7 @@ public partial class TacticalBattleScreen : Control
             }
 
             var ground = Host.GroundTexture;
-            var font = ThemeDB.FallbackFont;
+            var font = AppTheme.BodyFont;
             foreach (var cell in model.Cells)
             {
                 var rect = new Rect2(cell.X * CellPixels, cell.Y * CellPixels, CellPixels, CellPixels);
@@ -710,7 +710,7 @@ public partial class TacticalBattleScreen : Control
                     {
                         DrawRect(rect.Grow(-3), cell.TintSide == 0 ? new Color(0.25f, 0.45f, 0.8f) : new Color(0.8f, 0.3f, 0.25f));
                         var letter = Host.TypeNameOf(cell);
-                        DrawString(font, rect.Position + new Vector2(4, 26), letter.Length > 0 ? letter[..1] : "?", HorizontalAlignment.Left, -1, 20, Colors.White);
+                        DrawString(font, rect.Position + new Vector2(4, 26), letter.Length > 0 ? letter[..1] : "?", HorizontalAlignment.Left, -1, AppTheme.Body, Colors.White);
                     }
                 }
 
@@ -722,7 +722,8 @@ public partial class TacticalBattleScreen : Control
                     }
                     else
                     {
-                        DrawRect(rect.Grow(-1), UiKit.SelectedBorderColor, false, 3f);
+                        // Game marker tint: palette changes must not recolour the selected cell.
+                        DrawRect(rect.Grow(-1), new Color(0.95f, 0.78f, 0.35f), false, 3f);
                     }
                 }
             }

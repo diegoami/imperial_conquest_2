@@ -29,23 +29,23 @@ public partial class MainMenu : Control
         AddChild(center);
 
         var column = new VBoxContainer { CustomMinimumSize = new Vector2(420, 0) };
-        column.AddThemeConstantOverride("separation", 18);
+        column.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         center.AddChild(column);
 
-        var title = UiKit.MakeLabel("Imperial Conquest 2", 34, UiKit.AccentColor);
+        var title = UiKit.MakeLabel("Imperial Conquest 2", AppTheme.Title, UiKit.AccentColor);
         title.HorizontalAlignment = HorizontalAlignment.Center;
         column.AddChild(title);
 
-        var subtitle = UiKit.MakeLabel("A reimplementation of the 1999 strategy game", 14, UiKit.MutedTextColor);
+        var subtitle = UiKit.MakeLabel("A reimplementation of the 1999 strategy game", AppTheme.Body, UiKit.MutedTextColor);
         subtitle.HorizontalAlignment = HorizontalAlignment.Center;
         column.AddChild(subtitle);
 
         column.AddChild(new Control { CustomMinimumSize = new Vector2(0, 20) });
 
-        column.AddChild(UiKit.MakeButton("New Game", OnNewGamePressed, 20));
-        column.AddChild(UiKit.MakeButton("Load", OnLoadPressed, 20));
-        column.AddChild(UiKit.MakeButton("Settings", OnSettingsPressed, 20));
-        column.AddChild(UiKit.MakeButton("Quit", OnQuitPressed, 20));
+        column.AddChild(UiKit.MakeButton("New Game", OnNewGamePressed, AppTheme.Button));
+        column.AddChild(UiKit.MakeButton("Load", OnLoadPressed, AppTheme.Button));
+        column.AddChild(UiKit.MakeButton("Settings", OnSettingsPressed, AppTheme.Button));
+        column.AddChild(UiKit.MakeButton("Quit", OnQuitPressed, AppTheme.Button));
     }
 
     private void OnNewGamePressed() => NewGameRequested?.Invoke();
