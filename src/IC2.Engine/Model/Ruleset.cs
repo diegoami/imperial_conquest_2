@@ -1253,6 +1253,11 @@ public sealed record DetailedResolverRules(
 /// The last-move danger term <c>S = (troops × quality div this) × morale × M[mine][theirs]</c> (report
 /// §3, "Movement", computer-controlled only).
 /// </param>
+/// <param name="MidBattleSave">
+/// <c>anyTime</c> preserves the original's save and setup-on-reload policy; <c>halfRoundStart</c> permits
+/// a save only before the current half-round's first order and reloads it without running setup again.
+/// [designed: policy field; the user's 2026-10-04 decision on issue 496; the original's resume is report §3].
+/// </param>
 public sealed record TacticalBattleRules(
     int BoardWidth,
     int BoardHeight,
@@ -1294,6 +1299,7 @@ public sealed record TacticalBattleRules(
     ValueList<int> ApproachBoxRadius,
     int FlankFlipChanceDenominator,
     int DangerQualityDivisor,
+    string MidBattleSave = "anyTime",
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>

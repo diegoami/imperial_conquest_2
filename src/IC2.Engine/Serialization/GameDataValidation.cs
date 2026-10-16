@@ -354,6 +354,14 @@ public static class GameDataValidation
         // ai.faithfulTaxCutTreasuryWealthDivisor: AiFaithfulEconomy: nation wealth / this, the tax-cut treasury test.
         RequirePositiveDivisor(documentPath, ruleset.Ai.FaithfulTaxCutTreasuryWealthDivisor, "ai.faithfulTaxCutTreasuryWealthDivisor");
 
+        // combat.tactical.midBattleSave selects both the save gate and reload path; an unknown value must not
+        // silently fall back to the unrestricted policy.
+        if (ruleset.Combat.Tactical.MidBattleSave is not ("anyTime" or "halfRoundStart"))
+        {
+            throw new MalformedGameDataException(
+                documentPath, "'combat.tactical.midBattleSave' must be 'anyTime' or 'halfRoundStart'.");
+        }
+
         ValidateRuntimeDivisors(documentPath, ruleset);
         ValidateBalanceSheetDebtLimits(documentPath, ruleset);
         ValidateRngBounds(documentPath, ruleset);

@@ -168,6 +168,7 @@ public class ImprovedPresetTests
             "economy.rebirthPreservesInboundRelations",
             "victory.defaultCondition",
             "victory.defaultTurnLimit",
+            "combat.tactical.midBattleSave",
         };
 
         // Assert that the differing paths are exactly what we expect (no more, no less)

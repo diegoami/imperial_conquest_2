@@ -180,16 +180,22 @@ public sealed class TacticalBattleSession
         string.Create(CultureInfo.InvariantCulture, $"battle.tactical:{attackerArmyId}:{defenderArmyId}:{turnIndex}");
 
     /// <summary>
-    /// Whether a ruleset asks for the exact-restore reload (T130's switch). No ruleset field exists yet, so this is
-    /// false everywhere and every reload goes through T123's <c>Resume</c> (<c>classical-faithful</c>'s policy).
+    /// Whether <c>combat.tactical.midBattleSave</c> selects the half-round-start save and exact-restore policy.
+    /// The default <c>anyTime</c> policy retains setup on every reload.
     /// </summary>
     /// <param name="ruleset">The ruleset the game runs under.</param>
-    /// <returns>Always <see langword="false"/> today.</returns>
+    /// <returns>Whether the policy is <c>halfRoundStart</c>.</returns>
     public static bool RulesetAsksForExactRestore(Ruleset ruleset)
     {
         ArgumentNullException.ThrowIfNull(ruleset);
-        return false;
+        return ruleset.Combat.Tactical.MidBattleSave == "halfRoundStart";
     }
+
+    /// <summary>
+    /// Whether <c>combat.tactical.midBattleSave</c> permits saving now: <c>anyTime</c>, or before the
+    /// current half-round's first order under <c>halfRoundStart</c>.
+    /// </summary>
+    public bool CanSave => !RulesetAsksForExactRestore(_context.Ruleset) || AtHalfRoundStart;
 
     /// <summary>
     /// Whether a field battle between these two armies can be fought on the board: both exist, belong to different

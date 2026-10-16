@@ -708,6 +708,7 @@ confirmed from the report section named in each field's own provenance note.
 | `approachBoxRadius` | array of integers | The approach-box radius per unit type, in `unitTypes` order (archers 2, others 1). |
 | `flankFlipChanceDenominator` | integer | `Random(this) = 0` flips a flank's horizontal direction (3). |
 | `dangerQualityDivisor` | integer | `quality div this` in the computer general's last-move danger term (100). |
+| `midBattleSave` | string | `anyTime` (default): save at any point and run half-round setup again on reload. `halfRoundStart`: save before the first battle order of a half-round and restore it exactly, keeping the counter, moves, targets and draw stream as saved. Field and clone policy are `[designed]`; cite the user's 2026-10-04 decision on issue 496 and the original's resume evidence in `_provenance`. |
 | `_provenance` | object | Provenance map. |
 
 ### Siege rules

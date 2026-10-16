@@ -697,6 +697,7 @@
       "approachBoxRadius": [1, 1, 2, 1, 1],
       "flankFlipChanceDenominator": 3,
       "dangerQualityDivisor": 100,
+      "midBattleSave": "anyTime",
       "_provenance": {
         "boardWidth": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §1 — the battle grid is 14 × 12 cells, x 0–13 and y 0–11.",
         "boardHeight": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §1 — the grid's twelve rows, y 0–11.",
@@ -737,7 +738,8 @@
         "archerEngageDistance": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §7 — archers with shots engage, rather than move, at a distance strictly below 3.",
         "approachBoxRadius": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §7 — the approach box radius r is 2 for archers and 1 for every other type, in unitTypes order.",
         "flankFlipChanceDenominator": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §7 — Random(3) = 0 flips the flank's horizontal direction.",
-        "dangerQualityDivisor": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §3 — the last-move danger term S = (troops × quality div 100) × morale × M[mine][theirs]."
+        "dangerQualityDivisor": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §3 — the last-move danger term S = (troops × quality div 100) × morale × M[mine][theirs].",
+        "midBattleSave": "designed: policy field name. anyTime preserves the original save and setup-on-reload behavior in 2026-10-04-decompiled-tactical-battle-rules.md §3 and 2026-10-04-tactical-battle-sweep.md B2; those sources have no ruleset field. The user retained this behavior for classical-faithful on 2026-10-04 (issue 496)."
       }
     },
     "_provenance": {

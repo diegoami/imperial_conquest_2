@@ -1380,6 +1380,11 @@ public sealed partial class GameSession
             return new[] { "Answer the pending peace treaty offer (peace-yes / peace-no) before saving." };
         }
 
+        if (_battle is { CanSave: false })
+        {
+            return new[] { "Save at the start of a half-round, before giving any battle order." };
+        }
+
         try
         {
             SaveManager.WriteFile(path, BuildSaveGame());

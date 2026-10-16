@@ -147,6 +147,10 @@ public class TacticalRulesetTests
         Assert.NotNull(improved);
         Assert.NotNull(classical);
 
-        Assert.Equal(classical with { Provenance = null }, improved with { Provenance = null });
+        Assert.Equal("anyTime", classical.MidBattleSave);
+        Assert.Equal("halfRoundStart", improved.MidBattleSave);
+        Assert.Equal(
+            classical with { Provenance = null },
+            improved with { MidBattleSave = classical.MidBattleSave, Provenance = null });
     }
 }
