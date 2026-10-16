@@ -57,6 +57,9 @@ internal sealed class TacticalBoard
 
     public bool[] ComputerGeneral { get; }
 
+    /// <summary>FUN_00438378: only this side's nation and runtime general flag drive its units.</summary>
+    public bool IsComputerDriven(int side) => ComputerControlled[side] || ComputerGeneral[side];
+
     public int[] GeneralClaims { get; }
 
     public int Selected { get; set; }

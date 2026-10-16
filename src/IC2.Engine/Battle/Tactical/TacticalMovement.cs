@@ -28,7 +28,7 @@ namespace IC2.Engine.Battle.Tactical;
 /// or when the path reaches an occupied destination.
 /// </para>
 /// <para>
-/// <strong>For a computer-controlled side only</strong> (its nation): a unit with a target does not
+    /// <strong>For a computer-driven side</strong> (its nation or its own Computer general flag): a unit with a target does not
 /// move; before spending its last move, a unit gives it up (moves 0) when the 3 × 3 around the next path
 /// cell holds an enemy at least as strong as itself, by <c>S = (troops × quality div 100) × morale ×
 /// M[mine][theirs]</c> (the enemy's <c>S</c> read from its own side, <c>M[theirs][mine]</c>); and each
@@ -100,7 +100,7 @@ public static class TacticalMovement
     internal static bool Walk(TacticalBoard board, int slot, int x, int y)
     {
         var side = board.SideOf(slot);
-        var computer = board.ComputerControlled[side];
+        var computer = board.IsComputerDriven(side);
         if (computer && board.Slots[slot].Target >= 0)
         {
             return Arrived(board, slot, x, y);
