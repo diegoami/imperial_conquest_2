@@ -91,7 +91,8 @@ public sealed class ResumeTests
     private static Func<SaveBattleBlock, GameState, TacticalBattleState> ThroughACloneSave(SeriesSpec spec) =>
         (block, game) =>
         {
-            var state = OriginalBattleBlockImport.Import(block, game, new[] { true, true });
+            // Fresh-process replay input: serialize these stated off flags, not flags inferred from the original block.
+            var state = OriginalBattleBlockImport.Import(block, game, new[] { false, false });
             var session = GoldenReplay.NewSession(TacticalContext.From(RealGameData.Ruleset), state, game);
             var save = BattleFixtures.Import(spec.Start).Save with { State = game, Battle = session.ToSaved() };
 
