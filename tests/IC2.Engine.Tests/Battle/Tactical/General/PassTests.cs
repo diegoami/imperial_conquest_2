@@ -371,19 +371,19 @@ public class PassTests
     }
 
     [Fact]
-    public void Pass_3_runs_the_threat_move_then_pass_2_then_the_flank_then_pass_2()
+    public void Pass_3s_threat_Walk_can_set_the_target_before_pass_2_runs()
     {
         // HC 3,000 (5 moves) at (0,5), one enemy HI 4,000 at (4,9). The threat move walks toward it,
-        // (1,6), (2,7), (3,8), stopping where the path reaches the enemy's cell, with 2 moves left. Pass 2
-        // then finds it adjacent: 2 × 4000 div 3 = 2666 < 3000, so it takes the target. The flank skips it
-        // (a target) and draws nothing; the second pass 2 skips it too.
+        // (1,6), (2,7), (3,8). Computer-driven Walk sets the adjacent enemy as its target because HC
+        // has no shots, stopping with 2 moves left. Pass 2 and flank then skip the targeted unit;
+        // there is no separate PassTwoTarget decision or draw.
         var state = General((0, Unit(HC, 0, 5, 3000)), (D0, Unit(HI, 4, 9, 4000)));
         var journal = new List<GeneralDecision>();
         var draws = new ScriptedDraws();
 
         var after = GeneralPassThree.Run(state, Context, draws, journal);
 
-        Assert.Equal(new[] { GeneralStep.ThreatLine, GeneralStep.PassTwoTarget }, journal.Select(j => j.Step).ToArray());
+        Assert.Equal(new[] { GeneralStep.ThreatLine }, journal.Select(j => j.Step).ToArray());
         Assert.Equal(new[] { (1, 6), (2, 7), (3, 8) }, Path(after, 0));
         Assert.Equal(2, after.Slots[0].Moves);
         Assert.Equal(D0, after.Slots[0].Target);
