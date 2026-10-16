@@ -235,6 +235,9 @@ graph TD
   T146 --> T172
   T129 --> T173[T173 copy-in targets]
   T129 --> T174[T174 exhausted-move ordering]
+  T129 --> T175[T175 general control]
+  T173 --> T175
+  T174 --> T175
   T156[T156 AI army target tree]
   T23 --> T26[T26 scenario docs+examples]
   T29 --> T26
@@ -1337,6 +1340,10 @@ Correction from [issue 1103](https://github.com/diegoami/imperial_conquest_2/iss
 
 Correction from [issue 1105](https://github.com/diegoami/imperial_conquest_2/issues/1105) → [full entry](tasks/T174.md).
 
+#### T175 Tactical setup and walking use the active side's computer-general control
+
+Correction from [issue 1104](https://github.com/diegoami/imperial_conquest_2/issues/1104) → [full entry](tasks/T175.md).
+
 ---
 
 #### T25 Battle result, diplomacy, and hotseat handoff screens
@@ -1542,3 +1549,4 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T172](#t172-faithful-rebirth-preserves-one-sided-relations-and-round-trips-them-through-saves) | Faithful rebirth relations | M12 | the user's choice | the user's choice | the user's choice | T87, T146 | [#1087](https://github.com/diegoami/imperial_conquest_2/issues/1087) |
 | [T173](#t173-tactical-copy-in-retains-original-attacker-targets-until-its-first-setup) | Copy-in targets | M21 | the user's choice | the user's choice | the user's choice | T129 | [#1103](https://github.com/diegoami/imperial_conquest_2/issues/1103) |
 | [T174](#t174-tactical-walking-checks-exhausted-moves-before-computer-targeting) | Exhausted-move ordering | M21 | the user's choice | the user's choice | the user's choice | T129 | [#1105](https://github.com/diegoami/imperial_conquest_2/issues/1105) |
+| [T175](#t175-tactical-setup-and-walking-use-the-active-sides-computer-general-control) | General control | M21 | the user's choice | the user's choice | the user's choice | T129, T173, T174 | [#1104](https://github.com/diegoami/imperial_conquest_2/issues/1104) |
