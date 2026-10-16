@@ -168,6 +168,14 @@ public class ImprovedPresetTests
             "economy.rebirthPreservesInboundRelations",
             "victory.defaultCondition",
             "victory.defaultTurnLimit",
+            "combat.tactical.midBattleSave",
+            "combat.tactical.winnerRoutedUnitsRejoin",
+            "combat.tactical.retreatLosses",
+            "combat.tactical.halfRoundCap",
+            "combat.tactical.slowAdvance",
+            "combat.tactical.placementStacks",
+            "combat.tactical.wideArithmetic",
+            "combat.tactical.shotsNeverNegative",
         };
 
         // Assert that the differing paths are exactly what we expect (no more, no less)

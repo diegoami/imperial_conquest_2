@@ -45,7 +45,7 @@ public static class GeneralTargeting
     }
 
     /// <summary>The raw score <c>v</c> of enemy <paramref name="theirs"/> for unit <paramref name="mine"/>, before the claims.</summary>
-    public static int Score(TacticalBattleState state, int mine, int theirs, TacticalContext context)
+    public static long Score(TacticalBattleState state, int mine, int theirs, TacticalContext context)
     {
         var board = TacticalBoard.Thaw(state, context, draws: null);
         return Score(board, mine, theirs);
@@ -88,12 +88,14 @@ public static class GeneralTargeting
         return target;
     }
 
-    internal static int Score(TacticalBoard board, int mine, int theirs)
+    internal static long Score(TacticalBoard board, int mine, int theirs)
     {
         var them = board.Slots[theirs];
         var me = board.Slots[mine];
-        return unchecked(them.Troops * them.Quality * them.Morale * board.Context.Matrix(them.Type, me.Type))
-               / board.Rules.ScoreDivisor;
+        // combat.tactical.wideArithmetic widens the target/threat score product.
+        return board.Rules.WideArithmetic
+            ? checked((long)them.Troops * them.Quality * them.Morale * board.Context.Matrix(them.Type, me.Type)) / board.Rules.ScoreDivisor
+            : unchecked(them.Troops * them.Quality * them.Morale * board.Context.Matrix(them.Type, me.Type)) / board.Rules.ScoreDivisor;
     }
 
     internal static int Focus(TacticalBoard board, int side, int enemy)
@@ -134,7 +136,7 @@ public static class GeneralTargeting
         var rules = board.Rules;
         var side = board.SideOf(slot);
         var best = -1;
-        var bestScore = 0;
+        var bestScore = 0L;
         for (var e = enemyFirst; e < enemyFirst + board.SlotsPerSide; e++)
         {
             if (!board.IsLive(e) || (wantedType >= 0 && board.Slots[e].Type != wantedType))
@@ -144,7 +146,8 @@ public static class GeneralTargeting
 
             var v = Score(board, slot, e);
             var c = unchecked(Focus(board, side, e) + board.GeneralClaims[e]);
-            v = c < rules.ClaimLimit ? v / unchecked(c + 1) : unchecked(v * CrowdedMultiplier);
+            v = c < rules.ClaimLimit ? v / unchecked(c + 1)
+                : rules.WideArithmetic ? checked(v * CrowdedMultiplier) : unchecked((int)v * CrowdedMultiplier);
             if (best < 0 || v < bestScore)
             {
                 best = e;

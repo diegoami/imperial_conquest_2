@@ -100,6 +100,30 @@ public static class GeneralPlacement
 
                     var x = FirstBlockColumn + (BlockColumns * g) + column;
                     var y = baseRow + (rowStep * row);
+                    // combat.tactical.placementStacks=false fills the next empty home cell in ascending row/column order.
+                    if (!rules.PlacementStacks && board.Grid[board.CellIndex(x, y)] != TacticalIcon.Empty)
+                    {
+                        var found = false;
+                        for (var homeY = attacker ? 0 : rules.BoardHeight - rules.HomeRows;
+                             homeY < (attacker ? rules.HomeRows : rules.BoardHeight) && !found; homeY++)
+                        {
+                            for (var homeX = 0; homeX < rules.BoardWidth; homeX++)
+                            {
+                                if (board.Grid[board.CellIndex(homeX, homeY)] == TacticalIcon.Empty)
+                                {
+                                    x = homeX;
+                                    y = homeY;
+                                    found = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!found)
+                        {
+                            x = unit.X;
+                            y = unit.Y;
+                        }
+                    }
                     board.Slots[s] = unit with { X = x, Y = y };
                     board.PaintIcon(s);
                     board.Log.Add(new TacticalPlacedEvent(s, unit.X, unit.Y, x, y));

@@ -72,7 +72,8 @@ public static class TacticalHalfRound
             }
         }
 
-        var slowAdvance = board.ComputerControlled[side]
+        // combat.tactical.slowAdvance gates the original reduced-move window.
+        var slowAdvance = rules.SlowAdvance && board.ComputerControlled[side]
                           && minDistance > rules.SlowAdvanceMinDistance
                           && board.Counter < rules.SlowAdvanceHalfRounds;
 
@@ -112,6 +113,13 @@ public static class TacticalHalfRound
         board.Log.Add(new TacticalHalfRoundEndedEvent(moved, board.SideToMove, board.Placed));
         TacticalMelee.Apply(board, moved);
 
+        // combat.tactical.halfRoundCap counts completed half-rounds, including placement. Natural victory wins priority.
+        if (!board.IsOver && board.Rules.HalfRoundCap > 0 && board.Counter >= board.Rules.HalfRoundCap)
+        {
+            board.Capped = true;
+            board.Log.Add(new TacticalCapReachedEvent(board.Counter));
+            board.EndBattle();
+        }
         if (!board.IsOver)
         {
             ApplySetup(board);

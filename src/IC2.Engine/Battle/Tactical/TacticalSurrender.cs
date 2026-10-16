@@ -28,6 +28,8 @@ public static class TacticalSurrender
     public static int Winner(TacticalBattleState state)
     {
         ArgumentNullException.ThrowIfNull(state);
+        // combat.tactical.halfRoundCap makes the defender hold even while attackers remain on the board.
+        if (state.Capped) return TacticalBattleState.DefenderSide;
         return state.HasLiveUnit(TacticalBattleState.AttackerSide)
             ? TacticalBattleState.AttackerSide
             : TacticalBattleState.DefenderSide;

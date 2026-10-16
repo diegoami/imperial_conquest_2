@@ -1253,6 +1253,23 @@ public sealed record DetailedResolverRules(
 /// The last-move danger term <c>S = (troops × quality div this) × morale × M[mine][theirs]</c> (report
 /// §3, "Movement", computer-controlled only).
 /// </param>
+/// <param name="MidBattleSave">
+/// <c>anyTime</c> preserves the original's save and setup-on-reload policy; <c>halfRoundStart</c> permits
+/// a save only before the current half-round's first order and reloads it without running setup again.
+/// [designed: policy field; the user's 2026-10-04 decision on issue 496; the original's resume is report §3].
+/// </param>
+/// <param name="ShotsNeverNegative">[designed, user decision 496] Stop the computer's shooting loop at zero shots.</param>
+/// <param name="WideArithmetic">[designed, user decision 496] Compute combat products in 64 bits and the shot minimum in 32 bits.</param>
+/// <param name="PlacementStacks">Keep original stacked formations, or find the next empty home cell in row order.</param>
+/// <param name="SlowAdvance">Apply the original computer slow-advance window; false gives full moves from the start.</param>
+/// <param name="HalfRoundCap">Zero preserves unlimited play; otherwise completed half-rounds, including placement, before attacker withdrawal.</param>
+/// <param name="RetreatLosses">Recover the losing side's positive routed troops and apply deterministic pursuit losses; surrendered live troops are captured.</param>
+/// <param name="WinnerRoutedUnitsRejoin">The winner's routed troops rejoin after promotion and peace, without promotion draws.</param>
+/// <param name="RetreatPursuitWeights">Per-type pursuit weight in unitTypes order; counts only the winner's live on-board troops.</param>
+/// <param name="RetreatLossBase">Base loss numerator over RetreatLossDenominator.</param>
+/// <param name="RetreatLossPursuit">Pursuit numerator, multiplied by weighted winner troops and divided by remnant troops.</param>
+/// <param name="RetreatLossCap">Maximum loss numerator over RetreatLossDenominator.</param>
+/// <param name="RetreatLossDenominator">Fraction unit, 1000 for the approved permille policy. All retreat parameters are [designed], approved on PR 1142; the original has no pursuit rule.</param>
 public sealed record TacticalBattleRules(
     int BoardWidth,
     int BoardHeight,
@@ -1294,6 +1311,19 @@ public sealed record TacticalBattleRules(
     ValueList<int> ApproachBoxRadius,
     int FlankFlipChanceDenominator,
     int DangerQualityDivisor,
+    string MidBattleSave = "anyTime",
+    bool ShotsNeverNegative = false,
+    bool WideArithmetic = false,
+    bool PlacementStacks = true,
+    bool SlowAdvance = true,
+    int HalfRoundCap = 0,
+    bool RetreatLosses = false,
+    bool WinnerRoutedUnitsRejoin = false,
+    ValueList<int>? RetreatPursuitWeights = null,
+    int RetreatLossBase = 50,
+    int RetreatLossPursuit = 100,
+    int RetreatLossCap = 500,
+    int RetreatLossDenominator = 1000,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>

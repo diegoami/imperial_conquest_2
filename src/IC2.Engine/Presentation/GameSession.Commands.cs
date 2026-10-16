@@ -571,7 +571,7 @@ public sealed partial class GameSession
         }
 
         var nationsBefore = State.Nations;
-        var conclusion = battle.Conclude(State, Ruleset);
+        var conclusion = battle.Conclude(State, Ruleset, world: World);
         if (conclusion.State is null || conclusion.Report is null)
         {
             lines.Add($"The battle could not be written back: {conclusion.Rejection}");
@@ -598,7 +598,7 @@ public sealed partial class GameSession
     /// </summary>
     private void FinishAiPhaseBattle(List<string> lines, TacticalBattleSession battle, AiLap lap)
     {
-        var conclusion = battle.Conclude(lap.Opened!, Ruleset);
+        var conclusion = battle.Conclude(lap.Opened!, Ruleset, world: World);
         if (conclusion.State is null || conclusion.Report is null)
         {
             lines.Add($"The battle could not be written back: {conclusion.Rejection}");
@@ -1378,6 +1378,11 @@ public sealed partial class GameSession
         if (_pendingPeaceTreatyOffers.Count > 0)
         {
             return new[] { "Answer the pending peace treaty offer (peace-yes / peace-no) before saving." };
+        }
+
+        if (_battle is { CanSave: false })
+        {
+            return new[] { "Save at the start of a half-round, before giving any battle order." };
         }
 
         try

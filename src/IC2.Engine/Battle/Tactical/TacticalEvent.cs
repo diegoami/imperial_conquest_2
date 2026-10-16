@@ -24,6 +24,7 @@ namespace IC2.Engine.Battle.Tactical;
 [JsonDerivedType(typeof(TacticalCascadeRemovedEvent), "cascadeRemoved")]
 [JsonDerivedType(typeof(TacticalSurrenderedEvent), "surrendered")]
 [JsonDerivedType(typeof(TacticalBattleOverEvent), "battleOver")]
+[JsonDerivedType(typeof(TacticalCapReachedEvent), "capReached")]
 [JsonDerivedType(typeof(TacticalComputerGeneralEvent), "computerGeneral")]
 [JsonDerivedType(typeof(TacticalPromotionEvent), "promotion")]
 public abstract record TacticalEvent;
@@ -108,3 +109,6 @@ public sealed record TacticalComputerGeneralEvent(int Side, bool On) : TacticalE
 
 /// <summary>The write-back's quality step for one surviving winner unit (army unit <paramref name="Unit"/>).</summary>
 public sealed record TacticalPromotionEvent(int Slot, int Unit, int QualityBefore, int QualityAfter) : TacticalEvent;
+
+/// <summary>combat.tactical.halfRoundCap completed; the attacker withdraws.</summary>
+public sealed record TacticalCapReachedEvent(int Counter) : TacticalEvent;

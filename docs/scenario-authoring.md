@@ -708,6 +708,19 @@ confirmed from the report section named in each field's own provenance note.
 | `approachBoxRadius` | array of integers | The approach-box radius per unit type, in `unitTypes` order (archers 2, others 1). |
 | `flankFlipChanceDenominator` | integer | `Random(this) = 0` flips a flank's horizontal direction (3). |
 | `dangerQualityDivisor` | integer | `quality div this` in the computer general's last-move danger term (100). |
+| `shotsNeverNegative` | boolean | Default false preserves the computer's negative shots; true stops pass 2 at zero. `[designed]`, user decision 496; cite original shooting evidence in `_provenance`. |
+| `wideArithmetic` | boolean | Default false preserves wrapping 32-bit products and the signed-word shot minimum; true uses 64-bit products and a 32-bit shot minimum. `[designed]`, user decision 496. |
+| `placementStacks` | boolean | Default true preserves stacked formation blocks; false continues into empty home cells in ascending row/column order, retaining a unit's copy-in position if none is empty. `[designed]`, user decision 496. |
+| `slowAdvance` | boolean | Default true retains reduced computer moves early in battle; false gives full moves from the start and disables the reduced-move flank exception. `[designed]`, user decision 496. |
+| `halfRoundCap` | integer | Default 0 preserves unlimited battle length. Positive counts completed half-rounds including placement; at the cap, after ordinary exchanges, the attacker withdraws and defender holds. Natural victory takes priority. `[designed]`, approved PR 1142; improved uses 100. |
+| `retreatLosses` | boolean | Default false preserves annihilation. True preserves positive troops at direct/cascade rout, excludes live surrendered units, applies retreat losses and reuses existing scatter placement/distance parameters. `[designed]`, approved PR 1142. |
+| `winnerRoutedUnitsRejoin` | boolean | Default false. True restores the winner's routed troops after promotion/peace, at exit strength and unchanged quality, with no promotion draw. `[designed]`, approved PR 1142. |
+| `retreatPursuitWeights` | array of integers | Nonnegative pursuit weight per `unitTypes` entry, required with retreat losses. Approved `[designed]` LI/HI/archers/LC/HC weights 1/1/2/4/3 count live on-board winner troops only. Dormant under classical. |
+| `retreatLossBase` | integer | Base loss numerator; approved `[designed]` 50 over denominator 1000 (5%). |
+| `retreatLossPursuit` | integer | Pursuit coefficient; approved `[designed]` 100. Fraction adds `floor(this × weightedWinnerTroops / remnantTroops)`. |
+| `retreatLossCap` | integer | Fraction numerator cap; approved `[designed]` 500 over 1000 (50%). Require `0 <= base <= cap <= denominator`. |
+| `retreatLossDenominator` | integer | Positive fraction unit; approved `[designed]` 1000. Each unit independently loses `floor(troops × fraction / this)`, with no variance, minimum-one loss or rounding redistribution. Cite the PR confirmation and searched original decompile/sweep limits in `_provenance`. |
+| `midBattleSave` | string | `anyTime` (default): save at any point and run half-round setup again on reload. `halfRoundStart`: save before the first battle order of a half-round and restore it exactly, keeping the counter, moves, targets and draw stream as saved. Field and clone policy are `[designed]`; cite the user's 2026-10-04 decision on issue 496 and the original's resume evidence in `_provenance`. |
 | `_provenance` | object | Provenance map. |
 
 ### Siege rules

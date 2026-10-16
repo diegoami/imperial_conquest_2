@@ -92,6 +92,13 @@ public static class TacticalMelee
         var att = board.Slots[a];
         var def = board.Slots[d];
 
+        // combat.tactical.wideArithmetic selects the wide exchange; the original expressions stay intact below.
+        if (rules.WideArithmetic)
+        {
+            ExchangeWide(board, a, d, focus);
+            return;
+        }
+
         var powerA = unchecked((context.Matrix(att.Type, def.Type) * att.Troops * ((att.Quality * QualityWeight) + att.Morale))
                                / melee.MeleePowerDivisor) + melee.MeleeBasePowerFloor;
         var powerD = unchecked((context.Matrix(def.Type, att.Type) * def.Troops * ((def.Quality * QualityWeight) + def.Morale))
@@ -134,4 +141,46 @@ public static class TacticalMelee
         TacticalRout.Apply(board, a);
         TacticalRout.Apply(board, d);
     }
+
+    /// <summary>The combat.tactical.wideArithmetic exchange; truncation points and draw order are unchanged.</summary>
+    private static void ExchangeWide(TacticalBoard board, int a, int d, int focus)
+    {
+        var context = board.Context;
+        var rules = board.Rules;
+        var melee = context.Melee;
+        var att = board.Slots[a];
+        var def = board.Slots[d];
+        var powerA = checked((long)context.Matrix(att.Type, def.Type) * att.Troops * ((att.Quality * (long)QualityWeight) + att.Morale))
+                     / melee.MeleePowerDivisor + melee.MeleeBasePowerFloor;
+        var powerD = checked((long)context.Matrix(def.Type, att.Type) * def.Troops * ((def.Quality * (long)QualityWeight) + def.Morale))
+                     / melee.MeleePowerDivisor + melee.MeleeBasePowerFloor;
+        var boundA = checked((int)((checked((long)att.Troops * powerD) / powerA / rules.MeleeAttackerExchangeDivisor) + 1));
+        var drawA = (long)board.Draw(boundA) + board.Draw(boundA);
+        var lossA = Math.Min(melee.MeleeLossHardCap, checked(drawA * (FocusScale - focus)) / FocusScale);
+        lossA = Math.Min(lossA, ((long)att.Troops * melee.MeleeLossCapPercent) / Percent) + melee.MeleeLossCapOffset;
+        var boundD = checked((int)((checked((long)def.Troops * powerA) / powerD / rules.MeleeDefenderExchangeDivisor) + 1));
+        var drawD = (long)board.Draw(boundD) + board.Draw(boundD);
+        var lossD = Math.Min(melee.MeleeLossHardCap, checked(drawD * ((DefenderFocusWeight * focus) + FocusScale)) / FocusScale);
+        lossD = Math.Min(lossD, ((long)def.Troops * melee.MeleeLossCapPercent) / Percent) + melee.MeleeLossCapOffset;
+        var attackerWon = def.Troops / lossD < att.Troops / lossA;
+        att = att with
+        {
+            Morale = Math.Min(rules.MoraleCap, att.Morale + (attackerWon ? rules.MoraleWinnerDelta : rules.MoraleLoserDelta)),
+            Troops = checked(att.Troops - (int)lossA),
+        };
+        def = def with
+        {
+            Morale = Math.Min(rules.MoraleCap, def.Morale + (attackerWon ? rules.MoraleLoserDelta : rules.MoraleWinnerDelta)),
+            Troops = checked(def.Troops - (int)lossD),
+        };
+        board.Slots[a] = att;
+        board.Slots[d] = def;
+        board.PaintIcon(a);
+        board.PaintIcon(d);
+        board.Log.Add(new TacticalMeleeEvent(a, d, focus, checked((int)powerA), checked((int)powerD), boundA, boundD,
+            checked((int)lossA), checked((int)lossD), att.Troops, def.Troops, att.Morale, def.Morale));
+        TacticalRout.Apply(board, a);
+        TacticalRout.Apply(board, d);
+    }
+
 }

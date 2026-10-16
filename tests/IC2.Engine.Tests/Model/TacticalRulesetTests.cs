@@ -147,6 +147,27 @@ public class TacticalRulesetTests
         Assert.NotNull(improved);
         Assert.NotNull(classical);
 
-        Assert.Equal(classical with { Provenance = null }, improved with { Provenance = null });
+        Assert.Equal("anyTime", classical.MidBattleSave);
+        Assert.Equal("halfRoundStart", improved.MidBattleSave);
+        Assert.False(classical.ShotsNeverNegative);
+        Assert.True(improved.ShotsNeverNegative);
+        Assert.False(classical.WideArithmetic);
+        Assert.True(improved.WideArithmetic);
+        Assert.True(classical.PlacementStacks);
+        Assert.False(improved.PlacementStacks);
+        Assert.True(classical.SlowAdvance);
+        Assert.False(improved.SlowAdvance);
+        Assert.Equal(0, classical.HalfRoundCap);
+        Assert.Equal(100, improved.HalfRoundCap);
+        Assert.False(classical.RetreatLosses);
+        Assert.True(improved.RetreatLosses);
+        Assert.False(classical.WinnerRoutedUnitsRejoin);
+        Assert.True(improved.WinnerRoutedUnitsRejoin);
+        Assert.Equal(
+            classical with { Provenance = null },
+            improved with { MidBattleSave = classical.MidBattleSave, ShotsNeverNegative = classical.ShotsNeverNegative,
+                WideArithmetic = classical.WideArithmetic, PlacementStacks = classical.PlacementStacks,
+                SlowAdvance = classical.SlowAdvance, HalfRoundCap = classical.HalfRoundCap,
+                RetreatLosses = classical.RetreatLosses, WinnerRoutedUnitsRejoin = classical.WinnerRoutedUnitsRejoin, Provenance = null });
     }
 }
