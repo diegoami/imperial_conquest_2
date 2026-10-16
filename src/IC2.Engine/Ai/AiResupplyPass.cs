@@ -52,9 +52,10 @@ namespace IC2.Engine.Ai;
 /// fleet's own pass. A fleet still under construction is likewise not on the map. A city whose owner does
 /// not resolve to a nation is skipped rather than crashing the turn:
 /// <see cref="AutomaticResupply.ForArmy"/> requires the owning <see cref="NationState"/> as an argument
-/// and throws without it. Finally, a pairing whose computed transfer turns out to move no supply and
-/// cost nothing is discarded rather than written back — see <see cref="MovesNothing"/>, which is T60's
-/// correction and the reason the AI stopped beggaring itself on its own first turn.
+/// and throws without it. Designed economy also declines pairings that move no supply and cost
+/// nothing, retaining T60's recruitment-budget protection. Original economy instead retains any changed
+/// unit, city or nation record, including money-only support, and declines truly unchanged results;
+/// see <see cref="Declines"/>.
 /// </para>
 /// </remarks>
 public static class AiResupplyPass
