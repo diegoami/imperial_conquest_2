@@ -230,6 +230,9 @@ graph TD
   T168 --> T169[T169 UI theme]
   T81 --> T170[T170 sea terrain rename]
   T157 --> T171[T171 faithful mobilisation gates]
+  T176 --> T177[T177 faithful fleet support]
+  T177 --> T178[T178 target scorer terms]
+  T156 --> T178
   fix1120[fix 1120 truthful AI decision log] --> T171
   T87 --> T172[T172 faithful rebirth relations]
   T146 --> T172
@@ -1348,6 +1351,14 @@ Correction from [issue 1104](https://github.com/diegoami/imperial_conquest_2/iss
 
 Correction from [issue 1146](https://github.com/diegoami/imperial_conquest_2/issues/1146) → [full entry](tasks/T176.md).
 
+#### T177 Faithful AI fleets receive the original grant and automatic repair
+
+Correction from [issue 823](https://github.com/diegoami/imperial_conquest_2/issues/823) → [full entry](tasks/T177.md).
+
+#### T178 AI target scorers use field strength, winning distance and allegiance defense
+
+Correction from [issue 1145](https://github.com/diegoami/imperial_conquest_2/issues/1145); follows T177 for shared CLI transcript integration → [full entry](tasks/T178.md).
+
 ---
 
 #### T25 Battle result, diplomacy, and hotseat handoff screens
@@ -1555,3 +1566,5 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T174](#t174-tactical-walking-checks-exhausted-moves-before-computer-targeting) | Exhausted-move ordering | M21 | the user's choice | the user's choice | the user's choice | T129 | [#1105](https://github.com/diegoami/imperial_conquest_2/issues/1105) |
 | [T175](#t175-tactical-setup-and-walking-use-the-active-sides-computer-general-control) | General control | M21 | the user's choice | the user's choice | the user's choice | T129, T173, T174 | [#1104](https://github.com/diegoami/imperial_conquest_2/issues/1104) |
 | [T176](#t176-faithful-ai-retains-automatic-support-changes-when-no-supply-moves) | Faithful support writeback | M12 | the user's choice | the user's choice | the user's choice | T60, T157 | [#1146](https://github.com/diegoami/imperial_conquest_2/issues/1146) |
+| [T177](#t177-faithful-ai-fleets-receive-the-original-grant-and-automatic-repair) | Faithful fleet support | M12 | the user's choice | the user's choice | the user's choice | T176 | [#823](https://github.com/diegoami/imperial_conquest_2/issues/823) |
+| [T178](#t178-ai-target-scorers-use-field-strength-winning-distance-and-allegiance-defense) | Target scorer terms | M12 | the user's choice | the user's choice | the user's choice | T156, T177 | [#1145](https://github.com/diegoami/imperial_conquest_2/issues/1145) |
