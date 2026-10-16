@@ -698,6 +698,10 @@
       "flankFlipChanceDenominator": 3,
       "dangerQualityDivisor": 100,
       "midBattleSave": "anyTime",
+      "shotsNeverNegative": false,
+      "wideArithmetic": false,
+      "placementStacks": true,
+      "slowAdvance": true,
       "_provenance": {
         "boardWidth": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §1 — the battle grid is 14 × 12 cells, x 0–13 and y 0–11.",
         "boardHeight": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §1 — the grid's twelve rows, y 0–11.",
@@ -739,7 +743,11 @@
         "approachBoxRadius": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §7 — the approach box radius r is 2 for archers and 1 for every other type, in unitTypes order.",
         "flankFlipChanceDenominator": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §7 — Random(3) = 0 flips the flank's horizontal direction.",
         "dangerQualityDivisor": "confirmed: 2026-10-04-decompiled-tactical-battle-rules.md §3 — the last-move danger term S = (troops × quality div 100) × morale × M[mine][theirs].",
-        "midBattleSave": "designed: policy field name. anyTime preserves the original save and setup-on-reload behavior in 2026-10-04-decompiled-tactical-battle-rules.md §3 and 2026-10-04-tactical-battle-sweep.md B2; those sources have no ruleset field. The user retained this behavior for classical-faithful on 2026-10-04 (issue 496)."
+        "midBattleSave": "designed: policy field name. anyTime preserves the original save and setup-on-reload behavior in 2026-10-04-decompiled-tactical-battle-rules.md §3 and 2026-10-04-tactical-battle-sweep.md B2; those sources have no ruleset field. The user retained this behavior for classical-faithful on 2026-10-04 (issue 496).",
+        "shotsNeverNegative": "designed: user decision 496 (2026-10-04), implemented by T130. Searched 2026-10-04-decompiled-tactical-battle-rules.md sections 2-7: the original retains negative shots, wrapping products, stacked placement and slow advance; the corrected policy is a clone choice, not an original rule.",
+        "wideArithmetic": "designed: user decision 496 (2026-10-04), implemented by T130. Searched 2026-10-04-decompiled-tactical-battle-rules.md sections 2-7: the original retains negative shots, wrapping products, stacked placement and slow advance; the corrected policy is a clone choice, not an original rule.",
+        "placementStacks": "designed: user decision 496 (2026-10-04), implemented by T130. Searched 2026-10-04-decompiled-tactical-battle-rules.md sections 2-7: the original retains negative shots, wrapping products, stacked placement and slow advance; the corrected policy is a clone choice, not an original rule.",
+        "slowAdvance": "designed: user decision 496 (2026-10-04), implemented by T130. Searched 2026-10-04-decompiled-tactical-battle-rules.md sections 2-7: the original retains negative shots, wrapping products, stacked placement and slow advance; the corrected policy is a clone choice, not an original rule."
       }
     },
     "_provenance": {

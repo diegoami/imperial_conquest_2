@@ -1258,6 +1258,10 @@ public sealed record DetailedResolverRules(
 /// a save only before the current half-round's first order and reloads it without running setup again.
 /// [designed: policy field; the user's 2026-10-04 decision on issue 496; the original's resume is report §3].
 /// </param>
+/// <param name="ShotsNeverNegative">[designed, user decision 496] Stop the computer's shooting loop at zero shots.</param>
+/// <param name="WideArithmetic">[designed, user decision 496] Compute combat products in 64 bits and the shot minimum in 32 bits.</param>
+/// <param name="PlacementStacks">Keep original stacked formations, or find the next empty home cell in row order.</param>
+/// <param name="SlowAdvance">Apply the original computer slow-advance window; false gives full moves from the start.</param>
 public sealed record TacticalBattleRules(
     int BoardWidth,
     int BoardHeight,
@@ -1300,6 +1304,10 @@ public sealed record TacticalBattleRules(
     int FlankFlipChanceDenominator,
     int DangerQualityDivisor,
     string MidBattleSave = "anyTime",
+    bool ShotsNeverNegative = false,
+    bool WideArithmetic = false,
+    bool PlacementStacks = true,
+    bool SlowAdvance = true,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>

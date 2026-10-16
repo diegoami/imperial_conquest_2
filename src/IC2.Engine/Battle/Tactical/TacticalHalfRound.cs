@@ -72,7 +72,8 @@ public static class TacticalHalfRound
             }
         }
 
-        var slowAdvance = board.ComputerControlled[side]
+        // combat.tactical.slowAdvance gates the original reduced-move window.
+        var slowAdvance = rules.SlowAdvance && board.ComputerControlled[side]
                           && minDistance > rules.SlowAdvanceMinDistance
                           && board.Counter < rules.SlowAdvanceHalfRounds;
 

@@ -81,7 +81,7 @@ public static class GeneralPassThree
     }
 
     /// <summary>The threat of enemy <paramref name="enemy"/> to unit <paramref name="slot"/>.</summary>
-    public static int Threat(TacticalBattleState state, int slot, int enemy, TacticalContext context)
+    public static long Threat(TacticalBattleState state, int slot, int enemy, TacticalContext context)
     {
         var board = TacticalBoard.Thaw(state, context, draws: null);
         return Threat(board, slot, enemy);
@@ -104,7 +104,7 @@ public static class GeneralPassThree
         GeneralPassTwo.Apply(board, journal);
     }
 
-    internal static int Threat(TacticalBoard board, int slot, int enemy)
+    internal static long Threat(TacticalBoard board, int slot, int enemy)
     {
         var them = board.Slots[enemy];
         if (them.Type == board.Context.ArcherType && them.Shots > 0)
@@ -181,8 +181,9 @@ public static class GeneralPassThree
             return;
         }
 
+        // combat.tactical.slowAdvance also gates the flank exception for reduced moves.
         var untouched = unit.Moves == context.MovesOf(unit.Type)
-                        || (unit.Moves == rules.SlowAdvanceMoves
+                        || (rules.SlowAdvance && unit.Moves == rules.SlowAdvanceMoves
                             && board.Counter < rules.SlowAdvanceHalfRounds
                             && unit.Type != context.SlowAdvanceExemptType);
         if (!untouched)

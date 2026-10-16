@@ -145,12 +145,15 @@ public static class TacticalCopyIn
     }
 
     /// <summary>The sort key, <c>troops × M[type][0] div M[0][type]</c> (LI ×1, HI ×15, archers ×0.5, LC ×5, HC ×6).</summary>
-    public static int SortKey(UnitSlot unit, TacticalContext context)
+    public static long SortKey(UnitSlot unit, TacticalContext context)
     {
         ArgumentNullException.ThrowIfNull(unit);
         ArgumentNullException.ThrowIfNull(context);
         var type = RequireType(unit.UnitTypeId, context);
-        return unchecked(unit.Troops * context.Matrix(type, 0)) / context.Matrix(0, type);
+        // combat.tactical.wideArithmetic also covers the copy-in sort product.
+        return context.Rules.WideArithmetic
+            ? ((long)unit.Troops * context.Matrix(type, 0)) / context.Matrix(0, type)
+            : unchecked(unit.Troops * context.Matrix(type, 0)) / context.Matrix(0, type);
     }
 
     private static void CopySide(TacticalBoard board, ArmyState army, int side)

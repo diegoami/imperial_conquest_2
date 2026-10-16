@@ -169,6 +169,10 @@ public class ImprovedPresetTests
             "victory.defaultCondition",
             "victory.defaultTurnLimit",
             "combat.tactical.midBattleSave",
+            "combat.tactical.slowAdvance",
+            "combat.tactical.placementStacks",
+            "combat.tactical.wideArithmetic",
+            "combat.tactical.shotsNeverNegative",
         };
 
         // Assert that the differing paths are exactly what we expect (no more, no less)

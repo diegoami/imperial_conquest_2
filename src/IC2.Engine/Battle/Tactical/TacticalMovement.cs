@@ -305,12 +305,14 @@ public static class TacticalMovement
     }
 
     /// <summary><c>S = (troops × quality div 100) × morale × M[mine][theirs]</c>, 32-bit.</summary>
-    internal static int Strength(TacticalBoard board, int mine, int theirs)
+    internal static long Strength(TacticalBoard board, int mine, int theirs)
     {
         var me = board.Slots[mine];
         var them = board.Slots[theirs];
-        return unchecked(me.Troops * me.Quality / board.Rules.DangerQualityDivisor * me.Morale
-                         * board.Context.Matrix(me.Type, them.Type));
+        // combat.tactical.wideArithmetic keeps the danger comparison from wrapping.
+        return board.Rules.WideArithmetic
+            ? checked((long)me.Troops * me.Quality / board.Rules.DangerQualityDivisor * me.Morale * board.Context.Matrix(me.Type, them.Type))
+            : unchecked(me.Troops * me.Quality / board.Rules.DangerQualityDivisor * me.Morale * board.Context.Matrix(me.Type, them.Type));
     }
 
     private static bool Arrived(TacticalBoard board, int slot, int x, int y) =>

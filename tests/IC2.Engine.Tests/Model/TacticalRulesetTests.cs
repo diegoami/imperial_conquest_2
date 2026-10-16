@@ -149,8 +149,18 @@ public class TacticalRulesetTests
 
         Assert.Equal("anyTime", classical.MidBattleSave);
         Assert.Equal("halfRoundStart", improved.MidBattleSave);
+        Assert.False(classical.ShotsNeverNegative);
+        Assert.True(improved.ShotsNeverNegative);
+        Assert.False(classical.WideArithmetic);
+        Assert.True(improved.WideArithmetic);
+        Assert.True(classical.PlacementStacks);
+        Assert.False(improved.PlacementStacks);
+        Assert.True(classical.SlowAdvance);
+        Assert.False(improved.SlowAdvance);
         Assert.Equal(
             classical with { Provenance = null },
-            improved with { MidBattleSave = classical.MidBattleSave, Provenance = null });
+            improved with { MidBattleSave = classical.MidBattleSave, ShotsNeverNegative = classical.ShotsNeverNegative,
+                WideArithmetic = classical.WideArithmetic, PlacementStacks = classical.PlacementStacks,
+                SlowAdvance = classical.SlowAdvance, Provenance = null });
     }
 }

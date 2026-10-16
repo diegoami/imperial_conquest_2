@@ -42,6 +42,20 @@ public static class TacticalShooting
         ArgumentNullException.ThrowIfNull(context);
 
         var rules = context.Rules;
+        // combat.tactical.wideArithmetic widens products and removes the original signed-word minimum.
+        if (rules.WideArithmetic)
+        {
+            var numeratorWide = checked((long)shooter.Troops * shooter.Quality * shooter.Morale * context.VulnerabilityOf(target.Type));
+            var denominatorWide = checked(((long)shooter.Troops * rules.ShotTroopsFactor) + rules.ShotDivisorBase);
+            var shotBaseWide = numeratorWide / denominatorWide;
+            if (distance < context.RangeOf(shooter.Type))
+            {
+                shotBaseWide = checked(shotBaseWide * context.Melee.InRangeShotMultiplier);
+            }
+            return checked((int)(Math.Min(shotBaseWide, Math.Min(shooter.Troops / rules.ShotShooterTroopsDivisor,
+                target.Troops / rules.ShotTargetTroopsDivisor)) + 1));
+        }
+
         var numerator = unchecked(shooter.Troops * shooter.Quality * shooter.Morale * context.VulnerabilityOf(target.Type));
         var denominator = unchecked((shooter.Troops * rules.ShotTroopsFactor) + rules.ShotDivisorBase);
         var shotBase = numerator / denominator;
@@ -75,7 +89,9 @@ public static class TacticalShooting
         var t = board.Slots[target];
         var n = Bound(s, t, board.Distance(shooter, target), board.Context);
         var loss = unchecked(board.Draw(n) + board.Draw(n));
-        var moraleLoss = Math.Min(rules.ShotMoraleCap, unchecked(loss * rules.ShotMoraleNumerator) / unchecked(t.Troops + 1));
+        var moraleLoss = rules.WideArithmetic
+            ? (int)Math.Min(rules.ShotMoraleCap, ((long)loss * rules.ShotMoraleNumerator) / ((long)t.Troops + 1))
+            : Math.Min(rules.ShotMoraleCap, unchecked(loss * rules.ShotMoraleNumerator) / unchecked(t.Troops + 1));
         t = t with
         {
             Morale = unchecked(t.Morale - moraleLoss),

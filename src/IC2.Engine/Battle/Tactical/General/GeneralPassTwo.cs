@@ -60,7 +60,7 @@ public static class GeneralPassTwo
     }
 
     /// <summary>The pass-2 melee key of enemy <paramref name="enemy"/> for unit <paramref name="slot"/>: <c>theirs − focus × theirs</c>, 32-bit, wrapping.</summary>
-    public static int MeleeKey(TacticalBattleState state, int slot, int enemy, TacticalContext context)
+    public static long MeleeKey(TacticalBattleState state, int slot, int enemy, TacticalContext context)
     {
         var board = TacticalBoard.Thaw(state, context, draws: null);
         return MeleeKey(board, slot, enemy);
@@ -106,7 +106,9 @@ public static class GeneralPassTwo
             if (best >= 0)
             {
                 journal?.Add(new GeneralDecision(slot, GeneralStep.PassTwoShots, best, board.Slots[best].X, board.Slots[best].Y));
-                while (board.Slots[slot].Moves > 0 && board.IsLive(best))
+                // combat.tactical.shotsNeverNegative stops pass 2 before it spends a nonexistent shot.
+                while (board.Slots[slot].Moves > 0 && board.IsLive(best)
+                       && (!board.Rules.ShotsNeverNegative || board.Slots[slot].Shots > 0))
                 {
                     TacticalShooting.Apply(board, slot, best);
                 }
@@ -119,7 +121,7 @@ public static class GeneralPassTwo
         }
 
         var melee = -1;
-        var meleeTheirs = 0;
+        var meleeTheirs = 0L;
         for (var e = enemyFirst; e < enemyFirst + board.SlotsPerSide; e++)
         {
             if (!board.IsLive(e) || board.Distance(slot, e) != 1)
@@ -135,17 +137,20 @@ public static class GeneralPassTwo
             }
         }
 
-        if (melee >= 0 && unchecked(OddsNumerator * meleeTheirs) / OddsDenominator < board.Slots[slot].Troops)
+        if (melee >= 0 && (board.Rules.WideArithmetic ? checked(OddsNumerator * meleeTheirs)
+                : unchecked(OddsNumerator * (int)meleeTheirs)) / OddsDenominator < board.Slots[slot].Troops)
         {
             journal?.Add(new GeneralDecision(slot, GeneralStep.PassTwoTarget, melee, board.Slots[melee].X, board.Slots[melee].Y));
             GeneralOrders.SetTarget(board, slot, melee);
         }
     }
 
-    internal static int MeleeKey(TacticalBoard board, int slot, int enemy)
+    internal static long MeleeKey(TacticalBoard board, int slot, int enemy)
     {
         var theirs = board.Slots[enemy].Troops;
-        return unchecked(theirs - (GeneralTargeting.Focus(board, board.SideOf(slot), enemy) * theirs));
+        // combat.tactical.wideArithmetic widens the focus-adjusted troop product.
+        var focus = GeneralTargeting.Focus(board, board.SideOf(slot), enemy);
+        return board.Rules.WideArithmetic ? theirs - ((long)focus * theirs) : unchecked(theirs - (focus * theirs));
     }
 
     internal static int ShotKey(TacticalBoard board, int slot, int enemy)
