@@ -199,8 +199,3 @@ public sealed class AiFaithfulMobilizationGateTests
         Assert.Empty(driven.Outcome.State.NationById(Me)!.RecruitmentSlots);
     }
 }
-
-
-
-
-

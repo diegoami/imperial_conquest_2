@@ -69,42 +69,20 @@ namespace IC2.Engine.Tests.Presentation;
 /// chance once gated, not the 1-in-5 an earlier draft of this remark claimed.
 /// </para>
 /// <para>
-/// <strong>Seed 270 does not fail at <c>peace-yes</c>.</strong> Running this exact, committed script
-/// (unmodified) with <c>--seed 270</c> instead of 3: the offer is raised at the second sacrifice
-/// (<c>mac-sac-1</c>'s attack) and <c>peace-yes</c> is accepted, exactly as it is at seed 3. The one line
-/// that actually fails at 270 is <c>accept-offer</c>, rejected
-/// <c>diplomacy.no-pending-offer</c> ("There is no pending offer to accept.") — the natural pending offer
-/// <see cref="Diplomacy.PendingOfferSystem"/> rerolls every human turn start never happens to land within
-/// this script's own window at that seed.
+/// <strong>Historical seed selection.</strong> T80 selected seed 3 from its then-current CLI sweep
+/// of seeds 1 through 40. Those seed-specific outcomes predate the T171 faithful mobilisation
+/// correction and are not claims about the current script. The scenario, seed 3 and fixed turn order
+/// remain unchanged; no new seed search was used for T171.
 /// </para>
 /// <para>
-/// <strong>Why 3, specifically.</strong>
-/// <strong>T80 rework round 2, N5: the previous version of this paragraph said seeds 3, 10, 13 and 20
-/// all have every line accepted — corrected here after an independent re-sweep of my own, not by
-/// copying the reviewer's number.</strong>
-/// <strong>T80 rework round 3, B4: the round-2 correction was itself wrong for seed 13 — "never raised
-/// at all" does not hold there. Corrected again, verified by running the CLI at both seeds myself before
-/// writing this.</strong> I ran this exact, committed script through the real CLI once per seed from 1
-/// to 40 (<c>--seed &lt;n&gt;</c>, nothing else changed) and checked, for each run, both
-/// its <c>"rejected ("</c> count and whether <c>peace-yes</c> printed
-/// <c>"There is no pending peace treaty offer."</c> (a failure that carries no <c>"rejected ("</c> text
-/// at all, since the CLI answers it before any command is even dispatched). Every seed in 1–40 produces
-/// exactly one <c>"rejected ("</c> line (the <c>accept-offer</c> line above) <em>except</em> seeds
-/// <strong>3, 10, 13 and 20</strong>, which produce zero — but at <strong>13 and 20</strong>,
-/// <c>peace-yes</c> itself fails that second way, and not for the same reason at each: at
-/// <strong>seed 13</strong>, the <em>first</em> attack (<c>mac-detached</c>'s) does raise the offer
-/// (its four offer lines, the first being "After defeating you in battle Thracia are willing to end their war with you, if you agree to the terms below."), but the very next <c>end</c> prints
-/// <c>"The peace treaty offer has lapsed."</c> (<c>GameSession.cs</c>'s own lapse check) before this
-/// script's own <c>peace-yes</c> line — which comes only after the <em>second</em> attack
-/// (<c>mac-sac-1</c>'s) — is ever reached, so the answer is "no pending offer" because the one real offer
-/// already expired, not because none was ever raised. At <strong>seed 20</strong>, by contrast, neither
-/// attack raises an offer at all — <c>InstantBattleResolver</c>'s own gate-then-roll simply never clears
-/// on either sacrifice against <c>army-14</c>. <strong>3 and 10</strong> are the only seeds in 1–40 where
-/// every line is genuinely accepted; 3 is the first. Changing the seed
-/// reshuffles every other random-driven line too (weather, city loyalty, casualty counts, and which
-/// nation's own <c>accept-offer</c> ends up pending, if any), which is why the whole golden was
-/// regenerated through the CLI under <c>--seed 3</c> rather than hand-patched, and why this remark
-/// states only the sweep actually run (1 through 40) rather than extrapolating beyond it.
+/// <strong>T171 script boundary.</strong> With the corrected faithful mobilisation gates, the
+/// Thracian post-battle treaty offer is raised by the second of the three consecutive <c>end</c>
+/// lines after <c>split-fleet mac-fleet-1 mac-fleet-keep 13</c> and would lapse at the third if left
+/// unanswered. The single
+/// <c>peace-yes</c> now immediately follows that second <c>end</c>. Accepting that offer also leaves
+/// the existing late marine approach free: <c>move mac-marines 148 40</c> reaches its destination
+/// using 6 of 10 moves, followed by accepted embark and disembark commands. No preparation moves
+/// were needed. Every existing mutating command and its arguments are preserved.
 /// </para>
 /// <para>
 /// <strong>Random consumers.</strong> <see cref="Battle.BattleCasualties"/>'s casualty divisor
@@ -180,9 +158,9 @@ public sealed class SuccessScriptTests
 
     /// <summary>seed 3 — see this class's own remarks for why, not the scenario's committed 270.</summary>
     /// <remarks>
-    /// T119: the order is pinned fixed (<c>--turn-order fixed</c> on the CLI). Seed 3 was chosen on the world's
-    /// own order, and the shuffled order (<c>classical-faithful</c>'s default) breaks the script's accepted lines
-    /// for that seed and for every seed tried (the <c>hire-mercenary</c> line needs an offer next to
+    /// T119: the order is pinned fixed (<c>--turn-order fixed</c> on the CLI). T80 chose seed 3 on the world's
+    /// own order, and the shuffled order (<c>classical-faithful</c>'s default) broke the then-current script's accepted lines
+    /// for that seed and for every seed tried then (the <c>hire-mercenary</c> line needs an offer next to
     /// <c>mac-merc</c>).
     /// </remarks>
     private static GameSession NewSuccessSession() =>

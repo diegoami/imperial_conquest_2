@@ -119,7 +119,7 @@ Thracia (thracia) takes its turn: 1 order issued.
 Carthage (carthage) takes its turn: 3 orders issued.
 Bithynia (bithynia) takes its turn: 9 orders issued.
 Dacia (dacia) takes its turn: 0 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 11 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 9 orders issued.
 Numidia (numidia) takes its turn: 0 orders issued.
 Now: Week 5, Spring 270 BC. Active seat: Rome (rome).
 News:

@@ -31,4 +31,3 @@ public sealed class MobilizationGateValidationTests
         Assert.Equal(4, rules.Ai.FaithfulMobilizeReadyCountAtLeast);
     }
 }
-
