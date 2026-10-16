@@ -203,7 +203,12 @@ public static class AiTurn
                 }
             }
 
-            AiEconomyPhase.Propose(view, personality, candidates);
+            // Faithful mobilisation already ran in slot order before recruitment, with its initial
+            // queue latch and deficit. A later scored pass would bypass that per-turn stop.
+            if (ruleset.Flags.AiEconomy != AiEconomyModel.Original)
+            {
+                AiEconomyPhase.Propose(view, personality, candidates);
+            }
             // T82 (#359, bug #357, Owns amendment PR #378): the same seat-turn IRng AiMilitaryPhase
             // already receives above, so AiDiplomacyPhase's own Random(20) alliance roll is drawn from
             // the identical turn-stable stream as AiMilitaryPhase's Random(10) war roll -- see

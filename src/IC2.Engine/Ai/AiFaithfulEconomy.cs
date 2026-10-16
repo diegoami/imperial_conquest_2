@@ -83,6 +83,44 @@ public static class AiFaithfulEconomy
 
         if (own < threat)
         {
+            // T171: FUN_004504f4 mobilises before placing new orders. Both the deficit and the
+            // queue-wide gate are snapshots, not recomputed after each successful command.
+            var gate = AiEconomyPhase.FaithfulMobilizationGate(new AiView(state, ruleset, world, nationId));
+            long mobilized = 0;
+            var firstSlot = 0;
+            while (gate && mobilized < threat - own)
+            {
+                var candidates = new List<AiCandidate>();
+                AiEconomyPhase.ProposeMobilization(new AiView(state, ruleset, world, nationId), candidates, gate, firstSlot);
+                if (candidates.Count == 0)
+                {
+                    break;
+                }
+
+                var candidate = candidates[0];
+                var command = (MobilizeRecruitSlotCommand)candidate.Commands[0];
+                var slot = state.NationById(nationId)!.RecruitmentSlots[command.SlotIndex];
+                var type = ruleset.UnitTypeById(slot.UnitTypeId)!;
+                var value = (long)(slot.Troops / ruleset.Ai.FaithfulValueTroopsDivisor) * type.CombatPowerWeight;
+                var result = commands.Dispatch(state, command, events);
+                issued++;
+                if (result.IsRejected)
+                {
+                    rejected++;
+                    firstSlot = command.SlotIndex + 1;
+                    log.Add(Inv("REJECTED mobilize slot {0}: {1}", command.SlotIndex, result.Rejection!.Message));
+                }
+                else
+                {
+                    state = result.State;
+                    mobilized += value;
+                    // FUN_0044a610 compacts, but FUN_004504f4 still increments its index:
+                    // skip the entry shifted into the just-removed slot.
+                    firstSlot = command.SlotIndex + 1;
+                    log.Add(candidate.Rationale);
+                }
+            }
+
             var stream = rng.ForStream(Inv("ai.faithful-economy:{0}:{1}", nationId, state.Calendar.TurnIndex));
             (state, var placedIssued, var placedRejected) = PlaceOrders(
                 state, ruleset, commands, events, stream, nationId, log);

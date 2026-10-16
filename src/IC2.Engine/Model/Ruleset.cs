@@ -2097,6 +2097,8 @@ public sealed record VictoryRules(
 /// </param>
 /// <param name="FaithfulThreatPerEnemyNation">Threat added per nation at war with the acting nation (the original's 15000).</param>
 /// <param name="FaithfulOwnPerAlly">Own strength added per ally (the original's 6000).</param>
+/// <param name="FaithfulMobilizeArmyDistanceBelow">T171: own army distance strictly below 6 opens the queue-wide ready mobilisation gate.</param>
+/// <param name="FaithfulMobilizeReadyCountAtLeast">T171: at least 4 ready positive-troop entries opens the queue-wide gate without a near army.</param>
 /// <param name="FaithfulValueTroopsDivisor">The troops divisor of a unit's AI value, <c>(troops / 100) x combatPowerWeight</c>.</param>
 /// <param name="FaithfulForeignNearDistance">The Chebyshev radius around the capital within which a foreign army adds its value over <see cref="FaithfulForeignNearDivisor"/> to the threat.</param>
 /// <param name="FaithfulForeignNearDivisor">The divisor of a foreign army's value inside <see cref="FaithfulForeignNearDistance"/>.</param>
@@ -2206,6 +2208,8 @@ public sealed record AiWeightsRules(
     int GarrisonFallbackCapitalDistance,
     int FaithfulThreatPerEnemyNation,
     int FaithfulOwnPerAlly,
+    int FaithfulMobilizeArmyDistanceBelow,
+    int FaithfulMobilizeReadyCountAtLeast,
     int FaithfulValueTroopsDivisor,
     int FaithfulForeignNearDistance,
     int FaithfulForeignNearDivisor,

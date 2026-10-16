@@ -975,6 +975,8 @@ one shared scale, so the AI's determinism guarantee never depends on floating-po
 | `garrisonFallbackCapitalDistance` | int | tiles | The garrison fallback sends an army to the nearest city when some own army is within N of the capital, else to the capital; 10. |
 | `faithfulThreatPerEnemyNation` | int | threat | Threat added per nation at war with the acting nation; 15000. |
 | `faithfulOwnPerAlly` | int | strength | Own strength added per ally; 6000. |
+| `faithfulMobilizeArmyDistanceBelow` | int | > 0; default 6 | Under original AI economy, any own army at Chebyshev distance strictly below this from any positive-troop state-24 recruit opens the initial whole-queue mobilisation gate. [code]: research 0b0b55e, 2026-10-12-g4-followups.md case D, FUN_004504f4. |
+| `faithfulMobilizeReadyCountAtLeast` | int | > 0; default 4 | Alternatively, this many positive-troop state-24 recruits opens that same gate. Count once before mobilisation; it stays open while the scan advances over the compacting queue. Same pinned report/routine; plays remain Wine candidates. |
 | `faithfulValueTroopsDivisor` | int | divisor | A unit's AI value is `(troops / N) x combatPowerWeight`; 100. |
 | `faithfulForeignNearDistance` | int | tiles | Foreign armies within N of the capital add value over `faithfulForeignNearDivisor` to the threat; 10. |
 | `faithfulForeignNearDivisor` | int | divisor | Divisor of a foreign army's value inside that radius; 4. |

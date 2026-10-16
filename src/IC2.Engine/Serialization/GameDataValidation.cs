@@ -333,6 +333,8 @@ public static class GameDataValidation
         RequirePositiveDivisor(documentPath, ruleset.Ai.ResupplyForeignMoneyDivisor, "ai.resupplyForeignMoneyDivisor");
         // ai.mercenaryRunTroopsDivisor: AiArmyTargetTree: army troops / this, the mercenary run's well-supplied test.
         RequirePositiveDivisor(documentPath, ruleset.Ai.MercenaryRunTroopsDivisor, "ai.mercenaryRunTroopsDivisor");
+        RequirePositiveDivisor(documentPath, ruleset.Ai.FaithfulMobilizeArmyDistanceBelow, "ai.faithfulMobilizeArmyDistanceBelow");
+        RequirePositiveDivisor(documentPath, ruleset.Ai.FaithfulMobilizeReadyCountAtLeast, "ai.faithfulMobilizeReadyCountAtLeast");
         // ai.faithfulValueTroopsDivisor: AiFaithfulEconomy: unit troops / this, in the army value sum.
         RequirePositiveDivisor(documentPath, ruleset.Ai.FaithfulValueTroopsDivisor, "ai.faithfulValueTroopsDivisor");
         // ai.faithfulForeignNearDivisor: AiFaithfulEconomy: foreign near count / this, in the threat sum.
