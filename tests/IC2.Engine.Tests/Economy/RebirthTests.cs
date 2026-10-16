@@ -242,7 +242,7 @@ public sealed class RebirthTests
         // with a no-op, since their own -8 defection penalty overwrites whatever the row reset left.
         Assert.Equal(0, result.Relations.Get("dead", "outsider"));
         // Third parties' own cooldowns are untouched by rebirth's own row reset (this engine's row is
-        // symmetric by construction, but nothing here writes ownerA<->ownerB directly).
+        // directional under faithful, and nothing here writes ownerA<->ownerB directly).
         Assert.Equal(-1, result.Relations.Get("ownerA", "ownerB"));
 
         // ---- The defections: all eight moved, the two controls did not ----

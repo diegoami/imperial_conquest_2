@@ -381,14 +381,15 @@ public sealed record MercenaryPoolSlot(
     int Quality);
 
 /// <summary>
-/// The symmetric N×N diplomatic relation matrix
+/// The directional N×N diplomatic relation matrix
 /// <strong>[confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md]</strong>.
 /// </summary>
 /// <remarks>
 /// Cell values are the state codes from <see cref="RelationStateCodes"/>, and <em>negative values are
 /// cooldown counters</em> that must climb back to zero before trade or alliance is possible again.
-/// The matrix is symmetric by construction: the original's single setter writes both <c>[a][b]</c> and
-/// <c>[b][a]</c>, and <see cref="WithRelation"/> does the same.
+/// The ordinary relation setter writes both directions, as does <see cref="WithRelation"/>.
+/// Rebirth's raw row reset is directional (FUN_0044C360, g4 follow-ups case J);
+/// <see cref="WithDirectedRelation"/> preserves that exception without changing pairwise setters.
 /// </remarks>
 /// <param name="NationIds">Row/column order. N is the world's nation count, not fixed at 16.</param>
 /// <param name="Matrix">Row-major N×N cells.</param>
@@ -409,7 +410,7 @@ public sealed record DiplomaticRelations(
 
     /// <summary>
     /// Returns a copy with the relation between two nations set, writing both <c>[a][b]</c> and
-    /// <c>[b][a]</c> so the matrix stays symmetric.
+    /// <c>[b][a]</c>; unrelated directional entries remain unchanged.
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">Either nation is not in the matrix.</exception>
     public DiplomaticRelations WithRelation(string a, string b, int value)
@@ -446,11 +447,28 @@ public sealed record DiplomaticRelations(
         return this with { Matrix = ValueList<ValueList<int>>.Of(rows) };
     }
 
-    /// <summary>Whether the matrix is square, sized to <see cref="NationIds"/>, and symmetric.</summary>
+    /// <summary>Writes only the outgoing cell from <paramref name="a"/> to <paramref name="b"/>.</summary>
+    public DiplomaticRelations WithDirectedRelation(string a, string b, int value)
+    {
+        var (i, j) = Resolve(a, b);
+        var rows = Matrix.ToArray();
+        var cells = rows[i].ToArray();
+        cells[j] = value;
+        rows[i] = ValueList.From(cells);
+        return this with { Matrix = ValueList.From(rows) };
+    }
+
+    /// <summary>Whether ids are distinct and the matrix is square and sized to them.</summary>
+    public bool IsStructurallyValid() =>
+        NationIds.Distinct(StringComparer.Ordinal).Count() == NationIds.Count
+        && Matrix.Count == NationIds.Count
+        && Matrix.All(row => row.Count == NationIds.Count);
+
+    /// <summary>Whether the matrix is structurally valid and symmetric (required for authored worlds).</summary>
     public bool IsWellFormed()
     {
         var n = NationIds.Count;
-        if (Matrix.Count != n)
+        if (!IsStructurallyValid())
         {
             return false;
         }

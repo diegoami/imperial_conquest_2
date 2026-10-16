@@ -388,6 +388,11 @@ public sealed record TerrainRules(
 /// unrounded figure.
 /// </para>
 /// </remarks>
+/// <param name="RebirthPreservesInboundRelations">
+/// True: rebirth resets only the outgoing row (FUN_0044C360, g4 follow-ups case J).
+/// False: retain the symmetric improved rule; omitted legacy fields default to false.
+/// The subsequent per-city cooldown remains symmetric under either policy.
+/// </param>
 public sealed record EconomyRules(
     int TaxRateDivisor,
     int TaxRateMinPercent,
@@ -455,7 +460,8 @@ public sealed record EconomyRules(
     int BalanceSheetDebtLimitMidMax,
     int BalanceSheetDebtLimitMidStep,
     int BalanceSheetDebtLimitHighStep,
-    [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
+    [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null,
+    bool RebirthPreservesInboundRelations = false);
 
 /// <summary>
 /// Per-turn supply consumption (<c>docs/design-audit.md</c> §2.9a, <c>investigations/thracia-supply-morale.md</c>).
