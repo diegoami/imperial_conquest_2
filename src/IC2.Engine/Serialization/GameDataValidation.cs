@@ -814,10 +814,10 @@ public static class GameDataValidation
         RequireDistinct(documentPath, state.Armies, a => a.Id, "state.armies");
         RequireDistinct(documentPath, state.Fleets, f => f.Id, "state.fleets");
 
-        if (!state.Relations.IsWellFormed())
+        if (!state.Relations.IsStructurallyValid())
         {
             throw new MalformedGameDataException(
-                documentPath, "the diplomatic relation matrix must be square, sized to its nation list, and symmetric.");
+                documentPath, "the diplomatic relation matrix must be square, sized to its distinct nation list.");
         }
 
         if (state.TurnOrder.Count == 0)
