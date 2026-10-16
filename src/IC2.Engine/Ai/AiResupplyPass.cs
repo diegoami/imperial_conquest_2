@@ -52,9 +52,10 @@ namespace IC2.Engine.Ai;
 /// fleet's own pass. A fleet still under construction is likewise not on the map. A city whose owner does
 /// not resolve to a nation is skipped rather than crashing the turn:
 /// <see cref="AutomaticResupply.ForArmy"/> requires the owning <see cref="NationState"/> as an argument
-/// and throws without it. Finally, a pairing whose computed transfer turns out to move no supply and
-/// cost nothing is discarded rather than written back — see <see cref="MovesNothing"/>, which is T60's
-/// correction and the reason the AI stopped beggaring itself on its own first turn.
+/// and throws without it. Designed economy also declines pairings that move no supply and cost
+/// nothing, retaining T60's recruitment-budget protection. Original economy instead retains any changed
+/// unit, city or nation record, including money-only support, and declines truly unchanged results;
+/// see <see cref="Declines"/>.
 /// </para>
 /// </remarks>
 public static class AiResupplyPass
@@ -123,7 +124,9 @@ public static class AiResupplyPass
                 }
 
                 var result = AutomaticResupply.ForArmy(army, city, armyNation, cityNation, ruleset);
-                if (MovesNothing(result.AdmittedTons, result.TalentsPaid))
+                if (Declines(ruleset, result.AdmittedTons, result.TalentsPaid,
+                    result.Army == army && result.City == city
+                    && result.ArmyNation == armyNation && result.CityNation == cityNation))
                 {
                     continue;
                 }
@@ -161,7 +164,9 @@ public static class AiResupplyPass
                 }
 
                 var result = AutomaticResupply.ForFleet(fleet, city, fleetNation, cityNation, ruleset);
-                if (MovesNothing(result.AdmittedTons, result.TalentsPaid))
+                if (Declines(ruleset, result.AdmittedTons, result.TalentsPaid,
+                    result.Fleet == fleet && result.City == city
+                    && result.FleetNation == fleetNation && result.CityNation == cityNation))
                 {
                     continue;
                 }
@@ -177,46 +182,15 @@ public static class AiResupplyPass
     }
 
     /// <summary>
-    /// Whether a computed transfer moved no supply in either direction and cost nothing — in which case
-    /// the pairing was not a resupply at all and this pass declines it.
+    /// Faithful support retains every changed record, including money-only changes. The original
+    /// grants funds independently of admitted supply (research 500e521, automatic resupply).
+    /// Designed economy retains T60's suppression of zero-ton/zero-price visits so full units do
+    /// not consume its recruitment budget. Truly unchanged faithful results are not transfers.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <strong>Why a no-op result is discarded rather than written back (T60, issue #259).</strong>
-    /// <see cref="AutomaticResupply.ForArmy"/> always returns a state, including for an army that is
-    /// already at its <see cref="SupplyCapacity.ArmyCapacityTons"/> and therefore admits no tons and pays
-    /// no talents. That state is <em>not</em> inert: it still carries T38's purse hygiene, which moves a
-    /// flat <see cref="EconomyRules.AutoResupplyPurseTopUpAmount"/> out of the nation's treasury into the
-    /// unit's purse whenever the purse is under
-    /// <see cref="EconomyRules.AutoResupplyPurseTopUpThreshold"/> and the treasury is positive. Applying
-    /// it therefore spends the nation's money on a visit that delivered nothing.
-    /// </para>
-    /// <para>
-    /// <strong>What that cost the AI, measured.</strong> On T22's fifty-seed soak both nations begin with
-    /// a full army and a treasury (450 and 500 talents) smaller than one top-up grant (500). On its own
-    /// first turn each seat paired its full army with a city, moved nothing, and handed its entire
-    /// treasury to that army's purse — where it stayed, since an army spends its purse on
-    /// <see cref="SupplyPurchase"/> (buying supply at a foreign city) and <see cref="MercenaryDesertion"/>
-    /// (mercenary upkeep), neither of which this empty pairing triggers. From the next turn on
-    /// <see cref="AiEconomyPhase.TurnBudget"/> was at or below zero, so
-    /// <see cref="AiEconomyPhase.Propose"/> returned before proposing any recruitment at all, the army
-    /// never grew, and <see cref="AiMilitaryPhase"/>'s siege ratio stayed between 20 and 106 permille
-    /// against a required 1160 — <strong>the whole of why <c>chose [Military/besiege]</c> appeared zero
-    /// times in 48,000 turns</strong>. Skipping the empty pairing lifts the same soak's best observed
-    /// siege ratio to 658 permille and its recruitment count from 111 to 204.
-    /// </para>
-    /// <para>
-    /// <strong>Why this is this file's decision and not a change to T38's rule.</strong> The class remark
-    /// above states the division: <see cref="AutomaticResupply"/> owns every ton, talent and purse
-    /// adjustment, and this pass "<em>decides only who resupplies from whom</em>". An army with nothing
-    /// to receive resupplies from nobody. Nothing in <see cref="AutomaticResupply"/> changes, the purse
-    /// hygiene still fires on every transfer that does move supply — which is how the army keeps the
-    /// purse it needs to buy at foreign cities — and a unit <em>over</em> capacity still hands its
-    /// surplus back, because that is a negative <c>AdmittedTons</c> and not a no-op.
-    /// </para>
-    /// </remarks>
-    private static bool MovesNothing(int admittedTons, int talentsPaid) =>
-        admittedTons == 0 && talentsPaid == 0;
+    private static bool Declines(Ruleset ruleset, int admittedTons, int talentsPaid, bool unchanged) =>
+        ruleset.Flags.AiEconomy == AiEconomyModel.Original
+            ? unchanged
+            : admittedTons == 0 && talentsPaid == 0;
 
     private static bool InRange(int x, int y, CityState city, int radius) =>
         LandingTile.ChebyshevDistance(new GridPoint(x, y), new GridPoint(city.X, city.Y)) <= radius;
