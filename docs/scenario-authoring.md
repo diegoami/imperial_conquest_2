@@ -423,6 +423,7 @@ objects documented in their own subsections below.
 | `rebirthUnity` | integer | 0–unityCap | `Rebirth`: the reborn nation's own reset unity. |
 | `rebirthTaxRatePercent` | integer | tax rate % | `Rebirth`: the reborn nation's own reset tax rate. |
 | `rebirthMobilizedPercent` | integer | percentage points | `Rebirth`: the reborn nation's own reset mobilization. |
+| `rebirthPreservesInboundRelations` | boolean | default `false` when omitted | Faithful/toy `true`: reset only the reborn nation's outgoing row, preserving inbound entries (g4 follow-ups case J). Improved `false`: symmetric reset. Subsequent moved-city cooldowns remain symmetric in both. |
 | `rebirthDefectionRelationPenalty` | integer | relation code | `Rebirth`: the symmetric cooldown written between the reborn nation and each qualifying city's own former owner. |
 | `balanceSheetDebtLimitLowMax` | integer | talents | Balance sheet (flag `balanceSheetTotals` = `original`): a Debt limit up to this figure is rounded down to `balanceSheetDebtLimitLowStep`. |
 | `balanceSheetDebtLimitLowStep` | integer | talents | Balance sheet (`original`): the step a Debt limit up to `balanceSheetDebtLimitLowMax` is rounded down to. |

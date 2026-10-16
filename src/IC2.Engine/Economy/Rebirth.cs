@@ -53,23 +53,11 @@ namespace IC2.Engine.Economy;
 /// constants get, never a <see cref="EconomyRules"/> field.
 /// </para>
 /// <para>
-/// <strong>Relations are not fully reproduced here — review round 1, N2: unlike deposition and
-/// elimination, this is a divergence T87 itself introduces, not an inherited one.</strong> The report:
-/// "Only the reborn nation's own row (<c>+0x26</c>) is zeroed. Other nations' entries toward it are left
-/// as they are" — an asymmetric write in the original (a raw row memset), and, in the original, a
-/// <em>different</em> operation from <c>FUN_00449B40</c>, the setter deposition and elimination both call,
-/// which <em>is</em> symmetric there. <see cref="DiplomaticRelations"/> is "symmetric by construction"
-/// <c>[confirmed]</c> already, before this task (<c>GameState.cs</c>'s own remarks) — outside this task's
-/// Owns list to change — so <see cref="DiplomaticRelations.WithRelation"/> necessarily also clears every
-/// other nation's own entry toward the reborn one. For deposition and elimination that costs nothing: the
-/// original's own <c>FUN_00449B40</c> is already symmetric, so this engine's uniform symmetric semantics
-/// reproduce it exactly (<see cref="Deposition.ResetRelations"/>'s own remarks). Rebirth is the one caller
-/// whose original operation is <em>not</em> symmetric, so the same engine-wide choice that costs nothing
-/// elsewhere does diverge here — an earlier revision of this remark wrongly folded rebirth into "the same
-/// simplification every other symmetric-relation reset already accepts", as if every caller's own original
-/// operation were equally symmetric; only <c>FUN_00449B40</c>'s callers are. This is a real, new gap, named
-/// rather than smoothed over, and outside this task's Owns list to close (the same <c>DiplomaticRelations</c>
-/// constraint above).
+/// <strong>Relations.</strong> FUN_0044C360 resets only the reborn nation's outgoing row
+/// (2026-10-12-g4-followups.md case J, Wine staged-save and code evidence). Faithful uses
+/// <see cref="EconomyRules.RebirthPreservesInboundRelations"/> to retain inbound entries;
+/// improved keeps the symmetric reset. The subsequent moved-city cooldown uses the ordinary
+/// symmetric setter in both presets.
 /// </para>
 /// <para>
 /// <strong>This method never creates an army or a fleet — but the reborn nation is not guaranteed to
@@ -198,13 +186,15 @@ public static class Rebirth
         state = state with { Nations = CityCaptureResolver.ReplaceNation(state.Nations, reborn) };
 
         // The relation row, zeroed in full before any city moves -- see this type's own remarks on order
-        // and on why this is symmetric where the original is not.
+        // and on the policy selecting the original directional reset or the improved symmetric reset.
         var relations = state.Relations;
         foreach (var otherNationId in relations.NationIds)
         {
             if (!string.Equals(otherNationId, reborn.Id, StringComparison.Ordinal))
             {
-                relations = relations.WithRelation(reborn.Id, otherNationId, 0);
+                relations = economy.RebirthPreservesInboundRelations
+                    ? relations.WithDirectedRelation(reborn.Id, otherNationId, 0)
+                    : relations.WithRelation(reborn.Id, otherNationId, 0);
             }
         }
 
