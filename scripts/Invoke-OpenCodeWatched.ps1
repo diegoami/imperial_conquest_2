@@ -781,7 +781,7 @@ function Get-OpenCodeDataDirs {
 }
 
 function Test-OpenCodeGoLogin {
-    param($Cli, [string] $WorkDir, [string] $Root, [string] $InFile)
+    param($Cli, [string] $WorkDir, [string] $Root)
     # Whether the run's data directory holds the opencode-go console login. Under 1.x, `models
     # opencode-go` (no session, no billing, in the run's isolated environment) answers "Error:
     # Provider not found: opencode-go" with exit 1 when the login is missing (observed 1.18.34); only
@@ -790,9 +790,13 @@ function Test-OpenCodeGoLogin {
     # --standalone` printed nothing even with a fresh root, so a missing login cannot be detected
     # cheaply and reliably there: it is $true (unknown), and the run itself reports it.
     if ($Cli.Major -ge 2) { return $true }
-    $out = Join-Path $Root 'go-login-check.out.txt'
-    $err = Join-Path $Root 'go-login-check.err.txt'
+    # Each probe owns all three streams, including when another run shares the data root.
+    $probe = Join-Path $Root ('go-login-check-' + [guid]::NewGuid().ToString('N'))
+    $InFile = $probe + '.in.txt'
+    $out = $probe + '.out.txt'
+    $err = $probe + '.err.txt'
     try {
+        [System.IO.File]::WriteAllText($InFile, '')
         $p = Start-Process -FilePath $Cli.Exe -ArgumentList 'models opencode-go' -WorkingDirectory $WorkDir `
             -NoNewWindow -PassThru -RedirectStandardInput $InFile -RedirectStandardOutput $out -RedirectStandardError $err
         if (-not $p.WaitForExit(60000)) { Stop-OpenCodeTree $p; return $true }
@@ -807,7 +811,7 @@ function Test-OpenCodeGoLogin {
         $text = [System.IO.File]::ReadAllText($err, [System.Text.Encoding]::UTF8) + [System.IO.File]::ReadAllText($out, [System.Text.Encoding]::UTF8)
         return -not ($text -match 'No accounts found')
     } catch { return $true }
-    finally { Remove-Item -LiteralPath $out, $err -Force -ErrorAction SilentlyContinue }
+    finally { Remove-Item -LiteralPath $InFile, $out, $err -Force -ErrorAction SilentlyContinue }
 }
 
 function Restore-OpenCodeDataHome($State) {
@@ -1025,9 +1029,7 @@ function Invoke-OpenCodeWatched {
     $state = Initialize-OpenCodeDataHome -Major $cli.Major -Alibaba:$isAlibaba
     if ($Model -like 'opencode-go/*') {
         # Before the run, so a missing Go login stops here with its cause instead of a "Provider not found" run.
-        $goIn = Join-Path $state.Root 'go-login-check.in.txt'
-        [System.IO.File]::WriteAllText($goIn, '')
-        $goOk = try { Test-OpenCodeGoLogin -Cli $cli -WorkDir $WorkDir -Root $state.Root -InFile $goIn } finally { Remove-Item -LiteralPath $goIn -Force -ErrorAction SilentlyContinue }
+        $goOk = Test-OpenCodeGoLogin -Cli $cli -WorkDir $WorkDir -Root $state.Root
         if (-not $goOk) {
             Restore-OpenCodeDataHome $state
             throw (New-OpenCodeFailure 'no authentication' "No authentication: the data directory $($state.Root)\data has no opencode-go login (OpenCode: 'Provider not found: opencode-go', or 'console orgs' found no account), so $Model cannot run. The Go console login is stored in that directory's database, not in auth.json: run 'opencode console login' with XDG_DATA_HOME=$($state.Root)\data (each root, one per major version, needs its own login). Nothing was started.")
