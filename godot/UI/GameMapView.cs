@@ -1269,10 +1269,9 @@ public partial class GameMapView : Control
         var radius = Mathf.Max(tileSize * 0.55f, 3f);
         var selected = string.Equals(city.Id, _selectedCityId, StringComparison.Ordinal);
 
-        // T94: key selection (live capital vs. population tier) is MapMarkerKeys' single decision,
-        // shared with Slice.cs -- of game-design.md's [open] "City markers" section, only capital
-        // status (orthogonal to population, live on NationState.CapitalCityId) is confirmed; the
-        // tier boundaries are the ruleset's, and every shipped ruleset ships them empty.
+        // MapMarkerKeys selects the live capital marker or a population tier, shared with Slice.cs.
+        // T163: shipped rulesets use thresholds [25, 50, 100] (population in thousands), giving
+        // four town tiers; a national capital uses its own marker at any population.
         var texture = _assetLoader?.TryGetTexture(MapMarkerKeys.CityIcon(_session!.State, city, _session.Ruleset.MapMarkers));
         if (texture is not null)
         {
