@@ -103,13 +103,38 @@ public partial class TacticalBattleCheck : Node
                 main.SubmitForCheck(Attack);
                 var screen = (TacticalBattleScreen)main.ActiveOverlay!;
                 screen.SetProcess(false);
-                await Capture($"{pack}-computer-placement");
+                await Capture($"{pack}-computer-placement", screen);
                 screen.SkipPlayback();
                 screen.SelectUnit(0);
-                await Capture($"{pack}-human-placement");
-                screen.PressToolbarButton("computer_general");
+                await Capture($"{pack}-human-placement", screen);
                 var captured = new HashSet<string>();
-                for (var i = 0; screen.IsPlayingBack && i < 100000; i++)
+                var enemyMelee = false;
+                // Real human turns, including the initial placement End turn. The engine alone drives the enemy.
+                for (var round = 0; round < 12 && !captured.Contains("human-after-enemy-melee"); round++)
+                {
+                    screen.PressToolbarButton("end_turn");
+                    for (var step = 0; screen.IsPlayingBack && step < 100000; step++)
+                    {
+                        var frame = screen.DisplayedFrame!;
+                        enemyMelee |= frame.Event is TacticalMeleeEvent && frame.Actor?.Side == 1;
+                        string? stage = frame.Kind switch
+                        {
+                            TacticalFrameKind.HalfRound when enemyMelee => "enemy-resolution-before-handoff",
+                            TacticalFrameKind.Setup when frame.After.View.Placed && screen.ControllerLabel.Text.Contains("Human")
+                                => enemyMelee ? "human-after-enemy-melee" : "human-combat-round",
+                            TacticalFrameKind.Rout => "rout",
+                            TacticalFrameKind.Cascade => "cascade",
+                            TacticalFrameKind.Removal => "removal",
+                            _ => null,
+                        };
+                        if (stage is not null && captured.Add(stage)) await Capture($"{pack}-{stage}", screen);
+                        screen.AdvancePlayback(0.05);
+                    }
+                    if (main.ActiveOverlay != screen) throw new InvalidOperationException("Human fixture ended before normal combat handoff.");
+                }
+                if (!captured.Contains("human-after-enemy-melee")) throw new InvalidOperationException("Missing real human combat handoff after enemy melee.");
+                screen.PressToolbarButton("computer_general");
+                for (var step = 0; screen.IsPlayingBack && step < 100000; step++)
                 {
                     var frame = screen.DisplayedFrame!;
                     string? stage = frame.Kind switch
@@ -118,18 +143,36 @@ public partial class TacticalBattleCheck : Node
                         TacticalFrameKind.Movement => "movement",
                         TacticalFrameKind.Shot => "shot",
                         TacticalFrameKind.Melee when screen.PreviousExchangeLabel.Text.Length > 0 => "melee-history",
+                        TacticalFrameKind.Rout => "rout",
+                        TacticalFrameKind.Cascade => "cascade",
+                        TacticalFrameKind.Removal => "removal",
                         TacticalFrameKind.Terminal => "terminal",
                         TacticalFrameKind.Reconciliation when frame.After.View.IsOver => "reconciliation",
                         _ => null,
                     };
-                    if (stage is not null && captured.Add(stage)) await Capture($"{pack}-{stage}");
+                    if (stage is not null && captured.Add(stage)) await Capture($"{pack}-{stage}", screen);
                     screen.AdvancePlayback(0.05);
                 }
                 if (main.ActiveOverlay is not BattleEndedScreen) throw new InvalidOperationException("Terminal replay did not route to result.");
-                await Capture($"{pack}-result");
-                foreach (var required in new[] { "general-handoff", "movement", "shot", "melee-history", "terminal", "reconciliation" })
+                await Capture($"{pack}-result", screen);
+                foreach (var required in new[] { "human-combat-round", "human-after-enemy-melee", "general-handoff", "movement", "shot", "melee-history", "rout", "terminal", "reconciliation" })
                     if (!captured.Contains(required)) throw new InvalidOperationException($"Missing visual stage {pack}/{required}");
+                GD.Print($"T180 visual stages {pack}: {string.Join(", ", captured.Order())}");
                 Free(main);
+                var defending = Build(ToyAiAttackSession());
+                defending.SubmitForCheck("declare-war south");
+                defending.SubmitForCheck("end");
+                var defenderScreen = (TacticalBattleScreen)defending.ActiveOverlay!;
+                defenderScreen.SetProcess(false);
+                defenderScreen.SkipPlayback();
+                defenderScreen.SelectUnit(20);
+                await Capture($"{pack}-human-defender-placement", defenderScreen);
+                defenderScreen.PressToolbarButton("end_turn");
+                defenderScreen.SkipPlayback();
+                if (!defenderScreen.Model.View.Placed || !defenderScreen.ControllerLabel.Text.Contains("Human"))
+                    throw new InvalidOperationException("Missing human defender combat handoff.");
+                await Capture($"{pack}-human-defender-combat", defenderScreen);
+                Free(defending);
             }
         }
         catch (Exception ex) { GD.PrintErr($"FAIL: capture replay {ex}"); ok = false; }
@@ -138,19 +181,26 @@ public partial class TacticalBattleCheck : Node
         GetTree().Quit(ok ? 0 : 1);
     }
 
-    private async Task Capture(string name)
+    private async Task Capture(string name, TacticalBattleScreen screen)
     {
+        var frame = screen.DisplayedFrame;
+        var receipt = UiKit.MakeLabel($"T180 {name} | {frame?.BattleId} command {frame?.CommandId} frame {frame?.FrameId} {frame?.Kind}", AppTheme.Note, Colors.White);
+        // Receipt is check-only evidence metadata; it never changes production captions or snapshot values.
+        AddChild(receipt);
         foreach (var size in new[] { new Vector2I(1280, 800), new Vector2I(1024, 768) })
         {
             GetWindow().Size = size;
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            receipt.Position = new Vector2(8, GetViewport().GetVisibleRect().Size.Y - 22);
             await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
             var path = Path.Combine(GameDataContext.RepositoryRoot, "rendered", $"T180-{name}-{size.X}x{size.Y}.png");
             var error = GetViewport().GetTexture().GetImage().SavePng(path);
             if (error != Error.Ok) throw new InvalidOperationException($"Capture failed: {error}");
-            GD.Print($"T180 capture: {path}");
+            GD.Print($"T180 capture: {path} | {frame?.BattleId}/{frame?.FrameId} | {screen.ControllerLabel.Text}");
         }
+        RemoveChild(receipt);
+        receipt.QueueFree();
     }
 
     // ---- Done-when 2: the battle, its end and the window ----
@@ -436,6 +486,18 @@ public partial class TacticalBattleCheck : Node
         screen.SelectUnit(0);
         screen.PressToolbarButton("computer_general");
         Check(screen.IsPlayingBack && main.ActiveOverlay == screen, "terminal output cannot bypass replay");
+        var path = Path.Combine(ProjectSettings.GlobalizePath("user://saves"), "t180-authoritative-during-replay.json");
+        _cleanup.Add(path);
+        main.SaveAsForCheck(path);
+        Check(main.ActiveOverlay == screen && screen.IsPlayingBack, "Save callback cannot open peace/result ahead of terminal playback");
+        GameSession? saved = null;
+        var load = new LoadGameScreen();
+        load.GameResumed += resumed => saved = resumed;
+        AddChild(load);
+        load.ContinueForCheck(path);
+        RemoveChild(load);
+        load.QueueFree();
+        Check(saved is not null && saved.OpenTacticalBattle is null && saved.State == main.Session.State, "Save during intermediate playback serializes final authoritative session, never display snapshot");
         for (var i = 0; screen.IsPlayingBack && cues.Count < 2 && i < 10000; i++) screen.AdvancePlayback(0.05);
         Check(cues.Count >= 2 && screen.PreviousExchangeLabel.Text.Length > 0, "current and previous exchanges have separate labels");
         screen.SkipPlayback();
@@ -523,7 +585,7 @@ public partial class TacticalBattleCheck : Node
 
     private void CheckAnAiPhaseBattleIsFoughtOnTheSameScreen()
     {
-        var mainGame = Build(ToyAiAttackSession());
+        var mainGame = Build(ToyAiAttackWithNeutralBattleSession());
         mainGame.SubmitForCheck("declare-war south");
         var turnBefore = mainGame.Session.State.Calendar.TurnIndex;
         mainGame.SubmitForCheck("end");
@@ -546,13 +608,29 @@ public partial class TacticalBattleCheck : Node
             $"Save during an AI-phase battle shows the engine's message and nothing else ('{screen.MessageLabel.Text}')");
         Check(mainGame.ActiveOverlay is TacticalBattleScreen, "the battle screen stays");
 
+        SettingsScreen.SetBattlePauses(0.2, 1);
         screen.PressToolbarButton("computer_general");
+        var originalBattles = mainGame.Session.LastBattles.ToArray();
+        Check(originalBattles.Length > 0 && screen.IsPlayingBack, "AI completion retains battle-result metadata while playback is pending");
+        var path = Path.Combine(ProjectSettings.GlobalizePath("user://saves"), "t180-ai-completion-metadata.json");
+        _cleanup.Add(path);
+        mainGame.SaveAsForCheck(path);
+        Check(mainGame.Session.LastBattles.Count == 0 && mainGame.ActiveOverlay == screen, "Save replaces LastBattles without bypassing replay");
+        screen.SkipPlayback();
         var ended = mainGame.ActiveOverlay as BattleEndedScreen;
         Check(ended is not null, $"Computer general plays it to the end (got {mainGame.ActiveOverlay?.GetType().Name ?? "null"})");
         ended?.Close();
+        var shown = new List<BattleResultViewModel>();
+        while (mainGame.ActiveOverlay is BattleResultScreen result)
+        {
+            shown.Add(result.Result);
+            result.Close();
+        }
+        Check(originalBattles.All(b => shown.Any(r => r.AttackerId == b.AttackerId && r.DefenderId == b.DefenderId)), "original AI completion battle facts survive intervening Save and route after result dismissal");
         Check(mainGame.Session.OpenTacticalBattle is null, "the battle is over");
         Check(mainGame.Session.State.Calendar.TurnIndex > turnBefore, "the turn goes on after the battle");
         Free(mainGame);
+        SettingsScreen.SetBattlePauses(0, 0);
     }
 
     // ---- Done-when 3: instant battles are shown as before ----
@@ -601,6 +679,32 @@ public partial class TacticalBattleCheck : Node
         var armies = resolved.World.StartingArmies.Select(a => a.Id == "army-3" ? a with { X = 101, Y = 37, Moves = 8 } : a).ToList();
         var world = resolved.World with { StartingArmies = ValueList.From(armies) };
         return new GameSession(world, ruleset, resolved.Scenario, null, "rome") { HumanBattles = HumanBattleMode.Tactical };
+    }
+
+    private static GameSession ToyAiAttackWithNeutralBattleSession()
+    {
+        var toy = GameDataContext.Repository.Resolve("toy-3city");
+        var east = toy.World.NationById("south")! with { Id = "east", Name = "Eastern League", CapitalCityId = "orient" };
+        var nations = ValueList.Of("north", "south", "east");
+        var codes = toy.Ruleset.Diplomacy.StateCodes;
+        StartingArmy Army(string id, string nation, int x, int y, int troops) => new(id, nation, x, y,
+            Morale: 68, Money: 0, SupplyTons: 0, Moves: 5,
+            Units: ValueList.Of(new UnitSlot(0, nation == "south" ? "heavy_infantry" : "light_infantry", troops, 6, id)));
+        var world = toy.World with
+        {
+            Nations = ValueList.Of(toy.World.NationById("north")!, toy.World.NationById("south")!, east),
+            Cities = ValueList.From(toy.World.Cities.Concat(new[]
+            {
+                toy.World.CityById("meridia")! with { Id = "orient", Name = "Orient", X = 7, Y = 0, Owner = "east", Allegiance = "east" },
+            })),
+            StartingArmies = ValueList.Of(Army("north-army-1", "north", 3, 2, 400), Army("south-army-1", "south", 4, 2, 6000),
+                Army("south-army-2", "south", 6, 5, 6000), Army("east-army-1", "east", 6, 4, 400)),
+            StartingFleets = ValueList<StartingFleet>.Empty,
+            TurnOrder = nations,
+            StartingRelations = DiplomaticRelations.Uniform(nations, codes.Peace).WithRelation("south", "east", codes.War),
+        };
+        var scenario = toy.Scenario with { Seats = ValueList.From(toy.Scenario.Seats.Concat(new[] { toy.Scenario.Seats[1] with { Nation = "east" } })) };
+        return new GameSession(world, toy.Ruleset, scenario, seedOverride: 1) { HumanBattles = HumanBattleMode.Tactical };
     }
 
     private static GameSession ToyAiAttackSession()
