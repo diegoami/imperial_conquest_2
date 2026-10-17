@@ -315,6 +315,7 @@ graph TD
   T127 --> T181[T181 tactical aftermath]
   T130 --> T181
   T128 --> T182[T182 simple unit glyphs]
+  T182 --> T187[T187 readable strategic markers]
   T179 --> T183[T183 tactical exchange audio]
   T180 --> T183
   T184[T184 original SAV writer] --> T185[T185 SAV bridge and converter]
@@ -1411,6 +1412,10 @@ Mandatory v0.6.1 [1191](https://github.com/diegoami/imperial_conquest_2/issues/1
 
 Mandatory v0.6.1 [1191](https://github.com/diegoami/imperial_conquest_2/issues/1191); follows T185 and T183 to serialize MainGameScreen integration → [full entry](tasks/T186.md).
 
+#### T187 Readable strategic army and fleet markers
+
+Strategic display/picking [1199](https://github.com/diegoami/imperial_conquest_2/issues/1199); follows T182, runtime serialized with all Godot tasks; P2 in 0.6.x without a new v0.6.1 gate → [full entry](tasks/T187.md).
+
 #### T25 Battle result, diplomacy, and hotseat handoff screens
 
 Godot screens → [full entry](tasks/T25.md) · [#25](https://github.com/diegoami/imperial_conquest_2/issues/25)
@@ -1626,3 +1631,4 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T184](#t184-original-compatible-sav-binary-writer) | Original SAV writer | M15 | gpt-6.1-sol | Medium | direct Kimi | approved plan; merge: evaluated research 37 | [#1191](https://github.com/diegoami/imperial_conquest_2/issues/1191) |
 | [T185](#t185-native-state-sav-export-bridge-and-offline-converter) | SAV export bridge/converter | M15 | gpt-6.1-sol | Medium | direct Kimi + original runtime | T184 + reviewed research 37 mapping | [#1191](https://github.com/diegoami/imperial_conquest_2/issues/1191) |
 | [T186](#t186-in-game-save-as-original-compatible-sav) | Save As SAV | M15 | gpt-6.1-sol | Low | direct Kimi + human/original runtime | T185, T183 | [#1191](https://github.com/diegoami/imperial_conquest_2/issues/1191) |
+| [T187](#t187-readable-strategic-army-and-fleet-markers) | Readable strategic markers | M18 | gpt-6.1-sol | Low | direct Kimi + human | T182 | [#1199](https://github.com/diegoami/imperial_conquest_2/issues/1199) |
