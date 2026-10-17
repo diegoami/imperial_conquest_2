@@ -19,7 +19,8 @@ palette with alpha 255 throughout, a 24-bit opaque battle.ground tile, a 32-bit 
 and 20x20 32-bit BGRA battle.toolbar.* glyphs; the prompts cover all of those kinds), and writes
 assets/packs/authored/ with a manifest in the same shape as T11's placeholder pack.
 
-Non-determinism is the defining constraint: the same prompt does not give the same pixels
+Except for T182's 21 owner-designed battle/army/fleet glyphs (local deterministic geometry),
+non-determinism is the defining constraint: the same prompt does not give the same pixels
 twice, so the committed images are the source of truth, exactly as T29's exported JSON is.
 This script never regenerates anything unless asked, and the pack's tests pin conformance,
 never byte equality.
@@ -54,6 +55,7 @@ test reads committed BMPs and needs neither).
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import base64
 import configparser
 import io
@@ -2060,6 +2062,33 @@ def main(argv: list | None = None) -> int:
     if args.self_check:
         return 1 if self_check() else 0
 
+    # T182: these owner-designed icons are always regenerated locally. Dispatch before
+    # configuration/network preflight, including --reconform with no old raw image.
+    if args.all and args.key:
+        selection = list(entries)
+    spec = importlib.util.spec_from_file_location("unit_glyphs", os.path.join(REPO_ROOT, "scripts", "generate-unit-glyphs.py"))
+    unit_glyphs = importlib.util.module_from_spec(spec)
+    # Keep an ordinary asset regeneration from leaving an untracked scripts/__pycache__.
+    previous_bytecode_setting = sys.dont_write_bytecode
+    try:
+        sys.dont_write_bytecode = True
+        spec.loader.exec_module(unit_glyphs)
+    finally:
+        sys.dont_write_bytecode = previous_bytecode_setting
+    native_keys = set(unit_glyphs.keys())
+    native = [entry for entry in selection if entry["key"] in native_keys]
+    if native:
+        write = (args.reconform or args.all or bool(args.key)) and not args.dry_run
+        for entry in native:
+            if write:
+                unit_glyphs.write_key(args.out, entry["key"])
+            print(f"  {'generated' if write else 'would generate'} {entry['key']} (T182 native geometry, free)")
+        if write:
+            write_manifest(args.out, entries, {entry["key"] for entry in native})
+        selection = [entry for entry in selection if entry["key"] not in native_keys]
+        if not selection:
+            return 0
+
     if args.reconform:
         return run_reconform(entries, selection, args.out, args.raw,
                              write=not args.dry_run)
@@ -2077,7 +2106,7 @@ def main(argv: list | None = None) -> int:
 
     if args.all and args.key:
         print("note: --all and --key given together - regenerating every key.")
-        selection = list(entries)
+        selection = [entry for entry in entries if entry["key"] not in native_keys]
 
     config = load_config(args.config)
     return run_real(config, entries, selection, args.out, args.prompts, args.raw)
