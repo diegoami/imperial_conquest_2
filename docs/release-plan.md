@@ -195,6 +195,15 @@ The **tactical battle** is no longer one of them: it belongs to **`v0.6.0` *Batt
 
 ---
 
+### 2.2.4 v0.6.1 owner playtest and save compatibility
+
+The first patch after v0.6.0 includes all five presentation requests from [1190](https://github.com/diegoami/imperial_conquest_2/issues/1190): [T179](tasks/T179.md) / [1185](https://github.com/diegoami/imperial_conquest_2/issues/1185) ordered tactical state, [T180](tasks/T180.md) / [1186](https://github.com/diegoami/imperial_conquest_2/issues/1186) combatants/rosters/handoffs, [T181](tasks/T181.md) / [1187](https://github.com/diegoami/imperial_conquest_2/issues/1187) routing/aftermath, [T182](tasks/T182.md) / [1188](https://github.com/diegoami/imperial_conquest_2/issues/1188) recognizable three-size glyphs, and [T183](tasks/T183.md) / [1189](https://github.com/diegoami/imperial_conquest_2/issues/1189) tactical audio. P1/P2 sets execution order inside this patch, not permission to defer beyond 0.6.x. No concrete reason requires splitting these coherent playtest changes across patches.
+
+The owner's additional [original-compatible save/converter requirement](https://github.com/diegoami/imperial_conquest_2/issues/1191) is also mandatory in **v0.6.1**: T184 binary writer → T185 engine bridge/CLI converter → T186 UI integration. Their independently authored contracts define exact compatibility, template and conversion scope; do not infer byte identity or original RNG continuity. Current JSON saves are handled through the reviewed converter, with original-game open/resume verification required by that work. T186 and T180/T183 serialize any shared MainGameScreen ownership.
+
+The release gate is **T179–T186 merged**, each after direct Kimi approval and applicable green CI, plus T180/T181 human visual approval, T182 concrete 21-glyph boards in both packs and in-game readability approval, T183 runtime hearing/mute checks, and the save/export/converter contracts' compatibility and original-game verification gates. T179 → T180 → T183 is the tactical integration chain; T181 and T182 start independently with disjoint Owns. New task contracts require approved contract-tier review before implementation. Do not launch Godot or its checks while the owner plays; runtime gates remain pending until available, never waived. Preserve v0.6.0's immutable tag and use the existing patch packaging/checklist; old T127/T128 approvals do not approve revised visuals.
+
+The five presentation tasks change no battle rule, RNG sequence, faithful defeat/retreat policy, save schema, conformance trace or CLI golden. Any later verified gameplay defect requires its own issue/contract. Strategic marker tint [891](https://github.com/diegoami/imperial_conquest_2/issues/891) remains separate. The original-compatible save requirement is scoped by T184–T186, not a silent widening of these five presentation tasks.
 ## 3. Tag and GitHub Release conventions
 
 ### 3.1 Naming and placement — **DECIDED**

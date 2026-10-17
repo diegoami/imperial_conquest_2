@@ -308,6 +308,15 @@ graph TD
   T80 --> T93[T93 embark from an adjacent tile]
   T91 --> T79
   T85 --> T88[T88 war cascade + peace]
+  T125 --> T179[T179 typed tactical timeline]
+  T126 --> T179
+  T130 --> T179
+  T179 --> T180[T180 battle replay clarity]
+  T127 --> T181[T181 tactical aftermath]
+  T130 --> T181
+  T128 --> T182[T182 simple unit glyphs]
+  T179 --> T183[T183 tactical exchange audio]
+  T180 --> T183
 ```
 
 ### 1.1 Waves and the critical path
@@ -350,6 +359,9 @@ Waves are dependency layers, not concurrent batches: execution is serial, one co
 
 ---
 
+### 1.3 v0.6.1 playtest work
+
+The owner requests tracked by [1190](https://github.com/diegoami/imperial_conquest_2/issues/1190) are mandatory in v0.6.1. After contract approval, T179, T181 and T182 can start as three disjoint tracks. T180 starts after T179 merges; T183 starts after T179 and T180 merge. T182 authors independently but final overlay/context sign-off uses T180. T181 owns WriteBack/result screens; T179 owns timeline/engine presentation seams; T180 then T183 exclusively own tactical/MainGame screen integration. Recheck implicit tests, compile registrations and generators for overlap before dispatch; serialize shared compile-registration hunks. The owner explicitly authorizes up to three disjoint tasks on this machine. One Godot process machine-wide, and no Godot launch/check while the owner plays; runtime/visual/audio gates remain required afterward. Original-compatible save/export/converter work is additionally mandatory under [1191](https://github.com/diegoami/imperial_conquest_2/issues/1191); its T184–T186 contracts define that separate scope.
 ## 2. The tasks
 
 Split into one file per task at `docs/tasks/T<nn>.md` ([T61](https://github.com/diegoami/imperial_conquest_2/issues/273)); this section is the index. Each stub's heading is byte-identical to the original entry heading, so an existing `task-catalogue.md#t<nn>-...` citation (including in a GitHub issue body, which cannot be edited) still resolves to the right place.
@@ -1361,6 +1373,26 @@ Correction from [issue 1145](https://github.com/diegoami/imperial_conquest_2/iss
 
 ---
 
+#### T179 Ordered tactical presentation snapshots
+
+Owner playtest [1185](https://github.com/diegoami/imperial_conquest_2/issues/1185); typed chronology before replay UI/audio → [full entry](tasks/T179.md).
+
+#### T180 Coherent battle replay, combatants and controller handoffs
+
+Owner playtest [1186](https://github.com/diegoami/imperial_conquest_2/issues/1186); follows T179 and serializes screen ownership with T183 → [full entry](tasks/T180.md).
+
+#### T181 Explain tactical routing and the actual aftermath
+
+Owner playtest [1187](https://github.com/diegoami/imperial_conquest_2/issues/1187); separate transient aftermath capture/result-screen files → [full entry](tasks/T181.md).
+
+#### T182 Recognizable three-size battle, army and fleet glyphs
+
+Owner design [1188](https://github.com/diegoami/imperial_conquest_2/issues/1188); one author for both packs, 21 glyphs each → [full entry](tasks/T182.md).
+
+#### T183 Tactical exchange cues follow displayed playback
+
+Owner playtest [1189](https://github.com/diegoami/imperial_conquest_2/issues/1189); follows T179 and T180, existing WAVs → [full entry](tasks/T183.md).
+
 #### T25 Battle result, diplomacy, and hotseat handoff screens
 
 Godot screens → [full entry](tasks/T25.md) · [#25](https://github.com/diegoami/imperial_conquest_2/issues/25)
@@ -1568,3 +1600,8 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T176](#t176-faithful-ai-retains-automatic-support-changes-when-no-supply-moves) | Faithful support writeback | M12 | the user's choice | the user's choice | the user's choice | T60, T157 | [#1146](https://github.com/diegoami/imperial_conquest_2/issues/1146) |
 | [T177](#t177-faithful-ai-fleets-receive-the-original-grant-and-automatic-repair) | Faithful fleet support | M12 | the user's choice | the user's choice | the user's choice | T176 | [#823](https://github.com/diegoami/imperial_conquest_2/issues/823) |
 | [T178](#t178-ai-target-scorers-use-field-strength-winning-distance-and-allegiance-defense) | Target scorer terms | M12 | the user's choice | the user's choice | the user's choice | T156, T177 | [#1145](https://github.com/diegoami/imperial_conquest_2/issues/1145) |
+| [T179](#t179-ordered-tactical-presentation-snapshots) | Typed tactical timeline | M21/M18 | Sol | Medium | direct Kimi | T125, T126, T130 | [#1185](https://github.com/diegoami/imperial_conquest_2/issues/1185) |
+| [T180](#t180-coherent-battle-replay-combatants-and-controller-handoffs) | Battle replay clarity | M21/M18 | Sol | Medium | direct Kimi + human | T179 | [#1186](https://github.com/diegoami/imperial_conquest_2/issues/1186) |
+| [T181](#t181-explain-tactical-routing-and-the-actual-aftermath) | Tactical aftermath explanation | M21/M18 | Sol | Low | direct Kimi + human | T127, T130 | [#1187](https://github.com/diegoami/imperial_conquest_2/issues/1187) |
+| [T182](#t182-recognizable-three-size-battle-army-and-fleet-glyphs) | Simple unit glyphs | M21/M18 | Sol | Medium | direct Kimi + human | T128 | [#1188](https://github.com/diegoami/imperial_conquest_2/issues/1188) |
+| [T183](#t183-tactical-exchange-cues-follow-displayed-playback) | Tactical exchange audio | M21/M18 | Sol | Low | direct Kimi + human | T179, T180 | [#1189](https://github.com/diegoami/imperial_conquest_2/issues/1189) |
