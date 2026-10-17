@@ -700,9 +700,14 @@ public partial class MapClickCheck : Control
 
     private void Click(int x, int y, MouseButton button)
     {
+        // Use the real overview-map pan path so even a tall laid-out map cannot put the
+        // scenario's click below the visible window. Panning preserves selection/world distances.
+        _map.CentreOnTile(x, y);
         var position = _map.TileCenterForCheck(x, y);
-        if (!Check(new Rect2(Vector2.Zero, _map.Size).HasPoint(position),
-            $"fixture click ({x},{y}) lies inside the actual {_map.Size} map viewport")) return;
+        var viewportPosition = _map.GetGlobalTransformWithCanvas() * position;
+        if (!Check(new Rect2(Vector2.Zero, _map.Size).HasPoint(position)
+            && GetViewport().GetVisibleRect().HasPoint(viewportPosition),
+            $"fixture click ({x},{y}) lies inside map bounds and visible viewport at {viewportPosition}")) return;
         if (button == MouseButton.Left)
         {
             _map._GuiInput(new InputEventMouseButton
