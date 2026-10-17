@@ -3,7 +3,7 @@ using IC2.Engine.Model;
 
 namespace IC2.Engine.Presentation;
 
-/// <summary>The mutation boundary represented by a presentation frame. Draws are never frames.</summary>
+/// <summary>The mutation boundary represented by a presentation frame. Draws and write-back promotions are never frames.</summary>
 public enum TacticalFrameKind
 {
     Initial, Placement, Movement, Target, Projectile, Shot, Melee, Rout, Cascade,
@@ -73,7 +73,7 @@ public sealed class TacticalBattleTimeline
                 state.ComputerControlled, state.ComputerGeneral, state.Selected),
             _context.Rules.BoardWidth, _context.Rules.BoardHeight, state.Capped, state.GeneralClaims,
             boundary?.PendingPlacementSlots ?? ValueList<int>.Empty);
-        if (evidence is TacticalDrawEvent || (evidence is null && boundary?.Kind is null && snapshot == _last)) return;
+        if (evidence is TacticalDrawEvent or TacticalPromotionEvent || (evidence is null && boundary?.Kind is null && snapshot == _last)) return;
         var kind = _last is null ? TacticalFrameKind.Initial : boundary?.Kind ?? evidence switch
         {
             TacticalCopiedInEvent or TacticalPlacedEvent => TacticalFrameKind.Placement,

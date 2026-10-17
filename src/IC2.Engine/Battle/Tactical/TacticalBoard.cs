@@ -93,7 +93,7 @@ internal sealed class TacticalBoard
 
     /// <summary>Captures silent mutations at explicit boundaries without changing the conformance trace.</summary>
     public void Capture(TacticalFrameKind? boundary = null, int actor = -1, int target = -1) =>
-        Context.Observer?.Invoke(Snapshot(), null, CaptureBoundary(boundary, actor, target));
+        Context.Observer?.Invoke(Snapshot(includeLog: false), null, CaptureBoundary(boundary, actor, target));
 
     public void BeginPlacement()
     {
@@ -112,7 +112,7 @@ internal sealed class TacticalBoard
         return Snapshot();
     }
 
-    private TacticalBattleState Snapshot() =>
+    private TacticalBattleState Snapshot(bool includeLog = true) =>
         new(
             AttackerArmyId,
             DefenderArmyId,
@@ -126,7 +126,7 @@ internal sealed class TacticalBoard
             ValueList.From(ComputerGeneral),
             ValueList.From(GeneralClaims),
             Selected,
-            ValueList.From(Log), Capped);
+            includeLog ? ValueList.From(Log) : ValueList<TacticalEvent>.Empty, Capped);
 
     /// <summary>One <c>Random(n)</c> through the seam, recorded on the trace.</summary>
     public int Draw(int n)
@@ -251,8 +251,8 @@ internal sealed class TacticalBoard
         public new void Add(TacticalEvent evidence)
         {
             base.Add(evidence);
-            if (evidence is not TacticalDrawEvent)
-                _board.Context.Observer?.Invoke(_board.Snapshot(), evidence, _board.CaptureBoundary());
+            if (evidence is not (TacticalDrawEvent or TacticalPromotionEvent))
+                _board.Context.Observer?.Invoke(_board.Snapshot(includeLog: false), evidence, _board.CaptureBoundary());
         }
     }
 
