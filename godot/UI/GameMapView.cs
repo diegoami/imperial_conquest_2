@@ -45,7 +45,7 @@ namespace IC2.Slice.UI;
 /// 25,000/50,000 troop bands and 25/50 ship bands for armies and fleets — replacing T48's
 /// <c>[designed]</c> per-unit-type army icon choice (folded
 /// <see href="https://github.com/diegoami/imperial_conquest_2/issues/454">#454</see> item 3). When the
-/// loader cannot resolve a key, the pre-T94 coloured shape remains the fallback, exactly as before.
+/// loader cannot resolve a key, a coloured fallback uses the same board bounds as the texture.
 /// </para>
 /// <para>
 /// <strong>T97: markers draw the original's own background square and foreground glyph.</strong> Every

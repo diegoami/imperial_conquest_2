@@ -16,8 +16,9 @@ public readonly record struct StrategicMarkerBounds(float X, float Y, float Size
 }
 
 /// <summary>
-/// Production screen-space policy for strategic boards and picking. [designed]: 24 px keeps the
-/// soldier/ship motifs and their three tiers readable at overview; growth follows the old army/fleet
+/// Production screen-space policy for strategic boards and picking. [designed]: a 24 canvas-pixel
+/// minimum is chosen for human review of soldier/ship and tier recognition at overview (normal UI
+/// scaling still applies); growth follows the old army/fleet
 /// proportions until a 48 px cap. The task's evidence and original UI audit establish no original
 /// minimum screen-pixel size. Keys, thresholds, owner tint and world coordinates are independent.
 /// </summary>
