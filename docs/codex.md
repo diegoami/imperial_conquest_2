@@ -42,17 +42,32 @@ and [skills](https://learn.chatgpt.com/docs/build-skills).
 | Remote Control / another Claude session | No assumed equivalent. Prepare a relayable request and report it unsent if the required integration is absent. |
 | OpenCode implementation/review | Existing `external-implement.ps1`, `external-review.ps1` and `Invoke-OpenCodeWatched.ps1`; retain their monitoring, logs, notes and verdict rules. |
 
-Ask the user for a new choice only when the requested model or capability is
-unavailable, or a new task/review lacks its required choice. Do not silently map
-Opus to an OpenAI model. Local Claude permissions are not Codex permissions;
-Codex's actual sandbox and approval policy apply, including to sibling worktrees
-and the research repository. Do not expand permissions in project configuration.
+The standing choices in [CLAUDE.md rules 17–18](../CLAUDE.md#model-choice) authorize
+delegated authors and direct Kimi review without asking again for each task/recheck.
+The main session assesses difficulty and records the actual model and effort:
 
-For an implementation by an OpenAI model in Codex, use `-ExcludeModel sol` when
-calling the existing reviewer/chooser scripts. Their known `sol` alias excludes
-the entire OpenAI family, including Luna. The scripts do not accept arbitrary
-Codex model identifiers as aliases. Do not add a `codex` alias or call the same
-family independent. The user selects an eligible reviewer explicitly.
+| Difficulty | User choice | Native Codex mapping |
+| --- | --- | --- |
+| Easy | Luna High | Available Luna family, `high` |
+| Medium | Sol light | Available Sol family, `low` |
+| Hard | Sol medium | Available Sol family, `medium` |
+| Very hard | Sol high | Available Sol family, `high` |
+
+Resolve identifiers from this session's tools; these family names are not version pins.
+Where collaboration requires it, use `fork_turns="none"` with the model/effort override
+and paste the full brief. Explicit per-task overrides persist through rework. Ask only
+if the chosen capability/model/effort is unavailable; never silently substitute.
+Local Claude permissions are not Codex permissions; actual sandbox/approval policy
+applies to sibling worktrees and the research repository. Do not expand permissions.
+
+The reviewer is direct **Kimi For Coding 1M**, `kimi-code-plan-cn/kimi-for-coding`, at
+`https://api.kimi.com/coding/v1`, including plans and rechecks, never OpenCode Go.
+Use an available direct review capability with the required isolated worktree, supplied
+HEAD, full findings, posting and monitoring; this document adds no harness route.
+If unavailable, diagnose/report and ask before another reviewer or route.
+For an OpenAI author, existing reviewer/chooser scripts use `-ExcludeModel sol` to
+exclude the entire OpenAI family, including Luna. Arbitrary native model identifiers
+are not script aliases; do not add a `codex` alias or call the same family independent.
 
 ## Build and verification
 

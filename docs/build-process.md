@@ -74,13 +74,15 @@ Every system is written against these interfaces and registers itself, so no two
 
 ## 3. Roles, models, and the effort scale
 
+**Active model policy throughout this process and its appendices:** [CLAUDE.md rules 17–18](../CLAUDE.md#model-choice), the user's standing decision of 2026-10-17, select delegated authors by difficulty and direct Kimi for all reviews/rechecks. Explicit per-task overrides persist. Earlier ask-every-task instructions and model/effort tiers, bans or fallback choices anywhere below are historical and do not override the supplied standing choice. Independent review and all applicable validation/approval gates remain required.
+
 ### 3.1 The roles
 
 | Role | Who | What it does |
 | --- | --- | --- |
 | **Main session** | The session the user talks to, on Opus | Plans and runs the build. It owns the task entries (`docs/tasks/T<nn>.md`, indexed by [task-catalogue.md](task-catalogue.md)) and this document: scope, Definitions of Done, dependencies and order. It triages bugs and follow-ups, coordinates `/process-evidence`, and brings design questions and escalations to the user. **It runs tasks with `/run-task`** ([Appendix C](#appendix-c-the-run-task-skill)): it dispatches the implementer, then an independent reviewer, relays rework, merges approved PRs, and applies the doc claims each merge makes stale. |
-| **Implementer** | The main session, a subagent (the Agent tool, the model the user names) or an OpenCode run (`scripts/external-implement.ps1 -Model <alias>`): the user's choice (CLAUDE.md rule 17, the user's decision of 2026-10-11), asked before each task | One task, one branch, one PR, **in its own worktree**. Writes code and tests, runs the DoD commands, pushes work in progress as it goes, and opens the PR with evidence and a "Docs affected" list. |
-| **Reviewer** | The OpenCode model the user names at each review (`scripts/external-review.ps1 -Reviewer <alias>`), the user's choice (CLAUDE.md rule 17, the user's decision of 2026-10-11); never of the implementer's model family | Independently re-runs the DoD commands at the PR head **in its own worktree**, audits provenance and scope, posts its findings as a PR comment, and applies `status:approved` or `status:rework` (with two or three reviews, the main session applies it from all of them). It is never the agent that implemented. |
+| **Implementer** | A delegated author by difficulty under [CLAUDE.md rule 17](../CLAUDE.md#model-choice), preserving explicit per-task overrides | One task, one branch, one PR, **in its own worktree**. Writes code and tests, runs the DoD commands, pushes work in progress as it goes, and opens the PR with evidence and a "Docs affected" list. |
+| **Reviewer** | Direct Kimi For Coding 1M under [CLAUDE.md rule 18](../CLAUDE.md#model-choice), including rechecks; never of the implementer's family | Independently re-runs the DoD commands at the PR head **in its own worktree**, audits provenance and scope, posts its findings as a PR comment, and applies `status:approved` or `status:rework` (with two or three reviews, the main session applies it from all of them). It is never the agent that implemented. |
 | **Researcher** | Opus subagents | Evidence work in the research repository: the two `/process-evidence` stages ([evidence-pipeline.md](evidence-pipeline.md)) and targeted research passes. |
 
 **Only one task is in flight at a time per machine** ([§8](#8-two-machines)): its implementer, then its reviewer, then any rework. Pipeline agents never work in the main checkout (`C:\Users\diego\projects\imperial_conquest_2`). Each creates its own worktree ([§7](#7-concurrency-single-instance-and-local-only)). The main checkout belongs to the main session.
@@ -96,7 +98,7 @@ Every system is written against these interfaces and registers itself, so no two
 
 ### 3.3 Model selection
 
-**Superseded for model choice** (the user's decision of 2026-10-11, CLAUDE.md rule 17): the user names the implementer (the main session, or a subagent and its model) before each task, and the OpenCode reviewer at every review; a PR gets one review unless the user asks for more. Where this section names a model for a role, or a tier, chain or substitute order that picks one, it is history, kept for the record.
+**Historical model choices below are superseded** by the user's standing decision of 2026-10-17 ([CLAUDE.md rules 17–18](../CLAUDE.md#model-choice)): delegate authors by difficulty (Luna High / Sol light / Sol medium / Sol high), preserve explicit per-task overrides, and always use direct Kimi for reviews and rechecks. The standing choice is already supplied; no redundant per-task question or silent substitution. Historical tiers, chains, heavy-Sol bans and effort caps below do not select a model. Independence and validation requirements remain.
 
 Models are chosen per task, in the task's entry, by what an error would cost:
 
@@ -108,7 +110,7 @@ Models are chosen per task, in the task's entry, by what an error would cost:
 
 ### 3.4 Why the reviewer's model differs from the implementer's
 
-**Superseded for model choice** (the user's decision of 2026-10-11, CLAUDE.md rule 17): the user names the implementer (the main session, or a subagent and its model) before each task, and the OpenCode reviewer at every review; a PR gets one review unless the user asks for more. Where this section names a model for a role, or a tier, chain or substitute order that picks one, it is history, kept for the record.
+**Historical model choices below are superseded** by the user's standing decision of 2026-10-17 ([CLAUDE.md rules 17–18](../CLAUDE.md#model-choice)): delegate authors by difficulty (Luna High / Sol light / Sol medium / Sol high), preserve explicit per-task overrides, and always use direct Kimi for reviews and rechecks. The standing choice is already supplied; no redundant per-task question or silent substitution. Historical tiers, chains, heavy-Sol bans and effort caps below do not select a model. Independence and validation requirements remain.
 
 1. **Independence.** A reviewer on the same model tends to repeat the implementer's misreading of the same report; `design-audit.md` §2.1 records this happening twice to the *same* claim. A different model reading the same evidence is the cheapest independent perspective available.
 2. **Cost asymmetry.** Reviewing a diff costs a fraction of producing it, so moving the reviewer up one tier is cheap leverage.
@@ -325,6 +327,58 @@ Adopted 2026-09-28 by the user's decision, to reach v0.4.0, the playable Godot U
 
 Until v0.5.0, the fix lane ([§4.10](#410-the-fix-lane)) takes only bugs in the first class, and a fix never goes ahead of a ready v0.5.0 gate task unless it is in the gate itself ([§8](#8-two-machines)). **An item the user puts on a v0.4.x patch list bypasses this gate** (the user's decision of 2026-10-04): it becomes a task or a fix at once, labelled with its patch's `release:v0.4.x` label, and ships in that patch ([release-plan.md §2.2.1](release-plan.md#221-v04x-patches)).
 
+### 4.8.1 The v0.6.0 playability gate
+
+The user's decision of 2026-10-17 defers non-game-breaking issues until after v0.6.0,
+superseding the blanket “Everything gets moved to 0.6” instruction of 2026-10-12.
+Section 4.8 remains the historical v0.5.0 contract; this section governs the v0.6.0 cut.
+
+**Retain the promised capability.** The [v0.6.0 release row](release-plan.md#2-the-release-ladder)
+keeps T122–T130 and T168–T169: usable human tactical battles, AI-versus-human opening,
+Computer general, strategic writeback, tactical saves/reloads under both presets,
+`improved` policies and UI/theme work. No historical task contract is weakened.
+
+**Normal-game blockers gate.** A normal game is a human seat, or supported hotseat seats,
+in a shipped scenario under either shipped preset, played through the Godot app from
+New Game or Load to victory or the seat's fall, including tactical battles. A reproducible
+crash/hang/AI stall; save corruption or an unreloadable state; an essential order/control
+that never works; materially false/missing feedback preventing play; or a battle/game
+that cannot finish or a broken victory path in those scenarios/presets belongs in
+`release:v0.6.0`. One affected supported path is enough; success elsewhere does not excuse it.
+
+**Confirmed nonblockers defer to `post-v0.6.0`.** Original numeric/RNG parity, AI
+intelligence/balance, cosmetics/wording/shortcuts, code/doc/test/harness-only work and
+imported/custom/CLI/soak-only issues do not gate without demonstrated normal-game impact.
+A parent/follow-up title does not make every subitem a blocker: separate any blocking
+subitem from the nits and link them. Required correctness, determinism, fixture, golden,
+CI and release-checklist checks still have to pass; triage never waives a failed check.
+
+**Plausible blockers require investigation.** Reproduce or inspect an unverified but
+plausible normal-play failure and explicitly resolve its gate disposition before the
+cut. It cannot be blindly deferred; unresolved plausible blockers hold the cut. Age or
+a stale title is not evidence of repair and is no reason to close an issue. Escalate
+remaining product decisions to the user.
+
+**After the approved plan merges, the main session triages all open issues**, including
+those without release labels, and new findings by the same test. Ask Jev the dedicated
+`v0.6 playability` question in `scripts/jev/triage.json` on title/body; classification
+and confidence are suggestions requiring main-session confirmation. Inspect evidence/source
+for high-risk or uncertain cases. Record rationale, affected play path and relevant evidence
+on each issue. Confirmed blockers retain/gain `release:v0.6.0`; only confirmed nonblockers
+lose it and gain `post-v0.6.0`. Preserve status, machine ownership and history; never close
+unverified old tickets. Retain release labels on merged capability tasks. No label moves
+or triage-disposition comments precede the approved plan merge. Results stay on GitHub,
+never as status snapshots/counts in documents.
+
+**Fidelity and release evidence stay strict.** Do not loosen original fixture/draw bounds,
+CLI goldens, `KnownFailures.json` or historical DoDs. T129 DoD 8 remains a shrinking strict
+expected-failure list: listed cases must still fail; remove entries only when they pass;
+unlisted failures are defects. The documented 282 complete-state / 283 draw-stream matches
+over 318 hook pairings and 36 residual series are bounded evidence, not a tolerance or
+proof of full parity. Release notes may disclose bounded non-game-breaking fidelity gaps
+with provenance and limits. Green CI alone is insufficient: the full [release checklist](release-plan.md#5-release-checklist),
+user visual sign-off and human publication requirements remain.
+
 ### 4.9 Plan PRs: two tiers
 
 A plan PR is any PR that changes `docs/tasks/**`, `task-catalogue.md`, `release-plan.md` or a process document (this one, `operating-guide.md`, `CLAUDE.md`). A PR that is neither a task's nor a fix's (a workflow, a script, a tooling change) is merged as a contract-tier plan PR. Two tiers, decided by the user on 2026-09-28. The tier decides who merges, wherever the PR was opened ([§8](#8-two-machines)).
@@ -338,6 +392,8 @@ A plan PR is any PR that changes `docs/tasks/**`, `task-catalogue.md`, `release-
 
   The title starts `Plan (routine):`. A fold adds Done-when lines, so a DoD changes here without a fresh decision by the user ([§4.3](#43-the-dod-is-not-negotiable-by-an-agent)): the decision is this tier, made once. A routine-tier PR is merged by the session that opened it, on either machine.
 - **Contract tier: a cross-session review merges it.** Everything else: a new task; a change to an existing Done-when line's assertion, or its removal; a Scope change; a merge-after dependency on an unmerged task; a change to `release-plan.md`'s gates; any edit to this document, `operating-guide.md` or `CLAUDE.md`; and any routine-tier change the main session is unsure about. The title starts `Plan:`.
+
+  Model choice for every plan review/recheck follows [CLAUDE.md rules 17–18](../CLAUDE.md#model-choice): direct Kimi, with no silent fallback. Model selections in the historical account below are superseded; independent approval and green applicable CI remain required.
 
   **How a contract-tier PR merges** (the user's decision of 2026-09-28). The session that opened it never reviews it. A different session reviews it: the OpenCode model the user names (CLAUDE.md rule 17, the user's decision of 2026-10-11, which replaces the tier-and-substitute choice that follows here, kept as history). Formerly by its review tier ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers), the user's decision of 2026-10-03): a contract-tier plan PR is **complex**, so Sol through `scripts/external-review.ps1 -Reviewer sol` at `low` effort (`medium` only where §3.4 justifies it, never `high`), then, when Sol cannot review, `glm`, then `mimo-pro`, then `qwen` (added on 2026-10-05), each skipped when it shares the plan PR author's family, never Luna (the user's decisions of 2026-10-04); an evidence-only doc-claim PR, and routine-tier bookkeeping, when reviewed at all, are **simple**, so Luna alone (`-Reviewer auto`); a routine-tier fold that adds Done-when lines, or an Owns amendment, changes a task's contract and is **complex** when it is reviewed (the review tier says who reviews; it does not take away the routine tier's merge on the opener's authority). Jev proposes the tier and the main session confirms it. When none of Sol, `glm`, `mimo-pro` and `qwen` can run (each exits 3 or is skipped for the author's family or for quota, or OpenCode is suspended for reviews after two failures of the same cause, operating-guide §3), a cold Claude Opus reviewer that the main session dispatches in its own worktree counts as the cross-session review, and so does another main session's review ([§8](#8-two-machines)), which now takes the Opus fallback's place rather than coming first, but only when Claude did not write the plan PR: both are Claude reviews, and the family rule ([§3.4](#34-why-the-reviewers-model-differs-from-the-implementers)) excludes them. A plan PR that Claude wrote (a main session or a Claude subagent) then waits as a `user decision`, escalated ([§4.5](#45-when-to-escalate-to-the-user)) with the failures recorded; any plan PR waits so when no permitted reviewer can run (the user's decision of 2026-10-04). The main session records every fallback in the PR comment. The reviewer posts one comment whose second line is the verdict. On **approve**, the opener merges after green CI. On **approve after named fixes**, the opener applies them, replies with one comment mapping each finding to its change, and the reviewer answers that reply with one line confirming them; then the opener merges. If a fix is missing or wrong, the reviewer names the unresolved finding and the opener gets one more round; a second miss makes the verdict `user decision`. The user reads the merge in the opener's next report, and a revert is one contract-tier PR. **The user merges only when the verdict says `user decision`**: a design question, a release gate, a `[designed]` value, a change to Q-A to Q-G, anything [§4.5](#45-when-to-escalate-to-the-user) escalates, or something the reviewer cannot verify. A reviewer that would need the user for part of a PR says so in the verdict, and the whole PR waits.
 
