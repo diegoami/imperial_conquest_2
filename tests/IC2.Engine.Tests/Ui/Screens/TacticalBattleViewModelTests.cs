@@ -339,4 +339,73 @@ public sealed class TacticalBattleViewModelTests
     {
         Assert.Equal(expected, BattlePauses.SnapAttack(wanted));
     }
+
+    [Fact]
+    public void Every_replayed_board_participant_and_both_rosters_use_one_snapshot_with_duplicate_names()
+    {
+        var (session, view, display) = Opened();
+        var output = session.BattleGeneral(true);
+        var queue = new TacticalPlayback();
+        var frames = 0;
+        queue.FrameEntered += frame =>
+        {
+            var snapshot = frame.After;
+            var slots = snapshot.View.Slots.Select(s => s with { Name = "duplicate" }).ToList();
+            snapshot = snapshot with { View = snapshot.View with { Slots = new IC2.Engine.Model.ValueList<TacticalSlot>(slots) } };
+            var focus = slots.FindIndex(s => s.IsLive);
+            var model = TacticalBattleViewModel.FromSnapshot(snapshot, display, focus, frame,
+                queue.CurrentExchange, queue.PreviousExchange, perspectiveSide: 0, resolvingHalfRound: queue.ResolvingHalfRound);
+            Assert.Same(snapshot.View, model.View);
+            Assert.Equal(snapshot.View.Grid, model.Cells.Select(c => c.Code));
+            for (var side = 0; side < 2; side++)
+            {
+                var expected = slots.Select((unit, slot) => (unit, slot)).Where(x => x.unit.IsLive && model.SideOf(x.slot) == side).ToArray();
+                Assert.Equal(expected.Select(x => x.slot), model.RosterRows(side).Select(r => r.Slot));
+                foreach (var row in model.RosterRows(side))
+                {
+                    Assert.Contains("#" + row.Slot, row.Cells[0]);
+                    Assert.Equal(slots[row.Slot].Troops.ToString(), row.Cells[2]);
+                    Assert.Equal(side == 0 ? 4 : 3, row.Cells.Count);
+                }
+            }
+            foreach (var slot in snapshot.PendingPlacementSlots)
+                Assert.DoesNotContain(model.Cells, cell => cell.Slot == slot);
+            foreach (var id in new[] { frame.Actor, frame.Target }.OfType<TacticalUnitIdentity>())
+            {
+                var lines = model.ParticipantLines(id.Slot, "role");
+                Assert.Contains(lines, line => line.Contains("#" + id.Slot));
+                Assert.Contains(lines, line => line.Contains(slots[id.Slot].Troops + " troops"));
+                if (id.Side == 1) Assert.DoesNotContain(lines, line => line.Contains("Morale:"));
+            }
+            frames++;
+        };
+        queue.Begin(output.TacticalTimeline);
+        Assert.Equal(output.TacticalTimeline.Count, frames);
+        Assert.True(frames > 10);
+    }
+
+    [Fact]
+    public void Pending_general_placements_do_not_create_false_grid_occupants_and_controller_is_explicit()
+    {
+        var session = TacticalSessionTestbed.ToySession(HumanBattleMode.Tactical);
+        var output = session.Submit("attack-army north-army-1 south-army-1");
+        var display = BattleDisplay.For(output.OpenBattleView!, session.State, session.Ruleset);
+        var pending = Assert.Single(output.TacticalTimeline, f => f.Event is null && f.After.PendingPlacementSlots.Count > 0);
+        var model = TacticalBattleViewModel.FromSnapshot(pending.After, display, frame: pending, perspectiveSide: 0);
+        foreach (var slot in pending.After.PendingPlacementSlots)
+        {
+            var unit = pending.After.View.Slots[slot];
+            Assert.NotEqual(slot, model.SlotAt(unit.X, unit.Y));
+        }
+        Assert.Contains("Computer nation", model.ControllerText);
+        var human = TacticalBattleViewModel.FromSnapshot(output.TacticalTimeline[^1].After, display);
+        Assert.Contains("Human", human.ControllerText);
+        Assert.Contains("placement", human.ControllerText);
+        var generalView = output.TacticalTimeline[^1].After.View with { ComputerGeneral = new IC2.Engine.Model.ValueList<bool>(new[] { true, false }) };
+        var general = TacticalBattleViewModel.FromSnapshot(output.TacticalTimeline[^1].After with { View = generalView }, display);
+        Assert.Contains("Computer general", general.ControllerText);
+        var resolving = TacticalBattleViewModel.FromSnapshot(pending.After, display, resolvingHalfRound: true);
+        Assert.DoesNotContain("Human", resolving.ControllerText);
+        Assert.Contains("handoff pending", resolving.ControllerText);
+    }
 }
