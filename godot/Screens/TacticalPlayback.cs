@@ -102,7 +102,7 @@ public sealed class TacticalPlayback
             TacticalFrameKind.Shot => shot,
             TacticalFrameKind.Melee => attack,
             TacticalFrameKind.Movement or TacticalFrameKind.Placement => Math.Min(0.15, Math.Max(shot, attack)),
-            TacticalFrameKind.Setup or TacticalFrameKind.Controller => Math.Min(0.5, Math.Max(shot, attack)),
+            TacticalFrameKind.Setup or TacticalFrameKind.Controller or TacticalFrameKind.Terminal or TacticalFrameKind.Reconciliation => Math.Min(0.5, Math.Max(shot, attack)),
             _ => 0,
         };
     }

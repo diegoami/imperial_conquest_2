@@ -44,6 +44,7 @@ public partial class TacticalBattleCheck : Node
             CheckAClickTheEngineRefusesShowsItsMessage();
             CheckSaveAsDuringTheBattleReopensIt();
             CheckThePausesAreDisplayOnly();
+            CheckTypedFramePlayback();
             CheckSurrender();
             CheckAnAiPhaseBattleIsFoughtOnTheSameScreen();
             CheckInstantBattlesAreShownAsBefore();
@@ -136,7 +137,7 @@ public partial class TacticalBattleCheck : Node
         }
 
         screen.PressToolbarButton("computer_general");
-        Check(!screen.IsPlayingBack && screen.ExchangesShown == 0, "with the pauses at 0 s the screen waits for nothing");
+        Check(!screen.IsPlayingBack && screen.ExchangesShown > 0, "with pauses at 0 s all typed exchanges traverse without waiting");
         var ended = mainGame.ActiveOverlay as BattleEndedScreen;
         if (!Check(ended is not null, $"Computer general on plays the battle to the end and the Battle ended window opens (got {mainGame.ActiveOverlay?.GetType().Name ?? "null"})"))
         {
@@ -262,7 +263,7 @@ public partial class TacticalBattleCheck : Node
         instant.SubmitForCheck(Attack);
         var instantScreen = (TacticalBattleScreen)instant.ActiveOverlay!;
         instantScreen.PressToolbarButton("computer_general");
-        Check(!instantScreen.IsPlayingBack && instantScreen.ExchangesShown == 0, "pauses at 0 s: no replay, no delay");
+        Check(!instantScreen.IsPlayingBack && instantScreen.ExchangesShown > 0, "pauses at 0 s: every exchange enters without delay");
         Check(instant.ActiveOverlay is BattleEndedScreen, "pauses at 0 s: the Battle ended window is up at once");
         Free(instant);
 
@@ -274,18 +275,20 @@ public partial class TacticalBattleCheck : Node
         var slow = Build(ClassicalSession());
         slow.SubmitForCheck(Attack);
         var slowScreen = (TacticalBattleScreen)slow.ActiveOverlay!;
+        slowScreen.SkipPlayback(); // Opening placement frames also use the production traversal.
         slowScreen.PressToolbarButton("computer_general");
 
         Check(slowScreen.IsPlayingBack, "pauses at 1.0 s: the screen is replaying");
         Check(slow.Session.OpenTacticalBattle is null, "pauses at 1.0 s: the engine's battle is already over");
         Check(slow.ActiveOverlay is TacticalBattleScreen, "pauses at 1.0 s: the battle screen still holds the window");
+        while (slowScreen.IsPlayingBack && slowScreen.ExchangesShown == 0) slowScreen.AdvancePlayback(0.01);
         var firstShown = slowScreen.ExchangesShown;
         var firstText = slowScreen.ExchangeLabel.Text;
         Check(firstShown == 1 && firstText.Length > 0, $"the first exchange is shown ('{firstText.Replace("\n", " / ")}')");
         slowScreen.AdvancePlayback(0.5);
         Check(slowScreen.ExchangesShown == firstShown && slowScreen.ExchangeLabel.Text == firstText, "it waits between exchanges (after 0.5 s: still the first)");
-        slowScreen.AdvancePlayback(0.6);
-        Check(slowScreen.ExchangesShown == firstShown + 1 || !slowScreen.IsPlayingBack, "after the second it shows the next exchange");
+        slowScreen.AdvancePlayback(10);
+        Check(slowScreen.ExchangesShown > firstShown || !slowScreen.IsPlayingBack, "elapsed time traverses movement and subsequent exchanges");
 
         // A click on the side panel during the replay ends it.
         slowScreen.PanelClicked();
@@ -314,6 +317,58 @@ public partial class TacticalBattleCheck : Node
         dialogScreen.ClosePausesDialog();
         Check(!dialogScreen.PausesDialogOpen, "the dialog closes");
         Free(dialogHost);
+    }
+
+    private void CheckTypedFramePlayback()
+    {
+        SettingsScreen.SetBattlePauses(0, 0);
+        var main = Build(ClassicalSession());
+        main.SubmitForCheck(Attack);
+        var screen = (TacticalBattleScreen)main.ActiveOverlay!;
+        var opening = screen.DisplayedFrame;
+        Check(opening is not null && screen.Model.View == opening.After.View, "opening batch reaches production screen via retained timeline");
+        Check(screen.ControllerLabel.Text.Contains("Human") && screen.ControllerLabel.Text.Contains("placement"), "human placement controller is explicit");
+        Check(screen.RosterTexts.Contains(screen.Model.RosterTitle(0)) && screen.RosterTexts.Contains(screen.Model.RosterTitle(1)), "both strategic army rosters are present simultaneously");
+        var seen = new List<TacticalBattleFrame>();
+        var cues = new List<TacticalBattleFrame>();
+        var terminalSeen = false;
+        var reconciled = false;
+        screen.FrameEntered += frame =>
+        {
+            seen.Add(frame);
+            Check(main.ActiveOverlay == screen, "result remains behind every entered frame");
+            Check(screen.Model.View == frame.After.View, "board and panels read displayed frame snapshot");
+            Check(screen.Model.Cells.Select(c => c.Code).SequenceEqual(frame.After.View.Grid), "complete displayed grid equals producer grid");
+            for (var side = 0; side < 2; side++)
+                foreach (var row in screen.Model.RosterRows(side))
+                    Check(row.Cells[2] == frame.After.View.Slots[row.Slot].Troops.ToString(), "roster troops equal displayed snapshot");
+            if (frame.Kind == TacticalFrameKind.HalfRound)
+                Check(screen.ControllerLabel.Text.Contains("handoff pending") && !screen.CaptionLabel.Text.Contains("to move units"), "pre-melee handoff does not announce next human turn");
+            if (frame.Kind == TacticalFrameKind.Terminal) terminalSeen = true;
+            if (terminalSeen && frame.Kind == TacticalFrameKind.Reconciliation) reconciled = true;
+        };
+        screen.ExchangeEntered += frame =>
+        {
+            cues.Add(frame);
+            Check(screen.ExchangeLabel.Text == string.Join("\n", TacticalBattleViewModel.ExchangeLines(frame)), "current typed exchange text agrees with entry notification");
+            Check(screen.ActorLabel.Text.Contains("#" + frame.Actor!.Slot) && screen.TargetLabel.Text.Contains("#" + frame.Target!.Slot), "participant panels use stable actor/target slots");
+        };
+        SettingsScreen.SetBattlePauses(0.2, 1);
+        screen.SelectUnit(0);
+        screen.PressToolbarButton("computer_general");
+        Check(screen.IsPlayingBack && main.ActiveOverlay == screen, "terminal output cannot bypass replay");
+        for (var i = 0; screen.IsPlayingBack && cues.Count < 2 && i < 10000; i++) screen.AdvancePlayback(0.05);
+        Check(cues.Count >= 2 && screen.PreviousExchangeLabel.Text.Length > 0, "current and previous exchanges have separate labels");
+        screen.SkipPlayback();
+        Check(terminalSeen && reconciled && main.ActiveOverlay is BattleEndedScreen, "terminal and final reconciliation precede result routing");
+        Check(seen.Select(f => (f.BattleId, f.FrameId)).Distinct().Count() == seen.Count, "every production frame entered once");
+        Check(cues.Count == seen.Count(f => f.Event is TacticalShotEvent or TacticalMeleeEvent), "one typed exchange notification at every delay and skipped wait");
+        var count = seen.Count;
+        screen.SkipPlayback();
+        screen.AdvancePlayback(100);
+        Check(seen.Count == count, "finish and advance after completion repeat no frames");
+        Free(main);
+        SettingsScreen.SetBattlePauses(0, 0);
     }
 
     // ---- surrender ----

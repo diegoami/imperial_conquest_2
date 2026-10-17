@@ -2171,10 +2171,19 @@ public partial class MainGameScreen : Control
     /// battle the <em>Battle ended</em> window follows, and its OK carries on with the call's other windows and the
     /// peace offer.
     /// </summary>
+    private IReadOnlyList<TacticalBattleFrame> _nextTacticalOpening = Array.Empty<TacticalBattleFrame>();
+
     private void ShowTacticalBattleOverlay(TacticalBattleView view)
     {
         _boardBattleArmies.Add((view.AttackerArmyId, view.DefenderArmyId));
-        var screen = new TacticalBattleScreen { Session = Session, InitialView = view, RepositoryRoot = RepositoryRoot };
+        var screen = new TacticalBattleScreen
+        {
+            Session = Session, InitialView = view, RepositoryRoot = RepositoryRoot,
+            InitialTimeline = _nextTacticalOpening.Concat(Session.InitialTacticalTimeline).Concat(Session.LastTacticalTimeline)
+                .Where(frame => frame.After.View.AttackerArmyId == view.AttackerArmyId
+                    && frame.After.View.DefenderArmyId == view.DefenderArmyId).ToArray(),
+        };
+        _nextTacticalOpening = Array.Empty<TacticalBattleFrame>();
         screen.OrderIssued += output => OnCommandIssued(output.Lines);
         screen.BattleEnded += output => ShowBattleEndedOverlay(screen, output);
         screen.SaveRequested += () => CommandTable.TryInvoke("file.save");
@@ -2184,6 +2193,10 @@ public partial class MainGameScreen : Control
 
     private void ShowBattleEndedOverlay(TacticalBattleScreen battleScreen, SessionOutput output)
     {
+        // An AI lap may already have opened another battle in the same submission. Keep its opening
+        // across the current result's dismissal and any read-only/save calls that replace LastTacticalTimeline.
+        _nextTacticalOpening = output.TacticalTimeline
+            .Where(frame => frame.BattleId != battleScreen.DisplayedFrame?.BattleId).ToArray();
         CloseOverlay(battleScreen);
         var report = output.EndedBattleReport!;
         var ended = new BattleEndedScreen
