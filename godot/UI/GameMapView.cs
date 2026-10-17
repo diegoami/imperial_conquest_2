@@ -180,7 +180,9 @@ public partial class GameMapView : Control
     private Vector2 _lastSize;
     private Vector2? _markerPointer;
 
+    /// <summary>The strategic board actually drawn last, for frame-separated input checks.</summary>
     public string? ForegroundMarkerForCheck { get; private set; }
+    public string? SelectedStrategicMarkerForCheck => _selectedArmyId ?? _selectedFleetId;
 
     // T147 (bug #781 point 1, Sol R2): a genuine window/root resize changes the container this control
     // sits in, so this control's rect changes with its parent's. A sibling's layout change (T132's
@@ -1275,7 +1277,9 @@ public partial class GameMapView : Control
             : null;
         // Idle ties have the same army-before-fleet / ordinal-id precedence as picking. Selected
         // boards stay legible; the hovered winner is last, so the visible click target takes priority.
-        var ordered = StrategicMarkerGeometry.DrawOrder(markers, _selectedArmyId, _selectedFleetId, hovered);
+        var ordered = PreT187MarkerSizeForCheck
+            ? markers // Former layer/list order for the before-render evidence only.
+            : StrategicMarkerGeometry.DrawOrder(markers, _selectedArmyId, _selectedFleetId, hovered);
         ForegroundMarkerForCheck = null;
         foreach (var marker in ordered)
         {
@@ -1324,8 +1328,18 @@ public partial class GameMapView : Control
         DrawArc(center, radius, 0f, Mathf.Tau, 24, selected ? SelectedRingColor : CityRingColor, selected ? 2.5f : 1.2f);
     }
 
+    /// <summary>Evidence-only size replay: the real marker drawing uses its pre-T187 dimensions.
+    /// Only StrategicMarkersCheck's before/after window tour sets this; normal application use is false.</summary>
+    public bool PreT187MarkerSizeForCheck { get; set; }
+
     private Rect2 StrategicMarkerRect(StrategicMarker marker, float tileSize)
     {
+        if (PreT187MarkerSizeForCheck)
+        {
+            var half = marker.Kind == StrategicMarkerKind.Army
+                ? Mathf.Max(tileSize * .4f, 2.5f) : Mathf.Max(tileSize * .35f, 2f);
+            return new Rect2(TileCenter(marker.X, marker.Y, tileSize) - Vector2.One * half, Vector2.One * half * 2);
+        }
         var bounds = StrategicMarkerGeometry.Bounds(marker, tileSize, _pan.X, _pan.Y);
         return new Rect2(bounds.X, bounds.Y, bounds.Size, bounds.Size);
     }
@@ -1352,7 +1366,7 @@ public partial class GameMapView : Control
             DrawTextureRect(texture, rect, false, foreground);
             if (selected)
             {
-                DrawRect(rect.Grow(-1.25f), SelectedRingColor, false, 2.5f);
+                DrawRect(PreT187MarkerSizeForCheck ? rect : rect.Grow(-1.25f), SelectedRingColor, false, 2.5f);
             }
 
             return;
@@ -1379,7 +1393,7 @@ public partial class GameMapView : Control
             DrawTextureRect(texture, rect, false, foreground);
             if (selected)
             {
-                DrawRect(rect.Grow(-1.25f), SelectedRingColor, false, 2.5f);
+                DrawRect(PreT187MarkerSizeForCheck ? rect : rect.Grow(-1.25f), SelectedRingColor, false, 2.5f);
             }
 
             return;

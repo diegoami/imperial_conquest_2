@@ -20,23 +20,38 @@ public partial class StrategicMarkersCheck : Control
     public override void _Ready()
     {
         Size = GetViewport().GetVisibleRect().Size;
-        _session = BuildSession();
-        _map = new GameMapView { Position = new Vector2(30, 30), Size = new Vector2(960, 600) };
-        AddChild(_map);
-        _map.Attach(_session, GameDataContext.RepositoryRoot);
-        _map.ArmySelected += id => _selected = id;
-        _map.FleetSelected += id => _selected = id;
-        _map.CitySelected += id => _selected = id;
-        _map.UnitListRequested += (_, id) => _listed = id;
-        foreach (var pixels in new[] { 0f, 3f, 72f })
+        var captureDirectory = System.Environment.GetEnvironmentVariable("IC2_STRATEGIC_MARKERS_CAPTURE_DIR");
+        if (!string.IsNullOrWhiteSpace(captureDirectory))
         {
-            var cellPixels = pixels;
+            BuildCapturePlan(captureDirectory);
+            return;
+        }
+        foreach (var pack in new[] { "authored", "placeholder" })
+        {
             _steps.Enqueue(() =>
             {
-                if (cellPixels > 0) _map.SetDrawnCellPixelsForCheck(cellPixels);
-                _map.CentreOnTile(100, 60);
+                SelectPack(pack);
+                if (_map is not null) { RemoveChild(_map); _map.QueueFree(); }
+                _session = BuildSession();
+                _map = new GameMapView { Position = new Vector2(30, 30), Size = new Vector2(960, 600) };
+                AddChild(_map);
+                _map.Attach(_session, GameDataContext.RepositoryRoot);
+                _map.ArmySelected += id => _selected = id;
+                _map.FleetSelected += id => _selected = id;
+                _map.CitySelected += id => _selected = id;
+                _map.UnitListRequested += (_, id) => _listed = id;
+                Check(_map.LoadedPackIdForCheck == pack, $"real input check loads {pack}");
             });
-            AddCases(cellPixels);
+            foreach (var pixels in new[] { 0f, 3f, 72f })
+            {
+                var cellPixels = pixels;
+                _steps.Enqueue(() =>
+                {
+                    if (cellPixels > 0) _map.SetDrawnCellPixelsForCheck(cellPixels);
+                    _map.CentreOnTile(100, 60);
+                });
+                AddCases(cellPixels);
+            }
         }
         _steps.Enqueue(() =>
         {
@@ -53,7 +68,7 @@ public partial class StrategicMarkersCheck : Control
 
     public override void _Process(double delta)
     {
-        if (++_frames < 6) return;
+        if (++_frames < 4) return;
         _frames = 0;
         try
         {
@@ -102,7 +117,7 @@ public partial class StrategicMarkersCheck : Control
             _steps.Enqueue(() =>
             {
                 Check(requestedPixels != 72 || Mathf.IsEqualApprox(_map.ZoomFactor, GameMapView.MaxZoom), "maximum zoom uses production clamp");
-                Check(_selected == id && _map.ForegroundMarkerForCheck == id,
+                Check(_selected == id && _map.SelectedStrategicMarkerForCheck == id && _map.ForegroundMarkerForCheck == id,
                     $"left click selects and draws {id} above overlaps at requested {requestedPixels} px/tile");
                 _listed = null;
                 Click(edge, MouseButton.Right);
@@ -117,7 +132,7 @@ public partial class StrategicMarkersCheck : Control
                 _selected = null;
                 Click(edge, MouseButton.Left);
             });
-            _steps.Enqueue(() => Check(_selected == id && _map.ForegroundMarkerForCheck == id,
+            _steps.Enqueue(() => Check(_selected == id && _map.SelectedStrategicMarkerForCheck == id && _map.ForegroundMarkerForCheck == id,
                 $"left footprint edge selects and outlines visible {id}"));
         }
         _steps.Enqueue(() =>
@@ -157,6 +172,129 @@ public partial class StrategicMarkersCheck : Control
     {
         GD.Print($"StrategicMarkersCheck: {(condition ? "PASS" : "FAIL")} {message}");
         _ok &= condition;
+    }
+
+    // Windowed evidence mode uses the real map and textures. Before shots replay ONLY former
+    // board dimensions in the actual drawer, not a fabricated board or a full baseline-input claim.
+    private void BuildCapturePlan(string directory)
+    {
+        Directory.CreateDirectory(directory);
+        var caption = new Label { Position = new Vector2(30, 10), Size = new Vector2(Size.X - 60, 40) };
+        AddChild(caption);
+        foreach (var pack in new[] { "authored", "placeholder" })
+        foreach (var before in new[] { true, false })
+        foreach (var zoom in new[] { "fit", "minimum", "maximum" })
+        {
+            var prefix = $"{pack}-{(before ? "before-size-replay" : "after")}-{zoom}";
+            var positions = new List<(string Id, int X, int Y)>();
+            _steps.Enqueue(() =>
+            {
+                if (_map is not null) { RemoveChild(_map); _map.QueueFree(); }
+                SelectPack(pack);
+                _map = new GameMapView { Position = new Vector2(30, 60), Size = Size - new Vector2(60, 90) };
+                AddChild(_map);
+                _map.Attach(BuildSession(), GameDataContext.RepositoryRoot);
+                if (zoom != "fit") _map.SetDrawnCellPixelsForCheck(zoom == "maximum" ? 72 : 3);
+                var tile = _map.TileCenterForCheck(101, 60).X - _map.TileCenterForCheck(100, 60).X;
+                var spacing = Math.Max(2, (int)Math.Ceiling(80 / tile));
+                _session = BuildVisualSession(spacing);
+                _map.Attach(_session, GameDataContext.RepositoryRoot);
+                if (zoom != "fit") _map.SetDrawnCellPixelsForCheck(zoom == "maximum" ? 72 : 3);
+                _map.CentreOnTile(100, 60);
+                _map.PreT187MarkerSizeForCheck = before;
+                _map.ClearSelection();
+                positions.Clear();
+                for (var tier = 0; tier < 3; tier++)
+                {
+                    positions.Add(($"army-tier{tier + 1}", 100 + (tier - 1) * spacing, 60 - spacing));
+                    positions.Add(($"fleet-tier{tier + 1}", 100 + (tier - 1) * spacing, 60 + spacing));
+                }
+                caption.Text = $"{prefix}: army tiers 1/2/3 above, fleet tiers 1/2/3 below. "
+                    + $"Actual cell {tile:0.00}px; {(before ? "former sizes replayed" : "24�48px designed boards")}.";
+                Check(_map.LoadedPackIdForCheck == pack, $"window evidence uses real {pack} pack");
+            });
+            _steps.Enqueue(() => Capture(directory, prefix + "-unselected.png"));
+            foreach (var index in Enumerable.Range(0, 6))
+            {
+                var targetIndex = index;
+                _steps.Enqueue(() =>
+                {
+                    var target = positions[targetIndex];
+                    _map.ClearSelection();
+                    var position = _map.TileCenterForCheck(target.X, target.Y);
+                    // The after tour demonstrates a real footprint-edge click. Before shots use
+                    // centres because the replay is visual sizing evidence, not baseline input.
+                    if (!before)
+                    {
+                        var tile = _map.TileCenterForCheck(target.X + 1, target.Y).X - position.X;
+                        var kind = target.Id.StartsWith("army", StringComparison.Ordinal)
+                            ? StrategicMarkerKind.Army : StrategicMarkerKind.Fleet;
+                        position.Y += (target.Id.StartsWith("army", StringComparison.Ordinal) ? -1 : 1)
+                            * (StrategicMarkerGeometry.Size(kind, tile) / 2 - .01f);
+                    }
+                    Click(position, MouseButton.Left);
+                    Check(_map.LastClickContextForCheck?.Target?.Id == target.Id && _map.SelectedStrategicMarkerForCheck == target.Id, $"capture edge resolves {target.Id} on its actual tile");
+                    caption.Text = $"{prefix}: {target.Id} selected via {(before ? "centre" : "footprint edge")} click.";
+                });
+                _steps.Enqueue(() => Capture(directory, prefix + $"-{positions[targetIndex].Id}-selected.png"));
+            }
+            _steps.Enqueue(() =>
+            {
+                _map.ClearSelection();
+                _map.CentreOnTile(100 + 3 * (int)Math.Ceiling(80 / (_map.TileCenterForCheck(101, 60).X - _map.TileCenterForCheck(100, 60).X)), 60);
+                var dense = _session.State.Armies.Single(a => a.Id == "dense");
+                Click(_map.TileCenterForCheck(dense.X, dense.Y), MouseButton.Left);
+                caption.Text = $"{prefix}: coincident city/fleet/army; army wins and draws in front.";
+            });
+            _steps.Enqueue(() => Capture(directory, prefix + "-dense-selected.png"));
+        }
+    }
+
+    private void SelectPack(string pack)
+    {
+        var settings = new SettingsScreen();
+        AddChild(settings);
+        var picker = settings.FindChildren("*", "OptionButton", true, false).OfType<OptionButton>().First();
+        var index = Enumerable.Range(0, picker.ItemCount).Single(i => picker.GetItemText(i) == pack);
+        picker.Select(index);
+        picker.EmitSignal(OptionButton.SignalName.ItemSelected, index);
+        RemoveChild(settings);
+        settings.QueueFree();
+    }
+
+    private void Capture(string directory, string fileName)
+    {
+        var result = GetViewport().GetTexture().GetImage().SavePng(Path.Combine(directory, fileName));
+        Check(result == Error.Ok, $"saved real window {fileName}");
+    }
+
+    private static GameSession BuildVisualSession(int spacing)
+    {
+        var resolved = GameDataContext.Repository.Resolve("classical-mediterranean");
+        var initial = new GameSession(resolved.World, resolved.Ruleset, resolved.Scenario, seedOverride: 1, humanSeatNationId: "rome");
+        var army = initial.State.Armies.First(a => a.Nation == "rome");
+        var fleet = initial.State.Fleets.First() with { Nation = "rome", ConstructionTicksRemaining = null };
+        var armies = Enumerable.Range(0, 3).Select(tier => army with
+        {
+            Id = $"army-tier{tier + 1}", X = 100 + (tier - 1) * spacing, Y = 60 - spacing,
+            AboardFleetId = null,
+            Units = ValueList.From(new[] { army.Units.First() with { Troops = new[] { 10000, 25000, 50000 }[tier] } }),
+        }).ToList();
+        var fleets = Enumerable.Range(0, 3).Select(tier => fleet with
+        {
+            Id = $"fleet-tier{tier + 1}", X = 100 + (tier - 1) * spacing, Y = 60 + spacing,
+            Ships = new[] { 10, 25, 50 }[tier], CarriedArmyId = null,
+        }).ToList();
+        armies.Add(army with { Id = "dense", X = 100 + 3 * spacing, Y = 60, AboardFleetId = null });
+        fleets.Add(fleet with { Id = "dense-fleet", X = 100 + 3 * spacing, Y = 60, CarriedArmyId = null });
+        var state = initial.State with
+        {
+            Armies = ValueList.From(armies), Fleets = ValueList.From(fleets),
+            Cities = ValueList.From(new[] { initial.State.Cities.First() with { X = 100 + 3 * spacing, Y = 60 } }),
+        };
+        return new GameSession(resolved.World, resolved.Ruleset, resolved.Scenario,
+            new SaveGame(state.SchemaVersion, "strategic-marker-visual", "strategic-marker-visual",
+                state.ScenarioId, state.WorldId, state.RulesetId, state));
     }
 
     private static GameSession BuildSession()
