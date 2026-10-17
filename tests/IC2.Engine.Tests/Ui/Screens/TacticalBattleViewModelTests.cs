@@ -408,4 +408,37 @@ public sealed class TacticalBattleViewModelTests
         Assert.DoesNotContain("Human", resolving.ControllerText);
         Assert.Contains("handoff pending", resolving.ControllerText);
     }
+
+    [Fact]
+    public void Overkill_exchange_before_rout_preserves_raw_negative_grid_code_without_indexing_a_negative_sprite()
+    {
+        var toy = TacticalSessionTestbed.Toy;
+        var world = toy.World with
+        {
+            StartingArmies = IC2.Engine.Model.ValueList.From(toy.World.StartingArmies.Select(a => a.Id == "south-army-1"
+                ? a with { X = 4, Y = 2, Units = IC2.Engine.Model.ValueList.Of(new IC2.Engine.Model.UnitSlot(0, "heavy_infantry", 50_000, 6, "Guards")) }
+                : a)),
+        };
+        var session = new GameSession(world, toy.Ruleset, toy.Scenario) { HumanBattles = HumanBattleMode.Tactical };
+        session.Submit("declare-war south");
+        var opening = session.Submit("end");
+        var display = BattleDisplay.For(opening.OpenBattleView!, session.State, session.Ruleset);
+        var end = session.BattleGeneral(true);
+        Assert.Contains(end.TacticalTimeline, frame => frame.After.View.Grid.Any(code => code < 0));
+        var queue = new TacticalPlayback();
+        queue.FrameEntered += frame =>
+        {
+            var model = TacticalBattleViewModel.FromSnapshot(frame.After, display, frame: frame, perspectiveSide: 0);
+            Assert.Equal(frame.After.View.Grid, model.Cells.Select(c => c.Code));
+            Assert.All(model.Cells.Where(c => c.Code < 0), cell => Assert.Null(cell.IconKey));
+            foreach (var id in new[] { frame.Actor, frame.Target }.OfType<TacticalUnitIdentity>())
+            {
+                var unit = frame.After.View.Slots[id.Slot];
+                if (unit.Troops < 0)
+                    Assert.Contains(model.ParticipantLines(id.Slot, "participant"), line => line.Contains("removal pending"));
+            }
+        };
+        queue.Begin(end.TacticalTimeline);
+        Assert.Equal(TacticalFrameKind.Reconciliation, queue.CurrentFrame!.Kind);
+    }
 }

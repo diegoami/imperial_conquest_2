@@ -269,10 +269,13 @@ public sealed class TacticalBattleViewModel
         if (slot < 0 || slot >= _view.Slots.Count) return Array.Empty<string>();
         var unit = _view.Slots[slot];
         var side = SideOf(slot);
+        var gridIndex = unit.X * BoardHeight + unit.Y;
+        var removalPending = !unit.IsLive && gridIndex >= 0 && gridIndex < _view.Grid.Count
+            && _view.Grid[gridIndex] != TacticalIcon.Empty;
         var lines = new List<string>
         {
             $"{role} · #{slot} · {(side == 0 ? "Attacker" : "Defender")} · {NationName(side)}",
-            $"{unit.Name} · {TypeName(unit.Type)} · {unit.Troops} troops" + (unit.IsLive ? $" · ({unit.X},{unit.Y})" : " · removed"),
+            $"{unit.Name} · {TypeName(unit.Type)} · {unit.Troops} troops" + (unit.IsLive ? $" · ({unit.X},{unit.Y})" : removalPending ? " · removal pending" : " · removed"),
         };
         if (side == _perspective)
             lines.Add($"Morale: {unit.Morale} ({MoraleTier(unit.Morale)}) · moves {unit.Moves} · shots {unit.Shots}");
@@ -632,10 +635,13 @@ public sealed class TacticalBattleViewModel
                 var side = code >= TacticalIcon.DefenderOffset ? 1 : 0;
                 var type = (code % TacticalIcon.DefenderOffset) / TacticalIcon.SizesPerType;
                 var size = code % TacticalIcon.SizesPerType;
-                var typeId = type < _view.UnitTypeIds.Count ? _view.UnitTypeIds[type] : string.Empty;
+                // Exchange frames can precede rout removal: raw icon arithmetic can be negative for an
+                // overkilled unit. Preserve the actual code/grid; only valid image-list entries have sprites.
+                var validIcon = type >= 0 && type < _view.UnitTypeIds.Count && size >= 0;
+                var typeId = validIcon ? _view.UnitTypeIds[type] : string.Empty;
                 var slot = SlotAt(x, y);
                 cells.Add(new BattleCellView(
-                    x, y, code, slot, side, BattleAssetKeys.UnitIcon(typeId, size), slot >= 0 && slot == SelectedSlot));
+                    x, y, code, slot, side, validIcon ? BattleAssetKeys.UnitIcon(typeId, size) : null, slot >= 0 && slot == SelectedSlot));
             }
         }
 
