@@ -714,6 +714,9 @@ public sealed class TacticalBattleSession
     /// <summary>Transfers opening/reopening frames exactly once; orders transfer their own batch in the result.</summary>
     public ValueList<TacticalBattleFrame> DrainTimeline() => _timeline.Drain();
 
+    /// <summary>Non-consuming immutable opening frames; reading these never changes the next order's batch.</summary>
+    internal ValueList<TacticalBattleFrame> PendingOpeningTimeline => _timeline.PendingOpeningFrames;
+
     private TacticalBattleOrderResult Apply(Func<TacticalOrderResult> order)
     {
         _timeline.BeginCommand();

@@ -445,7 +445,8 @@ public sealed class TacticalBattleTimelineTests
     [InlineData(true)]
     public void Handoff_reopened_constructor_exposes_opening_before_any_command_without_draining_it(bool automatic)
     {
-        var source = TacticalSessionTestbed.ToySession(HumanBattleMode.Tactical);
+        var source = TacticalSessionTestbed.ToySession(HumanBattleMode.Tactical,
+            armies: automatic ? TacticalSessionTestbed.WeakAttacker() : null);
         if (automatic)
         {
             source.Submit("declare-war south");
@@ -544,12 +545,9 @@ public sealed class TacticalBattleTimelineTests
 
     private static IReadOnlyList<string> SubmitLines(GameSession session, string command) => session.Submit(command).Lines;
 
-    // Baseline probe: an older producer has no route for these batches, so the adapter observes no frames.
-    private static ValueList<TacticalBattleFrame> LastTimeline(GameSession session) =>
-        (ValueList<TacticalBattleFrame>?)typeof(GameSession).GetProperty("LastTacticalTimeline")?.GetValue(session) ?? ValueList<TacticalBattleFrame>.Empty;
+    private static ValueList<TacticalBattleFrame> LastTimeline(GameSession session) => session.LastTacticalTimeline;
 
-    private static ValueList<TacticalBattleFrame> InitialTimeline(GameSession session) =>
-        (ValueList<TacticalBattleFrame>?)typeof(GameSession).GetProperty("InitialTacticalTimeline")?.GetValue(session) ?? ValueList<TacticalBattleFrame>.Empty;
+    private static ValueList<TacticalBattleFrame> InitialTimeline(GameSession session) => session.InitialTacticalTimeline;
 
     private static SaveGame SaveOf(GameSession session) => new(
         GameDataSchema.CurrentVersion, "handoff", "Handoff", session.Scenario.Id, session.World.Id,

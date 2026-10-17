@@ -119,6 +119,12 @@ public sealed class TacticalBattleTimeline
         }
     }
 
+    /// <summary>
+    /// Copies opening/reopening frames still awaiting their first delivery, without consuming them. Only command
+    /// zero belongs to this startup handoff; later orders never become initial history. Drain remains authoritative.
+    /// </summary>
+    internal ValueList<TacticalBattleFrame> PendingOpeningFrames => ValueList.From(_pending.Where(f => f.CommandId == 0));
+
     /// <summary>Transfers the pending immutable batch exactly once. Empty means no new tactical mutations.</summary>
     public ValueList<TacticalBattleFrame> Drain()
     {

@@ -935,6 +935,7 @@ public sealed partial class GameSession
                 State, Ruleset, save.Battle, TacticalBattleSession.RulesetAsksForExactRestore(Ruleset), NextTacticalBattleIdentity());
         _pendingTacticalReport = null;
         _pendingTacticalTimeline.Clear();
+        LastTacticalTimeline = ValueList<TacticalBattleFrame>.Empty;
         _pendingSeatFalls.Clear();
         LastSeatFalls = Array.Empty<SeatFall>();
 
@@ -1245,6 +1246,28 @@ public sealed partial class GameSession
     /// <see cref="Submit"/> call, and again whenever that call recorded no fall.
     /// </summary>
     public IReadOnlyList<SeatFall> LastSeatFalls { get; private set; } = Array.Empty<SeatFall>();
+
+    /// <summary>
+    /// The exact immutable batch the most recent Submit returned in SessionOutput.TacticalTimeline, mirrored for
+    /// adapters that retain only rendered lines. Empty before the first Submit; replaced on every return, including
+    /// empty, refused and read-only commands. Terminal frames remain available when OpenTacticalBattle is null.
+    /// This holds one returned batch, never the full battle history, and is cleared when a save is loaded.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public ValueList<TacticalBattleFrame> LastTacticalTimeline { get; private set; } = ValueList<TacticalBattleFrame>.Empty;
+
+    /// <summary>
+    /// Opening/reopening frames awaiting their first output delivery, available immediately after construction
+    /// from a battle save, before any command. Includes pending automatic opening frames. This immutable peek
+    /// neither drains nor reconstructs frames: the next Submit still returns the same frames through its existing
+    /// batch, possibly followed by that command's frames. Empty after delivery and whenever no opening is pending.
+    /// Consumers observing this and LastTacticalTimeline/SessionOutput must deduplicate by BattleId and FrameId;
+    /// the same frame has the same command/frame identities on every route. Reading never acknowledges a batch.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public ValueList<TacticalBattleFrame> InitialTacticalTimeline => ValueList.From(
+        _pendingTacticalTimeline.Where(f => f.CommandId == 0).Concat(
+            _battle?.PendingOpeningTimeline ?? ValueList<TacticalBattleFrame>.Empty));
 
     /// <summary>
     /// T138: whether no human seat can give orders any more — the game is over, as
