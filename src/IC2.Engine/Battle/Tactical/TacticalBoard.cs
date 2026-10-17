@@ -1,3 +1,4 @@
+using IC2.Engine.Presentation;
 using IC2.Engine.Model;
 
 namespace IC2.Engine.Battle.Tactical;
@@ -28,7 +29,8 @@ internal sealed class TacticalBoard
         ComputerGeneral = state.ComputerGeneral.ToArray();
         GeneralClaims = state.GeneralClaims.ToArray();
         Selected = state.Selected;
-        Log = new List<TacticalEvent>(state.Log);
+        Log = new ObservedLog(state.Log, this);
+        context.Observer?.Invoke(state, null, null);
     }
 
     public TacticalContext Context { get; }
@@ -64,7 +66,7 @@ internal sealed class TacticalBoard
 
     public int Selected { get; set; }
 
-    public List<TacticalEvent> Log { get; }
+    public ObservedLog Log { get; }
 
     public int SlotsPerSide => Slots.Length / 2;
 
@@ -87,7 +89,17 @@ internal sealed class TacticalBoard
         return new TacticalBoard(state, context, draws);
     }
 
-    public TacticalBattleState Freeze() =>
+    /// <summary>Captures silent mutations at explicit boundaries without changing the conformance trace.</summary>
+    public void Capture(TacticalFrameKind? boundary = null, int actor = -1, int target = -1) =>
+        Context.Observer?.Invoke(Snapshot(), null, boundary is { } kind ? new TacticalCaptureBoundary(kind, actor, target) : null);
+
+    public TacticalBattleState Freeze()
+    {
+        Capture();
+        return Snapshot();
+    }
+
+    private TacticalBattleState Snapshot() =>
         new(
             AttackerArmyId,
             DefenderArmyId,
@@ -217,4 +229,18 @@ internal sealed class TacticalBoard
         IsOver = true;
         Log.Add(new TacticalBattleOverEvent(Winner()));
     }
+    // Keep Log.Add as the existing trace write boundary, including copy-in in its unowned producer.
+    // The callback snapshots the live board now; it never reconstructs state from event payloads.
+    internal sealed class ObservedLog : List<TacticalEvent>
+    {
+        private readonly TacticalBoard _board;
+        public ObservedLog(IEnumerable<TacticalEvent> events, TacticalBoard board) : base(events) => _board = board;
+        public new void Add(TacticalEvent evidence)
+        {
+            base.Add(evidence);
+            if (evidence is not TacticalDrawEvent)
+                _board.Context.Observer?.Invoke(_board.Snapshot(), evidence, null);
+        }
+    }
+
 }
