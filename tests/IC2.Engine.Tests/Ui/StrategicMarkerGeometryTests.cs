@@ -52,4 +52,18 @@ public sealed class StrategicMarkerGeometryTests
         Assert.Equal(c, StrategicMarkerGeometry.Pick(markers.Reverse(), 33, 31.5f, 3, 0, 0));
         Assert.Null(StrategicMarkerGeometry.Pick(markers, 100, 100, 3, 0, 0));
     }
+
+    [Fact]
+    public void Pointer_winner_is_drawn_above_selected_and_idle_boards_without_changing_pick()
+    {
+        var army = new StrategicMarker("a", StrategicMarkerKind.Army, 10, 10);
+        var fleet = new StrategicMarker("f", StrategicMarkerKind.Fleet, 11, 10);
+        var markers = new[] { army, fleet };
+        Assert.Equal(army, StrategicMarkerGeometry.DrawOrder(markers, null, null, null).Last());
+        Assert.Equal(fleet, StrategicMarkerGeometry.DrawOrder(markers, null, "f", null).Last());
+        var picked = StrategicMarkerGeometry.Pick(markers, 31.5f, 31.5f, 3, 0, 0);
+        Assert.Equal(army, StrategicMarkerGeometry.DrawOrder(markers, null, "f", picked).Last());
+        Assert.Equal(picked, StrategicMarkerGeometry.Pick(markers.Reverse(), 31.5f, 31.5f, 3, 0, 0));
+    }
+
 }

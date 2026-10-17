@@ -178,6 +178,9 @@ public partial class GameMapView : Control
     // The size at the last layout, so a resize can read the tile that was at the control's centre before
     // the new size arrived and put it back at the new centre.
     private Vector2 _lastSize;
+    private Vector2? _markerPointer;
+
+    public string? ForegroundMarkerForCheck { get; private set; }
 
     // T147 (bug #781 point 1, Sol R2): a genuine window/root resize changes the container this control
     // sits in, so this control's rect changes with its parent's. A sibling's layout change (T132's
@@ -210,6 +213,7 @@ public partial class GameMapView : Control
         // Resized fires closes that gap without re-fitting (and so discarding the player's own zoom/pan)
         // on every later resize too.
         Resized += OnResized;
+        MouseExited += () => { _markerPointer = null; QueueRedraw(); };
     }
 
     private void OnResized()
@@ -792,6 +796,13 @@ public partial class GameMapView : Control
 
     public override void _GuiInput(InputEvent @event)
     {
+        // Promotion uses the same footprint winner as both buttons. In dense groups the marker the
+        // pointer is about to act on is visible above its neighbours, before the click is resolved.
+        if (@event is InputEventMouse mouse)
+        {
+            _markerPointer = mouse.Position;
+            QueueRedraw();
+        }
         switch (@event)
         {
             case InputEventMouseButton { ButtonIndex: MouseButton.WheelUp, Pressed: true } wheelUp:
@@ -885,6 +896,7 @@ public partial class GameMapView : Control
         QueueRedraw();
     }
 
+    /// <summary>The actual context passed to MapClickRules, for real-input checks.</summary>
     public MapClickContext? LastClickContextForCheck { get; private set; }
 
     private MapClickContext BuildClickContext(MapClickButton button, int x, int y, Vector2 screenPosition)
@@ -1257,14 +1269,21 @@ public partial class GameMapView : Control
             DrawCity(city, tileSize);
         }
 
-        foreach (var army in _session.State.Armies)
+        var markers = VisibleStrategicMarkers().ToArray();
+        var hovered = _markerPointer is { } pointer
+            ? StrategicMarkerGeometry.Pick(markers, pointer.X, pointer.Y, tileSize, _pan.X, _pan.Y)
+            : null;
+        // Idle ties have the same army-before-fleet / ordinal-id precedence as picking. Selected
+        // boards stay legible; the hovered winner is last, so the visible click target takes priority.
+        var ordered = StrategicMarkerGeometry.DrawOrder(markers, _selectedArmyId, _selectedFleetId, hovered);
+        ForegroundMarkerForCheck = null;
+        foreach (var marker in ordered)
         {
-            DrawArmy(army, tileSize);
-        }
-
-        foreach (var fleet in _session.State.Fleets.Where(f => !f.IsUnderConstruction))
-        {
-            DrawFleet(fleet, tileSize);
+            if (marker.Kind == StrategicMarkerKind.Army)
+                DrawArmy(_session.State.ArmyById(marker.Id)!, tileSize);
+            else
+                DrawFleet(_session.State.FleetById(marker.Id)!, tileSize);
+            ForegroundMarkerForCheck = marker.Id;
         }
     }
 

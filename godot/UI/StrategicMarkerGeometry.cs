@@ -51,4 +51,15 @@ public static class StrategicMarkerGeometry
         .ThenBy(hit => hit.Marker.Kind)
         .ThenBy(hit => hit.Marker.Id, StringComparer.Ordinal)
         .Select(hit => (StrategicMarker?)hit.Marker).FirstOrDefault();
+
+    /// <summary>Idle coincident boards draw fleet before army and reverse ordinal ids. Selection
+    /// stays visible, while the pointer winner is promoted last so clicking its visible board is
+    /// predictable. Promotion does not feed back into Pick, preventing hover oscillation.</summary>
+    public static IEnumerable<StrategicMarker> DrawOrder(IEnumerable<StrategicMarker> markers,
+        string? selectedArmy, string? selectedFleet, StrategicMarker? hovered) => markers
+        .OrderByDescending(m => m.Kind)
+        .ThenByDescending(m => m.Id, StringComparer.Ordinal)
+        .OrderBy(m => m.Id == selectedArmy || m.Id == selectedFleet ? 1 : 0)
+        .OrderBy(m => m == hovered ? 1 : 0);
+
 }

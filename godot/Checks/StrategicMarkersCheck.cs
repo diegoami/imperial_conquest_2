@@ -36,7 +36,7 @@ public partial class StrategicMarkersCheck : Control
                 if (cellPixels > 0) _map.SetDrawnCellPixelsForCheck(cellPixels);
                 _map.CentreOnTile(100, 60);
             });
-            _steps.Enqueue(() => Exercise(cellPixels));
+            AddCases(cellPixels);
         }
         _steps.Enqueue(() =>
         {
@@ -70,10 +70,8 @@ public partial class StrategicMarkersCheck : Control
         }
     }
 
-    private void Exercise(float requestedPixels)
+    private void AddCases(float requestedPixels)
     {
-        var tile = _map.TileCenterForCheck(101, 60).X - _map.TileCenterForCheck(100, 60).X;
-        Check(requestedPixels != 72 || Mathf.IsEqualApprox(_map.ZoomFactor, GameMapView.MaxZoom), "maximum zoom uses production clamp");
         foreach (var (id, kind, x, y) in new[]
         {
             ("army", StrategicMarkerKind.Army, 100, 60),
@@ -83,33 +81,70 @@ public partial class StrategicMarkersCheck : Control
             ("cargo-fleet", StrategicMarkerKind.Fleet, 105, 63),
         })
         {
-            _map.ClearSelection();
-            _selected = null;
-            var center = _map.TileCenterForCheck(x, y);
-            Click(center, MouseButton.Left);
-            Check(_selected == id, $"left click selects {id} at {tile} px/tile");
-            var size = StrategicMarkerGeometry.Size(kind, tile);
-            // Fleet/army fixtures have empty space on their north side; this tests the real square
-            // boundary, including overview overhang, with no copied size formula.
-            var edge = center - new Vector2(0, size / 2 - .01f);
-            _listed = null;
-            Click(edge, MouseButton.Right);
-            var context = _map.LastClickContextForCheck!;
-            Check(_listed == id, $"right footprint-edge click lists {id}");
-            Check(context.X == x && context.Y == y && context.Distance == 0,
-                $"{id} overhang uses entity tile and actual selection distance");
-            _map.ClearSelection();
-            Click(edge, MouseButton.Left);
-            Check(_selected == id, $"left footprint-edge click selects {id}");
+            Vector2 edge = default;
+            _steps.Enqueue(() =>
+            {
+                _map.CentreOnTile(x, y);
+                _map.ClearSelection();
+                _selected = null;
+                var tile = _map.TileCenterForCheck(x + 1, y).X - _map.TileCenterForCheck(x, y).X;
+                var center = _map.TileCenterForCheck(x, y);
+                edge = center + new Vector2(0, (y >= 63 ? 1 : -1) * (StrategicMarkerGeometry.Size(kind, tile) / 2 - .01f));
+                Check(new Rect2(Vector2.Zero, _map.Size).HasPoint(edge), "edge input lies inside actual control");
+                _map._GuiInput(new InputEventMouseMotion { Position = center });
+            });
+            _steps.Enqueue(() =>
+            {
+                Check(_selected is null && _map.ForegroundMarkerForCheck == id,
+                    $"unselected hover exposes the nearest {id} before clicking");
+                Click(_map.TileCenterForCheck(x, y), MouseButton.Left);
+            });
+            _steps.Enqueue(() =>
+            {
+                Check(requestedPixels != 72 || Mathf.IsEqualApprox(_map.ZoomFactor, GameMapView.MaxZoom), "maximum zoom uses production clamp");
+                Check(_selected == id && _map.ForegroundMarkerForCheck == id,
+                    $"left click selects and draws {id} above overlaps at requested {requestedPixels} px/tile");
+                _listed = null;
+                Click(edge, MouseButton.Right);
+            });
+            _steps.Enqueue(() =>
+            {
+                var context = _map.LastClickContextForCheck!;
+                Check(_listed == id && _map.ForegroundMarkerForCheck == id, $"right footprint edge lists visible {id}");
+                Check(context.X == x && context.Y == y && context.Distance == 0,
+                    $"{id} overhang uses entity tile and actual selection distance");
+                _map.ClearSelection();
+                _selected = null;
+                Click(edge, MouseButton.Left);
+            });
+            _steps.Enqueue(() => Check(_selected == id && _map.ForegroundMarkerForCheck == id,
+                $"left footprint edge selects and outlines visible {id}"));
         }
-        _map.ClearSelection();
-        Click(_map.TileCenterForCheck(115, 65), MouseButton.Right);
-        Check(_map.LastClickContextForCheck is { X: 115, Y: 65, Target: null }, "empty map keeps clicked tile");
-        Click(_map.TileCenterForCheck(120, 60), MouseButton.Right);
-        Check(_map.LastClickContextForCheck?.Target is null, "fleet under construction has no visible target");
-        Click(_map.TileCenterForCheck(100, 60), MouseButton.Right);
-        Check(_listed == "army", "coincident army precedes fleet and city");
-        Check(_map.ClipContents, "all marker overhang is clipped by real map control");
+        _steps.Enqueue(() =>
+        {
+            _map.CentreOnTile(115, 65);
+            _map.ClearSelection();
+            Click(_map.TileCenterForCheck(115, 65), MouseButton.Right);
+            Check(_map.LastClickContextForCheck is { X: 115, Y: 65, Target: null }, "empty map keeps clicked tile");
+            _map.CentreOnTile(120, 60);
+            Click(_map.TileCenterForCheck(120, 60), MouseButton.Right);
+            Check(_map.LastClickContextForCheck?.Target is null, "fleet under construction has no visible target");
+            _map.CentreOnTile(100, 60);
+            Click(_map.TileCenterForCheck(100, 60), MouseButton.Right);
+            Check(_listed == "army", "coincident army precedes fleet and city");
+            Click(_map.TileCenterForCheck(100, 60), MouseButton.Left);
+        });
+        _steps.Enqueue(() =>
+        {
+            _map.CentreOnTile(110, 60);
+            var tile = _map.TileCenterForCheck(111, 60).X - _map.TileCenterForCheck(110, 60).X;
+            var edge = _map.TileCenterForCheck(110, 60) - new Vector2(0,
+                StrategicMarkerGeometry.Size(StrategicMarkerKind.Fleet, tile) / 2 - .01f);
+            Click(edge, MouseButton.Right);
+            Check(_map.LastClickContextForCheck is { X: 110, Y: 60, Distance: 10, Target.Id: "fleet" },
+                "order context distance uses actual fleet tile, not overhang tile");
+            Check(_map.ClipContents, "marker overhang is clipped by real map control");
+        });
     }
 
     private void Click(Vector2 position, MouseButton button)
