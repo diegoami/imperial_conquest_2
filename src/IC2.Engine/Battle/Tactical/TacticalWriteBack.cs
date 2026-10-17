@@ -45,7 +45,12 @@ public sealed record TacticalBattleReport(
     ValueList<TacticalPromotionEvent> Promotions,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ValueList<int>? LoserFinishByType = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] int LoserFinishTotal = 0,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool Capped = false);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool Capped = false)
+{
+    /// <summary>Observed aftermath for the remake screen; excluded from legacy report output.</summary>
+    [JsonIgnore]
+    public TacticalBattleAftermath? Aftermath { get; init; }
+}
 
 /// <summary>The write-back's result.</summary>
 /// <param name="Game">The game state after steps 1–5.</param>
@@ -205,6 +210,7 @@ public static class TacticalWriteBack
             ValueList.From(finalBattle.Log.Where(IsExchange)),
             ValueList.From(promotions));
 
+        report = report with { Aftermath = Capture(game, newGame, finalBattle, report, context) };
         return new TacticalWriteBackResult(newGame, finalBattle, report);
     }
 
@@ -224,6 +230,7 @@ public static class TacticalWriteBack
             ByType(winner.Units, context), winner.TotalTroops, ByType(units, context), units.Sum(u => u.Troops),
             ByType(loser.Units, context), loser.TotalTroops, 0, 0, ValueList.From(battle.Log.Where(IsExchange)),
             ValueList<TacticalPromotionEvent>.Empty, Capped: true);
+        report = report with { Aftermath = Capture(game, after, battle, report, context) };
         return new TacticalWriteBackResult(after, battle, report);
     }
 
@@ -257,11 +264,14 @@ public static class TacticalWriteBack
         var remnant = ValueList.From(SideSlots(battle, 1 - report.WinnerSide)
             .Select(s => ToUnit(s, battle.Capped && s.IsLive ? s.Troops : t.RetreatLosses ? s.RoutedTroops : 0, context))
             .Where(u => u.Troops > 0));
+        var beforePursuit = remnant.Sum(u => u.Troops);
+        var afterPursuit = beforePursuit;
         var deferredNews = battle.Capped || (t.RetreatLosses && remnant.Count > 0);
         var escaped = ValueList<UnitSlot>.Empty;
         if (remnant.Count > 0)
         {
             if (t.RetreatLosses) remnant = RetreatLosses.Apply(remnant, battle, report.WinnerSide, context);
+            afterPursuit = remnant.Sum(u => u.Troops);
             if (remnant.Count > 0)
             {
                 if (world is null) throw new ArgumentNullException(nameof(world), "Tactical escape requires the battle's world.");
@@ -294,10 +304,38 @@ public static class TacticalWriteBack
         {
             Game = after,
             Report = report with { WinnerFinishByType = ByType(winnerUnits, context), WinnerFinishTotal = winner.TotalTroops,
-                LoserFinishByType = ByType(escaped, context), LoserFinishTotal = escaped.Sum(u => u.Troops) },
+                LoserFinishByType = ByType(escaped, context), LoserFinishTotal = escaped.Sum(u => u.Troops),
+                Aftermath = Capture(before, after, battle, report, context, beforePursuit - afterPursuit,
+                    afterPursuit > 0 && escaped.Count == 0) },
         };
     }
 
+    private static TacticalBattleAftermath Capture(GameState before, GameState after, TacticalBattleState battle,
+        TacticalBattleReport report, TacticalContext context, int pursuitLosses = 0, bool scatterFailed = false)
+    {
+        TacticalArmyAftermath Side(int side, string armyId, string nationId)
+        {
+            bool OnSide(int slot) => slot / battle.SlotsPerSide == side;
+            var casualties = battle.Log.Sum(e => e switch
+            {
+                TacticalShotEvent shot => OnSide(shot.Target) ? shot.Loss : 0,
+                TacticalMeleeEvent melee => (OnSide(melee.Attacker) ? melee.AttackerLoss : 0)
+                    + (OnSide(melee.Defender) ? melee.DefenderLoss : 0),
+                _ => 0,
+            });
+            var routed = battle.Log.OfType<TacticalRoutedEvent>().Where(e => OnSide(e.Slot)).Select(e => e.Slot).ToHashSet();
+            var cascade = battle.Log.OfType<TacticalCascadeRemovedEvent>().Where(e => OnSide(e.Slot) && !routed.Contains(e.Slot))
+                .Select(e => e.Slot).Distinct().Count();
+            var army = after.ArmyById(armyId);
+            var rejoined = side == report.WinnerSide && context.Rules.WinnerRoutedUnitsRejoin
+                ? SideSlots(battle, side).Sum(s => s.RoutedTroops) : 0;
+            return new(casualties, routed.Count, cascade, rejoined, army?.TotalTroops ?? 0, army is null,
+                before.NationById(nationId)?.Unity ?? 0, after.NationById(nationId)?.Unity ?? 0);
+        }
+        return new(Side(report.WinnerSide, report.WinnerArmyId, report.WinnerNationId),
+            Side(1 - report.WinnerSide, report.LoserArmyId, report.LoserNationId), context.Rules.RetreatLosses,
+            scatterFailed, pursuitLosses);
+    }
     private static IEnumerable<TacticalSlot> SideSlots(TacticalBattleState battle, int side) =>
         battle.Slots.Skip(side * battle.SlotsPerSide).Take(battle.SlotsPerSide);
 
@@ -325,3 +363,4 @@ public static class TacticalWriteBack
 
     private static string NationName(GameState game, string nationId) => game.NationById(nationId)?.Name ?? nationId;
 }
+

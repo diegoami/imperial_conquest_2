@@ -39,7 +39,7 @@ public partial class BattleEndedScreen : Control
 
     public override void _Ready()
     {
-        ModalOverlay.Build(out var root, out var content, AppTheme.Scrim, 520f);
+        ModalOverlay.Build(out var root, out var content, AppTheme.Scrim, 760f);
         AddChild(root);
 
         TitleLabel = UiKit.MakeLabel(Model.Title, AppTheme.Header, UiKit.AccentColor);
@@ -72,6 +72,13 @@ public partial class BattleEndedScreen : Control
         TableTexts = texts;
 
         content.AddChild(new HSeparator());
+        foreach (var text in Model.AftermathLines)
+        {
+            var explanation = UiKit.MakeLabel(text, AppTheme.Body, UiKit.TextColor);
+            explanation.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            content.AddChild(explanation);
+        }
+
         MoneyLabel = UiKit.MakeLabel(Model.MoneyLine, AppTheme.Body, UiKit.TextColor);
         content.AddChild(MoneyLabel);
         SuppliesLabel = UiKit.MakeLabel(Model.SuppliesLine, AppTheme.Body, UiKit.TextColor);
@@ -95,3 +102,4 @@ public partial class BattleEndedScreen : Control
         texts.Add(text);
     }
 }
+
