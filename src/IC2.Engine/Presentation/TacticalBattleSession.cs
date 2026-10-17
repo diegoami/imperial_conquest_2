@@ -109,7 +109,7 @@ public sealed record TacticalBattleConclusion(
 public sealed class TacticalBattleSession
 {
     private readonly TacticalContext _context;
-    private readonly TacticalBattleTimeline _timeline;
+    private TacticalBattleTimeline _timeline;
     private readonly ITacticalGeneral _general = new ComputerGeneral();
     private readonly SplitMix64Rng _rng;
     private readonly string _attackerNationId;
@@ -121,9 +121,12 @@ public sealed class TacticalBattleSession
         TacticalBattleState battle,
         SplitMix64Rng rng,
         string attackerNationId,
-        string defenderNationId, TacticalBattleTimeline timeline)
+        string defenderNationId)
     {
-        _timeline = timeline;
+        // Keep the established five-argument construction seam used by deterministic golden replays.
+        // Open/Reopen hand off their already-running collector before exposing the session.
+        _timeline = new TacticalBattleTimeline(context, $"{battle.AttackerArmyId}:{battle.DefenderArmyId}",
+            attackerNationId, defenderNationId);
         _context = context;
         Battle = battle;
         _rng = rng;
@@ -272,7 +275,7 @@ public sealed class TacticalBattleSession
 
         timeline.Observe(battle, null, new TacticalCaptureBoundary(TacticalFrameKind.Reconciliation));
         opened = start.Game;
-        return new TacticalBattleSession(context, battle, rng, attacker.Nation, defender.Nation, timeline);
+        return new TacticalBattleSession(context, battle, rng, attacker.Nation, defender.Nation) { _timeline = timeline };
     }
 
     /// <summary>
@@ -317,7 +320,7 @@ public sealed class TacticalBattleSession
         }
 
         timeline.Observe(battle, null, new TacticalCaptureBoundary(TacticalFrameKind.Reconciliation));
-        return new TacticalBattleSession(context, battle, rng, attacker.Nation, defender.Nation, timeline);
+        return new TacticalBattleSession(context, battle, rng, attacker.Nation, defender.Nation) { _timeline = timeline };
     }
 
     /// <summary>
