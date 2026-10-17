@@ -441,4 +441,38 @@ public sealed class TacticalBattleViewModelTests
         queue.Begin(end.TacticalTimeline);
         Assert.Equal(TacticalFrameKind.Reconciliation, queue.CurrentFrame!.Kind);
     }
+
+    [Fact]
+    public void Post_exchange_setup_retains_combatant_identity_with_all_values_from_fully_updated_round_snapshot()
+    {
+        var (session, _, display) = Opened();
+        var output = session.BattleGeneral(true);
+        var queue = new TacticalPlayback();
+        var setups = 0;
+        queue.FrameEntered += frame =>
+        {
+            if (frame.Kind != TacticalFrameKind.Setup || queue.CurrentExchange is null) return;
+            var model = TacticalBattleViewModel.FromSnapshot(frame.After, display, frame: frame,
+                currentExchange: queue.CurrentExchange, previousExchange: queue.PreviousExchange, perspectiveSide: 0);
+            Assert.Equal(queue.CurrentExchange.Actor!.Slot, model.ActorSlot);
+            Assert.Equal(queue.CurrentExchange.Target!.Slot, model.TargetSlot);
+            foreach (var slot in new[] { model.ActorSlot, model.TargetSlot })
+            {
+                Assert.Contains(model.ParticipantLines(slot, "combatant"), line => line.Contains(frame.After.View.Slots[slot].Troops + " troops"));
+                if (!frame.After.View.Slots[slot].IsLive)
+                    Assert.DoesNotContain(model.Cells, cell => cell.Slot == slot && (cell.Actor || cell.Target));
+            }
+            Assert.All(model.Cells.Where(cell => cell.Actor || cell.Target), cell =>
+            {
+                Assert.True(cell.Slot >= 0 && frame.After.View.Slots[cell.Slot].IsLive);
+                Assert.NotEqual(TacticalIcon.Empty, cell.Code);
+                Assert.DoesNotContain(cell.Slot, frame.After.PendingPlacementSlots);
+            });
+            Assert.Equal(frame.After.View.Grid, model.Cells.Select(c => c.Code));
+            Assert.False(model.ResolvingHalfRound);
+            setups++;
+        };
+        queue.Begin(output.TacticalTimeline);
+        Assert.True(setups > 1);
+    }
 }

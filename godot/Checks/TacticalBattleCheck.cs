@@ -184,7 +184,10 @@ public partial class TacticalBattleCheck : Node
     private async Task Capture(string name, TacticalBattleScreen screen)
     {
         var frame = screen.DisplayedFrame;
-        var receipt = UiKit.MakeLabel($"T180 {name} | {frame?.BattleId} command {frame?.CommandId} frame {frame?.FrameId} {frame?.Kind}", AppTheme.Note, Colors.White);
+        var controller = screen.ControllerLabel.Text;
+        var receipt = UiKit.MakeLabel($"T180 {name} | {frame?.BattleId} command {frame?.CommandId} frame {frame?.FrameId} {frame?.Kind}", AppTheme.Note + 5, Colors.White);
+        receipt.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        receipt.Size = new Vector2(420, 70);
         // Receipt is check-only evidence metadata; it never changes production captions or snapshot values.
         AddChild(receipt);
         foreach (var size in new[] { new Vector2I(1280, 800), new Vector2I(1024, 768) })
@@ -192,12 +195,12 @@ public partial class TacticalBattleCheck : Node
             GetWindow().Size = size;
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-            receipt.Position = new Vector2(8, GetViewport().GetVisibleRect().Size.Y - 22);
+            receipt.Position = new Vector2(12, GetViewport().GetVisibleRect().Size.Y - 80);
             await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
             var path = Path.Combine(GameDataContext.RepositoryRoot, "rendered", $"T180-{name}-{size.X}x{size.Y}.png");
             var error = GetViewport().GetTexture().GetImage().SavePng(path);
             if (error != Error.Ok) throw new InvalidOperationException($"Capture failed: {error}");
-            GD.Print($"T180 capture: {path} | {frame?.BattleId}/{frame?.FrameId} | {screen.ControllerLabel.Text}");
+            GD.Print($"T180 capture: {path} | {frame?.BattleId}/{frame?.FrameId} | {controller}");
         }
         RemoveChild(receipt);
         receipt.QueueFree();
@@ -787,6 +790,7 @@ public partial class TacticalBattleCheck : Node
     private MainGameScreen Build(GameSession session)
     {
         var mainGame = new MainGameScreen { Session = session, RepositoryRoot = GameDataContext.RepositoryRoot };
+        mainGame.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
         AddChild(mainGame);
         return mainGame;
     }

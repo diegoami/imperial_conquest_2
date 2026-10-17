@@ -54,7 +54,9 @@ public sealed record BattleDisplay(
 /// <param name="TintSide">0 when the icon is the attacker's (drawn in its nation's colours), 1 the defender's, −1 for ground.</param>
 /// <param name="IconKey">The asset key of the icon (<see cref="BattleAssetKeys.UnitIcon(string, int)"/>), or <see langword="null"/> for ground.</param>
 /// <param name="Selected">Whether the selection cursor is on this cell.</param>
-public sealed record BattleCellView(int X, int Y, int Code, int Slot, int TintSide, string? IconKey, bool Selected);
+/// <param name="Actor">A live, actually occupied actor cell; never a routed unit's former location.</param>
+/// <param name="Target">A live, actually occupied target cell.</param>
+public sealed record BattleCellView(int X, int Y, int Code, int Slot, int TintSide, string? IconKey, bool Selected, bool Actor = false, bool Target = false);
 
 /// <summary>A toolbar button: its asset key, its tooltip and whether it can be pressed.</summary>
 /// <param name="Id">The button's id, one of <see cref="BattleAssetKeys.ToolbarButtons"/>.</param>
@@ -227,8 +229,11 @@ public sealed class TacticalBattleViewModel
     public TacticalBattleFrame? CurrentExchange { get; private set; }
     public TacticalBattleFrame? PreviousExchange { get; private set; }
     public bool ResolvingHalfRound { get; private set; }
-    public int ActorSlot => DisplayedFrame?.Actor?.Slot ?? -1;
-    public int TargetSlot => DisplayedFrame?.Target?.Slot ?? -1;
+    // A setup/reconciliation has no new actor. Keep the current exchange's identities, but read their
+    // freshly reset/removed values below from this displayed snapshot, never from the exchange's old state.
+    public int ActorSlot => DisplayedFrame?.Actor?.Slot ?? CurrentExchange?.Actor?.Slot ?? -1;
+    public int TargetSlot => DisplayedFrame?.Actor is not null
+        ? DisplayedFrame.Target?.Slot ?? -1 : CurrentExchange?.Target?.Slot ?? -1;
 
     /// <summary>Explicit phase/controller caption; HalfRound is not a completed next-round setup.</summary>
     public string ControllerText => ResolvingHalfRound
@@ -641,7 +646,8 @@ public sealed class TacticalBattleViewModel
                 var typeId = validIcon ? _view.UnitTypeIds[type] : string.Empty;
                 var slot = SlotAt(x, y);
                 cells.Add(new BattleCellView(
-                    x, y, code, slot, side, validIcon ? BattleAssetKeys.UnitIcon(typeId, size) : null, slot >= 0 && slot == SelectedSlot));
+                    x, y, code, slot, side, validIcon ? BattleAssetKeys.UnitIcon(typeId, size) : null, slot >= 0 && slot == SelectedSlot,
+                    slot >= 0 && slot == ActorSlot, slot >= 0 && slot == TargetSlot));
             }
         }
 

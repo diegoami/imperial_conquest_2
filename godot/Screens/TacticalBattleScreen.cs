@@ -30,6 +30,12 @@ public partial class TacticalBattleScreen : Control
     /// <summary>The board's cell side: 32 px, as the original's (T127's entry) and as the 32 x 32 battle assets are drawn.</summary>
     private const int CellPixels = 32;
 
+    // The application's 1500px canvas scales down at practical window sizes. Battle values and role
+    // cues need a readable local text size; preserve the approved font family, theme and nation colours.
+    private static int BattleBodySize => AppTheme.Body + 6;
+    private static int BattleNoteSize => AppTheme.Note + 6;
+    private static int BattleHeaderSize => AppTheme.Header + 6;
+
     // Used only when the pack has no ground tile: the mean colour of assets/packs/authored/battle/ground.bmp (32 x 32),
     // measured over all its pixels (R 0.526, G 0.722, B 0.371), so the fallback matches the real tile's overall tone.
     private static readonly Color GroundFallback = new(0.526f, 0.722f, 0.371f);
@@ -182,11 +188,11 @@ public partial class TacticalBattleScreen : Control
         left.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         row.AddChild(left);
 
-        CaptionLabel = UiKit.MakeLabel(string.Empty, AppTheme.Header, UiKit.AccentColor);
+        CaptionLabel = UiKit.MakeLabel(string.Empty, BattleHeaderSize, UiKit.AccentColor);
         CaptionLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         CaptionLabel.CustomMinimumSize = new Vector2(CellPixels * 14, 0);
         left.AddChild(CaptionLabel);
-        ControllerLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.AccentColor);
+        ControllerLabel = UiKit.MakeLabel(string.Empty, BattleBodySize, UiKit.AccentColor);
         ControllerLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         ControllerLabel.CustomMinimumSize = new Vector2(CellPixels * 14, 0);
         left.AddChild(ControllerLabel);
@@ -224,7 +230,7 @@ public partial class TacticalBattleScreen : Control
         };
         left.AddChild(_board);
 
-        MessageLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.MutedTextColor);
+        MessageLabel = UiKit.MakeLabel(string.Empty, BattleBodySize, UiKit.MutedTextColor);
         MessageLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         MessageLabel.MaxLinesVisible = 3;
         MessageLabel.CustomMinimumSize = new Vector2(CellPixels * 14, 54);
@@ -233,7 +239,7 @@ public partial class TacticalBattleScreen : Control
         left.AddChild(footer);
         _minimap = new BoardView { Host = this, Mini = true, CustomMinimumSize = new Vector2(112, 96), MouseFilter = MouseFilterEnum.Ignore };
         footer.AddChild(_minimap);
-        footer.AddChild(UiKit.MakeLabel("○ Cyan: ACTOR\n◇ Orange: TARGET\n□ Gold: SELECTED\nAttacker / Defender: strategic roles", AppTheme.Note, UiKit.TextColor));
+        footer.AddChild(UiKit.MakeLabel("○ Cyan: ACTOR\n◇ Orange: TARGET\n□ Gold: SELECTED\nAttacker / Defender: strategic roles", BattleNoteSize, UiKit.TextColor));
 
         var right = new VBoxContainer { CustomMinimumSize = new Vector2(380, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         right.AddThemeConstantOverride("separation", AppTheme.DialogGap);
@@ -253,22 +259,22 @@ public partial class TacticalBattleScreen : Control
         var panelColumn = new VBoxContainer();
         panelColumn.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         panelBox.AddChild(panelColumn);
-        panelColumn.AddChild(UiKit.MakeLabel("Selected unit", AppTheme.Body, UiKit.MutedTextColor));
-        PanelLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
+        panelColumn.AddChild(UiKit.MakeLabel("Selected unit", BattleBodySize, UiKit.MutedTextColor));
+        PanelLabel = UiKit.MakeLabel(string.Empty, BattleBodySize, UiKit.TextColor);
         PanelLabel.CustomMinimumSize = new Vector2(0, 48);
         PanelLabel.MouseFilter = MouseFilterEnum.Ignore;
         panelColumn.AddChild(PanelLabel);
-        ActorLabel = UiKit.MakeLabel(string.Empty, AppTheme.Note, new Color(0.2f, 0.9f, 1f));
-        TargetLabel = UiKit.MakeLabel(string.Empty, AppTheme.Note, new Color(1f, 0.58f, 0.18f));
+        ActorLabel = UiKit.MakeLabel(string.Empty, BattleNoteSize, new Color(0.2f, 0.9f, 1f));
+        TargetLabel = UiKit.MakeLabel(string.Empty, BattleNoteSize, new Color(1f, 0.58f, 0.18f));
         panelColumn.AddChild(ActorLabel);
         panelColumn.AddChild(TargetLabel);
-        panelColumn.AddChild(UiKit.MakeLabel("Current exchange", AppTheme.Note, UiKit.MutedTextColor));
-        ExchangeLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
+        panelColumn.AddChild(UiKit.MakeLabel("Current exchange", BattleNoteSize, UiKit.MutedTextColor));
+        ExchangeLabel = UiKit.MakeLabel(string.Empty, BattleBodySize, UiKit.TextColor);
         ExchangeLabel.CustomMinimumSize = new Vector2(0, 40);
         ExchangeLabel.MouseFilter = MouseFilterEnum.Ignore;
         panelColumn.AddChild(ExchangeLabel);
-        panelColumn.AddChild(UiKit.MakeLabel("Previous exchange", AppTheme.Note, UiKit.MutedTextColor));
-        PreviousExchangeLabel = UiKit.MakeLabel(string.Empty, AppTheme.Note, UiKit.MutedTextColor);
+        panelColumn.AddChild(UiKit.MakeLabel("Previous exchange", BattleNoteSize, UiKit.MutedTextColor));
+        PreviousExchangeLabel = UiKit.MakeLabel(string.Empty, BattleNoteSize, UiKit.MutedTextColor);
         panelColumn.AddChild(PreviousExchangeLabel);
         foreach (var label in new[] { PanelLabel, ActorLabel, TargetLabel, ExchangeLabel, PreviousExchangeLabel })
         {
@@ -276,7 +282,7 @@ public partial class TacticalBattleScreen : Control
             label.MouseFilter = MouseFilterEnum.Ignore;
         }
 
-        _listTitle = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.MutedTextColor);
+        _listTitle = UiKit.MakeLabel(string.Empty, BattleBodySize, UiKit.MutedTextColor);
         right.AddChild(_listTitle);
         _listBox = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
         right.AddChild(_listBox);
@@ -571,7 +577,7 @@ public partial class TacticalBattleScreen : Control
             _rosterTexts.Add(title);
             var section = new VBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
             _listBox.AddChild(section);
-            section.AddChild(UiKit.MakeLabel(title, AppTheme.Note, UiKit.AccentColor));
+            section.AddChild(UiKit.MakeLabel(title, BattleNoteSize, UiKit.AccentColor));
             var scroll = new ScrollContainer { SizeFlagsVertical = SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 64) };
             section.AddChild(scroll);
             var rows = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
@@ -589,7 +595,7 @@ public partial class TacticalBattleScreen : Control
                 var button = new Button { Text = text, Flat = true, Alignment = HorizontalAlignment.Left,
                     TooltipText = text, ClipText = true, MouseFilter = MouseFilterEnum.Stop,
                     SizeFlagsHorizontal = SizeFlags.ExpandFill };
-                button.AddThemeFontSizeOverride("font_size", AppTheme.Note);
+                button.AddThemeFontSizeOverride("font_size", BattleNoteSize);
                 button.Pressed += () =>
                 {
                     if (IsPlayingBack) return;
@@ -612,7 +618,7 @@ public partial class TacticalBattleScreen : Control
     private void OpenSurrenderPrompt()
     {
         ModalOverlay.Build(out var root, out var content, AppTheme.Scrim, 360f);
-        content.AddChild(UiKit.MakeLabel("Are you sure you want to surrender ?", AppTheme.Body, UiKit.TextColor));
+        content.AddChild(UiKit.MakeLabel("Are you sure you want to surrender ?", BattleBodySize, UiKit.TextColor));
         var buttons = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.End };
         buttons.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         buttons.AddChild(UiKit.MakeButton("Yes", () => AnswerSurrender(true)));
@@ -625,8 +631,8 @@ public partial class TacticalBattleScreen : Control
     private void OpenPausesDialog()
     {
         ModalOverlay.Build(out var root, out var content, AppTheme.Scrim, 420f);
-        content.AddChild(UiKit.MakeLabel("Change pauses", AppTheme.Header, UiKit.AccentColor));
-        content.AddChild(UiKit.MakeLabel("Display only: the battle's rules never wait.", AppTheme.Note, UiKit.MutedTextColor));
+        content.AddChild(UiKit.MakeLabel("Change pauses", BattleHeaderSize, UiKit.AccentColor));
+        content.AddChild(UiKit.MakeLabel("Display only: the battle's rules never wait.", BattleNoteSize, UiKit.MutedTextColor));
         content.AddChild(MakePauseRow("After a shot (s)", BattlePauses.ShotStepSeconds, SettingsScreen.BattleShotDelaySeconds,
             value => SettingsScreen.SetBattlePauses(value, SettingsScreen.BattleAttackDelaySeconds)));
         content.AddChild(MakePauseRow("After an attack (s)", BattlePauses.AttackStepSeconds, SettingsScreen.BattleAttackDelaySeconds,
@@ -641,7 +647,7 @@ public partial class TacticalBattleScreen : Control
     {
         var row = new HBoxContainer();
         row.AddThemeConstantOverride("separation", AppTheme.DialogGap);
-        var name = UiKit.MakeLabel(caption, AppTheme.Body, UiKit.TextColor);
+        var name = UiKit.MakeLabel(caption, BattleBodySize, UiKit.TextColor);
         name.CustomMinimumSize = new Vector2(150, 0);
         row.AddChild(name);
         var slider = new HSlider
@@ -652,7 +658,7 @@ public partial class TacticalBattleScreen : Control
             Value = current,
             CustomMinimumSize = new Vector2(160, 24),
         };
-        var value = UiKit.MakeLabel(current.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture), AppTheme.Body, UiKit.MutedTextColor);
+        var value = UiKit.MakeLabel(current.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture), BattleBodySize, UiKit.MutedTextColor);
         slider.ValueChanged += v =>
         {
             onChanged(v);
@@ -739,17 +745,15 @@ public partial class TacticalBattleScreen : Control
                     {
                         DrawRect(rect.Grow(-3), cell.TintSide == 0 ? new Color(0.25f, 0.45f, 0.8f) : new Color(0.8f, 0.3f, 0.25f));
                         var letter = Host.TypeNameOf(cell);
-                        if (!Mini) DrawString(font, rect.Position + new Vector2(4, 26), letter.Length > 0 ? letter[..1] : "?", HorizontalAlignment.Left, -1, AppTheme.Body, Colors.White);
+                        if (!Mini) DrawString(font, rect.Position + new Vector2(4, 26), letter.Length > 0 ? letter[..1] : "?", HorizontalAlignment.Left, -1, BattleBodySize, Colors.White);
                     }
                 }
 
-                var actor = model.ActorSlot;
-                var target = model.TargetSlot;
-                var actorHere = actor >= 0 && model.View.Slots[actor].X == cell.X && model.View.Slots[actor].Y == cell.Y;
-                var targetHere = target >= 0 && model.View.Slots[target].X == cell.X && model.View.Slots[target].Y == cell.Y;
-                if (actorHere)
+                // Role flags require a live occupant in the actual displayed grid. Removed participants
+                // remain explicit in their panels/history without a ghost marker at their old coordinates.
+                if (cell.Actor)
                     DrawArc(rect.GetCenter(), pixels * 0.42f, 0, Mathf.Tau, 24, new Color(0.2f, 0.9f, 1f), Mini ? 1 : 2);
-                if (targetHere)
+                if (cell.Target)
                 {
                     var c = rect.GetCenter();
                     var radius = pixels * 0.45f;
