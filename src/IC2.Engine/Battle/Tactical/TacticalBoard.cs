@@ -101,7 +101,7 @@ internal sealed class TacticalBoard
             _pendingPlacement[s] = IsLive(s);
     }
 
-    public void Placed(int slot) => _pendingPlacement[slot] = false;
+    public void MarkPlaced(int slot) => _pendingPlacement[slot] = false;
 
     private TacticalCaptureBoundary CaptureBoundary(TacticalFrameKind? kind = null, int actor = -1, int target = -1) =>
         new(kind, actor, target, ValueList.From(Enumerable.Range(0, Slots.Length).Where(s => _pendingPlacement[s])));
@@ -257,3 +257,4 @@ internal sealed class TacticalBoard
     }
 
 }
+

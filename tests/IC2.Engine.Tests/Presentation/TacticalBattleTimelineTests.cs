@@ -357,6 +357,7 @@ public sealed class TacticalBattleTimelineTests
         var terminal = battle.Surrender();
         Assert.True(terminal.Accepted);
         Assert.Contains(terminal.Timeline, f => f.Kind == TacticalFrameKind.Terminal);
+        Assert.Equal(new[] { 0, 1 }, terminal.Timeline.Where(f => f.Kind == TacticalFrameKind.Removal && f.Actor is not null).Select(f => f.Actor!.Slot));
         Assert.All(terminal.Timeline, f => Assert.Equal(3, f.CommandId));
         Assert.Empty(battle.DrainTimeline());
         Assert.Equal(battle.View(), terminal.Timeline[^1].After.View);

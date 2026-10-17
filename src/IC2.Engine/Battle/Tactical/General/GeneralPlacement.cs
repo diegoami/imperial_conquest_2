@@ -128,7 +128,7 @@ public static class GeneralPlacement
                         }
                     }
                     board.Slots[s] = unit with { X = x, Y = y };
-                    board.Placed(s);
+                    board.MarkPlaced(s);
                     board.PaintIcon(s);
                     board.Log.Add(new TacticalPlacedEvent(s, unit.X, unit.Y, x, y));
                     journal?.Add(new GeneralDecision(s, GeneralStep.Placed, -1, x, y));
@@ -147,3 +147,4 @@ public static class GeneralPlacement
         }
     }
 }
+
