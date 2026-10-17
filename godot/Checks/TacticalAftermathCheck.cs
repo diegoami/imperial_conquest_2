@@ -31,7 +31,12 @@ public partial class TacticalAftermathCheck : Node
                     RetreatLossBase = 0, RetreatLossCap = 0, RetreatLossPursuit = 0,
                 } } };
                 var session = new GameSession(toy.World, rules, toy.Scenario);
-                var before = session.State;
+                var before = session.State with
+                {
+                    Armies = ValueList.From(session.State.Armies.Select(a => a.Id is "north-army-1" or "south-army-1"
+                        ? a with { Units = ValueList.Of(new UnitSlot(0, "light_infantry", a.Nation == "north" ? 1000 : 800, 5, "Infantry")) }
+                        : a)),
+                };
                 var context = TacticalContext.From(rules);
                 var slots = Enumerable.Repeat(TacticalSlot.Empty, 2 * context.SlotsPerSide).ToArray();
                 slots[0] = new(3, 3, 0, 0, 900, 5, 70, 0, 0, -1, "Infantry");
@@ -39,8 +44,11 @@ public partial class TacticalAftermathCheck : Node
                 var battle = new TacticalBattleState("north-army-1", "south-army-1", 0, true, 4, true,
                     ValueList.From(slots), ValueList.From(new int[context.Rules.BoardWidth * context.Rules.BoardHeight]),
                     ValueList.Of(false, false), ValueList.Of(false, false), ValueList.From(Enumerable.Repeat(-1, slots.Length)), -1,
-                    ValueList.Of<TacticalEvent>(new TacticalShotEvent(0, context.SlotsPerSide, 100, 100, 1, 700, 0),
-                        new TacticalRoutedEvent(context.SlotsPerSide)), cap);
+                    ValueList.From(new TacticalEvent[]
+                    {
+                        new TacticalShotEvent(context.SlotsPerSide, 0, 100, 100, 1, 900, 70),
+                        new TacticalShotEvent(0, context.SlotsPerSide, 100, 100, 1, 700, 0),
+                    }.Concat(cap ? Array.Empty<TacticalEvent>() : new TacticalEvent[] { new TacticalRoutedEvent(context.SlotsPerSide) })), cap);
                 var initial = TacticalWriteBack.Apply(before, battle, context, new Draws(), NullEventSink.Instance);
                 var result = TacticalWriteBack.CompleteSurvivors(initial, before, context, new Draws(), toy.World, NullEventSink.Instance);
                 var model = BattleEndedViewModel.FromReport(result.Report, result.Game, rules);
