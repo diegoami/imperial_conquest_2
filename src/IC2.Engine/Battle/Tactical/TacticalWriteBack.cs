@@ -50,6 +50,12 @@ public sealed record TacticalBattleReport(
     /// <summary>Observed aftermath for the remake screen; excluded from legacy report output.</summary>
     [JsonIgnore]
     public TacticalBattleAftermath? Aftermath { get; init; }
+    // Transient display facts do not change legacy report equality (including save/reopen comparisons).
+    public bool Equals(TacticalBattleReport? other) => other is not null
+        && (WinnerSide, WinnerArmyId, LoserArmyId, WinnerNationId, LoserNationId, WinnerStartByType, WinnerStartTotal, WinnerFinishByType, WinnerFinishTotal, LoserStartByType, LoserStartTotal, CapturedMoney, CapturedSupplyTons, ExchangeLog, Promotions, LoserFinishByType, LoserFinishTotal, Capped).Equals((other.WinnerSide, other.WinnerArmyId, other.LoserArmyId, other.WinnerNationId, other.LoserNationId, other.WinnerStartByType, other.WinnerStartTotal, other.WinnerFinishByType, other.WinnerFinishTotal, other.LoserStartByType, other.LoserStartTotal, other.CapturedMoney, other.CapturedSupplyTons, other.ExchangeLog, other.Promotions, other.LoserFinishByType, other.LoserFinishTotal, other.Capped));
+
+    public override int GetHashCode() => (WinnerSide, WinnerArmyId, LoserArmyId, WinnerNationId, LoserNationId, WinnerStartByType, WinnerStartTotal, WinnerFinishByType, WinnerFinishTotal, LoserStartByType, LoserStartTotal, CapturedMoney, CapturedSupplyTons, ExchangeLog, Promotions, LoserFinishByType, LoserFinishTotal, Capped).GetHashCode();
+
 }
 
 /// <summary>The write-back's result.</summary>
@@ -328,7 +334,7 @@ public static class TacticalWriteBack
                 .Select(e => e.Slot).Distinct().Count();
             var army = after.ArmyById(armyId);
             var rejoined = side == report.WinnerSide && context.Rules.WinnerRoutedUnitsRejoin
-                ? SideSlots(battle, side).Sum(s => s.RoutedTroops) : 0;
+                ? Math.Max(0, (army?.TotalTroops ?? 0) - SideSlots(battle, side).Sum(s => s.Troops)) : 0;
             return new(casualties, routed.Count, cascade, rejoined, army?.TotalTroops ?? 0, army is null,
                 before.NationById(nationId)?.Unity ?? 0, after.NationById(nationId)?.Unity ?? 0);
         }
@@ -363,4 +369,6 @@ public static class TacticalWriteBack
 
     private static string NationName(GameState game, string nationId) => game.NationById(nationId)?.Name ?? nationId;
 }
+
+
 

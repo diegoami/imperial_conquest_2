@@ -100,7 +100,7 @@ public sealed record BattleEndedViewModel(
         if (!facts.Loser.ArmyRemoved)
             lines.Add($"{loser}: surviving remnant of {facts.Loser.SurvivingTroops} troops scattered to safety.");
         else if (!facts.RetreatEnabled && !report.Capped)
-            lines.Add($"{loser}: defeated army removed. This ruleset disables retreat and rejoining.");
+            lines.Add($"{loser}: defeated army removed. Defeated armies cannot retreat under this ruleset.");
         else if (facts.ScatterFailed)
             lines.Add($"{loser}: army removed; no valid scatter location was available.");
         else
@@ -112,4 +112,5 @@ public sealed record BattleEndedViewModel(
 
     private static int At(ValueList<int> byType, int index) => index < byType.Count ? byType[index] : 0;
 }
+
 
