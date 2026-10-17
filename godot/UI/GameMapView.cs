@@ -878,24 +878,37 @@ public partial class GameMapView : Control
         var x = Mathf.FloorToInt(tile.X);
         var y = Mathf.FloorToInt(tile.Y);
 
-        var outcome = MapClickRules.Resolve(BuildClickContext(button, x, y));
+        var context = BuildClickContext(button, x, y, screenPosition);
+        LastClickContextForCheck = context;
+        var outcome = MapClickRules.Resolve(context);
         ApplyOutcome(outcome);
         QueueRedraw();
     }
 
-    private MapClickContext BuildClickContext(MapClickButton button, int x, int y)
+    public MapClickContext? LastClickContextForCheck { get; private set; }
+
+    private MapClickContext BuildClickContext(MapClickButton button, int x, int y, Vector2 screenPosition)
     {
         var state = _session!.State;
         var world = _session.World;
 
+        var marker = StrategicMarkerGeometry.Pick(VisibleStrategicMarkers(), screenPosition.X, screenPosition.Y,
+            BaseTileSize * _zoom, _pan.X, _pan.Y);
+        if (marker is { } hit)
+        {
+            // Orders and distance use the entity tile, never the clicked overhang tile.
+            x = hit.X;
+            y = hit.Y;
+        }
+
         MapClickTarget? target = null;
         if (x >= 0 && x < world.Width && y >= 0 && y < world.Height)
         {
-            if (FindArmyAt(x, y) is { } army)
+            if (marker is { Kind: StrategicMarkerKind.Army } armyHit && state.ArmyById(armyHit.Id) is { } army)
             {
                 target = new MapClickTarget(MapEntityKind.Army, army.Id, army.Nation);
             }
-            else if (FindFleetAt(x, y) is { } fleet)
+            else if (marker is { Kind: StrategicMarkerKind.Fleet } fleetHit && state.FleetById(fleetHit.Id) is { } fleet)
             {
                 target = new MapClickTarget(MapEntityKind.Fleet, fleet.Id, fleet.Nation, fleet.CarriedArmyId);
             }
@@ -1181,17 +1194,13 @@ public partial class GameMapView : Control
     private CityState? FindCityAt(int x, int y) =>
         _session?.State.Cities.FirstOrDefault(c => c.X == x && c.Y == y);
 
-    /// <summary>
-    /// The army marker on a tile, for the click's target lookup. An embarked army has its fleet's own
-    /// X/Y (<c>EmbarkArmyCommandHandler</c> copies the fleet's position and <c>MoveFleetCommandHandler</c>
-    /// carries it along) but is not drawn there — <see cref="DrawArmy"/> skips it — so it must not win
-    /// the click over the visible fleet carrying it (review round 1, B1).
-    /// </summary>
-    private ArmyState? FindArmyAt(int x, int y) =>
-        _session?.State.Armies.FirstOrDefault(a => a.X == x && a.Y == y && a.AboardFleetId is null);
-
-    private FleetState? FindFleetAt(int x, int y) =>
-        _session?.State.Fleets.FirstOrDefault(f => f.X == x && f.Y == y && !f.IsUnderConstruction);
+    // One visible set for picking and drawing; hidden cargo/building fleets cannot intercept input.
+    private IEnumerable<StrategicMarker> VisibleStrategicMarkers() => _session is null
+        ? Enumerable.Empty<StrategicMarker>()
+        : _session.State.Armies.Where(a => a.AboardFleetId is null)
+            .Select(a => new StrategicMarker(a.Id, StrategicMarkerKind.Army, a.X, a.Y))
+            .Concat(_session.State.Fleets.Where(f => !f.IsUnderConstruction)
+                .Select(f => new StrategicMarker(f.Id, StrategicMarkerKind.Fleet, f.X, f.Y)));
 
     public override void _Draw()
     {
@@ -1296,6 +1305,12 @@ public partial class GameMapView : Control
         DrawArc(center, radius, 0f, Mathf.Tau, 24, selected ? SelectedRingColor : CityRingColor, selected ? 2.5f : 1.2f);
     }
 
+    private Rect2 StrategicMarkerRect(StrategicMarker marker, float tileSize)
+    {
+        var bounds = StrategicMarkerGeometry.Bounds(marker, tileSize, _pan.X, _pan.Y);
+        return new Rect2(bounds.X, bounds.Y, bounds.Size, bounds.Size);
+    }
+
     private void DrawArmy(ArmyState army, float tileSize)
     {
         if (army.AboardFleetId is not null)
@@ -1303,9 +1318,8 @@ public partial class GameMapView : Control
             return;
         }
 
-        var center = TileCenter(army.X, army.Y, tileSize);
         var (background, foreground) = NationColors(army.Nation);
-        var half = Mathf.Max(tileSize * 0.4f, 2.5f);
+        var rect = StrategicMarkerRect(new(army.Id, StrategicMarkerKind.Army, army.X, army.Y), tileSize);
         var selected = string.Equals(army.Id, _selectedArmyId, StringComparison.Ordinal);
 
         // T94 (#454 item 3): the confirmed three-tier size marker -- MapMarkerKeys reads the ruleset's
@@ -1315,38 +1329,24 @@ public partial class GameMapView : Control
         {
             // T97: the original's marker -- the owner's background square with the silhouette tinted
             // in the owner's foreground colour; only a selected marker is outlined (in gold).
-            var rect = new Rect2(center - new Vector2(half, half), new Vector2(half, half) * 2f);
             DrawRect(rect, background);
             DrawTextureRect(texture, rect, false, foreground);
             if (selected)
             {
-                DrawRect(rect, SelectedRingColor, false, 2.5f);
+                DrawRect(rect.Grow(-1.25f), SelectedRingColor, false, 2.5f);
             }
 
             return;
         }
 
-        var points = new[]
-        {
-            center + new Vector2(0, -half),
-            center + new Vector2(half, 0),
-            center + new Vector2(0, half),
-            center + new Vector2(-half, 0),
-        };
-
-        DrawColoredPolygon(points, background);
-        var ringColor = selected ? SelectedRingColor : CityRingColor;
-        for (var i = 0; i < points.Length; i++)
-        {
-            DrawLine(points[i], points[(i + 1) % points.Length], ringColor, selected ? 2f : 1f);
-        }
+        DrawRect(rect, background);
+        DrawRect(rect.Grow(-1f), selected ? SelectedRingColor : CityRingColor, false, selected ? 2f : 1f);
     }
 
     private void DrawFleet(FleetState fleet, float tileSize)
     {
-        var center = TileCenter(fleet.X, fleet.Y, tileSize);
         var (background, foreground) = NationColors(fleet.Nation);
-        var radius = Mathf.Max(tileSize * 0.35f, 2f);
+        var rect = StrategicMarkerRect(new(fleet.Id, StrategicMarkerKind.Fleet, fleet.X, fleet.Y), tileSize);
         var selected = string.Equals(fleet.Id, _selectedFleetId, StringComparison.Ordinal);
 
         // T94: the confirmed three-tier fleet marker (ruleset's own 25/50 ship boundaries) -- the
@@ -1356,20 +1356,18 @@ public partial class GameMapView : Control
         {
             // T97: the original's marker -- the owner's background square with the silhouette tinted
             // in the owner's foreground colour; only a selected marker is outlined (in gold).
-            var rect = new Rect2(center - new Vector2(radius, radius), new Vector2(radius, radius) * 2f);
             DrawRect(rect, background);
             DrawTextureRect(texture, rect, false, foreground);
             if (selected)
             {
-                DrawRect(rect, SelectedRingColor, false, 2.5f);
+                DrawRect(rect.Grow(-1.25f), SelectedRingColor, false, 2.5f);
             }
 
             return;
         }
 
-        var fallbackRect = new Rect2(center - new Vector2(radius, radius), new Vector2(radius, radius) * 2f);
-        DrawRect(fallbackRect, background);
-        DrawRect(fallbackRect, selected ? SelectedRingColor : CityRingColor, false, selected ? 2f : 1f);
+        DrawRect(rect, background);
+        DrawRect(rect.Grow(-1f), selected ? SelectedRingColor : CityRingColor, false, selected ? 2f : 1f);
     }
 
     /// <summary>

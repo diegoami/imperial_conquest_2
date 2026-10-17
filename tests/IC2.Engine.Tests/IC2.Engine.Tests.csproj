@@ -149,6 +149,7 @@
       nowhere else. No `using Godot` anywhere; never a second, hand-maintained copy.
     -->
     <Compile Include="../../godot/UI/MapClickRules.cs" Link="Ui/MapClickRules.cs" />
+    <Compile Include="../../godot/UI/StrategicMarkerGeometry.cs" Link="Ui/StrategicMarkerGeometry.cs" />
     <Compile Include="../../godot/UI/SidePanelToggle.cs" Link="Ui/SidePanelToggle.cs" />
 
     <!--
