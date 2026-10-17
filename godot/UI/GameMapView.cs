@@ -1272,7 +1272,7 @@ public partial class GameMapView : Control
         }
 
         var markers = VisibleStrategicMarkers().ToArray();
-        var hovered = _markerPointer is { } pointer
+        var hovered = _markerPointer is { } pointer && new Rect2(Vector2.Zero, Size).HasPoint(pointer)
             ? StrategicMarkerGeometry.Pick(markers, pointer.X, pointer.Y, tileSize, _pan.X, _pan.Y)
             : null;
         // Idle ties have the same army-before-fleet / ordinal-id precedence as picking. Selected

@@ -66,4 +66,14 @@ public sealed class StrategicMarkerGeometryTests
         Assert.Equal(picked, StrategicMarkerGeometry.Pick(markers.Reverse(), 31.5f, 31.5f, 3, 0, 0));
     }
 
+
+    [Fact]
+    public void Selection_promotion_keeps_entity_kind_when_army_and_fleet_share_an_id()
+    {
+        var army = new StrategicMarker("shared", StrategicMarkerKind.Army, 10, 10);
+        var fleet = new StrategicMarker("shared", StrategicMarkerKind.Fleet, 11, 10);
+        Assert.Equal(fleet, StrategicMarkerGeometry.DrawOrder(new[] { fleet, army }, null, "shared", null).Last());
+        Assert.Equal(army, StrategicMarkerGeometry.DrawOrder(new[] { fleet, army }, "shared", null, null).Last());
+    }
+
 }

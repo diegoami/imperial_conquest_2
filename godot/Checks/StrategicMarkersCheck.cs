@@ -55,6 +55,20 @@ public partial class StrategicMarkersCheck : Control
         }
         _steps.Enqueue(() =>
         {
+            _map.ClearSelection();
+            _map.CentreOnTile(100, 60);
+            _map._GuiInput(new InputEventMouseMotion { Position = _map.TileCenterForCheck(100, 60) });
+        });
+        _steps.Enqueue(() =>
+        {
+            Check(_map.ForegroundMarkerForCheck == "army", "unselected hover starts on army");
+            _map.SetDrawnCellPixelsForCheck(32);
+            _map.CentreOnTile(110, 60);
+        });
+        _steps.Enqueue(() => Check(_map.ForegroundMarkerForCheck == "fleet",
+            "stationary pointer recomputes nearest target after zoom and pan, without stale hover"));
+        _steps.Enqueue(() =>
+        {
             _map.Size = new Vector2(720, 480);
             _map.CentreOnTile(0, 0);
         });
@@ -210,7 +224,7 @@ public partial class StrategicMarkersCheck : Control
                     positions.Add(($"fleet-tier{tier + 1}", 100 + (tier - 1) * spacing, 60 + spacing));
                 }
                 caption.Text = $"{prefix}: army tiers 1/2/3 above, fleet tiers 1/2/3 below. "
-                    + $"Actual cell {tile:0.00}px; {(before ? "former sizes replayed" : "24�48px designed boards")}.";
+                    + $"Actual cell {tile:0.00}px; {(before ? "former sizes replayed" : "24 to 48 px designed boards")}.";
                 Check(_map.LoadedPackIdForCheck == pack, $"window evidence uses real {pack} pack");
             });
             _steps.Enqueue(() => Capture(directory, prefix + "-unselected.png"));

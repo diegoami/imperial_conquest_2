@@ -59,7 +59,7 @@ public static class StrategicMarkerGeometry
         string? selectedArmy, string? selectedFleet, StrategicMarker? hovered) => markers
         .OrderByDescending(m => m.Kind)
         .ThenByDescending(m => m.Id, StringComparer.Ordinal)
-        .OrderBy(m => m.Id == selectedArmy || m.Id == selectedFleet ? 1 : 0)
+        .OrderBy(m => (m.Kind == StrategicMarkerKind.Army ? m.Id == selectedArmy : m.Id == selectedFleet) ? 1 : 0)
         .OrderBy(m => m == hovered ? 1 : 0);
 
 }
