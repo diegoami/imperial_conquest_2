@@ -693,3 +693,8 @@ $json = $json.Substring(0, $assetsClose) + ",`n" + ($battleLines -join ",`n") + 
 [System.IO.File]::WriteAllText($manifestPath, $json)
 
 Write-Host "Success: Generated placeholder asset pack at: $OutputPath"
+
+# T182: replace the legacy generic markers with reproducible recognizable geometry.
+# This writes only the 21 battle/army/fleet icons and preserves every other pack asset.
+& python (Join-Path $PSScriptRoot 'generate-unit-glyphs.py') --pack-dir $OutputPath
+if ($LASTEXITCODE -ne 0) { throw 'Unit glyph generation failed.' }
