@@ -68,6 +68,10 @@ public sealed class TacticalAftermathTests
         Assert.Equal(mode == "pursuit" ? 700 : 0, facts.PursuitLosses);
         Assert.Equal(mode is "escape" or "cap", loser is not null);
         Assert.Equal(JsonSerializer.Serialize(report with { Aftermath = null }), JsonSerializer.Serialize(report));
+        Assert.Equal(TacticalBattleSession.ReportLines(report with { Aftermath = null }, result.Game),
+            TacticalBattleSession.ReportLines(report, result.Game));
+        Assert.Equal(report with { Aftermath = null }, report);
+        Assert.Equal((report with { Aftermath = null }).GetHashCode(), report.GetHashCode());
         var model = BattleEndedViewModel.FromReport(report, result.Game, rules);
         Assert.Contains(model.AftermathLines, line => line.Contains("100 exchange casualties"));
         Assert.Contains(model.AftermathLines, line => line.Contains("routing does not mean every troop was killed"));

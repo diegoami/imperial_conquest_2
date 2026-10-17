@@ -45,6 +45,7 @@ public partial class TacticalAftermathCheck : Node
                 var result = TacticalWriteBack.CompleteSurvivors(initial, before, context, new Draws(), toy.World, NullEventSink.Instance);
                 var model = BattleEndedViewModel.FromReport(result.Report, result.Game, rules);
                 var screen = new BattleEndedScreen { Model = model };
+                screen.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
                 AddChild(screen);
                 await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
                 await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);

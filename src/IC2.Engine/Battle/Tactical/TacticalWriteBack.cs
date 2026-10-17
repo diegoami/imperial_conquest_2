@@ -52,9 +52,48 @@ public sealed record TacticalBattleReport(
     public TacticalBattleAftermath? Aftermath { get; init; }
     // Transient display facts do not change legacy report equality (including save/reopen comparisons).
     public bool Equals(TacticalBattleReport? other) => other is not null
-        && (WinnerSide, WinnerArmyId, LoserArmyId, WinnerNationId, LoserNationId, WinnerStartByType, WinnerStartTotal, WinnerFinishByType, WinnerFinishTotal, LoserStartByType, LoserStartTotal, CapturedMoney, CapturedSupplyTons, ExchangeLog, Promotions, LoserFinishByType, LoserFinishTotal, Capped).Equals((other.WinnerSide, other.WinnerArmyId, other.LoserArmyId, other.WinnerNationId, other.LoserNationId, other.WinnerStartByType, other.WinnerStartTotal, other.WinnerFinishByType, other.WinnerFinishTotal, other.LoserStartByType, other.LoserStartTotal, other.CapturedMoney, other.CapturedSupplyTons, other.ExchangeLog, other.Promotions, other.LoserFinishByType, other.LoserFinishTotal, other.Capped));
+        && Equals(WinnerSide, other.WinnerSide)
+        && Equals(WinnerArmyId, other.WinnerArmyId)
+        && Equals(LoserArmyId, other.LoserArmyId)
+        && Equals(WinnerNationId, other.WinnerNationId)
+        && Equals(LoserNationId, other.LoserNationId)
+        && Equals(WinnerStartByType, other.WinnerStartByType)
+        && Equals(WinnerStartTotal, other.WinnerStartTotal)
+        && Equals(WinnerFinishByType, other.WinnerFinishByType)
+        && Equals(WinnerFinishTotal, other.WinnerFinishTotal)
+        && Equals(LoserStartByType, other.LoserStartByType)
+        && Equals(LoserStartTotal, other.LoserStartTotal)
+        && Equals(CapturedMoney, other.CapturedMoney)
+        && Equals(CapturedSupplyTons, other.CapturedSupplyTons)
+        && Equals(ExchangeLog, other.ExchangeLog)
+        && Equals(Promotions, other.Promotions)
+        && Equals(LoserFinishByType, other.LoserFinishByType)
+        && Equals(LoserFinishTotal, other.LoserFinishTotal)
+        && Equals(Capped, other.Capped);
 
-    public override int GetHashCode() => (WinnerSide, WinnerArmyId, LoserArmyId, WinnerNationId, LoserNationId, WinnerStartByType, WinnerStartTotal, WinnerFinishByType, WinnerFinishTotal, LoserStartByType, LoserStartTotal, CapturedMoney, CapturedSupplyTons, ExchangeLog, Promotions, LoserFinishByType, LoserFinishTotal, Capped).GetHashCode();
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(WinnerSide);
+        hash.Add(WinnerArmyId);
+        hash.Add(LoserArmyId);
+        hash.Add(WinnerNationId);
+        hash.Add(LoserNationId);
+        hash.Add(WinnerStartByType);
+        hash.Add(WinnerStartTotal);
+        hash.Add(WinnerFinishByType);
+        hash.Add(WinnerFinishTotal);
+        hash.Add(LoserStartByType);
+        hash.Add(LoserStartTotal);
+        hash.Add(CapturedMoney);
+        hash.Add(CapturedSupplyTons);
+        hash.Add(ExchangeLog);
+        hash.Add(Promotions);
+        hash.Add(LoserFinishByType);
+        hash.Add(LoserFinishTotal);
+        hash.Add(Capped);
+        return hash.ToHashCode();
+    }
 
 }
 
@@ -369,6 +408,3 @@ public static class TacticalWriteBack
 
     private static string NationName(GameState game, string nationId) => game.NationById(nationId)?.Name ?? nationId;
 }
-
-
-

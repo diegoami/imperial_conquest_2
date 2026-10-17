@@ -102,4 +102,3 @@ public partial class BattleEndedScreen : Control
         texts.Add(text);
     }
 }
-

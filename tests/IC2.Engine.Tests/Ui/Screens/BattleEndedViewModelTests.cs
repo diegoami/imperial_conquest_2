@@ -90,4 +90,3 @@ public sealed class BattleEndedViewModelTests
         var (report, session) = Ended();
         Assert.Empty(BattleEndedViewModel.FromReport(report with { Aftermath = null }, session.State, session.Ruleset).AftermathLines);
     }}
-

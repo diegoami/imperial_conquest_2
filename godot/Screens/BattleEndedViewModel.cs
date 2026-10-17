@@ -112,5 +112,3 @@ public sealed record BattleEndedViewModel(
 
     private static int At(ValueList<int> byType, int index) => index < byType.Count ? byType[index] : 0;
 }
-
-
