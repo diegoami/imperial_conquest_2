@@ -62,7 +62,12 @@ public sealed record TacticalBattleView(
 /// <summary>The outcome of one human order of the battle: whether it was carried out, and the lines that say what happened.</summary>
 /// <param name="Accepted">Whether the order was carried out.</param>
 /// <param name="Lines">What to print.</param>
-public sealed record TacticalBattleOrderResult(bool Accepted, IReadOnlyList<string> Lines);
+public sealed record TacticalBattleOrderResult(bool Accepted, IReadOnlyList<string> Lines)
+{
+    /// <summary>The immutable batch for this order only, including automatic half-rounds and terminal frames.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public ValueList<TacticalBattleFrame> Timeline { get; init; } = ValueList<TacticalBattleFrame>.Empty;
+}
 
 /// <summary>
 /// A concluded battle: the game after the write-back, the <em>Battle ended</em> window's contents and the
@@ -104,6 +109,7 @@ public sealed record TacticalBattleConclusion(
 public sealed class TacticalBattleSession
 {
     private readonly TacticalContext _context;
+    private TacticalBattleTimeline _timeline;
     private readonly ITacticalGeneral _general = new ComputerGeneral();
     private readonly SplitMix64Rng _rng;
     private readonly string _attackerNationId;
@@ -117,6 +123,10 @@ public sealed class TacticalBattleSession
         string attackerNationId,
         string defenderNationId)
     {
+        // Keep the established five-argument construction seam used by deterministic golden replays.
+        // Open/Reopen hand off their already-running collector before exposing the session.
+        _timeline = new TacticalBattleTimeline(context, $"{battle.AttackerArmyId}:{battle.DefenderArmyId}",
+            attackerNationId, defenderNationId);
         _context = context;
         Battle = battle;
         _rng = rng;
@@ -236,7 +246,7 @@ public sealed class TacticalBattleSession
     /// <param name="opened">The game with the attacker's moves spent and the computer side's army changed.</param>
     /// <returns>The open battle.</returns>
     public static TacticalBattleSession Open(
-        GameState game, string attackerArmyId, string defenderArmyId, Ruleset ruleset, out GameState opened)
+        GameState game, string attackerArmyId, string defenderArmyId, Ruleset ruleset, out GameState opened, string? battleId = null)
     {
         ArgumentNullException.ThrowIfNull(game);
         ArgumentNullException.ThrowIfNull(ruleset);
@@ -247,6 +257,9 @@ public sealed class TacticalBattleSession
                        ?? throw new ArgumentException($"'{defenderArmyId}' is not a known army.", nameof(defenderArmyId));
 
         var context = TacticalContext.From(ruleset);
+        var timeline = new TacticalBattleTimeline(context,
+            battleId ?? StreamKey(attackerArmyId, defenderArmyId, game.Calendar.TurnIndex), attacker.Nation, defender.Nation);
+        context.Observer = timeline.Observe;
         var rng = SplitMix64Rng.ForStream(game.RandomSeed, StreamKey(attackerArmyId, defenderArmyId, game.Calendar.TurnIndex));
         var draws = new RngBattleDraws(rng);
 
@@ -260,8 +273,9 @@ public sealed class TacticalBattleSession
         var start = TacticalCopyIn.Start(spent, attackerArmyId, defenderArmyId, context, draws);
         var battle = TacticalDriver.Run(start.Battle, context, draws, new ComputerGeneral());
 
+        timeline.Observe(battle, null, new TacticalCaptureBoundary(TacticalFrameKind.Reconciliation));
         opened = start.Game;
-        return new TacticalBattleSession(context, battle, rng, attacker.Nation, defender.Nation);
+        return new TacticalBattleSession(context, battle, rng, attacker.Nation, defender.Nation) { _timeline = timeline };
     }
 
     /// <summary>
@@ -276,7 +290,7 @@ public sealed class TacticalBattleSession
     /// <param name="saved">The saved battle block.</param>
     /// <param name="exactRestore">Whether the ruleset asks for the exact-restore reload.</param>
     /// <returns>The reopened battle.</returns>
-    public static TacticalBattleSession Reopen(GameState game, Ruleset ruleset, SavedTacticalBattle saved, bool exactRestore)
+    public static TacticalBattleSession Reopen(GameState game, Ruleset ruleset, SavedTacticalBattle saved, bool exactRestore, string? battleId = null)
     {
         ArgumentNullException.ThrowIfNull(game);
         ArgumentNullException.ThrowIfNull(ruleset);
@@ -288,7 +302,11 @@ public sealed class TacticalBattleSession
         var defender = game.ArmyById(saved.DefenderArmyId)
                        ?? throw new ArgumentException($"The saved battle's army '{saved.DefenderArmyId}' is not in the game.", nameof(saved));
 
+        var timeline = new TacticalBattleTimeline(context,
+            battleId ?? StreamKey(saved.AttackerArmyId, saved.DefenderArmyId, game.Calendar.TurnIndex), attacker.Nation, defender.Nation);
+        context.Observer = timeline.Observe;
         var state = FromSaved(saved);
+        timeline.Observe(state, null);
         var rng = new SplitMix64Rng(saved.DrawState);
         var battle = exactRestore && saved.AtHalfRoundStart
             ? ExactRestore(state)
@@ -301,7 +319,8 @@ public sealed class TacticalBattleSession
             battle = TacticalDriver.Run(battle, context, new RngBattleDraws(rng), new ComputerGeneral());
         }
 
-        return new TacticalBattleSession(context, battle, rng, attacker.Nation, defender.Nation);
+        timeline.Observe(battle, null, new TacticalCaptureBoundary(TacticalFrameKind.Reconciliation));
+        return new TacticalBattleSession(context, battle, rng, attacker.Nation, defender.Nation) { _timeline = timeline };
     }
 
     /// <summary>
@@ -385,7 +404,7 @@ public sealed class TacticalBattleSession
     /// <param name="y">The row.</param>
     /// <returns>The outcome.</returns>
     public TacticalBattleOrderResult Place(int slot, int x, int y) =>
-        Apply(TacticalOrders.Place(Battle, slot, x, y, _context));
+        Apply(() => TacticalOrders.Place(Battle, slot, x, y, _context));
 
     /// <summary><c>battle move</c>: walks an own unit toward an empty cell.</summary>
     /// <param name="slot">The unit's slot.</param>
@@ -393,37 +412,37 @@ public sealed class TacticalBattleSession
     /// <param name="y">The row.</param>
     /// <returns>The outcome.</returns>
     public TacticalBattleOrderResult Move(int slot, int x, int y) =>
-        Apply(TacticalOrders.Move(Battle, slot, x, y, _context, _draws));
+        Apply(() => TacticalOrders.Move(Battle, slot, x, y, _context, _draws));
 
     /// <summary><c>battle attack</c>: sets an adjacent enemy as the unit's melee target.</summary>
     /// <param name="slot">The unit's slot.</param>
     /// <param name="enemy">The enemy's slot.</param>
     /// <returns>The outcome.</returns>
     public TacticalBattleOrderResult Attack(int slot, int enemy) =>
-        Apply(TacticalOrders.SetTarget(Battle, slot, enemy, _context));
+        Apply(() => TacticalOrders.SetTarget(Battle, slot, enemy, _context));
 
     /// <summary><c>battle shoot</c>: shoots an enemy within range.</summary>
     /// <param name="slot">The shooter's slot.</param>
     /// <param name="enemy">The enemy's slot.</param>
     /// <returns>The outcome.</returns>
     public TacticalBattleOrderResult Shoot(int slot, int enemy) =>
-        Apply(TacticalOrders.Shoot(Battle, slot, enemy, _context, _draws));
+        Apply(() => TacticalOrders.Shoot(Battle, slot, enemy, _context, _draws));
 
     /// <summary><c>battle clear</c>: clears an own unit's melee target.</summary>
     /// <param name="slot">The unit's slot.</param>
     /// <returns>The outcome.</returns>
     public TacticalBattleOrderResult Clear(int slot) =>
-        Apply(TacticalOrders.ClearTarget(Battle, slot, _context));
+        Apply(() => TacticalOrders.ClearTarget(Battle, slot, _context));
 
     /// <summary><c>battle end</c>: ends the half-round; the computer's half-rounds that follow are played.</summary>
     /// <returns>The outcome.</returns>
     public TacticalBattleOrderResult EndHalfRound() =>
-        Apply(TacticalOrders.EndHalfRound(Battle, _context, _draws, _general));
+        Apply(() => TacticalOrders.EndHalfRound(Battle, _context, _draws, _general));
 
     /// <summary><c>battle general on</c>: <em>Computer general</em> plays the side to move, and every half-round after it that is the computer's.</summary>
     /// <returns>The outcome.</returns>
     public TacticalBattleOrderResult GeneralOn() =>
-        Apply(TacticalOrders.ComputerGeneralOn(Battle, _context, _draws, _general));
+        Apply(() => TacticalOrders.ComputerGeneralOn(Battle, _context, _draws, _general));
 
     /// <summary>
     /// <c>battle general off</c>: turns <em>Computer general</em> off for every human side that has it on, so the next
@@ -432,6 +451,7 @@ public sealed class TacticalBattleSession
     /// <returns>The outcome.</returns>
     public TacticalBattleOrderResult GeneralOff()
     {
+        _timeline.BeginCommand();
         if (Battle.IsOver)
         {
             return new TacticalBattleOrderResult(false, new[] { "Refused: The battle is over." });
@@ -453,13 +473,13 @@ public sealed class TacticalBattleSession
             return new TacticalBattleOrderResult(false, new[] { "Refused: Computer general is not on for a human side." });
         }
 
-        return Apply(new TacticalOrderResult(state, null));
+        return ApplyResult(new TacticalOrderResult(state, null));
     }
 
     /// <summary><c>battle surrender</c>: the side to move surrenders and its units are removed.</summary>
     /// <returns>The outcome.</returns>
     public TacticalBattleOrderResult Surrender() =>
-        Apply(TacticalOrders.Surrender(Battle, _context, _draws));
+        Apply(() => TacticalOrders.Surrender(Battle, _context, _draws));
 
     /// <summary>The <c>battle show</c> lines: the header, both sides' units and the board.</summary>
     /// <returns>The lines.</returns>
@@ -691,7 +711,16 @@ public sealed class TacticalBattleSession
         return total;
     }
 
-    private TacticalBattleOrderResult Apply(TacticalOrderResult result)
+    /// <summary>Transfers opening/reopening frames exactly once; orders transfer their own batch in the result.</summary>
+    public ValueList<TacticalBattleFrame> DrainTimeline() => _timeline.Drain();
+
+    private TacticalBattleOrderResult Apply(Func<TacticalOrderResult> order)
+    {
+        _timeline.BeginCommand();
+        return ApplyResult(order());
+    }
+
+    private TacticalBattleOrderResult ApplyResult(TacticalOrderResult result)
     {
         if (!result.Accepted)
         {
@@ -700,9 +729,10 @@ public sealed class TacticalBattleSession
 
         var before = Battle.Log.Count;
         Battle = result.State;
+        _timeline.Observe(Battle, null, new TacticalCaptureBoundary(TacticalFrameKind.Reconciliation));
         var lines = new List<string>();
         Describe(Battle.Log.Skip(before), lines);
-        return new TacticalBattleOrderResult(true, lines);
+        return new TacticalBattleOrderResult(true, lines) { Timeline = _timeline.Drain() };
     }
 
     private string SideName(int side) => side == TacticalBattleState.AttackerSide ? "attacker" : "defender";

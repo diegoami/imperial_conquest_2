@@ -1,3 +1,4 @@
+using IC2.Engine.Presentation;
 namespace IC2.Engine.Battle.Tactical;
 
 /// <summary>
@@ -70,6 +71,10 @@ public static class TacticalRout
                 board.Remove(f, routed: true);
                 board.Log.Add(new TacticalCascadeRemovedEvent(f));
             }
+            else
+            {
+                board.Capture(TacticalFrameKind.Morale, f);
+            }
         }
 
         var enemies = board.FirstSlotOf(TacticalBoard.Other(side));
@@ -87,6 +92,8 @@ public static class TacticalRout
                 Target = enemy.Target == slot ? TacticalSlot.NoTarget : enemy.Target,
             };
         }
+
+        board.Capture(TacticalFrameKind.Morale);
 
         if (!board.HasLiveUnit(TacticalBattleState.AttackerSide) || !board.HasLiveUnit(TacticalBattleState.DefenderSide))
         {

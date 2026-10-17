@@ -50,6 +50,7 @@ public static class TacticalHalfRound
 
     internal static void ApplySetup(TacticalBoard board)
     {
+        board.Capture();
         var rules = board.Rules;
         var context = board.Context;
         var side = board.SideToMove;
