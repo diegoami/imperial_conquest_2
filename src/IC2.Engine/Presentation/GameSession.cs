@@ -932,8 +932,9 @@ public sealed partial class GameSession
         _battle = save.Battle is null
             ? null
             : TacticalBattleSession.Reopen(
-                State, Ruleset, save.Battle, TacticalBattleSession.RulesetAsksForExactRestore(Ruleset));
+                State, Ruleset, save.Battle, TacticalBattleSession.RulesetAsksForExactRestore(Ruleset), NextTacticalBattleIdentity());
         _pendingTacticalReport = null;
+        _pendingTacticalTimeline.Clear();
         _pendingSeatFalls.Clear();
         LastSeatFalls = Array.Empty<SeatFall>();
 
@@ -2063,7 +2064,7 @@ public sealed partial class GameSession
     {
         var attack = suspended.Command;
         _battle = TacticalBattleSession.Open(
-            suspended.AtAttack, attack.AttackerArmyId, attack.TargetArmyId, Ruleset, out var opened);
+            suspended.AtAttack, attack.AttackerArmyId, attack.TargetArmyId, Ruleset, out var opened, NextTacticalBattleIdentity());
         lap.AtAttack = suspended.AtAttack;
         lap.Opened = opened;
         _lap = lap;

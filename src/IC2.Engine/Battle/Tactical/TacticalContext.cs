@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+using IC2.Engine.Presentation;
 using IC2.Engine.Model;
 
 namespace IC2.Engine.Battle.Tactical;
@@ -17,6 +19,11 @@ namespace IC2.Engine.Battle.Tactical;
 public sealed class TacticalContext
 {
     private readonly int[] _matrixIndex;
+
+    /// <summary>Optional transient mutation observer; absent for ordinary engine/conformance calls.</summary>
+    [JsonIgnore]
+    public Action<TacticalBattleState, TacticalEvent?, TacticalCaptureBoundary?>? Observer { get; set; }
+
 
     private TacticalContext(Ruleset ruleset)
     {

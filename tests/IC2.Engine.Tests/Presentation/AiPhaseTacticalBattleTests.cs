@@ -54,6 +54,10 @@ public sealed class AiPhaseTacticalBattleTests
         Assert.Equal(TacticalBattleState.DefenderSide, opened.OpenBattleView.SideToMove);
         Assert.Contains(opened.Lines, l => l.Contains("the battle opens on the board", StringComparison.Ordinal));
         Assert.Equal("south", session.State.ActiveNationId);
+        Assert.Equal(TacticalFrameKind.Initial, opened.TacticalTimeline[0].Kind);
+        Assert.Equal(opened.OpenBattleView, opened.TacticalTimeline[^1].After.View);
+        Assert.All(opened.TacticalTimeline, f => Assert.Equal(0, f.CommandId));
+        Assert.Empty(session.Submit("battle show").TacticalTimeline);
         var preTurn = session.State;
 
         var events = new List<DomainEvent>();
@@ -62,6 +66,9 @@ public sealed class AiPhaseTacticalBattleTests
 
         Assert.Null(closed.OpenBattleView);
         Assert.NotNull(closed.EndedBattleReport);
+        Assert.Contains(closed.TacticalTimeline, f => f.Kind == TacticalFrameKind.Terminal);
+        Assert.Equal(TacticalFrameKind.Reconciliation, closed.TacticalTimeline[^1].Kind);
+        Assert.Equal(opened.TacticalTimeline[0].BattleId, closed.TacticalTimeline[^1].BattleId);
         Assert.Equal("north", session.State.ActiveNationId);
         Assert.Contains(closed.Lines, l => l.StartsWith("Now: Week", StringComparison.Ordinal));
         Assert.Contains(closed.Lines, l => l.Contains("takes its turn", StringComparison.Ordinal));
@@ -87,6 +94,10 @@ public sealed class AiPhaseTacticalBattleTests
         Assert.NotNull(second.EndedBattleReport);
         Assert.NotNull(second.OpenBattleView);
         var secondView = second.OpenBattleView!;
+        var nextOpening = Assert.Single(second.TacticalTimeline, f => f.Kind == TacticalFrameKind.Initial);
+        Assert.NotEqual(first.TacticalTimeline[0].BattleId, nextOpening.BattleId);
+        Assert.Contains(second.TacticalTimeline, f => f.Kind == TacticalFrameKind.Terminal && f.BattleId == first.TacticalTimeline[0].BattleId);
+        Assert.Equal(secondView, second.TacticalTimeline[^1].After.View);
         Assert.NotEqual(firstView.DefenderArmyId, secondView.DefenderArmyId);
         Assert.Equal("south", session.State.ActiveNationId);
         Assert.Equal(preTurn, session.State);
