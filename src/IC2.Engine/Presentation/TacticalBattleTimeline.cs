@@ -11,14 +11,20 @@ public enum TacticalFrameKind
 }
 
 /// <summary>An explicit boundary for mutations with no conformance event (for example projectile consumption).</summary>
-public sealed record TacticalCaptureBoundary(TacticalFrameKind Kind, int Actor = -1, int Target = -1);
+public sealed record TacticalCaptureBoundary(TacticalFrameKind? Kind = null, int Actor = -1, int Target = -1, ValueList<int>? PendingPlacementSlots = null);
 
 /// <summary>Stable identity within a battle; names are display data and never keys. TypeId selects audio/rules.</summary>
 public sealed record TacticalUnitIdentity(int Slot, int Side, string ArmyId, string NationId, string TypeId);
 
-/// <summary>A complete immutable board snapshot, including runtime controller, phase and general claim state.</summary>
+/// <summary>
+/// A complete immutable board snapshot, including runtime controller, phase and general claim state.
+/// PendingPlacementSlots are temporarily off-grid while the general rebuilds its formation; their coordinates
+/// retain their prior values until placed. All other live slots occupy their coordinates; stacked cells retain
+/// the authoritative icon of the last painted slot. Grid is always the actual working grid, never repainted.
+/// </summary>
 public sealed record TacticalPresentationSnapshot(
-    TacticalBattleView View, int Width, int Height, bool Capped, ValueList<int> GeneralClaims);
+    TacticalBattleView View, int Width, int Height, bool Capped, ValueList<int> GeneralClaims,
+    ValueList<int> PendingPlacementSlots);
 
 /// <summary>
 /// One ordered mutation. Before and After are coherent event-local snapshots, not reconstructed from a final
@@ -65,8 +71,9 @@ public sealed class TacticalBattleTimeline
                 state.SideToMove, state.Placed, state.Counter, state.IsOver,
                 ValueList.From(_context.Ruleset.UnitTypes.Select(t => t.Id)), state.Slots, state.Grid,
                 state.ComputerControlled, state.ComputerGeneral, state.Selected),
-            _context.Rules.BoardWidth, _context.Rules.BoardHeight, state.Capped, state.GeneralClaims);
-        if (evidence is TacticalDrawEvent || (evidence is null && boundary is null && snapshot == _last)) return;
+            _context.Rules.BoardWidth, _context.Rules.BoardHeight, state.Capped, state.GeneralClaims,
+            boundary?.PendingPlacementSlots ?? ValueList<int>.Empty);
+        if (evidence is TacticalDrawEvent || (evidence is null && boundary?.Kind is null && snapshot == _last)) return;
         var kind = _last is null ? TacticalFrameKind.Initial : boundary?.Kind ?? evidence switch
         {
             TacticalCopiedInEvent or TacticalPlacedEvent => TacticalFrameKind.Placement,

@@ -11,6 +11,7 @@ namespace IC2.Engine.Battle.Tactical;
 internal sealed class TacticalBoard
 {
     private readonly IBattleDraws? _draws;
+    private readonly bool[] _pendingPlacement;
 
     private TacticalBoard(TacticalBattleState state, TacticalContext context, IBattleDraws? draws)
     {
@@ -24,6 +25,7 @@ internal sealed class TacticalBoard
         IsOver = state.IsOver;
         Capped = state.Capped;
         Slots = state.Slots.ToArray();
+        _pendingPlacement = new bool[Slots.Length];
         Grid = state.Grid.ToArray();
         ComputerControlled = state.ComputerControlled.ToArray();
         ComputerGeneral = state.ComputerGeneral.ToArray();
@@ -91,7 +93,18 @@ internal sealed class TacticalBoard
 
     /// <summary>Captures silent mutations at explicit boundaries without changing the conformance trace.</summary>
     public void Capture(TacticalFrameKind? boundary = null, int actor = -1, int target = -1) =>
-        Context.Observer?.Invoke(Snapshot(), null, boundary is { } kind ? new TacticalCaptureBoundary(kind, actor, target) : null);
+        Context.Observer?.Invoke(Snapshot(), null, CaptureBoundary(boundary, actor, target));
+
+    public void BeginPlacement()
+    {
+        for (var s = FirstSlotOf(SideToMove); s < FirstSlotOf(SideToMove) + SlotsPerSide; s++)
+            _pendingPlacement[s] = IsLive(s);
+    }
+
+    public void Placed(int slot) => _pendingPlacement[slot] = false;
+
+    private TacticalCaptureBoundary CaptureBoundary(TacticalFrameKind? kind = null, int actor = -1, int target = -1) =>
+        new(kind, actor, target, ValueList.From(Enumerable.Range(0, Slots.Length).Where(s => _pendingPlacement[s])));
 
     public TacticalBattleState Freeze()
     {
@@ -239,7 +252,7 @@ internal sealed class TacticalBoard
         {
             base.Add(evidence);
             if (evidence is not TacticalDrawEvent)
-                _board.Context.Observer?.Invoke(_board.Snapshot(), evidence, null);
+                _board.Context.Observer?.Invoke(_board.Snapshot(), evidence, _board.CaptureBoundary());
         }
     }
 

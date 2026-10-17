@@ -1,3 +1,4 @@
+using IC2.Engine.Presentation;
 namespace IC2.Engine.Battle.Tactical.General;
 
 /// <summary>
@@ -59,6 +60,7 @@ public static class GeneralPlacement
         var side = board.SideToMove;
         var first = board.FirstSlotOf(side);
 
+        board.BeginPlacement();
         for (var s = first; s < first + board.SlotsPerSide; s++)
         {
             if (board.IsLive(s))
@@ -68,6 +70,7 @@ public static class GeneralPlacement
             }
         }
 
+        board.Capture(TacticalFrameKind.Placement);
         var formations = rules.PlacementFormations;
         var r = board.Draw(formations.Count);
 
@@ -125,6 +128,7 @@ public static class GeneralPlacement
                         }
                     }
                     board.Slots[s] = unit with { X = x, Y = y };
+                    board.Placed(s);
                     board.PaintIcon(s);
                     board.Log.Add(new TacticalPlacedEvent(s, unit.X, unit.Y, x, y));
                     journal?.Add(new GeneralDecision(s, GeneralStep.Placed, -1, x, y));
