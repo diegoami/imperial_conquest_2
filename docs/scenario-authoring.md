@@ -369,7 +369,7 @@ objects documented in their own subsections below.
 | `shipUpkeepPerQuarter` | integer | talents/ship | `ShipUpkeep`: quarterly fleet upkeep = `ships × this`. |
 | `mobilizationDecayPerQuarter` | integer | percentage points | `NationUnityUpdate.DecayMobilization`: mobilization lost each quarter, floored at 0. |
 | `unityCap` | integer | 0–this | The upper clamp every unity-changing formula in the engine respects. |
-| `purseCapPerUnit` | integer | talents | Maximum money an army/fleet purse may hold; `AutomaticResupply` sends any excess to the treasury. |
+| `purseCapPerUnit` | integer | talents | Supply-dialog transfer cap; own-city automatic army/designed-fleet support sweeps excess to treasury. Original-mode fleets do not sweep surplus. |
 | `supplyTonsPerTalent` | integer | tons/talent | Conversion rate for a paid supply purchase (`SupplyPurchase`, `AutomaticResupply`). |
 | `armySupplyTonsPerTroops` | integer | divisor | `SupplyCapacity.ArmyCapacityTons`: an army's supply capacity = `troops / this`. |
 | `fleetSupplyTonsPerShip` | integer | tons/ship | `SupplyCapacity.FleetCapacityTons`: a fleet's supply capacity = `ships × this`. |
@@ -390,9 +390,14 @@ objects documented in their own subsections below.
 | `supplyMorale` | object | — | The supply→strategic-morale rule. See "Supply morale" below. |
 | `weather` | object | — | The weekly rough-sea overlay: odds, radii, and fleet costs. See "Weather events" below. |
 | `supplyDialogArmyCapacityBonus` | integer | tons | Added to `armySupplyTonsPerTroops`'s capacity for the supply *dialog's* transfer cap only (both the free own-city and paid foreign paths); every other supply writer uses the plain capacity. |
-| `autoResupplyPurseTopUpThreshold` | integer | talents | `AutomaticResupply`: below this purse balance (and a positive treasury), the unit's purse is topped up. |
-| `autoResupplyPurseTopUpAmount` | integer | talents | The flat top-up `AutomaticResupply` grants when the threshold above is met. |
-| `autoResupplyRadiusTiles` | integer | tiles (Chebyshev) | Every AI turn, each AI army/fleet runs automatic resupply against every non-hostile city within this radius. |
+| `autoResupplyPurseTopUpThreshold` | integer | talents | Army/designed-mode fleet own-city support: strictly below this purse balance and positive treasury, add the grant. Original fleets use the faithful fleet fields below. |
+| `autoResupplyPurseTopUpAmount` | integer | talents | The additive army/designed-mode fleet grant when the threshold above is met; original fleets use `faithfulFleetPurseTopUpAmount`. |
+| `autoResupplyRadiusTiles` | integer | tiles (Chebyshev) | Inclusive Chebyshev radius for armies/designed-mode fleets. Original fleets use strict `faithfulFleetResupplyDistanceBelow`. |
+| `faithfulFleetResupplyDistanceBelow` | integer | tiles (Chebyshev) | Caller distance strictly below this positive bound. Default 4; selected by `flags.aiEconomy=original` only. Code evidence: research500e521, `2026-10-16-strategic-ai-regions-resupply.md`, `FUN_0044e5dc`; staged Wine controls, native Windows confirmation open. |
+| `faithfulFleetPurseTopUpThreshold` | integer | talents | Grant when purse strictly below this positive threshold. Default 100; selected by `flags.aiEconomy=original` only. Code evidence: research500e521, `2026-10-16-strategic-ai-regions-resupply.md`, `FUN_0044f7e4`; staged Wine controls, native Windows confirmation open. |
+| `faithfulFleetPurseTopUpAmount` | integer | talents | Positive additive grant, debited from treasury before repair; threshold-minus-one plus grant must fit 32,767. Default 100; selected by `flags.aiEconomy=original` only. Code evidence: research500e521, `2026-10-16-strategic-ai-regions-resupply.md`, `FUN_0044f7e4`; staged Wine controls, native Windows confirmation open. |
+| `faithfulFleetTreasuryAbove` | integer | talents | Grant only when treasury strictly above this positive threshold; does not gate repair. Default 100; selected by `flags.aiEconomy=original` only. Code evidence: research500e521, `2026-10-16-strategic-ai-regions-resupply.md`, `FUN_0044f7e4`; staged Wine controls, native Windows confirmation open. |
+| `faithfulFleetRepairConditionBelow` | integer | percent | Repair when condition strictly below this positive threshold, at most `naval.maxConditionPercent`; restore that ceiling for truncated points × ships / `naval.repairCostDivisor`, even at negative treasury. Default 95; selected by `flags.aiEconomy=original` only. Code evidence: research500e521, `2026-10-16-strategic-ai-regions-resupply.md`, `FUN_0044f7e4`; staged Wine controls, native Windows confirmation open. |
 | `commandAdjacencyRadiusTiles` | integer | tiles (Chebyshev, `<=`) | The one-tile adjacency test shared by the four supply-purchase command handlers, fleet repair/scuttle, and disembarkation's landing-tile check. |
 | `taxBaseContributionMultiplier` | integer | multiplier | `NationTaxBaseRebuild`/`CityOwnershipTaxTransfer`: a city's tax-base contribution (`tribute × population / maxPopulation`) is multiplied by this before being summed into its owner's tax base. |
 | `wealthPerPopulationThousand` | integer | talents per 1,000 pop | A city's wealth contribution to its owner = `populationThousands × this`. |
@@ -557,10 +562,10 @@ in `src/IC2.Engine/Model/Ruleset.cs`.
 | `launchConditionPercent` | integer | 0–100 | Condition a fleet launches at once construction completes. |
 | `launchSupplyTons` | integer | tons | Supply a fleet launches with. |
 | `transportTroopsPerShip` | integer | troops/ship | Troop-carrying capacity per ship. |
-| `repairCostDivisor` | integer | divisor | Divisor used to compute a repair order's talent cost from condition restored. |
+| `repairCostDivisor` | integer | divisor | Divisor for manual repair and original-mode automatic own-city fleet support: truncated condition points restored × ships / divisor. |
 | `joinMaxShips` | integer | ships | A fleet join that would exceed this many ships is refused. |
 | `splitMinShips` | integer | ships | A fleet with fewer than this many ships cannot be split. |
-| `maxConditionPercent` | integer | 0–100 | The condition ceiling (repair cannot exceed it). |
+| `maxConditionPercent` | integer | 0–100 | The condition ceiling for manual repair and original-mode automatic own-city support. |
 | `stormDamageRandomDivisor` | integer | divisor | Base storm roll: `dmg = max(1, Random(100 − condition) / this)`, run on every launched fleet every turn. |
 | `stormWinterDamageMultiplier` / `stormWinterDamageCap` | integer | multiplier / cap | Doubles the roll in Winter, held to this cap, before the coast test. |
 | `stormTripleDamageMultiplier` / `stormTripleDamageCap` | integer | multiplier / cap | Triples the roll instead when `stormTripleConditionTileCode`'s predicate holds. |
