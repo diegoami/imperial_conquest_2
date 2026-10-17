@@ -95,7 +95,7 @@ def motif(name):
         d.line([(13,1),(13,18)], fill=WHITE, width=2)
         d.polygon([(15,3),(23,15),(15,15)], fill=WHITE)
         d.polygon([(11,5),(3,15),(11,15)], fill=WHITE)
-        d.line([(4,26),(22,26)], fill=WHITE, width=1)
+        d.line([(4,25),(22,25)], fill=WHITE, width=1)
     else:
         raise ValueError(name)
     return image
@@ -158,7 +158,7 @@ def boards(directory):
                 im=glyph(key)
                 if palette:
                     pixels=[]
-                    for p in im.getdata():
+                    for p in (im.get_flattened_data() if hasattr(im, "get_flattened_data") else im.getdata()):
                         if key.startswith("battle."):
                             pixels.append(dict(zip((PURPLE,WHITE,BLUE),palette)).get(p,p))
                         else:
@@ -171,9 +171,26 @@ def boards(directory):
                     x+=size+12
                 x+=24
         board.save(directory / f"{pack}-glyphs.png")
+        # Actual map renderer lower bounds: army 2*2.5px, fleet 2*2px.
+        minimums = Image.new("RGB", (850, 550), (38,43,48))
+        md = ImageDraw.Draw(minimums)
+        md.text((12,12),f"{pack}: actual map lower bounds | army 5px, fleet 4px | enlarged views are inspection only",fill="white")
+        for row,key in enumerate(k for k in keys() if not k.startswith("battle.")):
+            y = 55 + row*80
+            md.text((12,y+8),key,fill="white")
+            x = 165
+            for size in (4,5,8,16,24,32,64):
+                im = glyph(key).resize((size,size),NEAREST)
+                md.rectangle((x,y,x+size-1,y+size-1),fill=(86,100,68))
+                minimums.paste(im,(x,y),im)
+                md.text((x,y+66),str(size),fill="white")
+                x += size+40
+        minimums.save(directory / f"{pack}-strategic-minimums.png")
     (directory / "README.txt").write_text(
         "Owner-designed review boards, not original-game evidence. Both packs intentionally share glyphs.\n"
         "16/24px are stress views; 32px is native, 64px is inspection magnification.\n"
+        "Strategic-minimums boards include actual map lower bounds (army5px/fleet4px).\n"
+        "At these overview sizes motif recognition is limited; review the real zoomed context too.\n"
         "Owner A/B illustrate three battle anchors; strategic views use existing single-colour tint.\n"
         "Human recognition/readability approval is required. Selection/actor/target overlay context\n"
         "requires T180 integration and actual windowed captures; these boards do not replace it.\n", encoding="utf-8")

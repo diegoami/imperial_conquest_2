@@ -275,7 +275,9 @@ public class PlaceholderPackIntegrationTests
             // T101: the ui.command.* stand-ins are 32-bit BGRA (section 1.2's chrome rule and
             // the key's own format); the pre-T101 placeholder markers and tiles stay their
             // shipped 24-bit shape.
-            var expectedBitCount = key.StartsWith("ui.command.", StringComparison.Ordinal) ? 32 : 24;
+            var expectedBitCount = key.StartsWith("ui.command.", StringComparison.Ordinal) ||
+                                   key.StartsWith("army.", StringComparison.Ordinal) ||
+                                   key.StartsWith("fleet.", StringComparison.Ordinal) ? 32 : 24;
             ValidateBMPStructure(fullPath, key, expectedBitCount);
         }
     }
