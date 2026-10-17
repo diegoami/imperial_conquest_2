@@ -57,6 +57,7 @@ move mac-merc 141 48
 hire-mercenary mac-merc 25
 end
 attack-army mac-detached army-14
+peace-yes
 end
 end
 split-fleet mac-fleet-1 mac-fleet-2 10
@@ -67,7 +68,6 @@ repair-fleet mac-fleet-1 1
 split-fleet mac-fleet-1 mac-fleet-keep 13
 end
 end
-peace-yes
 end
 status
 news
