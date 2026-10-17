@@ -392,6 +392,167 @@ public sealed class TacticalBattleTimelineTests
         Assert.Empty(session.Submit("help").TacticalTimeline);
     }
 
+    [Fact]
+    public void Handoff_lines_only_human_adapter_keeps_the_opening_batch_and_clears_on_every_later_submission()
+    {
+        var session = TacticalSessionTestbed.ToySession(HumanBattleMode.Tactical);
+        Assert.Empty(LastTimeline(session));
+        Assert.Empty(InitialTimeline(session));
+        // The real map adapter's transport: retain rendered lines, discard SessionOutput.
+        var lines = SubmitLines(session, "attack-army north-army-1 south-army-1");
+        Assert.Contains(lines, l => l.Contains("the battle opens on the board", StringComparison.Ordinal));
+        Assert.NotNull(session.OpenTacticalBattle);
+        var opening = LastTimeline(session);
+        Assert.NotEmpty(opening);
+        Assert.Equal(TacticalFrameKind.Initial, opening[0].Kind);
+        Assert.Equal(session.OpenTacticalBattle, opening[^1].After.View);
+        Assert.Empty(InitialTimeline(session));
+        var archived = GameJson.Serialize(opening);
+        foreach (var command in new[] { "battle show", "battle place 20 4 1", "help", "", "  " })
+        {
+            var output = session.Submit(command);
+            Assert.Empty(output.TacticalTimeline);
+            Assert.Empty(LastTimeline(session));
+            Assert.Empty(InitialTimeline(session));
+        }
+        session.Submit("battle surrender yes");
+        Assert.Equal(archived, GameJson.Serialize(opening));
+    }
+
+    [Fact]
+    public void Handoff_lines_only_AI_adapter_keeps_opening_and_terminal_batches()
+    {
+        var session = TacticalSessionTestbed.ToySession(HumanBattleMode.Tactical, armies: TacticalSessionTestbed.WeakAttacker());
+        SubmitLines(session, "declare-war south");
+        SubmitLines(session, "end");
+        var opening = LastTimeline(session);
+        Assert.NotEmpty(opening);
+        Assert.Equal("north", session.OpenTacticalBattle!.DefenderNationId);
+        Assert.Equal(session.OpenTacticalBattle, opening[^1].After.View);
+        Assert.Empty(InitialTimeline(session));
+        SubmitLines(session, "battle general on");
+        var terminal = LastTimeline(session);
+        Assert.Null(session.OpenTacticalBattle);
+        Assert.Contains(terminal, f => f.Kind == TacticalFrameKind.Terminal);
+        Assert.Equal(opening[0].BattleId, terminal[^1].BattleId);
+        Assert.Empty(InitialTimeline(session));
+        Assert.Empty(session.Submit("help").TacticalTimeline);
+        Assert.Empty(LastTimeline(session));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Handoff_reopened_constructor_exposes_opening_before_any_command_without_draining_it(bool automatic)
+    {
+        var source = TacticalSessionTestbed.ToySession(HumanBattleMode.Tactical,
+            armies: automatic ? TacticalSessionTestbed.WeakAttacker() : null);
+        if (automatic)
+        {
+            source.Submit("declare-war south");
+            source.Submit("end");
+        }
+        else source.Submit("attack-army north-army-1 south-army-1");
+        var saved = SaveOf(source);
+        if (automatic) saved = saved with { Battle = saved.Battle! with { SideToMove = 0 } };
+        var session = new GameSession(source.World, source.Ruleset, source.Scenario, saved);
+        Assert.NotNull(session.OpenTacticalBattle);
+        Assert.Empty(LastTimeline(session));
+        var battleBeforeRead = Battle(session)!.ToSaved();
+        var initial = InitialTimeline(session);
+        Assert.NotEmpty(initial);
+        Assert.Equal(TacticalFrameKind.Initial, initial[0].Kind);
+        Assert.All(initial, f => Assert.Equal(0, f.CommandId));
+        Assert.Equal(session.OpenTacticalBattle, initial[^1].After.View);
+        Assert.Equal(initial, InitialTimeline(session));
+        Assert.Equal(battleBeforeRead, Battle(session)!.ToSaved());
+        if (automatic)
+        {
+            Assert.Contains(initial, f => f.Kind == TacticalFrameKind.Movement);
+            Assert.Contains(initial, f => f.Event is TacticalPlacedEvent);
+        }
+        var archived = GameJson.Serialize(initial);
+        var first = session.Submit("battle show");
+        Assert.Equal(initial, first.TacticalTimeline);
+        Assert.Same(first.TacticalTimeline, LastTimeline(session));
+        Assert.Empty(InitialTimeline(session));
+        Assert.Empty(session.Submit("battle show").TacticalTimeline);
+        Assert.Empty(LastTimeline(session));
+        session.Submit("battle surrender yes");
+        Assert.Equal(archived, GameJson.Serialize(initial));
+    }
+
+    [Fact]
+    public void Handoff_peeking_before_first_mutating_order_preserves_the_existing_output_batch_and_save()
+    {
+        var source = TacticalSessionTestbed.ToySession(HumanBattleMode.Tactical);
+        source.Submit("attack-army north-army-1 south-army-1");
+        var saved = SaveOf(source);
+        var peeked = new GameSession(source.World, source.Ruleset, source.Scenario, saved);
+        var untouched = new GameSession(source.World, source.Ruleset, source.Scenario, saved);
+        var initial = InitialTimeline(peeked);
+        Assert.NotEmpty(initial);
+        Assert.Equal(initial, InitialTimeline(peeked));
+        var actual = peeked.Submit("battle place 0 4 1");
+        var expected = untouched.Submit("battle place 0 4 1");
+        Assert.Equal(expected.Lines, actual.Lines);
+        Assert.Equal(expected.OpenBattleView, actual.OpenBattleView);
+        Assert.Equal(expected.EndedBattleReport, actual.EndedBattleReport);
+        Assert.Equal(expected.TacticalTimeline, actual.TacticalTimeline);
+        Assert.Equal(initial, ValueList.From(actual.TacticalTimeline.Take(initial.Count)));
+        Assert.Same(actual.TacticalTimeline, LastTimeline(peeked));
+        Assert.Equal(Battle(untouched)!.ToSaved(), Battle(peeked)!.ToSaved());
+        Assert.Empty(InitialTimeline(peeked));
+        Assert.Empty(peeked.Submit("battle show").TacticalTimeline);
+        Assert.Empty(LastTimeline(peeked));
+    }
+
+    [Fact]
+    public void Handoff_loading_and_second_battles_replace_stale_batches_without_retaining_full_history()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "ic2-handoff", Path.GetRandomFileName());
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var session = TacticalSessionTestbed.ToySession(HumanBattleMode.Tactical);
+            var plain = Path.Combine(directory, "plain.json");
+            var middle = Path.Combine(directory, "middle.json");
+            session.Submit($"save {plain}");
+            var first = session.Submit("attack-army north-army-1 south-army-1");
+            Assert.Same(first.TacticalTimeline, LastTimeline(session));
+            session.Submit($"save {middle}");
+            Assert.Empty(LastTimeline(session));
+            var closed = session.Submit("battle surrender yes");
+            Assert.Null(closed.OpenBattleView);
+            Assert.Same(closed.TacticalTimeline, LastTimeline(session));
+            var restored = session.Submit($"load {middle}");
+            Assert.NotEmpty(restored.TacticalTimeline);
+            Assert.Same(restored.TacticalTimeline, LastTimeline(session));
+            Assert.Empty(InitialTimeline(session));
+            Assert.NotEqual(first.TacticalTimeline[0].BattleId, restored.TacticalTimeline[0].BattleId);
+            Assert.All(LastTimeline(session), f => Assert.Equal(restored.TacticalTimeline[0].BattleId, f.BattleId));
+            session.Submit("battle surrender yes");
+            var loaded = session.Submit($"load {plain}");
+            Assert.Empty(loaded.TacticalTimeline);
+            Assert.Empty(LastTimeline(session));
+            Assert.Empty(InitialTimeline(session));
+            var next = session.Submit("attack-army north-army-1 south-army-1");
+            Assert.Same(next.TacticalTimeline, LastTimeline(session));
+            Assert.NotEqual(restored.TacticalTimeline[0].BattleId, next.TacticalTimeline[0].BattleId);
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
+    private static IReadOnlyList<string> SubmitLines(GameSession session, string command) => session.Submit(command).Lines;
+
+    private static ValueList<TacticalBattleFrame> LastTimeline(GameSession session) => session.LastTacticalTimeline;
+
+    private static ValueList<TacticalBattleFrame> InitialTimeline(GameSession session) => session.InitialTacticalTimeline;
+
+    private static SaveGame SaveOf(GameSession session) => new(
+        GameDataSchema.CurrentVersion, "handoff", "Handoff", session.Scenario.Id, session.World.Id,
+        session.Ruleset.Id, session.State, Battle: Battle(session)!.ToSaved());
+
     private static TacticalBattleSession? Battle(GameSession session) =>
         (TacticalBattleSession?)typeof(GameSession).GetField("_battle", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(session);
 

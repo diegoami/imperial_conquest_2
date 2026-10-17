@@ -369,6 +369,7 @@ public sealed partial class GameSession
         if (_battle is not null) _pendingTacticalTimeline.AddRange(_battle.DrainTimeline());
         var timeline = IC2.Engine.Model.ValueList.From(_pendingTacticalTimeline);
         _pendingTacticalTimeline.Clear();
+        LastTacticalTimeline = timeline;
         return output with { OpenBattleView = _battle?.View(), EndedBattleReport = report, TacticalTimeline = timeline };
     }
 
