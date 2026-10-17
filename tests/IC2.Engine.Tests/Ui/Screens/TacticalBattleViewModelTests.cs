@@ -443,7 +443,7 @@ public sealed class TacticalBattleViewModelTests
     }
 
     [Fact]
-    public void Post_exchange_setup_retains_combatant_identity_with_all_values_from_fully_updated_round_snapshot()
+    public void Exchange_effects_and_setup_retain_combatant_roles_with_values_from_fully_updated_snapshot()
     {
         var (session, _, display) = Opened();
         var output = session.BattleGeneral(true);
@@ -451,7 +451,8 @@ public sealed class TacticalBattleViewModelTests
         var setups = 0;
         queue.FrameEntered += frame =>
         {
-            if (frame.Kind != TacticalFrameKind.Setup || queue.CurrentExchange is null) return;
+            if (frame.Kind is not (TacticalFrameKind.Setup or TacticalFrameKind.Rout or TacticalFrameKind.Cascade or TacticalFrameKind.Removal)
+                || queue.CurrentExchange is null) return;
             var model = TacticalBattleViewModel.FromSnapshot(frame.After, display, frame: frame,
                 currentExchange: queue.CurrentExchange, previousExchange: queue.PreviousExchange, perspectiveSide: 0);
             Assert.Equal(queue.CurrentExchange.Actor!.Slot, model.ActorSlot);
@@ -470,7 +471,7 @@ public sealed class TacticalBattleViewModelTests
             });
             Assert.Equal(frame.After.View.Grid, model.Cells.Select(c => c.Code));
             Assert.False(model.ResolvingHalfRound);
-            setups++;
+            if (frame.Kind == TacticalFrameKind.Setup) setups++;
         };
         queue.Begin(output.TacticalTimeline);
         Assert.True(setups > 1);

@@ -229,11 +229,16 @@ public sealed class TacticalBattleViewModel
     public TacticalBattleFrame? CurrentExchange { get; private set; }
     public TacticalBattleFrame? PreviousExchange { get; private set; }
     public bool ResolvingHalfRound { get; private set; }
-    // A setup/reconciliation has no new actor. Keep the current exchange's identities, but read their
-    // freshly reset/removed values below from this displayed snapshot, never from the exchange's old state.
-    public int ActorSlot => DisplayedFrame?.Actor?.Slot ?? CurrentExchange?.Actor?.Slot ?? -1;
-    public int TargetSlot => DisplayedFrame?.Actor is not null
-        ? DisplayedFrame.Target?.Slot ?? -1 : CurrentExchange?.Target?.Slot ?? -1;
+    // Rout/cascade/removal are effects of the current exchange, not a reversal of its actor/target.
+    // Keep those identities through housekeeping and Setup; all numbers still read the displayed snapshot.
+    private TacticalBattleFrame? ParticipantFrame => CurrentExchange is not null
+        && DisplayedFrame?.Kind is (TacticalFrameKind.Rout or TacticalFrameKind.Cascade or TacticalFrameKind.Removal
+            or TacticalFrameKind.Morale or TacticalFrameKind.Setup or TacticalFrameKind.HalfRound
+            or TacticalFrameKind.Terminal or TacticalFrameKind.Reconciliation or TacticalFrameKind.CapWithdrawal)
+        ? CurrentExchange : DisplayedFrame;
+    public int ActorSlot => ParticipantFrame?.Actor?.Slot ?? CurrentExchange?.Actor?.Slot ?? -1;
+    public int TargetSlot => ParticipantFrame?.Actor is not null
+        ? ParticipantFrame.Target?.Slot ?? -1 : CurrentExchange?.Target?.Slot ?? -1;
 
     /// <summary>Explicit phase/controller caption; HalfRound is not a completed next-round setup.</summary>
     public string ControllerText => ResolvingHalfRound
