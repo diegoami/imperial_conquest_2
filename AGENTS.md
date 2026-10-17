@@ -13,6 +13,12 @@ or implementer. Preserve the brief's Owns list, worktree, HEAD and output format
 
 For Codex:
 
+- The command tool already runs PowerShell. Run routine `git`, `gh`, build and
+  read commands directly with the tool's working-directory argument; use
+  `pwsh -File` or `pwsh -Command` only when a separate PowerShell process is
+  necessary, such as when a script requires process isolation or a different
+  PowerShell version. Keep local writes and network operations in separate
+  tool calls when practical so reusable command approvals can match them.
 - Repository skills are under `.agents/skills/`: `$run-task`, `$process-evidence`
   and `$parse-recording`. Read only the applicable skill and contract sections.
   Claude's local `.claude/skills/` installs and permissions stay independent.
