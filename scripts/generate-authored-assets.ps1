@@ -1,7 +1,7 @@
 #Requires -Version 5.0
 <#
 .SYNOPSIS
-Thin wrapper for scripts/generate-authored-assets.py (T51).
+Thin wrapper for scripts/generate-authored-assets.py (T51/T182).
 
 .DESCRIPTION
 Forwards every argument to the Python generator. The generator is dry-run by
@@ -9,12 +9,15 @@ default; a real, billable run needs --key <AssetKey> (repeatable) or --all, and
 reads its endpoint, model and API key from assets-generator.local.ini (git-ignored,
 never committed, never printed) or the OPENROUTER_API_KEY environment variable.
 
+Battle unit and army/fleet tier keys use deterministic local T182 geometry, including
+--reconform, with no raw image, model configuration, API key or network required.
+
 Requires Python 3 with Pillow on PATH (Pillow is a generator-time dependency
 only, not a build or CI dependency).
 
 .EXAMPLE
 ./scripts/generate-authored-assets.ps1                    # dry run: prompts, counts, models, cost
-./scripts/generate-authored-assets.ps1 --key army.tier1.icon   # real run: regenerate one key
+./scripts/generate-authored-assets.ps1 --key army.tier1.icon   # free deterministic geometry: regenerate one key
 ./scripts/generate-authored-assets.ps1 --all              # real run: the full pack (22 billable images)
 ./scripts/generate-authored-assets.ps1 --reconform        # OFFLINE and free: rebuild the pack from rendered/authored-raw/
 #>

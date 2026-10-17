@@ -54,6 +54,7 @@ test reads committed BMPs and needs neither).
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import base64
 import configparser
 import io
@@ -2060,6 +2061,27 @@ def main(argv: list | None = None) -> int:
     if args.self_check:
         return 1 if self_check() else 0
 
+    # T182: these owner-designed icons are always regenerated locally. Dispatch before
+    # configuration/network preflight, including --reconform with no old raw image.
+    if args.all and args.key:
+        selection = list(entries)
+    spec = importlib.util.spec_from_file_location("unit_glyphs", os.path.join(REPO_ROOT, "scripts", "generate-unit-glyphs.py"))
+    unit_glyphs = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(unit_glyphs)
+    native_keys = set(unit_glyphs.keys())
+    native = [entry for entry in selection if entry["key"] in native_keys]
+    if native:
+        write = (args.reconform or args.all or bool(args.key)) and not args.dry_run
+        for entry in native:
+            if write:
+                unit_glyphs.write_key(args.out, entry["key"])
+            print(f"  {'generated' if write else 'would generate'} {entry['key']} (T182 native geometry, free)")
+        if write:
+            write_manifest(args.out, entries, {entry["key"] for entry in native})
+        selection = [entry for entry in selection if entry["key"] not in native_keys]
+        if not selection:
+            return 0
+
     if args.reconform:
         return run_reconform(entries, selection, args.out, args.raw,
                              write=not args.dry_run)
@@ -2077,7 +2099,7 @@ def main(argv: list | None = None) -> int:
 
     if args.all and args.key:
         print("note: --all and --key given together - regenerating every key.")
-        selection = list(entries)
+        selection = [entry for entry in entries if entry["key"] not in native_keys]
 
     config = load_config(args.config)
     return run_real(config, entries, selection, args.out, args.prompts, args.raw)
