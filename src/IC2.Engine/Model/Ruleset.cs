@@ -224,7 +224,7 @@ public sealed record TerrainRules(
 /// <para>
 /// <see cref="AutoResupplyPurseTopUpThreshold"/> and <see cref="AutoResupplyPurseTopUpAmount"/> were added
 /// by T38 (<c>supply-capacity-rounding.md</c> [derived], <c>FUN_0044F6D8</c> lines 53091-53104):
-/// automatic resupply at an army's or fleet's own city, after the free ton transfer, grants a flat
+/// automatic resupply at an army's or designed-mode fleet's own city, after the free ton transfer, grants a flat
 /// <see cref="AutoResupplyPurseTopUpAmount"/> from the treasury when the purse is under
 /// <see cref="AutoResupplyPurseTopUpThreshold"/> and the treasury is positive — a real transfer, not
 /// invented money, so the treasury pays for exactly what the purse gains. The mirror case (a purse over
@@ -240,7 +240,7 @@ public sealed record TerrainRules(
 /// the only <c>EconomyRules</c> change that task's Owns list grants):
 /// <see cref="AutoResupplyRadiusTiles"/>. Every AI turn, each AI army runs
 /// <see cref="IC2.Engine.Economy.AutomaticResupply.ForArmy"/> against every non-hostile city within this
-/// many tiles, and each AI fleet runs the fleet twin — <c>FUN_0044F31C</c> calling <c>FUN_0044E41C</c>,
+/// many tiles, and each designed-mode AI fleet runs the fleet twin — <c>FUN_0044F31C</c> calling <c>FUN_0044E41C</c>,
 /// <c>supply-capacity-rounding.md</c>. The radius is <em>data</em>, not a literal, because the AI pass is
 /// the one caller that ranges beyond the supply dialog's own confirmed one-tile provider radius, and
 /// because the two existing hardcoded radii (<c>BuySupplyCommandHandler.cs:101</c> and its fleet twin)
@@ -250,7 +250,13 @@ public sealed record TerrainRules(
 /// able to change independently — the same reasoning already given for
 /// <see cref="PopulationGrowthMobilizationDivisor"/>.
 /// </para>
-/// Every other field, and every other record in this file, is unchanged.
+/// Original-mode fleets instead use the five FaithfulFleet fields below (research 500e521,
+/// 2026-10-16-strategic-ai-regions-resupply.md, fleet grant and repair thresholds): caller Chebyshev
+/// distance strictly below FaithfulFleetResupplyDistanceBelow; purse strictly below
+/// FaithfulFleetPurseTopUpThreshold and treasury strictly above FaithfulFleetTreasuryAbove grants an
+/// additive FaithfulFleetPurseTopUpAmount. No surplus sweep. Independently, condition strictly below
+/// FaithfulFleetRepairConditionBelow restores Naval.MaxConditionPercent at Naval.RepairCostDivisor.
+/// Code evidence and staged Wine controls support these values; native Windows confirmation is open.
 /// </remarks>
 /// <remarks>
 /// <para>
@@ -424,6 +430,12 @@ public sealed record EconomyRules(
     int AutoResupplyPurseTopUpThreshold,
     int AutoResupplyPurseTopUpAmount,
     int AutoResupplyRadiusTiles,
+    int FaithfulFleetResupplyDistanceBelow,
+    int FaithfulFleetPurseTopUpThreshold,
+    int FaithfulFleetPurseTopUpAmount,
+    int FaithfulFleetTreasuryAbove,
+    int FaithfulFleetRepairConditionBelow,
+
     int CommandAdjacencyRadiusTiles,
     int TaxBaseContributionMultiplier,
     int WealthPerPopulationThousand,

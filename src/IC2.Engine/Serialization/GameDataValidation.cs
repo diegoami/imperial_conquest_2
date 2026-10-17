@@ -362,6 +362,18 @@ public static class GameDataValidation
                 documentPath, "'combat.tactical.midBattleSave' must be 'anyTime' or 'halfRoundStart'.");
         }
 
+        // Original fleet support: positive strict thresholds; grants must fit the native purse field.
+        RequirePositiveDivisor(documentPath, ruleset.Economy.FaithfulFleetResupplyDistanceBelow, "economy.faithfulFleetResupplyDistanceBelow");
+        RequirePositiveDivisor(documentPath, ruleset.Economy.FaithfulFleetPurseTopUpThreshold, "economy.faithfulFleetPurseTopUpThreshold");
+        RequirePositiveDivisor(documentPath, ruleset.Economy.FaithfulFleetPurseTopUpAmount, "economy.faithfulFleetPurseTopUpAmount");
+        RequirePositiveDivisor(documentPath, ruleset.Economy.FaithfulFleetTreasuryAbove, "economy.faithfulFleetTreasuryAbove");
+        RequirePositiveDivisor(documentPath, ruleset.Economy.FaithfulFleetRepairConditionBelow, "economy.faithfulFleetRepairConditionBelow");
+        if (ruleset.Economy.FaithfulFleetRepairConditionBelow > ruleset.Naval.MaxConditionPercent)
+            throw new MalformedGameDataException(documentPath, "'economy.faithfulFleetRepairConditionBelow' must not exceed 'naval.maxConditionPercent'.");
+        if ((long)ruleset.Economy.FaithfulFleetPurseTopUpThreshold - 1
+            + ruleset.Economy.FaithfulFleetPurseTopUpAmount > IC2.Engine.Economy.PurseAccounting.PurseFieldMax)
+            throw new MalformedGameDataException(documentPath, "'economy.faithfulFleetPurseTopUpThreshold' plus 'economy.faithfulFleetPurseTopUpAmount' at threshold-minus-one must fit the native purse field.");
+
         ValidateTacticalPolicies(documentPath, ruleset);
         ValidateRuntimeDivisors(documentPath, ruleset);
         ValidateBalanceSheetDebtLimits(documentPath, ruleset);

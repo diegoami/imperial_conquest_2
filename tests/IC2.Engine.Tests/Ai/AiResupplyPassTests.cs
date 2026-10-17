@@ -422,12 +422,13 @@ public sealed class AiResupplyPassTests
             Nations = ValueList.Of(state.Nations[0] with { Treasury = 1 }, state.Nations[1]),
         };
         var result = AiResupplyPass.Run(state, rules, ArmyNation);
-        var expectedMoney = !original ? initialMoney : surplus ? cap : rules.Economy.AutoResupplyPurseTopUpAmount;
-        var expectedTreasury = !original ? 1 : surplus ? 101 : 1 - rules.Economy.AutoResupplyPurseTopUpAmount;
+        var changed = original && !fleet; // T177: original fleet neither sweeps surplus nor grants at treasury 1.
+        var expectedMoney = !changed ? initialMoney : surplus ? cap : rules.Economy.AutoResupplyPurseTopUpAmount;
+        var expectedTreasury = !changed ? 1 : surplus ? 101 : 1 - rules.Economy.AutoResupplyPurseTopUpAmount;
         Assert.Equal(expectedMoney, fleet ? result.State.Fleets[0].Money : result.State.Armies[0].Money);
         Assert.Equal(expectedTreasury, result.State.Nations[0].Treasury);
         Assert.Equal(original && !fleet ? 1 : 0, result.ArmyTransfers);
-        Assert.Equal(original && fleet ? 1 : 0, result.FleetTransfers);
+        Assert.Equal(0, result.FleetTransfers);
         Assert.Equal(0, result.TonsMoved);
         Assert.Equal(0, result.TalentsPaid);
         Assert.Equal(state.Cities, result.State.Cities);
@@ -455,7 +456,7 @@ public sealed class AiResupplyPassTests
                 { SupplyTons = SupplyCapacity.FleetCapacityTons(state.Fleets[0].Ships, rules) }) : ValueList<FleetState>.Empty,
         };
         var result = AiResupplyPass.Run(state, rules, ArmyNation);
-        var grant = rules.Economy.AutoResupplyPurseTopUpAmount;
+        var grant = fleet ? rules.Economy.FaithfulFleetPurseTopUpAmount : rules.Economy.AutoResupplyPurseTopUpAmount;
         Assert.Equal(grant, fleet ? result.State.Fleets[0].Money : result.State.Armies[0].Money);
         Assert.Equal(state.Nations[0].Treasury - grant, result.State.Nations[0].Treasury);
         Assert.Equal(fleet ? 0 : 1, result.ArmyTransfers);

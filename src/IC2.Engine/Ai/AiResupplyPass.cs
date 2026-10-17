@@ -9,7 +9,7 @@ namespace IC2.Engine.Ai;
 /// <summary>
 /// <c>docs/task-catalogue.md</c> T22 Done-when 5, the AI's per-turn resupply pass: every AI turn, each of
 /// that nation's armies runs T38's automatic resupply against every non-hostile city within
-/// <c>EconomyRules.AutoResupplyRadiusTiles</c>, and each of its fleets runs the fleet twin.
+/// <c>EconomyRules.AutoResupplyRadiusTiles</c>, and designed-mode fleets run the fleet twin. Original-mode fleets use a strict distance bound.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -29,13 +29,9 @@ namespace IC2.Engine.Ai;
 /// (issue #190 N7).
 /// </para>
 /// <para>
-/// <strong>The fleet pass reuses the same radius, and that reuse is <c>[derived]</c>, not confirmed.</strong>
-/// The report's table gives the radius for the army pass only; for the fleet pass
-/// (<c>FUN_0044F608</c> → <c>FUN_0044E1FC</c> / <c>FUN_0044E5DC</c>) it states the function chain and the
-/// cap and says nothing about a range at all. Searched <c>supply-capacity-rounding.md</c> and every other
-/// report in the research repository for a fleet-side resupply radius and found none. Rather than invent
-/// a second number, this pass uses the one the army pass confirms — the conservative choice, since a
-/// fleet that ranged further than an army would be a behaviour nothing supports.
+/// Original-mode fleets use distance strictly below EconomyRules.FaithfulFleetResupplyDistanceBelow
+/// (research 500e521, 2026-10-16-strategic-ai-regions-resupply.md, FUN_0044e5dc). The launched fleet
+/// pass runs before movement, including zero moves. Designed-mode fleets retain the shared radius.
 /// </para>
 /// <para>
 /// <strong>Order is fixed and stated.</strong> Armies in <see cref="GameState.Armies"/> order, then
@@ -152,7 +148,11 @@ public static class AiResupplyPass
                     continue;
                 }
 
-                if (!InRange(fleet.X, fleet.Y, city, radius) || !IsNonHostile(state, warCode, nationId, city))
+                var fleetInRange = ruleset.Flags.AiEconomy == AiEconomyModel.Original
+                    ? LandingTile.ChebyshevDistance(new GridPoint(fleet.X, fleet.Y), new GridPoint(city.X, city.Y))
+                        < ruleset.Economy.FaithfulFleetResupplyDistanceBelow
+                    : InRange(fleet.X, fleet.Y, city, radius);
+                if (!fleetInRange || !IsNonHostile(state, warCode, nationId, city))
                 {
                     continue;
                 }

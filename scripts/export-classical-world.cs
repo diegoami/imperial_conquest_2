@@ -687,6 +687,8 @@ Console.WriteLine("World passes GameDataValidation.");
 // ============================================================================================
 var toyRulesetPath = Path.Combine(repoRoot, "data", "rulesets", "toy-ruleset.json");
 var toyRulesetJson = File.ReadAllText(toyRulesetPath);
+// T177: toy economy includes the five faithfulFleet support fields and their field-specific
+// provenance, plus legacy army/designed-fleet autoResupply qualifications; preserve all when cloning.
 var rulesetNode = JsonNode.Parse(toyRulesetJson, new JsonNodeOptions { PropertyNameCaseInsensitive = false })!.AsObject();
 
 var corpusPath = Path.Combine(repoRoot, "tests", "fixtures", "corpus.json");

@@ -23,7 +23,7 @@ namespace IC2.Engine.Economy;
 /// 75-save-state cross-check of the <c>troops div 100</c> cap itself, which this formula uses.
 /// </para>
 /// <para>
-/// <strong>Own city: free, then purse hygiene, <c>[derived]</c>.</strong> The ton transfer costs nothing.
+/// <strong>Army and designed-mode fleet own city: free, then purse hygiene, <c>[derived]</c>.</strong> The ton transfer costs nothing.
 /// Afterward, if the purse is over <see cref="EconomyRules.PurseCapPerUnit"/>, the excess moves to the
 /// treasury; if the purse is under <see cref="EconomyRules.AutoResupplyPurseTopUpThreshold"/> and the
 /// treasury is positive, the purse gains a flat <see cref="EconomyRules.AutoResupplyPurseTopUpAmount"/>
@@ -48,6 +48,13 @@ namespace IC2.Engine.Economy;
 /// 1,000 and the treasury rises by 66, and the grant under
 /// <see cref="EconomyRules.AutoResupplyPurseTopUpThreshold"/> is a plain add (a 499-talent purse with a
 /// positive treasury ends at 999).
+/// </para>
+/// <para>
+/// Original-mode own-city fleets instead compute candidate tons, grant an additive amount when
+/// purse/treasury pass their strict thresholds, then independently repair condition, then commit
+/// supply. There is no fleet surplus sweep or solvency gate for repair. Research 500e521,
+/// 2026-10-16-strategic-ai-regions-resupply.md, FUN_0044f7e4: code and staged Wine controls;
+/// native Windows confirmation remains open. Central-treasury mode omits the purse grant only.
 /// </para>
 /// <para>
 /// <strong>Foreign city: paid, no purse hygiene, <c>[derived]</c>.</strong> The tons are additionally
@@ -208,14 +215,37 @@ public static class AutomaticResupply
 
         if (isOwnCity)
         {
-            updatedFleet = fleet with { SupplyTons = fleet.SupplyTons + tons };
-            updatedCity = city with { SupplyTons = city.SupplyTons - tons };
+            updatedFleet = fleet;
+            if (ruleset.Flags.AiEconomy == AiEconomyModel.Original)
+            {
+                var economy = ruleset.Economy;
+                if (ruleset.Flags.EconomyPurses == EconomyPurseModel.PerUnitPurses
+                    && updatedFleet.Money < economy.FaithfulFleetPurseTopUpThreshold
+                    && updatedFleetNation.Treasury > economy.FaithfulFleetTreasuryAbove)
+                {
+                    updatedFleet = updatedFleet with { Money = updatedFleet.Money + economy.FaithfulFleetPurseTopUpAmount };
+                    updatedFleetNation = updatedFleetNation with
+                    {
+                        Treasury = updatedFleetNation.Treasury - economy.FaithfulFleetPurseTopUpAmount,
+                    };
+                }
 
-            if (ruleset.Flags.EconomyPurses == EconomyPurseModel.PerUnitPurses)
+                if (updatedFleet.ConditionPercent < economy.FaithfulFleetRepairConditionBelow)
+                {
+                    var cost = (ruleset.Naval.MaxConditionPercent - updatedFleet.ConditionPercent)
+                        * updatedFleet.Ships / ruleset.Naval.RepairCostDivisor;
+                    updatedFleetNation = updatedFleetNation with { Treasury = updatedFleetNation.Treasury - cost };
+                    updatedFleet = updatedFleet with { ConditionPercent = ruleset.Naval.MaxConditionPercent };
+                }
+            }
+            else if (ruleset.Flags.EconomyPurses == EconomyPurseModel.PerUnitPurses)
             {
                 (updatedFleet, updatedFleetNation) = ApplyPurseHygiene(updatedFleet.Money, updatedFleet, updatedFleetNation, ruleset,
                     (f, money) => f with { Money = money });
             }
+
+            updatedFleet = updatedFleet with { SupplyTons = updatedFleet.SupplyTons + tons };
+            updatedCity = city with { SupplyTons = city.SupplyTons - tons };
 
             return new FleetResult(updatedFleet, updatedCity, updatedFleetNation, updatedCityNation, tons, 0);
         }
@@ -255,7 +285,7 @@ public static class AutomaticResupply
     }
 
     /// <summary>
-    /// The own-city purse hygiene shared by <see cref="ForArmy"/> and <see cref="ForFleet"/>: excess over
+    /// The army / designed-mode fleet own-city purse hygiene shared by <see cref="ForArmy"/> and <see cref="ForFleet"/>: excess over
     /// <see cref="EconomyRules.PurseCapPerUnit"/> moves to the treasury; a purse under
     /// <see cref="EconomyRules.AutoResupplyPurseTopUpThreshold"/>, with a positive treasury, gains a flat
     /// <see cref="EconomyRules.AutoResupplyPurseTopUpAmount"/> from it. Generic over <typeparamref name="TUnit"/>
