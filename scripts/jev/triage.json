@@ -14,5 +14,14 @@
       "release:v0.5.0": "It breaks play, or fails test 1, 2 or 3 in a normal game played through the Godot app, or the body records the user's decision to put it in the gate, or it blocks a task or fix in the v0.5.0 gate.",
       "post-v0.5.0": "It fails none of the three tests: cosmetic, wording or format, message order, a guard the original has that the clone lacks without stopping play, a CLI-only or internal issue, or documentation."
     }
+  },
+  "v0.6 playability": {
+    "type": "choice",
+    "instructions": "Suggest a v0.6.0 disposition for this Imperial Conquest 2 issue (title/body) under docs/build-process.md §4.8.1. The main session must confirm using evidence; never label or close automatically. The October 12 blanket move to 0.6 and historical v0.5 labels do not establish impact. Preserve promised T122–T130 tactical capability and T168–T169 UI/theme work. A normal game is a human seat or supported hotseat in a shipped scenario under either preset through Godot from New Game or Load to victory or the seat's fall, including tactical battles. Choose release:v0.6.0 for demonstrated normal-game crash/hang/AI stall, corruption/unreloadable save, essential order/control that never works, materially false/missing feedback preventing play, unfinished battle/game or broken victory reachability. Choose post-v0.6.0 only for confirmed nonblockers: numeric/RNG parity, AI intelligence/balance, cosmetics/wording/shortcuts, code/doc/test/harness-only or imported/custom/CLI/soak-only work without demonstrated normal-game impact. Required correctness/determinism/fixture/golden/CI/release checks remain strict; never waive failures or expand KnownFailures.json. A parent/follow-up title does not make all subitems blockers; separate blocking subitems. Choose investigate for plausible normal-game blockers that remain unverified or evidence insufficient/conflicting; resolve before cut, never blindly defer or close stale tickets. Explicit current user decisions on this particular issue override the default; the superseded blanket move does not.",
+    "criteria": {
+      "release:v0.6.0": "Demonstrated normal-game blocker or explicit current user decision to retain this particular item; preserve promised tactical/UI capabilities.",
+      "post-v0.6.0": "Confirmed non-game-breaking issue without demonstrated normal-game impact; defer without weakening required checks or closing unverified tickets.",
+      "investigate": "Plausible blocker unverified, or evidence insufficient/conflicting; main-session investigation or explicit resolution required before cut."
+    }
   }
 }
