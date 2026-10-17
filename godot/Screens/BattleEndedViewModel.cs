@@ -32,6 +32,9 @@ public sealed record BattleEndedViewModel(
     string MoneyLine,
     string SuppliesLine)
 {
+    /// <summary>Observed losses, routing and actual fate, separate from start/end totals.</summary>
+    public IReadOnlyList<string> AftermathLines { get; init; } = Array.Empty<string>();
+
     /// <summary>The table's column headers.</summary>
     public static IReadOnlyList<string> Headers { get; } = new[] { string.Empty, "Winner at start", "Winner at end", "Loser at start" };
 
@@ -77,7 +80,34 @@ public sealed record BattleEndedViewModel(
             loser,
             rows,
             money,
-            supplies);
+            supplies) { AftermathLines = Explain(report, winner, loser) };
+    }
+
+    private static IReadOnlyList<string> Explain(TacticalBattleReport report, string winner, string loser)
+    {
+        if (report.Aftermath is not { } facts) return Array.Empty<string>();
+        var lines = new List<string>();
+        void Side(string name, TacticalArmyAftermath side)
+        {
+            lines.Add($"Recorded for {name}: {side.ExchangeCasualties} exchange casualties; {side.RoutedUnits} units routed, {side.CascadeUnits} more removed by morale cascade.");
+            lines.Add($"{name} unity: {side.UnityBefore} → {side.UnityAfter} ({side.UnityAfter - side.UnityBefore:+0;-0;0}).");
+        }
+        Side(winner, facts.Winner);
+        Side(loser, facts.Loser);
+        lines.Add("A routed unit leaves the battle; routing does not mean every troop was killed.");
+        if (facts.Winner.RejoinedTroops > 0)
+            lines.Add($"{winner}: {facts.Winner.RejoinedTroops} routed troops rejoined the winning army.");
+        if (!facts.Loser.ArmyRemoved)
+            lines.Add($"{loser}: surviving remnant of {facts.Loser.SurvivingTroops} troops scattered to safety.");
+        else if (!facts.RetreatEnabled && !report.Capped)
+            lines.Add($"{loser}: defeated army removed. Defeated armies cannot retreat under this ruleset.");
+        else if (facts.ScatterFailed)
+            lines.Add($"{loser}: army removed; no valid scatter location was available.");
+        else
+            lines.Add($"{loser}: army removed; no surviving remnant remained.");
+        if (facts.PursuitLosses > 0) lines.Add($"Retreat and pursuit losses: {facts.PursuitLosses} troops.");
+        if (report.Capped) lines.Add("Cap withdrawal: no ordinary victory rewards or unity change.");
+        return lines;
     }
 
     private static int At(ValueList<int> byType, int index) => index < byType.Count ? byType[index] : 0;

@@ -1,3 +1,4 @@
+using IC2.Engine.Presentation;
 using IC2.Engine.Model;
 
 namespace IC2.Engine.Battle.Tactical;
@@ -10,6 +11,7 @@ namespace IC2.Engine.Battle.Tactical;
 internal sealed class TacticalBoard
 {
     private readonly IBattleDraws? _draws;
+    private readonly bool[] _pendingPlacement;
 
     private TacticalBoard(TacticalBattleState state, TacticalContext context, IBattleDraws? draws)
     {
@@ -23,12 +25,14 @@ internal sealed class TacticalBoard
         IsOver = state.IsOver;
         Capped = state.Capped;
         Slots = state.Slots.ToArray();
+        _pendingPlacement = new bool[Slots.Length];
         Grid = state.Grid.ToArray();
         ComputerControlled = state.ComputerControlled.ToArray();
         ComputerGeneral = state.ComputerGeneral.ToArray();
         GeneralClaims = state.GeneralClaims.ToArray();
         Selected = state.Selected;
-        Log = new List<TacticalEvent>(state.Log);
+        Log = new ObservedLog(state.Log, this);
+        context.Observer?.Invoke(state, null, null);
     }
 
     public TacticalContext Context { get; }
@@ -64,7 +68,7 @@ internal sealed class TacticalBoard
 
     public int Selected { get; set; }
 
-    public List<TacticalEvent> Log { get; }
+    public ObservedLog Log { get; }
 
     public int SlotsPerSide => Slots.Length / 2;
 
@@ -87,7 +91,28 @@ internal sealed class TacticalBoard
         return new TacticalBoard(state, context, draws);
     }
 
-    public TacticalBattleState Freeze() =>
+    /// <summary>Captures silent mutations at explicit boundaries without changing the conformance trace.</summary>
+    public void Capture(TacticalFrameKind? boundary = null, int actor = -1, int target = -1) =>
+        Context.Observer?.Invoke(Snapshot(includeLog: false), null, CaptureBoundary(boundary, actor, target));
+
+    public void BeginPlacement()
+    {
+        for (var s = FirstSlotOf(SideToMove); s < FirstSlotOf(SideToMove) + SlotsPerSide; s++)
+            _pendingPlacement[s] = IsLive(s);
+    }
+
+    public void MarkPlaced(int slot) => _pendingPlacement[slot] = false;
+
+    private TacticalCaptureBoundary CaptureBoundary(TacticalFrameKind? kind = null, int actor = -1, int target = -1) =>
+        new(kind, actor, target, ValueList.From(Enumerable.Range(0, Slots.Length).Where(s => _pendingPlacement[s])));
+
+    public TacticalBattleState Freeze()
+    {
+        Capture();
+        return Snapshot();
+    }
+
+    private TacticalBattleState Snapshot(bool includeLog = true) =>
         new(
             AttackerArmyId,
             DefenderArmyId,
@@ -101,7 +126,7 @@ internal sealed class TacticalBoard
             ValueList.From(ComputerGeneral),
             ValueList.From(GeneralClaims),
             Selected,
-            ValueList.From(Log), Capped);
+            includeLog ? ValueList.From(Log) : ValueList<TacticalEvent>.Empty, Capped);
 
     /// <summary>One <c>Random(n)</c> through the seam, recorded on the trace.</summary>
     public int Draw(int n)
@@ -217,4 +242,18 @@ internal sealed class TacticalBoard
         IsOver = true;
         Log.Add(new TacticalBattleOverEvent(Winner()));
     }
+    // Keep Log.Add as the existing trace write boundary, including copy-in in its unowned producer.
+    // The callback snapshots the live board now; it never reconstructs state from event payloads.
+    internal sealed class ObservedLog : List<TacticalEvent>
+    {
+        private readonly TacticalBoard _board;
+        public ObservedLog(IEnumerable<TacticalEvent> events, TacticalBoard board) : base(events) => _board = board;
+        public new void Add(TacticalEvent evidence)
+        {
+            base.Add(evidence);
+            if (evidence is not (TacticalDrawEvent or TacticalPromotionEvent))
+                _board.Context.Observer?.Invoke(_board.Snapshot(includeLog: false), evidence, _board.CaptureBoundary());
+        }
+    }
+
 }
