@@ -13,6 +13,7 @@ neutral and transparent. Strategic three-colour tint (#891) is outside this gene
 from __future__ import annotations
 
 import argparse
+import json
 import struct
 from pathlib import Path
 
@@ -229,21 +230,30 @@ def boards(directory):
         return Image.frombytes("RGBA",(32,32),bytes(channel for pixel in glyph(key).pixels for channel in pixel))
 
     directory.mkdir(parents=True, exist_ok=True)
-    palettes = (None, ((240,210,35,255),(15,15,15,255),(235,235,235,255)),
-                ((25,65,160,255),(245,245,245,255),(180,50,30,255)))
-    # These are illustrative representative owner colours, not measured-original evidence.
+    # Read only configured nation palettes from the shipped world. This does not add any
+    # measured-original art claim: all glyph geometry above is owner-designed.
+    world = json.loads((ROOT / "data/worlds/classical-mediterranean.json").read_text(encoding="utf-8"))
+    owners = {nation["id"]: nation for nation in world["nations"]}
+
+    def rgba(value):
+        return tuple(bytes.fromhex(value.removeprefix("#"))) + (255,)
+
+    palettes = (None,) + tuple(tuple(rgba(value) for value in owners[name]["battleColorsHex"])
+                              for name in ("numidia", "macedonia"))
+    strategic = (None,) + tuple((rgba(owners[name]["colorHex"]), rgba(owners[name]["glyphColorHex"]))
+                               for name in ("numidia", "macedonia"))
     for pack in ("authored", "placeholder"):
         board = Image.new("RGB", (1150, 70+len(keys())*86), (38,43,48))
         d = ImageDraw.Draw(board)
         d.text((12,10),f"T182 {pack} | owner-designed | adjacent tiers | native 32 + 16/24px stress views",fill="white")
-        d.text((300,35),"anchors/neutral: 16 / 24 / 32 / 64px       owner A: 16 / 24 / 32       owner B: 16 / 24 / 32",fill="white")
+        d.text((300,35),"Rome/neutral: 16 / 24 / 32 / 64px       Numidia: 16 / 24 / 32       Macedonia: 16 / 24 / 32",fill="white")
         for row,key in enumerate(keys()):
             y=65+row*86
             name = key.split('.')[2] if key.startswith('battle.') else key.split('.')[0]
             d.text((12,y+12),key,fill="white")
             d.text((12,y+32),MOTIFS.get(name, "soldier" if name=="army" else "ship"),fill=(200,210,220))
             x=300
-            for palette in palettes:
+            for owner_index,palette in enumerate(palettes):
                 im=image_for(key)
                 if palette:
                     pixels=[]
@@ -251,10 +261,11 @@ def boards(directory):
                         if key.startswith("battle."):
                             pixels.append(dict(zip((PURPLE,WHITE,BLUE),palette)).get(p,p))
                         else:
-                            pixels.append(palette[0] if p[3] else p)
+                            pixels.append(strategic[owner_index][1] if p[3] else p)
                     im.putdata(pixels)
                 for size in ((16,24,32,64) if palette is None else (16,24,32)):
-                    d.rectangle((x,y,x+size-1,y+size-1),fill=(86,100,68))
+                    background = strategic[owner_index][0][:3] if palette and not key.startswith("battle.") else (86,100,68)
+                    d.rectangle((x,y,x+size-1,y+size-1),fill=background)
                     board.paste(im.resize((size,size),nearest),(x,y),im.resize((size,size),nearest))
                     d.text((x,y+66),str(size),fill="white")
                     x+=size+12
@@ -280,7 +291,8 @@ def boards(directory):
         "16/24px are stress views; 32px is native, 64px is inspection magnification.\n"
         "Strategic-minimums boards include actual map lower bounds (army5px/fleet4px).\n"
         "At these overview sizes motif recognition is limited; review the real zoomed context too.\n"
-        "Owner A/B illustrate three battle anchors; strategic views use existing single-colour tint.\n"
+        "Rome/Numidia/Macedonia use configured shipped battle palettes; strategic views use existing\n"
+        "single-colour foreground/background pairs from the same world, not strategic three-colour tint.\n"
         "Human recognition/readability approval is required. Selection/actor/target overlay context\n"
         "requires T180 integration and actual windowed captures; these boards do not replace it.\n", encoding="utf-8")
 
