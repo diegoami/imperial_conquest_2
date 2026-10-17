@@ -317,6 +317,11 @@ graph TD
   T128 --> T182[T182 simple unit glyphs]
   T179 --> T183[T183 tactical exchange audio]
   T180 --> T183
+  T184[T184 original SAV writer] --> T185[T185 SAV bridge and converter]
+  R37[Research 37 evaluated complete mapping] -.-> T184
+  R37 --> T185
+  T185 --> T186[T186 SAV Save As]
+  T183 --> T186
 ```
 
 ### 1.1 Waves and the critical path
@@ -361,7 +366,8 @@ Waves are dependency layers, not concurrent batches: execution is serial, one co
 
 ### 1.3 v0.6.1 playtest work
 
-The owner requests tracked by [1190](https://github.com/diegoami/imperial_conquest_2/issues/1190) are mandatory in v0.6.1. After contract approval, T179, T181 and T182 can start as three disjoint tracks. T180 starts after T179 merges; T183 starts after T179 and T180 merge. T182 authors independently but final overlay/context sign-off uses T180. T181 owns WriteBack/result screens; T179 owns timeline/engine presentation seams; T180 then T183 exclusively own tactical/MainGame screen integration. Recheck implicit tests, compile registrations and generators for overlap before dispatch; serialize shared compile-registration hunks. The owner explicitly authorizes up to three disjoint tasks on this machine. One Godot process machine-wide, and no Godot launch/check while the owner plays; runtime/visual/audio gates remain required afterward. Original-compatible save/export/converter work is additionally mandatory under [1191](https://github.com/diegoami/imperial_conquest_2/issues/1191); its T184–T186 contracts define that separate scope.
+The owner requests tracked by [1190](https://github.com/diegoami/imperial_conquest_2/issues/1190) are mandatory in v0.6.1. After contract approval, T179, T181 and T182 can start as three disjoint tracks. T180 starts after T179 merges; T183 starts after T179 and T180 merge. T182 authors independently but final overlay/context sign-off uses T180. T181 owns WriteBack/result screens; T179 owns timeline/engine presentation seams; T180 then T183 exclusively own tactical/MainGame screen integration. Recheck implicit tests, compile registrations and generators for overlap before dispatch; serialize shared compile-registration hunks. The owner explicitly authorizes up to three disjoint tasks on this machine. One Godot process machine-wide, and no Godot launch/check while the owner plays; runtime/visual/audio gates remain required afterward. Original-compatible save/export/converter work is additionally mandatory under [1191](https://github.com/diegoami/imperial_conquest_2/issues/1191); its T184–T186 contracts define that separate scope. T184 low-level writer work may also start after contract approval within the three-task cap, but its merge waits on evaluated [research 37](https://github.com/diegoami/imperial-conquest-2-research/issues/37) region/prototype findings. T185 starts only after T184 and a reviewed complete mapping from that research; T186 follows T185 and T183. The research gate does not block independent battle task readiness. All authors use `gpt-6.1-sol` (medium for hard T179/T180/T182/T184/T185, low for medium T181/T183/T186); independent review is direct `kimi-code-plan-cn/kimi-for-coding`, excluding OpenAI.
+
 ## 2. The tasks
 
 Split into one file per task at `docs/tasks/T<nn>.md` ([T61](https://github.com/diegoami/imperial_conquest_2/issues/273)); this section is the index. Each stub's heading is byte-identical to the original entry heading, so an existing `task-catalogue.md#t<nn>-...` citation (including in a GitHub issue body, which cannot be edited) still resolves to the right place.
@@ -1393,6 +1399,18 @@ Owner design [1188](https://github.com/diegoami/imperial_conquest_2/issues/1188)
 
 Owner playtest [1189](https://github.com/diegoami/imperial_conquest_2/issues/1189); follows T179 and T180, existing WAVs → [full entry](tasks/T183.md).
 
+#### T184 Original-compatible SAV binary writer
+
+Mandatory v0.6.1 [1191](https://github.com/diegoami/imperial_conquest_2/issues/1191); documented low-level work may start after contract approval, merge waits for evaluated region/prototype research → [full entry](tasks/T184.md).
+
+#### T185 Native-state SAV export bridge and offline converter
+
+Mandatory v0.6.1 [1191](https://github.com/diegoami/imperial_conquest_2/issues/1191); starts after T184 and reviewed complete field/region mapping from research 37 → [full entry](tasks/T185.md).
+
+#### T186 In-game Save As original-compatible SAV
+
+Mandatory v0.6.1 [1191](https://github.com/diegoami/imperial_conquest_2/issues/1191); follows T185 and T183 to serialize MainGameScreen integration → [full entry](tasks/T186.md).
+
 #### T25 Battle result, diplomacy, and hotseat handoff screens
 
 Godot screens → [full entry](tasks/T25.md) · [#25](https://github.com/diegoami/imperial_conquest_2/issues/25)
@@ -1600,8 +1618,11 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T176](#t176-faithful-ai-retains-automatic-support-changes-when-no-supply-moves) | Faithful support writeback | M12 | the user's choice | the user's choice | the user's choice | T60, T157 | [#1146](https://github.com/diegoami/imperial_conquest_2/issues/1146) |
 | [T177](#t177-faithful-ai-fleets-receive-the-original-grant-and-automatic-repair) | Faithful fleet support | M12 | the user's choice | the user's choice | the user's choice | T176 | [#823](https://github.com/diegoami/imperial_conquest_2/issues/823) |
 | [T178](#t178-ai-target-scorers-use-field-strength-winning-distance-and-allegiance-defense) | Target scorer terms | M12 | the user's choice | the user's choice | the user's choice | T156, T177 | [#1145](https://github.com/diegoami/imperial_conquest_2/issues/1145) |
-| [T179](#t179-ordered-tactical-presentation-snapshots) | Typed tactical timeline | M21/M18 | Sol | Medium | direct Kimi | T125, T126, T130 | [#1185](https://github.com/diegoami/imperial_conquest_2/issues/1185) |
-| [T180](#t180-coherent-battle-replay-combatants-and-controller-handoffs) | Battle replay clarity | M21/M18 | Sol | Medium | direct Kimi + human | T179 | [#1186](https://github.com/diegoami/imperial_conquest_2/issues/1186) |
-| [T181](#t181-explain-tactical-routing-and-the-actual-aftermath) | Tactical aftermath explanation | M21/M18 | Sol | Low | direct Kimi + human | T127, T130 | [#1187](https://github.com/diegoami/imperial_conquest_2/issues/1187) |
-| [T182](#t182-recognizable-three-size-battle-army-and-fleet-glyphs) | Simple unit glyphs | M21/M18 | Sol | Medium | direct Kimi + human | T128 | [#1188](https://github.com/diegoami/imperial_conquest_2/issues/1188) |
-| [T183](#t183-tactical-exchange-cues-follow-displayed-playback) | Tactical exchange audio | M21/M18 | Sol | Low | direct Kimi + human | T179, T180 | [#1189](https://github.com/diegoami/imperial_conquest_2/issues/1189) |
+| [T179](#t179-ordered-tactical-presentation-snapshots) | Typed tactical timeline | M21/M18 | gpt-6.1-sol | Medium | direct Kimi | T125, T126, T130 | [#1185](https://github.com/diegoami/imperial_conquest_2/issues/1185) |
+| [T180](#t180-coherent-battle-replay-combatants-and-controller-handoffs) | Battle replay clarity | M21/M18 | gpt-6.1-sol | Medium | direct Kimi + human | T179 | [#1186](https://github.com/diegoami/imperial_conquest_2/issues/1186) |
+| [T181](#t181-explain-tactical-routing-and-the-actual-aftermath) | Tactical aftermath explanation | M21/M18 | gpt-6.1-sol | Low | direct Kimi + human | T127, T130 | [#1187](https://github.com/diegoami/imperial_conquest_2/issues/1187) |
+| [T182](#t182-recognizable-three-size-battle-army-and-fleet-glyphs) | Simple unit glyphs | M21/M18 | gpt-6.1-sol | Medium | direct Kimi + human | T128 | [#1188](https://github.com/diegoami/imperial_conquest_2/issues/1188) |
+| [T183](#t183-tactical-exchange-cues-follow-displayed-playback) | Tactical exchange audio | M21/M18 | gpt-6.1-sol | Low | direct Kimi + human | T179, T180 | [#1189](https://github.com/diegoami/imperial_conquest_2/issues/1189) |
+| [T184](#t184-original-compatible-sav-binary-writer) | Original SAV writer | M15 | gpt-6.1-sol | Medium | direct Kimi | approved plan; merge: evaluated research 37 | [#1191](https://github.com/diegoami/imperial_conquest_2/issues/1191) |
+| [T185](#t185-native-state-sav-export-bridge-and-offline-converter) | SAV export bridge/converter | M15 | gpt-6.1-sol | Medium | direct Kimi + original runtime | T184 + reviewed research 37 mapping | [#1191](https://github.com/diegoami/imperial_conquest_2/issues/1191) |
+| [T186](#t186-in-game-save-as-original-compatible-sav) | Save As SAV | M15 | gpt-6.1-sol | Low | direct Kimi + human/original runtime | T185, T183 | [#1191](https://github.com/diegoami/imperial_conquest_2/issues/1191) |
