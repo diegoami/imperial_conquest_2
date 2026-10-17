@@ -89,7 +89,7 @@ public sealed record BattleEndedViewModel(
         var lines = new List<string>();
         void Side(string name, TacticalArmyAftermath side)
         {
-            lines.Add($"{name}: {side.ExchangeCasualties} exchange casualties; {side.RoutedUnits} units routed, {side.CascadeUnits} more removed by morale cascade.");
+            lines.Add($"Recorded for {name}: {side.ExchangeCasualties} exchange casualties; {side.RoutedUnits} units routed, {side.CascadeUnits} more removed by morale cascade.");
             lines.Add($"{name} unity: {side.UnityBefore} → {side.UnityAfter} ({side.UnityAfter - side.UnityBefore:+0;-0;0}).");
         }
         Side(winner, facts.Winner);
