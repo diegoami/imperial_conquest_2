@@ -367,7 +367,8 @@ for high-risk or uncertain cases. Record rationale, affected play path and relev
 on each issue. Confirmed blockers retain/gain `release:v0.6.0`; only confirmed nonblockers
 lose it and gain `post-v0.6.0`. Preserve status, machine ownership and history; never close
 unverified old tickets. Retain release labels on merged capability tasks. No label moves
-or triage-disposition comments precede the approved plan merge. Results stay on GitHub,
+or final per-issue triage comments precede the approved plan merge; proposed dispositions
+may accompany the plan PR for review. Results stay on GitHub,
 never as status snapshots/counts in documents.
 
 **Fidelity and release evidence stay strict.** Do not loosen original fixture/draw bounds,
