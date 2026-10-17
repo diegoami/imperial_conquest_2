@@ -2184,7 +2184,12 @@ public partial class MainGameScreen : Control
                     && frame.After.View.DefenderArmyId == view.DefenderArmyId).ToArray(),
         };
         _nextTacticalOpening = Array.Empty<TacticalBattleFrame>();
-        screen.OrderIssued += output => OnCommandIssued(output.Lines);
+        screen.OrderIssued += output =>
+        {
+            OnCommandIssued(output.Lines);
+            if (output.TacticalTimeline.Count > 0)
+                screen.ShowMessage("Battlefield updated · " + screen.Model.ControllerText);
+        };
         screen.BattleEnded += output => ShowBattleEndedOverlay(screen, output);
         screen.SaveRequested += () => CommandTable.TryInvoke("file.save");
         screen.SaveAsRequested += () => CommandTable.TryInvoke("file.save_as");

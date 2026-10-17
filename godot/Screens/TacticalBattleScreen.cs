@@ -226,6 +226,7 @@ public partial class TacticalBattleScreen : Control
 
         MessageLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.MutedTextColor);
         MessageLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        MessageLabel.MaxLinesVisible = 3;
         MessageLabel.CustomMinimumSize = new Vector2(CellPixels * 14, 54);
         left.AddChild(MessageLabel);
         var footer = new HBoxContainer();
@@ -505,7 +506,9 @@ public partial class TacticalBattleScreen : Control
     {
         // Every terminal and housekeeping frame has already been displayed, including null OpenBattleView.
         Refresh();
-        ShowMessage(CommandOutcomeText.OutcomeBlock(output.Lines));
+        ShowMessage(output.TacticalTimeline.Count == 0
+            ? CommandOutcomeText.OutcomeBlock(output.Lines)
+            : "Battlefield updated · " + Model.ControllerText);
         if (output.EndedBattleReport is not null) BattleEnded?.Invoke(output);
         else OrderIssued?.Invoke(output);
     }
@@ -736,7 +739,7 @@ public partial class TacticalBattleScreen : Control
                     {
                         DrawRect(rect.Grow(-3), cell.TintSide == 0 ? new Color(0.25f, 0.45f, 0.8f) : new Color(0.8f, 0.3f, 0.25f));
                         var letter = Host.TypeNameOf(cell);
-                        DrawString(font, rect.Position + new Vector2(4, 26), letter.Length > 0 ? letter[..1] : "?", HorizontalAlignment.Left, -1, AppTheme.Body, Colors.White);
+                        if (!Mini) DrawString(font, rect.Position + new Vector2(4, 26), letter.Length > 0 ? letter[..1] : "?", HorizontalAlignment.Left, -1, AppTheme.Body, Colors.White);
                     }
                 }
 
@@ -758,11 +761,8 @@ public partial class TacticalBattleScreen : Control
                     {
                         DrawTextureRect(cursor, rect, false);
                     }
-                    else
-                    {
-                        // Game marker tint: palette changes must not recolour the selected cell.
-                        DrawRect(rect.Grow(-1), new Color(0.95f, 0.78f, 0.35f), false, Mini ? 1 : 3f);
-                    }
+                    // The selection square remains independent of nation tint and any pack cursor motif.
+                    DrawRect(rect.Grow(-1), new Color(0.95f, 0.78f, 0.35f), false, Mini ? 1 : 3f);
                 }
             }
         }

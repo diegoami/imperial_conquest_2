@@ -54,6 +54,7 @@ public sealed class TacticalPlaybackTests
         else for (var i = 0; queue.IsPlaying && i < 100000; i++) queue.Advance(0.1);
         queue.Finish();
         queue.Advance(100);
+        queue.Begin(ending.TacticalTimeline, () => completions++);
         Assert.False(queue.IsPlaying);
         Assert.Equal(1, completions);
         Assert.Equal(all, seen);
@@ -121,7 +122,7 @@ public sealed class TacticalPlaybackTests
             (0, TacticalTestbed.Unit(TacticalTestbed.AR, 2, 2, 1800, moves: 2)),
             (20, TacticalTestbed.Unit(TacticalTestbed.HI, 5, 2, 2200)),
         }, attackerComputer: true);
-        TacticalMovement.MoveUnit(arena, 0, 5, 2, context, new SeededDraws(741));
+        TacticalMovement.MoveUnit(arena, 0, 5, 2, context, new RngBattleDraws(new SplitMix64Rng(741)));
         var queue = new TacticalPlayback();
         var visited = new List<TacticalBattleFrame>();
         queue.FrameEntered += visited.Add;

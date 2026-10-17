@@ -37,6 +37,11 @@ public partial class TacticalBattleCheck : Node
 
     public override void _Ready()
     {
+        if (OS.GetCmdlineUserArgs().Contains("--capture-replay"))
+        {
+            CaptureReplay();
+            return;
+        }
         try
         {
             SettingsScreen.SetBattlePauses(0, 0);
@@ -45,6 +50,7 @@ public partial class TacticalBattleCheck : Node
             CheckSaveAsDuringTheBattleReopensIt();
             CheckThePausesAreDisplayOnly();
             CheckTypedFramePlayback();
+            CheckConsecutiveAiBattles();
             CheckSurrender();
             CheckAnAiPhaseBattleIsFoughtOnTheSameScreen();
             CheckInstantBattlesAreShownAsBefore();
@@ -72,6 +78,79 @@ public partial class TacticalBattleCheck : Node
         var exitCode = _ok ? 0 : 1;
         GD.Print($"TacticalBattleCheck: exiting with code {exitCode}.");
         GetTree().Quit(exitCode);
+    }
+
+    private static IEnumerable<Node> Descendants(Node node) => node.GetChildren().SelectMany(child => new[] { child }.Concat(Descendants(child)));
+
+    // Windowed only: captures the production screen while the production queue is manually held at each state.
+    private async void CaptureReplay()
+    {
+        var ok = true;
+        try
+        {
+            foreach (var pack in new[] { "authored", "placeholder" })
+            {
+                var settings = new SettingsScreen();
+                AddChild(settings);
+                var picker = Descendants(settings).OfType<OptionButton>().First();
+                var index = Enumerable.Range(0, picker.ItemCount).First(i => picker.GetItemText(i) == pack);
+                picker.Select(index);
+                picker.EmitSignal(OptionButton.SignalName.ItemSelected, index);
+                RemoveChild(settings);
+                settings.QueueFree();
+                SettingsScreen.SetBattlePauses(1, 1);
+                var main = Build(ClassicalSession());
+                main.SubmitForCheck(Attack);
+                var screen = (TacticalBattleScreen)main.ActiveOverlay!;
+                screen.SetProcess(false);
+                await Capture($"{pack}-computer-placement");
+                screen.SkipPlayback();
+                screen.SelectUnit(0);
+                await Capture($"{pack}-human-placement");
+                screen.PressToolbarButton("computer_general");
+                var captured = new HashSet<string>();
+                for (var i = 0; screen.IsPlayingBack && i < 100000; i++)
+                {
+                    var frame = screen.DisplayedFrame!;
+                    string? stage = frame.Kind switch
+                    {
+                        TacticalFrameKind.Controller when screen.ControllerLabel.Text.Contains("Computer general") => "general-handoff",
+                        TacticalFrameKind.Movement => "movement",
+                        TacticalFrameKind.Shot => "shot",
+                        TacticalFrameKind.Melee when screen.PreviousExchangeLabel.Text.Length > 0 => "melee-history",
+                        TacticalFrameKind.Terminal => "terminal",
+                        TacticalFrameKind.Reconciliation when frame.After.View.IsOver => "reconciliation",
+                        _ => null,
+                    };
+                    if (stage is not null && captured.Add(stage)) await Capture($"{pack}-{stage}");
+                    screen.AdvancePlayback(0.05);
+                }
+                if (main.ActiveOverlay is not BattleEndedScreen) throw new InvalidOperationException("Terminal replay did not route to result.");
+                await Capture($"{pack}-result");
+                foreach (var required in new[] { "general-handoff", "movement", "shot", "melee-history", "terminal", "reconciliation" })
+                    if (!captured.Contains(required)) throw new InvalidOperationException($"Missing visual stage {pack}/{required}");
+                Free(main);
+            }
+        }
+        catch (Exception ex) { GD.PrintErr($"FAIL: capture replay {ex}"); ok = false; }
+        SettingsScreen.SetBattlePauses(0, 0);
+        GD.Print($"TacticalBattleCheck: exiting with code {(ok ? 0 : 1)}.");
+        GetTree().Quit(ok ? 0 : 1);
+    }
+
+    private async Task Capture(string name)
+    {
+        foreach (var size in new[] { new Vector2I(1280, 800), new Vector2I(1024, 768) })
+        {
+            GetWindow().Size = size;
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+            var path = Path.Combine(GameDataContext.RepositoryRoot, "rendered", $"T180-{name}-{size.X}x{size.Y}.png");
+            var error = GetViewport().GetTexture().GetImage().SavePng(path);
+            if (error != Error.Ok) throw new InvalidOperationException($"Capture failed: {error}");
+            GD.Print($"T180 capture: {path}");
+        }
     }
 
     // ---- Done-when 2: the battle, its end and the window ----
@@ -369,6 +448,44 @@ public partial class TacticalBattleCheck : Node
         Check(seen.Count == count, "finish and advance after completion repeat no frames");
         Free(main);
         SettingsScreen.SetBattlePauses(0, 0);
+    }
+
+    private void CheckConsecutiveAiBattles()
+    {
+        SettingsScreen.SetBattlePauses(0, 0);
+        var toy = GameDataContext.Repository.Resolve("toy-3city");
+        StartingArmy Army(string id, string nation, int x, int y, int troops) => new(id, nation, x, y,
+            Morale: nation == "north" ? 68 : 59, Money: 0, SupplyTons: 0, Moves: 5,
+            Units: ValueList.Of(new UnitSlot(0, nation == "north" ? "light_infantry" : "heavy_infantry", troops, 6, "duplicate")));
+        var world = toy.World with { StartingArmies = ValueList.Of(
+            Army("north-army-1", "north", 3, 2, 400), Army("north-army-2", "north", 6, 4, 400),
+            Army("south-army-1", "south", 4, 2, 6000), Army("south-army-2", "south", 6, 5, 6000)) };
+        var main = Build(new GameSession(world, toy.Ruleset, toy.Scenario) { HumanBattles = HumanBattleMode.Tactical });
+        main.SubmitForCheck("declare-war south");
+        main.SubmitForCheck("end");
+        var first = main.ActiveOverlay as TacticalBattleScreen;
+        if (!Check(first is not null, "two-attack AI lap opens its first battle")) { Free(main); return; }
+        var firstId = first!.DisplayedFrame!.BattleId;
+        first.PressToolbarButton("computer_general");
+        var opening = main.Session.LastTacticalTimeline.Where(f => f.Kind == TacticalFrameKind.Initial).ToArray();
+        if (!Check(opening.Length == 1 && main.Session.OpenTacticalBattle is not null, "first terminal submission also opens second battle")) { Free(main); return; }
+        var nextId = opening[0].BattleId;
+        Check(first.DisplayedFrame!.BattleId == firstId && first.DisplayedFrame.Kind == TacticalFrameKind.Reconciliation, "first screen consumes only its own terminal batch");
+        Check(main.ActiveOverlay is BattleEndedScreen, "first result precedes second battlefield");
+        // A later empty read-only submission clears Last. The result's retained opening must survive it.
+        main.Session.Submit("help");
+        Check(main.Session.LastTacticalTimeline.Count == 0, "read-only command replaces retained producer batch");
+        ((BattleEndedScreen)main.ActiveOverlay!).Close();
+        var next = main.ActiveOverlay as TacticalBattleScreen;
+        Check(next is not null && next.DisplayedFrame?.BattleId == nextId && nextId != firstId, "next screen receives retained opening once with distinct battle identity");
+        if (next is not null)
+        {
+            Check(next.ExchangeLabel.Text.Length == 0 && next.PreviousExchangeLabel.Text.Length == 0, "next battle has no stale exchange history");
+            Check(next.ControllerLabel.Text.Contains("Human") && next.ControllerLabel.Text.Contains("placement"), "human defender controller is explicit after AI battle handoff");
+            next.PressToolbarButton("computer_general");
+            Check(main.ActiveOverlay is BattleEndedScreen, "second battle independently reaches its result");
+        }
+        Free(main);
     }
 
     // ---- surrender ----

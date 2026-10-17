@@ -33,10 +33,14 @@ public sealed class TacticalPlayback
     public void Begin(IEnumerable<TacticalBattleFrame> frames, Action? completed = null)
     {
         if (IsPlaying) throw new InvalidOperationException("Finish the displayed command before starting another.");
+        var supplied = false;
         foreach (var frame in frames)
         {
+            supplied = true;
             if (_seen.Add((frame.BattleId, frame.FrameId))) _pending.Enqueue(frame);
         }
+        // A repeated retained batch cannot repeat terminal routing either. Empty command outputs still finish.
+        if (supplied && _pending.Count == 0) return;
 
         _completed = completed;
         IsPlaying = true;
