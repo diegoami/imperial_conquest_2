@@ -257,4 +257,3 @@ internal sealed class TacticalBoard
     }
 
 }
-

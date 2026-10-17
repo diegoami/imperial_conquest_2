@@ -209,6 +209,10 @@ public sealed class TacticalBattleTimelineTests
         Assert.Single(placements[0].After.PendingPlacementSlots);
         Assert.Empty(placements[1].After.PendingPlacementSlots);
         Assert.Empty(end.TacticalTimeline[^1].After.PendingPlacementSlots);
+        var final = end.TacticalTimeline[^1].After.View;
+        var report = Assert.IsType<TacticalBattleReport>(end.EndedBattleReport);
+        var slotsPerSide = final.Slots.Count / 2;
+        Assert.Equal(report.WinnerFinishTotal, final.Slots.Skip(report.WinnerSide * slotsPerSide).Take(slotsPerSide).Sum(s => s.Troops));
         Assert.All(end.TacticalTimeline, f => Assert.Equal(1, f.CommandId));
         Assert.Equal(savedOpening, GameJson.Serialize(opening.TacticalTimeline));
         AssertCoherent(opening.TacticalTimeline.Concat(end.TacticalTimeline));
@@ -362,6 +366,30 @@ public sealed class TacticalBattleTimelineTests
         Assert.Empty(battle.DrainTimeline());
         Assert.Equal(battle.View(), terminal.Timeline[^1].After.View);
         AssertCoherent(opening.Concat(order.Timeline).Concat(terminal.Timeline));
+    }
+
+    [Fact]
+    public void AI_phase_opening_and_terminal_commands_deliver_their_own_complete_batches()
+    {
+        var session = TacticalSessionTestbed.ToySession(HumanBattleMode.Tactical, armies: TacticalSessionTestbed.WeakAttacker());
+        session.Submit("declare-war south");
+        var opening = session.Submit("end");
+        Assert.NotNull(opening.OpenBattleView);
+        Assert.Equal("north", opening.OpenBattleView!.DefenderNationId);
+        Assert.Equal(TacticalFrameKind.Initial, opening.TacticalTimeline[0].Kind);
+        Assert.Contains(opening.TacticalTimeline, f => f.Event is TacticalCopiedInEvent);
+        Assert.Contains(opening.TacticalTimeline, f => f.Kind == TacticalFrameKind.Setup);
+        Assert.All(opening.TacticalTimeline, f => Assert.Equal(0, f.CommandId));
+        Assert.Equal(opening.OpenBattleView, opening.TacticalTimeline[^1].After.View);
+        Assert.Empty(session.Submit("battle show").TacticalTimeline);
+        var ended = session.Submit("battle general on");
+        Assert.Null(ended.OpenBattleView);
+        Assert.NotNull(ended.EndedBattleReport);
+        Assert.Contains(ended.TacticalTimeline, f => f.Kind == TacticalFrameKind.Terminal);
+        Assert.Equal(opening.TacticalTimeline[0].BattleId, ended.TacticalTimeline[^1].BattleId);
+        Assert.Equal(TacticalFrameKind.Reconciliation, ended.TacticalTimeline[^1].Kind);
+        AssertCoherent(opening.TacticalTimeline.Concat(ended.TacticalTimeline));
+        Assert.Empty(session.Submit("help").TacticalTimeline);
     }
 
     private static TacticalBattleSession? Battle(GameSession session) =>
