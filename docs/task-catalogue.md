@@ -375,7 +375,7 @@ Waves are dependency layers, not concurrent batches: execution is serial, one co
 
 ### 1.3 v0.6.1 playtest work
 
-The owner requests tracked by [1190](https://github.com/diegoami/imperial_conquest_2/issues/1190) are mandatory in v0.6.1. After contract approval, T179, T181 and T182 can start as three disjoint tracks. T180 starts after T179 merges; T183 starts after T179 and T180 merge. T182 authors independently but final overlay/context sign-off uses T180. T181 owns WriteBack/result screens; T179 owns timeline/engine presentation seams; T180 then T183 exclusively own tactical/MainGame screen integration. Recheck implicit tests, compile registrations and generators for overlap before dispatch; serialize shared compile-registration hunks. The owner explicitly authorizes up to three disjoint tasks on this machine. One Godot process machine-wide, and no Godot launch/check while the owner plays; runtime/visual/audio gates remain required afterward. Original-compatible save/export/converter work is additionally mandatory under [1191](https://github.com/diegoami/imperial_conquest_2/issues/1191); its T184–T186 contracts define that separate scope. T184 low-level writer work may start after contract approval by replacing one of the initial T179/T181/T182 tracks, or waiting until a slot becomes free; it is never a fourth concurrent task, but its merge waits on evaluated [research 37](https://github.com/diegoami/imperial-conquest-2-research/issues/37) region/prototype findings. T185 starts only after T184 and a reviewed complete mapping from that research; T186 follows T185 and T183. The research gate does not block independent battle task readiness. All authors use `gpt-6.1-sol` (medium for hard T179/T180/T182/T184/T185, low for medium T181/T183/T186); independent review is direct `kimi-code-plan-cn/kimi-for-coding`, excluding OpenAI.
+The owner requests tracked by [1190](https://github.com/diegoami/imperial_conquest_2/issues/1190) are mandatory in v0.6.1. After contract approval, T179, T181 and T182 can start as three disjoint tracks. T180 starts after T179 merges; T183 starts after T179 and T180 merge. T182 authors independently but final overlay/context sign-off uses T180. T181 owns WriteBack/result screens; T179 owns timeline/engine presentation seams; T180 then T183 exclusively own tactical/MainGame screen integration. Recheck implicit tests, compile registrations and generators for overlap before dispatch; serialize shared compile-registration hunks. The owner explicitly authorizes up to three disjoint tasks on this machine. One Godot process machine-wide, and no Godot launch/check while the owner plays; runtime/visual/audio gates remain required afterward. T184–T186 original-compatible SAV writer/export/converter and Save As work remain separately scoped by [1191](https://github.com/diegoami/imperial_conquest_2/issues/1191) as planned 0.7.x candidates; they do not block any 0.6.x release. T184 low-level writer work may start after contract approval; its merge still waits on evaluated [research 37](https://github.com/diegoami/imperial-conquest-2-research/issues/37) region/prototype findings. T185 starts only after T184 and a reviewed complete mapping from that research; T186 follows T185 and T183. The research gate does not block independent battle task readiness. All authors use `gpt-6.1-sol` (medium for hard T179/T180/T182/T184/T185, low for medium T181/T183/T186); independent review is direct `kimi-code-plan-cn/kimi-for-coding`, excluding OpenAI.
 
 ## 2. The tasks
 
@@ -1410,15 +1410,15 @@ Owner playtest [1189](https://github.com/diegoami/imperial_conquest_2/issues/118
 
 #### T184 Original-compatible SAV binary writer
 
-Mandatory v0.6.1 [1191](https://github.com/diegoami/imperial_conquest_2/issues/1191); documented low-level work may start after contract approval, merge waits for evaluated region/prototype research → [full entry](tasks/T184.md).
+Planned 0.7.x candidate for [1191](https://github.com/diegoami/imperial_conquest_2/issues/1191); does not block any 0.6.x release. Documented low-level work may start after contract approval; merge waits for evaluated region/prototype research → [full entry](tasks/T184.md).
 
 #### T185 Native-state SAV export bridge and offline converter
 
-Mandatory v0.6.1 [1191](https://github.com/diegoami/imperial_conquest_2/issues/1191); starts after T184 and reviewed complete field/region mapping from research 37 → [full entry](tasks/T185.md).
+Planned 0.7.x candidate for [1191](https://github.com/diegoami/imperial_conquest_2/issues/1191); does not block any 0.6.x release. Starts after T184 and reviewed complete field/region mapping from research 37 → [full entry](tasks/T185.md).
 
 #### T186 In-game Save As original-compatible SAV
 
-Mandatory v0.6.1 [1191](https://github.com/diegoami/imperial_conquest_2/issues/1191); follows T185 and T183 to serialize MainGameScreen integration → [full entry](tasks/T186.md).
+Planned 0.7.x candidate for [1191](https://github.com/diegoami/imperial_conquest_2/issues/1191); does not block any 0.6.x release. Follows T185 and T183 to serialize MainGameScreen integration → [full entry](tasks/T186.md).
 
 #### T187 Readable strategic army and fleet markers
 
