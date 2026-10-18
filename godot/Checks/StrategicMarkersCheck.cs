@@ -85,7 +85,7 @@ public partial class StrategicMarkersCheck : Control
 
     public override void _Process(double delta)
     {
-        if (++_frames < 4) return;
+        if (++_frames < 3) return;
         _frames = 0;
         try
         {
@@ -144,13 +144,32 @@ public partial class StrategicMarkersCheck : Control
                 var context = _map.LastClickContextForCheck!;
                 Check(_listed == id && _map.ForegroundMarkerForCheck == id, $"right footprint edge lists visible {id}");
                 Check(context.X == x && context.Y == y && context.Distance == 0,
-                    $"{id} overhang uses entity tile and actual selection distance");
+                    $"{id} tile-constrained marker uses entity tile and actual selection distance");
                 _map.ClearSelection();
                 _selected = null;
                 Click(edge, MouseButton.Left);
             });
-            _steps.Enqueue(() => Check(_selected == id && _map.SelectedStrategicMarkerForCheck == id && _map.ForegroundMarkerForCheck == id,
-                $"left footprint edge selects and outlines visible {id}"));
+            _steps.Enqueue(() =>
+            {
+                Check(_selected == id && _map.SelectedStrategicMarkerForCheck == id && _map.ForegroundMarkerForCheck == id,
+                    $"left footprint edge selects and outlines visible {id}");
+                CheckContainment(id, x, y);
+                _map.MissingStrategicTexturesForCheck = true;
+            });
+            _steps.Enqueue(() => { CheckContainment(id, x, y); _map.MissingStrategicTexturesForCheck = false; });
+            foreach (var button in new[] { MouseButton.Left, MouseButton.Right })
+            _steps.Enqueue(() =>
+            {
+                _map.ClearSelection();
+                var center = _map.TileCenterForCheck(x, y);
+                var tile = _map.TileCenterForCheck(x + 1, y).X - center.X;
+                Click(center + new Vector2(tile * .49f, tile * .49f), button);
+                Check(_map.LastClickContextForCheck is { } context && context.X == x && context.Y == y && context.Target?.Id == id,
+                    $"{button} tile corner/padding keeps {id}");
+                Click(center + new Vector2(tile * .51f, 0), button);
+                Check(_map.LastClickContextForCheck is { } next && next.X == x + 1 && next.Target?.Id != id,
+                    $"{button} neighbouring tile never intercepted by {id}");
+            });
         }
         _steps.Enqueue(() =>
         {
@@ -174,9 +193,20 @@ public partial class StrategicMarkersCheck : Control
                 StrategicMarkerGeometry.Size(StrategicMarkerKind.Fleet, tile) / 2 - .01f);
             Click(edge, MouseButton.Right);
             Check(_map.LastClickContextForCheck is { X: 110, Y: 60, Distance: 10, Target.Id: "fleet" },
-                "order context distance uses actual fleet tile, not overhang tile");
-            Check(_map.ClipContents, "marker overhang is clipped by real map control");
+                "order context distance uses actual fleet tile, not tile-constrained marker tile");
+            Check(_map.ClipContents, "marker tile-constrained marker is clipped by real map control");
         });
+    }
+
+    private void CheckContainment(string id, int x, int y)
+    {
+        var center = _map.TileCenterForCheck(x, y);
+        var tile = _map.TileCenterForCheck(x + 1, y).X - center.X;
+        var cell = new Rect2(center - Vector2.One * tile / 2, Vector2.One * tile);
+        foreach (var bounds in new[] { _map.StrategicDrawBoundsForCheck[id], _map.StrategicFeedbackBoundsForCheck[id] })
+            Check(bounds.Position.X >= cell.Position.X - .001f && bounds.Position.Y >= cell.Position.Y - .001f
+                && bounds.End.X <= cell.End.X + .001f && bounds.End.Y <= cell.End.Y + .001f,
+                $"actual drawn art/feedback remains in {id} tile (fallback={_map.MissingStrategicTexturesForCheck})");
     }
 
     private void Click(Vector2 position, MouseButton button)
@@ -227,7 +257,7 @@ public partial class StrategicMarkersCheck : Control
                     positions.Add(($"fleet-tier{tier + 1}", 100 + (tier - 1) * spacing, 60 + spacing));
                 }
                 caption.Text = $"{prefix}: army tiers 1/2/3 above, fleet tiers 1/2/3 below. "
-                    + $"Actual cell {tile:0.00}px; {(before ? "former sizes replayed" : "24 to 48 px designed boards")}.";
+                    + $"Actual cell {tile:0.00}px; {(before ? "former sizes replayed" : "one-tile designed boards")}.";
                 Check(_map.LoadedPackIdForCheck == pack, $"window evidence uses real {pack} pack");
             });
             _steps.Enqueue(() => Capture(directory, prefix + "-unselected.png"));

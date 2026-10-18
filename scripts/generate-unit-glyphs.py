@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Owner-designed T182 glyphs: no originals, network, randomness or billed generation.
 
-Run without arguments to recreate the 21 icons in each shipped pack. --verify compares
-all 42 BMP byte streams without writing anything. --board-dir writes PNG review boards
+Run without arguments to recreate battle icons in both packs and strategic placeholders.
+--verify compares 30 battle BMPs and six strategic placeholders; authored Gemini six
+are separately conformed/reviewed and are never deterministic regeneration targets. --board-dir writes PNG review boards
 only (including 16/24px stress views, native 32px and enlarged nearest-neighbour views).
 Geometry and BMP writing use only Python standard library. Pillow, the existing
 authoring dependency, is optional and used only for PNG review boards.
-The authored pack uses the same deliberately simple symbols as the placeholder pack.
+Battle glyphs share deterministic symbols; authored strategic motifs use Gemini provenance.
 Battle cells stay opaque with exact tint anchors and frame; strategic sprites stay
 neutral and transparent. Strategic three-colour tint (#891) is outside this generator.
 """
@@ -172,11 +173,40 @@ def motif(name):
     return image
 
 
+def strategic_glyph(kind, tier):
+    """Single figures, same frame and height, distinct builds rather than uniform scaling."""
+    image = Raster(32)
+    d = image
+    if kind == "army":
+        broad = (0, 2, 4)[tier]
+        d.ellipse((13-broad//2, 4, 19+broad//2, 10), WHITE)
+        d.rectangle((12-broad//2, 5, 20+broad//2, 7), WHITE)
+        d.polygon([(14-broad,11),(19+broad,11),(21+broad,22),(12-broad,22)], WHITE)
+        d.line([(14-broad//2,21),(12-broad//2,27)],WHITE,width=2+tier)
+        d.line([(19+broad//2,21),(21+broad//2,27)],WHITE,width=2+tier)
+        d.line([(26,6),(26,27)],WHITE,width=2)
+        d.polygon([(26,3),(24,8),(28,8)],WHITE)
+        d.ellipse((5-tier,13-tier,12+tier,22+tier),WHITE)
+    else:
+        d.polygon([(4,21-tier),(28,20-tier),(25,26),(9,26)],WHITE)
+        d.line([(16,5),(16,22)],WHITE,width=2)
+        if tier == 0:
+            d.polygon([(18,7),(25,18),(18,18)],WHITE)
+        else:
+            d.polygon([(7-tier,7),(24+tier,7),(24+tier,17),(18,18),(7-tier,17)],WHITE)
+        if tier == 2:
+            d.rectangle((4,17,8,22),WHITE)
+            d.rectangle((25,16,28,22),WHITE)
+    return image
+
+
 def glyph(key):
     battle = key.startswith("battle.")
     parts = key.split(".")
     name = parts[2] if battle else parts[0]
     tier = SIZES.index(parts[3]) if battle else int(parts[1][-1])-1
+    if not battle:
+        return strategic_glyph(name, tier)
     side = (16, 21, 26)[tier]
     symbol = motif(name).resize(side)
     layer = Raster(32)
@@ -216,6 +246,8 @@ def bmp_bytes(image):
 def write_key(out_dir, key):
     path = Path(out_dir) / relative_path(key)
     path.parent.mkdir(parents=True, exist_ok=True)
+    if not key.startswith("battle.") and Path(out_dir).resolve() == (ROOT / "assets/packs/authored").resolve():
+        raise ValueError("native strategic generation cannot overwrite authored Gemini motifs")
     path.write_bytes(bmp_bytes(glyph(key)))
 
 
@@ -227,7 +259,8 @@ def boards(directory):
     nearest = Image.Resampling.NEAREST
 
     def image_for(key):
-        return Image.frombytes("RGBA",(32,32),bytes(channel for pixel in glyph(key).pixels for channel in pixel))
+        raw = (ROOT / "assets/packs" / pack / relative_path(key)).read_bytes()
+        return Image.frombytes("RGBA", (32,32), raw[54:], "raw", "BGRA", 0, -1)
 
     directory.mkdir(parents=True, exist_ok=True)
     # Read only configured nation palettes from the shipped world. This does not add any
@@ -245,7 +278,7 @@ def boards(directory):
     for pack in ("authored", "placeholder"):
         board = Image.new("RGB", (1150, 70+len(keys())*86), (38,43,48))
         d = ImageDraw.Draw(board)
-        d.text((12,10),f"T182 {pack} | owner-designed | adjacent tiers | native 32 + 16/24px stress views",fill="white")
+        d.text((12,10),f"T187 {pack} | designed | adjacent tiers | native 32 + 16/24px stress views",fill="white")
         d.text((300,35),"Rome/neutral: 16 / 24 / 32 / 64px       Numidia: 16 / 24 / 32       Macedonia: 16 / 24 / 32",fill="white")
         for row,key in enumerate(keys()):
             y=65+row*86
@@ -274,7 +307,7 @@ def boards(directory):
         # Actual map renderer lower bounds: army 2*2.5px, fleet 2*2px.
         minimums = Image.new("RGB", (850, 550), (38,43,48))
         md = ImageDraw.Draw(minimums)
-        md.text((12,12),f"{pack}: actual map lower bounds | army 5px, fleet 4px | enlarged views are inspection only",fill="white")
+        md.text((12,12),f"{pack}: one-tile samples | no pixel floor | enlarged views are inspection only",fill="white")
         for row,key in enumerate(k for k in keys() if not k.startswith("battle.")):
             y = 55 + row*80
             md.text((12,y+8),key,fill="white")
@@ -287,18 +320,19 @@ def boards(directory):
                 x += size+40
         minimums.save(directory / f"{pack}-strategic-minimums.png")
     (directory / "README.txt").write_text(
-        "Owner-designed review boards, not original-game evidence. Both packs intentionally share glyphs.\n"
+        "Owner-designed review boards, not original-game evidence. Battle glyphs share deterministic bytes; authored strategic six are Gemini-conformed.\n"
         "16/24px are stress views; 32px is native, 64px is inspection magnification.\n"
-        "Strategic-minimums boards include actual map lower bounds (army5px/fleet4px).\n"
+        "Strategic boards show 4/5/8px sampling, not guaranteed tier recognition or minimum sizes.\n"
         "At these overview sizes motif recognition is limited; review the real zoomed context too.\n"
         "Rome/Numidia/Macedonia use configured shipped battle palettes; strategic views use existing\n"
         "single-colour foreground/background pairs from the same world, not strategic three-colour tint.\n"
-        "Human recognition/readability approval is required. Selection/actor/target overlay context\n"
+        "Placeholder ps1 regeneration can replace strategic motifs with boxes; restore with generate-unit-glyphs.py --pack-dir assets/packs/placeholder and six --key options. This generator is authoritative for those six; the ps1 hazard remains. Human recognition/readability approval is required. Selection/actor/target overlay context\n"
         "requires T180 integration and actual windowed captures; these boards do not replace it.\n", encoding="utf-8")
 
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--key", action="append", choices=keys(), help="select keys; authored strategic six are always preserved")
     parser.add_argument("--verify",action="store_true",help="compare all 42 committed BMPs without mutation")
     parser.add_argument("--board-dir",type=Path,help="write labelled native/recolour/scale review boards only")
     parser.add_argument("--pack-dir",type=Path,help="recreate 21 glyphs in an ordinary generator's output directory")
@@ -309,22 +343,24 @@ def main():
         failed=[]
         for pack in ("authored","placeholder"):
             for key in keys():
+                if pack == "authored" and not key.startswith("battle."): continue
                 p=ROOT/"assets/packs"/pack/relative_path(key)
                 if not p.exists() or p.read_bytes()!=bmp_bytes(glyph(key)):
                     failed.append(str(p.relative_to(ROOT)))
         if failed:
             print("MISMATCH:\n"+"\n".join(failed))
             return 1
-        print("Verified 42 glyphs byte-identical; no files written.")
+        print("Verified 30 battle BMPs and six strategic placeholders byte-identical; authored Gemini six excluded; no files written.")
     elif args.board_dir:
         boards(args.board_dir)
         print(f"Review boards: {args.board_dir}")
     else:
         packs=[args.pack_dir] if args.pack_dir else [ROOT/"assets/packs"/p for p in ("authored","placeholder")]
         for pack in packs:
-            for key in keys():
+            for key in args.key or keys():
+                if Path(pack).resolve() == (ROOT/"assets/packs/authored").resolve() and not key.startswith("battle."): continue
                 write_key(pack,key)
-        print(f"Generated {21*len(packs)} deterministic glyphs.")
+        print(f"Generated selected deterministic glyphs; authored strategic six preserved.")
     return 0
 
 

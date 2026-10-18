@@ -15,20 +15,22 @@ public readonly record struct StrategicMarkerBounds(float X, float Y, float Size
     public bool Contains(float x, float y) => x >= X && x <= X + Size && y >= Y && y <= Y + Size;
 }
 
-/// <summary>
-/// Production screen-space policy for strategic boards and picking. [designed]: a 24 canvas-pixel
-/// minimum is chosen for human review of soldier/ship and tier recognition at overview (normal UI
-/// scaling still applies); growth follows the old army/fleet
-/// proportions until a 48 px cap. The task's evidence and original UI audit establish no original
-/// minimum screen-pixel size. Keys, thresholds, owner tint and world coordinates are independent.
-/// </summary>
+/// <summary>Production one-tile policy [designed]. Original UI audit, design-audit and T187
+/// establish no researched minimum size. Overview sampling can erase tier detail; no pixel
+/// floor may enlarge a marker beyond its real tile. Coordinates, tint and thresholds are separate.</summary>
 public static class StrategicMarkerGeometry
 {
-    public const float MinimumSize = 24;
     public const float MaximumSize = 48;
-
     public static float Size(StrategicMarkerKind kind, float tilePixels) =>
-        Math.Clamp(tilePixels * (kind == StrategicMarkerKind.Army ? .8f : .7f), MinimumSize, MaximumSize);
+        Math.Min(Math.Max(0, tilePixels) * (kind == StrategicMarkerKind.Army ? .8f : .7f), MaximumSize);
+
+    // A centred stroke must remain inside the shared art rectangle even below one canvas pixel.
+    public static float StrokeWidth(float markerSize, bool selected) => Math.Min(selected ? 2.5f : 1f, markerSize / 4);
+    public static StrategicMarkerBounds Outline(StrategicMarkerBounds bounds, bool selected)
+    {
+        var inset = StrokeWidth(bounds.Size, selected) / 2;
+        return new(bounds.X + inset, bounds.Y + inset, bounds.Size - inset * 2);
+    }
 
     public static StrategicMarkerBounds Bounds(StrategicMarker marker, float tilePixels, float panX, float panY)
     {
@@ -37,21 +39,19 @@ public static class StrategicMarkerGeometry
             panY + (marker.Y + .5f) * tilePixels - size / 2, size);
     }
 
-    /// <summary>
-    /// A hit includes the whole displayed square, including tile overhang and its boundary.
-    /// Nearest centre wins dense overlaps; equal distances prefer army, then ordinal id.
-    /// State/list order never changes the answer. Embarked/construction exclusion is the caller's
-    /// shared visible-marker enumeration. No hit leaves city/tile resolution with the original tile.
-    /// </summary>
+    /// <summary>The complete real tile is the target, including padding around the art.
+    /// Half-open edges agree with the map's floor-to-tile operation. Coincident targets use
+    /// army then ordinal id; caller excludes embarked armies and construction fleets.</summary>
     public static StrategicMarker? Pick(IEnumerable<StrategicMarker> markers, float x, float y,
-        float tilePixels, float panX, float panY) => markers
-        .Select(marker => (Marker: marker, Bounds: Bounds(marker, tilePixels, panX, panY)))
-        .Where(hit => hit.Bounds.Contains(x, y))
-        .OrderBy(hit => (hit.Bounds.CenterX - x) * (hit.Bounds.CenterX - x)
-            + (hit.Bounds.CenterY - y) * (hit.Bounds.CenterY - y))
-        .ThenBy(hit => hit.Marker.Kind)
-        .ThenBy(hit => hit.Marker.Id, StringComparer.Ordinal)
-        .Select(hit => (StrategicMarker?)hit.Marker).FirstOrDefault();
+        float tilePixels, float panX, float panY)
+    {
+        if (tilePixels <= 0) return null;
+        var tx = (int)Math.Floor((x - panX) / tilePixels);
+        var ty = (int)Math.Floor((y - panY) / tilePixels);
+        return markers.Where(m => m.X == tx && m.Y == ty)
+            .OrderBy(m => m.Kind).ThenBy(m => m.Id, StringComparer.Ordinal)
+            .Select(m => (StrategicMarker?)m).FirstOrDefault();
+    }
 
     /// <summary>Idle coincident boards draw fleet before army and reverse ordinal ids. Selection
     /// stays visible, while the pointer winner is promoted last so clicking its visible board is

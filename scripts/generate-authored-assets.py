@@ -1481,6 +1481,8 @@ def call_image_model(config: dict, prompt: str) -> tuple:
         ) from error
 
     usage = document.get("usage") or {}
+    if config.get("strategic_provenance"):
+        usage = dict(usage, returned_model=document.get("model"), response_id=document.get("id"))
     choices = document.get("choices") or []
     if not choices:
         raise RuntimeError("the response has no choices: " + json.dumps(document)[:400])
@@ -2004,12 +2006,159 @@ SYNTHESIZERS = {
 }
 
 
+STRATEGIC_KEYS = frozenset(f"{kind}.tier{tier}.icon" for kind in ("army", "fleet") for tier in (1, 2, 3))
+
+
+def conform_strategic_candidate(image):
+    """Six-key-only outer-matte removal. A magenta rectangle must have a keyed
+    border all around; ordinary sprite conforming remains unchanged and strict."""
+    rgb = image.convert("RGB")
+    magenta = Image.new("L", rgb.size)
+    magenta.putdata([255 if min(r,b)-g >= MIN_BACKGROUND_EXCESS else 0 for r,g,b in rgb.getdata()])
+    box = magenta.getbbox()
+    if box and box != (0,0,*rgb.size):
+        x0,y0,x1,y1 = box
+        if (x1-x0)*(y1-y0) < rgb.width*rgb.height/2:
+            raise ConformError("strategic magenta rectangle covers less than half the source")
+        edges = [magenta.crop((x0,y0,x1,y0+1)),magenta.crop((x0,y1-1,x1,y1)),
+                 magenta.crop((x0,y0,x0+1,y1)),magenta.crop((x1-1,y0,x1,y1))]
+        if any(sum(edge.getdata()) < 255*edge.width*edge.height*.98 for edge in edges):
+            raise ConformError("strategic outer matte has no complete magenta inner border")
+        image = image.crop(box)
+    return conform_sprite(image)
+
+
+def strategic_candidate_run(args, selection):
+    """Explicit six-only Gemini route; ordinary native paths never enter here.
+
+    Originals and exact prompts/settings/hashes are saved together, without API keys.
+    This route preserves manifest metadata because the paths/keys already exist.
+    """
+    import hashlib
+    if args.all or not args.key or any(e["key"] not in STRATEGIC_KEYS for e in selection):
+        raise ValueError("--strategic-gemini requires explicit strategic --key values; --all/unrelated keys forbidden")
+    config = load_config(args.config)
+    if not config.get("model", "").startswith("google/gemini-"):
+        raise ValueError("strategic candidates require the configured google/gemini image model; no substitution")
+    if args.dry_run:
+        print(f"Gemini strategic candidates: {config['model']}; keys: {[e['key'] for e in selection]}; no network/writes")
+        return 0
+    if not args.reconform and not config.get("api_key"):
+        raise ValueError("configured Gemini API key missing")
+    lock = acquire_lock()
+    try:
+        return _strategic_generate(args, selection, config)
+    finally:
+        release_lock(lock)
+
+
+def _strategic_generate(args, selection, config):
+    import hashlib
+    config = dict(config, strategic_provenance=True)
+    os.makedirs(args.raw, exist_ok=True)
+    failures = []
+    for entry in selection:
+        key = entry["key"]
+        raw_path = raw_path_for(args.raw, key)
+        provenance_path = os.path.join(args.raw, key + ".provenance.json")
+        try:
+            if args.reconform:
+                with open(provenance_path, encoding="utf-8") as handle:
+                    record = json.load(handle)
+                if record["model"] != config["model"] or record["prompt"] != entry["prompt"]:
+                    raise ValueError("raw provenance model/prompt differs from configured candidate")
+                with open(raw_path, "rb") as handle:
+                    raw = handle.read()
+                if hashlib.sha256(raw).hexdigest() != record["raw_sha256"]:
+                    raise ValueError("raw original hash differs from Gemini provenance")
+            else:
+                raw, usage = call_image_model(config, entry["prompt"])
+                image = Image.open(io.BytesIO(raw)); image.load()
+                # Preserve the exact returned byte stream, even if its encoding is not PNG.
+                with open(raw_path, "wb") as handle:
+                    handle.write(raw)
+                record = {"key": key, "model": config["model"], "endpoint": config["endpoint"],
+                          "prompt": entry["prompt"], "generated_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                          "settings": {"modalities": ["image", "text"]}, "usage": usage,
+                          "raw_sha256": hashlib.sha256(raw).hexdigest()}
+                # Save provenance before conforming so a rejected paid-for original remains traceable.
+                with open(provenance_path, "w", encoding="utf-8") as handle:
+                    json.dump(record, handle, indent=2); handle.write("\n")
+            image = Image.open(io.BytesIO(raw)); image.load()
+            bmp = conform_strategic_candidate(image)
+            target = os.path.join(args.out, asset_relpath(key))
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            with open(target, "wb") as handle:
+                handle.write(bmp)
+            record.update({"bmp_sha256": hashlib.sha256(bmp).hexdigest(),
+                           "conformance": "verified outer matte removal if present; key_magenta; crop_to_subject/common square padding; 32px LANCZOS; solid alpha; neutral luminance; BGRA BMP"})
+            with open(provenance_path, "w", encoding="utf-8") as handle:
+                json.dump(record, handle, indent=2); handle.write("\n")
+            print(f"Gemini candidate {key}: raw and provenance retained; 32px BMP conformed")
+        except Exception as error:
+            print(f"FAILED strategic {key}: {type(error).__name__}: {error}", file=sys.stderr)
+            failures.append(key)
+    return 1 if failures else 0
+
+
+def strategic_route_check():
+    """Offline production routing/conformance tests; all output is isolated scratch."""
+    import tempfile
+    from unittest.mock import patch
+    from pathlib import Path
+    import argparse
+    with tempfile.TemporaryDirectory(prefix="t187-route-", dir=os.path.join(REPO_ROOT, "rendered")) as scratch:
+        out = os.path.join(scratch, "pack"); os.makedirs(out)
+        for key in STRATEGIC_KEYS:
+            target = Path(out) / asset_relpath(key); target.parent.mkdir(parents=True, exist_ok=True); target.write_bytes(b"accepted-Gemini-sentinel")
+        def unchanged():
+            assert all((Path(out)/asset_relpath(key)).read_bytes() == b"accepted-Gemini-sentinel" for key in STRATEGIC_KEYS)
+        # Exercise the real CLI dispatcher. Non-native --all work is stubbed so no API occurs.
+        namespace = globals()
+        def forbidden(*args, **kwargs): raise AssertionError("unexpected network/config/native strategic write")
+        with patch.dict(namespace, load_config=forbidden, fetch_models=forbidden, call_image_model=forbidden):
+            for flags in (["--key", "army.tier1.icon"], ["--reconform", "--key", "fleet.tier3.icon"]):
+                assert main([*flags, "--out", out]) == 0; unchanged()
+        with patch.dict(namespace, load_config=lambda _: {}, run_real=lambda *a: 0, run_reconform=lambda *a, **k: 0, call_image_model=forbidden):
+            for flags in (["--all"], ["--reconform"]):
+                assert main([*flags, "--out", out]) == 0; unchanged()
+        # No-argument native generation uses production main in an isolated fake root.
+        spec = importlib.util.spec_from_file_location("t187_glyphs", os.path.join(REPO_ROOT,"scripts/generate-unit-glyphs.py"))
+        glyphs = importlib.util.module_from_spec(spec); spec.loader.exec_module(glyphs)
+        fake = Path(scratch)/"native"; authored = fake/"assets/packs/authored"
+        for key in STRATEGIC_KEYS:
+            target=authored/glyphs.relative_path(key); target.parent.mkdir(parents=True,exist_ok=True); target.write_bytes(b"accepted-Gemini-sentinel")
+        with patch.object(glyphs,"ROOT",fake), patch.object(sys,"argv",["generate-unit-glyphs.py"]):
+            assert glyphs.main() == 0
+        assert all((authored/glyphs.relative_path(key)).read_bytes()==b"accepted-Gemini-sentinel" for key in STRATEGIC_KEYS)
+        for flags in (["--strategic-gemini", "--all"], ["--strategic-gemini"], ["--strategic-gemini", "--key", "battle.unit.archers.small.icon"]):
+            assert main(flags) == 2
+        config={"model":"google/gemini-route-test", "endpoint":"https://offline.invalid", "api_key":"stub"}
+        image=Image.new("RGB",(128,128),(255,0,255))
+        ImageDraw.Draw(image).rectangle((40,20,86,108),fill="white")
+        stream=io.BytesIO(); image.save(stream,format="PNG"); raw=stream.getvalue()
+        calls=[]
+        def image_call(c,p): calls.append(p); return raw,{"returned_model": c["model"], "cost":0}
+        with patch.dict(namespace, load_config=lambda _: config, call_image_model=image_call):
+            for key in sorted(STRATEGIC_KEYS):
+                flags=["--strategic-gemini","--key",key,"--out",out,"--raw",os.path.join(scratch,"raw")]
+                assert main(flags)==0
+                before=(Path(out)/asset_relpath(key)).read_bytes()
+                assert main([*flags,"--reconform"])==0
+                assert before==(Path(out)/asset_relpath(key)).read_bytes()
+        assert len(calls)==6
+    print("Strategic route/conformance check: PASS (six-only Gemini; default/key/all/reconform/native preservation; hashed raw replay)")
+    return 0
+
+
 def main(argv: list | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="generate-authored-assets.py",
         description="T51's prompt-driven asset generator. Dry run by default; a real, "
         "billable run needs --key or --all (a selection of only the three local sfx.* keys bills nothing).",
     )
+    parser.add_argument("--strategic-route-check", action="store_true", help="offline scratch route/conformance/preservation regressions")
+    parser.add_argument("--strategic-gemini", action="store_true", help="explicit six-key Gemini candidates; --reconform uses hashed Gemini raws, ordinary native paths preserve authored six")
     parser.add_argument("--dry-run", action="store_true",
                         help="force a dry run even with --key/--all (the default without "
                              "them)")
@@ -2044,6 +2193,9 @@ def main(argv: list | None = None) -> int:
                              "from (default: rendered/authored-raw, git-ignored)")
     args = parser.parse_args(argv)
 
+    if args.strategic_route_check:
+        return strategic_route_check()
+
     entries = load_prompts(args.prompts)
     entries_by_key = {entry["key"]: entry for entry in entries}
 
@@ -2062,6 +2214,13 @@ def main(argv: list | None = None) -> int:
     if args.self_check:
         return 1 if self_check() else 0
 
+    if args.strategic_gemini:
+        try:
+            return strategic_candidate_run(args, selection)
+        except ValueError as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+
     # T182: these owner-designed icons are always regenerated locally. Dispatch before
     # configuration/network preflight, including --reconform with no old raw image.
     if args.all and args.key:
@@ -2076,6 +2235,14 @@ def main(argv: list | None = None) -> int:
     finally:
         sys.dont_write_bytecode = previous_bytecode_setting
     native_keys = set(unit_glyphs.keys())
+    # Ordinary/default runs skip strategic keys: only explicit Gemini/raw routes may
+    # write authored strategic files. Deterministic placeholders have their own generator.
+    skipped = [entry for entry in selection if entry["key"] in STRATEGIC_KEYS]
+    for entry in skipped:
+        print(f"  preserved authored {entry['key']} (explicit --strategic-gemini required)")
+    selection = [entry for entry in selection if entry["key"] not in STRATEGIC_KEYS]
+    if not selection:
+        return 0
     native = [entry for entry in selection if entry["key"] in native_keys]
     if native:
         write = (args.reconform or args.all or bool(args.key)) and not args.dry_run

@@ -910,7 +910,7 @@ public partial class GameMapView : Control
             BaseTileSize * _zoom, _pan.X, _pan.Y);
         if (marker is { } hit)
         {
-            // Orders and distance use the entity tile, never the clicked overhang tile.
+            // Tile-constrained picking preserves the real command/distance coordinates.
             x = hit.X;
             y = hit.Y;
         }
@@ -1271,12 +1271,14 @@ public partial class GameMapView : Control
             DrawCity(city, tileSize);
         }
 
+        StrategicDrawBoundsForCheck.Clear();
+        StrategicFeedbackBoundsForCheck.Clear();
         var markers = VisibleStrategicMarkers().ToArray();
         var hovered = _markerPointer is { } pointer && new Rect2(Vector2.Zero, Size).HasPoint(pointer)
             ? StrategicMarkerGeometry.Pick(markers, pointer.X, pointer.Y, tileSize, _pan.X, _pan.Y)
             : null;
-        // Idle ties have the same army-before-fleet / ordinal-id precedence as picking. Selected
-        // boards stay legible; the hovered winner is last, so the visible click target takes priority.
+        // Idle boards use reverse ordinal order; selected and pointer-target boards draw last.
+        // Tile-constrained picking is independent of this presentation order.
         var ordered = PreT187MarkerSizeForCheck
             ? markers // Former layer/list order for the before-render evidence only.
             : StrategicMarkerGeometry.DrawOrder(markers, _selectedArmyId, _selectedFleetId, hovered);
@@ -1305,6 +1307,7 @@ public partial class GameMapView : Control
         // T163: shipped rulesets use thresholds [25, 50, 100] (population in thousands), giving
         // four town tiers; a national capital uses its own marker at any population.
         var texture = _assetLoader?.TryGetTexture(MapMarkerKeys.CityIcon(_session!.State, city, _session.Ruleset.MapMarkers));
+        if (MissingStrategicTexturesForCheck) texture = null;
         if (texture is not null)
         {
             // T97: the original's marker -- a square filled with the owner's background colour, the
@@ -1344,6 +1347,21 @@ public partial class GameMapView : Control
         return new Rect2(bounds.X, bounds.Y, bounds.Size, bounds.Size);
     }
 
+    public bool MissingStrategicTexturesForCheck { get; set; }
+    public Dictionary<string, Rect2> StrategicDrawBoundsForCheck { get; } = new();
+    public Dictionary<string, Rect2> StrategicFeedbackBoundsForCheck { get; } = new();
+
+    private void DrawStrategicOutline(string id, Rect2 rect, bool selected)
+    {
+        var bounds = new StrategicMarkerBounds(rect.Position.X, rect.Position.Y, rect.Size.X);
+        var outline = StrategicMarkerGeometry.Outline(bounds, selected);
+        var stroke = StrategicMarkerGeometry.StrokeWidth(bounds.Size, selected);
+        StrategicFeedbackBoundsForCheck[id] = new Rect2(outline.X, outline.Y, outline.Size, outline.Size).Grow(stroke / 2);
+        DrawRect(new Rect2(outline.X, outline.Y, outline.Size, outline.Size),
+            selected ? SelectedRingColor : CityRingColor, false,
+            stroke);
+    }
+
     private void DrawArmy(ArmyState army, float tileSize)
     {
         if (army.AboardFleetId is not null)
@@ -1353,11 +1371,13 @@ public partial class GameMapView : Control
 
         var (background, foreground) = NationColors(army.Nation);
         var rect = StrategicMarkerRect(new(army.Id, StrategicMarkerKind.Army, army.X, army.Y), tileSize);
+        StrategicDrawBoundsForCheck[army.Id] = rect;
         var selected = string.Equals(army.Id, _selectedArmyId, StringComparison.Ordinal);
 
         // T94 (#454 item 3): the confirmed three-tier size marker -- MapMarkerKeys reads the ruleset's
         // own 25,000/50,000 boundaries, never T48's [designed] per-unit-type plurality.
         var texture = _assetLoader?.TryGetTexture(MapMarkerKeys.ArmyIcon(army, _session!.Ruleset.MapMarkers));
+        if (MissingStrategicTexturesForCheck) texture = null;
         if (texture is not null)
         {
             // T97: the original's marker -- the owner's background square with the silhouette tinted
@@ -1366,25 +1386,27 @@ public partial class GameMapView : Control
             DrawTextureRect(texture, rect, false, foreground);
             if (selected)
             {
-                DrawRect(PreT187MarkerSizeForCheck ? rect : rect.Grow(-1.25f), SelectedRingColor, false, 2.5f);
+                DrawStrategicOutline(army.Id, rect, true);
             }
 
             return;
         }
 
         DrawRect(rect, background);
-        DrawRect(rect.Grow(-1f), selected ? SelectedRingColor : CityRingColor, false, selected ? 2f : 1f);
+        DrawStrategicOutline(army.Id, rect, selected);
     }
 
     private void DrawFleet(FleetState fleet, float tileSize)
     {
         var (background, foreground) = NationColors(fleet.Nation);
         var rect = StrategicMarkerRect(new(fleet.Id, StrategicMarkerKind.Fleet, fleet.X, fleet.Y), tileSize);
+        StrategicDrawBoundsForCheck[fleet.Id] = rect;
         var selected = string.Equals(fleet.Id, _selectedFleetId, StringComparison.Ordinal);
 
         // T94: the confirmed three-tier fleet marker (ruleset's own 25/50 ship boundaries) -- the
         // fleet equivalent of DrawArmy's tier icon.
         var texture = _assetLoader?.TryGetTexture(MapMarkerKeys.FleetIcon(fleet, _session!.Ruleset.MapMarkers));
+        if (MissingStrategicTexturesForCheck) texture = null;
         if (texture is not null)
         {
             // T97: the original's marker -- the owner's background square with the silhouette tinted
@@ -1393,14 +1415,14 @@ public partial class GameMapView : Control
             DrawTextureRect(texture, rect, false, foreground);
             if (selected)
             {
-                DrawRect(PreT187MarkerSizeForCheck ? rect : rect.Grow(-1.25f), SelectedRingColor, false, 2.5f);
+                DrawStrategicOutline(fleet.Id, rect, true);
             }
 
             return;
         }
 
         DrawRect(rect, background);
-        DrawRect(rect.Grow(-1f), selected ? SelectedRingColor : CityRingColor, false, selected ? 2f : 1f);
+        DrawStrategicOutline(fleet.Id, rect, selected);
     }
 
     /// <summary>
