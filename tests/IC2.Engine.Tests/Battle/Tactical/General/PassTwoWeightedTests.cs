@@ -108,6 +108,27 @@ public sealed class PassTwoWeightedTests
     }
 
     [Fact]
+    public void Focus_adjustment_wraps_in_faithful_arithmetic_and_stays_wide_when_enabled()
+    {
+        // Both variants compute S=1,500,000,000 without a strength overflow. Three dead
+        // target words make focus*S=4,500,000,000: faithful product wraps to 205,032,704,
+        // giving adjusted 1,294,967,296; wide keeps adjusted -3,000,000,000.
+        // The faithful key exceeds the strict initial minimum; the wide key is eligible.
+        var state = Arena((0, Unit(HI, 5, 5, 3000)),
+            (1, Unit(HI, 0, 0, 0, target: D0)),
+            (2, Unit(HI, 0, 0, 0, target: D0)),
+            (3, Unit(HI, 0, 0, 0, target: D0)),
+            (D0, Unit(HI, 5, 6, 3000000, quality: 100, morale: 100)));
+        var r = ToyRuleset;
+        var wide = TacticalContext.From(r with { Combat = r.Combat with { Tactical = r.Combat.Tactical with { WideArithmetic = true } } });
+        Assert.Equal(3, GeneralTargeting.Focus(state, 0, D0, Context));
+        Assert.Equal(1294967296L, GeneralPassTwo.MeleeKey(state, 0, D0, Context));
+        Assert.Equal(-3000000000L, GeneralPassTwo.MeleeKey(state, 0, D0, wide));
+        Assert.Equal(-1, GeneralPassTwo.Run(state, Context, NoDraws.Instance).Slots[0].Target);
+        Assert.Equal(D0, GeneralPassTwo.Run(state, wide, NoDraws.Instance).Slots[0].Target);
+    }
+
+    [Fact]
     public void Odds_multiply_wraps_before_signed_division()
     {
         // Enemy strength 1.5 billion; 2*S wraps to -1294967296, /3=-431655765.

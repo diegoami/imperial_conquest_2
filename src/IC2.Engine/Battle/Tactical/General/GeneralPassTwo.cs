@@ -27,6 +27,11 @@ namespace IC2.Engine.Battle.Tactical.General;
 /// </description></item>
 /// </list>
 /// <para>
+/// Weighted melee strength and candidate-specific eligibility are confirmed by
+/// <c>2026-10-16-tactical-target-and-draw-attribution.md</c> §A, <c>FUN_0043A544</c>,
+/// products 39899–39926; this replaces the earlier troop-only implementation of that step.
+/// </para>
+/// <para>
 /// The <c>div 4</c> and the <c>2 Ã— â€¦ div 3</c> are the pass's own shape (report Â§7); <c>combat.tactical</c>
 /// has no field for them, so they are written here, cited (T124's entry, amended by plan PR #686). The key
 /// is the report's plain <c>troops div s</c>, with no guard: the report gives none, so a bound of 0 divides
