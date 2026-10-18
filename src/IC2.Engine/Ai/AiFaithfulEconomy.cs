@@ -6,6 +6,7 @@ using IC2.Engine.Naval;
 using IC2.Engine.Naval.Commands;
 using IC2.Engine.Recruitment;
 using IC2.Engine.Recruitment.Commands;
+using IC2.Engine.Strength;
 using static IC2.Engine.Ai.AiFormat;
 
 namespace IC2.Engine.Ai;
@@ -37,12 +38,12 @@ namespace IC2.Engine.Ai;
 /// draws are not moved by the economy. The tax policy and the city choice draw nothing.
 /// </para>
 /// <para>
-/// <strong>Readings the report leaves open.</strong> "Foreign armies" is every army not the acting
-/// nation's (allies included). "Each sum rounded down" is read as the floor of the sum, not the sum of
-/// floors. <c>value(a)</c> sums the army's unit slots, each <c>(troops / 100) x combatPowerWeight</c>. The
-/// deficit only gates the phase (<c>own &lt; threat</c>); the order count is bounded by the 8 and 3 caps,
-/// the report naming no other stop. The original also gates new orders on mobilisation below 100
-/// (<c>decompiled-mobilization-and-mercenary-restock.md</c> §5), kept here.
+/// Army values use FUN_0044a8cc, including strategic morale. T192's evaluated source disposition
+/// preserves two independent queue accumulators: visited existing entries count toward recruitment,
+/// while only successful mobilizations count toward the mobilization target. Existing entries store
+/// raw power as a signed WORD; successful new queues add raw int power without morale. Both passes
+/// use the initial deficit and allow one overshoot. Allied/proximity aggregate division and inclusive
+/// distance boundaries remain known differences deferred to issue 1245.
 /// </para>
 /// </remarks>
 public static class AiFaithfulEconomy
@@ -86,28 +87,42 @@ public static class AiFaithfulEconomy
             // T171: FUN_004504f4 mobilises before placing new orders. Both the deficit and the
             // queue-wide gate are snapshots, not recomputed after each successful command.
             var gate = AiEconomyPhase.FaithfulMobilizationGate(new AiView(state, ruleset, world, nationId));
+            var deficit = threat - own;
+            long existingQueuePower = 0;
             long mobilized = 0;
-            var firstSlot = 0;
-            while (gate && mobilized < threat - own)
+            for (var firstSlot = 0; firstSlot < state.NationById(nationId)!.RecruitmentSlots.Count; firstSlot++)
             {
+                var slot = state.NationById(nationId)!.RecruitmentSlots[firstSlot];
+                if (slot.Troops <= 0)
+                {
+                    continue;
+                }
+
+                // FUN_004504f4 :53791–53796. Account before eligibility, even when mobilization
+                // is unavailable or its separate target is already met. Compaction still skips
+                // the entry shifted into this index, because the indexed scan always advances.
+                var type = ruleset.UnitTypeById(slot.UnitTypeId)!;
+                var value = unchecked((short)((slot.Troops / ruleset.Ai.FaithfulValueTroopsDivisor) * type.CombatPowerWeight));
+                existingQueuePower += value;
+                if (!gate || mobilized >= deficit)
+                {
+                    continue;
+                }
+
                 var candidates = new List<AiCandidate>();
                 AiEconomyPhase.ProposeMobilization(new AiView(state, ruleset, world, nationId), candidates, gate, firstSlot);
-                if (candidates.Count == 0)
+                if (candidates.Count == 0 || ((MobilizeRecruitSlotCommand)candidates[0].Commands[0]).SlotIndex != firstSlot)
                 {
-                    break;
+                    continue;
                 }
 
                 var candidate = candidates[0];
                 var command = (MobilizeRecruitSlotCommand)candidate.Commands[0];
-                var slot = state.NationById(nationId)!.RecruitmentSlots[command.SlotIndex];
-                var type = ruleset.UnitTypeById(slot.UnitTypeId)!;
-                var value = (long)(slot.Troops / ruleset.Ai.FaithfulValueTroopsDivisor) * type.CombatPowerWeight;
                 var result = commands.Dispatch(state, command, events);
                 issued++;
                 if (result.IsRejected)
                 {
                     rejected++;
-                    firstSlot = command.SlotIndex + 1;
                     log.Add(Inv("REJECTED mobilize slot {0}: {1}", command.SlotIndex, result.Rejection!.Message));
                 }
                 else
@@ -116,14 +131,13 @@ public static class AiFaithfulEconomy
                     mobilized += value;
                     // FUN_0044a610 compacts, but FUN_004504f4 still increments its index:
                     // skip the entry shifted into the just-removed slot.
-                    firstSlot = command.SlotIndex + 1;
                     log.Add(candidate.Rationale);
                 }
             }
 
             var stream = rng.ForStream(Inv("ai.faithful-economy:{0}:{1}", nationId, state.Calendar.TurnIndex));
             (state, var placedIssued, var placedRejected) = PlaceOrders(
-                state, ruleset, commands, events, stream, nationId, log);
+                state, ruleset, commands, events, stream, nationId, log, deficit - existingQueuePower);
             issued += placedIssued;
             rejected += placedRejected;
         }
@@ -174,25 +188,15 @@ public static class AiFaithfulEconomy
         return new Result(state, issued, rejected);
     }
 
-    /// <summary>The AI's per-type value of an army: <c>sum of (troops / 100) x combatPowerWeight</c> per unit slot.</summary>
+    /// <summary>FUN_0044a8cc army power, including per-slot truncation and strategic morale.</summary>
     public static long Value(ArmyState army, Ruleset ruleset)
     {
         ArgumentNullException.ThrowIfNull(army);
         ArgumentNullException.ThrowIfNull(ruleset);
 
-        long total = 0;
-        foreach (var unit in army.Units)
-        {
-            var type = ruleset.UnitTypeById(unit.UnitTypeId);
-            if (type is null)
-            {
-                continue;
-            }
-
-            total += (long)(unit.Troops / ruleset.Ai.FaithfulValueTroopsDivisor) * type.CombatPowerWeight;
-        }
-
-        return total;
+        // Shared call at :53501 feeds own, allied, enemy and proximity terms. Queue values
+        // deliberately do not use this helper: :53791 and :53813 have distinct raw formulas.
+        return ArmyPower.Compute(army.Units, army.Morale, ruleset);
     }
 
     /// <summary>§2.1's threat: wars, enemy army values, and the two proximity sums around the capital.</summary>
@@ -294,12 +298,14 @@ public static class AiFaithfulEconomy
         IEventSink events,
         IRng rng,
         string nationId,
-        List<string> log)
+        List<string> log,
+        long remainingTarget)
     {
         var weights = ruleset.Ai;
         var issued = 0;
         var rejected = 0;
-        for (var placed = 0; placed < weights.FaithfulMaxOrdersPerTurn; placed++)
+        long queuedPower = 0;
+        for (var placed = 0; placed < weights.FaithfulMaxOrdersPerTurn && queuedPower < remainingTarget; placed++)
         {
             var nation = state.NationById(nationId);
             if (nation is null)
@@ -340,6 +346,7 @@ public static class AiFaithfulEconomy
             }
 
             state = result.State;
+            queuedPower += (long)(troops / weights.FaithfulValueTroopsDivisor) * type.CombatPowerWeight;
             log.Add(Inv("faithful order {0}: {1} {2} troops at {3}", placed + 1, typeId, troops, city.Id));
         }
 
