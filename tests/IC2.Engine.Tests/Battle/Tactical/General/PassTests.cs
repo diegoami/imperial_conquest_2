@@ -188,11 +188,10 @@ public class PassTests
     // ---- Pass 3: the threat move ----
 
     [Fact]
-    public void Pass_3s_threat_order_puts_archers_with_shots_first_by_minus_their_shot_bound()
+    public void Pass_3s_ordinary_actor_uses_weighted_enemy_strength_even_for_enemy_archers_with_shots()
     {
-        // Against my HI 3,000: LI 1,000 → 1000 × 350 × 4 div 10000 = 140; archers 1,500 with shots → their
-        // shot at me, 1500 × 350 × 2 div 157500 = 6, + 1 = 7, so −7; HI 4,000 → 700; archers 1,000 with no
-        // shots → M[Ar][HI] 3 → 105. Ascending: −7, 105, 140, 700.
+        // Against HI: Ar1500 × 350 × 3 / 10000 = 157, Ar1000 = 105,
+        // LI1000 × 350 × 4 / 10000 = 140, HI4000 = 700. Enemy shots do not select the mode.
         var state = General(
             (0, Unit(HI, 0, 0, 3000)),
             (D0, Unit(LI, 10, 10, 1000)),
@@ -200,8 +199,8 @@ public class PassTests
             (D0 + 2, Unit(HI, 12, 10, 4000)),
             (D0 + 3, Unit(AR, 13, 10, 1000, shots: 0)));
 
-        Assert.Equal(-7, GeneralPassThree.Threat(state, 0, D0 + 1, Context));
-        Assert.Equal(new[] { D0 + 1, D0 + 3, D0, D0 + 2 }, GeneralPassThree.ThreatOrder(state, 0, Context));
+        Assert.Equal(157, GeneralPassThree.Threat(state, 0, D0 + 1, Context));
+        Assert.Equal(new[] { D0 + 3, D0, D0 + 1, D0 + 2 }, GeneralPassThree.ThreatOrder(state, 0, Context));
     }
 
     [Fact]
