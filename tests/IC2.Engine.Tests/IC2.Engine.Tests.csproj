@@ -149,6 +149,7 @@
       nowhere else. No `using Godot` anywhere; never a second, hand-maintained copy.
     -->
     <Compile Include="../../godot/UI/MapClickRules.cs" Link="Ui/MapClickRules.cs" />
+    <Compile Include="../../godot/UI/StrategicMarkerGeometry.cs" Link="Ui/StrategicMarkerGeometry.cs" />
     <Compile Include="../../godot/UI/SidePanelToggle.cs" Link="Ui/SidePanelToggle.cs" />
 
     <!--
@@ -206,6 +207,7 @@
     <Compile Include="../../godot/Screens/GameEndViewModel.cs" Link="Ui/Screens/GameEndViewModel.cs" />
     <Compile Include="../../godot/Screens/PeaceOfferViewModel.cs" Link="Ui/Screens/PeaceOfferViewModel.cs" />
     <Compile Include="../../godot/Screens/TacticalBattleViewModel.cs" Link="Ui/Screens/TacticalBattleViewModel.cs" />
+    <Compile Include="../../godot/Screens/TacticalPlayback.cs" Link="Ui/Screens/TacticalPlayback.cs" />
     <Compile Include="../../godot/Screens/BattleEndedViewModel.cs" Link="Ui/Screens/BattleEndedViewModel.cs" />
 
 <!--

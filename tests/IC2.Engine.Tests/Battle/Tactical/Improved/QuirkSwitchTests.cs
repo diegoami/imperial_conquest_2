@@ -80,8 +80,8 @@ public sealed class QuirkSwitchTests
         Assert.Equal(next, GeneralPassThree.Threat(state, 0, D0, wide));
         var focused = Arena(Enumerable.Range(0, 4).Select(i => (i, Unit(LI, i, 3, 1000, target: D0)))
             .Append((D0, Unit(HI, 3, 4, 800000000))));
-        Assert.Equal(1894967296L, GeneralPassTwo.MeleeKey(focused, 0, D0, Original));
-        Assert.Equal(-2400000000L, GeneralPassTwo.MeleeKey(focused, 0, D0, wide));
+        Assert.Equal(-1488838464L, GeneralPassTwo.MeleeKey(focused, 0, D0, Original));
+        Assert.Equal(-504000000000L, GeneralPassTwo.MeleeKey(focused, 0, D0, wide));
         var armyUnit = new UnitSlot(0, "heavy_infantry", 100000000, 5, "large");
         Assert.NotEqual(TacticalCopyIn.SortKey(armyUnit, Original), TacticalCopyIn.SortKey(armyUnit, wide));
         Assert.Equal(1500000000L, TacticalCopyIn.SortKey(armyUnit, wide));

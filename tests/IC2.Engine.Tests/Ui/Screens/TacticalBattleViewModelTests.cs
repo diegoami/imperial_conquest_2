@@ -339,4 +339,141 @@ public sealed class TacticalBattleViewModelTests
     {
         Assert.Equal(expected, BattlePauses.SnapAttack(wanted));
     }
+
+    [Fact]
+    public void Every_replayed_board_participant_and_both_rosters_use_one_snapshot_with_duplicate_names()
+    {
+        var (session, view, display) = Opened();
+        var output = session.BattleGeneral(true);
+        var queue = new TacticalPlayback();
+        var frames = 0;
+        queue.FrameEntered += frame =>
+        {
+            var snapshot = frame.After;
+            var slots = snapshot.View.Slots.Select(s => s with { Name = "duplicate" }).ToList();
+            snapshot = snapshot with { View = snapshot.View with { Slots = new IC2.Engine.Model.ValueList<TacticalSlot>(slots) } };
+            var focus = slots.FindIndex(s => s.IsLive);
+            var model = TacticalBattleViewModel.FromSnapshot(snapshot, display, focus, frame,
+                queue.CurrentExchange, queue.PreviousExchange, perspectiveSide: 0, resolvingHalfRound: queue.ResolvingHalfRound);
+            Assert.Same(snapshot.View, model.View);
+            Assert.Equal(snapshot.View.Grid, model.Cells.Select(c => c.Code));
+            for (var side = 0; side < 2; side++)
+            {
+                var expected = slots.Select((unit, slot) => (unit, slot)).Where(x => x.unit.IsLive && model.SideOf(x.slot) == side).ToArray();
+                Assert.Equal(expected.Select(x => x.slot), model.RosterRows(side).Select(r => r.Slot));
+                foreach (var row in model.RosterRows(side))
+                {
+                    Assert.Contains("#" + row.Slot, row.Cells[0]);
+                    Assert.Equal(slots[row.Slot].Troops.ToString(), row.Cells[2]);
+                    Assert.Equal(side == 0 ? 4 : 3, row.Cells.Count);
+                }
+            }
+            foreach (var slot in snapshot.PendingPlacementSlots)
+                Assert.DoesNotContain(model.Cells, cell => cell.Slot == slot);
+            foreach (var id in new[] { frame.Actor, frame.Target }.OfType<TacticalUnitIdentity>())
+            {
+                var lines = model.ParticipantLines(id.Slot, "role");
+                Assert.Contains(lines, line => line.Contains("#" + id.Slot));
+                Assert.Contains(lines, line => line.Contains(slots[id.Slot].Troops + " troops"));
+                if (id.Side == 1) Assert.DoesNotContain(lines, line => line.Contains("Morale:"));
+            }
+            frames++;
+        };
+        queue.Begin(output.TacticalTimeline);
+        Assert.Equal(output.TacticalTimeline.Count, frames);
+        Assert.True(frames > 10);
+    }
+
+    [Fact]
+    public void Pending_general_placements_do_not_create_false_grid_occupants_and_controller_is_explicit()
+    {
+        var session = TacticalSessionTestbed.ToySession(HumanBattleMode.Tactical);
+        var output = session.Submit("attack-army north-army-1 south-army-1");
+        var display = BattleDisplay.For(output.OpenBattleView!, session.State, session.Ruleset);
+        var pending = Assert.Single(output.TacticalTimeline, f => f.Event is null && f.After.PendingPlacementSlots.Count > 0);
+        var model = TacticalBattleViewModel.FromSnapshot(pending.After, display, frame: pending, perspectiveSide: 0);
+        foreach (var slot in pending.After.PendingPlacementSlots)
+        {
+            var unit = pending.After.View.Slots[slot];
+            Assert.NotEqual(slot, model.SlotAt(unit.X, unit.Y));
+        }
+        Assert.Contains("Computer nation", model.ControllerText);
+        var human = TacticalBattleViewModel.FromSnapshot(output.TacticalTimeline[^1].After, display);
+        Assert.Contains("Human", human.ControllerText);
+        Assert.Contains("placement", human.ControllerText);
+        var generalView = output.TacticalTimeline[^1].After.View with { ComputerGeneral = new IC2.Engine.Model.ValueList<bool>(new[] { true, false }) };
+        var general = TacticalBattleViewModel.FromSnapshot(output.TacticalTimeline[^1].After with { View = generalView }, display);
+        Assert.Contains("Computer general", general.ControllerText);
+        var resolving = TacticalBattleViewModel.FromSnapshot(pending.After, display, resolvingHalfRound: true);
+        Assert.DoesNotContain("Human", resolving.ControllerText);
+        Assert.Contains("handoff pending", resolving.ControllerText);
+    }
+
+    [Fact]
+    public void Overkill_exchange_before_rout_preserves_raw_negative_grid_code_without_indexing_a_negative_sprite()
+    {
+        var toy = TacticalSessionTestbed.Toy;
+        var world = toy.World with
+        {
+            StartingArmies = IC2.Engine.Model.ValueList.From(toy.World.StartingArmies.Select(a => a.Id == "south-army-1"
+                ? a with { X = 4, Y = 2, Units = IC2.Engine.Model.ValueList.Of(new IC2.Engine.Model.UnitSlot(0, "heavy_infantry", 50_000, 6, "Guards")) }
+                : a)),
+        };
+        var session = new GameSession(world, toy.Ruleset, toy.Scenario) { HumanBattles = HumanBattleMode.Tactical };
+        session.Submit("declare-war south");
+        var opening = session.Submit("end");
+        var display = BattleDisplay.For(opening.OpenBattleView!, session.State, session.Ruleset);
+        var end = session.BattleGeneral(true);
+        Assert.Contains(end.TacticalTimeline, frame => frame.After.View.Grid.Any(code => code < 0));
+        var queue = new TacticalPlayback();
+        queue.FrameEntered += frame =>
+        {
+            var model = TacticalBattleViewModel.FromSnapshot(frame.After, display, frame: frame, perspectiveSide: 0);
+            Assert.Equal(frame.After.View.Grid, model.Cells.Select(c => c.Code));
+            Assert.All(model.Cells.Where(c => c.Code < 0), cell => Assert.Null(cell.IconKey));
+            foreach (var id in new[] { frame.Actor, frame.Target }.OfType<TacticalUnitIdentity>())
+            {
+                var unit = frame.After.View.Slots[id.Slot];
+                if (unit.Troops < 0)
+                    Assert.Contains(model.ParticipantLines(id.Slot, "participant"), line => line.Contains("removal pending"));
+            }
+        };
+        queue.Begin(end.TacticalTimeline);
+        Assert.Equal(TacticalFrameKind.Reconciliation, queue.CurrentFrame!.Kind);
+    }
+
+    [Fact]
+    public void Exchange_effects_and_setup_retain_combatant_roles_with_values_from_fully_updated_snapshot()
+    {
+        var (session, _, display) = Opened();
+        var output = session.BattleGeneral(true);
+        var queue = new TacticalPlayback();
+        var setups = 0;
+        queue.FrameEntered += frame =>
+        {
+            if (frame.Kind is not (TacticalFrameKind.Setup or TacticalFrameKind.Rout or TacticalFrameKind.Cascade or TacticalFrameKind.Removal)
+                || queue.CurrentExchange is null) return;
+            var model = TacticalBattleViewModel.FromSnapshot(frame.After, display, frame: frame,
+                currentExchange: queue.CurrentExchange, previousExchange: queue.PreviousExchange, perspectiveSide: 0);
+            Assert.Equal(queue.CurrentExchange.Actor!.Slot, model.ActorSlot);
+            Assert.Equal(queue.CurrentExchange.Target!.Slot, model.TargetSlot);
+            foreach (var slot in new[] { model.ActorSlot, model.TargetSlot })
+            {
+                Assert.Contains(model.ParticipantLines(slot, "combatant"), line => line.Contains(frame.After.View.Slots[slot].Troops + " troops"));
+                if (!frame.After.View.Slots[slot].IsLive)
+                    Assert.DoesNotContain(model.Cells, cell => cell.Slot == slot && (cell.Actor || cell.Target));
+            }
+            Assert.All(model.Cells.Where(cell => cell.Actor || cell.Target), cell =>
+            {
+                Assert.True(cell.Slot >= 0 && frame.After.View.Slots[cell.Slot].IsLive);
+                Assert.NotEqual(TacticalIcon.Empty, cell.Code);
+                Assert.DoesNotContain(cell.Slot, frame.After.PendingPlacementSlots);
+            });
+            Assert.Equal(frame.After.View.Grid, model.Cells.Select(c => c.Code));
+            Assert.False(model.ResolvingHalfRound);
+            if (frame.Kind == TacticalFrameKind.Setup) setups++;
+        };
+        queue.Begin(output.TacticalTimeline);
+        Assert.True(setups > 1);
+    }
 }

@@ -46,6 +46,9 @@ public sealed record BattleDisplay(
     }
 }
 
+/// <summary>A board/minimap glyph with its shared fractional pose and opacity.</summary>
+public sealed record BattleUnitView(BattleCellView Cell, double X, double Y, double Opacity);
+
 /// <summary>One cell of the board as the screen draws it.</summary>
 /// <param name="X">The column.</param>
 /// <param name="Y">The row.</param>
@@ -54,7 +57,9 @@ public sealed record BattleDisplay(
 /// <param name="TintSide">0 when the icon is the attacker's (drawn in its nation's colours), 1 the defender's, −1 for ground.</param>
 /// <param name="IconKey">The asset key of the icon (<see cref="BattleAssetKeys.UnitIcon(string, int)"/>), or <see langword="null"/> for ground.</param>
 /// <param name="Selected">Whether the selection cursor is on this cell.</param>
-public sealed record BattleCellView(int X, int Y, int Code, int Slot, int TintSide, string? IconKey, bool Selected);
+/// <param name="Actor">A live, actually occupied actor cell; never a routed unit's former location.</param>
+/// <param name="Target">A live, actually occupied target cell.</param>
+public sealed record BattleCellView(int X, int Y, int Code, int Slot, int TintSide, string? IconKey, bool Selected, bool Actor = false, bool Target = false);
 
 /// <summary>A toolbar button: its asset key, its tooltip and whether it can be pressed.</summary>
 /// <param name="Id">The button's id, one of <see cref="BattleAssetKeys.ToolbarButtons"/>.</param>
@@ -221,6 +226,143 @@ public sealed class TacticalBattleViewModel
     private readonly TacticalBattleView _view;
     private readonly BattleDisplay _display;
     private readonly int _perSide;
+    private TacticalPresentationSnapshot? _snapshot;
+    private int _perspective;
+    public TacticalBattleFrame? DisplayedFrame { get; private set; }
+    public TacticalBattleFrame? CurrentExchange { get; private set; }
+    public TacticalBattleFrame? PreviousExchange { get; private set; }
+    public bool ResolvingHalfRound { get; private set; }
+    public TacticalPose? Pose { get; private set; }
+    public TacticalPlaybackStage Stage { get; private set; }
+    // Rout/cascade/removal are effects of the current exchange, not a reversal of its actor/target.
+    // Keep those identities through housekeeping and Setup; all numbers still read the displayed snapshot.
+    private TacticalBattleFrame? ParticipantFrame => CurrentExchange is not null
+        && DisplayedFrame?.Kind is (TacticalFrameKind.Rout or TacticalFrameKind.Cascade or TacticalFrameKind.Removal
+            or TacticalFrameKind.Morale or TacticalFrameKind.Setup or TacticalFrameKind.HalfRound
+            or TacticalFrameKind.Terminal or TacticalFrameKind.Reconciliation or TacticalFrameKind.CapWithdrawal)
+        ? CurrentExchange : DisplayedFrame;
+    public int ActorSlot => ParticipantFrame?.Actor?.Slot ?? CurrentExchange?.Actor?.Slot ?? -1;
+    public int TargetSlot => ParticipantFrame?.Actor is not null
+        ? ParticipantFrame.Target?.Slot ?? -1 : CurrentExchange?.Target?.Slot ?? -1;
+
+    /// <summary>Explicit phase/controller caption; HalfRound is not a completed next-round setup.</summary>
+    public string ControllerText => ResolvingHalfRound
+        ? "Resolving previous half-round — controller handoff pending"
+        : _view.IsOver ? "Battle complete — reconciling result"
+        : $"Half-round {_view.Counter} · {(_view.SideToMove == 0 ? "Attacker" : "Defender")} · {NationName(_view.SideToMove)} · "
+          + (_view.ComputerControlled[_view.SideToMove] ? "Computer nation" : _view.ComputerGeneral[_view.SideToMove] ? "Computer general" : "Human")
+          + (_view.Placed ? " · movement / combat" : " · placement");
+
+    public IReadOnlyList<string> ActorLines => ParticipantLines(ActorSlot, "ACTOR ○");
+    public IReadOnlyList<string> TargetLines => ParticipantLines(TargetSlot, "TARGET ◇");
+    public IReadOnlyList<string> CurrentExchangeLines => ExchangeLines(CurrentExchange).Concat(DepartureLines).ToArray();
+    public IReadOnlyList<string> DepartureLines
+    {
+        get
+        {
+            if (DisplayedFrame?.Event is not (TacticalRoutedEvent or TacticalCascadeRemovedEvent)) return Array.Empty<string>();
+            var slot = DisplayedFrame.Actor!.Slot;
+            var cascade = DisplayedFrame.Event is TacticalCascadeRemovedEvent;
+            var status = Stage is TacticalPlaybackStage.RoutHold or TacticalPlaybackStage.RoutFade ? "departure pending" : "removed";
+            return new[] { $"{(cascade ? "ROUT CASCADE REMOVAL" : "UNIT ROUTED")} · #{slot} {_view.Slots[slot].Name} · {RosterTitle(SideOf(slot))} · {status}" };
+        }
+    }
+
+    public string PositionText(int slot)
+    {
+        if (Pose is { } pose && pose.Glyph.Slot == slot)
+            return $"({pose.X.ToString("0.##", CultureInfo.InvariantCulture)},{pose.Y.ToString("0.##", CultureInfo.InvariantCulture)}) · {(pose.Departing ? "routed / departing" : Stage == TacticalPlaybackStage.Arrival ? "arrived" : "moving")}";
+        var unit = _view.Slots[slot];
+        return $"({unit.X},{unit.Y})";
+    }
+
+    /// <summary>The same draw list feeds board and minimap, with no stationary duplicate.</summary>
+    public IReadOnlyList<BattleUnitView> VisualUnits
+    {
+        get
+        {
+            var units = Cells.Where(c => c.IconKey is not null && !(Pose is { } posed && (c.Slot == posed.Glyph.Slot || c.X == posed.Glyph.X && c.Y == posed.Glyph.Y)))
+                .Select(c => new BattleUnitView(c, c.X, c.Y, 1)).ToList();
+            if (Pose is { } pose)
+            {
+                var g = pose.Glyph;
+                var cell = new BattleCellView(g.X, g.Y, g.Code, g.Slot, g.Side,
+                    BattleAssetKeys.UnitIcon(g.TypeId, g.Code % TacticalIcon.SizesPerType),
+                    !pose.Departing && g.Slot == SelectedSlot, g.Slot == ActorSlot, g.Slot == TargetSlot);
+                units.Add(new BattleUnitView(cell, pose.X, pose.Y, pose.Opacity));
+            }
+            return units;
+        }
+    }
+    public IReadOnlyList<string> PreviousExchangeLines => ExchangeLines(PreviousExchange);
+
+    /// <summary>All values come from this one displayed snapshot; identity metadata never indexes by name.</summary>
+    public static TacticalBattleViewModel FromSnapshot(TacticalPresentationSnapshot snapshot, BattleDisplay display,
+        int selectedSlot = -1, TacticalBattleFrame? frame = null, TacticalBattleFrame? currentExchange = null,
+        TacticalBattleFrame? previousExchange = null, int perspectiveSide = -1, bool resolvingHalfRound = false,
+        bool controlsEnabled = false, TacticalPose? pose = null, TacticalPlaybackStage stage = TacticalPlaybackStage.Frame)
+    {
+        var live = selectedSlot >= 0 && selectedSlot < snapshot.View.Slots.Count && snapshot.View.Slots[selectedSlot].IsLive
+            && !(pose is { Departing: true } departure && departure.Glyph.Slot == selectedSlot);
+        var model = new TacticalBattleViewModel(snapshot.View, display, live ? selectedSlot : -1, null, controlsEnabled)
+        {
+            _snapshot = snapshot,
+            _perspective = perspectiveSide < 0 ? snapshot.View.SideToMove : perspectiveSide,
+            DisplayedFrame = frame,
+            CurrentExchange = currentExchange,
+            PreviousExchange = previousExchange,
+            ResolvingHalfRound = resolvingHalfRound,
+            Pose = pose,
+            Stage = stage,
+        };
+        // Pending general placements retain old coordinates; map only the actual producer grid.
+        model.Cells = model.BuildCells();
+        return model;
+    }
+
+    public IReadOnlyList<string> ParticipantLines(int slot, string role)
+    {
+        if (slot < 0 || slot >= _view.Slots.Count) return Array.Empty<string>();
+        var unit = _view.Slots[slot];
+        var side = SideOf(slot);
+        var gridIndex = unit.X * BoardHeight + unit.Y;
+        var removalPending = !unit.IsLive && gridIndex >= 0 && gridIndex < _view.Grid.Count
+            && _view.Grid[gridIndex] != TacticalIcon.Empty;
+        var lines = new List<string>
+        {
+            $"{role} · #{slot} · {(side == 0 ? "Attacker" : "Defender")} · {NationName(side)}",
+            $"{unit.Name} · {TypeName(unit.Type)} · {unit.Troops} troops" + (Pose?.Glyph.Slot == slot || unit.IsLive ? $" · {PositionText(slot)}" : removalPending ? " · removal pending" : " · removed"),
+        };
+        if (side == _perspective)
+            lines.Add($"Morale: {unit.Morale} ({MoraleTier(unit.Morale)}) · moves {unit.Moves} · shots {unit.Shots}");
+        return lines;
+    }
+
+    public IReadOnlyList<BattleListRow> RosterRows(int side) => LiveOf(side).Concat(Pose is { Departing: true } departing && SideOf(departing.Glyph.Slot) == side
+        ? new[] { departing.Glyph.Slot } : Array.Empty<int>()).Distinct().Select(slot =>
+    {
+        var unit = _view.Slots[slot];
+        var roles = (Pose is { Departing: true } departure && departure.Glyph.Slot == slot ? "ROUTED / DEPARTING " : "") + (slot == ActorSlot ? "○ ACTOR " : "") + (slot == TargetSlot ? "◇ TARGET " : "") + (slot == SelectedSlot ? "□ SELECTED " : "");
+        var cells = new List<string> { $"{roles}#{slot} {unit.Name}", TypeName(unit.Type), unit.Troops.ToString(CultureInfo.InvariantCulture) };
+        if (Pose?.Glyph.Slot == slot) cells.Add(PositionText(slot));
+        if (side == _perspective) cells.Add($"{ArmyDialogModels.QualityCaption(unit.Quality)} / {unit.Morale} ({MoraleTier(unit.Morale)})");
+        return new BattleListRow(slot, cells);
+    }).ToList();
+
+    public string RosterTitle(int side) => $"{(side == 0 ? "Attacker" : "Defender")} — {NationName(side)}";
+    public bool CanSeeDetails(int side) => side == _perspective;
+
+    public static IReadOnlyList<string> ExchangeLines(TacticalBattleFrame? frame)
+    {
+        if (frame is null) return Array.Empty<string>();
+        string Name(int slot) => $"#{slot} {frame.After.View.Slots[slot].Name}";
+        return frame.Event switch
+        {
+            TacticalShotEvent shot => new[] { $"{Name(shot.Shooter)} SHOOTS AT {Name(shot.Target)}", $"TROOP LOSSES {shot.Loss}" },
+            TacticalMeleeEvent melee => new[] { $"{Name(melee.Attacker)} ATTACKS {Name(melee.Defender)}", $"UNIT LOSSES: actor {melee.AttackerLoss} · target {melee.DefenderLoss}" },
+            _ => Array.Empty<string>(),
+        };
+    }
 
     private TacticalBattleViewModel(
         TacticalBattleView view, BattleDisplay display, int selectedSlot, BattleExchange? lastExchange, bool controlsEnabled)
@@ -228,6 +370,7 @@ public sealed class TacticalBattleViewModel
         _view = view;
         _display = display;
         _perSide = Math.Max(1, view.Slots.Count / 2);
+        _perspective = view.SideToMove;
         SelectedSlot = selectedSlot;
         LastExchange = lastExchange;
         Cells = BuildCells();
@@ -241,7 +384,7 @@ public sealed class TacticalBattleViewModel
     public BattleExchange? LastExchange { get; }
 
     /// <summary>The board's cells, indexed <c>x × boardHeight + y</c> like the engine's grid.</summary>
-    public IReadOnlyList<BattleCellView> Cells { get; }
+    public IReadOnlyList<BattleCellView> Cells { get; private set; }
 
     /// <summary>The eight toolbar buttons.</summary>
     public IReadOnlyList<BattleToolbarButton> Buttons { get; }
@@ -314,7 +457,8 @@ public sealed class TacticalBattleViewModel
         for (var s = 0; s < _view.Slots.Count; s++)
         {
             var unit = _view.Slots[s];
-            if (unit.IsLive && unit.X == x && unit.Y == y)
+            if (Pose is { Departing: true } departure && departure.Glyph.Slot == s) continue;
+            if (unit.IsLive && unit.X == x && unit.Y == y && !(_snapshot?.PendingPlacementSlots.Contains(s) ?? false))
             {
                 found = s;
             }
@@ -353,12 +497,14 @@ public sealed class TacticalBattleViewModel
             {
                 NationName(side),
                 unit.Name + (unit.Origin != 0 ? " mercenaries" : string.Empty),
+
                 TypeName(unit.Type),
                 $"{unit.Troops.ToString(CultureInfo.InvariantCulture)} troops",
             };
 
+            if (Pose?.Glyph.Slot == SelectedSlot) lines.Add(PositionText(SelectedSlot));
             // The side to move sees its own unit's quality, morale, moves, shots and target; an enemy's stay hidden.
-            if (side == _view.SideToMove)
+            if (side == _perspective)
             {
                 lines.Add($"Quality: {ArmyDialogModels.QualityCaption(unit.Quality)}");
                 lines.Add($"Morale: {MoraleTier(unit.Morale)}");
@@ -550,10 +696,14 @@ public sealed class TacticalBattleViewModel
                 var side = code >= TacticalIcon.DefenderOffset ? 1 : 0;
                 var type = (code % TacticalIcon.DefenderOffset) / TacticalIcon.SizesPerType;
                 var size = code % TacticalIcon.SizesPerType;
-                var typeId = type < _view.UnitTypeIds.Count ? _view.UnitTypeIds[type] : string.Empty;
+                // Exchange frames can precede rout removal: raw icon arithmetic can be negative for an
+                // overkilled unit. Preserve the actual code/grid; only valid image-list entries have sprites.
+                var validIcon = type >= 0 && type < _view.UnitTypeIds.Count && size >= 0;
+                var typeId = validIcon ? _view.UnitTypeIds[type] : string.Empty;
                 var slot = SlotAt(x, y);
                 cells.Add(new BattleCellView(
-                    x, y, code, slot, side, BattleAssetKeys.UnitIcon(typeId, size), slot >= 0 && slot == SelectedSlot));
+                    x, y, code, slot, side, validIcon ? BattleAssetKeys.UnitIcon(typeId, size) : null, slot >= 0 && slot == SelectedSlot,
+                    slot >= 0 && slot == ActorSlot, slot >= 0 && slot == TargetSlot));
             }
         }
 

@@ -185,8 +185,17 @@ public partial class MapClickCheck : Control
     {
         _plan.AddRange(new (int WaitFrames, Action Run)[]
         {
+            // T187: these scenarios require genuinely empty adjacent tiles/city targets. At fit,
+            // enlarged strategic boards visibly cover them. Arrange the real production view at
+            // the original Unit-map cell size; all existing coordinates/outcomes stay unchanged.
+            (InitialSettleFrames, () =>
+            {
+                _map.SetDrawnCellPixelsForCheck(32);
+                _map.CentreOnTile(100, 38);
+            }),
+
             // Done-when 2 (selection) and Done-when 5 (the own half of the fog).
-            (InitialSettleFrames, ClickOwnArmy),
+            (BetweenStepsFrames, ClickOwnArmy),
             (BetweenStepsFrames, AssertOwnArmyPanelShowsAllFourNumbers),
 
             // Done-when 2 (the right-click rule).
@@ -691,7 +700,14 @@ public partial class MapClickCheck : Control
 
     private void Click(int x, int y, MouseButton button)
     {
+        // Use the real overview-map pan path so even a tall laid-out map cannot put the
+        // scenario's click below the visible window. Panning preserves selection/world distances.
+        _map.CentreOnTile(x, y);
         var position = _map.TileCenterForCheck(x, y);
+        var viewportPosition = _map.GetGlobalTransformWithCanvas() * position;
+        if (!Check(new Rect2(Vector2.Zero, _map.Size).HasPoint(position)
+            && GetViewport().GetVisibleRect().HasPoint(viewportPosition),
+            $"fixture click ({x},{y}) lies inside map bounds and visible viewport at {viewportPosition}")) return;
         if (button == MouseButton.Left)
         {
             _map._GuiInput(new InputEventMouseButton
