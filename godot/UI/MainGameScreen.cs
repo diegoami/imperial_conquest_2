@@ -213,6 +213,7 @@ public partial class MainGameScreen : Control
         _soundPlayer = new Audio.SoundPlayer(
             Path.Combine(RepositoryRoot, "assets", "packs", SettingsScreen.SelectedPackId ?? Assets.AssetPackManifestLoader.DefaultPackId));
         AddChild(_soundPlayer);
+        _soundPlayer.SoundEnabled = () => SettingsScreen.SoundEnabled;
         _soundPlayer.Muted = !SettingsScreen.SoundEnabled;
         Session.EventsPublished += OnSessionEventsPublished;
 
@@ -1764,7 +1765,7 @@ public partial class MainGameScreen : Control
         }
 
         _soundPlayer.Muted = !SettingsScreen.SoundEnabled;
-        var cues = Audio.SoundCues.ForEvents(events, Session.State);
+        var cues = Audio.SoundCues.ForEvents(events, Session.State, Session.LastTacticalTimeline);
         _soundPlayer.Play(cues);
     }
 
@@ -2191,6 +2192,7 @@ public partial class MainGameScreen : Control
 
     private void ShowTacticalBattleOverlay(TacticalBattleView view)
     {
+        _soundPlayer.ClearTactical();
         _boardBattleArmies.Add((view.AttackerArmyId, view.DefenderArmyId));
         var screen = new TacticalBattleScreen
         {
@@ -2206,6 +2208,8 @@ public partial class MainGameScreen : Control
             if (output.TacticalTimeline.Count > 0)
                 screen.ShowMessage("Battlefield updated · " + screen.Model.ControllerText);
         };
+        var audio = new Audio.TacticalPlaybackAudio(Session.Ruleset, () => SettingsScreen.SoundEnabled, _soundPlayer.PlayTactical);
+        screen.ExchangeEntered += audio.ExchangeEntered;
         screen.BattleEnded += output => ShowBattleEndedOverlay(screen, output);
         screen.SaveRequested += () => CommandTable.TryInvoke("file.save");
         screen.SaveAsRequested += () => CommandTable.TryInvoke("file.save_as");

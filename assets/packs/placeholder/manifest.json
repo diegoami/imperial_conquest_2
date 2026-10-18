@@ -1,7 +1,7 @@
 {
     "schemaVersion":  1,
     "name":  "Placeholder Asset Pack",
-    "description":  "Generated placeholder assets - flat colors, silent audio stubs, good enough for development and testing.",
+    "description":  "Generated placeholder assets - flat colors and silent audio stubs; battle_arrows, battle_javelin and battle_melee reuse existing locally synthesized authored cues byte-for-byte from assets/packs/authored/sfx/. Good enough for development and testing.",
     "assets":  {
                    "unit.light_infantry.icon":  "units/light_infantry.bmp",
                    "unit.heavy_infantry.icon":  "units/heavy_infantry.bmp",

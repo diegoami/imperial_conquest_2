@@ -5,6 +5,7 @@ using IC2.Engine.Core;
 using IC2.Engine.Movement.Commands;
 using IC2.Engine.Model;
 using IC2.Engine.Naval;
+using IC2.Engine.Presentation;
 
 namespace IC2.Slice.Audio;
 
@@ -58,7 +59,8 @@ public static class SoundCues
     /// <see cref="NationState.Control"/> from here, never re-derives a seat's control from
     /// <see cref="GameState.ActiveNationId"/>).
     /// </param>
-    public static IReadOnlyList<string> ForEvents(IReadOnlyList<DomainEvent> events, GameState state)
+    public static IReadOnlyList<string> ForEvents(IReadOnlyList<DomainEvent> events, GameState state,
+        IReadOnlyList<TacticalBattleFrame>? tacticalTimeline = null)
     {
         ArgumentNullException.ThrowIfNull(events);
         ArgumentNullException.ThrowIfNull(state);
@@ -71,6 +73,11 @@ public static class SoundCues
         var cues = new List<string>(events.Count);
         foreach (var domainEvent in events)
         {
+            // Only the matching tactical resolution is replaced by displayed exchanges.
+            // Unrelated strategic battles in this same AI lap retain their generic cue.
+            if (domainEvent is BattleResolved resolved && tacticalTimeline is not null
+                && tacticalTimeline.Any(f => f.After.View.AttackerArmyId == resolved.Result.AttackerId
+                    && f.After.View.DefenderArmyId == resolved.Result.DefenderId)) continue;
             AppendCuesFor(domainEvent, state, cues);
         }
 
