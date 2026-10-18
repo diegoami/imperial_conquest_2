@@ -137,9 +137,8 @@ public class PassTests
     [Fact]
     public void Pass_2s_melee_target_minimises_theirs_minus_focus_times_theirs()
     {
-        // Two adjacent enemies: A (slot 20) 4,000 with focus 0 → 4000; B (slot 21) 9,000 targeted by own
-        // slot 1 (which has its target, so pass 2 skips it): focus 1 → 9000 − 9000 = 0. B wins, and
-        // 2 × 0 div 3 = 0 < 3000. With focus 2 it is 9000 − 18000 = −9000, smaller still.
+        // HI strengths: A 70,000; B 157,500. One focus makes B zero and eligible;
+        // without focus, only A passes the actor's 52,500 odds comparison.
         var one = General(
             (0, Unit(HI, 5, 5, 3000)), (1, Unit(HI, 7, 6, 3000, target: D0 + 1)),
             (D0, Unit(HI, 5, 6, 4000)), (D0 + 1, Unit(HI, 6, 6, 9000)));
@@ -158,9 +157,8 @@ public class PassTests
     [Fact]
     public void Pass_2_computes_theirs_minus_focus_times_theirs_in_32_bits_at_focus_4()
     {
-        // Enemy B, 30,000 troops, already targeted by four own slots (out of the battle, so pass 2 skips
-        // them): 30000 − 4 × 30000 = −90,000 in 32 bits (the clone's integer semantics, T123), well below A's
-        // 4,000, and 2 × −90000 div 3 = −60,000 < 3000.
+        // HI B strength 525,000, targeted by four dead own slots: adjusted -1,575,000.
+        // Dead target words count, and the focus arithmetic is signed 32-bit, not a word.
         var state = General(
             (0, Unit(HI, 5, 5, 3000)),
             (1, Unit(HI, 0, 0, 0, target: D0 + 1)), (2, Unit(HI, 0, 1, 0, target: D0 + 1)),
@@ -169,11 +167,8 @@ public class PassTests
 
         Assert.Equal(4, GeneralTargeting.Focus(state, 0, D0 + 1, Context));
 
-        // The key itself pins the width: 32 bits give −90,000. A 16-bit reading would give 4 × 30000 =
-        // 120,000 → (short) −11,072; 30000 + 11072 = 41,072 → (short) −24,464. Both pick B here, so which
-        // width the original uses is T129's to replay; this pins the port's.
-        Assert.Equal(-90_000, GeneralPassTwo.MeleeKey(state, 0, D0 + 1, Context));
-        Assert.Equal(4000, GeneralPassTwo.MeleeKey(state, 0, D0, Context));
+        Assert.Equal(-1_575_000, GeneralPassTwo.MeleeKey(state, 0, D0 + 1, Context));
+        Assert.Equal(70_000, GeneralPassTwo.MeleeKey(state, 0, D0, Context));
         Assert.Equal(D0 + 1, GeneralPassTwo.Run(state, Context, NoDraws.Instance).Slots[0].Target);
     }
 
@@ -182,7 +177,7 @@ public class PassTests
     {
         // The report gives pass 2's melee step after the shooting with no second moves check: a light
         // infantry that spent its moves shooting still takes an adjacent target that passes the odds test.
-        var state = General((0, Unit(LI, 5, 5, 3000)), (D0, Unit(HI, 5, 6, 4000)));
+        var state = General((0, Unit(LI, 5, 5, 3000)), (D0, Unit(LI, 5, 6, 4000)));
 
         var after = GeneralPassTwo.Run(state, Context, new ZeroDraws());
 
