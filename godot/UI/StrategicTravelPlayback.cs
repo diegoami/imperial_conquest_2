@@ -55,6 +55,7 @@ public sealed class StrategicTravelPlayback
         _completed = completed;
         foreach (var step in batch.Steps) _steps.Enqueue(step);
         Prepare();
+        Advance(0); // Zero-time/offscreen records do not hold input until a later frame.
         return true;
     }
 

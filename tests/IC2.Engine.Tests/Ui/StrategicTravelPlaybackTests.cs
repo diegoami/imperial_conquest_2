@@ -52,7 +52,7 @@ public sealed class StrategicTravelPlaybackTests
         var session = StrategicTravelObservationTests.Session();
         var output = session.Submit("move a 5 2");
         var route = output.StrategicTimeline.Steps.SelectMany(s => s.Routes).Single();
-        var playback = new StrategicTravelPlayback { CellSeconds = mode == 0 ? 0 : 1 };
+        var playback = new StrategicTravelPlayback { CellSeconds = mode == 0 ? 0 : 1, Paused = true };
         var cells = new List<GridPoint>();
         var completions = 0;
         playback.CellEntered += (_, p) => cells.Add(p);
@@ -90,6 +90,30 @@ public sealed class StrategicTravelPlaybackTests
         playback.Close(); playback.Skip();
         Assert.Null(playback.DisplayState); Assert.Null(playback.CurrentStep); Assert.Null(playback.CurrentRoute);
         Assert.False(playback.CommandsAllowed);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Zero_delay_and_wholly_offscreen_begin_complete_without_waiting_for_a_frame(bool zeroDelay)
+    {
+        var session = StrategicTravelObservationTests.Session();
+        var output = session.Submit("move a 3 0");
+        var playback = new StrategicTravelPlayback
+        {
+            CellSeconds = zeroDelay ? 0 : 1,
+            IntersectsViewport = zeroDelay ? null : (_ => false),
+        };
+        var cells = new List<GridPoint>();
+        var completed = 0;
+        playback.CellEntered += (_, cell) => cells.Add(cell);
+        playback.Begin(output.StrategicTimeline, "north", () => completed++);
+        Assert.False(playback.IsActive);
+        Assert.True(playback.CommandsAllowed);
+        Assert.Equal(output.StrategicTimeline.Steps.SelectMany(step => step.Routes).SelectMany(route => route.EnteredCells), cells);
+        Assert.Equal(1, completed);
+        playback.Skip(); playback.Advance(0);
+        Assert.Equal(1, completed);
     }
 
     [Theory]

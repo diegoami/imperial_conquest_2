@@ -604,7 +604,9 @@ public partial class StrategicTravelCheck : Node
         var main = await Open(MovementSession(false, 20));
         main.MapView.ZoomToMaxForCheck(); main.MapView.CentreOnTile(120, 90);
         var before = main.MapView.TileCenterForCheck(50, 45);
-        main.SubmitForCheck("move a 53 45"); main.StrategicTravel.Paused = true;
+        main.SubmitForCheck("move a 53 45");
+        Require(!main.StrategicTravel.IsActive, "wholly offscreen submission drains without waiting for a later frame");
+        main.StrategicTravel.Paused = true;
         Advance(main, 0);
         await Capture(_pack + "-offscreen-no-jump", "Wholly offscreen accepted route consumed immediately; user camera stayed fixed.");
         Require(!main.StrategicTravel.IsActive && main.MapView.TileCenterForCheck(50, 45) == before,
