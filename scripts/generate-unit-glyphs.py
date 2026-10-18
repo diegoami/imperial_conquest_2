@@ -174,7 +174,7 @@ def motif(name):
 
 
 def strategic_glyph(kind, tier):
-    """Single figures, same frame and height, distinct builds rather than uniform scaling."""
+    """Single figures, common frame, distinct builds; weak soldier is shorter than middling."""
     image = Raster(32)
     d = image
     if kind == "army":
@@ -197,6 +197,17 @@ def strategic_glyph(kind, tier):
         if tier == 2:
             d.rectangle((4,17,8,22),WHITE)
             d.rectangle((25,16,28,22),WHITE)
+    if kind == "army" and tier < 2:
+        # Preserve independently drawn widths/equipment; alter vertical stature only.
+        points = [(i%32,i//32) for i,pixel in enumerate(image.pixels) if pixel[3]]
+        top, bottom = min(y for x,y in points), max(y for x,y in points)
+        height = (22,27)[tier]
+        revised = Raster(32)
+        for y in range(height):
+            source_y = top + ((2*y+1)*(bottom-top+1))//(2*height)
+            for x in range(32):
+                revised.point((x,29-height+y),image.pixels[source_y*32+x])
+        image = revised
     return image
 
 
@@ -351,6 +362,17 @@ def main():
                 p=ROOT/"assets/packs"/pack/relative_path(key)
                 if not p.exists() or p.read_bytes()!=bmp_bytes(glyph(key)):
                     failed.append(str(p.relative_to(ROOT)))
+        # Read committed BMP alpha, not generator-only dimensions: pin the owner's
+        # stature order in both source families without claiming art acceptance.
+        for pack in ("authored","placeholder"):
+            heights=[]
+            for tier in (1,2):
+                data=(ROOT/"assets/packs"/pack/"army"/f"tier{tier}.bmp").read_bytes()
+                offset=struct.unpack_from("<I",data,10)[0]
+                rows=[i//32 for i in range(1024) if data[offset+i*4+3]]
+                heights.append(max(rows)-min(rows)+1)
+            if heights != [22,27]:
+                failed.append(f"{pack} actual weak/middling alpha heights {heights}; expected 22 < 27")
         if failed:
             print("MISMATCH:\n"+"\n".join(failed))
             return 1

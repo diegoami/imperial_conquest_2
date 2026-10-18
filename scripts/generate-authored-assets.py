@@ -2014,7 +2014,7 @@ SYNTHESIZERS = {
 STRATEGIC_KEYS = frozenset(f"{kind}.tier{tier}.icon" for kind in ("army", "fleet") for tier in (1, 2, 3))
 
 
-def conform_strategic_candidate(image):
+def conform_strategic_candidate(image, key=None):
     """Six-key-only outer-matte removal. A magenta rectangle must have a keyed
     border all around; ordinary sprite conforming remains unchanged and strict."""
     rgb = image.convert("RGB")
@@ -2034,6 +2034,15 @@ def conform_strategic_candidate(image):
     # Preserve the chroma/solid-alpha silhouette exactly; remove luminance variation.
     conformed = conform_sprite_image(image)
     conformed.putdata([(255,255,255,255) if a else (0,0,0,0) for r,g,b,a in conformed.getdata()])
+    # Owner-requested height order: retain each original's build/width, share a
+    # 32px frame and foot baseline, with a visibly shorter weak soldier.
+    if key in ("army.tier1.icon", "army.tier2.icon"):
+        box = conformed.getbbox()
+        subject = conformed.crop(box)
+        height = 22 if key == "army.tier1.icon" else 27
+        subject = subject.resize((subject.width, height), Image.Resampling.NEAREST)
+        conformed = Image.new("RGBA", (32,32))
+        conformed.paste(subject, (box[0], 29-height))
     return bmp_bytes(conformed, 32)
 
 
@@ -2100,13 +2109,13 @@ def _strategic_generate(args, selection, config):
             if record.get("usage", {}).get("returned_model") != config["model"]:
                 raise ValueError("returned model differs from configured Gemini model; candidate rejected")
             image = Image.open(io.BytesIO(raw)); image.load()
-            bmp = conform_strategic_candidate(image)
+            bmp = conform_strategic_candidate(image, key)
             target = os.path.join(args.out, asset_relpath(key))
             os.makedirs(os.path.dirname(target), exist_ok=True)
             with open(target, "wb") as handle:
                 handle.write(bmp)
             record.update({"bmp_sha256": hashlib.sha256(bmp).hexdigest(),
-                           "conformance": "verified outer matte removal if present; key_magenta; crop_to_subject/common square padding; 32px LANCZOS; solid alpha; opaque neutral white tint anchor; BGRA BMP"})
+                           "conformance": "verified outer matte removal if present; key_magenta; crop_to_subject/common square padding; 32px LANCZOS; solid alpha; opaque neutral white tint anchor; army tier1/tier2 only preserve width, nearest vertical reconformance to 22/27px, common exclusive foot baseline29; BGRA BMP"})
             with open(provenance_path, "w", encoding="utf-8") as handle:
                 json.dump(record, handle, indent=2); handle.write("\n")
             print(f"Gemini candidate {key}: raw and provenance retained; 32px BMP conformed")
@@ -2164,6 +2173,17 @@ def strategic_route_check():
                 assert before==(Path(out)/asset_relpath(key)).read_bytes()
                 assert main(flags)==1 # A repeated live route cannot discard the prior original.
                 assert before==(Path(out)/asset_relpath(key)).read_bytes()
+        # Exercise the actual key-aware conformance, beyond route sentinels.
+        weak = conform_strategic_candidate(image, "army.tier1.icon")
+        middle = conform_strategic_candidate(image, "army.tier2.icon")
+        def opaque_height(bmp):
+            offset = struct.unpack_from("<I", bmp, 10)[0]
+            rows = [i//32 for i in range(1024) if bmp[offset+i*4+3]]
+            return max(rows)-min(rows)+1
+        assert opaque_height(weak) == 22 < opaque_height(middle) == 27
+        assert conform_strategic_candidate(image, "army.tier3.icon") == conform_strategic_candidate(image)
+        assert all(conform_strategic_candidate(image, key) == conform_strategic_candidate(image)
+                   for key in STRATEGIC_KEYS if key.startswith("fleet."))
         assert len(calls)==6
         with patch.dict(namespace, load_config=lambda _: dict(config,model="non-Gemini"), call_image_model=forbidden):
             assert main(["--strategic-gemini","--key","army.tier1.icon","--dry-run"])==2
