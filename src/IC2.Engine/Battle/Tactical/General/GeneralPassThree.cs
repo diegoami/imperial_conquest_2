@@ -22,7 +22,7 @@ namespace IC2.Engine.Battle.Tactical.General;
 /// <strong>The flank.</strong> For each unit with no target whose moves are untouched (its type's full
 /// moves) or are the slow advance's 1 with the counter below 10 and a type other than heavy infantry:
 /// <c>h = −1</c> if the enemies' <c>minX ≤ 13 − maxX</c>, else <c>+1</c>; <c>Random(3) = 0</c> flips
-/// <c>h</c>; <c>v</c> is the sign of (enemies below − enemies above), 0 counting as −1. It tries
+/// <c>h</c>; <c>v</c> is the sign of (enemies below − enemies above or on the same row), 0 counting as −1. It tries
 /// <c>(x + moves × h, y + moves × v)</c>, then <c>(x + moves × h, y)</c>, each clamped to the board and
 /// needing an empty cell and a clear line, and walks to the first that qualifies.
 /// </description></item>
@@ -222,7 +222,7 @@ public static class GeneralPassThree
             {
                 below++;
             }
-            else if (enemy.Y < unit.Y)
+            else
             {
                 above++;
             }
