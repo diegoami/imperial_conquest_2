@@ -141,4 +141,41 @@ public sealed partial class AiArmyTargetTreeScorerTests
         // Neither pure scorer nor Decide accepts an IRng: scorer draw count is structurally zero.
         Assert.Equal(110, AiArmyTargetTree.ScoreArmyTarget(view, actor).Score);
     }
+    [Fact]
+    public void City_scorer_keeps_assault_strength_when_field_power_differs()
+    {
+        var actor = Composed("actor", Us, 10, ("light_infantry", 800));
+        var city = City("city", Them, 18, 10, loyalty: 0, fort: 0, pop: 0);
+        var view = AllegianceView(actor, city, garrison: 1200);
+        Assert.Equal(120, FieldStrength(actor, view));
+        Assert.Equal(600, Strength(actor, view));
+        Assert.Equal(600, Defense(city, view));
+        var scored = AiArmyTargetTree.ScoreCityTarget(view, actor);
+        Assert.Equal(("city", 110L, 8), (scored.City!.Id, scored.Score, scored.Distance));
+    }
+
+    [Fact]
+    public void Field_composition_changes_the_real_decision_threshold()
+    {
+        var actor = Composed("actor", Us, 10, ("heavy_infantry", 160)) with { SupplyTons = 0 };
+        var target = Composed("enemy", Them, 25, ("light_infantry", 800));
+        var view = ViewOf([], [actor, target]);
+        Assert.Equal(110, AiArmyTargetTree.ScoreArmyTarget(view, actor).Score);
+        Assert.Equal(AiArmyTargetTree.Kind.AttackArmy, AiArmyTargetTree.Decide(view, actor, atWar: true).Selected);
+        // Old assault ratio 110*120/600=22 is below 100 even after distance restoration.
+    }
+
+    [Fact]
+    public void Allegiance_reduction_changes_the_real_city_decision_threshold()
+    {
+        var actor = Composed("actor", Us, 10, ("heavy_infantry", 80)) with { SupplyTons = 0 };
+        var city = City("city", Them, 18, 10, loyalty: 0, fort: 0, pop: 0) with { Allegiance = Us };
+        var reduced = AllegianceView(actor, city, garrison: 138);
+        var unreduced = AllegianceView(actor, city, garrison: 138, reduction: 0);
+        Assert.Equal(69, Defense(city, reduced)); // reduced 69*9/10=62; 6600/62=106, versus 6600/69=95.
+        Assert.Equal(106, AiArmyTargetTree.ScoreCityTarget(reduced, actor).Score);
+        Assert.Equal(95, AiArmyTargetTree.ScoreCityTarget(unreduced, actor).Score);
+        Assert.Equal(AiArmyTargetTree.Kind.AttackCity, AiArmyTargetTree.Decide(reduced, actor, atWar: true).Selected);
+        Assert.Equal(AiArmyTargetTree.Kind.MoveToResupplyCity, AiArmyTargetTree.Decide(unreduced, actor, atWar: true).Selected);
+    }
 }

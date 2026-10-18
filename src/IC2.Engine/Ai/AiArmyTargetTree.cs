@@ -55,8 +55,8 @@ public static class AiArmyTargetTree
     /// <summary>
     /// The original's <c>FUN_0044a98c</c> — city defence, exactly as
     /// <see cref="CompleteDefenderStrength.Compute"/> produces it (the garrison addend included). The
-    /// attacker's score = <c>strength×110 / cityDefense</c>, so the same defender strength the siege
-    /// resolver reads decides the AI's score.
+    /// attacker's score = <c>strength×110 / cityDefense</c>, so the complete attacker-independent defense is shared with the siege
+    /// resolver. The city scorer applies the attacking nation's allegiance adjustment separately.
     /// </summary>
     public static int CityDefense(
         CityState city,
@@ -161,7 +161,7 @@ public static class AiArmyTargetTree
 
             var cityDefense = CityDefense(city, view.Ruleset, view.State);
             // FUN_0044ece4: attacker allegiance scales the complete defense before division
-            // and both doubling predicates (research 500e521, strategic-ai-regions-resupply �2.2).
+            // and both doubling predicates (research 500e521, strategic-ai-regions-resupply §2.2).
             if (string.Equals(army.Nation, city.Allegiance, StringComparison.Ordinal))
             {
                 cityDefense = (int)((long)cityDefense
