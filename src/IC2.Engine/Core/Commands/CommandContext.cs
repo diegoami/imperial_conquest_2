@@ -55,6 +55,16 @@ public sealed class CommandContext
     /// </remarks>
     public IEventSink Events { get; }
 
+    internal List<IC2.Engine.Movement.StrategicTravelObservation>? StrategicRoutes { get; set; }
+
+    internal void RecordTravel(IC2.Engine.Movement.StrategicMarkerKind kind, string entityId,
+        string ownerId, string? carrierId, string? cargoId, IC2.Engine.Movement.MovementWalkResult walk)
+    {
+        if (StrategicRoutes is null || !walk.Moved) return;
+        StrategicRoutes.Add(new(kind, entityId, ownerId, carrierId, cargoId, walk.Origin,
+            walk.FinalPosition, ValueList.From(walk.EnteredCells), walk.StopReason, walk.BlockedAt, walk.MovesSpent));
+    }
+
     /// <summary>The live state of the nation issuing the command. Never null: the dispatcher resolved it.</summary>
     public NationState IssuingNation => State.NationById(Command.IssuingNationId)!;
 }

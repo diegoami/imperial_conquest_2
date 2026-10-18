@@ -44,6 +44,16 @@ public sealed partial class GameSession
     private readonly SystemRegistry _registry;
     private readonly TurnCoordinator _coordinator;
     private readonly CommandDispatcher _dispatcher;
+    private readonly StrategicTravelTimeline _strategicTimeline = new();
+
+    /// <summary>Most recent transient delivery; consumers deduplicate by BatchId and StepId.</summary>
+    public StrategicTravelBatch LastStrategicTimeline { get; private set; } = StrategicTravelBatch.Empty;
+
+    /// <summary>Raised only after Submit completes. Subscriber failures cannot change gameplay.</summary>
+    public event Action<StrategicTravelBatch>? StrategicTimelinePublished;
+
+    /// <summary>Release the optional presentation recorder and any suspended replay references.</summary>
+    public void DisableStrategicObservations() => _strategicTimeline.Disable();
 
     /// <summary>
     /// The nation the CLI's own <c>--seat</c> flag names, or <see langword="null"/> when it was not
@@ -711,8 +721,8 @@ public sealed partial class GameSession
         Scenario = scenario;
 
         _registry = SystemRegistry.FromEngineAssembly();
-        _dispatcher = new CommandDispatcher(_registry, ruleset, world, NullEventSink.Instance);
-        _coordinator = new TurnCoordinator(_registry, ruleset, world, NullEventSink.Instance, _dispatcher);
+        _dispatcher = new CommandDispatcher(_registry, ruleset, world, NullEventSink.Instance) { StrategicObserver = _strategicTimeline };
+        _coordinator = new TurnCoordinator(_registry, ruleset, world, NullEventSink.Instance, _dispatcher) { StrategicObserver = _strategicTimeline };
 
         var initial = GameStateFactory.CreateInitial(world, ruleset, scenario);
         State = seedOverride.HasValue ? initial with { RandomSeed = seedOverride.Value } : initial;
@@ -747,6 +757,7 @@ public sealed partial class GameSession
         // end" contract, which construction must not pre-empt.
         if (!_isWatchMode)
         {
+            _strategicTimeline.BeginSubmit(_humanSeatNationId ?? State.ActiveNationId);
             _pendingNewsBaseline = State.NewsLog.Slots;
             _pendingPrelude = AdvanceToHumanSeat();
         }
@@ -788,8 +799,8 @@ public sealed partial class GameSession
         Scenario = scenario;
 
         _registry = SystemRegistry.FromEngineAssembly();
-        _dispatcher = new CommandDispatcher(_registry, ruleset, world, NullEventSink.Instance);
-        _coordinator = new TurnCoordinator(_registry, ruleset, world, NullEventSink.Instance, _dispatcher);
+        _dispatcher = new CommandDispatcher(_registry, ruleset, world, NullEventSink.Instance) { StrategicObserver = _strategicTimeline };
+        _coordinator = new TurnCoordinator(_registry, ruleset, world, NullEventSink.Instance, _dispatcher) { StrategicObserver = _strategicTimeline };
 
         ResumeFrom(save);
     }
@@ -1295,6 +1306,29 @@ public sealed partial class GameSession
     /// </summary>
     /// <param name="rawLine">One line of input, exactly as read from the script or the console.</param>
     public SessionOutput Submit(string rawLine)
+    {
+        ArgumentNullException.ThrowIfNull(rawLine);
+        LastStrategicTimeline = StrategicTravelBatch.Empty;
+        _strategicTimeline.BeginSubmit(_humanSeatNationId ?? State.ActiveNationId);
+        SessionOutput output;
+        try
+        {
+            output = SubmitCore(rawLine);
+        }
+        catch
+        {
+            _strategicTimeline.Rollback();
+            throw;
+        }
+        var batch = _strategicTimeline.Complete(State, _lap is not null, output.ShouldExit);
+        LastStrategicTimeline = batch;
+        if (StrategicTimelinePublished is { } subscribers)
+            foreach (Action<StrategicTravelBatch> subscriber in subscribers.GetInvocationList())
+                try { subscriber(batch); } catch { /* Presentation subscribers cannot affect execution. */ }
+        return output with { StrategicTimeline = batch };
+    }
+
+    private SessionOutput SubmitCore(string rawLine)
     {
         ArgumentNullException.ThrowIfNull(rawLine);
 
@@ -1892,17 +1926,20 @@ public sealed partial class GameSession
     {
         var seat = lap.Seat;
         var nationsBeforeThisSeatsTurn = State.Nations;
+        _strategicTimeline.BeginAttempt(lap);
         TurnResult result;
         if (UsesAiPhaseBattleGate())
         {
-            var gate = new AiPhaseBattleGate(_dispatcher, Ruleset, lap);
-            var gated = new TurnCoordinator(_registry, Ruleset, World, NullEventSink.Instance, gate);
+            var gate = new AiPhaseBattleGate(_dispatcher, Ruleset, lap, _strategicTimeline);
+            var gated = new TurnCoordinator(_registry, Ruleset, World, NullEventSink.Instance, gate) { StrategicObserver = _strategicTimeline };
             try
             {
                 result = gated.RunTurn(State);
             }
             catch (AiPhaseBattleSuspended suspended)
             {
+                _strategicTimeline.Battle(suspended.Command, suspended.AtAttack, suspended.AtAttack, completed: false);
+                _strategicTimeline.EndAttempt(completed: false);
                 OpenAiPhaseBattle(lines, lap, suspended);
                 return LapStep.Suspended;
             }
@@ -1912,6 +1949,7 @@ public sealed partial class GameSession
             result = _coordinator.RunTurn(State);
         }
 
+        _strategicTimeline.EndAttempt(completed: true);
         State = result.State;
 
         // T149: every seat the round plays (the ending seat's own RunTurn, then every AI seat
@@ -2018,13 +2056,15 @@ public sealed partial class GameSession
         private readonly ICommandDispatch _inner;
         private readonly Ruleset _ruleset;
         private readonly AiLap _lap;
+        private readonly StrategicTravelTimeline _strategic;
         private int _met;
 
-        public AiPhaseBattleGate(ICommandDispatch inner, Ruleset ruleset, AiLap lap)
+        public AiPhaseBattleGate(ICommandDispatch inner, Ruleset ruleset, AiLap lap, StrategicTravelTimeline strategic)
         {
             _inner = inner;
             _ruleset = ruleset;
             _lap = lap;
+            _strategic = strategic;
         }
 
         public CommandResult Dispatch(GameState state, ICommand command) =>
@@ -2049,6 +2089,8 @@ public sealed partial class GameSession
                 throw new InvalidOperationException(
                     "The replay of an AI seat's turn reached its attack in a different state than the first run did.");
             }
+
+            _strategic.Battle(command, state, done.After, completed: true, done.Events);
 
             foreach (var domainEvent in done.Events)
             {

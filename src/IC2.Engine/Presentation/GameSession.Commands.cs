@@ -578,6 +578,7 @@ public sealed partial class GameSession
             return;
         }
 
+        var strategicBefore = State;
         var nationsBefore = State.Nations;
         var conclusion = battle.Conclude(State, Ruleset, world: World);
         if (conclusion.State is null || conclusion.Report is null)
@@ -588,6 +589,7 @@ public sealed partial class GameSession
 
         AccumulateEvents(conclusion.Events);
         State = NewsLogWriter.Append(conclusion.State, conclusion.Events, Ruleset.NewsLog);
+        _strategicTimeline.Reconcile("human-battle-completion", strategicBefore, State);
         _pendingTacticalReport = conclusion.Report;
         _pendingTacticalTimeline.AddRange(battle.DrainTimeline());
         _battle = null;

@@ -47,6 +47,7 @@ public sealed class TurnCoordinator
     private readonly World _world;
     private readonly IEventSink _sink;
     private readonly ICommandDispatch _commands;
+    internal IC2.Engine.Movement.IStrategicObservationRecorder? StrategicObserver { get; set; }
 
     /// <summary>Creates a coordinator over a scanned registry.</summary>
     /// <param name="registry">The registry supplying systems and quarter-boundary subscribers.</param>
@@ -249,6 +250,11 @@ public sealed class TurnCoordinator
                         + "Return the context's own state to do nothing.");
                 }
 
+                if (StrategicObserver is { } observer)
+                {
+                    try { observer.CompletedSystem(system.Id, phase, current, produced); }
+                    catch { observer.Disable(); StrategicObserver = null; }
+                }
                 current = produced;
                 trace.Add(new SystemExecution(system.Id, phase));
             }
