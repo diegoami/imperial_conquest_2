@@ -12,13 +12,13 @@ namespace IC2.Slice.Checks;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>Reuses T80's own proven scripts</strong> (<c>tests/fixtures/cli/success.txt</c> and
-/// <c>success-fleet.txt</c>) rather than re-deriving valid army/city/fleet ids by hand — both are
+/// <strong>Reuses the proven A/B/fleet scripts</strong> (<c>tests/fixtures/cli/success.txt</c>,
+/// <c>success-trade-offer.txt</c> and <c>success-fleet.txt</c>) rather than re-deriving valid ids by hand. All are
 /// already golden-tested (<c>tests/IC2.Engine.Tests/Presentation/SuccessScriptTests.cs</c>) to run every
 /// line through <see cref="GameSession"/>'s own command layer without error, at the exact
-/// scenario/seat/seed each needs. Together they issue 25 of the engine's 29 command-layer verbs
-/// successfully (every verb except <c>attack-fleet</c>, <c>hire-mercenary</c>, <c>embark-army</c>,
-/// <c>disembark-army</c>); <c>success-fleet.txt</c> adds <c>attack-fleet</c>.
+/// scenario/seat/seed each needs. T178's A carries treaty/marine coverage; B repeats the original
+/// prefix in a separate fresh identical Macedonia session and accepts its incoming trade offer.
+/// <c>success-fleet.txt</c> supplies <c>attack-fleet</c> from its own fresh toy session.
 /// </para>
 /// <para>
 /// <strong>Rework round 1 (PR #466 review, findings 1 and 5, both blocking): this class used to print
@@ -107,6 +107,19 @@ public partial class OrderCoverageCheck : Node
             seedOverride: 3,
             humanSeatNationId: "macedonia");
         RunScriptFile(classicalSession, Path.Combine(repositoryRoot, "tests", "fixtures", "cli", "success.txt"));
+
+        GD.Print();
+        GD.Print("== classical-mediterranean / macedonia / seed 3 (tests/fixtures/cli/success-trade-offer.txt) ==");
+        var tradeOfferSession = new GameSession(
+            classical.World,
+            classical.Ruleset with
+            {
+                Flags = classical.Ruleset.Flags with { NewGameTurnOrder = IC2.Engine.Model.NewGameTurnOrderPolicy.Fixed },
+            },
+            classical.Scenario,
+            seedOverride: 3,
+            humanSeatNationId: "macedonia");
+        RunScriptFile(tradeOfferSession, Path.Combine(repositoryRoot, "tests", "fixtures", "cli", "success-trade-offer.txt"));
 
         GD.Print();
         GD.Print("== toy-3city / north (tests/fixtures/cli/success-fleet.txt) ==");
