@@ -26,11 +26,11 @@ public class ThreatModeTests
     {
         var state = Arena((0, Unit(actorType, 5, 5, 3000, quality: 1, morale: 100, shots: actorShots)),
             (D0, Unit(enemyType, 5, 6, 1000, quality: 2, morale: 80, shots: enemyShots)));
-        // Actor bound: 3000*1*100*18/165000 = 327; doubled for AR distance1<2 to654, capped at target1000/2=500, +1 =501.
+        // Actor bound: 3000*1*100*18/165000 =32; doubled for AR distance1<2 to64, caps1000/500, +1 =65.
         // Reversed bound: 1000*2*80*18/155000 =18 (AR doubles to36), +1:19 or37.
         // Ordinary mode remains the weighted score with the enemy-to-actor matrix.
         var ranged = actorType == AR && actorShots > 0;
-        var expected = ranged ? -501 : GeneralTargeting.Score(state, 0, D0, Context);
+        var expected = ranged ? -65 : GeneralTargeting.Score(state, 0, D0, Context);
         Assert.Equal(expected, GeneralPassThree.Threat(state, 0, D0, Context));
         if (ranged)
             Assert.NotEqual(-TacticalShooting.Bound(state.Slots[D0], state.Slots[0], 1, Context), expected);
@@ -88,6 +88,22 @@ public class ThreatModeTests
         var journal = new List<GeneralDecision>();
         var after = GeneralPassThree.ThreatMove(state, Context, draws, journal);
         var repeatDraws = new DelphiBattleDraws(seed);
+        var path = shots == 0 ? new[] { (1, 1), (2, 2), (2, 3), (3, 4) }
+            : new[] { (1, 1), (2, 2), (3, 3) };
+        var expectedSlots = state.Slots.ToArray();
+        expectedSlots[0] = expectedSlots[0] with { X = path[^1].Item1, Y = path[^1].Item2, Moves = 4 - path.Length };
+        var expectedGrid = state.Grid.ToArray();
+        expectedGrid[Cell(0, 0)] = TacticalIcon.Empty;
+        expectedGrid[Cell(path[^1].Item1, path[^1].Item2)] = IconOf(0, expectedSlots[0]);
+        var expectedLog = new List<TacticalEvent>();
+        var previous = (0, 0);
+        for (var i = 0; i < path.Length; i++)
+        {
+            expectedLog.Add(new TacticalMovedEvent(0, previous.Item1, previous.Item2, path[i].Item1, path[i].Item2, 3 - i));
+            previous = path[i];
+        }
+        Assert.Equal(state with { Slots = ValueList.From(expectedSlots), Grid = ValueList.From(expectedGrid),
+            Log = ValueList.From(expectedLog) }, after);
         Assert.Equal(after, GeneralPassThree.ThreatMove(state, Context, repeatDraws));
         Assert.Equal(seed, draws.RandSeed);
         Assert.Equal(seed, repeatDraws.RandSeed);
