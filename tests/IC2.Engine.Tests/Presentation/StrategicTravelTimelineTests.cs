@@ -442,4 +442,3 @@ public sealed class StrategicTravelTimelineTests
     private static object Recorder(GameSession s) => typeof(GameSession).GetField("_strategicTimeline", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(s)!;
     private static object? Invoke(object target, string name, params object[] args) => target.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!.Invoke(target, args);
 }
-

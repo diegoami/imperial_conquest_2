@@ -162,4 +162,3 @@ public sealed class StrategicTravelObservationTests
         Assert.Empty(session.Submit("status").StrategicTimeline.Steps);
     }
 }
-
