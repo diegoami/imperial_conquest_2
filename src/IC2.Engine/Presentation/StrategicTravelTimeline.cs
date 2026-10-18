@@ -38,7 +38,6 @@ internal sealed class StrategicTravelTimeline : IStrategicObservationRecorder
     private string? _viewer;
     private bool _enabled = true;
     private List<Entry>? _checkpoint;
-    private int _pendingCheckpoint;
     private GameState? _displayCheckpoint;
 
     internal bool Enabled => _enabled;
@@ -57,13 +56,28 @@ internal sealed class StrategicTravelTimeline : IStrategicObservationRecorder
         _display = _displayCheckpoint = null;
     }
 
+    internal readonly record struct Checkpoint(int Count, GameState? Display);
+    internal Checkpoint Mark() => new(_pending.Count, _display);
+    internal void Discard(Checkpoint checkpoint) => Guard(() =>
+    {
+        _pending.RemoveRange(checkpoint.Count, _pending.Count - checkpoint.Count);
+        _display = checkpoint.Display;
+    });
+
+    internal void Reset()
+    {
+        Release();
+        _pending.Clear();
+        _checkpoint = null;
+        _display = _displayCheckpoint = null;
+    }
+
     internal void BeginSubmit(string viewer)
     {
         Guard(() =>
         {
             _viewer = viewer;
             _checkpoint = new(_prefix);
-            _pendingCheckpoint = _pending.Count;
             _displayCheckpoint = _display;
         });
     }

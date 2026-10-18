@@ -917,6 +917,8 @@ public sealed partial class GameSession
     {
         ArgumentNullException.ThrowIfNull(save);
 
+        _strategicTimeline.Reset();
+        LastStrategicTimeline = StrategicTravelBatch.Empty;
         State = save.State;
 
         var humanNationIds = State.Nations
