@@ -1,3 +1,4 @@
+using IC2.Engine.Presentation;
 namespace IC2.Engine.Battle.Tactical;
 
 /// <summary>
@@ -76,6 +77,7 @@ public static class TacticalShooting
 
     internal static void Apply(TacticalBoard board, int shooter, int target)
     {
+        board.Capture();
         var rules = board.Rules;
         var s = board.Slots[shooter];
         s = s with
@@ -85,6 +87,7 @@ public static class TacticalShooting
             Target = TacticalSlot.NoTarget,
         };
         board.Slots[shooter] = s;
+        board.Capture(TacticalFrameKind.Projectile, shooter, target);
 
         var t = board.Slots[target];
         var n = Bound(s, t, board.Distance(shooter, target), board.Context);

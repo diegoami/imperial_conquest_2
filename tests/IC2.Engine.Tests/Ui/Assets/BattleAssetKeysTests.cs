@@ -77,6 +77,7 @@ public sealed class BattleAssetKeysTests
     [InlineData(45000, 15000, 2)]
     [InlineData(1999, 6000, 0)]
     [InlineData(2000, 6000, 1)]
+    [InlineData(3999, 6000, 1)]
     [InlineData(4000, 6000, 2)]
     public void SizeIndex_ChangesAtOneThirdAndTwoThirdsOfTheStandardBattalion(int troops, int standard, int expected)
     {
