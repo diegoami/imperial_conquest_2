@@ -2074,6 +2074,8 @@ def _strategic_generate(args, selection, config):
                 if hashlib.sha256(raw).hexdigest() != record["raw_sha256"]:
                     raise ValueError("raw original hash differs from Gemini provenance")
             else:
+                if os.path.exists(raw_path) or os.path.exists(provenance_path):
+                    raise ValueError("candidate original already exists; choose a fresh --raw directory to retain abandoned options")
                 raw, usage = call_image_model(config, entry["prompt"])
                 image = Image.open(io.BytesIO(raw)); image.load()
                 # Preserve the exact returned byte stream, even if its encoding is not PNG.
@@ -2135,7 +2137,7 @@ def strategic_route_check():
         with patch.object(glyphs,"ROOT",fake), patch.object(sys,"argv",["generate-unit-glyphs.py"]):
             assert glyphs.main() == 0
         assert all((authored/glyphs.relative_path(key)).read_bytes()==b"accepted-Gemini-sentinel" for key in STRATEGIC_KEYS)
-        for flags in (["--strategic-gemini", "--all"], ["--strategic-gemini"], ["--strategic-gemini", "--key", "battle.unit.archers.small.icon"]):
+        for flags in (["--strategic-gemini", "--all"], ["--strategic-gemini"], ["--strategic-gemini", "--key", "battle.unit.archers.small"]):
             assert main(flags) == 2
         assert main(["--strategic-gemini", "--key", "army.tier1.icon", "--out", os.path.join(REPO_ROOT,"assets/packs/placeholder")]) == 2
         config={"model":"google/gemini-route-test", "endpoint":"https://offline.invalid", "api_key":"stub"}
@@ -2150,6 +2152,8 @@ def strategic_route_check():
                 assert main(flags)==0
                 before=(Path(out)/asset_relpath(key)).read_bytes()
                 assert main([*flags,"--reconform"])==0
+                assert before==(Path(out)/asset_relpath(key)).read_bytes()
+                assert main(flags)==1 # A repeated live route cannot discard the prior original.
                 assert before==(Path(out)/asset_relpath(key)).read_bytes()
         assert len(calls)==6
         with patch.dict(namespace, load_config=lambda _: dict(config,model="non-Gemini"), call_image_model=forbidden):
