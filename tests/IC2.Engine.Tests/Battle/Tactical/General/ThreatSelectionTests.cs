@@ -31,10 +31,11 @@ public class ThreatSelectionTests
     [Theory]
     [InlineData(new[] { 3000, 2000, 2000, 1000 }, new[] { 23, 21, 22, 20 })]
     [InlineData(new[] { 4000, 2000, 4000, 2000 }, new[] { 21, 23, 22, 20 })]
+    [InlineData(new[] { 1000, 3000, 3000, 2000, 1000 }, new[] { 20, 24, 23, 22, 21 })]
     [InlineData(new[] { 2000, 2000, 2000, 2000 }, new[] { 20, 21, 22, 23 })]
     public void First_strict_minimum_swaps_once_per_suffix(int[] troops, int[] expected)
     {
-        var units = troops.Select((n, i) => (D0 + i, Unit(HI, 10 + i, 10, n))).ToList();
+        var units = troops.Select((n, i) => (D0 + i, Unit(HI, 9 + i, 10, n))).ToList();
         units.Add((0, Unit(HI, 0, 0, 3000)));
         Assert.Equal(expected, GeneralPassThree.ThreatOrder(Arena(units), 0, Context));
     }
