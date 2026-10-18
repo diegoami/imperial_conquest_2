@@ -53,7 +53,19 @@ public sealed partial class GameSession
     public event Action<StrategicTravelBatch>? StrategicTimelinePublished;
 
     /// <summary>Release the optional presentation recorder and any suspended replay references.</summary>
-    public void DisableStrategicObservations() => _strategicTimeline.Disable();
+    public void DisableStrategicObservations()
+    {
+        _strategicTimeline.Disable();
+        LastStrategicTimeline = StrategicTravelBatch.Empty;
+    }
+
+    /// <summary>Consume the mirror once, releasing its state references without disturbing an active AI replay.</summary>
+    public StrategicTravelBatch ConsumeStrategicTimeline()
+    {
+        var batch = LastStrategicTimeline;
+        LastStrategicTimeline = StrategicTravelBatch.Empty;
+        return batch;
+    }
 
     /// <summary>
     /// The nation the CLI's own <c>--seat</c> flag names, or <see langword="null"/> when it was not

@@ -112,6 +112,9 @@ public sealed class StrategicTravelTimelineTests
         Assert.Equal("south", enabled.State.ActiveNationId);
         Assert.Equal("north", opening.ViewerNationId);
         steps.AddRange(first.StrategicTimeline.Steps);
+        Assert.Same(first.StrategicTimeline, enabled.ConsumeStrategicTimeline());
+        Assert.Empty(enabled.LastStrategicTimeline.Steps);
+        Assert.Empty(enabled.ConsumeStrategicTimeline().Steps);
         Assert.Empty(enabled.Submit("battle show").StrategicTimeline.Steps);
         Assert.Empty(disabled.Submit("battle show").StrategicTimeline.Steps);
         var current = first;
@@ -136,6 +139,7 @@ public sealed class StrategicTravelTimelineTests
         foreach (var start in steps.Where(s => s.Kind == StrategicTravelStepKind.BattleOpening))
             Assert.Single(steps, s => s.Kind == StrategicTravelStepKind.BattleCompletion && s.ActionId == start.ActionId && s.LapId == start.LapId);
         Assert.Equal(steps.Count, steps.Select(s => s.StepId).Distinct().Count());
+        for (var i = 1; i < steps.Count; i++) Assert.Equal(steps[i - 1].After, steps[i].Before);
         Assert.Equal(steps.OrderBy(s => s.StepId).Select(s => s.StepId), steps.Select(s => s.StepId));
         Assert.Equal(steps.Count(s => s.Kind == StrategicTravelStepKind.Command),
             steps.Where(s => s.Kind == StrategicTravelStepKind.Command).Select(s => s.ActionId).Distinct().Count());
@@ -377,6 +381,46 @@ public sealed class StrategicTravelTimelineTests
         }
     }
 
+    [Fact]
+    public void Composed_human_tactical_opening_has_a_complete_snapshot_chain_including_news()
+    {
+        var session = TacticalSessionTestbed.ToySession(HumanBattleMode.Tactical);
+        var opening = session.Submit("attack-army north-army-1 south-army-1");
+        Assert.NotNull(opening.OpenBattleView);
+        var steps = opening.StrategicTimeline.Steps;
+        Assert.Contains(steps, s => s.Identity == "human-battle-opening" && s.Kind == StrategicTravelStepKind.Reconciliation);
+        for (var i = 1; i < steps.Count; i++) Assert.Equal(steps[i - 1].After, steps[i].Before);
+        Assert.Equal(session.State, steps.Last().After);
+        var state = session.State;
+        session.DisableStrategicObservations();
+        Assert.Empty(session.LastStrategicTimeline.Steps);
+        Assert.Same(state, session.State);
+    }
+
+    [Fact]
+    public void Accepted_commands_reconcile_exact_pre_action_noncommand_changes_without_a_route()
+    {
+        var session = StrategicTravelObservationTests.Session(change: state => state with
+        {
+            Cities = ValueList<CityState>.Of(CoreTestbed.InitialState().Cities[0] with { Id = "city", X = 7, Y = 5, Owner = "south" }),
+        });
+        var dispatcher = (CommandDispatcher)typeof(GameSession).GetField("_dispatcher", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(session)!;
+        var first = dispatcher.Dispatch(session.State, new MoveArmyCommand("north", "a", 1, 0));
+        Assert.True(first.IsAccepted);
+        // Supply an immutable noncommand ownership boundary between actual accepted commands.
+        var changed = first.State with { Cities = ValueList.From(first.State.Cities.Select(c => c with { Owner = "north" })) };
+        var second = dispatcher.Dispatch(changed, new MoveArmyCommand("north", "a", 2, 0));
+        Assert.True(second.IsAccepted);
+        typeof(GameSession).GetProperty(nameof(GameSession.State))!.SetValue(session, second.State);
+        var steps = session.Submit("status").StrategicTimeline.Steps;
+        var reconciliation = Assert.Single(steps, s => s.Kind == StrategicTravelStepKind.Reconciliation);
+        Assert.Empty(reconciliation.Routes);
+        Assert.Equal("south", reconciliation.MarkersBefore.Single(m => m.EntityId == "city").OwnerId);
+        Assert.Equal("north", reconciliation.MarkersAfter.Single(m => m.EntityId == "city").OwnerId);
+        Assert.Equal(2, steps.SelectMany(s => s.Routes).Count());
+        for (var i = 1; i < steps.Count; i++) Assert.Equal(steps[i - 1].After, steps[i].Before);
+    }
+
     private static GameSession Battles()
     {
         var armies = new[]
@@ -395,3 +439,4 @@ public sealed class StrategicTravelTimelineTests
     private static object Recorder(GameSession s) => typeof(GameSession).GetField("_strategicTimeline", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(s)!;
     private static object? Invoke(object target, string name, params object[] args) => target.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!.Invoke(target, args);
 }
+

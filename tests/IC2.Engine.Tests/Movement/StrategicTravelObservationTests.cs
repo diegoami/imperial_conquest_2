@@ -1,4 +1,5 @@
 using IC2.Engine.Core;
+using IC2.Engine.Ai;
 using IC2.Engine.Model;
 using IC2.Engine.Movement;
 using IC2.Engine.Movement.Commands;
@@ -150,9 +151,14 @@ public sealed class StrategicTravelObservationTests
     [Fact]
     public void Probe_only_walk_emits_no_observation()
     {
-        var session = Session();
+        var session = Session(change: state => state with
+        {
+            Cities = ValueList<CityState>.Of(CoreTestbed.InitialState().Cities[0] with { Id = "anchor", X = 6, Y = 4 }),
+        });
         _ = MovementWalker.Walk(new(0, 0), new(7, 3), 20, session.Ruleset.Terrain,
             _ => "plain", _ => false, NullEventSink.Instance);
+        var view = new AiView(session.State, session.Ruleset, session.World, session.State.ActiveNationId);
+        Assert.NotNull(AiArmyTargetTree.EmergencyMoveDestination(view, session.State.Armies[0], session.State));
         Assert.Empty(session.Submit("status").StrategicTimeline.Steps);
     }
 }

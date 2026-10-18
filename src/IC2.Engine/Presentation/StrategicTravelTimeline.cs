@@ -174,6 +174,15 @@ internal sealed class StrategicTravelTimeline : IStrategicObservationRecorder
 
     private void Emit(Entry entry)
     {
+        // Session news and automatic AI prepasses can change state between command boundaries.
+        // Expose that transition explicitly before the next action, including a suspended attack.
+        // It is derived only from exact immutable states, never from reconstructed movement.
+        if (entry.Kind != StrategicTravelStepKind.System && _display is { } previous && !previous.Equals(entry.Before))
+            _pending.Add(new(++_stepId, entry.ActionId, _attempt ? _lapId : 0,
+                StrategicTravelStepKind.Reconciliation, "before:" + entry.Identity,
+                _viewer ?? entry.Before.ActiveNationId, previous, entry.Before,
+                Markers(previous), Markers(entry.Before), ValueList<StrategicTravelObservation>.Empty, ValueList<DomainEvent>.Empty));
+
         // A system's input predates any commands it ran. Its reconciliation must start at the
         // most recent displayed boundary rather than rewinding to that old system input.
         var before = entry.Kind == StrategicTravelStepKind.System ? _display ?? entry.Before : entry.Before;
