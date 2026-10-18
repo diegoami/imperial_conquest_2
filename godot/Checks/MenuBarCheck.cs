@@ -407,6 +407,9 @@ public partial class MenuBarCheck : Control
 
     private void AssertEnabledEndTurnToolbarAdvanced()
     {
+        if (_mainGame.StrategicTravel.IsActive)
+            Check(!_mainGame.StrategicTravel.CommandsAllowed, "pending strategic travel withholds subsequent commands");
+        _mainGame.StrategicTravel.Skip();
         Check(
             _mainGame.Session.State.Calendar.TurnIndex == _beforeTurn + 1,
             "a real-input click on the enabled End turn toolbar button advances the calendar by one turn "
@@ -700,6 +703,9 @@ public partial class MenuBarCheck : Control
         _beforeTurn = _mainGame.Session.State.Calendar.TurnIndex;
         _beforeIssued = _mainGame.CommandTable.IssuedCount;
         _mainGame.MenuBar.PressItemForCheck("game.end_turn");
+        if (_mainGame.StrategicTravel.IsActive)
+            Check(!_mainGame.StrategicTravel.CommandsAllowed, "pending strategic travel withholds subsequent commands");
+        _mainGame.StrategicTravel.Skip();
     }
 
     private void AssertEndTurnMenuAdvanced()
@@ -719,6 +725,9 @@ public partial class MenuBarCheck : Control
         _beforeTurn = _mainGame.Session.State.Calendar.TurnIndex;
         _beforeIssued = _mainGame.CommandTable.IssuedCount;
         _mainGame.Toolbar.PressForCheck("game.end_turn");
+        if (_mainGame.StrategicTravel.IsActive)
+            Check(!_mainGame.StrategicTravel.CommandsAllowed, "pending strategic travel withholds subsequent commands");
+        _mainGame.StrategicTravel.Skip();
     }
 
     private void AssertEndTurnToolbarAdvanced()

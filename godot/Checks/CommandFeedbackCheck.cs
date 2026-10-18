@@ -128,6 +128,9 @@ public partial class CommandFeedbackCheck : Control
                     _baselineRootMinWidth = _rootBox.GetCombinedMinimumSize().X;
                     GD.Print($"INFO: root minimum width before any command: {_baselineRootMinWidth}px");
                     _acceptedLines = _mainGame.SubmitForCheck("recruit-standing rome light_infantry 15000");
+                    if (_mainGame.StrategicTravel.IsActive)
+                        Check(!_mainGame.StrategicTravel.CommandsAllowed, "pending strategic travel withholds subsequent commands");
+                    _mainGame.StrategicTravel.Skip();
                     NextCommand();
                     break;
 
@@ -140,6 +143,9 @@ public partial class CommandFeedbackCheck : Control
                 case 2 when _frame >= CommandSettleFrames:
                     CheckRejectedOrder();
                     _endLines = _mainGame.SubmitForCheck("end");
+                    if (_mainGame.StrategicTravel.IsActive)
+                        Check(!_mainGame.StrategicTravel.CommandsAllowed, "pending strategic travel withholds subsequent commands");
+                    _mainGame.StrategicTravel.Skip();
                     NextCommand();
                     break;
 
@@ -165,6 +171,9 @@ public partial class CommandFeedbackCheck : Control
                 case 6 when _frame >= CommandSettleFrames:
                     CheckSaveConfirmation();
                     _mainGame.SubmitForCheck("end");
+                    if (_mainGame.StrategicTravel.IsActive)
+                        Check(!_mainGame.StrategicTravel.CommandsAllowed, "pending strategic travel withholds subsequent commands");
+                    _mainGame.StrategicTravel.Skip();
                     NextCommand();
                     break;
 
