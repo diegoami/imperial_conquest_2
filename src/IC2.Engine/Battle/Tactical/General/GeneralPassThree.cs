@@ -138,13 +138,17 @@ public static class GeneralPassThree
                 }
             }
 
-            if (keys[minimum] > 999999)
+            (order[i], order[minimum]) = (order[minimum], order[i]);
+            (keys[i], keys[minimum]) = (keys[minimum], keys[i]);
+        }
+
+        // FUN_0043A718 sorts the complete table before stopping consumption at the sentinel.
+        for (var i = 0; i < keys.Length; i++)
+        {
+            if (keys[i] > 999999)
             {
                 return order[..i];
             }
-
-            (order[i], order[minimum]) = (order[minimum], order[i]);
-            (keys[i], keys[minimum]) = (keys[minimum], keys[i]);
         }
 
         return order;
