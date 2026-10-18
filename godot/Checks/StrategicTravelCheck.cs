@@ -61,6 +61,9 @@ public partial class StrategicTravelCheck : Node
             GD.Print("StrategicTravelCheck: settings restored.");
         }
         await Frames();
+        // As in merged TacticalAudioCheck, finalize retired wrappers while Godot is still alive.
+        GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+        await ToSignal(GetTree().CreateTimer(2), SceneTreeTimer.SignalName.Timeout);
         GD.Print($"StrategicTravelCheck: exiting with code {(_ok ? 0 : 1)}.");
         GetTree().Quit(_ok ? 0 : 1);
     }
