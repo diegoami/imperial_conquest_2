@@ -36,6 +36,10 @@ public sealed record SessionOutput(
     IReadOnlyList<SeatFall>? SeatFalls = null,
     bool GameOver = false)
 {
+    /// <summary>Ordered transient strategic boundaries. Empty for callers constructing an output directly.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public StrategicTravelBatch StrategicTimeline { get; init; } = StrategicTravelBatch.Empty;
+
     /// <summary>See this record's own <c>Battles</c> parameter doc. Never <see langword="null"/>.</summary>
     public IReadOnlyList<BattleResult> Battles { get; init; } = Battles ?? Array.Empty<BattleResult>();
 
