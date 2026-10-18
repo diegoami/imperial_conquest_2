@@ -108,8 +108,9 @@ public sealed partial class SoundPlayer : Node
     private void PumpTactical()
     {
         if (_muted) return;
-        if (_tacticalPlaying is { } playing && IsPlayerPlaying(_players[playing])) return;
-        _tacticalPlaying = null;
+        // Playing can still read false in the same frame as Play(). Finished owns retirement,
+        // so another displayed exchange can never restart that not-yet-rendering clip.
+        if (_tacticalPlaying is not null) return;
         if (!_tacticalQueue.TryDequeue(out var key)) return;
         var player = _players[key];
         _tacticalPlaying = key;
@@ -300,6 +301,11 @@ public sealed partial class SoundPlayer : Node
             lock (_playbackLog)
             {
                 _playbackLog.Add(new PlaybackLogEntry(key, Started: false, Time.GetTicksMsec()));
+            }
+            if (_tacticalPlaying == key)
+            {
+                _tacticalPlaying = null;
+                PumpTactical();
             }
         };
     }

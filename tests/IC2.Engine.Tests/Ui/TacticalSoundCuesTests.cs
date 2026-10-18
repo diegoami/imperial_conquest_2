@@ -41,6 +41,13 @@ public sealed class TacticalSoundCuesTests
         var shot = shots[0];
         Assert.Null(TacticalSoundCues.ForExchange(shot with { Actor = null }, rules));
         Assert.Null(TacticalSoundCues.ForExchange(shot with { Actor = shot.Actor! with { TypeId = "missing" } }, rules));
+        // Changing the loaded archer pointer must change classification even though the old id
+        // still exists. This kills a hard-coded "archers" id just as reordering kills type=2.
+        var other = shots.First(f => f.Actor!.TypeId != rules.ArcherUnitTypeId);
+        var redirected = rules with { ArcherUnitTypeId = other.Actor!.TypeId };
+        Assert.Equal(AssetKeys.SfxBattleArrows, TacticalSoundCues.ForExchange(other, redirected));
+        var oldArcher = shots.First(f => f.Actor!.TypeId == rules.ArcherUnitTypeId);
+        Assert.Equal(AssetKeys.SfxBattleJavelin, TacticalSoundCues.ForExchange(oldArcher, redirected));
     }
 
     [Fact]

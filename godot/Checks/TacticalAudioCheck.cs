@@ -14,6 +14,7 @@ public partial class TacticalAudioCheck : Node
 {
     private bool _ok = true;
     private readonly List<Node> _owned = new();
+    private StreamWriter? _receipt;
     private static readonly string[] Keys = [AssetKeys.SfxBattleArrows, AssetKeys.SfxBattleJavelin, AssetKeys.SfxBattleMelee];
 
     public override async void _Ready()
@@ -24,16 +25,33 @@ public partial class TacticalAudioCheck : Node
         var attack = SettingsScreen.BattleAttackDelaySeconds;
         try
         {
+            var hearing = OS.GetCmdlineUserArgs().Contains("--hear");
+            if (hearing)
+            {
+                var path = Path.Combine(GameDataContext.RepositoryRoot, "rendered", "t183-hearing-receipts.log");
+                _receipt = new StreamWriter(path, append: true) { AutoFlush = true };
+                Receipt("BEGIN hearing " + File.ReadAllText(Path.Combine(GameDataContext.RepositoryRoot, "rendered", "hearing-head.txt")).Trim());
+            }
             foreach (var selected in new[] { "authored", "placeholder" })
             {
+                var requestedPack = OS.GetCmdlineUserArgs().FirstOrDefault(a => a.StartsWith("--hear-pack="));
+                if (hearing && requestedPack is not null && requestedPack != "--hear-pack=" + selected) continue;
                 SetPack(selected);
-                foreach (var delay in new[] { 0, 1 })
-                foreach (var finish in new[] { false, true })
-                foreach (var enabled in new[] { true, false })
-                    CheckProduction(selected, delay, finish, enabled);
+                if (hearing)
+                {
+                    await CheckProduction(selected, 0, false, true, true);
+                    await CheckProduction(selected, 1, false, true, true);
+                    await CheckProduction(selected, 1, true, true, true);
+                    await CheckProduction(selected, 1, false, false, true);
+                    continue;
+                }
+                await CheckProduction(selected, 0, false, true);
+                await CheckProduction(selected, 1, false, true);
+                await CheckProduction(selected, 1, true, true);
+                await CheckProduction(selected, 1, true, false);
                 await CheckQueue(selected);
             }
-            CheckMissing();
+            if (!hearing) CheckMissing();
         }
         catch (Exception ex) { GD.PrintErr($"TacticalAudioCheck: {ex}"); _ok = false; }
         finally
@@ -48,6 +66,8 @@ public partial class TacticalAudioCheck : Node
                 node.GetParent()?.RemoveChild(node);
                 node.QueueFree();
             }
+            Receipt("END hearing/settings restored");
+            _receipt?.Dispose();
         }
         await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
         GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
@@ -57,7 +77,7 @@ public partial class TacticalAudioCheck : Node
         GetTree().Quit(code);
     }
 
-    private void CheckProduction(string pack, double delay, bool finish, bool enabled)
+    private async Task CheckProduction(string pack, double delay, bool finish, bool enabled, bool hearing = false)
     {
         SettingsScreen.SetSoundEnabledForCheck(enabled);
         SettingsScreen.SetBattlePauses(delay, delay);
@@ -76,12 +96,30 @@ public partial class TacticalAudioCheck : Node
         if (screen is null) return;
         screen.SkipPlayback();
         _ = main.SoundPlayerForCheck.QueuedForCheck;
+        if (hearing)
+        {
+            var description = $"{pack}: {(enabled ? "Sound ON" : "Sound OFF — expect silence")}, delay {delay}, {(finish ? "finish mid playback" : "advance playback")}. Expected: arrows / javelin / melee from displayed exchanges.";
+            Receipt(description);
+            var layer = new CanvasLayer { Layer = 100 };
+            var label = new Label { Text = description, Position = new Vector2(12, 4) };
+            label.AddThemeColorOverride("font_color", Colors.Yellow);
+            layer.AddChild(label); main.AddChild(layer);
+            screen.ExchangeEntered += frame => Receipt($"DISPLAY {frame.BattleId}/{frame.FrameId} {frame.Kind} actor={frame.Actor?.TypeId} cue={TacticalSoundCues.ForExchange(frame, session.Ruleset)} sound={SettingsScreen.SoundEnabled}");
+            await ToSignal(GetTree().CreateTimer(2), SceneTreeTimer.SignalName.Timeout);
+        }
         screen.PressToolbarButton("computer_general");
         var frames = session.LastTacticalTimeline;
         var expected = frames.Where(f => f.Event is TacticalShotEvent or TacticalMeleeEvent)
             .Select(f => TacticalSoundCues.ForExchange(f, session.Ruleset)!).ToArray();
         Require(expected.Length > 0 && Keys.All(expected.Contains), "producer supplies all three actual exchange types");
-        if (finish) { screen.AdvancePlayback(0.25); screen.SkipPlayback(); }
+        if (hearing && !finish && delay > 0)
+        {
+            var deadline = Time.GetTicksMsec() + 120000;
+            while (screen.IsPlayingBack && Time.GetTicksMsec() < deadline)
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            Require(!screen.IsPlayingBack, "windowed traversal completes within watchdog");
+        }
+        else if (finish) { screen.AdvancePlayback(0.25); screen.SkipPlayback(); }
         else for (var i = 0; screen.IsPlayingBack && i < 100000; i++) screen.AdvancePlayback(0.1);
         screen.AdvancePlayback(100); screen.SkipPlayback(); screen.SkipPlayback();
         Require(!screen.IsPlayingBack && main.ActiveOverlay is BattleEndedScreen && session.OpenTacticalBattle is null,
@@ -90,6 +128,20 @@ public partial class TacticalAudioCheck : Node
         Require(queued.SequenceEqual(enabled ? expected : Array.Empty<string>()),
             $"{pack} delay {delay} finish {finish} sound {enabled}: production ordered exactly-once cues, no generic duplicate");
         foreach (var key in Keys) Require(main.SoundPlayerForCheck.StreamForCheck(key)?.Data.Length > 0, $"{pack} resolves {key} WAV PCM");
+        if (hearing)
+        {
+            var log = new List<SoundPlayer.PlaybackLogEntry>();
+            var deadline = Time.GetTicksMsec() + 60000;
+            do
+            {
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+                log.AddRange(main.SoundPlayerForCheck.PlaybackLogForCheck);
+            } while (enabled && log.Count(e => !e.Started) < expected.Length && Time.GetTicksMsec() < deadline);
+            foreach (var entry in log) Receipt($"AUDIO {entry.Key} {(entry.Started ? "start" : "finish")} tick={entry.TickMs}");
+            Require(log.Where(e => e.Started).Select(e => e.Key).SequenceEqual(enabled ? expected : Array.Empty<string>()), "windowed loaded WAV start order matches displayed exchange order");
+            Require(!enabled || log.Count(e => !e.Started) == expected.Length, "windowed loaded WAVs complete before retirement");
+            await ToSignal(GetTree().CreateTimer(2), SceneTreeTimer.SignalName.Timeout);
+        }
         Stop(main); RemoveChild(main); main.QueueFree();
     }
 
@@ -115,7 +167,7 @@ public partial class TacticalAudioCheck : Node
         } while (log.Count(e => !e.Started) < sequence.Length && Time.GetTicksMsec() < deadline);
         Require(log.Where(e => e.Started).Select(e => e.Key).SequenceEqual(sequence)
             && log.Count == sequence.Length * 2 && log.Select((e, i) => e.Started == (i % 2 == 0)).All(x => x),
-            "identical and mixed cues complete FIFO without restart or drop");
+            "identical and mixed cues complete FIFO without restart or drop: " + string.Join(",", log.Select(e => e.Key + (e.Started ? "+" : "-"))));
         _ = player.QueuedForCheck;
         player.PlayTactical(Keys[0]); player.PlayTactical(Keys[0]);
         _ = player.QueuedForCheck; _ = player.PlaybackLogForCheck;
@@ -162,4 +214,5 @@ public partial class TacticalAudioCheck : Node
         foreach (var child in node.GetChildren()) Stop(child);
     }
     private void Require(bool condition, string text) { _ok &= condition; GD.Print($"{(condition ? "PASS" : "FAIL")}: {text}"); }
+    private void Receipt(string text) { if (_receipt is null) return; _receipt.WriteLine(text); GD.Print("HEARING: " + text); }
 }
