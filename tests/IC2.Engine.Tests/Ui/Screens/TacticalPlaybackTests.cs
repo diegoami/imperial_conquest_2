@@ -467,4 +467,45 @@ public sealed class TacticalPlaybackTests
         }
         Assert.True(overkill > 0);
     }
+
+    [Fact]
+    public void Empty_new_command_clears_history_roles_and_pose_but_retains_coherent_snapshot()
+    {
+        var (_, opening, ending) = Battle();
+        var queue = new TacticalPlayback();
+        queue.Begin(opening.Concat(ending.TacticalTimeline));
+        Assert.NotNull(queue.CurrentExchange);
+        var snapshot = queue.Snapshot;
+        var completed = 0;
+        queue.Begin(Array.Empty<TacticalBattleFrame>(), () => completed++);
+        Assert.Equal(1, completed);
+        Assert.Null(queue.CurrentExchange);
+        Assert.Null(queue.PreviousExchange);
+        Assert.Null(queue.CurrentFrame);
+        Assert.Null(queue.Pose);
+        Assert.Same(snapshot, queue.Snapshot);
+        Assert.Equal(-1, Model(queue).ActorSlot);
+        Assert.Equal(-1, Model(queue).TargetSlot);
+    }
+
+    [Fact]
+    public void Housekeeping_display_pause_is_capped_at_half_second_and_zero_collapses()
+    {
+        var (_, _, ending) = Battle();
+        var frame = ending.TacticalTimeline[^1];
+        Assert.Equal(TacticalFrameKind.Reconciliation, frame.Kind);
+        var queue = new TacticalPlayback { ShotDelay = 3 };
+        var completed = 0;
+        queue.Begin(new[] { frame }, () => completed++);
+        queue.Advance(0.25);
+        Assert.True(queue.IsPlaying);
+        Assert.Equal(0.5, queue.Progress, 8);
+        queue.Advance(0.25);
+        Assert.False(queue.IsPlaying);
+        Assert.Equal(1, completed);
+        var zero = new TacticalPlayback();
+        zero.Begin(new[] { frame });
+        Assert.False(zero.IsPlaying);
+        Assert.Same(frame.After, zero.Snapshot);
+    }
 }

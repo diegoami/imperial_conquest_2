@@ -59,6 +59,14 @@ public sealed class TacticalPlayback
             if (_seen.Add((frame.BattleId, frame.FrameId))) _pending.Enqueue(frame);
         }
         if (supplied && _pending.Count == 0) return;
+        // A refused/empty new command still clears stale roles and exchange history. A retained
+        // duplicate batch above is only a peek and must leave the displayed command untouched.
+        if (!supplied)
+        {
+            CurrentFrame = CurrentExchange = PreviousExchange = null;
+            Pose = null;
+            SetStage(TacticalPlaybackStage.Frame, 0);
+        }
         _completed = completed;
         IsPlaying = true;
         _duration = _elapsed = 0;
@@ -228,7 +236,7 @@ public sealed class TacticalPlayback
                 var unit = snapshot.View.Slots[slot];
                 if (snapshot.PendingPlacementSlots.Contains(slot) || unit.X != glyph.X || unit.Y != glyph.Y
                     || snapshot.View.Grid[glyph.X * snapshot.Height + glyph.Y] == TacticalIcon.Empty
-                    || snapshot.View.Slots.Where((covering, index) => index != slot && covering.IsLive
+                    || snapshot.View.Slots.Where((covering, index) => index > slot && covering.IsLive
                         && covering.X == glyph.X && covering.Y == glyph.Y && !snapshot.PendingPlacementSlots.Contains(index)).Any()) _glyphs.Remove(slot);
             }
             for (var slot = 0; slot < snapshot.View.Slots.Count; slot++)

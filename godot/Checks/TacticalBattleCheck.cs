@@ -35,7 +35,7 @@ public partial class TacticalBattleCheck : Node
     private bool _ok = true;
     private readonly List<string> _cleanup = new();
 
-    public override void _Ready()
+    public override async void _Ready()
     {
         if (OS.GetCmdlineUserArgs().Contains("--capture-replay"))
         {
@@ -76,6 +76,11 @@ public partial class TacticalBattleCheck : Node
             }
         }
 
+        // Let queued temporary scenes free and the native asynchronous audio thread release
+        // its playback references before process exit. The bounded 2s teardown grace is
+        // check-only, not a replay pause or an assertion about original-game timing.
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        await ToSignal(GetTree().CreateTimer(2.0), SceneTreeTimer.SignalName.Timeout);
         var exitCode = _ok ? 0 : 1;
         GD.Print($"TacticalBattleCheck: exiting with code {exitCode}.");
         GetTree().Quit(exitCode);

@@ -46,6 +46,9 @@ public sealed record BattleDisplay(
     }
 }
 
+/// <summary>A board/minimap glyph with its shared fractional pose and opacity.</summary>
+public sealed record BattleUnitView(BattleCellView Cell, double X, double Y, double Opacity);
+
 /// <summary>One cell of the board as the screen draws it.</summary>
 /// <param name="X">The column.</param>
 /// <param name="Y">The row.</param>
@@ -56,8 +59,6 @@ public sealed record BattleDisplay(
 /// <param name="Selected">Whether the selection cursor is on this cell.</param>
 /// <param name="Actor">A live, actually occupied actor cell; never a routed unit's former location.</param>
 /// <param name="Target">A live, actually occupied target cell.</param>
-public sealed record BattleUnitView(BattleCellView Cell, double X, double Y, double Opacity);
-
 public sealed record BattleCellView(int X, int Y, int Code, int Slot, int TintSide, string? IconKey, bool Selected, bool Actor = false, bool Target = false);
 
 /// <summary>A toolbar button: its asset key, its tooltip and whether it can be pressed.</summary>

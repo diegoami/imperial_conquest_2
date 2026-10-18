@@ -532,6 +532,7 @@ public partial class TacticalBattleScreen : Control
         TacticalMovedEvent move => $"ACTOR #{move.Slot} moves ({move.FromX},{move.FromY}) → ({move.ToX},{move.ToY})",
         TacticalRoutedEvent rout => $"#{rout.Slot} routed and removed",
         TacticalCascadeRemovedEvent cascade => $"#{cascade.Slot} removed in rout cascade",
+        TacticalSurrenderedEvent surrender => $"{(surrender.Side == 0 ? "Attacker" : "Defender")} surrendered",
         TacticalShotEvent or TacticalMeleeEvent => string.Join("\n", TacticalBattleViewModel.ExchangeLines(frame)),
         _ => frame.Kind switch
         {
