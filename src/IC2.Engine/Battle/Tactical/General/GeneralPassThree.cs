@@ -10,10 +10,9 @@ namespace IC2.Engine.Battle.Tactical.General;
 /// <item><description>
 /// <strong>The threat move.</strong> For each unit, in the general's order, with moves above 0 and no
 /// target: the live enemies, in slot order, are sorted ascending by threat, <c>troops × quality × morale
-/// × M[theirs][mine] div 10000</c>, an archers enemy with shots counting as <c>−shotBound</c> (its shot
-/// bound <c>n</c> against this unit, <see cref="TacticalShooting.Bound"/>), so the most damage comes
-/// first. The sort is the original's selection sort (<c>i</c> outer, <c>j = i + 1 …</c> inner, a swap on
-/// a strict <c>&lt;</c>), not a library sort: its tie order is the original's. Taking the enemies in
+/// × M[theirs][mine] div 10000</c>. When the acting unit is an archer with positive shots, every
+/// enemy instead has key <c>−shotBound(actor, enemy)</c> (<c>FUN_0043A718</c>, target/draw report §B).
+/// The existing strict exchange sort and tie order are preserved here. Taking the enemies in
 /// that order, the unit moves toward the first with a clear line, or, if the line is blocked, toward
 /// the nearest empty cell with a clear line in that enemy's box; an enemy with neither is passed over.
 /// </description></item>
@@ -106,10 +105,10 @@ public static class GeneralPassThree
 
     internal static long Threat(TacticalBoard board, int slot, int enemy)
     {
-        var them = board.Slots[enemy];
-        if (them.Type == board.Context.ArcherType && them.Shots > 0)
+        var actor = board.Slots[slot];
+        if (actor.Type == board.Context.ArcherType && actor.Shots > 0)
         {
-            return unchecked(-TacticalShooting.Bound(them, board.Slots[slot], board.Distance(enemy, slot), board.Context));
+            return unchecked(-TacticalShooting.Bound(actor, board.Slots[enemy], board.Distance(slot, enemy), board.Context));
         }
 
         return GeneralTargeting.Score(board, slot, enemy);
@@ -162,7 +161,9 @@ public static class GeneralPassThree
                 return;
             }
 
-            if (GeneralLine.BoxCell(board, slot, enemy) is { } cell)
+            // FUN_0043A718 uses the same actor shooting condition for the threat box.
+            var radius = unit.Type == board.Context.ArcherType && unit.Shots > 0 ? 2 : 1;
+            if (GeneralLine.BoxCell(board, slot, enemy, radius) is { } cell)
             {
                 journal?.Add(new GeneralDecision(slot, GeneralStep.ThreatBox, enemy, cell.X, cell.Y));
                 TacticalMovement.Walk(board, slot, cell.X, cell.Y);

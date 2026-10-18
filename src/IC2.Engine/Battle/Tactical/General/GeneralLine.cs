@@ -19,7 +19,8 @@ namespace IC2.Engine.Battle.Tactical.General;
 /// The box search scans the <c>(2r + 1)²</c> cells around the target, <c>dx</c> outer and <c>dy</c>
 /// inner, each from <c>−r</c> to <c>+r</c>, for a cell that is on the board, empty and on a clear line
 /// from the unit, and keeps the one nearest the unit (Chebyshev distance) by a strict <c>&lt;</c>, so
-/// ties go to the first found. <c>r</c> is <c>combat.tactical.approachBoxRadius[type]</c>.
+/// ties go to the first found. Engage uses <c>combat.tactical.approachBoxRadius[type]</c>;
+/// threat movement supplies its actor shooting-mode radius explicitly.
 /// </para>
 /// </remarks>
 public static class GeneralLine
@@ -93,11 +94,13 @@ public static class GeneralLine
     internal static bool IsClear(TacticalBoard board, int slot, int x, int y) =>
         IsClear(board, board.Slots[slot].X, board.Slots[slot].Y, x, y);
 
-    internal static (int X, int Y)? BoxCell(TacticalBoard board, int slot, int target)
+    internal static (int X, int Y)? BoxCell(TacticalBoard board, int slot, int target) =>
+        BoxCell(board, slot, target, board.Rules.ApproachBoxRadius[board.Slots[slot].Type]);
+
+    internal static (int X, int Y)? BoxCell(TacticalBoard board, int slot, int target, int radius)
     {
         var unit = board.Slots[slot];
         var aim = board.Slots[target];
-        var radius = board.Rules.ApproachBoxRadius[unit.Type];
 
         (int X, int Y)? best = null;
         var bestDistance = int.MaxValue;
