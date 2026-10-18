@@ -46,8 +46,9 @@ public class ThreatSelectionTests
         // Full table: dead,a=350,b=350,c=175 -> c,a,b,dead. Prefiltering gives c,b,a.
         var state = Arena((0, Unit(HI, 0, 0, 3000)),
             (21, Unit(HI, 10, 10, 2000)), (22, Unit(HI, 11, 10, 2000)),
-            (23, Unit(HI, 12, 10, 1000)));
-        Assert.Equal(new[] { 23, 21, 22 }, GeneralPassThree.ThreatOrder(state, 0, Context));
+            (24, Unit(HI, 12, 10, 1000)));
+        // Slots20 and23 are dead and interleaved with the three live candidates.
+        Assert.Equal(new[] { 24, 21, 22 }, GeneralPassThree.ThreatOrder(state, 0, Context));
     }
 
     private static TacticalContext Wide()
