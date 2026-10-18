@@ -51,7 +51,7 @@ public partial class TacticalAudioCheck : Node
                 await CheckProduction(selected, 1, true, false);
                 await CheckQueue(selected);
             }
-            if (!hearing) CheckMissing();
+            if (!hearing) { CheckBattleBoundaryRetirement(); CheckMissing(); }
         }
         catch (Exception ex) { GD.PrintErr($"TacticalAudioCheck: {ex}"); _ok = false; }
         finally
@@ -66,6 +66,7 @@ public partial class TacticalAudioCheck : Node
                 node.GetParent()?.RemoveChild(node);
                 node.QueueFree();
             }
+            _owned.Clear();
             Receipt("END hearing/settings restored");
             _receipt?.Dispose();
         }
@@ -101,7 +102,8 @@ public partial class TacticalAudioCheck : Node
             var description = $"{pack}: {(enabled ? "Sound ON" : "Sound OFF — expect silence")}, delay {delay}, {(finish ? "finish mid playback" : "advance playback")}. Expected: arrows / javelin / melee from displayed exchanges.";
             Receipt(description);
             var layer = new CanvasLayer { Layer = 100 };
-            var label = new Label { Text = description, Position = new Vector2(12, 4) };
+            var label = new Label { Text = description, Position = new Vector2(12, 4),
+                Size = new Vector2(1000, 70), AutowrapMode = TextServer.AutowrapMode.WordSmart };
             label.AddThemeColorOverride("font_color", Colors.Yellow);
             layer.AddChild(label); main.AddChild(layer);
             screen.ExchangeEntered += frame => Receipt($"DISPLAY {frame.BattleId}/{frame.FrameId} {frame.Kind} actor={frame.Actor?.TypeId} cue={TacticalSoundCues.ForExchange(frame, session.Ruleset)} sound={SettingsScreen.SoundEnabled}");
@@ -111,6 +113,7 @@ public partial class TacticalAudioCheck : Node
         var frames = session.LastTacticalTimeline;
         var expected = frames.Where(f => f.Event is TacticalShotEvent or TacticalMeleeEvent)
             .Select(f => TacticalSoundCues.ForExchange(f, session.Ruleset)!).ToArray();
+        if (hearing) Receipt("EXPECTED ordered keys: " + string.Join(",", expected));
         Require(expected.Length > 0 && Keys.All(expected.Contains), "producer supplies all three actual exchange types");
         if (hearing && !finish && delay > 0)
         {
@@ -138,8 +141,11 @@ public partial class TacticalAudioCheck : Node
                 log.AddRange(main.SoundPlayerForCheck.PlaybackLogForCheck);
             } while (enabled && log.Count(e => !e.Started) < expected.Length && Time.GetTicksMsec() < deadline);
             foreach (var entry in log) Receipt($"AUDIO {entry.Key} {(entry.Started ? "start" : "finish")} tick={entry.TickMs}");
+            var queueReceipts = main.SoundPlayerForCheck.TacticalReceiptsForCheck;
+            foreach (var entry in queueReceipts) Receipt($"QUEUE sequence={entry.Sequence} key={entry.Key} {entry.Action} reason={entry.Reason} tick={entry.TickMs}");
             Require(log.Where(e => e.Started).Select(e => e.Key).SequenceEqual(enabled ? expected : Array.Empty<string>()), "windowed loaded WAV start order matches displayed exchange order");
             Require(!enabled || log.Count(e => !e.Started) == expected.Length, "windowed loaded WAVs complete before retirement");
+            Require(queueReceipts.All(r => r.Action != "retired"), "single-battle hearing run retires no accepted clips");
             await ToSignal(GetTree().CreateTimer(2), SceneTreeTimer.SignalName.Timeout);
         }
         Stop(main); RemoveChild(main); main.QueueFree();
@@ -168,6 +174,12 @@ public partial class TacticalAudioCheck : Node
         Require(log.Where(e => e.Started).Select(e => e.Key).SequenceEqual(sequence)
             && log.Count == sequence.Length * 2 && log.Select((e, i) => e.Started == (i % 2 == 0)).All(x => x),
             "identical and mixed cues complete FIFO without restart or drop: " + string.Join(",", log.Select(e => e.Key + (e.Started ? "+" : "-"))));
+        _ = player.QueuedForCheck;
+        player.PlayTactical(Keys[0]); player.PlayTactical(Keys[1]);
+        player.ClearTactical();
+        _ = player.PlaybackLogForCheck;
+        await ToSignal(GetTree().CreateTimer(0.3), SceneTreeTimer.SignalName.Timeout);
+        Require(!player.PlaybackLogForCheck.Any(e => e.Started), "new battle retirement clears prior-battle queued cues");
         _ = player.QueuedForCheck;
         player.PlayTactical(Keys[0]); player.PlayTactical(Keys[0]);
         _ = player.QueuedForCheck; _ = player.PlaybackLogForCheck;
@@ -198,6 +210,56 @@ public partial class TacticalAudioCheck : Node
         finally { File.Delete(Path.Combine(path, "manifest.json")); Directory.Delete(path); }
     }
 
+    private void CheckBattleBoundaryRetirement()
+    {
+        SettingsScreen.SetSoundEnabledForCheck(true);
+        SettingsScreen.SetBattlePauses(0, 0);
+        var toy = GameDataContext.Repository.Resolve("toy-3city");
+        StartingArmy Army(string id, string nation, int x, int y, int troops) => new(id, nation, x, y,
+            Morale: nation == "north" ? 68 : 59, Money: 0, SupplyTons: 0, Moves: 5,
+            Units: ValueList.Of(new UnitSlot(0, nation == "north" ? "light_infantry" : "heavy_infantry", troops, 6, "duplicate")));
+        var world = toy.World with { StartingArmies = ValueList.Of(
+            Army("north-army-1", "north", 3, 2, 400), Army("north-army-2", "north", 6, 4, 400),
+            Army("south-army-1", "south", 4, 2, 6000), Army("south-army-2", "south", 6, 5, 6000)) };
+        var main = new MainGameScreen { Session = new GameSession(world, toy.Ruleset, toy.Scenario)
+            { HumanBattles = HumanBattleMode.Tactical }, RepositoryRoot = GameDataContext.RepositoryRoot };
+        AddChild(main); _owned.Add(main);
+        main.SubmitForCheck("declare-war south"); main.SubmitForCheck("end");
+        var first = main.ActiveOverlay as TacticalBattleScreen;
+        Require(first is not null, "back-to-back production AI lap opens first battlefield");
+        if (first is null) return;
+        var battleId = first.DisplayedFrame!.BattleId;
+        _ = main.SoundPlayerForCheck.TacticalReceiptsForCheck;
+        first.PressToolbarButton("computer_general");
+        first.SkipPlayback();
+        var frames = main.Session.LastTacticalTimeline.Where(f => f.BattleId == battleId
+            && f.Event is TacticalShotEvent or TacticalMeleeEvent).ToArray();
+        var before = main.SoundPlayerForCheck.TacticalReceiptsForCheck;
+        var accepted = before.Where(r => r.Action == "enqueued").ToArray();
+        Require(accepted.Select(r => r.Key).SequenceEqual(frames.Select(f => TacticalSoundCues.ForExchange(f, toy.Ruleset))),
+            "boundary receipt sequence maps one-to-one to producer exchange identities");
+        if (main.ActiveOverlay is not BattleEndedScreen result) { Require(false, "first result precedes next battlefield"); return; }
+        result.Close();
+        var after = main.SoundPlayerForCheck.TacticalReceiptsForCheck;
+        var records = before.Concat(after).ToArray();
+        Require(main.ActiveOverlay is TacticalBattleScreen next && next.DisplayedFrame?.BattleId != battleId,
+            "result dismissal opens distinct next production battlefield");
+        foreach (var (receipt, index) in accepted.Select((receipt, index) => (receipt, index)))
+        {
+            var own = records.Where(r => r.Sequence == receipt.Sequence).ToArray();
+            var completed = own.Count(r => r.Action == "finished");
+            var retired = own.Count(r => r.Action == "retired");
+            Require(completed + retired == 1, "each accepted prior-battle clip explicitly completes or retires once");
+            GD.Print($"BOUNDARY: {battleId}/{frames[index].FrameId} sequence={receipt.Sequence} key={receipt.Key} "
+                + $"started={own.Count(r => r.Action == "started")} finished={completed} retired={retired} "
+                + $"reason={own.Last().Reason}");
+        }
+        // This is an explicit policy receipt, not a claim that a retired cue audibly completed.
+        GD.Print($"BOUNDARY POLICY PENDING OWNER REVIEW: accepted={accepted.Length}, started={before.Count(r => r.Action == "started")}, "
+            + $"finished={before.Count(r => r.Action == "finished")}, retired={after.Count(r => r.Action == "retired")}");
+        Stop(main); RemoveChild(main); main.QueueFree();
+    }
+
     private void SetPack(string pack)
     {
         var settings = new SettingsScreen(); AddChild(settings);
@@ -213,6 +275,11 @@ public partial class TacticalAudioCheck : Node
         if (node is AudioStreamPlayer player) { player.Stop(); player.Stream = null; }
         foreach (var child in node.GetChildren()) Stop(child);
     }
-    private void Require(bool condition, string text) { _ok &= condition; GD.Print($"{(condition ? "PASS" : "FAIL")}: {text}"); }
+    private void Require(bool condition, string text)
+    {
+        _ok &= condition;
+        var line = $"{(condition ? "PASS" : "FAIL")}: {text}";
+        GD.Print(line); _receipt?.WriteLine(line);
+    }
     private void Receipt(string text) { if (_receipt is null) return; _receipt.WriteLine(text); GD.Print("HEARING: " + text); }
 }
