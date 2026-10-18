@@ -1,4 +1,6 @@
 using Godot;
+using IC2.Engine.Battle.Tactical;
+using IC2.Engine.Model;
 using IC2.Engine.Presentation;
 using IC2.Slice.Assets;
 using IC2.Slice.UI;
@@ -19,18 +21,20 @@ namespace IC2.Slice.Screens;
 /// cannot be left: it has no close button and no Esc, and goes only when the battle ends (the owner then shows
 /// <see cref="BattleEndedScreen"/>), by surrender or by quitting the application.
 /// </para>
-/// <para>
-/// <strong>The pauses are display only.</strong> The engine plays a whole call at once (a half-round, or a whole battle
-/// under <em>Computer general</em>), so by the time the screen hears of it the state is final. With a pause above 0 s the
-/// screen replays the call's exchanges one by one, waiting the shot or attack pause after each, and only then shows the
-/// final board and raises its event. A click on the side panel meanwhile ends the replay, and turns <em>Computer
-/// general</em> off when the engine still has it on for a human side.
-/// </para>
+/// <para>Typed producer frames drive the complete displayed snapshot, both rosters, participants and controller.
+/// Pauses and skip only affect traversal timing; all frames and exchange notifications enter once. The terminal
+/// reconciliation is consumed before the result event, even when the session no longer has an open battle.</para>
 /// </remarks>
 public partial class TacticalBattleScreen : Control
 {
     /// <summary>The board's cell side: 32 px, as the original's (T127's entry) and as the 32 x 32 battle assets are drawn.</summary>
     private const int CellPixels = 32;
+
+    // The application's 1500px canvas scales down at practical window sizes. Battle values and role
+    // cues need a readable local text size; preserve the approved font family, theme and nation colours.
+    private static int BattleBodySize => AppTheme.Body + 6;
+    private static int BattleNoteSize => AppTheme.Note + 6;
+    private static int BattleHeaderSize => AppTheme.Header + 6;
 
     // Used only when the pack has no ground tile: the mean colour of assets/packs/authored/battle/ground.bmp (32 x 32),
     // measured over all its pixels (R 0.526, G 0.722, B 0.371), so the fallback matches the real tile's overall tone.
@@ -41,6 +45,25 @@ public partial class TacticalBattleScreen : Control
 
     /// <summary>The battle as it stands when the screen opens.</summary>
     public required TacticalBattleView InitialView { get; init; }
+
+    /// <summary>Opening frames retained across the production map's lines-only callback.</summary>
+    public IReadOnlyList<TacticalBattleFrame>? InitialTimeline { get; init; }
+
+    /// <summary>Typed exactly-once exchange seam for T183; fired by the production queue at every delay.</summary>
+    public event Action<TacticalBattleFrame>? ExchangeEntered;
+    public event Action<TacticalBattleFrame>? FrameEntered;
+    public TacticalBattleFrame? DisplayedFrame => _playback.CurrentFrame;
+    public TacticalPresentationSnapshot DisplayedSnapshot => _snapshot;
+    public TacticalPlaybackStage PlaybackStage => _playback.Stage;
+    public double PlaybackProgress => _playback.Progress;
+    public TacticalPose? PlaybackPose => _playback.Pose;
+    public Label ControllerLabel { get; private set; } = null!;
+    public Label PreviousExchangeLabel { get; private set; } = null!;
+    public Label ActorLabel { get; private set; } = null!;
+    public Label TargetLabel { get; private set; } = null!;
+    public IReadOnlyList<string> RosterTexts => _rosterTexts;
+    private readonly List<string> _rosterTexts = new();
+    private readonly Dictionary<int, Button> _rosterRowButtons = new();
 
     /// <summary>The repository root, where the asset packs live.</summary>
     public required string RepositoryRoot { get; init; }
@@ -64,7 +87,7 @@ public partial class TacticalBattleScreen : Control
     public int SelectedSlot { get; private set; } = -1;
 
     /// <summary>Whether the screen is replaying the exchanges of the last order.</summary>
-    public bool IsPlayingBack => _playback is not null;
+    public bool IsPlayingBack => _playback.IsPlaying;
 
     /// <summary>How many exchanges the replay has shown so far, for <c>godot/Checks/**</c>.</summary>
     public int ExchangesShown { get; private set; }
@@ -104,38 +127,48 @@ public partial class TacticalBattleScreen : Control
         Enemy,
     }
 
-    private sealed class Playback
-    {
-        public Playback(Queue<BattleExchange> queue, SessionOutput output)
-        {
-            Queue = queue;
-            Output = output;
-        }
-
-        public Queue<BattleExchange> Queue { get; }
-
-        public SessionOutput Output { get; }
-
-        public double Remaining { get; set; }
-    }
-
     private readonly Dictionary<string, Button> _buttons = new(StringComparer.Ordinal);
     private readonly Dictionary<(string Key, string Nation), Texture2D?> _icons = new();
     private AssetPackTextureLoader? _loader;
     private TacticalBattleView _view = null!;
-    private BattleExchange? _lastExchange;
+    private TacticalPresentationSnapshot _snapshot = null!;
+    private int _perspective;
+    private string? _battleId;
+    private BoardView _minimap = null!;
     private BattleDisplay _display = null!;
     private BoardView _board = null!;
     private VBoxContainer _listBox = null!;
     private Label _listTitle = null!;
     private ListKind _listKind = ListKind.Friendly;
-    private Playback? _playback;
+    private readonly TacticalPlayback _playback = new();
     private Control? _dialog;
     private DialogKind _dialogKind;
 
     public override void _Ready()
     {
         _view = InitialView;
+        _display = BattleDisplay.For(InitialView, Session.State, Session.Ruleset);
+        _perspective = InitialView.ComputerControlled[0] && !InitialView.ComputerControlled[1] ? 1 : 0;
+        _snapshot = new TacticalPresentationSnapshot(InitialView, _display.BoardWidth, _display.BoardHeight, false,
+            ValueList<int>.Empty, ValueList<int>.Empty);
+        _playback.PresentationChanged += () =>
+        {
+            if (_playback.Snapshot is not { } snapshot) return;
+            _snapshot = snapshot;
+            _view = snapshot.View;
+            if (!_view.ComputerControlled[0] && !_view.ComputerControlled[1] && !_playback.ResolvingHalfRound)
+                _perspective = _view.SideToMove;
+            Refresh();
+            ShowMessage(_playback.Stage == TacticalPlaybackStage.Announcement ? "TURN BEGINS · " + Model.ControllerText
+                : Model.DepartureLines.Count > 0 ? string.Join("\n", Model.DepartureLines)
+                : _playback.CurrentFrame is { } frame ? FrameMessage(frame) : string.Empty);
+        };
+        _playback.FrameEntered += frame => FrameEntered?.Invoke(frame);
+        _playback.ExchangeEntered += frame =>
+        {
+            ExchangesShown++;
+            ExchangeEntered?.Invoke(frame);
+        };
         _loader = AssetPackTextureLoader.TryLoadPack(
             RepositoryRoot,
             SettingsScreen.SelectedPackId,
@@ -163,8 +196,14 @@ public partial class TacticalBattleScreen : Control
         left.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         row.AddChild(left);
 
-        CaptionLabel = UiKit.MakeLabel(string.Empty, AppTheme.Header, UiKit.AccentColor);
+        CaptionLabel = UiKit.MakeLabel(string.Empty, BattleHeaderSize, UiKit.AccentColor);
+        CaptionLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        CaptionLabel.CustomMinimumSize = new Vector2(CellPixels * 14, 0);
         left.AddChild(CaptionLabel);
+        ControllerLabel = UiKit.MakeLabel(string.Empty, BattleBodySize, UiKit.AccentColor);
+        ControllerLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        ControllerLabel.CustomMinimumSize = new Vector2(CellPixels * 14, 0);
+        left.AddChild(ControllerLabel);
 
         var toolbar = new HBoxContainer();
         toolbar.AddThemeConstantOverride("separation", AppTheme.DialogGap);
@@ -199,10 +238,16 @@ public partial class TacticalBattleScreen : Control
         };
         left.AddChild(_board);
 
-        MessageLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.MutedTextColor);
+        MessageLabel = UiKit.MakeLabel(string.Empty, BattleBodySize, UiKit.MutedTextColor);
         MessageLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        MessageLabel.MaxLinesVisible = 3;
         MessageLabel.CustomMinimumSize = new Vector2(CellPixels * 14, 54);
         left.AddChild(MessageLabel);
+        var footer = new HBoxContainer();
+        left.AddChild(footer);
+        _minimap = new BoardView { Host = this, Mini = true, CustomMinimumSize = new Vector2(112, 96), MouseFilter = MouseFilterEnum.Ignore };
+        footer.AddChild(_minimap);
+        footer.AddChild(UiKit.MakeLabel("○ Cyan: ACTOR\n◇ Orange: TARGET\n□ Gold: SELECTED\nAttacker / Defender: strategic roles", BattleNoteSize, UiKit.TextColor));
 
         var right = new VBoxContainer { CustomMinimumSize = new Vector2(380, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         right.AddThemeConstantOverride("separation", AppTheme.DialogGap);
@@ -222,25 +267,41 @@ public partial class TacticalBattleScreen : Control
         var panelColumn = new VBoxContainer();
         panelColumn.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         panelBox.AddChild(panelColumn);
-        panelColumn.AddChild(UiKit.MakeLabel("Selected unit", AppTheme.Body, UiKit.MutedTextColor));
-        PanelLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
-        PanelLabel.CustomMinimumSize = new Vector2(0, 150);
+        panelColumn.AddChild(UiKit.MakeLabel("Selected unit", BattleBodySize, UiKit.MutedTextColor));
+        PanelLabel = UiKit.MakeLabel(string.Empty, BattleBodySize, UiKit.TextColor);
+        PanelLabel.CustomMinimumSize = new Vector2(0, 48);
         PanelLabel.MouseFilter = MouseFilterEnum.Ignore;
         panelColumn.AddChild(PanelLabel);
-        panelColumn.AddChild(UiKit.MakeLabel("Last exchange", AppTheme.Body, UiKit.MutedTextColor));
-        ExchangeLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
-        ExchangeLabel.CustomMinimumSize = new Vector2(0, 90);
+        ActorLabel = UiKit.MakeLabel(string.Empty, BattleNoteSize, new Color(0.2f, 0.9f, 1f));
+        TargetLabel = UiKit.MakeLabel(string.Empty, BattleNoteSize, new Color(1f, 0.58f, 0.18f));
+        panelColumn.AddChild(ActorLabel);
+        panelColumn.AddChild(TargetLabel);
+        panelColumn.AddChild(UiKit.MakeLabel("Current exchange", BattleNoteSize, UiKit.MutedTextColor));
+        ExchangeLabel = UiKit.MakeLabel(string.Empty, BattleBodySize, UiKit.TextColor);
+        ExchangeLabel.CustomMinimumSize = new Vector2(0, 40);
         ExchangeLabel.MouseFilter = MouseFilterEnum.Ignore;
         panelColumn.AddChild(ExchangeLabel);
+        panelColumn.AddChild(UiKit.MakeLabel("Previous exchange", BattleNoteSize, UiKit.MutedTextColor));
+        PreviousExchangeLabel = UiKit.MakeLabel(string.Empty, BattleNoteSize, UiKit.MutedTextColor);
+        panelColumn.AddChild(PreviousExchangeLabel);
+        foreach (var label in new[] { PanelLabel, ActorLabel, TargetLabel, ExchangeLabel, PreviousExchangeLabel })
+        {
+            label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            label.MouseFilter = MouseFilterEnum.Ignore;
+        }
 
-        _listTitle = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.MutedTextColor);
+        _listTitle = UiKit.MakeLabel(string.Empty, BattleBodySize, UiKit.MutedTextColor);
         right.AddChild(_listTitle);
-        var scroll = new ScrollContainer { SizeFlagsVertical = SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 160) };
-        right.AddChild(scroll);
-        _listBox = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        scroll.AddChild(_listBox);
+        _listBox = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
+        right.AddChild(_listBox);
 
         Refresh();
+        SetPlaybackPauses();
+        var opening = InitialTimeline ?? Session.InitialTacticalTimeline.Concat(Session.LastTacticalTimeline)
+            .Where(frame => frame.After.View.AttackerArmyId == InitialView.AttackerArmyId
+                && frame.After.View.DefenderArmyId == InitialView.DefenderArmyId).ToArray();
+        _battleId = opening.LastOrDefault()?.BattleId;
+        _playback.Begin(opening.Where(frame => frame.BattleId == _battleId).OrderBy(frame => frame.FrameId), Refresh);
     }
 
     /// <summary>
@@ -374,28 +435,10 @@ public partial class TacticalBattleScreen : Control
     /// the clock without waiting for real time.
     /// </summary>
     /// <param name="seconds">The time passed.</param>
-    public void AdvancePlayback(double seconds)
-    {
-        if (_playback is not { } playback)
-        {
-            return;
-        }
+    public void AdvancePlayback(double seconds) => _playback.Advance(seconds);
 
-        playback.Remaining -= seconds;
-        while (_playback is not null && _playback.Remaining <= 0)
-        {
-            ShowNextExchange();
-        }
-    }
-
-    /// <summary>Ends the replay at once and shows the final state.</summary>
-    public void SkipPlayback()
-    {
-        while (_playback is not null)
-        {
-            ShowNextExchange();
-        }
-    }
+    /// <summary>Skips only waits; every frame and typed exchange still enters once.</summary>
+    public void SkipPlayback() => _playback.Finish();
 
     public override void _Process(double delta) => AdvancePlayback(delta);
 
@@ -459,79 +502,65 @@ public partial class TacticalBattleScreen : Control
             ? _display.UnitTypeNames[_view.Slots[cell.Slot].Type]
             : "?";
 
-    private void Send(Func<GameSession, SessionOutput> order)
+    private void SetPlaybackPauses()
     {
-        var before = _view;
-        var output = order(Session);
-        ShowMessage(CommandOutcomeText.OutcomeBlock(output.Lines));
-
-        var exchanges = TacticalBattleViewModel.ParseExchanges(output.Lines, before);
-        var wait = exchanges.Any(e => e.Kind == BattleExchangeKind.Shot && SettingsScreen.BattleShotDelaySeconds > 0)
-                   || exchanges.Any(e => e.Kind == BattleExchangeKind.Melee && SettingsScreen.BattleAttackDelaySeconds > 0);
-        if (!wait)
-        {
-            if (exchanges.Count > 0)
-            {
-                _lastExchange = exchanges[^1];
-            }
-
-            Finish(output);
-            return;
-        }
-
-        _playback = new Playback(new Queue<BattleExchange>(exchanges), output);
-        ShowNextExchange();
+        _playback.ShotDelay = SettingsScreen.BattleShotDelaySeconds;
+        _playback.AttackDelay = SettingsScreen.BattleAttackDelaySeconds;
     }
 
-    private void ShowNextExchange()
+    private void Send(Func<GameSession, SessionOutput> order)
     {
-        if (_playback is not { } playback)
-        {
-            return;
-        }
-
-        if (playback.Queue.Count == 0)
-        {
-            _playback = null;
-            Finish(playback.Output);
-            return;
-        }
-
-        var exchange = playback.Queue.Dequeue();
-        _lastExchange = exchange;
-        ExchangesShown++;
-        playback.Remaining = exchange.Kind == BattleExchangeKind.Shot
-            ? SettingsScreen.BattleShotDelaySeconds
-            : SettingsScreen.BattleAttackDelaySeconds;
-        Refresh();
+        var output = order(Session);
+        SetPlaybackPauses();
+        _battleId ??= output.TacticalTimeline.FirstOrDefault()?.BattleId;
+        _playback.Begin(output.TacticalTimeline.Where(frame => frame.BattleId == _battleId), () => Finish(output));
     }
 
     private void Finish(SessionOutput output)
     {
-        if (output.OpenBattleView is { } view)
-        {
-            _view = view;
-        }
-
-        if (output.EndedBattleReport is not null)
-        {
-            BattleEnded?.Invoke(output);
-            return;
-        }
-
+        // Every terminal and housekeeping frame has already been displayed, including null OpenBattleView.
         Refresh();
-        OrderIssued?.Invoke(output);
+        ShowMessage(output.TacticalTimeline.Count == 0
+            ? CommandOutcomeText.OutcomeBlock(output.Lines)
+            : "Battlefield updated · " + Model.ControllerText);
+        if (output.EndedBattleReport is not null) BattleEnded?.Invoke(output);
+        else OrderIssued?.Invoke(output);
     }
+
+    private static string FrameMessage(TacticalBattleFrame frame) => frame.Event switch
+    {
+        TacticalMovedEvent move => $"ACTOR #{move.Slot} moves ({move.FromX},{move.FromY}) → ({move.ToX},{move.ToY})",
+        TacticalRoutedEvent rout => $"#{rout.Slot} routed and removed",
+        TacticalCascadeRemovedEvent cascade => $"#{cascade.Slot} removed in rout cascade",
+        TacticalSurrenderedEvent surrender => $"{(surrender.Side == 0 ? "Attacker" : "Defender")} surrendered",
+        TacticalShotEvent or TacticalMeleeEvent => string.Join("\n", TacticalBattleViewModel.ExchangeLines(frame)),
+        _ => frame.Kind switch
+        {
+            TacticalFrameKind.HalfRound => "Resolving the previous half-round before controller handoff",
+            TacticalFrameKind.Setup => "Round state updated — controller ready",
+            TacticalFrameKind.Terminal => "Battle ended — completing battlefield updates",
+            TacticalFrameKind.Reconciliation => "Battlefield reconciled",
+            _ => frame.Kind.ToString(),
+        },
+    };
 
     private void Refresh()
     {
-        _display = BattleDisplay.For(_view, Session.State, Session.Ruleset);
-        Model = TacticalBattleViewModel.From(_view, _display, SelectedSlot, _lastExchange, controlsEnabled: !IsPlayingBack);
+        Model = TacticalBattleViewModel.FromSnapshot(_snapshot, _display, SelectedSlot, _playback.CurrentFrame,
+            _playback.CurrentExchange, _playback.PreviousExchange, _perspective, _playback.ResolvingHalfRound,
+            controlsEnabled: !IsPlayingBack, pose: _playback.Pose, stage: _playback.Stage);
         SelectedSlot = Model.SelectedSlot;
 
-        CaptionLabel.Text = Model.Caption;
+        CaptionLabel.Text = _playback.ResolvingHalfRound
+            ? $"{_display.AttackerNationName}  v  {_display.DefenderNationName} — resolving combat"
+            : Model.Caption;
+        ControllerLabel.Text = (_playback.Stage == TacticalPlaybackStage.Announcement ? "TURN BEGINS · " : "") + Model.ControllerText;
         PanelLabel.Text = string.Join("\n", Model.PanelLines);
-        ExchangeLabel.Text = _lastExchange is null ? string.Empty : string.Join("\n", _lastExchange.Lines);
+        ExchangeLabel.Text = string.Join("\n", Model.CurrentExchangeLines);
+        ExchangeLabel.AddThemeColorOverride("font_color", Model.DepartureLines.Count > 0 ? new Color(1f, 0.7f, 0.25f) : UiKit.TextColor);
+        PreviousExchangeLabel.Text = string.Join("\n", Model.PreviousExchangeLines);
+        ActorLabel.Text = string.Join("\n", Model.ActorLines);
+        TargetLabel.Text = string.Join("\n", Model.TargetLines);
         foreach (var button in Model.Buttons)
         {
             _buttons[button.Id].Disabled = !button.Enabled;
@@ -539,37 +568,78 @@ public partial class TacticalBattleScreen : Control
 
         RebuildList();
         _board.QueueRedraw();
+        _minimap.QueueRedraw();
+    }
+
+    private string RosterText(BattleListRow row, int side)
+    {
+        var text = string.Join(" · ", row.Cells);
+        if (_listKind == ListKind.UnitMoves && Model.CanSeeDetails(side))
+        {
+            var unit = _view.Slots[row.Slot];
+            text += $" · moves {unit.Moves} · shots {unit.Shots}";
+        }
+        return text;
     }
 
     private void RebuildList()
     {
+        var displayedRows = new[] { Model.RosterRows(0), Model.RosterRows(1) };
+        _listTitle.Text = "Both armies · " + (_listKind == ListKind.UnitMoves ? "moves and combat" : "battle roster");
+        // Continuous progress changes text, not roster membership. Reuse controls and scroll positions.
+        if (_rosterRowButtons.Count > 0 && _rosterRowButtons.Keys.Order().SequenceEqual(displayedRows.SelectMany(r => r).Select(r => r.Slot).Order()))
+        {
+            _rosterTexts.Clear();
+            for (var side = 0; side < 2; side++)
+            {
+                _rosterTexts.Add(Model.RosterTitle(side));
+                foreach (var row in displayedRows[side])
+                {
+                    var text = RosterText(row, side);
+                    _rosterTexts.Add(text);
+                    _rosterRowButtons[row.Slot].Text = text;
+                    _rosterRowButtons[row.Slot].TooltipText = text;
+                }
+            }
+            return;
+        }
+        _rosterRowButtons.Clear();
         foreach (var child in _listBox.GetChildren())
         {
             _listBox.RemoveChild(child);
             child.QueueFree();
         }
 
-        (string Title, IReadOnlyList<string> Headers, IReadOnlyList<BattleListRow> Rows) list = _listKind switch
+        _rosterTexts.Clear();
+        _listTitle.Text = "Both armies · " + (_listKind == ListKind.UnitMoves ? "moves and combat" : "battle roster");
+        for (var side = 0; side < 2; side++)
         {
-            ListKind.UnitMoves => ("Unit moves", TacticalBattleViewModel.UnitMovesHeaders, Model.UnitMovesRows),
-            ListKind.Enemy => ("Enemy units", TacticalBattleViewModel.EnemyHeaders, Model.EnemyRows),
-            _ => ("Friendly units", TacticalBattleViewModel.FriendlyHeaders, Model.FriendlyRows),
-        };
-        _listTitle.Text = list.Title;
-
-        var grid = new GridContainer { Columns = list.Headers.Count };
-        grid.AddThemeConstantOverride("h_separation", AppTheme.DialogGap);
-        _listBox.AddChild(grid);
-        foreach (var header in list.Headers)
-        {
-            grid.AddChild(UiKit.MakeLabel(header, AppTheme.Note, UiKit.MutedTextColor));
-        }
-
-        foreach (var row in list.Rows)
-        {
-            foreach (var cell in row.Cells)
+            var title = Model.RosterTitle(side);
+            _rosterTexts.Add(title);
+            var section = new VBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
+            _listBox.AddChild(section);
+            section.AddChild(UiKit.MakeLabel(title, BattleNoteSize, UiKit.AccentColor));
+            var scroll = new ScrollContainer { SizeFlagsVertical = SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 64) };
+            section.AddChild(scroll);
+            var rows = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            scroll.AddChild(rows);
+            foreach (var row in Model.RosterRows(side))
             {
-                grid.AddChild(UiKit.MakeLabel(cell, AppTheme.Note, row.Slot == SelectedSlot ? UiKit.AccentColor : UiKit.TextColor));
+                var text = RosterText(row, side);
+                _rosterTexts.Add(text);
+                var slot = row.Slot;
+                var button = new Button { Text = text, Flat = true, Alignment = HorizontalAlignment.Left,
+                    TooltipText = text, ClipText = true, MouseFilter = MouseFilterEnum.Stop,
+                    SizeFlagsHorizontal = SizeFlags.ExpandFill };
+                button.AddThemeFontSizeOverride("font_size", BattleNoteSize);
+                button.Pressed += () =>
+                {
+                    if (IsPlayingBack) return;
+                    SelectedSlot = slot;
+                    Refresh();
+                };
+                _rosterRowButtons[slot] = button;
+                rows.AddChild(button);
             }
         }
     }
@@ -585,7 +655,7 @@ public partial class TacticalBattleScreen : Control
     private void OpenSurrenderPrompt()
     {
         ModalOverlay.Build(out var root, out var content, AppTheme.Scrim, 360f);
-        content.AddChild(UiKit.MakeLabel("Are you sure you want to surrender ?", AppTheme.Body, UiKit.TextColor));
+        content.AddChild(UiKit.MakeLabel("Are you sure you want to surrender ?", BattleBodySize, UiKit.TextColor));
         var buttons = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.End };
         buttons.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         buttons.AddChild(UiKit.MakeButton("Yes", () => AnswerSurrender(true)));
@@ -598,8 +668,8 @@ public partial class TacticalBattleScreen : Control
     private void OpenPausesDialog()
     {
         ModalOverlay.Build(out var root, out var content, AppTheme.Scrim, 420f);
-        content.AddChild(UiKit.MakeLabel("Change pauses", AppTheme.Header, UiKit.AccentColor));
-        content.AddChild(UiKit.MakeLabel("Display only: the battle's rules never wait.", AppTheme.Note, UiKit.MutedTextColor));
+        content.AddChild(UiKit.MakeLabel("Change pauses", BattleHeaderSize, UiKit.AccentColor));
+        content.AddChild(UiKit.MakeLabel("Display only: the battle's rules never wait.", BattleNoteSize, UiKit.MutedTextColor));
         content.AddChild(MakePauseRow("After a shot (s)", BattlePauses.ShotStepSeconds, SettingsScreen.BattleShotDelaySeconds,
             value => SettingsScreen.SetBattlePauses(value, SettingsScreen.BattleAttackDelaySeconds)));
         content.AddChild(MakePauseRow("After an attack (s)", BattlePauses.AttackStepSeconds, SettingsScreen.BattleAttackDelaySeconds,
@@ -614,7 +684,7 @@ public partial class TacticalBattleScreen : Control
     {
         var row = new HBoxContainer();
         row.AddThemeConstantOverride("separation", AppTheme.DialogGap);
-        var name = UiKit.MakeLabel(caption, AppTheme.Body, UiKit.TextColor);
+        var name = UiKit.MakeLabel(caption, BattleBodySize, UiKit.TextColor);
         name.CustomMinimumSize = new Vector2(150, 0);
         row.AddChild(name);
         var slider = new HSlider
@@ -625,7 +695,7 @@ public partial class TacticalBattleScreen : Control
             Value = current,
             CustomMinimumSize = new Vector2(160, 24),
         };
-        var value = UiKit.MakeLabel(current.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture), AppTheme.Body, UiKit.MutedTextColor);
+        var value = UiKit.MakeLabel(current.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture), BattleBodySize, UiKit.MutedTextColor);
         slider.ValueChanged += v =>
         {
             onChanged(v);
@@ -661,6 +731,7 @@ public partial class TacticalBattleScreen : Control
     private sealed partial class BoardView : Control
     {
         public required TacticalBattleScreen Host { get; init; }
+        public bool Mini { get; init; }
 
         public override void _GuiInput(InputEvent @event)
         {
@@ -684,11 +755,12 @@ public partial class TacticalBattleScreen : Control
                 return;
             }
 
+            var pixels = Mini ? 8 : CellPixels;
             var ground = Host.GroundTexture;
             var font = AppTheme.BodyFont;
             foreach (var cell in model.Cells)
             {
-                var rect = new Rect2(cell.X * CellPixels, cell.Y * CellPixels, CellPixels, CellPixels);
+                var rect = new Rect2(cell.X * pixels, cell.Y * pixels, pixels, pixels);
                 if (ground is not null)
                 {
                     DrawTextureRect(ground, rect, false);
@@ -700,31 +772,44 @@ public partial class TacticalBattleScreen : Control
 
                 DrawRect(rect, new Color(0, 0, 0, 0.18f), false);
 
+            }
+            foreach (var visual in model.VisualUnits)
+            {
+                var cell = visual.Cell;
+                var rect = new Rect2((float)visual.X * pixels, (float)visual.Y * pixels, pixels, pixels);
+                var alpha = new Color(1, 1, 1, (float)visual.Opacity);
                 if (cell.IconKey is not null)
                 {
                     if (Host.IconFor(cell) is { } icon)
                     {
-                        DrawTextureRect(icon, rect, false);
+                        DrawTextureRect(icon, rect, false, alpha);
                     }
                     else
                     {
-                        DrawRect(rect.Grow(-3), cell.TintSide == 0 ? new Color(0.25f, 0.45f, 0.8f) : new Color(0.8f, 0.3f, 0.25f));
+                        DrawRect(rect.Grow(-3), cell.TintSide == 0 ? new Color(0.25f, 0.45f, 0.8f, alpha.A) : new Color(0.8f, 0.3f, 0.25f, alpha.A));
                         var letter = Host.TypeNameOf(cell);
-                        DrawString(font, rect.Position + new Vector2(4, 26), letter.Length > 0 ? letter[..1] : "?", HorizontalAlignment.Left, -1, AppTheme.Body, Colors.White);
+                        if (!Mini) DrawString(font, rect.Position + new Vector2(4, 26), letter.Length > 0 ? letter[..1] : "?", HorizontalAlignment.Left, -1, BattleBodySize, alpha);
                     }
                 }
 
+                // Role flags require a live occupant in the actual displayed grid. Removed participants
+                // remain explicit in their panels/history without a ghost marker at their old coordinates.
+                if (cell.Actor)
+                    DrawArc(rect.GetCenter(), pixels * 0.42f, 0, Mathf.Tau, 24, new Color(0.2f, 0.9f, 1f, alpha.A), Mini ? 1 : 2);
+                if (cell.Target)
+                {
+                    var c = rect.GetCenter();
+                    var radius = pixels * 0.45f;
+                    DrawPolyline(new[] { c + new Vector2(0, -radius), c + new Vector2(radius, 0), c + new Vector2(0, radius), c + new Vector2(-radius, 0), c + new Vector2(0, -radius) }, new Color(1f, 0.58f, 0.18f, alpha.A), Mini ? 1 : 2);
+                }
                 if (cell.Selected)
                 {
-                    if (Host.CursorTexture is { } cursor)
+                    if (!Mini && Host.CursorTexture is { } cursor)
                     {
                         DrawTextureRect(cursor, rect, false);
                     }
-                    else
-                    {
-                        // Game marker tint: palette changes must not recolour the selected cell.
-                        DrawRect(rect.Grow(-1), new Color(0.95f, 0.78f, 0.35f), false, 3f);
-                    }
+                    // The selection square remains independent of nation tint and any pack cursor motif.
+                    DrawRect(rect.Grow(-1), new Color(0.95f, 0.78f, 0.35f), false, Mini ? 1 : 3f);
                 }
             }
         }

@@ -206,6 +206,7 @@
     <Compile Include="../../godot/Screens/GameEndViewModel.cs" Link="Ui/Screens/GameEndViewModel.cs" />
     <Compile Include="../../godot/Screens/PeaceOfferViewModel.cs" Link="Ui/Screens/PeaceOfferViewModel.cs" />
     <Compile Include="../../godot/Screens/TacticalBattleViewModel.cs" Link="Ui/Screens/TacticalBattleViewModel.cs" />
+    <Compile Include="../../godot/Screens/TacticalPlayback.cs" Link="Ui/Screens/TacticalPlayback.cs" />
     <Compile Include="../../godot/Screens/BattleEndedViewModel.cs" Link="Ui/Screens/BattleEndedViewModel.cs" />
 
 <!--

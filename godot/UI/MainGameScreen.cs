@@ -1770,6 +1770,10 @@ public partial class MainGameScreen : Control
 
     private void OnCommandIssued(IReadOnlyList<string> lines)
     {
+        // Consume the tactical completion's own retained facts before any callback can submit Save/help
+        // and replace the session's Last* properties. Ordinary command callbacks keep their existing source.
+        var tacticalCompletion = _tacticalCompletionRouting;
+        _tacticalCompletionRouting = null;
         // Fix #484: Submit always ends its output with a blank separator line, so lines[^1] was always
         // empty and this label never showed a command's result. CommandOutcomeText.OutcomeBlock is the
         // screen's one shared rule (T95's Save label uses it too): the command's whole own outcome, up to
@@ -1874,11 +1878,12 @@ public partial class MainGameScreen : Control
         // T126/T127: a battle the human fought on the board has been seen, so it is shown now, never held.
         // A tactical battle publishes no BattleResult of its own (the Battle ended window is its report), so
         // this holds only a result between the very armies a board battle was fought by.
-        var foughtOnBoard = Session.LastBattles
+        var commandBattles = tacticalCompletion?.Battles ?? Session.LastBattles;
+        var foughtOnBoard = commandBattles
             .Where(b => _boardBattleArmies.Contains((b.AttackerId, b.DefenderId)))
             .ToList();
         var battlesToShowNow = _battleReportRouter.Route(
-            Session.LastBattles, humanSeatIds, Session.State.ActiveNationId, foughtOnBoard);
+            commandBattles, humanSeatIds, Session.State.ActiveNationId, foughtOnBoard);
         foreach (var battle in battlesToShowNow)
         {
             _pendingBattleOverlays.Enqueue(battle);
@@ -1886,7 +1891,7 @@ public partial class MainGameScreen : Control
 
         // T138: one game-end window per human seat that fell on this call, in order. A fall in the
         // construction-time prelude arrives here on the first command too, the same way the battles do.
-        foreach (var fall in Session.LastSeatFalls)
+        foreach (var fall in tacticalCompletion?.SeatFalls ?? Session.LastSeatFalls)
         {
             _pendingGameEndOverlays.Enqueue(fall);
         }
@@ -2013,6 +2018,10 @@ public partial class MainGameScreen : Control
 
     private void ShowNextOverlay()
     {
+        // Saving still writes authoritative state while replay is intermediate. Its ordinary command
+        // callback must not open a peace/result/next-battle window ahead of terminal consumption.
+        if (ActiveOverlay is TacticalBattleScreen { IsPlayingBack: true } or BattleEndedScreen) return;
+
         // T127: an open tactical battle is fought on its screen before anything else is shown; the windows
         // queued behind it wait for the battle's end (its OK calls this again).
         if (Session.OpenTacticalBattle is { } openBattle)
@@ -2171,11 +2180,32 @@ public partial class MainGameScreen : Control
     /// battle the <em>Battle ended</em> window follows, and its OK carries on with the call's other windows and the
     /// peace offer.
     /// </summary>
+    private IReadOnlyList<TacticalBattleFrame> _nextTacticalOpening = Array.Empty<TacticalBattleFrame>();
+    private SessionOutput? _tacticalCompletionRouting;
+
+    private void CompleteTacticalCommand(SessionOutput output)
+    {
+        _tacticalCompletionRouting = output;
+        OnCommandIssued(output.Lines);
+    }
+
     private void ShowTacticalBattleOverlay(TacticalBattleView view)
     {
         _boardBattleArmies.Add((view.AttackerArmyId, view.DefenderArmyId));
-        var screen = new TacticalBattleScreen { Session = Session, InitialView = view, RepositoryRoot = RepositoryRoot };
-        screen.OrderIssued += output => OnCommandIssued(output.Lines);
+        var screen = new TacticalBattleScreen
+        {
+            Session = Session, InitialView = view, RepositoryRoot = RepositoryRoot,
+            InitialTimeline = _nextTacticalOpening.Concat(Session.InitialTacticalTimeline).Concat(Session.LastTacticalTimeline)
+                .Where(frame => frame.After.View.AttackerArmyId == view.AttackerArmyId
+                    && frame.After.View.DefenderArmyId == view.DefenderArmyId).ToArray(),
+        };
+        _nextTacticalOpening = Array.Empty<TacticalBattleFrame>();
+        screen.OrderIssued += output =>
+        {
+            CompleteTacticalCommand(output);
+            if (output.TacticalTimeline.Count > 0)
+                screen.ShowMessage("Battlefield updated · " + screen.Model.ControllerText);
+        };
         screen.BattleEnded += output => ShowBattleEndedOverlay(screen, output);
         screen.SaveRequested += () => CommandTable.TryInvoke("file.save");
         screen.SaveAsRequested += () => CommandTable.TryInvoke("file.save_as");
@@ -2184,6 +2214,10 @@ public partial class MainGameScreen : Control
 
     private void ShowBattleEndedOverlay(TacticalBattleScreen battleScreen, SessionOutput output)
     {
+        // An AI lap may already have opened another battle in the same submission. Keep its opening
+        // across the current result's dismissal and any read-only/save calls that replace LastTacticalTimeline.
+        _nextTacticalOpening = output.TacticalTimeline
+            .Where(frame => frame.BattleId != battleScreen.DisplayedFrame?.BattleId).ToArray();
         CloseOverlay(battleScreen);
         var report = output.EndedBattleReport!;
         var ended = new BattleEndedScreen
@@ -2196,7 +2230,7 @@ public partial class MainGameScreen : Control
 
             // The engine wrote the battle back in the call that ended it; OK carries on with that call's own
             // windows (the battle results routed to this seat, a fall, a hand-off) and then the peace offer.
-            OnCommandIssued(output.Lines);
+            CompleteTacticalCommand(output);
         };
         ShowOverlay(ended);
     }
