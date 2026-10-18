@@ -8,7 +8,7 @@ namespace IC2.Engine.Tests.Export;
 
 /// <summary>
 /// Review round 1 N2: proves that <c>scripts/export-classical-world.cs</c>'s own "#299 guard" --
-/// the <c>if (toyMentions.Count &gt; 0) throw ...</c> check, immediately before the ruleset is
+/// the <c>if (toyMentions.Count &gt; 0)</c> refusal, immediately before the ruleset is
 /// loaded -- actually does something. Before this test, no automated check depended on it: the
 /// reviewer disabled that one line and all 30 <c>Export</c> tests still passed.
 /// <see cref="NoToyProvenanceWordingTests"/> exercises its own, separate copy of the detector
@@ -78,7 +78,7 @@ public class ExportScriptToyGuardTests
     private readonly DotnetRunArtifactsFixture _artifacts;
 
     [SkippableFact]
-    public void The_scripts_own_toy_guard_throws_before_writing_when_a_toy_note_is_reintroduced()
+    public void The_scripts_own_toy_guard_refuses_before_writing_when_a_toy_note_is_reintroduced()
     {
         Skip.IfNot(OriginalFilesAvailability.IsConfigured, OriginalFilesAvailability.SkipReason);
 
@@ -150,7 +150,15 @@ public class ExportScriptToyGuardTests
 
             var (exitCode, stdout, stderr) = RunScript(scratchScriptPath, tempIni, scratchDir);
 
-            Assert.NotEqual(0, exitCode);
+            Assert.Equal(1, exitCode);
+            var diagnosticHeader =
+                "The following _provenance strings mention \"toy\", which would ship a note written from " +
+                "toy-ruleset.json's own point of view inside classical-faithful.json -- fix the wording in " +
+                "toy-ruleset.json (the rule: a provenance note never describes the file it sits in, except " +
+                "_provenance.id, which the exporter owns explicitly) and re-run the export, never hand-edit " +
+                "the committed JSON:\n  ";
+            Assert.StartsWith(diagnosticHeader, stderr, StringComparison.Ordinal);
+            Assert.EndsWith(Environment.NewLine, stderr, StringComparison.Ordinal);
             var combined = stdout + stderr;
             Assert.Contains("mention \"toy\"", combined, StringComparison.Ordinal);
             Assert.Contains("flags._provenance.diplomacyModel", combined, StringComparison.Ordinal);
