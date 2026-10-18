@@ -453,15 +453,16 @@ public partial class StrategicTravelCheck : Node
 
     private async Task CheckFallHandoffNoticeOrder()
     {
-        // Reuse only the merged check's public toy fixture data, then place its army farther away
-        // so the real AI must pay for approach cells before its real conquest/fall/handoff.
+        // Reuse only the merged check's toy fixture data. A paid fleet prefix and the unchanged
+        // actual conquest/fall/handoff are composed from their accepted producer batches.
         var fixture = (GameSession)typeof(GameEndCheck).GetMethod("HotseatConquestSession",
             System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!.Invoke(null, new object[] { true })!;
-        var state = fixture.State with { Armies = ValueList.From(fixture.State.Armies.Select(a => a with { X = 2, Y = 4 })) };
+        var state = fixture.State with { Fleets = ValueList.Of(
+            new FleetState("witness", "south", 0, 4, 3, 1, 100, 100, 100, null, null, null, 0)) };
         var session = new GameSession(fixture.World, fixture.Ruleset, fixture.Scenario,
             new SaveGame(state.SchemaVersion, "fall-travel", "fall-travel", state.ScenarioId, state.WorldId, state.RulesetId, state));
         var main = await Open(session);
-        main.MapView.CentreOnTile(4, 3);
+        main.MapView.CentreOnTile(0, 4);
         var saved = false;
         var path = Path.Combine(GameDataContext.RepositoryRoot, "rendered", "t195-fall-reentrant-save.json");
         main.CommandIssued += _ =>
@@ -469,9 +470,14 @@ public partial class StrategicTravelCheck : Node
             if (saved) return;
             saved = true; main.SaveAsForCheck(path);
         };
-        main.SubmitForCheck("end"); main.StrategicTravel.Paused = true;
-        Require(main.StrategicTravel.IsActive && session.LastSeatFalls.Any(f => f.Reason == SeatFallReason.Conquered),
-            "actual paid AI conquest supplies fall and next human handoff behind travel");
+        var prefix = session.Submit("move-fleet witness 0 5");
+        var completed = session.Submit("end");
+        main.PresentOutputForCheck(completed with { StrategicTimeline = new(completed.StrategicTimeline.BatchId,
+            ValueList.From(prefix.StrategicTimeline.Steps.Concat(completed.StrategicTimeline.Steps))) });
+        main.StrategicTravel.Paused = true;
+        Require(prefix.StrategicTimeline.Steps.Any(step => step.Routes.Count > 0)
+            && main.StrategicTravel.IsActive && completed.SeatFalls.Any(f => f.Reason == SeatFallReason.Conquered),
+            "real paid fleet prefix precedes actual AI conquest, fall and next human handoff");
         // Synthetic already-published notice input tests the existing observer/router, not AI diplomacy.
         var notice = new IC2.Engine.Diplomacy.PendingDiplomaticOfferAnnounced("north", "Northern League", "east", "Eastern League",
             session.Ruleset.Diplomacy.StateCodes.Trade, "Northern League wants to trade with Eastern League.");
@@ -481,7 +487,7 @@ public partial class StrategicTravelCheck : Node
         typeof(MainGameScreen).GetMethod("ShowNextOverlay", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
             .Invoke(main, null);
         Require(main.ActiveOverlay is null, "fall/handoff/notice router cannot advance before strategic arrival");
-        await Capture(_pack + "-fall-handoff-before-arrival", "Real AI conquest/fall and next human handoff wait behind paid approach; queued notice also waits.");
+        await Capture(_pack + "-fall-handoff-before-arrival", "Real AI conquest/fall and next human handoff wait behind paid fleet movement; queued notice also waits.");
         main.StrategicTravel.Skip();
         Require(saved && session.LastSeatFalls.Count == 0, "reentrant Save replaced mutable falls without losing retained output");
         var battles = 0;
@@ -556,7 +562,11 @@ public partial class StrategicTravelCheck : Node
             await Frame(main, mode);
             main.SubmitForCheck("move a 57 48");
             if (mode == "fast-4x")
-                Buttons(main).Single(button => button.Text == "Fast").EmitSignal(Button.SignalName.Toggled, true);
+            {
+                var fast = Buttons(main).Single(button => button.Text == "Fast");
+                fast.SetPressedNoSignal(true);
+                fast.EmitSignal(Button.SignalName.Toggled, true);
+            }
             var started = Time.GetTicksMsec();
             while (main.StrategicTravel.IsActive && Time.GetTicksMsec() - started < 5000)
             {
@@ -575,6 +585,7 @@ public partial class StrategicTravelCheck : Node
         for (var i = 0; i < frames.Count; i++)
         {
             concat.AppendLine($"file '{_pack}-pacing-frames/{frames[i].File}'");
+            concat.AppendLine("option framerate 1000");
             var duration = i + 1 < frames.Count ? Math.Max(.001, (frames[i + 1].Tick - frames[i].Tick) / 1_000_000d) : .1;
             concat.AppendLine("duration " + duration.ToString("0.000000", invariant));
         }
