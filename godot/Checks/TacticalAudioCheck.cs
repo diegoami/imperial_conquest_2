@@ -1,0 +1,165 @@
+using Godot;
+using IC2.Engine.Assets;
+using IC2.Engine.Battle.Tactical;
+using IC2.Engine.Model;
+using IC2.Engine.Presentation;
+using IC2.Slice.Audio;
+using IC2.Slice.Screens;
+using IC2.Slice.UI;
+
+namespace IC2.Slice.Checks;
+
+/// <summary>Synthetic public toy scenario; exercises actual MainGameScreen wiring without private fixtures.</summary>
+public partial class TacticalAudioCheck : Node
+{
+    private bool _ok = true;
+    private readonly List<Node> _owned = new();
+    private static readonly string[] Keys = [AssetKeys.SfxBattleArrows, AssetKeys.SfxBattleJavelin, AssetKeys.SfxBattleMelee];
+
+    public override async void _Ready()
+    {
+        var sound = SettingsScreen.SoundEnabled;
+        var pack = SettingsScreen.SelectedPackId;
+        var shot = SettingsScreen.BattleShotDelaySeconds;
+        var attack = SettingsScreen.BattleAttackDelaySeconds;
+        try
+        {
+            foreach (var selected in new[] { "authored", "placeholder" })
+            {
+                SetPack(selected);
+                foreach (var delay in new[] { 0, 1 })
+                foreach (var finish in new[] { false, true })
+                foreach (var enabled in new[] { true, false })
+                    CheckProduction(selected, delay, finish, enabled);
+                await CheckQueue(selected);
+            }
+            CheckMissing();
+        }
+        catch (Exception ex) { GD.PrintErr($"TacticalAudioCheck: {ex}"); _ok = false; }
+        finally
+        {
+            SettingsScreen.SetSoundEnabledForCheck(sound);
+            SettingsScreen.SetBattlePauses(shot, attack);
+            // Restore the exact nullable selection; no production settings API is added for a check.
+            typeof(SettingsScreen).GetProperty(nameof(SettingsScreen.SelectedPackId))!.SetValue(null, pack);
+            foreach (var node in _owned.Where(GodotObject.IsInstanceValid))
+            {
+                Stop(node);
+                node.GetParent()?.RemoveChild(node);
+                node.QueueFree();
+            }
+        }
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+        await ToSignal(GetTree().CreateTimer(2), SceneTreeTimer.SignalName.Timeout);
+        var code = _ok ? 0 : 1;
+        GD.Print($"TacticalAudioCheck: exiting with code {code}.");
+        GetTree().Quit(code);
+    }
+
+    private void CheckProduction(string pack, double delay, bool finish, bool enabled)
+    {
+        SettingsScreen.SetSoundEnabledForCheck(enabled);
+        SettingsScreen.SetBattlePauses(delay, delay);
+        var toy = GameDataContext.Repository.Resolve("toy-3city");
+        var world = toy.World with { StartingArmies = ValueList.Of(
+            new StartingArmy("north-army-1", "north", 3, 2, 68, 100, 500, 5,
+                ValueList.Of(new UnitSlot(0, "light_infantry", 9000, 6, "duplicate"), new UnitSlot(1, "archers", 3000, 7, "duplicate"))),
+            new StartingArmy("south-army-1", "south", 4, 2, 59, 40, 60, 5,
+                ValueList.Of(new UnitSlot(0, "heavy_infantry", 600, 6, "duplicate")))) };
+        var session = new GameSession(world, toy.Ruleset, toy.Scenario) { HumanBattles = HumanBattleMode.Tactical };
+        var main = new MainGameScreen { Session = session, RepositoryRoot = GameDataContext.RepositoryRoot };
+        AddChild(main); _owned.Add(main);
+        main.SubmitForCheck("attack-army north-army-1 south-army-1");
+        var screen = main.ActiveOverlay as TacticalBattleScreen;
+        Require(screen is not null, "production attack opens tactical overlay");
+        if (screen is null) return;
+        screen.SkipPlayback();
+        _ = main.SoundPlayerForCheck.QueuedForCheck;
+        screen.PressToolbarButton("computer_general");
+        var frames = session.LastTacticalTimeline;
+        var expected = frames.Where(f => f.Event is TacticalShotEvent or TacticalMeleeEvent)
+            .Select(f => TacticalSoundCues.ForExchange(f, session.Ruleset)!).ToArray();
+        Require(expected.Length > 0 && Keys.All(expected.Contains), "producer supplies all three actual exchange types");
+        if (finish) { screen.AdvancePlayback(0.25); screen.SkipPlayback(); }
+        else for (var i = 0; screen.IsPlayingBack && i < 100000; i++) screen.AdvancePlayback(0.1);
+        screen.AdvancePlayback(100); screen.SkipPlayback(); screen.SkipPlayback();
+        Require(!screen.IsPlayingBack && main.ActiveOverlay is BattleEndedScreen && session.OpenTacticalBattle is null,
+            "terminal null-view finishes before result");
+        var queued = main.SoundPlayerForCheck.QueuedForCheck;
+        Require(queued.SequenceEqual(enabled ? expected : Array.Empty<string>()),
+            $"{pack} delay {delay} finish {finish} sound {enabled}: production ordered exactly-once cues, no generic duplicate");
+        foreach (var key in Keys) Require(main.SoundPlayerForCheck.StreamForCheck(key)?.Data.Length > 0, $"{pack} resolves {key} WAV PCM");
+        Stop(main); RemoveChild(main); main.QueueFree();
+    }
+
+    private async Task CheckQueue(string pack)
+    {
+        SettingsScreen.SetSoundEnabledForCheck(true);
+        var player = new SoundPlayer(Path.Combine(GameDataContext.RepositoryRoot, "assets", "packs", pack))
+            { SoundEnabled = () => SettingsScreen.SoundEnabled };
+        AddChild(player); _owned.Add(player);
+        // Short synthetic PCM makes headless completion bounded; installed WAV loading is checked above.
+        foreach (var key in Keys) player.BindStreamForTest(key, new AudioStreamWav
+            { Format = AudioStreamWav.FormatEnum.Format16Bits, MixRate = 44100, Data = new byte[8820] });
+        var sequence = new[] { Keys[0], Keys[0], Keys[1], Keys[2] };
+        var timer = System.Diagnostics.Stopwatch.StartNew();
+        foreach (var key in sequence) player.PlayTactical(key);
+        Require(timer.ElapsedMilliseconds < 250, "shared tactical enqueue is nonblocking");
+        var log = new List<SoundPlayer.PlaybackLogEntry>();
+        var deadline = Time.GetTicksMsec() + 8000;
+        do
+        {
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            log.AddRange(player.PlaybackLogForCheck);
+        } while (log.Count(e => !e.Started) < sequence.Length && Time.GetTicksMsec() < deadline);
+        Require(log.Where(e => e.Started).Select(e => e.Key).SequenceEqual(sequence)
+            && log.Count == sequence.Length * 2 && log.Select((e, i) => e.Started == (i % 2 == 0)).All(x => x),
+            "identical and mixed cues complete FIFO without restart or drop");
+        _ = player.QueuedForCheck;
+        player.PlayTactical(Keys[0]); player.PlayTactical(Keys[0]);
+        _ = player.QueuedForCheck; _ = player.PlaybackLogForCheck;
+        SettingsScreen.SetSoundEnabledForCheck(false);
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        player.PlayTactical(Keys[1]);
+        Require(player.QueuedForCheck.Count == 0 && !Keys.Any(player.IsPlayingForTest), "mute clears pending and audible tactical playback");
+        SettingsScreen.SetSoundEnabledForCheck(true);
+        await ToSignal(GetTree().CreateTimer(0.4), SceneTreeTimer.SignalName.Timeout);
+        Require(!player.PlaybackLogForCheck.Any(e => e.Started), "unmute does not replay stale queue");
+        player.PlayTactical("missing.key");
+        Require(player.QueuedForCheck.Count == 0, "unresolved key is silent");
+        Stop(player); RemoveChild(player); player.QueueFree();
+    }
+
+    private void CheckMissing()
+    {
+        var path = Path.Combine(GameDataContext.RepositoryRoot, "rendered", "t183-missing-pack");
+        Directory.CreateDirectory(path);
+        File.WriteAllText(Path.Combine(path, "manifest.json"), "{\"schemaVersion\":1,\"name\":\"missing\",\"assets\":{\"sfx.battle_arrows\":\"absent.wav\"}}");
+        try
+        {
+            var player = new SoundPlayer(path); AddChild(player); _owned.Add(player);
+            foreach (var key in Keys) player.PlayTactical(key);
+            Require(player.QueuedForCheck.Count == 0, "missing keys and missing WAV files safely no-op");
+            Stop(player); RemoveChild(player); player.QueueFree();
+        }
+        finally { File.Delete(Path.Combine(path, "manifest.json")); Directory.Delete(path); }
+    }
+
+    private void SetPack(string pack)
+    {
+        var settings = new SettingsScreen(); AddChild(settings);
+        var picker = Descendants(settings).OfType<OptionButton>().First();
+        var index = Enumerable.Range(0, picker.ItemCount).Single(i => picker.GetItemText(i) == pack);
+        picker.Select(index); picker.EmitSignal(OptionButton.SignalName.ItemSelected, index);
+        RemoveChild(settings); settings.QueueFree();
+    }
+    private static IEnumerable<Node> Descendants(Node node) => node.GetChildren().SelectMany(n => new[] { n }.Concat(Descendants(n)));
+    private static void Stop(Node node)
+    {
+        if (node is SoundPlayer sound) { sound.SoundEnabled = null; sound.Muted = true; }
+        if (node is AudioStreamPlayer player) { player.Stop(); player.Stream = null; }
+        foreach (var child in node.GetChildren()) Stop(child);
+    }
+    private void Require(bool condition, string text) { _ok &= condition; GD.Print($"{(condition ? "PASS" : "FAIL")}: {text}"); }
+}

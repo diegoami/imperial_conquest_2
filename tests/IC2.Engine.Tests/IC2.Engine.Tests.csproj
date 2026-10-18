@@ -256,6 +256,8 @@
       the Godot SDK. No `using Godot` anywhere; never a second, hand-maintained copy.
     -->
     <Compile Include="../../godot/Audio/SoundCues.cs" Link="Ui/SoundCues.cs" />
+    <Compile Include="../../godot/Audio/TacticalSoundCues.cs" Link="Ui/TacticalSoundCues.cs" />
+    <Compile Include="../../godot/Audio/TacticalPlaybackAudio.cs" Link="Ui/TacticalPlaybackAudio.cs" />
 
     <!--
       T109 (tests/IC2.Engine.Tests/Ui/StrategyDialogModelsTests.cs): the same seam once more.

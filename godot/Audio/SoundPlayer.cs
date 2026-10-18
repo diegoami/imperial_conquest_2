@@ -51,6 +51,8 @@ public sealed partial class SoundPlayer : Node
 
     private readonly Dictionary<string, AudioStreamPlayer> _players = new(StringComparer.Ordinal);
     private readonly Queue<QueuedCue> _stepQueue = new();
+    private readonly Queue<string> _tacticalQueue = new();
+    private string? _tacticalPlaying;
     private readonly HashSet<string> _currentlyPlaying = new(StringComparer.Ordinal);
     private readonly List<string> _queuedForCheck = new();
     private readonly List<PlaybackLogEntry> _playbackLog = new();
@@ -65,7 +67,54 @@ public sealed partial class SoundPlayer : Node
     public bool Muted
     {
         get => _muted;
-        set => _muted = value;
+        set
+        {
+            _muted = value;
+            if (!value) return;
+            _stepQueue.Clear();
+            _tacticalQueue.Clear();
+            _tacticalPlaying = null;
+            foreach (var player in _players.Values) player.Stop();
+            _currentlyPlaying.Clear();
+        }
+    }
+
+    /// <summary>Read at playback as well as dispatch, so a queued cue honors a settings change.</summary>
+    public Func<bool>? SoundEnabled { get; set; }
+
+    public void ClearTactical()
+    {
+        _tacticalQueue.Clear();
+        if (_tacticalPlaying is { } key && _players.TryGetValue(key, out var player)) player.Stop();
+        _tacticalPlaying = null;
+    }
+
+    /// <summary>Every displayed exchange queues, including identical adjacent keys. Never restarts a clip.</summary>
+    public void PlayTactical(string key)
+    {
+        if (SoundEnabled is not null) Muted = !SoundEnabled();
+        if (_muted || !_players.ContainsKey(key)) return;
+        _tacticalQueue.Enqueue(key);
+        lock (_queuedForCheck) _queuedForCheck.Add(key);
+        PumpTactical();
+    }
+
+    public override void _Process(double delta)
+    {
+        if (SoundEnabled is not null) Muted = !SoundEnabled();
+        PumpTactical();
+    }
+
+    private void PumpTactical()
+    {
+        if (_muted) return;
+        if (_tacticalPlaying is { } playing && IsPlayerPlaying(_players[playing])) return;
+        _tacticalPlaying = null;
+        if (!_tacticalQueue.TryDequeue(out var key)) return;
+        var player = _players[key];
+        _tacticalPlaying = key;
+        lock (_playbackLog) _playbackLog.Add(new PlaybackLogEntry(key, Started: true, Time.GetTicksMsec()));
+        player.Play();
     }
 
     /// <summary>
