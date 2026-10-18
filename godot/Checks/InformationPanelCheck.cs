@@ -607,7 +607,16 @@ public partial class InformationPanelCheck : Control
 
     private void Click(int x, int y, MouseButton button)
     {
+        // These panel scenarios require a city target outside neighboring strategic boards.
+        // Arrange only the real production view; every existing coordinate/outcome is unchanged.
+        _map.SetDrawnCellPixelsForCheck(32);
+        _map.CentreOnTile(x, y);
         var position = _map.TileCenterForCheck(x, y);
+        var viewportPosition = _map.GetGlobalTransformWithCanvas() * position;
+        var inside = new Rect2(Vector2.Zero, _map.Size).HasPoint(position)
+            && GetViewport().GetVisibleRect().HasPoint(viewportPosition);
+        Check(inside, $"fixture click ({x},{y}) lies inside map bounds and visible viewport at {viewportPosition}");
+        if (!inside) return;
         if (button == MouseButton.Left)
         {
             _map._GuiInput(new InputEventMouseButton
