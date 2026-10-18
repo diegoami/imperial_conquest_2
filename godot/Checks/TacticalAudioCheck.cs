@@ -90,6 +90,7 @@ public partial class TacticalAudioCheck : Node
                 ValueList.Of(new UnitSlot(0, "heavy_infantry", 600, 6, "duplicate")))) };
         var session = new GameSession(world, toy.Ruleset, toy.Scenario) { HumanBattles = HumanBattleMode.Tactical };
         var main = new MainGameScreen { Session = session, RepositoryRoot = GameDataContext.RepositoryRoot };
+        main.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
         AddChild(main); _owned.Add(main);
         main.SubmitForCheck("attack-army north-army-1 south-army-1");
         var screen = main.ActiveOverlay as TacticalBattleScreen;
@@ -223,6 +224,7 @@ public partial class TacticalAudioCheck : Node
             Army("south-army-1", "south", 4, 2, 6000), Army("south-army-2", "south", 6, 5, 6000)) };
         var main = new MainGameScreen { Session = new GameSession(world, toy.Ruleset, toy.Scenario)
             { HumanBattles = HumanBattleMode.Tactical }, RepositoryRoot = GameDataContext.RepositoryRoot };
+        main.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
         AddChild(main); _owned.Add(main);
         main.SubmitForCheck("declare-war south"); main.SubmitForCheck("end");
         var first = main.ActiveOverlay as TacticalBattleScreen;
