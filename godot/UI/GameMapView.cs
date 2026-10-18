@@ -1273,6 +1273,7 @@ public partial class GameMapView : Control
 
         StrategicDrawBoundsForCheck.Clear();
         StrategicFeedbackBoundsForCheck.Clear();
+        StrategicFallbackMarkersForCheck.Clear();
         var markers = VisibleStrategicMarkers().ToArray();
         var hovered = _markerPointer is { } pointer && new Rect2(Vector2.Zero, Size).HasPoint(pointer)
             ? StrategicMarkerGeometry.Pick(markers, pointer.X, pointer.Y, tileSize, _pan.X, _pan.Y)
@@ -1349,6 +1350,7 @@ public partial class GameMapView : Control
     public bool MissingStrategicTexturesForCheck { get; set; }
     public Dictionary<string, Rect2> StrategicDrawBoundsForCheck { get; } = new();
     public Dictionary<string, Rect2> StrategicFeedbackBoundsForCheck { get; } = new();
+    public HashSet<string> StrategicFallbackMarkersForCheck { get; } = new();
 
     private void DrawStrategicOutline(string id, Rect2 rect, bool selected)
     {
@@ -1391,6 +1393,7 @@ public partial class GameMapView : Control
             return;
         }
 
+        StrategicFallbackMarkersForCheck.Add(army.Id);
         DrawRect(rect, background);
         DrawStrategicOutline(army.Id, rect, selected);
     }
@@ -1420,6 +1423,7 @@ public partial class GameMapView : Control
             return;
         }
 
+        StrategicFallbackMarkersForCheck.Add(fleet.Id);
         DrawRect(rect, background);
         DrawStrategicOutline(fleet.Id, rect, selected);
     }

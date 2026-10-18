@@ -155,8 +155,14 @@ public partial class StrategicMarkersCheck : Control
                     $"left footprint edge selects and outlines visible {id}");
                 CheckContainment(id, x, y);
                 _map.MissingStrategicTexturesForCheck = true;
+                _map.Refresh();
             });
-            _steps.Enqueue(() => { CheckContainment(id, x, y); _map.MissingStrategicTexturesForCheck = false; });
+            _steps.Enqueue(() =>
+            {
+                CheckContainment(id, x, y);
+                _map.MissingStrategicTexturesForCheck = false;
+                _map.Refresh();
+            });
             foreach (var button in new[] { MouseButton.Left, MouseButton.Right })
             _steps.Enqueue(() =>
             {
@@ -201,6 +207,8 @@ public partial class StrategicMarkersCheck : Control
 
     private void CheckContainment(string id, int x, int y)
     {
+        Check(_map.StrategicFallbackMarkersForCheck.Contains(id) == _map.MissingStrategicTexturesForCheck,
+            $"actual drawing traversed expected texture/fallback branch for {id}");
         var center = _map.TileCenterForCheck(x, y);
         var tile = _map.TileCenterForCheck(x + 1, y).X - center.X;
         var cell = new Rect2(center - Vector2.One * tile / 2, Vector2.One * tile);
