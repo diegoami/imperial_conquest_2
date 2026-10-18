@@ -19,7 +19,10 @@ palette with alpha 255 throughout, a 24-bit opaque battle.ground tile, a 32-bit 
 and 20x20 32-bit BGRA battle.toolbar.* glyphs; the prompts cover all of those kinds), and writes
 assets/packs/authored/ with a manifest in the same shape as T11's placeholder pack.
 
-Except for T182's 21 owner-designed battle/army/fleet glyphs (local deterministic geometry),
+T182's fifteen battle glyphs retain local deterministic geometry. The six authored
+strategic motifs use T187's explicit --strategic-gemini route; ordinary native/reconform
+paths preserve them, while generate-unit-glyphs.py owns deterministic placeholders.
+For model-generated assets,
 non-determinism is the defining constraint: the same prompt does not give the same pixels
 twice, so the committed images are the source of truth, exactly as T29's exported JSON is.
 This script never regenerates anything unless asked, and the pack's tests pin conformance,
@@ -37,7 +40,9 @@ exactly as the model returned it to rendered/authored-raw/<asset-key>.png (git-i
 before any conforming. `--reconform` then rebuilds assets/packs/authored/ (images plus
 manifest) from those originals with NO network and NO key - free - so a change to the
 conforming step never means paying again. `--key` narrows it; keys with no original are
-reported. Sprites are conformed by a chroma key: the prompts ask for the subject on a solid
+reported. The authored strategic six require explicit --strategic-gemini --reconform
+with hashed Gemini originals/provenance; ordinary --reconform preserves them.
+Sprites are conformed by a chroma key: the prompts ask for the subject on a solid
 flat pure magenta (#FF00FF), which is keyed out by HUE (so a light or white subject is
 never eaten), the magenta spill is removed from the anti-aliased edge, the result is
 cropped to the subject's bounding box, padded to a square, downscaled with Lanczos, and
@@ -2245,8 +2250,8 @@ def main(argv: list | None = None) -> int:
             print(f"error: {error}", file=sys.stderr)
             return 2
 
-    # T182: these owner-designed icons are always regenerated locally. Dispatch before
-    # configuration/network preflight, including --reconform with no old raw image.
+    # T182 battle icons are regenerated locally before configuration/network preflight.
+    # T187 strategic keys are skipped below; only the explicit Gemini/raw route writes them.
     if args.all and args.key:
         selection = list(entries)
     spec = importlib.util.spec_from_file_location("unit_glyphs", os.path.join(REPO_ROOT, "scripts", "generate-unit-glyphs.py"))
