@@ -5,7 +5,7 @@ namespace IC2.Data;
 /// <summary>Complete strategic SAV framing, independently of the reader's partial format probe.
 /// Evidence: research commit d5f0bc797ec23c181e854f743db1b06343e2876d,
 /// decompiled-sav-file-layout.md (004484D0/004487C4, September correction),
-/// news-log-format-and-messages.md, and 2026-10-04-decompiled-tactical-battle-rules.md §1.
+/// news-log-format-and-messages.md, and 2026-10-04-decompiled-tactical-battle-rules.md Â§1.
 /// The older report's claim that battle saves cannot exist is superseded.</summary>
 public sealed class OriginalSaveLayout
 {
@@ -14,12 +14,17 @@ public sealed class OriginalSaveLayout
     public int FleetCount { get; }
     public int NewsIndex { get; }
     public int Length { get; }
+    public int NationTableOffset { get; }
+    public int TrailerOffset { get; }
+    public const string RegionPolicyResearchCommit = "3bda5a0244b98e837e55269efe4eb552edfc4a65";
+    public const string TaxResearchCommit = "51c98f1f8903822af1aca3bf2d876047bf1b7a8b";
     public IReadOnlyList<OriginalSaveRegion> Regions { get; }
 
-    private OriginalSaveLayout(int armies, int fleets, int news, int length, List<OriginalSaveRegion> regions)
+    private OriginalSaveLayout(int armies, int fleets, int news, int length, int nations, int trailer, List<OriginalSaveRegion> regions)
     {
         ArmyCount = armies; FleetCount = fleets; NewsIndex = news; Length = length;
         Regions = regions.AsReadOnly();
+        NationTableOffset = nations; TrailerOffset = trailer;
     }
 
     /// <summary>Checks the entire byte sequence. No battle block, trailing byte or DAT fallback.</summary>
@@ -48,15 +53,18 @@ public sealed class OriginalSaveLayout
         for (var i = 0; i < armies; i++) Add($"army[{i}]", 656);
         var fleets = Word("fleet count");
         for (var i = 0; i < fleets; i++) Add($"fleet[{i}]", 26);
+        var nations = cursor;
         // Exhaustive nation partition. Names identify structure, not a permission to preserve
         // live bytes after state changes. dat-file-layout.md explicitly leaves runtime gaps.
         (string Name, int Length)[] nationParts =
         [ ("name",11), ("leader",27), ("relations",32), ("neighbours",2),
-          ("unmapped runtime +048..2E3",668), ("recruitment",320), ("colours",12),
-          ("wealth",4), ("bookkeeping +434",4), ("treasury",4), ("bookkeeping +43C",4),
+          ("live owned-city list +048..2E3",668), ("recruitment",320), ("colours",12),
+          ("wealth",4), ("historical population +434",4), ("treasury",4), ("historical treasury +43C",4),
           ("unity",2), ("mobilized",2), ("capital",2), ("city count",2),
-          ("bookkeeping +448",2), ("tax",2), ("tax base",2), ("bookkeeping +44E",2),
-          ("preferences/control +450..493",68) ];
+          ("historical city count +448",2), ("tax",2), ("tax base",2), ("conqueror history +44E",2),
+          ("UNKNOWN +450..46A",27), ("hints",1), ("area map",1), ("UNKNOWN +46D",1),
+          ("geometry +46E..485",24), ("viewport",4), ("filter",2), ("delays",4),
+          ("controller BYTE",1), ("UNKNOWN +491..493",3) ];
         for (var i = 0; i < 16; i++)
             foreach (var part in nationParts) Add($"nation[{i}].{part.Name}", part.Length);
         for (var i = 0; i < 50; i++) Add($"mercenary[{i}]", 12);
@@ -72,11 +80,13 @@ public sealed class OriginalSaveLayout
         if (SaveTurnState.LocateTrailerStart(data) != trailer)
             throw new InvalidDataException("Ambiguous or incompatible SAV trailer.");
         // Validate actual bytes using production decoders as an additional check, never as the
-        // complete-byte coverage authority. Unexposed bytes remain opaque for identity only.
+        // complete-byte coverage authority. Opaque bytes have no general changed-state defaults. The bounded tax profile also
+        // preserves them exactly. The nation reader WORD +490/+491 remains an additional
+        // conservative restriction (bug 1212); never zero opaque +491 to pass it.
         WorldPrefix.Parse(data); SaveArmyTable.Parse(data); SaveFleetTable.Parse(data);
         SaveNationTable.Parse(data); SaveRecruitmentTable.Parse(data); SaveMercenaryTable.Parse(data);
         SaveNewsLog.Parse(data); SaveTurnState.Parse(data); SavePendingOffer.Parse(data);
-        return new(armies, fleets, news, cursor, regions);
+        return new(armies, fleets, news, cursor, nations, trailer, regions);
     }
 }
 

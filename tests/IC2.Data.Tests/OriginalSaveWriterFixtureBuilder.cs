@@ -54,6 +54,19 @@ internal static class OriginalSaveWriterFixtureBuilder
         return data;
     }
 
+    internal static byte[] TaxProfile(int nation = 0, int armies = 0, int fleets = 0, int news = -1)
+    {
+        var bytes = Build(armies, fleets, news);
+        var start = 100960 + armies * 656 + fleets * 26;
+        var offset = start + nation * 1172;
+        Word(bytes, offset + 0x490, 1);
+        Word(bytes, offset + 0x44A, 19);
+        Word(bytes, offset + 0x47C, 431); Word(bytes, offset + 0x47A, 461);
+        Word(bytes, offset + 0x488, 97); Word(bytes, offset + 0x486, 39);
+        Word(bytes, bytes.Length - 55 + 36, nation); Word(bytes, bytes.Length - 55 + 38, nation);
+        return bytes;
+    }
+
     internal static void Word(byte[] data, int offset, int value) =>
         BinaryPrimitives.WriteUInt16LittleEndian(data.AsSpan(offset, 2), unchecked((ushort)value));
     private static void Text(byte[] data, int offset, string text)
