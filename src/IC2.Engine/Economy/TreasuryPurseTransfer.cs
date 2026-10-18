@@ -44,7 +44,7 @@ namespace IC2.Engine.Economy;
 /// nation ↔ one unit's own purse direction and that the fleet variant "would be invention"; that was
 /// wrong, and is retracted with the code here. <see cref="TransferBetweenPurses"/> is that direction:
 /// with <c>via &lt;fleet&gt;</c> the other account is that fleet's own purse rather than the treasury, and
-/// both rules (<see cref="ClampToSource"/> and <see cref="PurseAccounting.Credit"/>) are the same ones the
+/// both rules (<see cref="ClampFundingPurse"/> and <see cref="PurseAccounting.Credit"/>) are the same ones the
 /// treasury path already uses. "Co-located" is the dialog's own provider radius — the audit's §1.6
 /// <c>TAFSupply_FindProviders</c> "within one tile" reading, mapped onto
 /// <see cref="EconomyRules.CommandAdjacencyRadiusTiles"/> by
