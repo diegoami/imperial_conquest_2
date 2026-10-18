@@ -4,10 +4,11 @@ using System.Text.Json;
 using IC2.Engine.Assets;
 using IC2.Engine.Tests.Fixtures;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace IC2.Engine.Tests.Assets;
 
-public sealed class TacticalAudioAssetTests
+public sealed class TacticalAudioAssetTests(ITestOutputHelper output)
 {
     // Existing authored inputs, pinned before T183 at reviewed main a4c6c1f. T183 reuses them,
     // never synthesizes or changes authored bytes. PCM/hash checks are not human hearing proof.
@@ -86,7 +87,7 @@ public sealed class TacticalAudioAssetTests
         finally { DeleteScratch(scratch); }
     }
 
-    private static void CheckPack(string directory, bool placeholder)
+    private void CheckPack(string directory, bool placeholder)
     {
         var manifest = Path.Combine(directory, "manifest.json");
         var pack = AssetLoader.LoadManifest(manifest);
@@ -95,6 +96,7 @@ public sealed class TacticalAudioAssetTests
             Assert.True(pack.TryResolveAsset("sfx." + name, out var relative));
             Assert.Equal("sfx/" + name + ".wav", relative);
             var path = Path.Combine(directory, relative);
+            output.WriteLine($"SHA256 source={Path.Combine(Authored, "sfx", name + ".wav")} {Hash(Path.Combine(Authored, "sfx", name + ".wav"))} destination={path} {Hash(path)}");
             Assert.Equal(hash, Hash(path));
             Assert.Equal(File.ReadAllBytes(Path.Combine(Authored, "sfx", name + ".wav")), File.ReadAllBytes(path));
             CheckPcm(path);

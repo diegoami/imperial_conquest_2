@@ -141,7 +141,8 @@ public partial class TacticalAudioCheck : Node
         var queued = main.SoundPlayerForCheck.QueuedForCheck;
         Require(queued.SequenceEqual(enabled ? expected : Array.Empty<string>()),
             $"{pack} delay {delay} finish {finish} sound {enabled}: production ordered exactly-once cues, no generic duplicate");
-        foreach (var key in Keys) Require(main.SoundPlayerForCheck.StreamForCheck(key)?.Data.Length > 0, $"{pack} resolves {key} WAV PCM");
+        foreach (var key in Keys) Require(main.SoundPlayerForCheck.StreamForCheck(key)?.Data.Any(sample => sample != 0) == true,
+            $"{pack} loads nonzero {key} WAV PCM into the production player");
         if (hearing)
         {
             var log = new List<SoundPlayer.PlaybackLogEntry>();
