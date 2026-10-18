@@ -324,6 +324,10 @@ graph TD
   T171 --> T192[T192 recruitment power and deficit]
   T178 --> T192
   T72 --> T193[T193 capture purse bound]
+  T194[T194 strategic travel observations] --> T195[T195 strategic travel playback]
+  T187 --> T195
+  T180 --> T195
+  T183 --> T195
   T179 --> T183[T183 tactical exchange audio]
   T180 --> T183
   T184[T184 original SAV writer] --> T185[T185 SAV bridge and converter]
@@ -1448,6 +1452,14 @@ Recruitment power/deficit, correction [1179](https://github.com/diegoami/imperia
 
 Capture purse bound, correction [838](https://github.com/diegoami/imperial_conquest_2/issues/838) → [full entry](tasks/T193.md).
 
+#### T194 Accepted strategic routes and transient ordered observations
+
+Observer-only actual-route/session batches for [1236](https://github.com/diegoami/imperial_conquest_2/issues/1236); starts after approved merged contract and disjoint-Owns preflight, then supplies T195 → [full entry](tasks/T194.md).
+
+#### T195 Strategic travel presentation and arrival barrier
+
+Owner strategic movement [1224](https://github.com/diegoami/imperial_conquest_2/issues/1224); starts/merges after T194, T187, T180 and T183, with shared-writer/Godot serialization → [full entry](tasks/T195.md).
+
 #### T25 Battle result, diplomacy, and hotseat handoff screens
 
 Godot screens → [full entry](tasks/T25.md) · [#25](https://github.com/diegoami/imperial_conquest_2/issues/25)
@@ -1670,3 +1682,5 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T191](#t191-flank-balance-counts-enemies-on-the-same-row) | Equal-row flank | M21 | gpt-6.1-sol | Low | direct Kimi | T190 | [#1167](https://github.com/diegoami/imperial_conquest_2/issues/1167) |
 | [T192](#t192-faithful-recruitment-respects-army-power-and-its-deficit) | Recruitment power/deficit | M12 | gpt-6.1-sol | Medium | direct Kimi | T171, T178 | [#1179](https://github.com/diegoami/imperial_conquest_2/issues/1179) |
 | [T193](#t193-captured-money-respects-the-approved-purse-field-bound) | Capture purse bound | M3/M21 | Luna family | High | direct Kimi | T72 | [#838](https://github.com/diegoami/imperial_conquest_2/issues/838) |
+| [T194](#t194-accepted-strategic-routes-and-transient-ordered-observations) | Strategic travel observations | M18 | Sol family | Medium | direct Kimi | approved merged plan + disjoint Owns preflight | [#1236](https://github.com/diegoami/imperial_conquest_2/issues/1236) |
+| [T195](#t195-strategic-travel-presentation-and-arrival-barrier) | Strategic travel playback | M18 | Sol family | Medium | direct Kimi + human | T194, T187, T180, T183 | [#1224](https://github.com/diegoami/imperial_conquest_2/issues/1224) |
