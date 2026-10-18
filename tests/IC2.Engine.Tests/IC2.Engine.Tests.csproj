@@ -63,6 +63,7 @@
       rather than only by the headless Godot checks under godot/Checks/**, which CI cannot run (no
       Godot SDK). Never a second, hand-maintained copy of either file.
     -->
+    <Compile Include="../../godot/UI/StrategicTravelPlayback.cs" Link="Ui/StrategicTravelPlayback.cs" />
     <Compile Include="../../godot/UI/RulesetPresets.cs" Link="Ui/RulesetPresets.cs" />
     <Compile Include="../../godot/UI/NewGameSelection.cs" Link="Ui/NewGameSelection.cs" />
     <!-- T165: the Godot-free half of the Load game screen (opens a .json or an original .sav). -->

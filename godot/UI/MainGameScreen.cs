@@ -61,6 +61,46 @@ public partial class MainGameScreen : Control
 
     public NewsLogPanel NewsLog => _newsLog;
 
+    public StrategicTravelPlayback StrategicTravel { get; } = new();
+    public GameState DisplayState => StrategicTravel.DisplayState ?? Session.State;
+    private bool _closing;
+    private string _displayViewer = string.Empty;
+    private HBoxContainer _travelControls = null!;
+
+    public override void _Process(double delta) => StrategicTravel.Advance(delta);
+
+    private bool AllowStrategicInput()
+    {
+        if (!_closing && StrategicTravel.CommandsAllowed) return true;
+        if (!_closing) ShowScreenMessage("Movement playing · orders locked · Skip or Fast to continue.");
+        return false;
+    }
+
+    private void BindStrategicCommand(string id, Action handler)
+    {
+        CommandTable.Bind(id, () =>
+        {
+            if (id == "unit_map.cancel_selection") { SkipTravelAndClearSelection(); return; }
+            if (id == "file.close" || id.StartsWith("help.", StringComparison.Ordinal)
+                || id is "file.save" or "file.save_as" || AllowStrategicInput()) handler();
+        });
+    }
+
+    private void SkipTravelAndClearSelection()
+    {
+        StrategicTravel.Skip();
+        _mapView.ClearSelection();
+    }
+
+    private void RefreshTravelDisplay()
+    {
+        if (_closing || _contextPanel is null || _areaMapView is null) return;
+        _mapView.Refresh(); _contextPanel.Refresh(); _areaMapView.Refresh();
+        RefreshTopBar(); UpdateCommandStrip();
+        _travelControls.Visible = StrategicTravel.IsActive;
+    }
+
+
     /// <summary>
     /// T100: the one table the menu bar and the toolbar are built from. Exposed so
     /// <c>godot/Checks/MenuBarCheck.cs</c> can read its handler counter
@@ -238,7 +278,13 @@ public partial class MainGameScreen : Control
         var body = new HBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
         root.AddChild(body);
 
-        _mapView = new GameMapView { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
+        _displayViewer = Session.State.ActiveNationId;
+        _mapView = new GameMapView
+        {
+            SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill,
+            DisplayStateSource = () => DisplayState, TravelPlayback = StrategicTravel,
+            StrategicInputAllowed = AllowStrategicInput,
+        };
         body.AddChild(_mapView);
 
         // T102/T110: the right-hand column is the Area-map strip above the overview mini-map above the
@@ -267,6 +313,7 @@ public partial class MainGameScreen : Control
 
         _areaMapView = new AreaMapView
         {
+            DisplayStateSource = () => DisplayState,
             Table = CommandTable,
             AssetLoader = assetLoader,
             SizeFlagsHorizontal = SizeFlags.ShrinkCenter,
@@ -276,6 +323,7 @@ public partial class MainGameScreen : Control
 
         _contextPanel = new ContextPanel
         {
+            DisplayStateSource = () => DisplayState,
             Session = Session,
             MapView = _mapView,
             CustomMinimumSize = new Vector2(340, 0),
@@ -387,6 +435,10 @@ public partial class MainGameScreen : Control
         // are the entries not among these (compared by reference, see the field).
         _newsEntriesBeforeCommand = Session.State.NewsLog.Slots;
 
+        _contextPanel.DisplayStateSource = () => DisplayState;
+        _areaMapView.DisplayStateSource = () => DisplayState;
+        StrategicTravel.IntersectsViewport = _mapView.RouteIntersectsViewport;
+        StrategicTravel.Changed += RefreshTravelDisplay;
         _mapView.Attach(Session, RepositoryRoot);
         _areaMapView.Attach(Session, _mapView);
 
@@ -420,6 +472,14 @@ public partial class MainGameScreen : Control
         _activeNationLabel = UiKit.MakeLabel(string.Empty, AppTheme.Header, UiKit.AccentColor);
         row.AddChild(_activeNationLabel);
 
+        _travelControls = new HBoxContainer { Visible = false };
+        _travelControls.AddChild(UiKit.MakeLabel("Movement · orders locked", AppTheme.Body, UiKit.TextColor));
+        var skip = new Button { Text = "Skip" };
+        skip.Pressed += () => StrategicTravel.Skip();
+        var fast = new Button { Text = "Fast", ToggleMode = true };
+        fast.Toggled += pressed => StrategicTravel.Fast = pressed;
+        _travelControls.AddChild(skip); _travelControls.AddChild(fast);
+        row.AddChild(_travelControls);
         var spacer = new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         row.AddChild(spacer);
 
@@ -453,57 +513,57 @@ public partial class MainGameScreen : Control
     {
         // File: New/Open/Close leave the game, each after a confirmation [designed]; Save and Save As
         // save. The seat commands are not in the table at all (the user's decision, T100's Scope).
-        CommandTable.Bind("file.new", () => ConfirmLeavingGame("start a new game", () => OwningAppRoot?.ShowNewGameFlow()));
-        CommandTable.Bind("file.open", () => ConfirmLeavingGame("open a saved game", () => OwningAppRoot?.ShowLoadGame()));
-        CommandTable.Bind("file.save", () => OnSavePressed(checkUniqueSuffix: null));
-        CommandTable.Bind("file.save_as", ShowSaveAsPrompt);
-        CommandTable.Bind("file.close", () => ConfirmLeavingGame("return to the main menu", () => OwningAppRoot?.ShowMainMenu()));
+        BindStrategicCommand("file.new", () => ConfirmLeavingGame("start a new game", () => OwningAppRoot?.ShowNewGameFlow()));
+        BindStrategicCommand("file.open", () => ConfirmLeavingGame("open a saved game", () => OwningAppRoot?.ShowLoadGame()));
+        BindStrategicCommand("file.save", () => OnSavePressed(checkUniqueSuffix: null));
+        BindStrategicCommand("file.save_as", ShowSaveAsPrompt);
+        BindStrategicCommand("file.close", () => ConfirmLeavingGame("return to the main menu", () => OwningAppRoot?.ShowMainMenu()));
 
         // Game: the one command, the same handler the old top-bar button called.
-        CommandTable.Bind("game.end_turn", OnEndTurnPressed);
+        BindStrategicCommand("game.end_turn", OnEndTurnPressed);
 
         // Strategy: News and International relations are the two whose screens already exist; the
         // other four (Taxation, Balance sheet, Recruit unit, Build fleet) open T109's dialogs.
-        CommandTable.Bind("strategy.news", () => _newsLog.Toggle());
-        CommandTable.Bind("strategy.relations", OpenDiplomacyScreen);
-        CommandTable.Bind("strategy.taxation", OpenTaxationDialog);
-        CommandTable.Bind("strategy.balance_sheet", OpenBalanceSheetDialog);
-        CommandTable.Bind("strategy.recruit_unit", OpenRecruitUnitDialog);
-        CommandTable.Bind("strategy.build_fleet", OpenBuildFleetDialog);
+        BindStrategicCommand("strategy.news", () => _newsLog.Toggle());
+        BindStrategicCommand("strategy.relations", OpenDiplomacyScreen);
+        BindStrategicCommand("strategy.taxation", OpenTaxationDialog);
+        BindStrategicCommand("strategy.balance_sheet", OpenBalanceSheetDialog);
+        BindStrategicCommand("strategy.recruit_unit", OpenRecruitUnitDialog);
+        BindStrategicCommand("strategy.build_fleet", OpenBuildFleetDialog);
 
         // Unit map: Cancel selection is T99's own handler (Shift+X already reaches it too).
-        CommandTable.Bind("unit_map.cancel_selection", () => _mapView.ClearSelection());
+        BindStrategicCommand("unit_map.cancel_selection", () => _mapView.ClearSelection());
 
         // T134: Army -> Supply army opens the SupplyDialog for the selected army (or the army a selected
         // fleet carries), or shows one of the two messages and opens nothing.
-        CommandTable.Bind("unit_map.army_supply", OpenSupplyArmyDialog);
+        BindStrategicCommand("unit_map.army_supply", OpenSupplyArmyDialog);
 
         // T111: the rest of the Army submenu. Transfer unit and Split army open their dialogs; Join
         // armies submits at once with the game's own partner; Change units opens its dialog; Disband army
         // asks first. Recruit mercenaries is T113 (now wired): opens the dialog for the chosen city.
-        CommandTable.Bind("unit_map.army_transfer_unit", OpenArmyTransferDialog);
-        CommandTable.Bind("unit_map.army_split", OpenSplitArmyDialog);
-        CommandTable.Bind("unit_map.army_join", JoinArmiesFromMenu);
-        CommandTable.Bind("unit_map.army_change_units", OpenChangeUnitsDialog);
-        CommandTable.Bind("unit_map.army_disband", ConfirmDisbandArmy);
-        CommandTable.Bind("unit_map.army_recruit_mercenaries", OpenRecruitMercenariesDialog);
+        BindStrategicCommand("unit_map.army_transfer_unit", OpenArmyTransferDialog);
+        BindStrategicCommand("unit_map.army_split", OpenSplitArmyDialog);
+        BindStrategicCommand("unit_map.army_join", JoinArmiesFromMenu);
+        BindStrategicCommand("unit_map.army_change_units", OpenChangeUnitsDialog);
+        BindStrategicCommand("unit_map.army_disband", ConfirmDisbandArmy);
+        BindStrategicCommand("unit_map.army_recruit_mercenaries", OpenRecruitMercenariesDialog);
 
         // T112: the Fleet submenu. Supply fleet and the three dialogs open overlays; Join fleets submits at
         // once with the game's own partner; Scuttle fleet asks first.
-        CommandTable.Bind("unit_map.fleet_supply", OpenSupplyFleetDialog);
-        CommandTable.Bind("unit_map.fleet_repair", OpenRepairFleetDialog);
-        CommandTable.Bind("unit_map.fleet_transfer_ships", OpenFleetTransferDialog);
-        CommandTable.Bind("unit_map.fleet_split", OpenSplitFleetDialog);
-        CommandTable.Bind("unit_map.fleet_join", JoinFleetsFromMenu);
-        CommandTable.Bind("unit_map.fleet_scuttle", ConfirmScuttleFleet);
+        BindStrategicCommand("unit_map.fleet_supply", OpenSupplyFleetDialog);
+        BindStrategicCommand("unit_map.fleet_repair", OpenRepairFleetDialog);
+        BindStrategicCommand("unit_map.fleet_transfer_ships", OpenFleetTransferDialog);
+        BindStrategicCommand("unit_map.fleet_split", OpenSplitFleetDialog);
+        BindStrategicCommand("unit_map.fleet_join", JoinFleetsFromMenu);
+        BindStrategicCommand("unit_map.fleet_scuttle", ConfirmScuttleFleet);
 
         // T112: the City submenu's one entry.
-        CommandTable.Bind("unit_map.city_fortify", OpenFortifyCityDialog);
+        BindStrategicCommand("unit_map.city_fortify", OpenFortifyCityDialog);
 
         // Help: the new page, the hints toggle, and the about box.
-        CommandTable.Bind("help.topics", ShowHelpPage);
-        CommandTable.Bind("help.show_hints", ToggleHints);
-        CommandTable.Bind("help.about", ShowAbout);
+        BindStrategicCommand("help.topics", ShowHelpPage);
+        BindStrategicCommand("help.show_hints", ToggleHints);
+        BindStrategicCommand("help.about", ShowAbout);
 
         // T110: the Nations menu and its toolbar swatches set the viewed nation. None of these submits a
         // command (Done-when 7) â€” only the panel and the highlight scope change.
@@ -513,69 +573,69 @@ public partial class MainGameScreen : Control
             var nationId = string.Equals(row.Id, "nations.all", StringComparison.Ordinal)
                 ? null
                 : row.Id["nations.".Length..];
-            CommandTable.Bind(row.Id, () => SetViewedNation(nationId));
+            BindStrategicCommand(row.Id, () => SetViewedNation(nationId));
         }
 
         // T110: the Area map's five Show entries toggle their own highlight layer and its check marks;
         // Find a city opens the TFindCity dialog. T113: the six Show mercenaries rows join them â€”
 //        each type toggles its own layer, "All mercenaries" toggles the five mercenary layers
 //        together (mirroring the audit's own "All mercenaries" union of the type bitmaps).
-        CommandTable.Bind("area_map.show_cities", () =>
+        BindStrategicCommand("area_map.show_cities", () =>
         {
             _areaMapView.ToggleHighlight(AreaMapHighlightKind.Cities);
             SyncShowChecks();
         });
-        CommandTable.Bind("area_map.show_capital", () =>
+        BindStrategicCommand("area_map.show_capital", () =>
         {
             _areaMapView.ToggleHighlight(AreaMapHighlightKind.Capital);
             SyncShowChecks();
         });
-        CommandTable.Bind("area_map.show_armies", () =>
+        BindStrategicCommand("area_map.show_armies", () =>
         {
             _areaMapView.ToggleHighlight(AreaMapHighlightKind.Armies);
             SyncShowChecks();
         });
-        CommandTable.Bind("area_map.show_fleets", () =>
+        BindStrategicCommand("area_map.show_fleets", () =>
         {
             _areaMapView.ToggleHighlight(AreaMapHighlightKind.Fleets);
             SyncShowChecks();
         });
-        CommandTable.Bind("area_map.show_all", () =>
+        BindStrategicCommand("area_map.show_all", () =>
         {
             _areaMapView.ToggleShowAll();
             SyncShowChecks();
         });
-        CommandTable.Bind("area_map.show_mercs_light_infantry", () =>
+        BindStrategicCommand("area_map.show_mercs_light_infantry", () =>
         {
             _areaMapView.ToggleHighlight(AreaMapHighlightKind.MercenariesLightInfantry);
             SyncShowChecks();
         });
-        CommandTable.Bind("area_map.show_mercs_heavy_infantry", () =>
+        BindStrategicCommand("area_map.show_mercs_heavy_infantry", () =>
         {
             _areaMapView.ToggleHighlight(AreaMapHighlightKind.MercenariesHeavyInfantry);
             SyncShowChecks();
         });
-        CommandTable.Bind("area_map.show_mercs_archers", () =>
+        BindStrategicCommand("area_map.show_mercs_archers", () =>
         {
             _areaMapView.ToggleHighlight(AreaMapHighlightKind.MercenariesArchers);
             SyncShowChecks();
         });
-        CommandTable.Bind("area_map.show_mercs_light_cavalry", () =>
+        BindStrategicCommand("area_map.show_mercs_light_cavalry", () =>
         {
             _areaMapView.ToggleHighlight(AreaMapHighlightKind.MercenariesLightCavalry);
             SyncShowChecks();
         });
-        CommandTable.Bind("area_map.show_mercs_heavy_cavalry", () =>
+        BindStrategicCommand("area_map.show_mercs_heavy_cavalry", () =>
         {
             _areaMapView.ToggleHighlight(AreaMapHighlightKind.MercenariesHeavyCavalry);
             SyncShowChecks();
         });
-        CommandTable.Bind("area_map.show_mercs_all", () =>
+        BindStrategicCommand("area_map.show_mercs_all", () =>
         {
             _areaMapView.ToggleShowAllMercenaries();
             SyncShowChecks();
         });
-        CommandTable.Bind("area_map.find_city", () => OpenFindCityDialog());
+        BindStrategicCommand("area_map.find_city", () => OpenFindCityDialog());
     }
 
     /// <summary>
@@ -586,6 +646,7 @@ public partial class MainGameScreen : Control
     /// </summary>
     public void SetViewedNation(string? nationId)
     {
+        if (StrategicTravel.IsActive) return;
         ViewedNationId = nationId;
 
         // N7: the Find a city highlight belongs to the view it was chosen under; changing the viewed
@@ -915,6 +976,7 @@ public partial class MainGameScreen : Control
     /// </summary>
     public void SelectArmyForCheck(string armyId)
     {
+        if (!AllowStrategicInput()) return;
         _selectedArmyId = armyId;
         _selectedFleetId = null;
         _selectedCityId = null;
@@ -929,6 +991,7 @@ public partial class MainGameScreen : Control
     /// </summary>
     public void SelectFleetForCheck(string fleetId)
     {
+        if (!AllowStrategicInput()) return;
         _selectedArmyId = null;
         _selectedFleetId = fleetId;
         _selectedCityId = null;
@@ -942,6 +1005,7 @@ public partial class MainGameScreen : Control
     /// </summary>
     public void SelectCityForCheck(string cityId)
     {
+        if (!AllowStrategicInput()) return;
         _selectedArmyId = null;
         _selectedFleetId = null;
         _selectedCityId = cityId;
@@ -1449,20 +1513,20 @@ public partial class MainGameScreen : Control
     private void UpdateCommandStrip()
     {
         var selection = UnitStripSelection.None;
-        if (_selectedArmyId is { } armyId && Session.State.ArmyById(armyId) is { } army
-            && string.Equals(army.Nation, Session.State.ActiveNationId, StringComparison.Ordinal))
+        if (_selectedArmyId is { } armyId && DisplayState.ArmyById(armyId) is { } army
+            && string.Equals(army.Nation, DisplayState.ActiveNationId, StringComparison.Ordinal))
         {
             selection = UnitStripSelection.OwnArmy;
         }
-        else if (_selectedFleetId is { } fleetId && Session.State.FleetById(fleetId) is { } fleet
-            && string.Equals(fleet.Nation, Session.State.ActiveNationId, StringComparison.Ordinal))
+        else if (_selectedFleetId is { } fleetId && DisplayState.FleetById(fleetId) is { } fleet
+            && string.Equals(fleet.Nation, DisplayState.ActiveNationId, StringComparison.Ordinal))
         {
             selection = fleet.IsCarryingArmy
                 ? UnitStripSelection.OwnFleetCarryingArmy
                 : UnitStripSelection.OwnFleet;
         }
-        else if (_selectedCityId is { } cityId && Session.State.CityById(cityId) is { } city
-            && string.Equals(city.Owner, Session.State.ActiveNationId, StringComparison.Ordinal))
+        else if (_selectedCityId is { } cityId && DisplayState.CityById(cityId) is { } city
+            && string.Equals(city.Owner, DisplayState.ActiveNationId, StringComparison.Ordinal))
         {
             selection = UnitStripSelection.OwnCity;
         }
@@ -1518,6 +1582,7 @@ public partial class MainGameScreen : Control
     /// </summary>
     private IReadOnlyList<string> SubmitFromDialog(string line)
     {
+        if (!AllowStrategicInput()) return Array.Empty<string>();
         var lines = Session.Submit(line).Lines;
         OnCommandIssued(lines);
         return lines;
@@ -1547,6 +1612,7 @@ public partial class MainGameScreen : Control
 
     private void OnEndTurnPressed()
     {
+        if (!AllowStrategicInput()) return;
         var warnings = EndTurnWarnings.For(
             Session.State,
             Session.World,
@@ -1725,6 +1791,7 @@ public partial class MainGameScreen : Control
     /// </summary>
     public IReadOnlyList<string> SubmitForCheck(string commandLine)
     {
+        if (!AllowStrategicInput()) return Array.Empty<string>();
         var lines = Session.Submit(commandLine).Lines;
         OnCommandIssued(lines);
         return lines;
@@ -1771,10 +1838,35 @@ public partial class MainGameScreen : Control
 
     private void OnCommandIssued(IReadOnlyList<string> lines)
     {
+        var exact = _tacticalCompletionRouting ?? new SessionOutput(lines, false, Session.LastBattles, Session.LastSeatFalls)
+        { TacticalTimeline = Session.LastTacticalTimeline, StrategicTimeline = Session.LastStrategicTimeline };
+        _tacticalCompletionRouting = null;
+        Session.ConsumeStrategicTimeline();
+        // Save/help callbacks may replace Last*, but cannot replace the retained movement completion.
+        if (StrategicTravel.IsActive) { CommandIssued?.Invoke(lines); return; }
+        if (Session.OpenTacticalBattle is not null)
+            _nextTacticalOpening = _nextTacticalOpening.Concat(exact.TacticalTimeline).Distinct().ToArray();
+        var batch = exact.StrategicTimeline;
+        if (batch.Steps.Any(step => step.Routes.Any(route => route.EnteredCells.Count > 0)))
+        {
+            StrategicTravel.Begin(batch, _displayViewer, () =>
+            {
+                if (_closing) return;
+                _mapView.ReconcileSelection();
+                PresentCommand(lines, exact);
+            });
+            RefreshTravelDisplay();
+            if (StrategicTravel.CellSeconds <= 0) StrategicTravel.Skip();
+            return;
+        }
+        PresentCommand(lines, exact);
+    }
+
+    private void PresentCommand(IReadOnlyList<string> lines, SessionOutput retained)
+    {
         // Consume the tactical completion's own retained facts before any callback can submit Save/help
         // and replace the session's Last* properties. Ordinary command callbacks keep their existing source.
-        var tacticalCompletion = _tacticalCompletionRouting;
-        _tacticalCompletionRouting = null;
+        var tacticalCompletion = retained;
         // Fix #484: Submit always ends its output with a blank separator line, so lines[^1] was always
         // empty and this label never showed a command's result. CommandOutcomeText.OutcomeBlock is the
         // screen's one shared rule (T95's Save label uses it too): the command's whole own outcome, up to
@@ -1783,7 +1875,8 @@ public partial class MainGameScreen : Control
         // through here.
         CommandIssued?.Invoke(lines);
 
-        // T112: a command can delete or capture the selected unit, so the strip re-reads the selection.
+        // Reconcile removal/exhaustion before panel and strip refresh, regardless of issuing control.
+        _mapView.ReconcileSelection();
         UpdateCommandStrip();
 
         // T147 (bug #781 point 3): the active human seat's pending offer is the one its window answers, so
@@ -1837,6 +1930,7 @@ public partial class MainGameScreen : Control
         // seat id changing mid-turn (a hotseat pass) is the other. _lastKnownActiveNationId is still the
         // prior turn's until CheckForHotseatHandoff updates it later in this method.
         var activeId = Session.State.ActiveNationId;
+        _displayViewer = activeId;
         var turnIndex = Session.State.Calendar.TurnIndex;
         var turnStarted = turnIndex != _lastKnownTurnIndex;
         _lastKnownTurnIndex = turnIndex;
@@ -1974,13 +2068,16 @@ public partial class MainGameScreen : Control
 
         if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape })
         {
-            _mapView.ClearSelection();
+            SkipTravelAndClearSelection();
             GetViewport().SetInputAsHandled();
         }
     }
 
     public override void _ExitTree()
     {
+        _closing = true;
+        StrategicTravel.Changed -= RefreshTravelDisplay;
+        StrategicTravel.Close();
         SidePanelToggle.Changed -= ApplySidePanelState;
 
         // T149: the screen is the only Owns slice that subscribes; every other Owns line lives in
@@ -2019,6 +2116,7 @@ public partial class MainGameScreen : Control
 
     private void ShowNextOverlay()
     {
+        if (_closing || StrategicTravel.IsActive) return;
         // Saving still writes authoritative state while replay is intermediate. Its ordinary command
         // callback must not open a peace/result/next-battle window ahead of terminal consumption.
         if (ActiveOverlay is TacticalBattleScreen { IsPlayingBack: true } or BattleEndedScreen) return;
@@ -2366,9 +2464,9 @@ public partial class MainGameScreen : Control
 
     private void RefreshTopBar()
     {
-        var calendar = Session.State.Calendar;
+        var calendar = DisplayState.Calendar;
         _calendarLabel.Text = $"Week {calendar.Week}, {calendar.YearBc} BC (turn {calendar.TurnIndex})";
-        var nation = Session.State.NationById(Session.State.ActiveNationId);
-        _activeNationLabel.Text = $"Playing: {nation?.Name ?? Session.State.ActiveNationId}";
+        var nation = DisplayState.NationById(DisplayState.ActiveNationId);
+        _activeNationLabel.Text = $"Playing: {nation?.Name ?? DisplayState.ActiveNationId}";
     }
 }
