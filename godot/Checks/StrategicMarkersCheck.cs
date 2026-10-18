@@ -23,7 +23,10 @@ public partial class StrategicMarkersCheck : Control
         var captureDirectory = System.Environment.GetEnvironmentVariable("IC2_STRATEGIC_MARKERS_CAPTURE_DIR");
         if (!string.IsNullOrWhiteSpace(captureDirectory))
         {
-            BuildCapturePlan(captureDirectory);
+            if (System.Environment.GetEnvironmentVariable("IC2_STRATEGIC_MARKERS_ADJACENT") == "1")
+                BuildAdjacentCapturePlan(captureDirectory);
+            else
+                BuildCapturePlan(captureDirectory);
             return;
         }
         foreach (var pack in new[] { "authored", "placeholder" })
@@ -261,6 +264,49 @@ public partial class StrategicMarkersCheck : Control
                 caption.Text = $"{prefix}: coincident city/fleet/army; army wins and draws in front.";
             });
             _steps.Enqueue(() => Capture(directory, prefix + "-dense-selected.png"));
+        }
+    }
+
+    // Focused real-window supplement: neighboring production boards at overview zoom.
+    private void BuildAdjacentCapturePlan(string directory)
+    {
+        Directory.CreateDirectory(directory);
+        var caption = new Label { Position = new Vector2(30, 10), Size = new Vector2(Size.X - 60, 40) };
+        AddChild(caption);
+        foreach (var pack in new[] { "authored", "placeholder" })
+        foreach (var pixels in new[] { 0f, 3f })
+        {
+            var prefix = $"{pack}-adjacent-{(pixels == 0 ? "fit" : "minimum")}";
+            _steps.Enqueue(() =>
+            {
+                if (_map is not null) { RemoveChild(_map); _map.QueueFree(); }
+                SelectPack(pack);
+                _session = BuildSession();
+                _map = new GameMapView { Position = new Vector2(30, 60), Size = Size - new Vector2(60, 90) };
+                AddChild(_map);
+                _map.Attach(_session, GameDataContext.RepositoryRoot);
+                if (pixels > 0) _map.SetDrawnCellPixelsForCheck(pixels);
+                _map.CentreOnTile(100, 63);
+                _map.ClearSelection();
+                caption.Text = $"{prefix}: adjacent armies (99,63)/(100,63), unselected.";
+            });
+            _steps.Enqueue(() => Capture(directory, prefix + "-unselected.png"));
+            foreach (var x in new[] { 99, 100 })
+            {
+                var targetX = x;
+                _steps.Enqueue(() =>
+                {
+                    var point = _map.TileCenterForCheck(targetX, 63);
+                    _map._GuiInput(new InputEventMouseMotion { Position = point });
+                    Click(point, MouseButton.Left);
+                    var expected = targetX == 99 ? "dense-left" : "dense-right";
+                    Check(_map.LastClickContextForCheck?.Target?.Id == expected
+                        && _map.SelectedStrategicMarkerForCheck == expected,
+                        $"adjacent window click selects {expected} on its real tile");
+                    caption.Text = $"{prefix}: {expected} selected at actual tile centre; hover winner in front.";
+                });
+                _steps.Enqueue(() => Capture(directory, prefix + $"-{targetX}-selected.png"));
+            }
         }
     }
 
