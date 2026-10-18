@@ -537,15 +537,15 @@ public partial class StrategicTravelCheck : Node
     {
         var directory = Path.Combine(_directory!, _pack + "-pacing-frames");
         Directory.CreateDirectory(directory);
-        var frames = new List<(string File, ulong Tick, string Mode, double? X)>();
+        var frames = new List<(string File, ulong Tick, string Mode, double? X, Image Pixels)>();
         async Task Frame(MainGameScreen main, string mode)
         {
             await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
             var file = $"frame-{frames.Count:D4}.png";
-            using var image = GetViewport().GetTexture().GetImage();
-            if (image.SavePng(Path.Combine(directory, file)) != Error.Ok)
-                throw new IOException("Could not save real pacing frame.");
-            frames.Add((file, Time.GetTicksUsec(), mode, main.StrategicTravel.Position(TravelKind.Army, "a")?.X));
+            var tick = Time.GetTicksUsec();
+            var x = main.StrategicTravel.Position(TravelKind.Army, "a")?.X;
+            // PNG compression stalls the render thread; retain pixels and save only after playback.
+            frames.Add((file, tick, mode, x, GetViewport().GetTexture().GetImage()));
         }
         foreach (var mode in new[] { "normal-0.12-seconds-per-cell", "fast-4x", "skip" })
         {
@@ -579,6 +579,12 @@ public partial class StrategicTravelCheck : Node
             await Frame(main, mode);
             await ToSignal(GetTree().CreateTimer(.45), SceneTreeTimer.SignalName.Timeout);
             await Frame(main, mode);
+        }
+        foreach (var frame in frames)
+        {
+            using var pixels = frame.Pixels;
+            if (pixels.SavePng(Path.Combine(directory, frame.File)) != Error.Ok)
+                throw new IOException("Could not save real pacing frame.");
         }
         var invariant = System.Globalization.CultureInfo.InvariantCulture;
         var concat = new System.Text.StringBuilder("ffconcat version 1.0\n");
