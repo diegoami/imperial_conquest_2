@@ -194,8 +194,8 @@ public partial class StrategicMarkersCheck : Control
                 StrategicMarkerGeometry.Size(StrategicMarkerKind.Fleet, tile) / 2 - .01f);
             Click(edge, MouseButton.Right);
             Check(_map.LastClickContextForCheck is { X: 110, Y: 60, Distance: 10, Target.Id: "fleet" },
-                "order context distance uses actual fleet tile, not tile-constrained marker tile");
-            Check(_map.ClipContents, "marker tile-constrained marker is clipped by real map control");
+                "order context distance uses the actual target tile");
+            Check(_map.ClipContents, "tile-constrained marker drawing is clipped by real map control");
         });
     }
 

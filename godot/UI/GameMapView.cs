@@ -1307,7 +1307,6 @@ public partial class GameMapView : Control
         // T163: shipped rulesets use thresholds [25, 50, 100] (population in thousands), giving
         // four town tiers; a national capital uses its own marker at any population.
         var texture = _assetLoader?.TryGetTexture(MapMarkerKeys.CityIcon(_session!.State, city, _session.Ruleset.MapMarkers));
-        if (MissingStrategicTexturesForCheck) texture = null;
         if (texture is not null)
         {
             // T97: the original's marker -- a square filled with the owner's background colour, the

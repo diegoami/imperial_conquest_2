@@ -2025,7 +2025,11 @@ def conform_strategic_candidate(image):
         if any(sum(edge.getdata()) < 255*edge.width*edge.height*.98 for edge in edges):
             raise ConformError("strategic outer matte has no complete magenta inner border")
         image = image.crop(box)
-    return conform_sprite(image)
+    # Strategic markers are flat neutral tint anchors, not shaded pictorial UI icons.
+    # Preserve the chroma/solid-alpha silhouette exactly; remove luminance variation.
+    conformed = conform_sprite_image(image)
+    conformed.putdata([(255,255,255,255) if a else (0,0,0,0) for r,g,b,a in conformed.getdata()])
+    return bmp_bytes(conformed, 32)
 
 
 def strategic_candidate_run(args, selection):
@@ -2097,7 +2101,7 @@ def _strategic_generate(args, selection, config):
             with open(target, "wb") as handle:
                 handle.write(bmp)
             record.update({"bmp_sha256": hashlib.sha256(bmp).hexdigest(),
-                           "conformance": "verified outer matte removal if present; key_magenta; crop_to_subject/common square padding; 32px LANCZOS; solid alpha; neutral luminance; BGRA BMP"})
+                           "conformance": "verified outer matte removal if present; key_magenta; crop_to_subject/common square padding; 32px LANCZOS; solid alpha; opaque neutral white tint anchor; BGRA BMP"})
             with open(provenance_path, "w", encoding="utf-8") as handle:
                 json.dump(record, handle, indent=2); handle.write("\n")
             print(f"Gemini candidate {key}: raw and provenance retained; 32px BMP conformed")
