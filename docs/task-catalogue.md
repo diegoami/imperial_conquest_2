@@ -316,6 +316,14 @@ graph TD
   T130 --> T181
   T128 --> T182[T182 simple unit glyphs]
   T182 --> T187[T187 readable strategic markers]
+  T124 --> T188[T188 weighted Pass2 eligibility]
+  T175 --> T188
+  T188 --> T189[T189 actor threat mode]
+  T189 --> T190[T190 exact threat selection]
+  T190 --> T191[T191 equal-row flank]
+  T171 --> T192[T192 recruitment power and deficit]
+  T178 --> T192
+  T72 --> T193[T193 capture purse bound]
   T179 --> T183[T183 tactical exchange audio]
   T180 --> T183
   T184[T184 original SAV writer] --> T185[T185 SAV bridge and converter]
@@ -367,7 +375,7 @@ Waves are dependency layers, not concurrent batches: execution is serial, one co
 
 ### 1.3 v0.6.1 playtest work
 
-The owner requests tracked by [1190](https://github.com/diegoami/imperial_conquest_2/issues/1190) are mandatory in v0.6.1. After contract approval, T179, T181 and T182 can start as three disjoint tracks. T180 starts after T179 merges; T183 starts after T179 and T180 merge. T182 authors independently but final overlay/context sign-off uses T180. T181 owns WriteBack/result screens; T179 owns timeline/engine presentation seams; T180 then T183 exclusively own tactical/MainGame screen integration. Recheck implicit tests, compile registrations and generators for overlap before dispatch; serialize shared compile-registration hunks. The owner explicitly authorizes up to three disjoint tasks on this machine. One Godot process machine-wide, and no Godot launch/check while the owner plays; runtime/visual/audio gates remain required afterward. Original-compatible save/export/converter work is additionally mandatory under [1191](https://github.com/diegoami/imperial_conquest_2/issues/1191); its T184–T186 contracts define that separate scope. T184 low-level writer work may start after contract approval by replacing one of the initial T179/T181/T182 tracks, or waiting until a slot becomes free; it is never a fourth concurrent task, but its merge waits on evaluated [research 37](https://github.com/diegoami/imperial-conquest-2-research/issues/37) region/prototype findings. T185 starts only after T184 and a reviewed complete mapping from that research; T186 follows T185 and T183. The research gate does not block independent battle task readiness. All authors use `gpt-6.1-sol` (medium for hard T179/T180/T182/T184/T185, low for medium T181/T183/T186); independent review is direct `kimi-code-plan-cn/kimi-for-coding`, excluding OpenAI.
+The owner requests tracked by [1190](https://github.com/diegoami/imperial_conquest_2/issues/1190) are mandatory in v0.6.1. After contract approval, T179, T181 and T182 can start as three disjoint tracks. T180 starts after T179 merges; T183 starts after T179 and T180 merge. T182 authors independently but final overlay/context sign-off uses T180. T181 owns WriteBack/result screens; T179 owns timeline/engine presentation seams; T180 then T183 exclusively own tactical/MainGame screen integration. Recheck implicit tests, compile registrations and generators for overlap before dispatch; serialize shared compile-registration hunks. The owner explicitly authorizes up to three disjoint tasks on this machine. One Godot process machine-wide, and no Godot launch/check while the owner plays; runtime/visual/audio gates remain required afterward. T184–T186 original-compatible SAV writer/export/converter and Save As work remain separately scoped by [1191](https://github.com/diegoami/imperial_conquest_2/issues/1191) as planned 0.7.x candidates; they do not block any 0.6.x release. T184 low-level writer work may start after contract approval; its merge still waits on evaluated [research 37](https://github.com/diegoami/imperial-conquest-2-research/issues/37) region/prototype findings. T185 starts only after T184 and a reviewed complete mapping from that research; T186 follows T185 and T183. The research gate does not block independent battle task readiness. All authors use `gpt-6.1-sol` (medium for hard T179/T180/T182/T184/T185, low for medium T181/T183/T186); independent review is direct `kimi-code-plan-cn/kimi-for-coding`, excluding OpenAI.
 
 ## 2. The tasks
 
@@ -1402,19 +1410,43 @@ Owner playtest [1189](https://github.com/diegoami/imperial_conquest_2/issues/118
 
 #### T184 Original-compatible SAV binary writer
 
-Mandatory v0.6.1 [1191](https://github.com/diegoami/imperial_conquest_2/issues/1191); documented low-level work may start after contract approval, merge waits for evaluated region/prototype research → [full entry](tasks/T184.md).
+Planned 0.7.x candidate for [1191](https://github.com/diegoami/imperial_conquest_2/issues/1191); does not block any 0.6.x release. Documented low-level work may start after contract approval; merge waits for evaluated region/prototype research → [full entry](tasks/T184.md).
 
 #### T185 Native-state SAV export bridge and offline converter
 
-Mandatory v0.6.1 [1191](https://github.com/diegoami/imperial_conquest_2/issues/1191); starts after T184 and reviewed complete field/region mapping from research 37 → [full entry](tasks/T185.md).
+Planned 0.7.x candidate for [1191](https://github.com/diegoami/imperial_conquest_2/issues/1191); does not block any 0.6.x release. Starts after T184 and reviewed complete field/region mapping from research 37 → [full entry](tasks/T185.md).
 
 #### T186 In-game Save As original-compatible SAV
 
-Mandatory v0.6.1 [1191](https://github.com/diegoami/imperial_conquest_2/issues/1191); follows T185 and T183 to serialize MainGameScreen integration → [full entry](tasks/T186.md).
+Planned 0.7.x candidate for [1191](https://github.com/diegoami/imperial_conquest_2/issues/1191); does not block any 0.6.x release. Follows T185 and T183 to serialize MainGameScreen integration → [full entry](tasks/T186.md).
 
 #### T187 Readable strategic army and fleet markers
 
 Strategic display/picking [1199](https://github.com/diegoami/imperial_conquest_2/issues/1199); follows T182, runtime serialized with all Godot tasks; P2 in 0.6.x without a new v0.6.1 gate → [full entry](tasks/T187.md).
+
+#### T188 Pass 2 selects eligible weighted opponents
+
+Weighted Pass2 eligibility, correction [1164](https://github.com/diegoami/imperial_conquest_2/issues/1164) → [full entry](tasks/T188.md).
+
+#### T189 Threat movement uses the acting units shooting mode
+
+Actor threat mode, correction [1165](https://github.com/diegoami/imperial_conquest_2/issues/1165) → [full entry](tasks/T189.md).
+
+#### T190 Threat selection preserves original swaps and sentinels
+
+Exact threat selection, correction [1166](https://github.com/diegoami/imperial_conquest_2/issues/1166) → [full entry](tasks/T190.md).
+
+#### T191 Flank balance counts enemies on the same row
+
+Equal-row flank, correction [1167](https://github.com/diegoami/imperial_conquest_2/issues/1167) → [full entry](tasks/T191.md).
+
+#### T192 Faithful recruitment respects army power and its deficit
+
+Recruitment power/deficit, correction [1179](https://github.com/diegoami/imperial_conquest_2/issues/1179) → [full entry](tasks/T192.md).
+
+#### T193 Captured money respects the approved purse field bound
+
+Capture purse bound, correction [838](https://github.com/diegoami/imperial_conquest_2/issues/838) → [full entry](tasks/T193.md).
 
 #### T25 Battle result, diplomacy, and hotseat handoff screens
 
@@ -1632,3 +1664,9 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T185](#t185-native-state-sav-export-bridge-and-offline-converter) | SAV export bridge/converter | M15 | gpt-6.1-sol | Medium | direct Kimi + original runtime | T184 + reviewed research 37 mapping | [#1191](https://github.com/diegoami/imperial_conquest_2/issues/1191) |
 | [T186](#t186-in-game-save-as-original-compatible-sav) | Save As SAV | M15 | gpt-6.1-sol | Low | direct Kimi + human/original runtime | T185, T183 | [#1191](https://github.com/diegoami/imperial_conquest_2/issues/1191) |
 | [T187](#t187-readable-strategic-army-and-fleet-markers) | Readable strategic markers | M18 | gpt-6.1-sol | Low | direct Kimi + human | T182 | [#1199](https://github.com/diegoami/imperial_conquest_2/issues/1199) |
+| [T188](#t188-pass-2-selects-eligible-weighted-opponents) | Weighted Pass2 eligibility | M21 | gpt-6.1-sol | Medium | direct Kimi | T124, T175 | [#1164](https://github.com/diegoami/imperial_conquest_2/issues/1164) |
+| [T189](#t189-threat-movement-uses-the-acting-units-shooting-mode) | Actor threat mode | M21 | gpt-6.1-sol | Medium | direct Kimi | T188 | [#1165](https://github.com/diegoami/imperial_conquest_2/issues/1165) |
+| [T190](#t190-threat-selection-preserves-original-swaps-and-sentinels) | Exact threat selection | M21 | gpt-6.1-sol | Low | direct Kimi | T189 | [#1166](https://github.com/diegoami/imperial_conquest_2/issues/1166) |
+| [T191](#t191-flank-balance-counts-enemies-on-the-same-row) | Equal-row flank | M21 | gpt-6.1-sol | Low | direct Kimi | T190 | [#1167](https://github.com/diegoami/imperial_conquest_2/issues/1167) |
+| [T192](#t192-faithful-recruitment-respects-army-power-and-its-deficit) | Recruitment power/deficit | M12 | gpt-6.1-sol | Medium | direct Kimi | T171, T178 | [#1179](https://github.com/diegoami/imperial_conquest_2/issues/1179) |
+| [T193](#t193-captured-money-respects-the-approved-purse-field-bound) | Capture purse bound | M3/M21 | Luna family | High | direct Kimi | T72 | [#838](https://github.com/diegoami/imperial_conquest_2/issues/838) |
