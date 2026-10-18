@@ -1,5 +1,6 @@
 using IC2.Engine.Battle.Tactical;
 using IC2.Engine.Battle.Tactical.General;
+using IC2.Engine.Model;
 using Xunit;
 using static IC2.Engine.Tests.Battle.Tactical.TacticalTestbed;
 
@@ -135,4 +136,93 @@ public sealed class PassTwoWeightedTests
         Assert.Empty(after.Log.OfType<TacticalDrawEvent>());
         Assert.Equal(after, GeneralPassThree.Run(state, Context, new DelphiBattleDraws(17)));
     }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Seeded_shot_then_weighted_target_has_exact_state_journal_and_draws(bool productionGeneral)
+    {
+        // Seed1 draws 3,99 from115 for LI;7,197 from229 for AR at distance1<range2.
+        // General's AR pass1 volley spends its only shot and leaves one move for Pass2.
+        // Direct LI Pass2 spends its last move shooting, then still selects the weighted target.
+        var type = productionGeneral ? AR : LI;
+        var state = Arena(new[] {
+            (0, Unit(type, 5, 5, 3000, moves: productionGeneral ? 2 : 1, shots: 1)),
+            (D0, Unit(LI, 5, 6, 4000, quality: 1, morale: 50, shots: 0)),
+            (D0 + 1, Unit(HI, 6, 5, 2000, quality: 9, morale: 90))
+        }, attackerGeneral: true);
+        var journal = new List<GeneralDecision>();
+        var draws = new DelphiBattleDraws(1);
+        var after = productionGeneral ? new ComputerGeneral(journal).Move(state, Context, draws)
+            : GeneralPassTwo.Run(state, Context, draws, journal);
+        var bound = productionGeneral ? 229 : 115;
+        var loss = productionGeneral ? 204 : 102;
+        var moraleLoss = productionGeneral ? 1 : 0;
+        var events = new TacticalEvent[] {
+            new TacticalDrawEvent(bound, productionGeneral ? 7 : 3),
+            new TacticalDrawEvent(bound, productionGeneral ? 197 : 99),
+            new TacticalShotEvent(0, D0, bound, loss, moraleLoss, 4000 - loss, 50 - moraleLoss),
+            new TacticalTargetSetEvent(0, D0)
+        };
+        var slots = state.Slots.ToArray();
+        slots[0] = slots[0] with { Moves = productionGeneral ? 1 : 0, Shots = 0, Target = D0 };
+        slots[D0] = slots[D0] with { Troops = 4000 - loss, Morale = 50 - moraleLoss };
+        var claims = state.GeneralClaims.ToArray();
+        if (productionGeneral) claims[D0] = 1;
+        var expected = state with { Slots = ValueList.From(slots), GeneralClaims = ValueList.From(claims), Log = ValueList.From(events) };
+        Assert.Equal(expected, after);
+        Assert.Equal(3698175007u, draws.RandSeed); // Exactly two draws; selectors consume none.
+        Assert.Equal(productionGeneral ? new[] {
+            new GeneralDecision(0, GeneralStep.TargetChosen, D0, 5, 6),
+            new GeneralDecision(0, GeneralStep.ArcherVolley, D0, 5, 6),
+            new GeneralDecision(0, GeneralStep.PassTwoTarget, D0, 5, 6)
+        } : new[] {
+            new GeneralDecision(0, GeneralStep.PassTwoShots, D0, 5, 6),
+            new GeneralDecision(0, GeneralStep.PassTwoTarget, D0, 5, 6)
+        }, journal);
+        var repeatJournal = new List<GeneralDecision>();
+        var repeatDraws = new DelphiBattleDraws(1);
+        var repeat = productionGeneral ? new ComputerGeneral(repeatJournal).Move(state, Context, repeatDraws)
+            : GeneralPassTwo.Run(state, Context, repeatDraws, repeatJournal);
+        Assert.Equal(after, repeat);
+        Assert.Equal(journal, repeatJournal);
+        Assert.Equal(draws.RandSeed, repeatDraws.RandSeed);
+    }
+
+    [Fact]
+    public void Nested_weighted_selection_adds_no_draw_before_the_seeded_flank_draw()
+    {
+        // The HI actor retains a shot with range0, so Walk cannot auto-target or shoot.
+        // A second HI is fenced at(0,0): no threat movement; its unchanged flank consumes
+        // the single Random3=1. The nested selector itself must consume no draw.
+        var state = Arena(new[] {
+            (0, Unit(HI, 5, 5, 3000, moves: 2, shots: 1)),
+            (1, Unit(HI, 0, 0, 3000)),
+            (2, Unit(HI, 0, 1, 3000, moves: 0)),
+            (3, Unit(HI, 1, 0, 3000, moves: 0)),
+            (4, Unit(HI, 1, 1, 3000, moves: 0)),
+            (D0, Unit(LI, 5, 6, 4000, quality: 1, morale: 50, shots: 0)),
+            (D0 + 1, Unit(HI, 6, 5, 2000, quality: 9, morale: 90))
+        }, attackerGeneral: true);
+        var journal = new List<GeneralDecision>();
+        var draws = new DelphiBattleDraws(17);
+        var after = GeneralPassThree.Run(state, Context, draws, journal);
+        var slots = state.Slots.ToArray();
+        slots[0] = slots[0] with { Target = D0 };
+        var expected = state with { Slots = ValueList.From(slots), Log = ValueList.From<TacticalEvent>(new TacticalEvent[] {
+            new TacticalTargetSetEvent(0, D0), new TacticalDrawEvent(3, 1)
+        }) };
+        Assert.Equal(expected, after);
+        Assert.Equal(new[] {
+            new GeneralDecision(0, GeneralStep.ThreatLine, D0, 5, 6),
+            new GeneralDecision(0, GeneralStep.PassTwoTarget, D0, 5, 6)
+        }, journal);
+        Assert.Equal(2291188822u, draws.RandSeed);
+        var repeatJournal = new List<GeneralDecision>();
+        var repeatDraws = new DelphiBattleDraws(17);
+        Assert.Equal(after, GeneralPassThree.Run(state, Context, repeatDraws, repeatJournal));
+        Assert.Equal(journal, repeatJournal);
+        Assert.Equal(draws.RandSeed, repeatDraws.RandSeed);
+    }
+
 }
