@@ -304,25 +304,29 @@ def boards(directory):
                     x+=size+12
                 x+=24
         board.save(directory / f"{pack}-glyphs.png")
-        # Actual map renderer lower bounds: army 2*2.5px, fleet 2*2px.
+        # Tile-scale integer samples of the production .8/.7 proportions and 48px cap.
+        # Fractional sampling differs by renderer phase; real-window evidence is authoritative.
         minimums = Image.new("RGB", (850, 550), (38,43,48))
         md = ImageDraw.Draw(minimums)
-        md.text((12,12),f"{pack}: one-tile samples | no pixel floor | enlarged views are inspection only",fill="white")
+        md.text((12,12),f"{pack}: tile widths below; rounded raster samples | .8 army/.7 fleet, cap48 | no floor",fill="white")
         for row,key in enumerate(k for k in keys() if not k.startswith("battle.")):
             y = 55 + row*80
             md.text((12,y+8),key,fill="white")
             x = 165
             for size in (4,5,8,16,24,32,64):
-                im = image_for(key).resize((size,size),nearest)
-                md.rectangle((x,y,x+size-1,y+size-1),fill=(86,100,68))
-                minimums.paste(im,(x,y),im)
+                displayed = max(1, round(min(size * (.8 if key.startswith("army.") else .7), 48)))
+                im = image_for(key).resize((displayed,displayed),nearest)
+                md.rectangle((x,y,x+size-1,y+size-1),fill=(60,70,50))
+                offset = (size-displayed)//2
+                md.rectangle((x+offset,y+offset,x+offset+displayed-1,y+offset+displayed-1),fill=(86,100,68))
+                minimums.paste(im,(x+offset,y+offset),im)
                 md.text((x,y+66),str(size),fill="white")
                 x += size+40
         minimums.save(directory / f"{pack}-strategic-minimums.png")
     (directory / "README.txt").write_text(
         "Owner-designed review boards, not original-game evidence. Battle glyphs share deterministic bytes; authored strategic six are Gemini-conformed.\n"
         "16/24px are stress views; 32px is native, 64px is inspection magnification.\n"
-        "Strategic boards show 4/5/8px sampling, not guaranteed tier recognition or minimum sizes.\n"
+        "Strategic boards show tile widths 4/5/8/16/24/32/64px with rounded .8/.7 art widths, cap48; fractional real-window sampling differs. No guaranteed overview tier recognition or minimum size.\n"
         "At these overview sizes motif recognition is limited; review the real zoomed context too.\n"
         "Rome/Numidia/Macedonia use configured shipped battle palettes; strategic views use existing\n"
         "single-colour foreground/background pairs from the same world, not strategic three-colour tint.\n"
@@ -333,7 +337,7 @@ def boards(directory):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--key", action="append", choices=keys(), help="select keys; authored strategic six are always preserved")
-    parser.add_argument("--verify",action="store_true",help="compare all 42 committed BMPs without mutation")
+    parser.add_argument("--verify",action="store_true",help="byte-check battle glyphs in both packs and strategic placeholder six; authored Gemini six excluded")
     parser.add_argument("--board-dir",type=Path,help="write labelled native/recolour/scale review boards only")
     parser.add_argument("--pack-dir",type=Path,help="recreate 21 glyphs in an ordinary generator's output directory")
     args=parser.parse_args()

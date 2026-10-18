@@ -166,6 +166,7 @@ public partial class StrategicMarkersCheck : Control
                 Click(center + new Vector2(tile * .49f, tile * .49f), button);
                 Check(_map.LastClickContextForCheck is { } context && context.X == x && context.Y == y && context.Target?.Id == id,
                     $"{button} tile corner/padding keeps {id}");
+                _map.ClearSelection(); // Neighbour probe must not issue a move from the preceding selection.
                 Click(center + new Vector2(tile * .51f, 0), button);
                 Check(_map.LastClickContextForCheck is { } next && next.X == x + 1 && next.Target?.Id != id,
                     $"{button} neighbouring tile never intercepted by {id}");
@@ -277,11 +278,11 @@ public partial class StrategicMarkersCheck : Control
                         var kind = target.Id.StartsWith("army", StringComparison.Ordinal)
                             ? StrategicMarkerKind.Army : StrategicMarkerKind.Fleet;
                         position.Y += (target.Id.StartsWith("army", StringComparison.Ordinal) ? -1 : 1)
-                            * (StrategicMarkerGeometry.Size(kind, tile) / 2 - .01f);
+                            * (tile / 2 - .01f);
                     }
                     Click(position, MouseButton.Left);
                     Check(_map.LastClickContextForCheck?.Target?.Id == target.Id && _map.SelectedStrategicMarkerForCheck == target.Id, $"capture edge resolves {target.Id} on its actual tile");
-                    caption.Text = $"{prefix}: {target.Id} selected via {(before ? "centre" : "footprint edge")} click.";
+                    caption.Text = $"{prefix}: {target.Id} selected via {(before ? "centre" : "in-tile edge")} click.";
                 });
                 _steps.Enqueue(() => Capture(directory, prefix + $"-{positions[targetIndex].Id}-selected.png"));
             }

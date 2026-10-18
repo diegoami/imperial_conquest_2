@@ -2037,6 +2037,8 @@ def strategic_candidate_run(args, selection):
     import hashlib
     if args.all or not args.key or any(e["key"] not in STRATEGIC_KEYS for e in selection):
         raise ValueError("--strategic-gemini requires explicit strategic --key values; --all/unrelated keys forbidden")
+    if os.path.realpath(args.out) == os.path.realpath(os.path.join(REPO_ROOT, "assets/packs/placeholder")):
+        raise ValueError("Gemini candidates cannot overwrite deterministic placeholder motifs")
     config = load_config(args.config)
     if not config.get("model", "").startswith("google/gemini-"):
         raise ValueError("strategic candidates require the configured google/gemini image model; no substitution")
@@ -2084,6 +2086,8 @@ def _strategic_generate(args, selection, config):
                 # Save provenance before conforming so a rejected paid-for original remains traceable.
                 with open(provenance_path, "w", encoding="utf-8") as handle:
                     json.dump(record, handle, indent=2); handle.write("\n")
+            if record.get("usage", {}).get("returned_model") != config["model"]:
+                raise ValueError("returned model differs from configured Gemini model; candidate rejected")
             image = Image.open(io.BytesIO(raw)); image.load()
             bmp = conform_strategic_candidate(image)
             target = os.path.join(args.out, asset_relpath(key))
@@ -2133,6 +2137,7 @@ def strategic_route_check():
         assert all((authored/glyphs.relative_path(key)).read_bytes()==b"accepted-Gemini-sentinel" for key in STRATEGIC_KEYS)
         for flags in (["--strategic-gemini", "--all"], ["--strategic-gemini"], ["--strategic-gemini", "--key", "battle.unit.archers.small.icon"]):
             assert main(flags) == 2
+        assert main(["--strategic-gemini", "--key", "army.tier1.icon", "--out", os.path.join(REPO_ROOT,"assets/packs/placeholder")]) == 2
         config={"model":"google/gemini-route-test", "endpoint":"https://offline.invalid", "api_key":"stub"}
         image=Image.new("RGB",(128,128),(255,0,255))
         ImageDraw.Draw(image).rectangle((40,20,86,108),fill="white")
@@ -2147,6 +2152,17 @@ def strategic_route_check():
                 assert main([*flags,"--reconform"])==0
                 assert before==(Path(out)/asset_relpath(key)).read_bytes()
         assert len(calls)==6
+        with patch.dict(namespace, load_config=lambda _: dict(config,model="non-Gemini"), call_image_model=forbidden):
+            assert main(["--strategic-gemini","--key","army.tier1.icon","--dry-run"])==2
+        key="fleet.tier3.icon"
+        raw_path=Path(scratch)/"raw"/(key+".png")
+        raw_path.write_bytes(b"tampered original")
+        before=(Path(out)/asset_relpath(key)).read_bytes()
+        with patch.dict(namespace, load_config=lambda _: config, call_image_model=forbidden):
+            assert main(["--strategic-gemini","--reconform","--key",key,"--raw",str(raw_path.parent),"--out",out])==1
+        assert before==(Path(out)/asset_relpath(key)).read_bytes()
+        matte=Image.new("RGB",(160,160),"white"); matte.paste(image,(16,16))
+        assert conform_strategic_candidate(matte)==conform_strategic_candidate(image)
     print("Strategic route/conformance check: PASS (six-only Gemini; default/key/all/reconform/native preservation; hashed raw replay)")
     return 0
 
