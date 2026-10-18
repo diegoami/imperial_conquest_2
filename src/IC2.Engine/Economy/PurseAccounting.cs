@@ -26,14 +26,11 @@ namespace IC2.Engine.Economy;
 /// themselves.
 /// </para>
 /// <para>
-/// <strong>Not the one credit — corrected by T72.</strong> The previous revision of these remarks called
-/// this "the one place a purse is credited". One writer adds money without going through
-/// <see cref="Credit"/>: battle absorption, <c>src/IC2.Engine/Battle/InstantBattleResolver.cs</c> line 194
-/// (<c>Money = winner.Money + absorbedMoney</c>), which matches the original's uncaptured purse of a won
-/// battle (report rows 12 and 12b [derived]) and needs no 1,000 clamp — but it is also a raw add with no
-/// <see cref="PurseFieldMax"/> bound, where the original wraps and the clone must not. That file is
-/// outside T72's Owns list (build-process.md §2.2), so the defect is reported to the bug list
-/// (§4.6) and is not patched here.
+/// <strong>Battle capture credits this field range, corrected by T193.</strong>
+/// <c>Battle.InstantBattleResolver.ResolveField</c> credits the loser's removed purse through
+/// <see cref="Credit"/>. There is no 1,000 cap; the field maximum discards excess without a treasury
+/// credit, following the approved no-wrap policy below. The battle result and event retain the full
+/// removed purse in <c>AbsorbedMoney</c>, even when the winning purse receives less at the field bound.
 /// </para>
 /// <para>
 /// <strong>The field range [derived: code; designed: the enforcement]</strong>. The purse field is signed
