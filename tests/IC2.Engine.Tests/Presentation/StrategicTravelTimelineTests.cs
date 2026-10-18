@@ -322,7 +322,10 @@ public sealed class StrategicTravelTimelineTests
         Assert.Empty(battle.StrategicTimeline.Steps.SelectMany(s => s.Routes));
         var step = Assert.Single(battle.StrategicTimeline.Steps, s => s.Events.OfType<BattleResolved>().Any());
         Assert.Contains(step.MarkersBefore, m => m.EntityId == before.Id);
-        Assert.True(step.After.ArmyById(before.Id) is null || !Equals(before, step.After.ArmyById(before.Id)));
+        var survivor = step.After.ArmyById(before.Id);
+        Assert.True(survivor is null || survivor.X != before.X || survivor.Y != before.Y);
+        if (survivor is null) Assert.DoesNotContain(step.MarkersAfter, m => m.EntityId == before.Id);
+        else Assert.Equal(new GridPoint(survivor.X, survivor.Y), step.MarkersAfter.Single(m => m.EntityId == before.Id).Position);
         Assert.True(step.StepId > move.StrategicTimeline.Steps.Last().StepId);
     }
 
