@@ -15,7 +15,7 @@ public sealed class TacticalPlaybackAudioTests
     public void Displayed_entry_delivers_every_exchange_once_in_order_through_terminal_and_half_rounds(double delay, bool finish)
     {
         var (session, frames) = TacticalSoundCuesTests.Battle();
-        var delivered = new List<string>();
+        var delivered = new List<TacticalAudioCue>();
         var adapter = new TacticalPlaybackAudio(session.Ruleset, () => true, delivered.Add);
         var queue = new TacticalPlayback { ShotDelay = delay, AttackDelay = delay };
         queue.ExchangeEntered += adapter.ExchangeEntered;
@@ -25,7 +25,7 @@ public sealed class TacticalPlaybackAudioTests
         Assert.False(queue.IsPlaying);
         queue.Finish(); queue.Advance(100); queue.Begin(frames); queue.Finish();
         Assert.Equal(frames.Where(f => f.Event is TacticalShotEvent or TacticalMeleeEvent)
-            .Select(f => TacticalSoundCues.ForExchange(f, session.Ruleset)), delivered);
+            .Select(f => new TacticalAudioCue(f.BattleId, f.FrameId, TacticalSoundCues.ForExchange(f, session.Ruleset)!)), delivered);
         Assert.True(frames.Count(f => f.Kind == TacticalFrameKind.HalfRound) > 1);
         Assert.Equal(TacticalFrameKind.Reconciliation, queue.CurrentFrame!.Kind);
         var before = delivered.Count;
@@ -40,7 +40,7 @@ public sealed class TacticalPlaybackAudioTests
         var (session, frames) = TacticalSoundCuesTests.Battle();
         var enabled = false;
         var delivered = new List<string>();
-        var adapter = new TacticalPlaybackAudio(session.Ruleset, () => enabled, delivered.Add);
+        var adapter = new TacticalPlaybackAudio(session.Ruleset, () => enabled, cue => delivered.Add(cue.Key));
         var exchanges = frames.Where(f => f.Event is TacticalShotEvent or TacticalMeleeEvent).Take(3).ToArray();
         Assert.Equal(3, exchanges.Length);
         var queue = new TacticalPlayback { ShotDelay = 1, AttackDelay = 1 };
