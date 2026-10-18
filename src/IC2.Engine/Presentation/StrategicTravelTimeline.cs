@@ -38,6 +38,7 @@ internal sealed class StrategicTravelTimeline : IStrategicObservationRecorder
     private string? _viewer;
     private bool _enabled = true;
     private List<Entry>? _checkpoint;
+    private object? _checkpointOwner;
     private GameState? _displayCheckpoint;
 
     internal bool Enabled => _enabled;
@@ -53,6 +54,7 @@ internal sealed class StrategicTravelTimeline : IStrategicObservationRecorder
         Release();
         _pending.Clear();
         _checkpoint = null;
+        _checkpointOwner = null;
         _display = _displayCheckpoint = null;
     }
 
@@ -69,6 +71,7 @@ internal sealed class StrategicTravelTimeline : IStrategicObservationRecorder
         Release();
         _pending.Clear();
         _checkpoint = null;
+        _checkpointOwner = null;
         _display = _displayCheckpoint = null;
     }
 
@@ -78,6 +81,7 @@ internal sealed class StrategicTravelTimeline : IStrategicObservationRecorder
         {
             _viewer = viewer;
             _checkpoint = new(_prefix);
+            _checkpointOwner = _owner;
             _displayCheckpoint = _display;
         });
     }
@@ -88,7 +92,10 @@ internal sealed class StrategicTravelTimeline : IStrategicObservationRecorder
         {
             _pending.Clear();
             _prefix = _checkpoint ?? new();
+            _owner = _checkpointOwner;
+            _checkpointOwner = null;
             _display = _displayCheckpoint;
+            _displayCheckpoint = null;
             _checkpoint = null;
             _attempt = false;
         });
@@ -192,6 +199,7 @@ internal sealed class StrategicTravelTimeline : IStrategicObservationRecorder
             result = new(++_batchId, ValueList.From(_pending));
             _pending.Clear();
             _checkpoint = null;
+            _checkpointOwner = null;
             _displayCheckpoint = null;
             // Published batches now own their own references. Only an active replay retains a prefix.
             if (!suspended) _display = null;

@@ -135,6 +135,19 @@ public sealed class StrategicTravelObservationTests
     }
 
     [Fact]
+    public void Direct_order_to_an_embarked_army_never_exposes_a_hidden_route()
+    {
+        var session = Session(change: state => state with
+        {
+            Armies = ValueList<ArmyState>.Of(state.Armies[0] with { AboardFleetId = "carrier", CoveredTileCode = null }),
+        });
+        var output = session.Submit("move a 2 0");
+        Assert.Empty(output.StrategicTimeline.Steps.SelectMany(s => s.Routes));
+        Assert.All(output.StrategicTimeline.Steps.SelectMany(s => s.MarkersBefore.Concat(s.MarkersAfter))
+            .Where(m => m.EntityId == "a"), m => Assert.False(m.Visible));
+    }
+
+    [Fact]
     public void Probe_only_walk_emits_no_observation()
     {
         var session = Session();

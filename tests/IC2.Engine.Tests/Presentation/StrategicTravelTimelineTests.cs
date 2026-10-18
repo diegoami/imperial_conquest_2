@@ -1,4 +1,9 @@
 using System.Reflection;
+using IC2.Engine.Ai;
+using IC2.Engine.Movement.Commands;
+using IC2.Engine.Tests.Ai;
+using IC2.Engine.Tests.Battle.Commands;
+using CaptureFixtures = IC2.Engine.Tests.Cities.Capture.CaptureTestbed;
 using IC2.Engine.Battle;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
@@ -115,6 +120,9 @@ public sealed class StrategicTravelTimelineTests
             var a = enabled.Submit("battle general on");
             var b = disabled.Submit("battle general on");
             current = a;
+            Assert.Equal(a.Battles, b.Battles);
+            Assert.Equal(a.EndedBattleReport, b.EndedBattleReport);
+            Assert.Equal(a.TacticalTimeline, b.TacticalTimeline);
             Assert.Equal(a.Lines, b.Lines);
             Assert.Equal(enabled.State, disabled.State);
             Assert.Equal(eventsA, eventsB);
@@ -283,6 +291,90 @@ public sealed class StrategicTravelTimelineTests
         var toy = CoreTestbed.Toy;
         return new GameSession(world, toy.Ruleset, toy.Scenario,
             new SaveGame(GameDataSchema.CurrentVersion, "test", "test", toy.Scenario.Id, world.Id, toy.Ruleset.Id, state));
+    }
+
+    [Fact]
+    public void Construction_prelude_is_delivered_once_for_the_designated_viewer()
+    {
+        var toy = CoreTestbed.Toy;
+        var session = new GameSession(toy.World, toy.Ruleset, toy.Scenario, humanSeatNationId: "south");
+        var output = session.Submit("status");
+        Assert.NotEmpty(output.StrategicTimeline.Steps);
+        Assert.All(output.StrategicTimeline.Steps, s => Assert.Equal("south", s.ViewerNationId));
+        Assert.Empty(session.Submit("status").StrategicTimeline.Steps);
+    }
+
+    [Fact]
+    public void Battle_removal_or_scatter_reconciles_atomically_after_a_real_route()
+    {
+        var armies = TacticalSessionTestbed.StrongAttacker();
+        armies[0] = armies[0] with { X = 2 };
+        var session = TacticalSessionTestbed.ToySession(HumanBattleMode.Instant, armies: armies);
+        var move = session.Submit("move north-army-1 3 2");
+        Assert.Single(move.StrategicTimeline.Steps.SelectMany(s => s.Routes));
+        var before = session.State.ArmyById("south-army-1")!;
+        var battle = session.Submit("attack-army north-army-1 south-army-1");
+        Assert.Single(battle.Battles);
+        Assert.Empty(battle.StrategicTimeline.Steps.SelectMany(s => s.Routes));
+        var step = Assert.Single(battle.StrategicTimeline.Steps, s => s.Events.OfType<BattleResolved>().Any());
+        Assert.Contains(step.MarkersBefore, m => m.EntityId == before.Id);
+        Assert.True(step.After.ArmyById(before.Id) is null || !Equals(before, step.After.ArmyById(before.Id)));
+        Assert.True(step.StepId > move.StrategicTimeline.Steps.Last().StepId);
+    }
+
+    [Fact]
+    public void Actual_ai_fallback_uses_real_session_recorder_and_discards_the_noop_route()
+    {
+        // As in AiGarrisonFallbackTests, inject an accepted same-tile first order to exercise
+        // the defensive fallback. A truthful planner now excludes every first-blocked march.
+        var state = AiScriptedStates.WithActiveSeat(BattleCommandTestbed.StateWith(
+            new[]
+            {
+                CaptureFixtures.Nation("north", treasury: 1000, capitalCityId: "n-cap") with { Personality = AiScriptedStates.DefaultPersonality },
+                CaptureFixtures.Nation("south", capitalCityId: "s-cap") with { Personality = AiScriptedStates.DefaultPersonality },
+            },
+            new[]
+            {
+                CaptureFixtures.City("n-cap", "Capital", 1, 1, "north", "north", 90, 100, 100, 100, 0) with { SupplyTons = 5000 },
+                CaptureFixtures.City("r-city", "Resupply", 6, 3, "north", "north", 90, 100, 100, 100, 0) with { SupplyTons = 0 },
+                CaptureFixtures.City("s-cap", "Other", 5, 4, "south", "south", 90, 100, 100, 100, 0),
+            },
+            new[] { CaptureFixtures.Army("a1", "north", 3, 3, 60, CaptureFixtures.Unit("light_infantry", 10000)) with { Moves = 9, Money = 500 } }), "north");
+        var session = From(state, AiScriptedStates.World);
+        var dispatcher = (CommandDispatcher)typeof(GameSession).GetField("_dispatcher", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(session)!;
+        var injected = new NoopFirstMove(dispatcher);
+        var events = new RecordingEventSink();
+        var outcome = AiTurn.Run(state, session.Ruleset, session.World, injected,
+            SplitMix64Rng.ForStream(1, "ai.turn"), events);
+        Assert.True(injected.Replaced);
+        Assert.Contains(outcome.Log, line => line.Contains("garrison fallback moved", StringComparison.Ordinal));
+        Assert.Equal(0, outcome.CommandsRejected);
+        typeof(GameSession).GetProperty(nameof(GameSession.State))!.SetValue(session, outcome.State);
+        var output = session.Submit("status");
+        var route = Assert.Single(output.StrategicTimeline.Steps.SelectMany(s => s.Routes));
+        Assert.Equal("a1", route.EntityId);
+        Assert.Equal(new GridPoint(3, 3), route.Origin);
+        var army = outcome.State.ArmyById("a1")!;
+        Assert.Equal(new GridPoint(army.X, army.Y), route.Destination);
+        var noop = Assert.Single(output.StrategicTimeline.Steps,
+            s => s.Events.OfType<ArmyMoved>().Any(m => m.FromX == m.ToX && m.FromY == m.ToY));
+        Assert.Empty(noop.Routes);
+        Assert.True(noop.StepId < output.StrategicTimeline.Steps.Single(s => s.Routes.Count > 0).StepId);
+    }
+
+    private sealed class NoopFirstMove(ICommandDispatch inner) : ICommandDispatch
+    {
+        public bool Replaced { get; private set; }
+        public CommandResult Dispatch(GameState state, ICommand command) => Dispatch(state, command, NullEventSink.Instance);
+        public CommandResult Dispatch(GameState state, ICommand command, IEventSink events)
+        {
+            if (!Replaced && command is MoveArmyCommand move)
+            {
+                Replaced = true;
+                command = move with { X = 3, Y = 3 };
+            }
+            return inner.Dispatch(state, command, events);
+        }
     }
 
     private static GameSession Battles()
