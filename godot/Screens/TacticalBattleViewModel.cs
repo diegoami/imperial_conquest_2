@@ -248,7 +248,7 @@ public sealed class TacticalBattleViewModel
     public string ControllerText => ResolvingHalfRound
         ? "Resolving previous half-round — controller handoff pending"
         : _view.IsOver ? "Battle complete — reconciling result"
-        : $"Half-round {_view.Counter} · {NationName(_view.SideToMove)} · "
+        : $"Half-round {_view.Counter} · {(_view.SideToMove == 0 ? "Attacker" : "Defender")} · {NationName(_view.SideToMove)} · "
           + (_view.ComputerControlled[_view.SideToMove] ? "Computer nation" : _view.ComputerGeneral[_view.SideToMove] ? "Computer general" : "Human")
           + (_view.Placed ? " · movement / combat" : " · placement");
 

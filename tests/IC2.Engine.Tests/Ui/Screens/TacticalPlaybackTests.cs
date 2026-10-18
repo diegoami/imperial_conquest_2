@@ -339,4 +339,132 @@ public sealed class TacticalPlaybackTests
         Assert.Same(rout.After, queue.Snapshot);
         Assert.Null(queue.Pose);
     }
+
+    [Theory]
+    [InlineData(0.1, 0.2, 0.1)]
+    [InlineData(1, 0.6, 0.4)]
+    [InlineData(3, 0.6, 0.4)]
+    public void Display_only_transition_pacing_is_bounded_and_arrival_has_its_own_wait(double delay, double travelSeconds, double arrivalSeconds)
+    {
+        var (_, _, ending) = Battle();
+        var move = ending.TacticalTimeline.First(f => f.Event is TacticalMovedEvent e && e.FromX != e.ToX
+            && f.Before.View.Slots[e.Slot].IsLive && !f.Before.PendingPlacementSlots.Contains(e.Slot));
+        var queue = new TacticalPlayback { ShotDelay = delay };
+        queue.Begin(new[] { move });
+        Assert.Equal(TacticalPlaybackStage.Travel, queue.Stage);
+        queue.Advance(travelSeconds * 0.25);
+        Assert.Equal(0.25, queue.Progress, 8);
+        queue.Advance(travelSeconds);
+        Assert.Equal(TacticalPlaybackStage.Arrival, queue.Stage);
+        Assert.Equal(0, queue.Progress);
+        queue.Advance(arrivalSeconds * 0.5);
+        Assert.Equal(TacticalPlaybackStage.Arrival, queue.Stage);
+        Assert.Equal(0.5, queue.Progress, 8);
+        queue.Finish();
+        Assert.Same(move.After, queue.Snapshot);
+    }
+
+    [Fact]
+    public void Every_cascade_victim_gets_its_own_ordered_hold_fade_and_removal_without_new_exchange()
+    {
+        var context = TacticalContext.From(TacticalTestbed.ToyRuleset);
+        var timeline = new TacticalBattleTimeline(context, "cascade-stages", "north", "south");
+        context.Observer = timeline.Observe;
+        var arena = TacticalTestbed.Arena(
+            (0, TacticalTestbed.Unit(TacticalTestbed.LI, 1, 1, 500, morale: 10)),
+            (1, TacticalTestbed.Unit(TacticalTestbed.LI, 2, 1, 500, morale: 31)),
+            (2, TacticalTestbed.Unit(TacticalTestbed.LI, 3, 1, 500, morale: 32)),
+            (20, TacticalTestbed.Unit(TacticalTestbed.HI, 4, 1, 500, morale: 60, target: 0)));
+        timeline.Observe(arena, null);
+        TacticalRout.Rout(arena, 0, context, NoDraws.Instance);
+        var queue = new TacticalPlayback { AttackDelay = 1 };
+        var cues = 0;
+        queue.ExchangeEntered += _ => cues++;
+        queue.Begin(timeline.Drain());
+        var held = new List<int>();
+        var faded = new List<int>();
+        var removed = new List<int>();
+        for (var i = 0; queue.IsPlaying && i < 1000; i++)
+        {
+            var frame = queue.CurrentFrame!;
+            if (queue.Stage == TacticalPlaybackStage.RoutHold)
+            {
+                held.Add(frame.Actor!.Slot);
+                Assert.NotNull(queue.Pose);
+                Assert.Equal(frame.Actor.Slot == 0 ? "UNIT ROUTED" : "ROUT CASCADE REMOVAL", Model(queue).DepartureLines[0].Split(" · ")[0]);
+            }
+            if (queue.Stage == TacticalPlaybackStage.RoutFade && queue.Progress > 0) faded.Add(frame.Actor!.Slot);
+            if (frame.Event is TacticalRoutedEvent or TacticalCascadeRemovedEvent && queue.Stage == TacticalPlaybackStage.Frame)
+            {
+                removed.Add(frame.Actor!.Slot);
+                Assert.Null(queue.Pose);
+                Assert.Same(frame.After, queue.Snapshot);
+                foreach (var slot in removed) Assert.DoesNotContain(Model(queue).VisualUnits, u => u.Cell.Slot == slot);
+            }
+            queue.Advance(1000);
+        }
+        Assert.Equal(new[] { 0, 1, 2 }, held);
+        Assert.Equal(held, faded);
+        Assert.Equal(held, removed);
+        Assert.Equal(0, cues);
+    }
+
+    [Fact]
+    public void Off_grid_pending_copy_in_and_no_distance_endpoints_never_fabricate_travel()
+    {
+        var (_, _, ending) = Battle();
+        var move = ending.TacticalTimeline.First(f => f.Event is TacticalMovedEvent);
+        var e = (TacticalMovedEvent)move.Event!;
+        foreach (var frame in new[]
+        {
+            move with { Event = e with { FromX = -1 } },
+            move with { Event = e with { ToX = e.FromX, ToY = e.FromY } },
+            move with { Kind = TacticalFrameKind.Placement, Event = new TacticalCopiedInEvent(e.Slot, e.ToX, e.ToY, 60) },
+            move with { Kind = TacticalFrameKind.Placement, Event = new TacticalPlacedEvent(e.Slot, e.FromX, e.FromY, e.ToX, e.ToY),
+                Before = move.Before with { PendingPlacementSlots = ValueList.Of(e.Slot) } },
+        })
+        {
+            var queue = new TacticalPlayback { ShotDelay = 1 };
+            queue.Begin(new[] { frame });
+            Assert.Null(queue.Pose);
+            Assert.NotEqual(TacticalPlaybackStage.Travel, queue.Stage);
+            queue.Finish();
+            Assert.Same(frame.After, queue.Snapshot);
+        }
+    }
+
+    [Fact]
+    public void Overkill_rout_fades_the_last_actually_displayed_glyph_despite_negative_current_icon()
+    {
+        var toy = TacticalSessionTestbed.Toy;
+        var world = toy.World with
+        {
+            StartingArmies = ValueList.From(toy.World.StartingArmies.Select(a => a.Id == "south-army-1"
+                ? a with { X = 4, Y = 2, Units = ValueList.Of(new UnitSlot(0, "heavy_infantry", 50_000, 6, "Guards")) }
+                : a)),
+        };
+        var session = new GameSession(world, toy.Ruleset, toy.Scenario) { HumanBattles = HumanBattleMode.Tactical };
+        session.Submit("declare-war south");
+        var opening = session.Submit("end");
+        var ending = session.BattleGeneral(true);
+        var queue = new TacticalPlayback { AttackDelay = 1 };
+        queue.Begin(opening.TacticalTimeline.Concat(ending.TacticalTimeline));
+        var overkill = 0;
+        for (var i = 0; queue.IsPlaying && i < 100000; i++)
+        {
+            if (queue.Stage == TacticalPlaybackStage.RoutHold && queue.CurrentFrame is { } frame
+                && frame.Before.View.Slots[frame.Actor!.Slot].Troops < 0)
+            {
+                overkill++;
+                var pose = Assert.IsType<TacticalPose>(queue.Pose);
+                Assert.Equal(frame.Actor.Slot, pose.Glyph.Slot);
+                Assert.InRange(pose.Glyph.Code, 0, TacticalIcon.DefenderOffset + 14);
+                Assert.Equal(frame.Before.View.Slots[frame.Actor.Slot].X, pose.X);
+                Assert.Single(Model(queue).VisualUnits, u => u.Cell.Slot == frame.Actor.Slot);
+                Assert.Contains(Model(queue).CurrentExchangeLines, l => l.Contains("LOSSES"));
+            }
+            queue.Advance(1000);
+        }
+        Assert.True(overkill > 0);
+    }
 }

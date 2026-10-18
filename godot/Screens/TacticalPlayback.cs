@@ -227,7 +227,9 @@ public sealed class TacticalPlayback
                 var glyph = _glyphs[slot];
                 var unit = snapshot.View.Slots[slot];
                 if (snapshot.PendingPlacementSlots.Contains(slot) || unit.X != glyph.X || unit.Y != glyph.Y
-                    || snapshot.View.Grid[glyph.X * snapshot.Height + glyph.Y] == TacticalIcon.Empty) _glyphs.Remove(slot);
+                    || snapshot.View.Grid[glyph.X * snapshot.Height + glyph.Y] == TacticalIcon.Empty
+                    || snapshot.View.Slots.Where((covering, index) => index != slot && covering.IsLive
+                        && covering.X == glyph.X && covering.Y == glyph.Y && !snapshot.PendingPlacementSlots.Contains(index)).Any()) _glyphs.Remove(slot);
             }
             for (var slot = 0; slot < snapshot.View.Slots.Count; slot++)
                 if (GlyphAt(snapshot, slot) is { } glyph) _glyphs[slot] = glyph;
@@ -241,7 +243,14 @@ public sealed class TacticalPlayback
         var unit = snapshot.View.Slots[slot];
         if (!unit.IsLive || unit.X < 0 || unit.Y < 0 || unit.X >= snapshot.Width || unit.Y >= snapshot.Height) return null;
         var code = snapshot.View.Grid[unit.X * snapshot.Height + unit.Y];
-        if (code < 0) return null;
+        if (code < 0 || code == TacticalIcon.Empty) return null;
+        // Stacked cells show the last live slot, exactly as the view-model does. Do not cache
+        // an obscured unit as if a glyph for it had actually been displayed.
+        for (var other = slot + 1; other < snapshot.View.Slots.Count; other++)
+        {
+            var covering = snapshot.View.Slots[other];
+            if (covering.IsLive && covering.X == unit.X && covering.Y == unit.Y && !snapshot.PendingPlacementSlots.Contains(other)) return null;
+        }
         var type = code % TacticalIcon.DefenderOffset / TacticalIcon.SizesPerType;
         if (type >= snapshot.View.UnitTypeIds.Count) return null;
         return new TacticalGlyph(slot, unit.X, unit.Y, code, slot / Math.Max(1, snapshot.View.Slots.Count / 2), snapshot.View.UnitTypeIds[type]);

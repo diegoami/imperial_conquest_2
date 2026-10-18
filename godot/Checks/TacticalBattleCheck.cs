@@ -50,6 +50,7 @@ public partial class TacticalBattleCheck : Node
             CheckSaveAsDuringTheBattleReopensIt();
             CheckThePausesAreDisplayOnly();
             CheckTypedFramePlayback();
+            CheckContinuousStages();
             CheckConsecutiveAiBattles();
             CheckSurrender();
             CheckAnAiPhaseBattleIsFoughtOnTheSameScreen();
@@ -158,7 +159,7 @@ public partial class TacticalBattleCheck : Node
                 }
                 if (main.ActiveOverlay is not BattleEndedScreen) throw new InvalidOperationException("Terminal replay did not route to result.");
                 await Capture($"{pack}-result", screen);
-                foreach (var required in new[] { "human-combat-round", "human-after-enemy-melee", "general-handoff", "movement", "shot", "melee-history", "rout", "terminal", "reconciliation", "travel-0-start", "travel-0-interior", "travel-0-arrival", "travel-1-start", "travel-1-interior", "travel-1-arrival", "enemy-announcement", "rout-hold", "rout-fade-interior", "rout-removed" })
+                foreach (var required in new[] { "human-combat-round", "human-after-enemy-melee", "general-handoff", "movement", "shot", "melee-history", "rout", "terminal", "reconciliation", "travel-0-start", "travel-0-interior", "travel-0-arrival", "travel-0-following-fight", "travel-1-start", "travel-1-interior", "travel-1-arrival", "travel-1-following-fight", "enemy-announcement", "rout-hold", "rout-fade-interior", "rout-removed" })
                     if (!captured.Contains(required)) throw new InvalidOperationException($"Missing visual stage {pack}/{required}");
                 GD.Print($"T180 visual stages {pack}: {string.Join(", ", captured.Order())}");
                 Free(main);
@@ -193,20 +194,35 @@ public partial class TacticalBattleCheck : Node
         if (screen.PlaybackPose is { Departing: false } moving)
         {
             var travel = $"travel-{moving.Glyph.Side}";
-            if (!selected.ContainsKey(travel)) selected[travel] = frame.FrameId;
+            if (!selected.ContainsKey(travel))
+            {
+                selected[travel] = frame.FrameId;
+                selected[travel + "-slot"] = moving.Glyph.Slot;
+            }
             if (selected[travel] == frame.FrameId)
                 key = screen.PlaybackStage == TacticalPlaybackStage.Arrival ? travel + "-arrival"
-                    : screen.PlaybackProgress == 0 ? travel + "-start" : travel + "-interior";
+                    : screen.PlaybackProgress == 0 ? travel + "-start" : screen.PlaybackProgress is >= 0.45 and <= 0.6 ? travel + "-interior" : null;
         }
         if (screen.PlaybackPose is { Departing: true })
         {
             if (!selected.ContainsKey("rout")) selected["rout"] = frame.FrameId;
             if (selected["rout"] == frame.FrameId)
                 key = screen.PlaybackStage == TacticalPlaybackStage.RoutHold ? "rout-hold"
-                    : screen.PlaybackProgress > 0 ? "rout-fade-interior" : "rout-fade-start";
+                    : screen.PlaybackProgress == 0 ? "rout-fade-start" : screen.PlaybackProgress is >= 0.45 and <= 0.6 ? "rout-fade-interior" : null;
         }
         if (selected.TryGetValue("rout", out var routed) && frame.FrameId == routed && screen.PlaybackStage == TacticalPlaybackStage.Frame)
             key = "rout-removed";
+        if (frame.Event is TacticalShotEvent or TacticalMeleeEvent)
+            for (var side = 0; side < 2; side++)
+            {
+                var travel = $"travel-{side}";
+                if (selected.TryGetValue(travel + "-slot", out var slot) && frame.FrameId > selected[travel]
+                    && (frame.Actor?.Slot == slot || frame.Target?.Slot == slot) && captured.Contains(travel + "-arrival"))
+                {
+                    var fight = travel + "-following-fight";
+                    if (captured.Add(fight)) await Capture($"{pack}-temporal-{fight}", screen);
+                }
+            }
         if (key is not null && captured.Add(key)) await Capture($"{pack}-temporal-{key}", screen);
     }
 
@@ -214,10 +230,12 @@ public partial class TacticalBattleCheck : Node
     {
         var frame = screen.DisplayedFrame;
         var controller = screen.ControllerLabel.Text;
-        var transition = $"stage {screen.PlaybackStage} progress {screen.PlaybackProgress:0.000} pose {screen.PlaybackPose}";
-        var receipt = UiKit.MakeLabel($"T180 {name} | {frame?.BattleId} command {frame?.CommandId} frame {frame?.FrameId} {frame?.Kind} | {transition}", AppTheme.Note + 5, Colors.White);
+        var pose = screen.PlaybackPose;
+        var transition = $"stage {screen.PlaybackStage} progress {screen.PlaybackProgress:0.000} pose {pose}";
+        var position = pose is null ? "no transient glyph" : $"#{pose.Glyph.Slot} at ({pose.X:0.00},{pose.Y:0.00}) opacity {pose.Opacity:0.00}";
+        var receipt = UiKit.MakeLabel($"T180 {name}\nframe {frame?.FrameId} {frame?.Kind} · {screen.PlaybackStage} {screen.PlaybackProgress:0%}\n{position}", AppTheme.Body + 6, Colors.White);
         receipt.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        receipt.Size = new Vector2(420, 70);
+        receipt.Size = new Vector2(460, 140);
         // Receipt is check-only evidence metadata; it never changes production captions or snapshot values.
         AddChild(receipt);
         foreach (var size in new[] { new Vector2I(1280, 800), new Vector2I(1024, 768) })
@@ -225,7 +243,7 @@ public partial class TacticalBattleCheck : Node
             GetWindow().Size = size;
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-            receipt.Position = new Vector2(12, GetViewport().GetVisibleRect().Size.Y - 80);
+            receipt.Position = new Vector2(12, GetViewport().GetVisibleRect().Size.Y - 145);
             await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
             var path = Path.Combine(GameDataContext.RepositoryRoot, "rendered", $"T180-{name}-{size.X}x{size.Y}.png");
             var error = GetViewport().GetTexture().GetImage().SavePng(path);
@@ -450,7 +468,7 @@ public partial class TacticalBattleCheck : Node
         slowScreen.AdvancePlayback(0.5);
         Check(slowScreen.ExchangesShown == firstShown && slowScreen.ExchangeLabel.Text == firstText, "it waits between exchanges (after 0.5 s: still the first)");
         slowScreen.AdvancePlayback(10);
-        Check(slowScreen.ExchangesShown > firstShown || !slowScreen.IsPlayingBack, "elapsed time traverses movement and subsequent exchanges");
+        Check(slowScreen.ExchangesShown > firstShown || slowScreen.PlaybackStage is TacticalPlaybackStage.Travel or TacticalPlaybackStage.Arrival or TacticalPlaybackStage.Announcement or TacticalPlaybackStage.RoutHold or TacticalPlaybackStage.RoutFade || !slowScreen.IsPlayingBack, "oversized elapsed time reaches a protected visible stage or subsequent exchange");
 
         // A click on the side panel during the replay ends it.
         slowScreen.PanelClicked();
@@ -499,11 +517,12 @@ public partial class TacticalBattleCheck : Node
         {
             seen.Add(frame);
             Check(main.ActiveOverlay == screen, "result remains behind every entered frame");
-            Check(screen.Model.View == frame.After.View, "board and panels read displayed frame snapshot");
-            Check(screen.Model.Cells.Select(c => c.Code).SequenceEqual(frame.After.View.Grid), "complete displayed grid equals producer grid");
+            var displayed = screen.PlaybackStage is TacticalPlaybackStage.Travel or TacticalPlaybackStage.RoutHold or TacticalPlaybackStage.RoutFade ? frame.Before : frame.After;
+            Check(screen.Model.View == displayed.View, "board and panels read displayed transition snapshot");
+            Check(screen.Model.Cells.Select(c => c.Code).SequenceEqual(displayed.View.Grid), "complete displayed grid equals producer grid");
             for (var side = 0; side < 2; side++)
                 foreach (var row in screen.Model.RosterRows(side))
-                    Check(row.Cells[2] == frame.After.View.Slots[row.Slot].Troops.ToString(), "roster troops equal displayed snapshot");
+                    Check(row.Cells[2] == displayed.View.Slots[row.Slot].Troops.ToString(), "roster troops equal displayed snapshot");
             if (frame.Kind == TacticalFrameKind.HalfRound)
                 Check(screen.ControllerLabel.Text.Contains("handoff pending") && !screen.CaptionLabel.Text.Contains("to move units"), "pre-melee handoff does not announce next human turn");
             if (frame.Kind == TacticalFrameKind.Terminal) terminalSeen = true;
@@ -541,6 +560,68 @@ public partial class TacticalBattleCheck : Node
         screen.SkipPlayback();
         screen.AdvancePlayback(100);
         Check(seen.Count == count, "finish and advance after completion repeat no frames");
+        Free(main);
+        SettingsScreen.SetBattlePauses(0, 0);
+    }
+
+    private void CheckContinuousStages()
+    {
+        SettingsScreen.SetBattlePauses(0, 0);
+        var main = Build(ClassicalSession());
+        main.SubmitForCheck(Attack);
+        var screen = (TacticalBattleScreen)main.ActiveOverlay!;
+        screen.SetProcess(false);
+        SettingsScreen.SetBattlePauses(1, 1);
+        screen.PressToolbarButton("computer_general");
+        var visits = new HashSet<string>();
+        var entered = new List<long>();
+        screen.FrameEntered += f => entered.Add(f.FrameId);
+        var routedFrame = -1L;
+        for (var i = 0; screen.IsPlayingBack && i < 100000; i++)
+        {
+            var frame = screen.DisplayedFrame!;
+            var model = screen.Model;
+            Check(model.View == screen.DisplayedSnapshot.View, "progress retains one shared displayed view");
+            Check(model.Cells.Select(c => c.Code).SequenceEqual(screen.DisplayedSnapshot.View.Grid), "progress board grid and panels agree");
+            Check(model.VisualUnits.Where(u => u.Cell.Slot >= 0).GroupBy(u => u.Cell.Slot).All(g => g.Count() == 1), "no stationary duplicate during travel or departure");
+            if (screen.PlaybackStage == TacticalPlaybackStage.Announcement && model.View.ComputerControlled[model.View.SideToMove])
+            {
+                Check(screen.ControllerLabel.Text.Contains("TURN BEGINS") && screen.ControllerLabel.Text.Contains("Computer nation"), "enemy controller has a visible turn announcement");
+                visits.Add("enemy");
+            }
+            if (screen.PlaybackPose is { } pose)
+            {
+                var glyph = model.VisualUnits.Single(u => u.Cell.Slot == pose.Glyph.Slot);
+                Check(glyph.X == pose.X && glyph.Y == pose.Y && glyph.Opacity == pose.Opacity, "production board/minimap consume shared interpolated pose");
+                Check(model.ParticipantLines(pose.Glyph.Slot, "unit").Any(l => l.Contains(model.PositionText(pose.Glyph.Slot))), "participant position follows displayed pose");
+                if (!pose.Departing)
+                {
+                    var phase = screen.PlaybackStage == TacticalPlaybackStage.Arrival ? "arrival" : screen.PlaybackProgress == 0 ? "start" : "interior";
+                    visits.Add($"side{pose.Glyph.Side}-{phase}");
+                    Check(screen.DisplayedSnapshot == (screen.PlaybackStage == TacticalPlaybackStage.Arrival ? frame.After : frame.Before), "travel commits complete snapshot only at arrival");
+                }
+                else
+                {
+                    Check(screen.ExchangeLabel.Text.Contains("UNIT ROUTED") || screen.ExchangeLabel.Text.Contains("ROUT CASCADE REMOVAL"), "prominent rout identity remains beside numeric exchange losses");
+                    Check(screen.ExchangeLabel.Text.Contains("LOSSES"), "rout retains numeric current-exchange losses");
+                    Check(glyph.X == pose.Glyph.X && glyph.Y == pose.Glyph.Y, "rout fades at last displayed position");
+                    routedFrame = frame.FrameId;
+                    if (screen.PlaybackStage == TacticalPlaybackStage.RoutHold) visits.Add("hold");
+                    if (screen.PlaybackStage == TacticalPlaybackStage.RoutFade && pose.Opacity is > 0 and < 1) visits.Add("fade");
+                }
+            }
+            if (frame.FrameId == routedFrame && screen.PlaybackStage == TacticalPlaybackStage.Frame)
+            {
+                Check(screen.PlaybackPose is null && screen.DisplayedSnapshot == frame.After, "fade completion atomically removes presentation glyph and commits After");
+                Check(!model.RosterRows(frame.Actor!.Side).Any(r => r.Slot == frame.Actor.Slot), "rout commit removes roster row with board glyph");
+                visits.Add("removed");
+            }
+            screen.AdvancePlayback(1000);
+        }
+        Check(!screen.IsPlayingBack && main.ActiveOverlay is BattleEndedScreen, "all protected transitions and reconciliation precede result");
+        foreach (var required in new[] { "enemy", "side0-start", "side0-interior", "side0-arrival", "side1-start", "side1-interior", "side1-arrival", "hold", "fade", "removed" })
+            Check(visits.Contains(required), "large-delta production traversal observes " + required);
+        Check(entered.Distinct().Count() == entered.Count, "progress ticks never duplicate frame entries");
         Free(main);
         SettingsScreen.SetBattlePauses(0, 0);
     }

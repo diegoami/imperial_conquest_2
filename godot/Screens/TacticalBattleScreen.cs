@@ -53,6 +53,7 @@ public partial class TacticalBattleScreen : Control
     public event Action<TacticalBattleFrame>? ExchangeEntered;
     public event Action<TacticalBattleFrame>? FrameEntered;
     public TacticalBattleFrame? DisplayedFrame => _playback.CurrentFrame;
+    public TacticalPresentationSnapshot DisplayedSnapshot => _snapshot;
     public TacticalPlaybackStage PlaybackStage => _playback.Stage;
     public double PlaybackProgress => _playback.Progress;
     public TacticalPose? PlaybackPose => _playback.Pose;
@@ -62,6 +63,7 @@ public partial class TacticalBattleScreen : Control
     public Label TargetLabel { get; private set; } = null!;
     public IReadOnlyList<string> RosterTexts => _rosterTexts;
     private readonly List<string> _rosterTexts = new();
+    private readonly Dictionary<int, Button> _rosterRowButtons = new();
 
     /// <summary>The repository root, where the asset packs live.</summary>
     public required string RepositoryRoot { get; init; }
@@ -554,6 +556,7 @@ public partial class TacticalBattleScreen : Control
         ControllerLabel.Text = (_playback.Stage == TacticalPlaybackStage.Announcement ? "TURN BEGINS · " : "") + Model.ControllerText;
         PanelLabel.Text = string.Join("\n", Model.PanelLines);
         ExchangeLabel.Text = string.Join("\n", Model.CurrentExchangeLines);
+        ExchangeLabel.AddThemeColorOverride("font_color", Model.DepartureLines.Count > 0 ? new Color(1f, 0.7f, 0.25f) : UiKit.TextColor);
         PreviousExchangeLabel.Text = string.Join("\n", Model.PreviousExchangeLines);
         ActorLabel.Text = string.Join("\n", Model.ActorLines);
         TargetLabel.Text = string.Join("\n", Model.TargetLines);
@@ -567,8 +570,39 @@ public partial class TacticalBattleScreen : Control
         _minimap.QueueRedraw();
     }
 
+    private string RosterText(BattleListRow row, int side)
+    {
+        var text = string.Join(" · ", row.Cells);
+        if (_listKind == ListKind.UnitMoves && Model.CanSeeDetails(side))
+        {
+            var unit = _view.Slots[row.Slot];
+            text += $" · moves {unit.Moves} · shots {unit.Shots}";
+        }
+        return text;
+    }
+
     private void RebuildList()
     {
+        var displayedRows = new[] { Model.RosterRows(0), Model.RosterRows(1) };
+        _listTitle.Text = "Both armies · " + (_listKind == ListKind.UnitMoves ? "moves and combat" : "battle roster");
+        // Continuous progress changes text, not roster membership. Reuse controls and scroll positions.
+        if (_rosterRowButtons.Count > 0 && _rosterRowButtons.Keys.Order().SequenceEqual(displayedRows.SelectMany(r => r).Select(r => r.Slot).Order()))
+        {
+            _rosterTexts.Clear();
+            for (var side = 0; side < 2; side++)
+            {
+                _rosterTexts.Add(Model.RosterTitle(side));
+                foreach (var row in displayedRows[side])
+                {
+                    var text = RosterText(row, side);
+                    _rosterTexts.Add(text);
+                    _rosterRowButtons[row.Slot].Text = text;
+                    _rosterRowButtons[row.Slot].TooltipText = text;
+                }
+            }
+            return;
+        }
+        _rosterRowButtons.Clear();
         foreach (var child in _listBox.GetChildren())
         {
             _listBox.RemoveChild(child);
@@ -590,12 +624,7 @@ public partial class TacticalBattleScreen : Control
             scroll.AddChild(rows);
             foreach (var row in Model.RosterRows(side))
             {
-                var text = string.Join(" · ", row.Cells);
-                if (_listKind == ListKind.UnitMoves && Model.CanSeeDetails(side))
-                {
-                    var unit = _view.Slots[row.Slot];
-                    text += $" · moves {unit.Moves} · shots {unit.Shots}";
-                }
+                var text = RosterText(row, side);
                 _rosterTexts.Add(text);
                 var slot = row.Slot;
                 var button = new Button { Text = text, Flat = true, Alignment = HorizontalAlignment.Left,
@@ -608,6 +637,7 @@ public partial class TacticalBattleScreen : Control
                     SelectedSlot = slot;
                     Refresh();
                 };
+                _rosterRowButtons[slot] = button;
                 rows.AddChild(button);
             }
         }
