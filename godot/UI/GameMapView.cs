@@ -74,17 +74,14 @@ public partial class GameMapView : Control
         return route.EnteredCells.Prepend(route.Origin).Any(p => rect.HasPoint(TileCenterForCheck(p.X, p.Y)));
     }
 
-    public void ReconcileSelection()
+    public void ReconcileSelection(string? armyId = null, string? fleetId = null, string? cityId = null)
     {
-        if (_clearSelectionOnArrival)
-        {
-            _clearSelectionOnArrival = false;
-            ClearSelection();
-            return;
-        }
-        if ((_selectedArmyId is { } a && (DisplayState.ArmyById(a) is not { } army || army.Moves < 1))
-            || (_selectedFleetId is { } f && (DisplayState.FleetById(f) is not { } fleet || fleet.Moves < 1))
-            || (_selectedCityId is { } c && DisplayState.CityById(c) is null)) ClearSelection();
+        armyId ??= _selectedArmyId; fleetId ??= _selectedFleetId; cityId ??= _selectedCityId;
+        if (_clearSelectionOnArrival
+            || (armyId is { } a && !StrategicTravelPlayback.SelectionSurvives(DisplayState, IC2.Engine.Movement.StrategicMarkerKind.Army, a))
+            || (fleetId is { } f && !StrategicTravelPlayback.SelectionSurvives(DisplayState, IC2.Engine.Movement.StrategicMarkerKind.Fleet, f))
+            || (cityId is { } c && !StrategicTravelPlayback.SelectionSurvives(DisplayState, IC2.Engine.Movement.StrategicMarkerKind.City, c)))
+            ClearCompletedSelection();
     }
 
     private const float BaseTileSize = 6f;
@@ -539,6 +536,12 @@ public partial class GameMapView : Control
     {
         if (TravelPlayback?.IsActive == true) { _clearSelectionOnArrival = true; return; }
         if (!InputAllowed) return;
+        ClearCompletedSelection();
+    }
+
+    private void ClearCompletedSelection()
+    {
+        _clearSelectionOnArrival = false;
         _selectedCityId = null;
         _selectedArmyId = null;
         _selectedFleetId = null;
@@ -936,7 +939,7 @@ public partial class GameMapView : Control
         var state = _session!.State;
         var world = _session.World;
 
-        var marker = StrategicMarkerGeometry.Pick(VisibleStrategicMarkers(), screenPosition.X, screenPosition.Y,
+        var marker = StrategicMarkerGeometry.Pick(VisibleStrategicMarkers(state), screenPosition.X, screenPosition.Y,
             BaseTileSize * _zoom, _pan.X, _pan.Y);
         if (marker is { } hit)
         {
@@ -1195,6 +1198,8 @@ public partial class GameMapView : Control
     }
 
     /// <summary>Makes the entity the map's selection (and the panel's subject) through the same path a plain select uses.</summary>
+    public void SelectStrategicForCheck(MapEntityKind kind, string id) => FocusAsSelection(kind, id);
+
     private void FocusAsSelection(MapEntityKind kind, string id)
     {
         switch (kind)
@@ -1245,12 +1250,15 @@ public partial class GameMapView : Control
         _session?.State.Cities.FirstOrDefault(c => c.X == x && c.Y == y);
 
     // One visible set for picking and drawing; hidden cargo/building fleets cannot intercept input.
-    private IEnumerable<StrategicMarker> VisibleStrategicMarkers() => _session is null
-        ? Enumerable.Empty<StrategicMarker>()
-        : DisplayState.Armies.Where(a => a.AboardFleetId is null)
+    private IEnumerable<StrategicMarker> VisibleStrategicMarkers(GameState? state = null)
+    {
+        if (_session is null) return Enumerable.Empty<StrategicMarker>();
+        state ??= DisplayState;
+        return state.Armies.Where(a => a.AboardFleetId is null)
             .Select(a => new StrategicMarker(a.Id, StrategicMarkerKind.Army, a.X, a.Y))
-            .Concat(DisplayState.Fleets.Where(f => !f.IsUnderConstruction)
+            .Concat(state.Fleets.Where(f => !f.IsUnderConstruction)
                 .Select(f => new StrategicMarker(f.Id, StrategicMarkerKind.Fleet, f.X, f.Y)));
+    }
 
     public override void _Draw()
     {

@@ -79,13 +79,10 @@ public partial class MainGameScreen : Control
         }
     }
 
-    private void ReconcileDisplaySelection()
-    {
-        _mapView.ReconcileSelection();
-        if ((_selectedArmyId is { } a && (DisplayState.ArmyById(a) is not { } army || army.Moves < 1))
-            || (_selectedFleetId is { } f && (DisplayState.FleetById(f) is not { } fleet || fleet.Moves < 1))
-            || (_selectedCityId is { } c && DisplayState.CityById(c) is null)) _mapView.ClearSelection();
-    }
+    private void ReconcileDisplaySelection() =>
+        _mapView.ReconcileSelection(_selectedArmyId, _selectedFleetId, _selectedCityId);
+
+    private void OnStrategicBoundaryCompleted(StrategicTravelStep step) => ReconcileDisplaySelection();
 
     private bool AllowStrategicInput()
     {
@@ -457,6 +454,7 @@ public partial class MainGameScreen : Control
         _areaMapView.DisplayStateSource = () => DisplayState;
         StrategicTravel.IntersectsViewport = _mapView.RouteIntersectsViewport;
         StrategicTravel.Changed += RefreshTravelDisplay;
+        StrategicTravel.BoundaryCompleted += OnStrategicBoundaryCompleted;
         _mapView.Attach(Session, RepositoryRoot);
         _areaMapView.Attach(Session, _mapView);
 
@@ -995,11 +993,7 @@ public partial class MainGameScreen : Control
     public void SelectArmyForCheck(string armyId)
     {
         if (!AllowStrategicInput()) return;
-        _selectedArmyId = armyId;
-        _selectedFleetId = null;
-        _selectedCityId = null;
-        _contextPanel.ShowArmy(armyId);
-        UpdateCommandStrip();
+        _mapView.SelectStrategicForCheck(MapEntityKind.Army, armyId);
     }
 
     /// <summary>
@@ -1010,11 +1004,7 @@ public partial class MainGameScreen : Control
     public void SelectFleetForCheck(string fleetId)
     {
         if (!AllowStrategicInput()) return;
-        _selectedArmyId = null;
-        _selectedFleetId = fleetId;
-        _selectedCityId = null;
-        _contextPanel.ShowFleet(fleetId);
-        UpdateCommandStrip();
+        _mapView.SelectStrategicForCheck(MapEntityKind.Fleet, fleetId);
     }
 
     /// <summary>
@@ -1024,11 +1014,7 @@ public partial class MainGameScreen : Control
     public void SelectCityForCheck(string cityId)
     {
         if (!AllowStrategicInput()) return;
-        _selectedArmyId = null;
-        _selectedFleetId = null;
-        _selectedCityId = cityId;
-        _contextPanel.ShowCity(cityId);
-        UpdateCommandStrip();
+        _mapView.SelectStrategicForCheck(MapEntityKind.City, cityId);
     }
 
     /// <summary>
@@ -1865,22 +1851,36 @@ public partial class MainGameScreen : Control
         if (Session.OpenTacticalBattle is not null)
             _nextTacticalOpening = _nextTacticalOpening.Concat(exact.TacticalTimeline).Distinct().ToArray();
         var batch = exact.StrategicTimeline;
-        if (batch.Steps.Any(step => step.Routes.Any(route => route.EnteredCells.Count > 0)))
+        if (batch.Steps.Count > 0)
         {
             StrategicTravel.Begin(batch, _displayViewer, () =>
             {
                 if (_closing) return;
                 ReconcileDisplaySelection();
                 PresentCommand(lines, exact);
-            });
+            }, retainArrival: Session.OpenTacticalBattle is not null);
             RefreshTravelDisplay();
             if (StrategicTravel.CellSeconds <= 0) StrategicTravel.Skip();
             return;
         }
+        if (Session.OpenTacticalBattle is null) StrategicTravel.ReleaseArrival();
         PresentCommand(lines, exact);
     }
 
+    private int _commandRoutingDepth;
+
     private void PresentCommand(IReadOnlyList<string> lines, SessionOutput retained)
+    {
+        _commandRoutingDepth++;
+        try { PresentCommandCore(lines, retained); }
+        finally
+        {
+            _commandRoutingDepth--;
+            if (_commandRoutingDepth == 0) ShowNextOverlay();
+        }
+    }
+
+    private void PresentCommandCore(IReadOnlyList<string> lines, SessionOutput retained)
     {
         // Consume the tactical completion's own retained facts before any callback can submit Save/help
         // and replace the session's Last* properties. Ordinary command callbacks keep their existing source.
@@ -1892,6 +1892,7 @@ public partial class MainGameScreen : Control
         // input path -- map click, context-panel button, End Turn, SubmitForCheck, Save -- funnels
         // through here.
         CommandIssued?.Invoke(lines);
+        if (_closing) return;
 
         // Reconcile removal/exhaustion before panel and strip refresh, regardless of issuing control.
         ReconcileDisplaySelection();
@@ -2098,6 +2099,7 @@ public partial class MainGameScreen : Control
     {
         _closing = true;
         StrategicTravel.Changed -= RefreshTravelDisplay;
+        StrategicTravel.BoundaryCompleted -= OnStrategicBoundaryCompleted;
         StrategicTravel.Close();
         SidePanelToggle.Changed -= ApplySidePanelState;
 
@@ -2137,7 +2139,7 @@ public partial class MainGameScreen : Control
 
     private void ShowNextOverlay()
     {
-        if (_closing || StrategicTravel.IsActive) return;
+        if (_closing || StrategicTravel.IsActive || _commandRoutingDepth > 0) return;
         // Saving still writes authoritative state while replay is intermediate. Its ordinary command
         // callback must not open a peace/result/next-battle window ahead of terminal consumption.
         if (ActiveOverlay is TacticalBattleScreen { IsPlayingBack: true } or BattleEndedScreen) return;

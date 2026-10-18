@@ -15,6 +15,7 @@ public partial class StrategicTravelCheck : Node
     private bool _ok = true;
     private MainGameScreen? _main;
     private readonly List<(string File, string Caption)> _captures = new();
+    private readonly HashSet<string> _pacingPacks = new();
     private readonly string? _directory = System.Environment.GetEnvironmentVariable("IC2_TRAVEL_CAPTURE_DIR");
     private string _pack = "";
 
@@ -26,6 +27,8 @@ public partial class StrategicTravelCheck : Node
         var attack = SettingsScreen.BattleAttackDelaySeconds;
         try
         {
+            if (!string.IsNullOrWhiteSpace(_directory) && DisplayServer.GetName() == "headless")
+                throw new InvalidOperationException("Window evidence requires the real windowed display driver.");
             SettingsScreen.SetSoundEnabledForCheck(false);
             foreach (var selected in new[] { "authored", "placeholder" })
             {
@@ -36,10 +39,15 @@ public partial class StrategicTravelCheck : Node
                     await CheckTravel(fleet, selection);
                 await CheckProjectionAndLifecycle();
                 await CheckBoundaryReconciliation();
+                await CheckSelectionAtActionBoundary();
                 await CheckBattleBarrier();
                 await CheckAiLap(false);
                 await CheckAiLap(true);
+                await CheckSiegeArrival();
+                await CheckFallHandoffNoticeOrder();
+                await CheckPeaceOrder();
                 await CheckOffscreenAndClosure();
+                if (!string.IsNullOrWhiteSpace(_directory)) await CapturePacing();
             }
         }
         catch (Exception ex) { Require(false, ex.ToString()); }
@@ -61,6 +69,7 @@ public partial class StrategicTravelCheck : Node
     {
         var session = MovementSession(fleet, 2);
         var main = await Open(session);
+        Require(main.MapView.LoadedPackIdForCheck == _pack, "real main map loads requested " + _pack + " pack");
         var id = fleet ? "f" : "a";
         var origin = new GridPoint(50, 45);
         main.MapView.CentreOnTile(origin.X, origin.Y);
@@ -86,6 +95,8 @@ public partial class StrategicTravelCheck : Node
         Click(main.MapView, new(51, 45), MouseButton.Left);
         Click(main.MapView, new(51, 45), MouseButton.Right);
         main.Toolbar.ButtonFor("game.end_turn")?.EmitSignal(Button.SignalName.Pressed);
+        main.MenuBar.PressItemForCheck("game.end_turn");
+        if (selected) main.CommandStrip.PressForCheck(fleet ? "unit_map.fleet_join" : "unit_map.army_join");
         typeof(MainGameScreen).GetMethod("SubmitFromDialog", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
             .Invoke(main, new object[] { fleet ? "move-fleet f 54 45" : "move a 54 45" });
         Require(session.State == final && count == 0 && main.MapView.LastClickContextForCheck == oldContext,
@@ -223,6 +234,7 @@ public partial class StrategicTravelCheck : Node
             main.MapView.CentreOnTile(50, 45);
             main.AreaMapView.SetHighlight(AreaMapHighlightKind.Cities, true);
             main.AreaMapView.SetHighlight(AreaMapHighlightKind.MercenariesLightInfantry, true);
+            main.MapView.SelectStrategicForCheck(fleet ? MapEntityKind.Fleet : MapEntityKind.Army, fleet ? "f" : "a");
             main.ContextPanel.ShowCity(oldCity.Id);
             main.PresentOutputForCheck(new SessionOutput(Array.Empty<string>(), false)
                 { StrategicTimeline = new(1, ValueList.Of(source, reconciliation)) });
@@ -255,12 +267,37 @@ public partial class StrategicTravelCheck : Node
                 "scatter" => main.DisplayState.ArmyById("a") is { X: 60, Y: 48 },
                 _ => main.MapView.StrategicDrawBoundsForCheck.ContainsKey("cargo"),
             }, mode + ": actual final marker/lifecycle matches authoritative boundary");
+            if (mode is "removal" or "merge" or "embark")
+                Require(main.MapView.SelectedStrategicMarkerForCheck is null, mode + ": missing/hidden selection clears on arrival");
             if (mode == "capture")
             {
                 main.SelectArmyForCheck("a");
                 Require(!main.CommandStrip.Visible, "captured foreign unit has no own command strip");
             }
         }
+    }
+
+    private async Task CheckSelectionAtActionBoundary()
+    {
+        var seed = MovementSession(false, 1);
+        var state = seed.State with { Armies = ValueList.From(seed.State.Armies.Append(
+            seed.State.Armies[0] with { Id = "b", X = 60, Moves = 2 })) };
+        var producer = new GameSession(seed.World, seed.Ruleset, seed.Scenario,
+            new SaveGame(state.SchemaVersion, "selection-chain", "selection-chain", state.ScenarioId, state.WorldId, state.RulesetId, state));
+        var first = producer.Submit("move a 51 45");
+        var second = producer.Submit("move b 61 45");
+        var main = await Open(producer);
+        main.MapView.SetDrawnCellPixelsForCheck(32); main.MapView.CentreOnTile(55, 45);
+        main.MapView.SelectStrategicForCheck(MapEntityKind.Army, "a");
+        main.PresentOutputForCheck(second with { StrategicTimeline = new(second.StrategicTimeline.BatchId,
+            ValueList.From(first.StrategicTimeline.Steps.Concat(second.StrategicTimeline.Steps))) });
+        main.StrategicTravel.Paused = true;
+        Require(main.MapView.SelectedStrategicMarkerForCheck == "a", "chained batch keeps selected identity before its own arrival");
+        Advance(main, StrategicTravelPlayback.CandidateCellSeconds);
+        Require(main.StrategicTravel.IsActive && main.StrategicTravel.CurrentRoute?.EntityId == "b"
+            && main.MapView.SelectedStrategicMarkerForCheck is null,
+            "exhausted selection clears at its action boundary while later unrelated route remains locked");
+        main.StrategicTravel.Skip();
     }
 
     private async Task CheckBattleBarrier()
@@ -328,7 +365,12 @@ public partial class StrategicTravelCheck : Node
             "actual computer travel retains human viewer independently from simulation seat");
         await Capture(_pack + (tactical ? "-ai-tactical-approach" : "-ai-instant-approach"),
             "Actual AI approach: associated battle overlay is not created before accepted-cell arrival.");
+        var arrivedRoute = main.StrategicTravel.CurrentRoute!;
+        var acceptedArrival = arrivedRoute.Destination;
         main.StrategicTravel.Skip();
+        if (tactical) Require(main.MapView.DisplayState.ArmyById(arrivedRoute.EntityId) is { } arrived
+            && arrived.X == acceptedArrival.X && arrived.Y == acceptedArrival.Y,
+            $"suspended AI arrived marker never snaps back to rolled-back replay state ({arrivedRoute.EntityId} expected {acceptedArrival}; held {main.MapView.DisplayState.ArmyById(arrivedRoute.EntityId)?.X},{main.MapView.DisplayState.ArmyById(arrivedRoute.EntityId)?.Y})");
         Require(completions == 1, "AI command completion runs exactly once after travel");
         Require(main.ContextPanel.DisplayState.ActiveNationId == "north", "drained suspended AI lap still uses current human information viewer");
         Require(tactical ? main.ActiveOverlay is TacticalBattleScreen : main.ActiveOverlay is BattleResultScreen,
@@ -362,6 +404,190 @@ public partial class StrategicTravelCheck : Node
         Require(!main.StrategicTravel.IsActive, "multi-battle lap ends without stale strategic batch");
     }
 
+    private async Task CheckSiegeArrival()
+    {
+        var seed = MovementSession(false, 20);
+        var state = seed.State with
+        {
+            Armies = ValueList.Of(seed.State.Armies[0] with
+            { Units = ValueList.Of(new UnitSlot(0, "archers", 400_000, 6, "Siege")) }),
+            Cities = ValueList.From(seed.State.Cities.Select((city, i) => i == 1
+                ? city with { Id = "target", X = 52, Y = 45, Owner = "south", Allegiance = "south",
+                    Loyalty = 0, Garrison = ValueList<UnitSlot>.Empty, FortificationCode = 0 } : city)),
+        };
+        var producer = new GameSession(seed.World, seed.Ruleset, seed.Scenario,
+            new SaveGame(state.SchemaVersion, "siege", "siege", state.ScenarioId, state.WorldId, state.RulesetId, state));
+        var march = producer.Submit("move a 51 45");
+        var siege = producer.Submit("besiege-city a target");
+        Require(siege.Battles.Count == 1 && producer.State.CityById("target")!.Owner == "north",
+            "actual siege producer supplies captured city and associated result");
+        var main = await Open(producer);
+        main.MapView.CentreOnTile(51, 45); main.ContextPanel.ShowCity("target");
+        var exact = siege with { StrategicTimeline = new(siege.StrategicTimeline.BatchId,
+            ValueList.From(march.StrategicTimeline.Steps.Concat(siege.StrategicTimeline.Steps))) };
+        var saved = false;
+        var savePath = Path.Combine(GameDataContext.RepositoryRoot, "rendered", "t195-reentrant-save.json");
+        main.CommandIssued += _ =>
+        {
+            if (saved) return;
+            saved = true;
+            main.SaveAsForCheck(savePath);
+        };
+        main.PresentOutputForCheck(exact); main.StrategicTravel.Paused = true;
+        Require(main.StrategicTravel.IsActive && main.ActiveOverlay is null
+            && main.DisplayState.CityById("target")!.Owner == "south",
+            "real paid march precedes siege/capture reconciliation and associated result");
+        await Capture(_pack + "-siege-approach", "Real paid march before real siege: prior city owner and no result window before arrival.");
+        Advance(main, .06); main.ContextPanel.Refresh(); main.AreaMapView.Refresh();
+        await Capture(_pack + "-siege-midpoint", "Real siege boundary stays behind the moving marker's arrival.");
+        main.StrategicTravel.Skip(); main.StrategicTravel.Skip();
+        Require(saved && File.Exists(savePath) && main.Session.LastBattles.Count == 0,
+            "real Save reentrancy replaces LastBattles during retained arrival completion");
+        Require(main.ActiveOverlay is BattleResultScreen && main.DisplayState.CityById("target")!.Owner == "north",
+            "arrival reconciles capture then opens exactly retained siege result across Save callback");
+        if (main.ActiveOverlay is BattleResultScreen result) result.Close();
+        Require(main.ActiveOverlay is not BattleResultScreen, "reentrant completion cannot duplicate siege result");
+        await Capture(_pack + "-siege-arrival", "Real siege/capture arrived; retained result was presented once despite Save replacing Last*.");
+        File.Delete(savePath);
+    }
+
+    private async Task CheckFallHandoffNoticeOrder()
+    {
+        // Reuse only the merged check's public toy fixture data, then place its army farther away
+        // so the real AI must pay for approach cells before its real conquest/fall/handoff.
+        var fixture = (GameSession)typeof(GameEndCheck).GetMethod("HotseatConquestSession",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!.Invoke(null, new object[] { true })!;
+        var state = fixture.State with { Armies = ValueList.From(fixture.State.Armies.Select(a => a with { X = 2, Y = 4 })) };
+        var session = new GameSession(fixture.World, fixture.Ruleset, fixture.Scenario,
+            new SaveGame(state.SchemaVersion, "fall-travel", "fall-travel", state.ScenarioId, state.WorldId, state.RulesetId, state));
+        var main = await Open(session);
+        main.MapView.CentreOnTile(4, 3);
+        var saved = false;
+        var path = Path.Combine(GameDataContext.RepositoryRoot, "rendered", "t195-fall-reentrant-save.json");
+        main.CommandIssued += _ =>
+        {
+            if (saved) return;
+            saved = true; main.SaveAsForCheck(path);
+        };
+        main.SubmitForCheck("end"); main.StrategicTravel.Paused = true;
+        Require(main.StrategicTravel.IsActive && session.LastSeatFalls.Any(f => f.Reason == SeatFallReason.Conquered),
+            "actual paid AI conquest supplies fall and next human handoff behind travel");
+        // Synthetic already-published notice input tests the existing observer/router, not AI diplomacy.
+        var notice = new IC2.Engine.Diplomacy.PendingDiplomaticOfferAnnounced("north", "Northern League", "east", "Eastern League",
+            session.Ruleset.Diplomacy.StateCodes.Trade, "Northern League wants to trade with Eastern League.");
+        typeof(MainGameScreen).GetMethod("OnSessionEventsPublished", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(main, new object[] { new DomainEvent[] { notice } });
+        var authoritative = session.State;
+        typeof(MainGameScreen).GetMethod("ShowNextOverlay", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(main, null);
+        Require(main.ActiveOverlay is null, "fall/handoff/notice router cannot advance before strategic arrival");
+        await Capture(_pack + "-fall-handoff-before-arrival", "Real AI conquest/fall and next human handoff wait behind paid approach; queued notice also waits.");
+        main.StrategicTravel.Skip();
+        Require(saved && session.LastSeatFalls.Count == 0, "reentrant Save replaced mutable falls without losing retained output");
+        var battles = 0;
+        while (main.ActiveOverlay is BattleResultScreen result && battles++ < 10) result.Close();
+        Require(battles > 0 && main.ActiveOverlay is GameEndScreen, "arrival battle results precede the exact fallen-seat window");
+        if (main.ActiveOverlay is GameEndScreen fall) fall.Continue();
+        Require(main.ActiveOverlay is HotseatHandoffScreen { Info.NextNationId: "east" },
+            "fallen-seat window precedes exactly the next human handoff across Save reentrancy");
+        if (main.ActiveOverlay is HotseatHandoffScreen handoff) handoff.Continue();
+        Require(main.ActiveOverlay is MainGameScreen.OfferNoticeBox box && box.Text == notice.DialogText,
+            "queued notice follows battle, fall and human handoff in the existing order");
+        await Capture(_pack + "-notice-after-handoff", "Arrival, battle, fallen seat and handoff completed; the queued notice now appears.");
+        main.ActiveOverlay?._UnhandledInput(new InputEventKey { Pressed = true, Keycode = Key.Escape });
+        main.StrategicTravel.Skip();
+        Require(main.ActiveOverlay is null && session.State == authoritative, "notice closes once and presentation changes no authoritative state");
+        File.Delete(path);
+    }
+
+    private async Task CheckPeaceOrder()
+    {
+        // Fixture data only: the actual merged peace-check's loaded rules make its real offer deterministic.
+        var session = (GameSession)typeof(PeaceOfferCheck).GetMethod("HumanWinsSession",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!.Invoke(null, new object[] { false })!;
+        var outwards = session.Submit("move army-0 66 4");
+        var back = session.Submit("move army-0 67 4");
+        var attack = session.Submit("attack-army army-0 army-2");
+        Require(outwards.StrategicTimeline.Steps.Any(s => s.Routes.Count > 0)
+            && back.StrategicTimeline.Steps.Any(s => s.Routes.Count > 0)
+            && attack.Battles.Count > 0 && session.PendingPeaceOfferFor("rome") is not null,
+            "real paid routes and battle produce deterministic pending peace offer");
+        var main = await Open(session);
+        main.MapView.CentreOnTile(67, 4);
+        main.PresentOutputForCheck(attack with { StrategicTimeline = new(attack.StrategicTimeline.BatchId,
+            ValueList.From(outwards.StrategicTimeline.Steps.Concat(back.StrategicTimeline.Steps).Concat(attack.StrategicTimeline.Steps))) });
+        main.StrategicTravel.Paused = true;
+        typeof(MainGameScreen).GetMethod("ShowNextOverlay", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(main, null);
+        Require(main.StrategicTravel.IsActive && main.ActiveOverlay is null, "battle and peace offer both wait for preceding real routes");
+        main.StrategicTravel.Skip();
+        Require(main.ActiveOverlay is BattleResultScreen, "arrival opens battle result before pending peace");
+        if (main.ActiveOverlay is BattleResultScreen result) result.Close();
+        Require(main.ActiveOverlay is PeaceOfferScreen, "pending peace offer follows its associated battle result exactly once");
+        await Capture(_pack + "-peace-after-arrival-and-result", "Real pending peace offer appears only after the paid movement and associated battle result.");
+    }
+
+    private async Task CapturePacing()
+    {
+        var directory = Path.Combine(_directory!, _pack + "-pacing-frames");
+        Directory.CreateDirectory(directory);
+        var frames = new List<(string File, ulong Tick, string Mode, double? X)>();
+        async Task Frame(MainGameScreen main, string mode)
+        {
+            await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+            var file = $"frame-{frames.Count:D4}.png";
+            using var image = GetViewport().GetTexture().GetImage();
+            if (image.SavePng(Path.Combine(directory, file)) != Error.Ok)
+                throw new IOException("Could not save real pacing frame.");
+            frames.Add((file, Time.GetTicksUsec(), mode, main.StrategicTravel.Position(TravelKind.Army, "a")?.X));
+        }
+        foreach (var mode in new[] { "normal-0.12-seconds-per-cell", "fast-4x", "skip" })
+        {
+            var main = await Open(MovementSession(false, 20));
+            main.MapView.ZoomToMaxForCheck(); main.MapView.CentreOnTile(53, 46);
+            Click(main.MapView, new(50, 45), MouseButton.Left);
+            main.AreaMapView.SetHighlight(AreaMapHighlightKind.Armies, true);
+            var layer = new CanvasLayer { Layer = 100 };
+            layer.AddChild(new Label { Text = $"{_pack}: {mode}. Real-time production movement; pan fixed; sound off.",
+                Position = new Vector2(12, 74), Size = new Vector2(1000, 32) });
+            main.AddChild(layer);
+            await Frame(main, mode);
+            await ToSignal(GetTree().CreateTimer(.45), SceneTreeTimer.SignalName.Timeout);
+            await Frame(main, mode);
+            main.SubmitForCheck("move a 57 48");
+            if (mode == "fast-4x")
+                Buttons(main).Single(button => button.Text == "Fast").EmitSignal(Button.SignalName.Toggled, true);
+            var started = Time.GetTicksMsec();
+            while (main.StrategicTravel.IsActive && Time.GetTicksMsec() - started < 5000)
+            {
+                if (mode == "skip" && Time.GetTicksMsec() - started >= 80)
+                    Buttons(main).Single(button => button.Text == "Skip").EmitSignal(Button.SignalName.Pressed);
+                await Frame(main, mode);
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            }
+            Require(!main.StrategicTravel.IsActive, "real-time windowed " + mode + " arrives within watchdog");
+            await Frame(main, mode);
+            await ToSignal(GetTree().CreateTimer(.45), SceneTreeTimer.SignalName.Timeout);
+            await Frame(main, mode);
+        }
+        var invariant = System.Globalization.CultureInfo.InvariantCulture;
+        var concat = new System.Text.StringBuilder("ffconcat version 1.0\n");
+        for (var i = 0; i < frames.Count; i++)
+        {
+            concat.AppendLine($"file '{_pack}-pacing-frames/{frames[i].File}'");
+            var duration = i + 1 < frames.Count ? Math.Max(.001, (frames[i + 1].Tick - frames[i].Tick) / 1_000_000d) : .1;
+            concat.AppendLine("duration " + duration.ToString("0.000000", invariant));
+        }
+        File.WriteAllText(Path.Combine(_directory!, _pack + "-pacing.ffconcat"), concat.ToString());
+        File.WriteAllLines(Path.Combine(_directory!, _pack + "-pacing-frames.csv"),
+            new[] { "file,actual_tick_microseconds,mode,fractional_x" }.Concat(frames.Select(frame =>
+                $"{frame.File},{frame.Tick},{frame.Mode},{frame.X?.ToString("0.000000", invariant)}")));
+        _pacingPacks.Add(_pack);
+    }
+
+    private static IEnumerable<Button> Buttons(Node node) => node.GetChildren().SelectMany(child =>
+        (child is Button button ? new[] { button } : Array.Empty<Button>()).Concat(Buttons(child)));
+
     private async Task CheckOffscreenAndClosure()
     {
         var main = await Open(MovementSession(false, 20));
@@ -369,11 +595,13 @@ public partial class StrategicTravelCheck : Node
         var before = main.MapView.TileCenterForCheck(50, 45);
         main.SubmitForCheck("move a 53 45"); main.StrategicTravel.Paused = true;
         Advance(main, 0);
+        await Capture(_pack + "-offscreen-no-jump", "Wholly offscreen accepted route consumed immediately; user camera stayed fixed.");
         Require(!main.StrategicTravel.IsActive && main.MapView.TileCenterForCheck(50, 45) == before,
             "wholly offscreen route consumes immediately without forced camera jump");
         main.MapView.CentreOnTile(53, 45); main.StrategicTravel.CellSeconds = 0;
         main.SubmitForCheck("move a 55 45");
         Require(!main.StrategicTravel.IsActive, "zero delay drains production arrival synchronously");
+        await Capture(_pack + "-zero-delay", "Zero presentation delay: authoritative arrival with no stale lock or selection.");
         main.StrategicTravel.CellSeconds = .12;
         main.SubmitForCheck("move a 56 45"); main.StrategicTravel.Paused = true;
         main._UnhandledInput(new InputEventKey { Pressed = true, Keycode = Key.Escape });
@@ -462,6 +690,7 @@ public partial class StrategicTravelCheck : Node
         var receipt = $"Exact source HEAD {head}. Real window captures, authored and placeholder. Public synthetic scenarios; candidate 0.12 seconds/cell; sound disabled, prior settings restored. Human visual acceptance pending.";
         File.WriteAllText(Path.Combine(_directory, "receipts.txt"), receipt + "\n" + string.Join("\n", _captures.Select(c => c.File + ": " + c.Caption)));
         File.WriteAllText(Path.Combine(_directory, "index.html"), "<!doctype html><meta charset='utf-8'><title>T195 strategic travel</title><style>body{font:16px system-ui;background:#151b22;color:#eee;max-width:1400px;margin:auto}img{max-width:100%}figure{margin:30px 0}figcaption{padding:8px}</style><h1>T195 strategic travel</h1><p>" + System.Net.WebUtility.HtmlEncode(receipt) + "</p>" +
+            string.Join("", _pacingPacks.Select(pack => $"<h2>{pack}: normal / Fast / Skip</h2><video controls preload='metadata' style='max-width:100%' src='{pack}-pacing.mp4'></video>")) +
             string.Join("", _captures.Select(c => $"<figure><img loading='lazy' src='{c.File}'><figcaption>{System.Net.WebUtility.HtmlEncode(c.Caption)} ({c.File})</figcaption></figure>")));
     }
 }

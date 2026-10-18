@@ -163,6 +163,48 @@ public sealed class StrategicTravelPlaybackTests
     }
 
     [Fact]
+    public void Suspended_arrival_retains_exact_boundary_ahead_of_replay_state_until_reconciliation()
+    {
+        var session = StrategicTravelObservationTests.Session();
+        var replayState = session.State;
+        var output = session.Submit("move a 3 0");
+        var playback = new StrategicTravelPlayback();
+        playback.Begin(output.StrategicTimeline, "north", () => { }, retainArrival: true);
+        playback.Skip();
+        Assert.False(playback.IsActive);
+        Assert.Equal(3, playback.Resolve(replayState, "north").Armies[0].X);
+        Assert.Equal(0, replayState.Armies[0].X);
+        playback.ReleaseArrival();
+        Assert.Same(replayState, playback.Resolve(replayState, "north"));
+        Assert.Null(playback.DisplayState);
+        var foreign = replayState with { ActiveSeatIndex = replayState.TurnOrder.ToList().IndexOf("south") };
+        Assert.Equal("north", playback.Resolve(foreign, "north").ActiveNationId);
+        Assert.Equal("south", foreign.ActiveNationId);
+    }
+
+    [Fact]
+    public void Completion_selection_policy_clears_exhausted_missing_and_hidden_but_preserves_foreign_inspection()
+    {
+        foreach (var fleet in new[] { false, true })
+        {
+            var session = StrategicTravelObservationTests.Session(fleet, moves: 2);
+            var before = session.State;
+            var kind = fleet ? TravelKind.Fleet : TravelKind.Army;
+            var id = fleet ? "f" : "a";
+            Assert.True(StrategicTravelPlayback.SelectionSurvives(before, kind, id));
+            session.Submit(fleet ? "move-fleet f 2 0" : "move a 2 0");
+            Assert.False(StrategicTravelPlayback.SelectionSurvives(session.State, kind, id));
+            Assert.False(StrategicTravelPlayback.SelectionSurvives(before, kind, "missing"));
+            var foreign = fleet ? before with { Fleets = ValueList.Of(before.Fleets[0] with { Nation = "south" }) }
+                : before with { Armies = ValueList.Of(before.Armies[0] with { Nation = "south" }) };
+            Assert.True(StrategicTravelPlayback.SelectionSurvives(foreign, kind, id));
+            var hidden = fleet ? before with { Fleets = ValueList.Of(before.Fleets[0] with { ConstructionTicksRemaining = 1 }) }
+                : before with { Armies = ValueList.Of(before.Armies[0] with { AboardFleetId = "carrier", CoveredTileCode = null }) };
+            Assert.False(StrategicTravelPlayback.SelectionSurvives(hidden, kind, id));
+        }
+    }
+
+    [Fact]
     public void Presentation_enabled_disabled_leave_identical_authoritative_state_events_costs_seed_and_saves()
     {
         var enabled = StrategicTravelObservationTests.Session();

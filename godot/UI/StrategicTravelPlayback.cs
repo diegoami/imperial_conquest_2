@@ -19,7 +19,7 @@ public sealed class StrategicTravelPlayback
     private double _elapsed;
     private long _lastBatch;
     private Action? _completed;
-    private bool _closed, _draining;
+    private bool _closed, _draining, _retainArrival;
 
     public double CellSeconds { get; set; } = CandidateCellSeconds;
     public bool Paused { get; set; }
@@ -34,13 +34,23 @@ public sealed class StrategicTravelPlayback
     public event Action<string, GridPoint>? CellEntered;
     public event Action<StrategicTravelStep>? BoundaryCompleted;
 
+    /// <summary>Existing remaining-moves policy plus invalid/hidden identity cleanup; foreign inspection remains allowed.</summary>
+    public static bool SelectionSurvives(GameState state, TravelMarkerKind kind, string id) => kind switch
+    {
+        TravelMarkerKind.Army => state.ArmyById(id) is { Moves: > 0, IsEmbarked: false },
+        TravelMarkerKind.Fleet => state.FleetById(id) is { Moves: > 0, IsUnderConstruction: false },
+        _ => state.CityById(id) is not null,
+    };
+
     /// <summary>False consumes a wholly offscreen route immediately; camera remains user-owned.</summary>
     public Func<StrategicTravelObservation, bool>? IntersectsViewport { get; set; }
 
-    public bool Begin(StrategicTravelBatch batch, string viewer, Action completed)
+    public bool Begin(StrategicTravelBatch batch, string viewer, Action completed, bool retainArrival = false)
     {
         if (_closed || batch.BatchId <= _lastBatch || IsActive) return false;
         _lastBatch = batch.BatchId;
+        _retainArrival = retainArrival;
+        _display = null;
         _viewer = viewer;
         _completed = completed;
         foreach (var step in batch.Steps) _steps.Enqueue(step);
@@ -86,9 +96,19 @@ public sealed class StrategicTravelPlayback
         finally { _draining = false; }
     }
 
+    /// <summary>A suspended AI replay owns its arrived boundary until the retained completion reconciles it.</summary>
+    public void ReleaseArrival()
+    {
+        if (IsActive) return;
+        _display = null;
+        _retainArrival = false;
+        Changed?.Invoke();
+    }
+
     public void Close()
     {
         _closed = true;
+        _retainArrival = false;
         _steps.Clear();
         _step = null; _route = null; _display = null; _completed = null; _viewer = null;
         IntersectsViewport = null;
@@ -112,7 +132,8 @@ public sealed class StrategicTravelPlayback
             {
                 if (!_steps.TryDequeue(out _step))
                 {
-                    _display = null; _route = null;
+                    if (!_retainArrival) _display = null;
+                    _route = null;
                     var completed = _completed;
                     _completed = null; _viewer = null;
                     Changed?.Invoke();
