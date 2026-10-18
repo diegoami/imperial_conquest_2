@@ -108,6 +108,7 @@ public partial class TacticalBattleCheck : Node
                 screen.SelectUnit(0);
                 await Capture($"{pack}-human-placement", screen);
                 var captured = new HashSet<string>();
+                var temporal = new Dictionary<string, long>();
                 var enemyMelee = false;
                 // Real human turns, including the initial placement End turn. The engine alone drives the enemy.
                 for (var round = 0; round < 12 && !captured.Contains("human-after-enemy-melee"); round++)
@@ -116,6 +117,7 @@ public partial class TacticalBattleCheck : Node
                     for (var step = 0; screen.IsPlayingBack && step < 100000; step++)
                     {
                         var frame = screen.DisplayedFrame!;
+                        await CaptureTemporal(pack, screen, temporal, captured);
                         enemyMelee |= frame.Event is TacticalMeleeEvent && frame.Actor?.Side == 1;
                         string? stage = frame.Kind switch
                         {
@@ -137,6 +139,7 @@ public partial class TacticalBattleCheck : Node
                 for (var step = 0; screen.IsPlayingBack && step < 100000; step++)
                 {
                     var frame = screen.DisplayedFrame!;
+                    await CaptureTemporal(pack, screen, temporal, captured);
                     string? stage = frame.Kind switch
                     {
                         TacticalFrameKind.Controller when screen.ControllerLabel.Text.Contains("Computer general") => "general-handoff",
@@ -155,7 +158,7 @@ public partial class TacticalBattleCheck : Node
                 }
                 if (main.ActiveOverlay is not BattleEndedScreen) throw new InvalidOperationException("Terminal replay did not route to result.");
                 await Capture($"{pack}-result", screen);
-                foreach (var required in new[] { "human-combat-round", "human-after-enemy-melee", "general-handoff", "movement", "shot", "melee-history", "rout", "terminal", "reconciliation" })
+                foreach (var required in new[] { "human-combat-round", "human-after-enemy-melee", "general-handoff", "movement", "shot", "melee-history", "rout", "terminal", "reconciliation", "travel-0-start", "travel-0-interior", "travel-0-arrival", "travel-1-start", "travel-1-interior", "travel-1-arrival", "enemy-announcement", "rout-hold", "rout-fade-interior", "rout-removed" })
                     if (!captured.Contains(required)) throw new InvalidOperationException($"Missing visual stage {pack}/{required}");
                 GD.Print($"T180 visual stages {pack}: {string.Join(", ", captured.Order())}");
                 Free(main);
@@ -181,11 +184,38 @@ public partial class TacticalBattleCheck : Node
         GetTree().Quit(ok ? 0 : 1);
     }
 
+    private async Task CaptureTemporal(string pack, TacticalBattleScreen screen, Dictionary<string, long> selected, HashSet<string> captured)
+    {
+        var frame = screen.DisplayedFrame!;
+        string? key = null;
+        if (screen.PlaybackStage == TacticalPlaybackStage.Announcement && screen.Model.View.ComputerControlled[screen.Model.View.SideToMove])
+            key = "enemy-announcement";
+        if (screen.PlaybackPose is { Departing: false } moving)
+        {
+            var travel = $"travel-{moving.Glyph.Side}";
+            if (!selected.ContainsKey(travel)) selected[travel] = frame.FrameId;
+            if (selected[travel] == frame.FrameId)
+                key = screen.PlaybackStage == TacticalPlaybackStage.Arrival ? travel + "-arrival"
+                    : screen.PlaybackProgress == 0 ? travel + "-start" : travel + "-interior";
+        }
+        if (screen.PlaybackPose is { Departing: true })
+        {
+            if (!selected.ContainsKey("rout")) selected["rout"] = frame.FrameId;
+            if (selected["rout"] == frame.FrameId)
+                key = screen.PlaybackStage == TacticalPlaybackStage.RoutHold ? "rout-hold"
+                    : screen.PlaybackProgress > 0 ? "rout-fade-interior" : "rout-fade-start";
+        }
+        if (selected.TryGetValue("rout", out var routed) && frame.FrameId == routed && screen.PlaybackStage == TacticalPlaybackStage.Frame)
+            key = "rout-removed";
+        if (key is not null && captured.Add(key)) await Capture($"{pack}-temporal-{key}", screen);
+    }
+
     private async Task Capture(string name, TacticalBattleScreen screen)
     {
         var frame = screen.DisplayedFrame;
         var controller = screen.ControllerLabel.Text;
-        var receipt = UiKit.MakeLabel($"T180 {name} | {frame?.BattleId} command {frame?.CommandId} frame {frame?.FrameId} {frame?.Kind}", AppTheme.Note + 5, Colors.White);
+        var transition = $"stage {screen.PlaybackStage} progress {screen.PlaybackProgress:0.000} pose {screen.PlaybackPose}";
+        var receipt = UiKit.MakeLabel($"T180 {name} | {frame?.BattleId} command {frame?.CommandId} frame {frame?.FrameId} {frame?.Kind} | {transition}", AppTheme.Note + 5, Colors.White);
         receipt.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         receipt.Size = new Vector2(420, 70);
         // Receipt is check-only evidence metadata; it never changes production captions or snapshot values.
@@ -200,7 +230,7 @@ public partial class TacticalBattleCheck : Node
             var path = Path.Combine(GameDataContext.RepositoryRoot, "rendered", $"T180-{name}-{size.X}x{size.Y}.png");
             var error = GetViewport().GetTexture().GetImage().SavePng(path);
             if (error != Error.Ok) throw new InvalidOperationException($"Capture failed: {error}");
-            GD.Print($"T180 capture: {path} | {frame?.BattleId}/{frame?.FrameId} | {controller}");
+            GD.Print($"T180 capture: {path} | {frame?.BattleId}/{frame?.FrameId} | {controller} | {transition}");
         }
         RemoveChild(receipt);
         receipt.QueueFree();

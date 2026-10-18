@@ -161,4 +161,182 @@ public sealed class TacticalPlaybackTests
         Assert.Equal(new[] { 0, 1, 2 }, removed);
         Assert.Equal(arena.Slots[20].Morale + context.Rules.RoutEnemyBonus, queue.CurrentFrame!.After.View.Slots[20].Morale);
     }
+
+    private static TacticalBattleViewModel Model(TacticalPlayback queue)
+    {
+        var snapshot = queue.Snapshot!;
+        return TacticalBattleViewModel.FromSnapshot(snapshot,
+            new BattleDisplay("North", "South", snapshot.View.UnitTypeIds, snapshot.Width, snapshot.Height),
+            selectedSlot: 0, frame: queue.CurrentFrame, currentExchange: queue.CurrentExchange,
+            previousExchange: queue.PreviousExchange, perspectiveSide: 0, resolvingHalfRound: queue.ResolvingHalfRound,
+            pose: queue.Pose, stage: queue.Stage);
+    }
+
+    [Theory]
+    [InlineData(0.07)]
+    [InlineData(1000)]
+    public void Both_sides_travel_start_interior_arrival_before_combat_with_one_shared_snapshot_and_pose(double delta)
+    {
+        var (_, opening, ending) = Battle();
+        var queue = new TacticalPlayback { ShotDelay = 1, AttackDelay = 1 };
+        var stages = new Dictionary<long, HashSet<string>>();
+        var sides = new HashSet<int>();
+        var announced = new HashSet<int>();
+        queue.Begin(opening.Concat(ending.TacticalTimeline));
+        for (var i = 0; queue.IsPlaying && i < 100000; i++)
+        {
+            var frame = queue.CurrentFrame!;
+            var model = Model(queue);
+            Assert.Same(queue.Snapshot!.View, model.View);
+            if (queue.Stage == TacticalPlaybackStage.Announcement)
+            {
+                Assert.False(queue.ResolvingHalfRound);
+                announced.Add(model.View.SideToMove);
+                Assert.Contains("Half-round", model.ControllerText);
+            }
+            if (queue.Pose is { Departing: false } pose)
+            {
+                sides.Add(pose.Glyph.Side);
+                Assert.Contains(pose.Glyph.Side, announced);
+                if (!stages.TryGetValue(frame.FrameId, out var visited)) stages[frame.FrameId] = visited = new();
+                var unit = Assert.Single(model.VisualUnits, u => u.Cell.Slot == pose.Glyph.Slot);
+                Assert.Equal(pose.X, unit.X);
+                Assert.Equal(pose.Y, unit.Y);
+                Assert.Contains(model.PositionText(pose.Glyph.Slot), string.Join(" ", model.ParticipantLines(pose.Glyph.Slot, "unit")));
+                Assert.Contains(model.RosterRows(pose.Glyph.Side), r => r.Slot == pose.Glyph.Slot && r.Cells.Contains(model.PositionText(pose.Glyph.Slot)));
+                if (queue.Stage == TacticalPlaybackStage.Travel)
+                {
+                    Assert.Same(frame.Before, queue.Snapshot);
+                    if (queue.Progress == 0) visited.Add("start");
+                    else
+                    {
+                        visited.Add("interior");
+                        Assert.InRange(queue.Progress, double.Epsilon, 0.999999);
+                        var end = frame.After.View.Slots[pose.Glyph.Slot];
+                        Assert.Equal(pose.Glyph.X + (end.X - pose.Glyph.X) * queue.Progress, pose.X, 8);
+                        Assert.Equal(pose.Glyph.Y + (end.Y - pose.Glyph.Y) * queue.Progress, pose.Y, 8);
+                    }
+                }
+                if (queue.Stage == TacticalPlaybackStage.Arrival)
+                {
+                    Assert.Same(frame.After, queue.Snapshot);
+                    Assert.Equal(frame.After.View.Slots[pose.Glyph.Slot].X, pose.X);
+                    visited.Add("arrival");
+                }
+            }
+            queue.Advance(delta);
+        }
+        Assert.False(queue.IsPlaying);
+        Assert.Equal(new[] { 0, 1 }, sides.Order());
+        Assert.NotEmpty(stages);
+        Assert.All(stages.Values, stagesSeen => Assert.True(stagesSeen.SetEquals(new[] { "start", "interior", "arrival" })));
+        Assert.Null(queue.Pose);
+    }
+
+    [Fact]
+    public void Routed_exchange_keeps_losses_roles_and_last_glyph_through_hold_fade_then_atomic_removal()
+    {
+        var (_, opening, ending) = Battle();
+        var queue = new TacticalPlayback { ShotDelay = 1, AttackDelay = 1 };
+        queue.Begin(opening.Concat(ending.TacticalTimeline));
+        var holds = 0;
+        var fades = 0;
+        var removals = 0;
+        TacticalBattleFrame? fading = null;
+        for (var i = 0; queue.IsPlaying && i < 100000; i++)
+        {
+            var frame = queue.CurrentFrame!;
+            var model = Model(queue);
+            if (queue.Stage is TacticalPlaybackStage.RoutHold or TacticalPlaybackStage.RoutFade)
+            {
+                Assert.Same(frame.Before, queue.Snapshot);
+                Assert.Contains(model.CurrentExchangeLines, l => l.Contains(frame.Event is TacticalRoutedEvent ? "UNIT ROUTED" : "ROUT CASCADE REMOVAL"));
+                Assert.Contains(model.CurrentExchangeLines, l => l.Contains($"#{frame.Actor!.Slot}"));
+                if (queue.CurrentExchange is { } exchange)
+                {
+                    Assert.Equal(exchange.Actor?.Slot ?? -1, model.ActorSlot);
+                    Assert.Equal(exchange.Target?.Slot ?? -1, model.TargetSlot);
+                    Assert.Contains(model.CurrentExchangeLines, l => l.Contains("LOSSES"));
+                }
+                if (queue.Stage == TacticalPlaybackStage.RoutHold) holds++;
+                if (queue.Pose is { } pose)
+                {
+                    Assert.True(pose.Departing);
+                    Assert.Equal(pose.Glyph.X, pose.X);
+                    Assert.Equal(pose.Glyph.Y, pose.Y);
+                    var glyph = Assert.Single(model.VisualUnits, u => u.Cell.Slot == frame.Actor!.Slot);
+                    Assert.Equal(pose.Opacity, glyph.Opacity);
+                    Assert.Equal(-1, model.SlotAt(pose.Glyph.X, pose.Glyph.Y));
+                    Assert.Contains(model.ParticipantLines(pose.Glyph.Slot, "unit"), l => l.Contains("departing"));
+                    if (queue.Stage == TacticalPlaybackStage.RoutFade && queue.Progress > 0)
+                    {
+                        Assert.InRange(pose.Opacity, double.Epsilon, 0.999999);
+                        fades++;
+                        fading = frame;
+                    }
+                }
+            }
+            if (fading == frame && queue.Stage == TacticalPlaybackStage.Frame)
+            {
+                Assert.Same(frame.After, queue.Snapshot);
+                Assert.Null(queue.Pose);
+                Assert.DoesNotContain(model.VisualUnits, u => u.Cell.Slot == frame.Actor!.Slot);
+                Assert.DoesNotContain(model.RosterRows(frame.Actor!.Side), r => r.Slot == frame.Actor.Slot);
+                removals++;
+                fading = null;
+            }
+            queue.Advance(1000);
+        }
+        Assert.True(holds > 0);
+        Assert.True(fades > 0);
+        Assert.True(removals > 0);
+    }
+
+    [Theory]
+    [InlineData(TacticalPlaybackStage.Announcement)]
+    [InlineData(TacticalPlaybackStage.Travel)]
+    [InlineData(TacticalPlaybackStage.Arrival)]
+    [InlineData(TacticalPlaybackStage.RoutHold)]
+    [InlineData(TacticalPlaybackStage.RoutFade)]
+    public void Finish_at_each_protected_stage_consumes_terminal_housekeeping_and_notifications_once(TacticalPlaybackStage stage)
+    {
+        var (_, opening, ending) = Battle();
+        var frames = opening.Concat(ending.TacticalTimeline).ToArray();
+        var queue = new TacticalPlayback { ShotDelay = 1, AttackDelay = 1 };
+        var entries = new List<TacticalBattleFrame>();
+        var cues = new List<TacticalBattleFrame>();
+        var completions = 0;
+        queue.FrameEntered += entries.Add;
+        queue.ExchangeEntered += cues.Add;
+        queue.Begin(frames, () => { Assert.Equal(frames[^1], queue.CurrentFrame); Assert.Null(queue.Pose); completions++; });
+        for (var i = 0; queue.IsPlaying && (queue.Stage != stage || stage == TacticalPlaybackStage.RoutFade && queue.Progress == 0) && i < 100000; i++) queue.Advance(0.1);
+        Assert.True(queue.IsPlaying);
+        Assert.Equal(stage, queue.Stage);
+        var progress = queue.Progress;
+        queue.Advance(0);
+        Assert.Equal(progress, queue.Progress);
+        queue.Finish();
+        queue.Finish();
+        queue.Begin(frames, () => completions++);
+        Assert.Equal(1, completions);
+        Assert.Equal(frames, entries);
+        Assert.Equal(frames.Where(f => f.Event is TacticalShotEvent or TacticalMeleeEvent), cues);
+        Assert.Same(frames[^1].After, queue.Snapshot);
+    }
+
+    [Fact]
+    public void Rout_without_prior_display_or_exchange_has_notice_hold_and_no_phantom_glyph()
+    {
+        var (_, _, ending) = Battle();
+        var rout = ending.TacticalTimeline.First(f => f.Event is TacticalRoutedEvent);
+        var queue = new TacticalPlayback { AttackDelay = 1 };
+        queue.Begin(new[] { rout });
+        Assert.Equal(TacticalPlaybackStage.RoutHold, queue.Stage);
+        Assert.Null(queue.Pose);
+        Assert.Null(queue.CurrentExchange);
+        Assert.Contains(Model(queue).CurrentExchangeLines, l => l.Contains("UNIT ROUTED"));
+        queue.Finish();
+        Assert.Same(rout.After, queue.Snapshot);
+        Assert.Null(queue.Pose);
+    }
 }

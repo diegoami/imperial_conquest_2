@@ -53,6 +53,9 @@ public partial class TacticalBattleScreen : Control
     public event Action<TacticalBattleFrame>? ExchangeEntered;
     public event Action<TacticalBattleFrame>? FrameEntered;
     public TacticalBattleFrame? DisplayedFrame => _playback.CurrentFrame;
+    public TacticalPlaybackStage PlaybackStage => _playback.Stage;
+    public double PlaybackProgress => _playback.Progress;
+    public TacticalPose? PlaybackPose => _playback.Pose;
     public Label ControllerLabel { get; private set; } = null!;
     public Label PreviousExchangeLabel { get; private set; } = null!;
     public Label ActorLabel { get; private set; } = null!;
@@ -146,16 +149,19 @@ public partial class TacticalBattleScreen : Control
         _perspective = InitialView.ComputerControlled[0] && !InitialView.ComputerControlled[1] ? 1 : 0;
         _snapshot = new TacticalPresentationSnapshot(InitialView, _display.BoardWidth, _display.BoardHeight, false,
             ValueList<int>.Empty, ValueList<int>.Empty);
-        _playback.FrameEntered += frame =>
+        _playback.PresentationChanged += () =>
         {
-            _snapshot = frame.After;
-            _view = _snapshot.View;
+            if (_playback.Snapshot is not { } snapshot) return;
+            _snapshot = snapshot;
+            _view = snapshot.View;
             if (!_view.ComputerControlled[0] && !_view.ComputerControlled[1] && !_playback.ResolvingHalfRound)
                 _perspective = _view.SideToMove;
             Refresh();
-            ShowMessage(FrameMessage(frame));
-            FrameEntered?.Invoke(frame);
+            ShowMessage(_playback.Stage == TacticalPlaybackStage.Announcement ? "TURN BEGINS · " + Model.ControllerText
+                : Model.DepartureLines.Count > 0 ? string.Join("\n", Model.DepartureLines)
+                : _playback.CurrentFrame is { } frame ? FrameMessage(frame) : string.Empty);
         };
+        _playback.FrameEntered += frame => FrameEntered?.Invoke(frame);
         _playback.ExchangeEntered += frame =>
         {
             ExchangesShown++;
@@ -539,13 +545,13 @@ public partial class TacticalBattleScreen : Control
     {
         Model = TacticalBattleViewModel.FromSnapshot(_snapshot, _display, SelectedSlot, _playback.CurrentFrame,
             _playback.CurrentExchange, _playback.PreviousExchange, _perspective, _playback.ResolvingHalfRound,
-            controlsEnabled: !IsPlayingBack);
+            controlsEnabled: !IsPlayingBack, pose: _playback.Pose, stage: _playback.Stage);
         SelectedSlot = Model.SelectedSlot;
 
         CaptionLabel.Text = _playback.ResolvingHalfRound
             ? $"{_display.AttackerNationName}  v  {_display.DefenderNationName} — resolving combat"
             : Model.Caption;
-        ControllerLabel.Text = Model.ControllerText;
+        ControllerLabel.Text = (_playback.Stage == TacticalPlaybackStage.Announcement ? "TURN BEGINS · " : "") + Model.ControllerText;
         PanelLabel.Text = string.Join("\n", Model.PanelLines);
         ExchangeLabel.Text = string.Join("\n", Model.CurrentExchangeLines);
         PreviousExchangeLabel.Text = string.Join("\n", Model.PreviousExchangeLines);
@@ -735,29 +741,35 @@ public partial class TacticalBattleScreen : Control
 
                 DrawRect(rect, new Color(0, 0, 0, 0.18f), false);
 
+            }
+            foreach (var visual in model.VisualUnits)
+            {
+                var cell = visual.Cell;
+                var rect = new Rect2((float)visual.X * pixels, (float)visual.Y * pixels, pixels, pixels);
+                var alpha = new Color(1, 1, 1, (float)visual.Opacity);
                 if (cell.IconKey is not null)
                 {
                     if (Host.IconFor(cell) is { } icon)
                     {
-                        DrawTextureRect(icon, rect, false);
+                        DrawTextureRect(icon, rect, false, alpha);
                     }
                     else
                     {
-                        DrawRect(rect.Grow(-3), cell.TintSide == 0 ? new Color(0.25f, 0.45f, 0.8f) : new Color(0.8f, 0.3f, 0.25f));
+                        DrawRect(rect.Grow(-3), cell.TintSide == 0 ? new Color(0.25f, 0.45f, 0.8f, alpha.A) : new Color(0.8f, 0.3f, 0.25f, alpha.A));
                         var letter = Host.TypeNameOf(cell);
-                        if (!Mini) DrawString(font, rect.Position + new Vector2(4, 26), letter.Length > 0 ? letter[..1] : "?", HorizontalAlignment.Left, -1, BattleBodySize, Colors.White);
+                        if (!Mini) DrawString(font, rect.Position + new Vector2(4, 26), letter.Length > 0 ? letter[..1] : "?", HorizontalAlignment.Left, -1, BattleBodySize, alpha);
                     }
                 }
 
                 // Role flags require a live occupant in the actual displayed grid. Removed participants
                 // remain explicit in their panels/history without a ghost marker at their old coordinates.
                 if (cell.Actor)
-                    DrawArc(rect.GetCenter(), pixels * 0.42f, 0, Mathf.Tau, 24, new Color(0.2f, 0.9f, 1f), Mini ? 1 : 2);
+                    DrawArc(rect.GetCenter(), pixels * 0.42f, 0, Mathf.Tau, 24, new Color(0.2f, 0.9f, 1f, alpha.A), Mini ? 1 : 2);
                 if (cell.Target)
                 {
                     var c = rect.GetCenter();
                     var radius = pixels * 0.45f;
-                    DrawPolyline(new[] { c + new Vector2(0, -radius), c + new Vector2(radius, 0), c + new Vector2(0, radius), c + new Vector2(-radius, 0), c + new Vector2(0, -radius) }, new Color(1f, 0.58f, 0.18f), Mini ? 1 : 2);
+                    DrawPolyline(new[] { c + new Vector2(0, -radius), c + new Vector2(radius, 0), c + new Vector2(0, radius), c + new Vector2(-radius, 0), c + new Vector2(0, -radius) }, new Color(1f, 0.58f, 0.18f, alpha.A), Mini ? 1 : 2);
                 }
                 if (cell.Selected)
                 {
