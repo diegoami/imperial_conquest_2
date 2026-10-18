@@ -1,5 +1,6 @@
 using IC2.Engine.Cities.Capture;
 using IC2.Engine.Core;
+using IC2.Engine.Economy;
 using IC2.Engine.Model;
 using IC2.Engine.Movement;
 using IC2.Engine.Strength;
@@ -191,7 +192,9 @@ public static class InstantBattleResolver
 
         winner = winner with
         {
-            Money = winner.Money + absorbedMoney,
+            // The report/event retains the loser's full removed purse; the field can store only its
+            // approved 0…32767 range, so excess capture is discarded here (no treasury credit).
+            Money = PurseAccounting.Credit(winner.Money, absorbedMoney),
             SupplyTons = absorbedSupplyTons,
         };
 
