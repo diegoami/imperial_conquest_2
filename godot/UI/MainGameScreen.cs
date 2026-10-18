@@ -62,17 +62,35 @@ public partial class MainGameScreen : Control
     public NewsLogPanel NewsLog => _newsLog;
 
     public StrategicTravelPlayback StrategicTravel { get; } = new();
-    public GameState DisplayState => StrategicTravel.DisplayState ?? Session.State;
+    public GameState DisplayState => StrategicTravel.Resolve(Session.State, _displayViewer);
     private bool _closing;
     private string _displayViewer = string.Empty;
     private HBoxContainer _travelControls = null!;
 
     public override void _Process(double delta) => StrategicTravel.Advance(delta);
 
+    public override void _Input(InputEvent @event)
+    {
+        if (StrategicTravel.IsActive && @event is InputEventKey { Pressed: true, Echo: false } key
+            && (key.Keycode == Key.Escape || (key.Keycode == Key.X && key.ShiftPressed)))
+        {
+            SkipTravelAndClearSelection();
+            GetViewport().SetInputAsHandled();
+        }
+    }
+
+    private void ReconcileDisplaySelection()
+    {
+        _mapView.ReconcileSelection();
+        if ((_selectedArmyId is { } a && (DisplayState.ArmyById(a) is not { } army || army.Moves < 1))
+            || (_selectedFleetId is { } f && (DisplayState.FleetById(f) is not { } fleet || fleet.Moves < 1))
+            || (_selectedCityId is { } c && DisplayState.CityById(c) is null)) _mapView.ClearSelection();
+    }
+
     private bool AllowStrategicInput()
     {
         if (!_closing && StrategicTravel.CommandsAllowed) return true;
-        if (!_closing) ShowScreenMessage("Movement playing · orders locked · Skip or Fast to continue.");
+        if (!_closing) ShowScreenMessage("Movement playing Â· orders locked Â· Skip or Fast to continue.");
         return false;
     }
 
@@ -473,7 +491,7 @@ public partial class MainGameScreen : Control
         row.AddChild(_activeNationLabel);
 
         _travelControls = new HBoxContainer { Visible = false };
-        _travelControls.AddChild(UiKit.MakeLabel("Movement · orders locked", AppTheme.Body, UiKit.TextColor));
+        _travelControls.AddChild(UiKit.MakeLabel("Movement Â· orders locked", AppTheme.Body, UiKit.TextColor));
         var skip = new Button { Text = "Skip" };
         skip.Pressed += () => StrategicTravel.Skip();
         var fast = new Button { Text = "Fast", ToggleMode = true };
@@ -1852,7 +1870,7 @@ public partial class MainGameScreen : Control
             StrategicTravel.Begin(batch, _displayViewer, () =>
             {
                 if (_closing) return;
-                _mapView.ReconcileSelection();
+                ReconcileDisplaySelection();
                 PresentCommand(lines, exact);
             });
             RefreshTravelDisplay();
@@ -1876,7 +1894,7 @@ public partial class MainGameScreen : Control
         CommandIssued?.Invoke(lines);
 
         // Reconcile removal/exhaustion before panel and strip refresh, regardless of issuing control.
-        _mapView.ReconcileSelection();
+        ReconcileDisplaySelection();
         UpdateCommandStrip();
 
         // T147 (bug #781 point 3): the active human seat's pending offer is the one its window answers, so
@@ -1930,7 +1948,10 @@ public partial class MainGameScreen : Control
         // seat id changing mid-turn (a hotseat pass) is the other. _lastKnownActiveNationId is still the
         // prior turn's until CheckForHotseatHandoff updates it later in this method.
         var activeId = Session.State.ActiveNationId;
-        _displayViewer = activeId;
+        // A suspended AI lap is still being viewed by the human who ended the turn.
+        // Advance viewer only at an actual human handoff, or in the existing no-human watch mode.
+        if (Session.State.NationById(activeId)?.Control == SeatControl.Human
+            || !Session.State.Nations.Any(n => n.Control == SeatControl.Human)) _displayViewer = activeId;
         var turnIndex = Session.State.Calendar.TurnIndex;
         var turnStarted = turnIndex != _lastKnownTurnIndex;
         _lastKnownTurnIndex = turnIndex;
@@ -1938,9 +1959,9 @@ public partial class MainGameScreen : Control
         {
             // Only re-view when it actually differs: an unconditional SetViewedNation on every "end"
             // would clear a Find-a-city highlight chosen this turn for a view that did not change.
-            if (!string.Equals(ViewedNationId, activeId, StringComparison.Ordinal))
+            if (!string.Equals(ViewedNationId, _displayViewer, StringComparison.Ordinal))
             {
-                SetViewedNation(activeId);
+                SetViewedNation(_displayViewer);
             }
         }
 
@@ -2282,6 +2303,8 @@ public partial class MainGameScreen : Control
     private IReadOnlyList<TacticalBattleFrame> _nextTacticalOpening = Array.Empty<TacticalBattleFrame>();
     private SessionOutput? _tacticalCompletionRouting;
 
+    public void PresentOutputForCheck(SessionOutput output) => CompleteTacticalCommand(output);
+
     private void CompleteTacticalCommand(SessionOutput output)
     {
         _tacticalCompletionRouting = output;
@@ -2400,6 +2423,7 @@ public partial class MainGameScreen : Control
     /// </summary>
     public void OpenDiplomacyScreen()
     {
+        if (!AllowStrategicInput()) return;
         var screen = new DiplomacyScreen { Session = Session };
         screen.CommandIssued += OnCommandIssued;
         screen.Closed += () => CloseOverlay(screen);

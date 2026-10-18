@@ -27,6 +27,7 @@ public sealed class StrategicTravelPlayback
     public bool IsActive => _step is not null || _steps.Count > 0;
     public bool CommandsAllowed => !_closed && !IsActive;
     public GameState? DisplayState => _display;
+    public GameState Resolve(GameState live, string viewer) => _display ?? ForViewer(live, viewer);
     public StrategicTravelStep? CurrentStep => _step;
     public StrategicTravelObservation? CurrentRoute => _route;
     public event Action? Changed;
@@ -66,7 +67,7 @@ public sealed class StrategicTravelPlayback
             remaining = Math.Max(0, remaining - needed);
             EnterCell();
             Prepare();
-            if (remaining == 0 && CellSeconds > 0 && _route is not null) return;
+            if (remaining == 0 && duration > 0 && _route is not null) return;
         }
     }
 
@@ -140,10 +141,12 @@ public sealed class StrategicTravelPlayback
         }
     }
 
-    private GameState ForViewer(GameState state)
+    private GameState ForViewer(GameState state) => ForViewer(state, _viewer!);
+
+    private static GameState ForViewer(GameState state, string viewer)
     {
-        var index = state.TurnOrder.ToList().IndexOf(_viewer!);
-        return index >= 0 ? state with { ActiveSeatIndex = index } : state;
+        var index = state.TurnOrder.ToList().IndexOf(viewer);
+        return index >= 0 && index != state.ActiveSeatIndex ? state with { ActiveSeatIndex = index } : state;
     }
 
     private void EnterCell()
