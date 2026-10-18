@@ -316,6 +316,14 @@ graph TD
   T130 --> T181
   T128 --> T182[T182 simple unit glyphs]
   T182 --> T187[T187 readable strategic markers]
+  T124 --> T188[T188 weighted Pass2 eligibility]
+  T175 --> T188
+  T188 --> T189[T189 actor threat mode]
+  T189 --> T190[T190 exact threat selection]
+  T190 --> T191[T191 equal-row flank]
+  T171 --> T192[T192 recruitment power and deficit]
+  T178 --> T192
+  T72 --> T193[T193 capture purse bound]
   T179 --> T183[T183 tactical exchange audio]
   T180 --> T183
   T184[T184 original SAV writer] --> T185[T185 SAV bridge and converter]
@@ -1416,6 +1424,30 @@ Mandatory v0.6.1 [1191](https://github.com/diegoami/imperial_conquest_2/issues/1
 
 Strategic display/picking [1199](https://github.com/diegoami/imperial_conquest_2/issues/1199); follows T182, runtime serialized with all Godot tasks; P2 in 0.6.x without a new v0.6.1 gate → [full entry](tasks/T187.md).
 
+#### T188 Pass 2 selects eligible weighted opponents
+
+Weighted Pass2 eligibility, correction [1164](https://github.com/diegoami/imperial_conquest_2/issues/1164) → [full entry](tasks/T188.md).
+
+#### T189 Threat movement uses the acting units shooting mode
+
+Actor threat mode, correction [1165](https://github.com/diegoami/imperial_conquest_2/issues/1165) → [full entry](tasks/T189.md).
+
+#### T190 Threat selection preserves original swaps and sentinels
+
+Exact threat selection, correction [1166](https://github.com/diegoami/imperial_conquest_2/issues/1166) → [full entry](tasks/T190.md).
+
+#### T191 Flank balance counts enemies on the same row
+
+Equal-row flank, correction [1167](https://github.com/diegoami/imperial_conquest_2/issues/1167) → [full entry](tasks/T191.md).
+
+#### T192 Faithful recruitment respects army power and its deficit
+
+Recruitment power/deficit, correction [1179](https://github.com/diegoami/imperial_conquest_2/issues/1179) → [full entry](tasks/T192.md).
+
+#### T193 Captured money respects the approved purse field bound
+
+Capture purse bound, correction [838](https://github.com/diegoami/imperial_conquest_2/issues/838) → [full entry](tasks/T193.md).
+
 #### T25 Battle result, diplomacy, and hotseat handoff screens
 
 Godot screens → [full entry](tasks/T25.md) · [#25](https://github.com/diegoami/imperial_conquest_2/issues/25)
@@ -1632,3 +1664,9 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T185](#t185-native-state-sav-export-bridge-and-offline-converter) | SAV export bridge/converter | M15 | gpt-6.1-sol | Medium | direct Kimi + original runtime | T184 + reviewed research 37 mapping | [#1191](https://github.com/diegoami/imperial_conquest_2/issues/1191) |
 | [T186](#t186-in-game-save-as-original-compatible-sav) | Save As SAV | M15 | gpt-6.1-sol | Low | direct Kimi + human/original runtime | T185, T183 | [#1191](https://github.com/diegoami/imperial_conquest_2/issues/1191) |
 | [T187](#t187-readable-strategic-army-and-fleet-markers) | Readable strategic markers | M18 | gpt-6.1-sol | Low | direct Kimi + human | T182 | [#1199](https://github.com/diegoami/imperial_conquest_2/issues/1199) |
+| [T188](#t188-pass-2-selects-eligible-weighted-opponents) | Weighted Pass2 eligibility | M21 | gpt-6.1-sol | Medium | direct Kimi | T124, T175 | [#1164](https://github.com/diegoami/imperial_conquest_2/issues/1164) |
+| [T189](#t189-threat-movement-uses-the-acting-units-shooting-mode) | Actor threat mode | M21 | gpt-6.1-sol | Medium | direct Kimi | T188 | [#1165](https://github.com/diegoami/imperial_conquest_2/issues/1165) |
+| [T190](#t190-threat-selection-preserves-original-swaps-and-sentinels) | Exact threat selection | M21 | gpt-6.1-sol | Low | direct Kimi | T189 | [#1166](https://github.com/diegoami/imperial_conquest_2/issues/1166) |
+| [T191](#t191-flank-balance-counts-enemies-on-the-same-row) | Equal-row flank | M21 | gpt-6.1-sol | Low | direct Kimi | T190 | [#1167](https://github.com/diegoami/imperial_conquest_2/issues/1167) |
+| [T192](#t192-faithful-recruitment-respects-army-power-and-its-deficit) | Recruitment power/deficit | M12 | gpt-6.1-sol | Medium | direct Kimi | T171, T178 | [#1179](https://github.com/diegoami/imperial_conquest_2/issues/1179) |
+| [T193](#t193-captured-money-respects-the-approved-purse-field-bound) | Capture purse bound | M3/M21 | Luna family | High | direct Kimi | T72 | [#838](https://github.com/diegoami/imperial_conquest_2/issues/838) |
