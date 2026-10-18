@@ -206,8 +206,8 @@ public class PassTests
     [Fact]
     public void Pass_3s_threat_sort_is_the_originals_selection_sort_not_a_stable_one()
     {
-        // Threats a 700, b 350, c 700, d 350 (HI 4,000 / 2,000 against my HI). The exchange sort:
-        // i = 0: b < a swap → b a c d; i = 1: d < a swap → b d c a; i = 2: a < c no. So b, d, c, a,
+        // Threats a 700, b 350, c 700, d 350 (HI 4,000 / 2,000 against my HI). The one-swap selection sort:
+        // i = 0 selects b → b a c d; i = 1 selects d → b d c a; i = 2 keeps c. So b, d, c, a,
         // where a stable sort gives b, d, a, c.
         var state = General(
             (0, Unit(HI, 0, 0, 3000)),
