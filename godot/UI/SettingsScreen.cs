@@ -53,14 +53,14 @@ public partial class SettingsScreen : Control
     public static void SetSoundEnabledForCheck(bool enabled) => SoundEnabled = enabled;
 
     /// <summary>
-    /// T127: the tactical battle screen's pause after a shot, in seconds (0 to 3.0 in 0.1 s steps; default 0). A
+    /// T127: the tactical battle screen's pause after a shot, in seconds (0 to 3.0 in 0.1 s steps; designed fresh-process default 1). A
     /// display-only player setting kept beside <see cref="SelectedPackId"/>: it is never in a save or a ruleset, and the
     /// engine never waits (the user's decisions of 2026-10-04 on #496).
     /// </summary>
-    public static double BattleShotDelaySeconds { get; private set; }
+    public static double BattleShotDelaySeconds { get; private set; } = 1.0;
 
-    /// <summary>T127: the pause after a melee attack, in seconds (0 to 3.0 in 1.0 s steps; default 0). See <see cref="BattleShotDelaySeconds"/>.</summary>
-    public static double BattleAttackDelaySeconds { get; private set; }
+    /// <summary>T127: the pause after a melee attack, in seconds (0 to 3.0 in 1.0 s steps; designed fresh-process default 2). See <see cref="BattleShotDelaySeconds"/>.</summary>
+    public static double BattleAttackDelaySeconds { get; private set; } = 2.0;
 
     /// <summary>
     /// T127: sets both battle pauses, snapped to the original's <c>TBattleDelays</c> grid (<see cref="BattlePauses"/>).

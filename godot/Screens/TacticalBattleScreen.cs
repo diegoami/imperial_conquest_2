@@ -21,7 +21,7 @@ namespace IC2.Slice.Screens;
 /// cannot be left: it has no close button and no Esc, and goes only when the battle ends (the owner then shows
 /// <see cref="BattleEndedScreen"/>), by surrender or by quitting the application.
 /// </para>
-/// <para>Typed producer frames drive the complete displayed snapshot, both rosters, participants and controller.
+/// <para>Typed producer frames drive the complete displayed snapshot, deliberate lists, participants and controller.
 /// Pauses and skip only affect traversal timing; all frames and exchange notifications enter once. The terminal
 /// reconciliation is consumed before the result event, even when the session no longer has an open battle.</para>
 /// </remarks>
@@ -58,10 +58,11 @@ public partial class TacticalBattleScreen : Control
     public double PlaybackProgress => _playback.Progress;
     public TacticalPose? PlaybackPose => _playback.Pose;
     public Label ControllerLabel { get; private set; } = null!;
-    public Label PreviousExchangeLabel { get; private set; } = null!;
     public Label ActorLabel { get; private set; } = null!;
     public Label TargetLabel { get; private set; } = null!;
-    public IReadOnlyList<string> RosterTexts => _rosterTexts;
+    public IReadOnlyList<string> UnitListTexts => _rosterTexts;
+    public bool UnitListOpen => _listKind is not null;
+    public string ExchangePlainText => string.Join("\n", Model.CurrentExchangeLines);
     private readonly List<string> _rosterTexts = new();
     private readonly Dictionary<int, Button> _rosterRowButtons = new();
 
@@ -105,7 +106,7 @@ public partial class TacticalBattleScreen : Control
     public Label PanelLabel { get; private set; } = null!;
 
     /// <summary>The last exchange's panel, for <c>godot/Checks/**</c>.</summary>
-    public Label ExchangeLabel { get; private set; } = null!;
+    public RichTextLabel ExchangeLabel { get; private set; } = null!;
 
     /// <summary>The message line under the board: what the engine answered to the last order.</summary>
     public Label MessageLabel { get; private set; } = null!;
@@ -139,7 +140,7 @@ public partial class TacticalBattleScreen : Control
     private BoardView _board = null!;
     private VBoxContainer _listBox = null!;
     private Label _listTitle = null!;
-    private ListKind _listKind = ListKind.Friendly;
+    private ListKind? _listKind;
     private readonly TacticalPlayback _playback = new();
     private Control? _dialog;
     private DialogKind _dialogKind;
@@ -147,7 +148,7 @@ public partial class TacticalBattleScreen : Control
     public override void _Ready()
     {
         _view = InitialView;
-        _display = BattleDisplay.For(InitialView, Session.State, Session.Ruleset);
+        _display = BattleDisplay.For(InitialView, Session.State, Session.Ruleset, Session.World);
         _perspective = InitialView.ComputerControlled[0] && !InitialView.ComputerControlled[1] ? 1 : 0;
         _snapshot = new TacticalPresentationSnapshot(InitialView, _display.BoardWidth, _display.BoardHeight, false,
             ValueList<int>.Empty, ValueList<int>.Empty);
@@ -277,14 +278,17 @@ public partial class TacticalBattleScreen : Control
         panelColumn.AddChild(ActorLabel);
         panelColumn.AddChild(TargetLabel);
         panelColumn.AddChild(UiKit.MakeLabel("Current exchange", BattleNoteSize, UiKit.MutedTextColor));
-        ExchangeLabel = UiKit.MakeLabel(string.Empty, BattleBodySize, UiKit.TextColor);
+        ExchangeLabel = new RichTextLabel { Name = "CurrentExchange", BbcodeEnabled = true, FitContent = true,
+            ScrollActive = false, AutowrapMode = TextServer.AutowrapMode.WordSmart };
+        ExchangeLabel.AddThemeFontOverride("normal_font", AppTheme.BodyFont);
+        ExchangeLabel.AddThemeFontSizeOverride("normal_font_size", BattleBodySize);
+        ExchangeLabel.AddThemeColorOverride("default_color", UiKit.TextColor);
+        ExchangeLabel.AddThemeColorOverride("font_outline_color", new Color(0.04f, 0.04f, 0.04f));
+        ExchangeLabel.AddThemeConstantOverride("outline_size", 2);
         ExchangeLabel.CustomMinimumSize = new Vector2(0, 40);
         ExchangeLabel.MouseFilter = MouseFilterEnum.Ignore;
         panelColumn.AddChild(ExchangeLabel);
-        panelColumn.AddChild(UiKit.MakeLabel("Previous exchange", BattleNoteSize, UiKit.MutedTextColor));
-        PreviousExchangeLabel = UiKit.MakeLabel(string.Empty, BattleNoteSize, UiKit.MutedTextColor);
-        panelColumn.AddChild(PreviousExchangeLabel);
-        foreach (var label in new[] { PanelLabel, ActorLabel, TargetLabel, ExchangeLabel, PreviousExchangeLabel })
+        foreach (var label in new[] { PanelLabel, ActorLabel, TargetLabel })
         {
             label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
             label.MouseFilter = MouseFilterEnum.Ignore;
@@ -292,7 +296,8 @@ public partial class TacticalBattleScreen : Control
 
         _listTitle = UiKit.MakeLabel(string.Empty, BattleBodySize, UiKit.MutedTextColor);
         right.AddChild(_listTitle);
-        _listBox = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
+        _listTitle.Visible = false;
+        _listBox = new VBoxContainer { Name = "DeliberateUnitList", Visible = false, SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
         right.AddChild(_listBox);
 
         Refresh();
@@ -556,9 +561,9 @@ public partial class TacticalBattleScreen : Control
             : Model.Caption;
         ControllerLabel.Text = (_playback.Stage == TacticalPlaybackStage.Announcement ? "TURN BEGINS Â· " : "") + Model.ControllerText;
         PanelLabel.Text = string.Join("\n", Model.PanelLines);
-        ExchangeLabel.Text = string.Join("\n", Model.CurrentExchangeLines);
-        ExchangeLabel.AddThemeColorOverride("font_color", Model.DepartureLines.Count > 0 ? new Color(1f, 0.7f, 0.25f) : UiKit.TextColor);
-        PreviousExchangeLabel.Text = string.Join("\n", Model.PreviousExchangeLines);
+        ExchangeLabel.Text = string.Join("\n", Model.CurrentExchangePresentation.RichLines);
+        ExchangeLabel.TooltipText = ExchangePlainText;
+        ExchangeLabel.AddThemeColorOverride("default_color", Model.DepartureLines.Count > 0 ? new Color(1f, 0.7f, 0.25f) : UiKit.TextColor);
         ActorLabel.Text = string.Join("\n", Model.ActorLines);
         TargetLabel.Text = string.Join("\n", Model.TargetLines);
         foreach (var button in Model.Buttons)
@@ -584,22 +589,21 @@ public partial class TacticalBattleScreen : Control
 
     private void RebuildList()
     {
-        var displayedRows = new[] { Model.RosterRows(0), Model.RosterRows(1) };
-        _listTitle.Text = "Both armies Â· " + (_listKind == ListKind.UnitMoves ? "moves and combat" : "battle roster");
-        // Continuous progress changes text, not roster membership. Reuse controls and scroll positions.
-        if (_rosterRowButtons.Count > 0 && _rosterRowButtons.Keys.Order().SequenceEqual(displayedRows.SelectMany(r => r).Select(r => r.Slot).Order()))
+        _listTitle.Visible = _listBox.Visible = UnitListOpen;
+        if (_listKind is null) return;
+        var side = _listKind == ListKind.Enemy ? 1 - _perspective : _perspective;
+        var displayedRows = Model.RosterRows(side);
+        _listTitle.Text = (_listKind == ListKind.Enemy ? "Enemy units · " : _listKind == ListKind.Friendly ? "Friendly units · " : "Unit moves · ") + Model.RosterTitle(side);
+        if (_rosterRowButtons.Count > 0 && _rosterRowButtons.Keys.Order().SequenceEqual(displayedRows.Select(r => r.Slot).Order()))
         {
             _rosterTexts.Clear();
-            for (var side = 0; side < 2; side++)
+            _rosterTexts.Add(_listTitle.Text);
+            foreach (var row in displayedRows)
             {
-                _rosterTexts.Add(Model.RosterTitle(side));
-                foreach (var row in displayedRows[side])
-                {
-                    var text = RosterText(row, side);
-                    _rosterTexts.Add(text);
-                    _rosterRowButtons[row.Slot].Text = text;
-                    _rosterRowButtons[row.Slot].TooltipText = text;
-                }
+                var text = RosterText(row, side);
+                _rosterTexts.Add(text);
+                _rosterRowButtons[row.Slot].Text = text;
+                _rosterRowButtons[row.Slot].TooltipText = text;
             }
             return;
         }
@@ -609,39 +613,34 @@ public partial class TacticalBattleScreen : Control
             _listBox.RemoveChild(child);
             child.QueueFree();
         }
-
         _rosterTexts.Clear();
-        _listTitle.Text = "Both armies Â· " + (_listKind == ListKind.UnitMoves ? "moves and combat" : "battle roster");
-        for (var side = 0; side < 2; side++)
+        _rosterTexts.Add(_listTitle.Text);
+        _listBox.AddChild(UiKit.MakeButton("Close unit list", CloseUnitList, BattleNoteSize));
+        var scroll = new ScrollContainer { SizeFlagsVertical = SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 64) };
+        _listBox.AddChild(scroll);
+        var rows = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        scroll.AddChild(rows);
+        foreach (var row in displayedRows)
         {
-            var title = Model.RosterTitle(side);
-            _rosterTexts.Add(title);
-            var section = new VBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
-            _listBox.AddChild(section);
-            section.AddChild(UiKit.MakeLabel(title, BattleNoteSize, UiKit.AccentColor));
-            var scroll = new ScrollContainer { SizeFlagsVertical = SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 64) };
-            section.AddChild(scroll);
-            var rows = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-            scroll.AddChild(rows);
-            foreach (var row in Model.RosterRows(side))
-            {
-                var text = RosterText(row, side);
-                _rosterTexts.Add(text);
-                var slot = row.Slot;
-                var button = new Button { Text = text, Flat = true, Alignment = HorizontalAlignment.Left,
-                    TooltipText = text, ClipText = true, MouseFilter = MouseFilterEnum.Stop,
-                    SizeFlagsHorizontal = SizeFlags.ExpandFill };
-                button.AddThemeFontSizeOverride("font_size", BattleNoteSize);
-                button.Pressed += () =>
-                {
-                    if (IsPlayingBack) return;
-                    SelectedSlot = slot;
-                    Refresh();
-                };
-                _rosterRowButtons[slot] = button;
-                rows.AddChild(button);
-            }
+            var text = RosterText(row, side);
+            _rosterTexts.Add(text);
+            var slot = row.Slot;
+            var button = new Button { Text = text, Flat = true, Alignment = HorizontalAlignment.Left,
+                TooltipText = text, ClipText = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            button.AddThemeFontSizeOverride("font_size", BattleNoteSize);
+            button.Pressed += () => { if (IsPlayingBack) return; SelectedSlot = slot; Refresh(); };
+            _rosterRowButtons[slot] = button;
+            rows.AddChild(button);
         }
+    }
+
+    public void CloseUnitList()
+    {
+        _listKind = null;
+        _rosterTexts.Clear();
+        _rosterRowButtons.Clear();
+        foreach (var child in _listBox.GetChildren()) { _listBox.RemoveChild(child); child.QueueFree(); }
+        _listTitle.Visible = _listBox.Visible = false;
     }
 
     private void OnPanelInput(InputEvent @event)

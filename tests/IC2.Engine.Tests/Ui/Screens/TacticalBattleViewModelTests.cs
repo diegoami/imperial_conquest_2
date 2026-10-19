@@ -476,4 +476,73 @@ public sealed class TacticalBattleViewModelTests
         queue.Begin(output.TacticalTimeline);
         Assert.True(setups > 1);
     }
+    [Theory]
+    [InlineData("seleucid", "ptolemaic", "renamed", "SELEUCID", "PTOLEMEAN")]
+    [InlineData("ptolemaic", "seleucid", "duplicate [color=red] Ω [/color]", "PTOLEMEAN", "SELEUCID")]
+    [InlineData("north", "south", "same", "NORTH [B]", "SOUTH [I]")]
+    public void Current_exchange_uses_immutable_owner_ids_own_palette_and_escaped_text_after_removal_and_terminal(
+        string actorNation, string targetNation, string unitName, string actorCaption, string targetCaption)
+    {
+        var (session, _, display) = Opened();
+        var output = session.BattleGeneral(true); // authoritative session is already beyond every displayed exchange
+        var frames = output.TacticalTimeline;
+        var exchanges = frames.Where(f => f.Event is TacticalShotEvent or TacticalMeleeEvent).ToArray();
+        Assert.NotEmpty(exchanges);
+        // Use actual world palettes under stable renamed identities; display names deliberately cannot identify aliases.
+        var world = session.World with
+        {
+            Nations = IC2.Engine.Model.ValueList.From(session.World.Nations.Select((n, i) => n with
+            {
+                Id = i == 0 ? actorNation : targetNation,
+                Name = i == 0 ? "North [b]" : "South [i]",
+                BattleColorsHex = IC2.Engine.Model.ValueList.Of(i == 0 ? "#102030" : "#FFF0C0", "#FFFFFF", "#000000"),
+            })),
+        };
+        var allegiances = new Dictionary<string, BattleAllegiance>
+        {
+            [actorNation] = BattleAllegiance.For(actorNation, "North [b]", world),
+            [targetNation] = BattleAllegiance.For(targetNation, "South [i]", world),
+        };
+        display = display with { AttackerNationName = "misleading", DefenderNationName = "misleading", Allegiances = allegiances };
+        Assert.Equal("#889098", allegiances[actorNation].ColorHex);
+        Assert.Equal("#FFF0C0", allegiances[targetNation].ColorHex);
+        foreach (var exchange in exchanges)
+        {
+            var frame = exchange with
+            {
+                Actor = exchange.Actor! with { NationId = actorNation },
+                Target = exchange.Target! with { NationId = targetNation },
+                After = exchange.After with { View = exchange.After.View with
+                {
+                    Slots = IC2.Engine.Model.ValueList.From(exchange.After.View.Slots.Select(u => u with { Name = unitName, Troops = 0 })),
+                } },
+            };
+            foreach (var perspective in new[] { 0, 1 })
+            foreach (var snapshot in new[] { frame.After, frames[^1].After })
+            {
+                var model = TacticalBattleViewModel.FromSnapshot(snapshot, display, frame: frames[^1], currentExchange: frame, perspectiveSide: perspective);
+                var presentation = model.CurrentExchangePresentation;
+                var expectedActor = $"{actorCaption} #{frame.Actor!.Slot} {unitName}";
+                var expectedTarget = $"{targetCaption} #{frame.Target!.Slot} {unitName}";
+                Assert.Contains(expectedActor, presentation.PlainLines[0]);
+                Assert.Contains(expectedTarget, presentation.PlainLines[0]);
+                Assert.Contains($"[color=#889098]{TacticalBattleViewModel.EscapeRichText(expectedActor)}[/color]", presentation.RichLines[0]);
+                Assert.Contains($"[color=#FFF0C0]{TacticalBattleViewModel.EscapeRichText(expectedTarget)}[/color]", presentation.RichLines[0]);
+                Assert.DoesNotContain("[color=red]", presentation.RichLines[0]);
+                Assert.DoesNotContain("[B]", presentation.RichLines[0]);
+                Assert.Equal(TacticalBattleViewModel.ExchangeLines(frame)[1], presentation.PlainLines[1]);
+                Assert.Equal(frame.Actor.Slot, model.ActorSlot);
+                Assert.Equal(frame.Target.Slot, model.TargetSlot);
+            }
+        }
+        Assert.Null(session.OpenTacticalBattle);
+    }
+
+    [Fact]
+    public void Rich_markup_brackets_are_escaped_once_and_unknown_nation_names_are_uppercased()
+    {
+        Assert.Equal("[lb]b[rb]x[lb]/b[rb][lb]lb[rb]", TacticalBattleViewModel.EscapeRichText("[b]x[/b][lb]"));
+        Assert.Equal("CUSTOM [FACTION]", BattleAllegiance.For("custom", "Custom [Faction]", null).Caption);
+    }
+
 }
