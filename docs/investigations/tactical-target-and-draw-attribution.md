@@ -12,6 +12,8 @@ T189's reviewer ran all 318 hooked state, 318 ordered-draw and 318 peace asserti
 
 The state-only `ar-hi-three_s3_r5_hook` discrepancy clears across all 22 files despite the same 218 draws in both modes. The remaining mixed-seed first draw discrepancies involve different original/model shooting actors, so they do not establish a bound correction for a common exchange. These .NET reproductions supply no new native Windows original execution or recovered original shot-pass/claims history, and do not close the complete issue-1107 investigation.
 
+[T190](../tasks/T190.md) and [T191](../tasks/T191.md) subsequently correct the bounded threat-sort/sentinel and equal-Y flank rules. This records the production corrections, not a new whole-battle clearance count; the pinned historical table below remains evidence of the earlier implementations.
+
 ## Provenance and comparison units
 
 **[Reported measurement]** The unchanged production replay at build `257f2d2cd7510451d229a983553a54b89065b06c` includes the reviewed T175 control correction ([PR 1156](https://github.com/diegoami/imperial_conquest_2/pull/1156)). Fixtures are pinned at `6319802a75067e7730e4f6a27dce3b4e296ddd9b`. The report pins the EXE, DAT and decompile hashes and its canonical captures; no raw game files are copied here.
