@@ -1,4 +1,8 @@
 using Godot;
+using IC2.Engine.Persistence;
+using IC2.Engine.Presentation;
+using System.Security.Cryptography;
+using System.Text.Json;
 using IC2.Slice.UI;
 
 namespace IC2.Slice.Checks;
@@ -18,11 +22,13 @@ public partial class BrowseLoadCheck : Node
     private readonly List<string> _cleanUp = new();
     private string? _tempDir;
 
-    public override void _Ready()
+    public override async void _Ready()
     {
         try
         {
-            Run();
+            var captureDirectory = System.Environment.GetEnvironmentVariable("IC2_LOAD_LIST_CAPTURE_DIR");
+            if (string.IsNullOrWhiteSpace(captureDirectory)) Run();
+            else await CaptureNativeList(captureDirectory);
         }
         catch (System.Exception ex)
         {
@@ -31,17 +37,80 @@ public partial class BrowseLoadCheck : Node
         }
         finally
         {
-            foreach (var f in _cleanUp)
-            {
-                try { if (File.Exists(f)) File.Delete(f); } catch (System.Exception) { }
-            }
-
-            try { if (_tempDir is not null && Directory.Exists(_tempDir)) Directory.Delete(_tempDir, true); } catch (System.Exception) { }
+            CleanUp();
         }
 
         var exitCode = _ok ? 0 : 1;
         GD.Print($"BrowseLoadCheck: exiting with code {exitCode}.");
         GetTree().Quit(exitCode);
+    }
+
+    // Set IC2_LOAD_LIST_CAPTURE_DIR and IC2_CAPTURE_HEAD for the optional windowed capture route.
+    // It never writes user://saves or uses owner data. Its only output is the
+    // final real LoadGameScreen viewport and a receipt describing the isolated synthetic fixture.
+    private async Task CaptureNativeList(string outputDirectory)
+    {
+        if (DisplayServer.GetName() == "headless")
+            throw new InvalidOperationException("Native-list capture requires a windowed display.");
+        var head = System.Environment.GetEnvironmentVariable("IC2_CAPTURE_HEAD");
+        if (head is null || head.Length != 40 || !head.All(Uri.IsHexDigit))
+            throw new InvalidOperationException("Set IC2_CAPTURE_HEAD to the exact checked-out commit.");
+
+        Directory.CreateDirectory(outputDirectory);
+        _tempDir = Path.Combine(Path.GetTempPath(), "ic2-1259-capture-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(_tempDir);
+        var data = GameDataContext.Repository.Resolve("classical-mediterranean");
+        var session = new GameSession(data.World, data.Ruleset, data.Scenario);
+        var seed = Path.Combine(_tempDir, "seed.json");
+        session.Submit($"save {seed}");
+        var save = SaveManager.LoadFile(seed, data.World, data.Ruleset) with { Label = "Stored label: 2001-01-01" };
+        File.Delete(seed);
+        var samples = new[]
+        {
+            (Name: "z-2026-10-19-newest.json", Time: new DateTime(2026, 10, 19, 12, 0, 0, DateTimeKind.Utc)),
+            (Name: "b-2026-10-18-tie.json", Time: new DateTime(2026, 10, 18, 12, 0, 0, DateTimeKind.Utc)),
+            (Name: "c-2026-10-18-tie.json", Time: new DateTime(2026, 10, 18, 12, 0, 0, DateTimeKind.Utc)),
+            (Name: "a-2026-10-01-oldest.json", Time: new DateTime(2026, 10, 1, 12, 0, 0, DateTimeKind.Utc)),
+        };
+        foreach (var sample in samples.Reverse())
+        {
+            var path = Path.Combine(_tempDir, sample.Name);
+            SaveManager.WriteFile(path, save);
+            File.SetLastWriteTimeUtc(path, sample.Time);
+        }
+        var screen = new LoadGameScreen { SavesDirectoryForCheck = _tempDir, Size = GetViewport().GetVisibleRect().Size };
+        AddChild(screen);
+        var labels = screen.SaveListForCheck.GetChildren().OfType<HBoxContainer>()
+            .Select(row => row.GetChildren().OfType<Label>().Single().Text).ToArray();
+        Check(labels.Length == samples.Length, "capture contains only the isolated synthetic saves");
+        for (var i = 0; i < Math.Min(labels.Length, samples.Length); i++)
+            Check(labels[i].StartsWith(samples[i].Name + " \u2014 ", StringComparison.Ordinal), "capture uses actual filename and expected newest-first/tie order");
+        if (!_ok) throw new InvalidOperationException("Native-list capture assertions failed.");
+
+        for (var frame = 0; frame < 6; frame++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+        var png = Path.Combine(outputDirectory, "load-game-filenames-newest-first.png");
+        using var image = GetViewport().GetTexture().GetImage();
+        if (image.SavePng(png) != Error.Ok) throw new IOException("Could not save native-list viewport.");
+        File.WriteAllText(Path.Combine(outputDirectory, "load-game-receipt.json"), JsonSerializer.Serialize(new
+        {
+            Head = head, Scene = "res://Checks/BrowseLoadCheck.tscn", Scenario = data.Scenario.Id,
+            Synthetic = true, StoredLabel = save.Label, Order = samples.Select(sample => new { sample.Name, LastWriteTimeUtc = sample.Time }),
+            RowText = labels, Display = DisplayServer.GetName(), Renderer = RenderingServer.GetCurrentRenderingMethod(),
+            Width = image.GetWidth(), Height = image.GetHeight(), PngSha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(png))),
+        }, new JsonSerializerOptions { WriteIndented = true }));
+        GD.Print($"BrowseLoadCheck: captured final native list at {png}; HEAD {head}.");
+    }
+
+    public override void _ExitTree() => CleanUp();
+
+    private void CleanUp()
+    {
+        foreach (var file in _cleanUp)
+        {
+            try { if (File.Exists(file)) File.Delete(file); } catch (Exception) { }
+        }
+        try { if (_tempDir is not null && Directory.Exists(_tempDir)) Directory.Delete(_tempDir, true); } catch (Exception) { }
     }
 
     private void Run()
