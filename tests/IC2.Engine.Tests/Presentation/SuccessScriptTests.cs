@@ -373,13 +373,14 @@ public sealed class SuccessScriptTests
     [Fact]
     public void The_loaded_treaty_case_has_pinned_native_context_and_exact_roundtrip()
     {
-        var file = File.ReadAllBytes(TreatySavePath);
-        Assert.Equal("aed9d49b94e2c292e3ab391a73cf5e2cfcbf462423e3374f8e28a621a5ab822c",
+        var file = System.Text.Encoding.UTF8.GetBytes(File.ReadAllText(TreatySavePath).Replace("\r\n", "\n", StringComparison.Ordinal));
+        Assert.Equal("7494a66e8a8488fe3a95d0d8b572cb09b2a825d2d59c95de0bb8ed4c178ae77e",
             Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(file)));
         var save = IC2.Engine.Persistence.SaveManager.LoadFile(TreatySavePath, Classical.World, Classical.Ruleset);
         var text = IC2.Engine.Persistence.SaveManager.Serialize(save);
         var copy = IC2.Engine.Persistence.SaveManager.Load("treaty-roundtrip", text, Classical.World, Classical.Ruleset);
-        Assert.Equal(File.ReadAllText(TreatySavePath), text);
+        Assert.Equal(File.ReadAllText(TreatySavePath).Replace("\r\n", "\n", StringComparison.Ordinal), text.Replace("\r\n", "\n", StringComparison.Ordinal));
+        Assert.Equal(text, IC2.Engine.Persistence.SaveManager.Serialize(copy));
         Assert.Equal(save, copy);
         Assert.Equal(save.State, copy.State);
         Assert.Equal("a1fdb8d15ddcafeed384adc6712615e34e9a9054daf1eecf750a25068e2345c3", IC2.Engine.Core.GameStateHash.Compute(copy.State));

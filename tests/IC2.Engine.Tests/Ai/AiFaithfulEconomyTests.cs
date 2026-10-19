@@ -258,10 +258,10 @@ public sealed class AiFaithfulEconomyTests
     }
 
     [Fact]
-    public void A_deficit_with_a_healthy_treasury_gives_exactly_8_orders_a_turn()
+    public void A_deficit_with_a_healthy_treasury_stops_at_the_first_crossing()
     {
         var run = RunEconomy(Deficit());
-        Assert.Equal(8, Slots(run.Result.State));
+        Assert.Equal(4, Slots(run.Result.State)); //seed7 crosses the corrected15000 raw-power deficit on order4
         Assert.Equal(0, run.Result.Rejected);
     }
 
@@ -290,10 +290,10 @@ public sealed class AiFaithfulEconomyTests
     }
 
     [Fact]
-    public void At_the_floor_a_turn_places_at_most_3_orders_and_above_it_8()
+    public void At_the_floor_a_turn_places_at_most_3_orders_and_above_it_the_deficit_stops_it()
     {
         Assert.Equal(3, Slots(RunEconomy(Deficit(treasury: -20000)).Result.State));
-        Assert.Equal(8, Slots(RunEconomy(Deficit(treasury: 100000)).Result.State));
+        Assert.Equal(4, Slots(RunEconomy(Deficit(treasury: 100000)).Result.State));
     }
 
     [Fact]
@@ -491,8 +491,8 @@ public sealed class AiFaithfulEconomyTests
         var seat = new CountingRng(new SplitMix64Rng(11));
         var result = AiFaithfulEconomy.Run(state, rules, BattleCommandTestbed.ToyWorld, dispatcher, NullEventSink.Instance, seat, Me, new List<string>());
         Assert.Equal(0, seat.OwnDraws);
-        Assert.Equal(8, Slots(result.State));
-        Assert.Equal(16, seat.Child!.OwnDraws);
+        Assert.Equal(6, Slots(result.State)); //seed11 crosses15000 on order6
+        Assert.Equal(12, seat.Child!.OwnDraws);
 
         string Key(GameState s) => string.Join(
             ";", s.NationById(Me)!.RecruitmentSlots.Select(x => $"{x.TargetCityId}/{x.UnitTypeId}/{x.Troops}"));
