@@ -106,10 +106,17 @@ public partial class StrategicTravelCheck : Node
             var id = fleet ? "f" : "a";
             // Actual pointer chooses army on coincidences, even when the fleet is selected.
             map._GuiInput(new InputEventMouseMotion { Position = map.TileCenterForCheck(50, 45) });
-            map.ClearSelection();
+            // Keep the real strip laid out in both frames: this target is unselected,
+            // while its adjacent army is selected outside the sampling mask. Otherwise
+            // strip visibility changes raster phase and can fake a difference at 3px.
+            main.SelectArmyForCheck("neighbour");
+            await Frames();
+            map.CentreOnTile(50, 45);
+            map._GuiInput(new InputEventMouseMotion { Position = map.TileCenterForCheck(50, 45) });
             using var unselected = await FeedbackImage(prefix + "-unselected");
             var unselectedRect = FeedbackPixelRect(map, id, unselected);
             var before = main.Session.State;
+            map.ClearSelection();
             if (fleet && overlap) main.SelectFleetForCheck(id); // ordinary picking intentionally army-first
             else Click(map, new(50, 45), MouseButton.Left);
             await Frames(); // command-strip layout changes the map's screen-space origin
@@ -122,6 +129,9 @@ public partial class StrategicTravelCheck : Node
                 prefix + " actual selection, panel subject and command strip agree");
             var rect = map.StrategicDrawBoundsForCheck[id];
             var pixelRect = FeedbackPixelRect(map, id, selected);
+            Require(unselectedRect.Position.DistanceTo(pixelRect.Position) < .01f
+                && unselectedRect.Size.DistanceTo(pixelRect.Size) < .01f,
+                prefix + " pixel comparison keeps identical viewport raster phase");
             var origin = pixelRect.Position;
             var changed = 0;
             var samples = 0;
