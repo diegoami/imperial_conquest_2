@@ -23,10 +23,13 @@ public sealed class TacticalPlaybackTests
     }
 
     [Theory]
-    [InlineData(0, false)]
-    [InlineData(1, false)]
-    [InlineData(1, true)]
-    public void Every_frame_and_typed_exchange_once_in_order_before_completion_including_null_final_view(double delay, bool skip)
+    [InlineData(0, 0, false)]
+    [InlineData(1, 1, false)]
+    [InlineData(1, 2, false)]
+    [InlineData(0.3, 2, false)]
+    [InlineData(3, 3, false)]
+    [InlineData(1, 2, true)]
+    public void Every_frame_and_typed_exchange_once_in_order_before_completion_including_null_final_view(double delay, double attackDelay, bool skip)
     {
         var (session, opening, ending) = Battle();
         Assert.Null(ending.OpenBattleView);
@@ -34,7 +37,7 @@ public sealed class TacticalPlaybackTests
         var all = opening.Concat(ending.TacticalTimeline).ToArray();
         var seen = new List<TacticalBattleFrame>();
         var cues = new List<TacticalBattleFrame>();
-        var queue = new TacticalPlayback { ShotDelay = delay, AttackDelay = delay };
+        var queue = new TacticalPlayback { ShotDelay = delay, AttackDelay = attackDelay };
         queue.FrameEntered += seen.Add;
         queue.ExchangeEntered += cues.Add;
         var completions = 0;
