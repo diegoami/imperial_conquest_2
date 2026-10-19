@@ -296,6 +296,7 @@ public partial class StrategicTravelCheck : Node
             await Frames();
             Require(main.MapView.StrategicDrawBoundsForCheck[id].Size.X <= TilePixels(main) + .01f,
                 "moving board width/height remains one projected tile at " + zoom);
+            await CheckTravelFeedback(main, id, selected, new GridPoint(52, 46), prefix + "-mid-" + zoom);
             await Capture(prefix + "-mid-" + zoom, "Fractional centre, locked orders, actual panel/minimap; " + zoom + " practical zoom.");
         }
         main.MapView.CentreOnTile(50 + (int)Math.Floor(main.MapView.Size.X / TilePixels(main) / 2), 45);
@@ -316,8 +317,40 @@ public partial class StrategicTravelCheck : Node
         Require(!selected || main.MapView.SelectedStrategicMarkerForCheck is null, "exhausted selection clears visibly on completion");
         Require(main.MapView.DisplayState == final && main.ContextPanel.DisplayState == final && main.AreaMapView.DisplayState == final,
             "map/panel/minimap switch to final authoritative state together");
+        await CheckTravelFeedback(main, id, false, null, prefix + "-arrival");
         await Capture(prefix + "-arrival", "Partial-stop arrival: all views agree; exhausted selection and lock clear.");
         Require(session.State == final && initial.RandomSeed != final.RandomSeed, "playback adds no further authoritative changes");
+    }
+
+    private async Task CheckTravelFeedback(MainGameScreen main, string id, bool selected, GridPoint? ghost, string scenario)
+    {
+        if (string.IsNullOrWhiteSpace(_directory)) return; // independent headless geometry/input assertions remain above
+        await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+        using var image = GetViewport().GetTexture().GetImage();
+        var rect = main.MapView.StrategicDrawBoundsForCheck[id];
+        var transform = GetViewport().GetFinalTransform() * main.MapView.GetGlobalTransformWithCanvas();
+        int GoldPixels(Rect2 local)
+        {
+            var start = transform * local.Position; var end = transform * local.End;
+            var count = 0;
+            for (var y = Math.Max(0, (int)Math.Ceiling(start.Y)); y < Math.Min(image.GetHeight(), end.Y); y++)
+            for (var x = Math.Max(0, (int)Math.Ceiling(start.X)); x < Math.Min(image.GetWidth(), end.X); x++)
+            {
+                var c = image.GetPixel(x, y);
+                // [designed] existing opaque gold feedback, tolerance for framebuffer quantization.
+                if (Math.Abs(c.R - .95f) < .025f && Math.Abs(c.G - .78f) < .025f && Math.Abs(c.B - .35f) < .025f) count++;
+            }
+            return count;
+        }
+        var pixels = GoldPixels(rect);
+        Require(selected ? pixels > 0 : pixels == 0,
+            scenario + " actual selected feedback follows fractional marker and clears at completion (pixels=" + pixels + ")");
+        if (ghost is { } destination)
+        {
+            var center = main.MapView.TileCenterForCheck(destination.X, destination.Y);
+            Require(GoldPixels(new Rect2(center - rect.Size / 2, rect.Size)) == 0,
+                scenario + " rendered destination has no selected-feedback ghost");
+        }
     }
 
     private async Task CheckProjectionAndLifecycle()
