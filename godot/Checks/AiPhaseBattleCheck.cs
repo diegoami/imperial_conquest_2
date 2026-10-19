@@ -44,12 +44,22 @@ public partial class AiPhaseBattleCheck : Node
 
     private bool _ok = true;
 
-    public override void _Ready()
+    private readonly List<Node> _fixtureRoots = new();
+    private readonly List<Node> _fixtureNodes = new();
+
+    public override async void _Ready()
     {
         try
         {
-            CheckOneHumanSeatShowsTheAiPhasesBattleAtTurnStart();
-            CheckTwoHumanSeatsHoldAndReleaseBattles();
+            try
+            {
+                CheckOneHumanSeatShowsTheAiPhasesBattleAtTurnStart();
+                CheckTwoHumanSeatsHoldAndReleaseBattles();
+            }
+            finally
+            {
+                await DrainFixtureNodes();
+            }
         }
         catch (Exception ex)
         {
@@ -98,7 +108,7 @@ public partial class AiPhaseBattleCheck : Node
             + $"(turn {turnBefore} -> {mainGame.Session.State.Calendar.TurnIndex})");
 
         RemoveChild(mainGame);
-        mainGame.QueueFree();
+        QueueFixtureFree(mainGame);
     }
 
     /// <summary>
@@ -200,7 +210,7 @@ public partial class AiPhaseBattleCheck : Node
             "several battles: rome's first two windows are its two held battles, in the order fought");
 
         RemoveChild(mainGame);
-        mainGame.QueueFree();
+        QueueFixtureFree(mainGame);
     }
 
     // ---- fixtures ----
@@ -380,6 +390,52 @@ public partial class AiPhaseBattleCheck : Node
         }
     }
 
+    private async Task DrainFixtureNodes()
+    {
+        // Include fixtures whose behavior check threw before normal teardown.
+        foreach (var child in GetChildren())
+        {
+            RemoveChild(child);
+            QueueFixtureFree(child);
+        }
+
+        Check(_fixtureRoots.Count > 0
+            && _fixtureRoots.All(n => GodotObject.IsInstanceValid(n) && n.IsQueuedForDeletion()),
+            $"all {_fixtureRoots.Count} fixture roots are queued before deferred cleanup");
+        Check(_fixtureNodes.Count > _fixtureRoots.Count && _fixtureNodes.All(GodotObject.IsInstanceValid),
+            $"fixture roots and descendants remain alive immediately after QueueFree ({_fixtureNodes.Count} nodes)");
+
+        // ProcessFrame precedes deferred deletion: wait for deletion, then observe invalidation.
+        // Bound the lifecycle wait to four frames, as in ScreensCheck, rather than sleeping/retrying the check.
+        var frames = 0;
+        while (_fixtureNodes.Any(GodotObject.IsInstanceValid) && frames < 4)
+        {
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            frames++;
+        }
+
+        var remaining = _fixtureNodes.Count(GodotObject.IsInstanceValid);
+        Check(remaining == 0,
+            $"all {_fixtureNodes.Count} fixture roots and descendants were freed before quit "
+            + $"(remaining {remaining}, process frames {frames})");
+        Check(GetChildCount() == 0, "the check has no remaining fixture children before quit");
+        _fixtureNodes.Clear();
+        _fixtureRoots.Clear();
+    }
+
+    private void QueueFixtureFree(Node fixture)
+    {
+        _fixtureRoots.Add(fixture);
+        TrackFixtureNodes(fixture);
+        fixture.QueueFree();
+    }
+
+    private void TrackFixtureNodes(Node node)
+    {
+        _fixtureNodes.Add(node);
+        foreach (var child in node.GetChildren())
+            TrackFixtureNodes(child);
+    }
     private bool Check(bool condition, string description)
     {
         GD.Print(condition ? $"PASS: {description}" : $"FAIL: {description}");
