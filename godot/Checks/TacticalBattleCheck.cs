@@ -322,6 +322,9 @@ public partial class TacticalBattleCheck : Node
 
         var view = mainGame.Session.OpenTacticalBattle!;
         var rome = view.AttackerNationId;
+        Check(screen!.BoardYForEngineY(0) == screen.Model.BoardHeight - 1
+            && screen.EngineYForBoardY(screen.Model.BoardHeight - 1) == 0,
+            "human attacker is displayed at the bottom and displayed rows map back to engine rows");
         Check(
             !view.Placed && view.SideToMove == TacticalBattleState.AttackerSide && view.Counter == 2,
             $"the defender's placement is done and Rome is to place (placed {view.Placed}, side {view.SideToMove}, counter {view.Counter})");
@@ -341,7 +344,7 @@ public partial class TacticalBattleCheck : Node
             .First();
         screen.SelectUnit(0);
         Check(screen.SelectedSlot == 0, "a click on an own unit selects it");
-        screen.ClickCell(target.X, target.Y);
+        screen.ClickBoardCell(target.X, screen.BoardYForEngineY(target.Y));
         var placed = mainGame.Session.OpenTacticalBattle!.Slots[0];
         Check(
             placed.X == target.X && placed.Y == target.Y,
@@ -850,6 +853,15 @@ public partial class TacticalBattleCheck : Node
         var view = mainGame.Session.OpenTacticalBattle!;
         Check(view.SideToMove == TacticalBattleState.DefenderSide && !view.Placed, "the human defender places first");
         Check(view.DefenderNationId == "north", "the human is the defender");
+        Check(screen!.BoardYForEngineY(0) == 0 && screen.EngineYForBoardY(0) == 0,
+            "human defender remains at the bottom with engine high-Y rows displayed low");
+        var defenderUnit = view.Slots.Select((slot, index) => (slot, index))
+            .First(pair => pair.index >= 20 && pair.slot.IsLive);
+        Check(defenderUnit.slot.Y >= screen.Model.BoardHeight / 2,
+            $"the clicked human defender occupies a high engine row ({defenderUnit.slot.Y})");
+        screen.ClickBoardCell(defenderUnit.slot.X, screen.BoardYForEngineY(defenderUnit.slot.Y));
+        Check(screen.SelectedSlot == defenderUnit.index,
+            "a human defender board click maps the displayed row back to the correct engine unit");
 
         // Save is refused by the engine, and the screen shows only its message.
         mainGame.PressSaveForCheck("t127-aiphase");

@@ -135,6 +135,7 @@ public partial class TacticalBattleScreen : Control
     private TacticalBattleView _view = null!;
     private TacticalPresentationSnapshot _snapshot = null!;
     private int _perspective;
+    private int _bottomSide;
     private string? _battleId;
     private BoardView _minimap = null!;
     private BattleDisplay _display = null!;
@@ -150,6 +151,9 @@ public partial class TacticalBattleScreen : Control
     {
         _view = InitialView;
         _display = BattleDisplay.For(InitialView, Session.State, Session.Ruleset, Session.World);
+        _bottomSide = !InitialView.ComputerControlled[0] ? 0
+            : !InitialView.ComputerControlled[1] ? 1
+            : InitialView.SideToMove;
         _perspective = InitialView.ComputerControlled[0] && !InitialView.ComputerControlled[1] ? 1 : 0;
         _snapshot = new TacticalPresentationSnapshot(InitialView, _display.BoardWidth, _display.BoardHeight, false,
             ValueList<int>.Empty, ValueList<int>.Empty);
@@ -350,6 +354,15 @@ public partial class TacticalBattleScreen : Control
                 break;
         }
     }
+
+    /// <summary>Maps an engine row to the row displayed on the board and minimap.</summary>
+    public int BoardYForEngineY(int engineY) => _bottomSide == 0 ? Model.BoardHeight - 1 - engineY : engineY;
+
+    /// <summary>Maps a displayed board row back to its engine row.</summary>
+    public int EngineYForBoardY(int boardY) => _bottomSide == 0 ? Model.BoardHeight - 1 - boardY : boardY;
+
+    /// <summary>Routes a board-view row through the production display-to-engine coordinate mapping.</summary>
+    public void ClickBoardCell(int x, int boardY, bool right = false) => ClickCell(x, EngineYForBoardY(boardY), right);
 
     /// <summary>Selects an own unit by slot, as a click on it would.</summary>
     /// <param name="slot">The slot.</param>
@@ -756,7 +769,7 @@ public partial class TacticalBattleScreen : Control
                 var y = (int)(click.Position.Y / CellPixels);
                 if (x >= 0 && y >= 0 && x < Host.Model.BoardWidth && y < Host.Model.BoardHeight)
                 {
-                    Host.ClickCell(x, y, click.ButtonIndex == MouseButton.Right);
+                    Host.ClickBoardCell(x, y, click.ButtonIndex == MouseButton.Right);
                     AcceptEvent();
                 }
             }
@@ -774,7 +787,7 @@ public partial class TacticalBattleScreen : Control
             var font = AppTheme.BodyFont;
             foreach (var cell in model.Cells)
             {
-                var rect = new Rect2(cell.X * pixels, cell.Y * pixels, pixels, pixels);
+                var rect = new Rect2(cell.X * pixels, Host.BoardYForEngineY(cell.Y) * pixels, pixels, pixels);
                 if (ground is not null)
                 {
                     DrawTextureRect(ground, rect, false);
@@ -790,7 +803,8 @@ public partial class TacticalBattleScreen : Control
             foreach (var visual in model.VisualUnits)
             {
                 var cell = visual.Cell;
-                var rect = new Rect2((float)visual.X * pixels, (float)visual.Y * pixels, pixels, pixels);
+                var displayY = Host._bottomSide == 0 ? model.BoardHeight - 1f - (float)visual.Y : (float)visual.Y;
+                var rect = new Rect2((float)visual.X * pixels, displayY * pixels, pixels, pixels);
                 var alpha = new Color(1, 1, 1, (float)visual.Opacity);
                 if (cell.IconKey is not null)
                 {
