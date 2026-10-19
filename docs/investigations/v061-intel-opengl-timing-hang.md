@@ -1,0 +1,90 @@
+# v0.6.1 Intel OpenGL timing hang
+
+Investigation dated 2026-10-19; [issue #1261](https://github.com/diegoami/imperial_conquest_2/issues/1261).
+This records evidence and a temporary launch test, not a gameplay fix or a
+verified battle-completion workaround.
+
+## Observations and limits
+
+**[confirmed: owner report]** The official v0.6.1 installation became
+unresponsive near tactical battle completion. Computer General was active,
+with both battle and movement pauses enabled. The owner confirmed
+`classical-mediterranean-saveyy.json` as the starting save. Whether leaving
+the game meant changing focus, minimizing it, or physically stepping away
+remains unconfirmed.
+
+**[confirmed: diagnostics]** Two minimal diagnostic snapshots several minutes
+apart placed the continuously busy main thread at the same polling loop in
+Intel's native OpenGL driver, version 32.0.101.7088. The managed stack did not
+show tactical code executing. A separate audio-device warning was observed;
+its relationship to the hang is unproved. Private diagnostics and save
+contents are retained locally and are not included here.
+
+**[derived]** Offline native unwind metadata and the Godot call site's
+arguments strongly match a blocking GPU timestamp-result read. This is not
+a debugger-symbolized identification or proof of the initiating fault.
+The corresponding [Godot source at commit ed1daf0bf](https://github.com/godotengine/godot/blob/ed1daf0bf/drivers/gles3/storage/utilities.cpp#L343-L353)
+reads timestamp queries using `glGetQueryObjectui64v` and `GL_QUERY_RESULT`.
+Driver versus engine responsibility, the trigger, and the connection to the
+battle transition remain **[open]**. Source inspection does not justify a
+gameplay, tactical playback, or audio behavior change.
+
+## Temporary ANGLE test
+
+Use these per-launch engine arguments before any `--` user-argument separator:
+
+```text
+--rendering-method gl_compatibility --rendering-driver opengl3_angle
+```
+
+**[confirmed: code]** Godot's [Windows ANGLE API selection](https://github.com/godotengine/godot/blob/ed1daf0bf/platform/windows/gl_manager_windows_angle.cpp#L45-L56)
+uses Direct3D 11 and GLES; the [timestamp read is gated on desktop GL mode](https://github.com/godotengine/godot/blob/ed1daf0bf/drivers/gles3/storage/utilities.cpp#L343-L353).
+This bypasses that particular read. No public timestamp-disable switch
+was found in the inspected path. ANGLE initialization can
+[fall back to native OpenGL](https://github.com/godotengine/godot/blob/ed1daf0bf/platform/windows/display_server_windows.cpp#L8237-L8252)
+when `rendering/gl_compatibility/fallback_to_native` allows it and native GL
+is supported, so successful startup alone does not establish which backend ran.
+
+**[confirmed: startup only]** An owner-authorized temporary copy of unchanged
+v0.6.1 completed 600 frames, capped at 60 FPS in a 1024 x 768 window, with exit
+code zero, no errors and no fallback. Its log explicitly identified ANGLE,
+Intel Iris Xe and Direct3D 11 with driver 32.0.101.7088. The executable hash
+was unchanged. This did **not** test battle completion. That startup test
+changed no driver, project, installation or shortcut. Other GPU use,
+including a possible WSL/Pygame workload, was not established as causal; its
+actual backend was not verified and no other application was stopped.
+
+## Driver update and same-machine startup checks
+
+**[confirmed: startup only]** Later on 2026-10-19 the owner updated the Intel
+driver and rebooted; the reboot was verified at 16:01 local time. Sequential
+startup checks of unchanged v0.6.1 on the same computer then completed 600
+frames each on native OpenGL and ANGLE/Direct3D 11. Both exited with code zero
+and no diagnostic errors. The native header identified OpenGL 3.3.0, Build
+32.0.101.7092; the ANGLE header identified ANGLE 2.1.1 and Direct3D 11 driver
+32.0.101.7092, with no native fallback. The executable SHA-256 remained
+`27FC0A42F8BDDBAFFC6A58E629102F2155E9FF78A7F04CF906CFF6CFAEEF36BD`.
+Neither check replayed the battle. The driver update is not yet established
+as a fix, and ANGLE remains an unverified battle-completion workaround.
+
+## Next battle comparison
+
+The owner resumed testing on the same computer after the driver update;
+this supersedes the earlier plan to move immediately to another computer.
+The comparison below also remains portable to another computer.
+
+Use the same v0.6.1 copy and a working copy of the confirmed starting save;
+preserve the source save and avoid overwriting it. Run one game instance at
+a time, recording GPU, driver, actual backend header and result.
+
+| Run | Engine arguments | Battle conditions |
+| --- | --- | --- |
+| Native baseline | `--rendering-method gl_compatibility --rendering-driver opengl3` | Computer General active; battle and movement pauses enabled |
+| ANGLE comparison | `--rendering-method gl_compatibility --rendering-driver opengl3_angle` | Same starting save and battle actions; same general and pause settings |
+
+Require the ANGLE/Direct3D 11 header and absence of native fallback for the
+second run. Record startup and actual battle-completion results separately.
+Only add focus-loss or minimization variants if the owner confirms those
+actions were part of the original sequence. If a test hangs, record the
+elapsed time and end only the identified test instance; leave other
+applications running. A successful startup is insufficient to close #1261.
