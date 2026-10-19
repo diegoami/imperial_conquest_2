@@ -1,0 +1,326 @@
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
+using System.Text.Json;
+using Godot;
+using IC2.Engine.Model;
+using IC2.Engine.Presentation;
+using IC2.Slice.Diagnostics;
+using IC2.Slice.Screens;
+using IC2.Slice.UI;
+
+namespace IC2.Slice.Checks;
+
+/// <summary>Persistent evidence from the real production entry paths. No original/private assets required.
+/// Normal: res://Checks/DiagnosticsCheck.tscn. Isolated modes after --:
+/// --diagnostics-engine-error; --diagnostics-child-flush --diagnostics-output=absolute-sandbox-directory.
+/// The child mode deliberately leaves the managed journal undisposed at normal process exit.</summary>
+public partial class DiagnosticsCheck : Node
+{
+    private bool _ok = true;
+    private string _directory = "";
+    private readonly List<Node> _nodes = new();
+    private readonly Dictionary<long, string> _observed = new();
+    private readonly Stopwatch _overhead = new();
+    private AppRoot? _app;
+
+    public override async void _Ready()
+    {
+        var args = OS.GetCmdlineUserArgs();
+        _directory = args.FirstOrDefault(a => a.StartsWith("--diagnostics-output=", StringComparison.Ordinal))?["--diagnostics-output=".Length..]
+            ?? ProjectSettings.GlobalizePath("user://logs/diagnostics-check-" + Guid.NewGuid().ToString("N"));
+        AppDiagnostics.DirectoryOverride = _directory;
+        try
+        {
+            if (args.Contains("--diagnostics-child-flush"))
+            {
+                AppDiagnostics.Acquire();
+                AppDiagnostics.Journal!.Before(DiagnosticEvent.Command, "check", "news");
+                Check(Records().Last().GetProperty("outcome").GetString() == "BEFORE", "child last BEFORE visible without disposal");
+                GD.Print("DiagnosticsCheck: child flush persisted.");
+                // No AppRoot or Release: process exit, without normal logger disposal, is the probe.
+                Finish();
+                return;
+            }
+            _app = new AppRoot(); AddChild(_app);
+            if (args.Contains("--diagnostics-engine-error"))
+            {
+                var exceptions = Records().Count(r => Kind(r) == "Exception");
+                GD.PushError("DiagnosticsCheck expected engine error probe T198");
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+                var logPath = ProjectSettings.GlobalizePath(ProjectSettings.GetSetting("debug/file_logging/log_path").AsString());
+                Check(ReadShared(logPath).Contains("DiagnosticsCheck expected engine error probe T198", StringComparison.Ordinal), "engine error persisted in built-in engine log");
+                Check(Records().Count(r => Kind(r) == "Exception") == exceptions, "engine error is distinct from managed hooks");
+                GD.Print("DiagnosticsCheck: expected engine error probe complete.");
+            }
+            else await Run();
+        }
+        catch (Exception exception)
+        {
+            // Do not print raw exception payload (synthetic private inputs exercise failures).
+            GD.PrintErr("FAIL: DiagnosticsCheck unexpected " + exception.GetType().Name);
+            _ok = false;
+        }
+        finally
+        {
+            AppDiagnostics.BeforeObserver = null;
+            bool drain = _nodes.Count > 0 || _app is not null;
+            foreach (var node in _nodes) if (GodotObject.IsInstanceValid(node)) { RemoveChild(node); node.QueueFree(); }
+            if (_app is not null && GodotObject.IsInstanceValid(_app)) { RemoveChild(_app); _app.QueueFree(); }
+            _nodes.Clear(); _app = null;
+            AppDiagnostics.DirectoryOverride = null;
+            if (drain)
+            {
+                await Settle();
+                GC.Collect(); GC.WaitForPendingFinalizers();
+                // Match the existing tactical check's bounded asynchronous audio teardown grace.
+                await ToSignal(GetTree().CreateTimer(2), SceneTreeTimer.SignalName.Timeout);
+            }
+        }
+        Finish();
+    }
+
+    private void Finish()
+    {
+        GD.Print($"DiagnosticsCheck: exiting with code {(_ok ? 0 : 1)}.");
+        GetTree().Quit(_ok ? 0 : 1);
+    }
+    private async Task Run()
+    {
+        var startup = Records().Single(r => Kind(r) == "Startup");
+        Check(startup.GetProperty("metadata").GetProperty("engine").GetString()!.StartsWith("4.7.2"), "pinned engine startup metadata");
+        Check(ProjectSettings.GetSetting("debug/file_logging/enable_file_logging").AsBool()
+            && ProjectSettings.GetSetting("debug/file_logging/max_log_files").AsInt32() == 5
+            && ProjectSettings.GetSetting("application/run/flush_stdout_on_print").AsBool(), "engine logger/retention/release flush configured");
+        var boundaryWatch = Stopwatch.StartNew();
+        for (int i = 0; i < 20; i++) AppDiagnostics.Mark(DiagnosticEvent.Focus, "gained");
+        boundaryWatch.Stop();
+        GD.Print($"DiagnosticsCheck: 20 durable boundary writes elapsed {boundaryWatch.ElapsedMilliseconds} ms.");
+        _app!.Notification((int)NotificationApplicationFocusOut);
+        _app.Notification((int)NotificationApplicationFocusIn);
+        _app.ShowSettings();
+        SettingsScreen.SetBattlePauses(1, 2);
+        Check(Records().Count(r => Kind(r) == "Focus") >= 2 && Records().Any(r => Kind(r) == "Settings"), "focus and explicit settings persisted");
+        CheckManagedLifetime();
+
+        var session = Classical();
+        var game = AddGame(session);
+        await Settle();
+        int commands = 0; game.CommandIssued += _ => commands++;
+        var reference = Classical();
+        var stateBefore = JsonSerializer.Serialize(session.State);
+        Observe("main-rejected-command", "check", () => game.SubmitForCheck("move missing-private-army 100 36"), false);
+        Check(JsonSerializer.Serialize(session.State) == stateBefore, "rejected order preserves state/RNG");
+
+        var before = commands;
+        Observe("real-map-order", "map", () => { ClickMap(game.MapView, 100, 37); ClickMap(game.MapView, 100, 36); });
+        Check(commands == before + 1, "real map input submits exactly once");
+        reference.Submit("move army-0 100 36");
+        Check(JsonSerializer.Serialize(session.State) == JsonSerializer.Serialize(reference.State), "map instrumentation preserves authoritative state/RNG");
+        game.CommandTable.TryInvoke("unit_map.cancel_selection");
+
+        game.OpenDiplomacyScreen();
+        var diplomacy = (DiplomacyScreen)game.ActiveOverlay!;
+        before = commands;
+        Observe("real-diplomacy-Issue", "diplomacy", () => diplomacy.Grid.GetChildren().OfType<Button>().First(b => !b.Disabled && b.Text == "Declare War").EmitSignal(BaseButton.SignalName.Pressed));
+        Check(commands == before + 1, "diplomacy action submits exactly once");
+        diplomacy.Close();
+
+        var newsBefore = session.State.NewsLog.Slots.Select(e => e.Text).ToArray();
+        Observe("real-news-Refresh", "news", game.NewsLog.Refresh);
+        Observe("real-news-Toggle", "news", game.NewsLog.Toggle);
+        var recordsBeforeHide = Records().Length;
+        game.NewsLog.Toggle();
+        Check(Records().Length == recordsBeforeHide && newsBefore.SequenceEqual(session.State.NewsLog.Slots.Select(e => e.Text)), "news hide submits nothing and read retains news content");
+
+        game.SelectArmyForCheck("army-0");
+        Check(game.MenuBar.PressItemForCheck("unit_map.army_change_units"), "real change-units menu opens");
+        var dialog = (ChangeUnitsDialog)game.ActiveOverlay!;
+        before = commands;
+        Observe("dialog-submit", "dialog", () => dialog.RenameUnitForCheck(0, "PrivateNameProbe"));
+        Check(commands == before + 1 && session.State.ArmyById("army-0")!.Units[0].Name == "PrivateNameProbe", "dialog preserves rename behavior and one submit");
+        dialog.CancelForCheck();
+
+        var save = Path.Combine(_directory, "PrivateNameProbe.json");
+        Observe("real-save-success", "save", () => game.SaveAsForCheck(save));
+        Check(File.Exists(save), "save uses actual entry path");
+        var directoryAsFile = Path.Combine(_directory, "blocked.json"); Directory.CreateDirectory(directoryAsFile);
+        Observe("real-save-failure", "save", () => game.SaveAsForCheck(directoryAsFile), false);
+        _app.ShowLoadGame(); var load = (LoadGameScreen)_app.CurrentScreen!;
+        Observe("missing-load", "load", () => load.ContinueForCheck(Path.Combine(_directory, "missing-PrivateNameProbe.json")), false);
+        var malformed = Path.Combine(_directory, "malformed-PrivateNameProbe.json"); File.WriteAllText(malformed, "{private-content");
+        Observe("malformed-load", "load", () => load.ContinueForCheck(malformed), false);
+        var rejected = Path.Combine(_directory, "rejected-PrivateNameProbe.txt"); File.WriteAllText(rejected, "private-content");
+        Observe("rejected-load", "load", () => load.ContinueForCheck(rejected), false);
+        Observe("resumed-load", "load", () => load.ContinueForCheck(save));
+        Check(_app.CurrentScreen is MainGameScreen && ((MainGameScreen)_app.CurrentScreen).OpenedPath == save, "AppRoot routes resumed game");
+        await CheckMapConfirmation();
+        CheckPeaceAnswer();
+        CheckTactical();
+        CheckPrivacy();
+        Check(Records().Where(r => r.GetProperty("outcome").GetString() == "BEFORE").All(r =>
+            Records().Count(o => o.GetProperty("operation").GetInt64() == r.GetProperty("operation").GetInt64() && o.GetProperty("outcome").GetString() is "AFTER" or "FAILURE") == 1), "every operation has exactly one correlated outcome");
+        // Report the measured synchronous disk-observer overhead; no duration promise for storage.
+        GD.Print($"DiagnosticsCheck: boundary observer elapsed {_overhead.ElapsedMilliseconds} ms across {_observed.Count} operations.");
+        await Settle();
+        CheckUnregistration();
+    }
+
+    private void Observe(string name, string source, Action action, bool success = true)
+    {
+        var before = Records().Where(r => r.GetProperty("source").GetString() == source && r.GetProperty("outcome").GetString() == "BEFORE").Select(r => r.GetProperty("operation").GetInt64()).ToHashSet();
+        int observed = 0;
+        AppDiagnostics.BeforeObserver = (kind, operation, producer) =>
+        {
+            if (producer != source) return;
+            _overhead.Start();
+            var inside = Records().Where(r => r.GetProperty("operation").GetInt64() == operation).ToArray();
+            Check(inside.Length == 1 && inside[0].GetProperty("outcome").GetString() == "BEFORE", name + ": BEFORE persisted inside operation");
+            _observed[operation] = name; observed++;
+            _overhead.Stop();
+        };
+        try { action(); } finally { AppDiagnostics.BeforeObserver = null; }
+        var added = Records().Where(r => r.GetProperty("source").GetString() == source && r.GetProperty("outcome").GetString() == "BEFORE" && !before.Contains(r.GetProperty("operation").GetInt64())).ToArray();
+        Check(added.Length == 1 && observed == 1, name + ": exactly one real entry BEFORE");
+        if (added.Length != 1) return;
+        var id = added[0].GetProperty("operation").GetInt64();
+        var outcomes = Records().Where(r => r.GetProperty("operation").GetInt64() == id && r.GetProperty("outcome").GetString() != "BEFORE").ToArray();
+        Check(outcomes.Length == 1 && outcomes[0].GetProperty("outcome").GetString() == (success ? "AFTER" : "FAILURE"), name + ": exactly one correlated outcome");
+    }
+
+    private void CheckManagedLifetime()
+    {
+        var journal = AppDiagnostics.Journal;
+        int registrations = AppDiagnostics.ManagedHandlerRegistrations;
+        AppDiagnostics.Acquire();
+        Check(ReferenceEquals(journal, AppDiagnostics.Journal) && registrations == AppDiagnostics.ManagedHandlerRegistrations, "managed hooks register once across two owners");
+        AppDiagnostics.Release();
+        Check(ReferenceEquals(journal, AppDiagnostics.Journal), "nested release keeps first owner's journal");
+        var exceptions = Records().Count(r => Kind(r) == "Exception");
+        AppDiagnostics.ProbeManagedHandlers(new InvalidOperationException("Operation failed for 'PrivateNameProbe'", new IOException("Access denied")));
+        Check(Records().Count(r => Kind(r) == "Exception") == exceptions + 2, "managed unhandled/unobserved handler paths retain both causes");
+        int events = 0; bool observed = false;
+        EventHandler<UnobservedTaskExceptionEventArgs> observer = (_, args) => { events++; observed |= args.Observed; };
+        TaskScheduler.UnobservedTaskException += observer;
+        try { AbandonTask(); CollectTasks(); }
+        finally { TaskScheduler.UnobservedTaskException -= observer; }
+        Check(events >= 1 && !observed && Records().Count(r => Kind(r) == "Exception") > exceptions + 2, "actual unobserved subscription logs without marking task observed");
+    }
+    private void CheckUnregistration()
+    {
+        var unregistered = AppDiagnostics.ManagedHandlerUnregistrations;
+        RemoveChild(_app!); _app!.QueueFree(); _app = null;
+        Check(AppDiagnostics.Journal is null && AppDiagnostics.ManagedHandlerUnregistrations == unregistered + 1, "AppRoot exit unregisters managed hooks once");
+        int count = Records().Length;
+        AppDiagnostics.ProbeManagedHandlers(new Exception("PrivateNameProbe"));
+        AbandonTask(); CollectTasks(); AppDiagnostics.Release();
+        Check(Records().Length == count && AppDiagnostics.ManagedHandlerUnregistrations == unregistered + 1, "released hooks write nothing and repeated release is harmless");
+    }
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void AbandonTask() { _ = Task.FromException(new IOException("Access denied for 'PrivateNameProbe'")); }
+    private static void CollectTasks() { for (int i = 0; i < 3; i++) { GC.Collect(); GC.WaitForPendingFinalizers(); } }
+
+    private async Task CheckMapConfirmation()
+    {
+        var game = AddGame(Classical(peacePair: true));
+        await Settle();
+        var before = Records().Count(r => r.GetProperty("source").GetString() == "map" && r.GetProperty("outcome").GetString() == "BEFORE");
+        ClickMap(game.MapView, 98, 37); ClickMap(game.MapView, 99, 37);
+        Check(game.ActiveOverlay is ConfirmPrompt, "real map attack asks confirmation before submitting");
+        Check(Records().Count(r => r.GetProperty("source").GetString() == "map" && r.GetProperty("outcome").GetString() == "BEFORE") == before, "unanswered confirmation submits nothing");
+        Observe("real-map-confirmation", "map", () => Buttons(game.ActiveOverlay!).First(b => b.Text == "Yes").EmitSignal(BaseButton.SignalName.Pressed));
+        Check(game.ActiveOverlay is TacticalBattleScreen, "confirmed real map attack opens actual tactical battle");
+    }
+
+    private void CheckPeaceAnswer()
+    {
+        var resolved = GameDataContext.Repository.Resolve("example-classical-improved");
+        var rules = resolved.Ruleset with { Combat = resolved.Ruleset.Combat with {
+            AutoPeaceChanceNumerator = resolved.Ruleset.Combat.AutoPeaceChanceDenominator, AutoPeaceLoserUnityThreshold = -1, AutoPeaceLoserCityThreshold = 0 } };
+        static ValueList<UnitSlot> Units(int troops, int quality) => ValueList.Of(new UnitSlot(0, "light_infantry", Troops: troops, Quality: quality, Name: "PrivateNameProbe"));
+        var armies = resolved.World.StartingArmies.Select(a => a.Id switch {
+            "army-0" => a with { X = 67, Y = 4, Morale = 80, Units = Units(20000, 6) },
+            "army-2" => a with { X = 68, Y = 4, Morale = 40, Units = Units(3000, 4) }, _ => a })
+            .Append(new StartingArmy("check-carthage-1", "carthage", X: 72, Y: 10, Morale: 60, Money: 0, SupplyTons: 300, Moves: 8, Units: Units(150000, 6)))
+            .Append(new StartingArmy("check-carthage-2", "carthage", X: 73, Y: 10, Morale: 60, Money: 0, SupplyTons: 300, Moves: 8, Units: Units(150000, 6)));
+        var world = resolved.World with { StartingArmies = ValueList.From(armies), StartingRelations = resolved.World.StartingRelations!.WithRelation("rome", "carthage", rules.Diplomacy.StateCodes.War) };
+        var scenario = resolved.Scenario with { Seats = ValueList.From(resolved.Scenario.Seats.Select(s => s with { Control = s.Nation == "rome" ? SeatControl.Human : SeatControl.Ai })) };
+        var game = AddGame(new GameSession(world, rules, scenario, seedOverride: 20261005UL));
+        Observe("result-opening", "result", () => game.SubmitForCheck("attack-army army-0 army-2"));
+        Check(game.ActiveOverlay is BattleResultScreen, "instant battle result opens");
+        ((BattleResultScreen)game.ActiveOverlay!).Close();
+        Check(game.ActiveOverlay is PeaceOfferScreen, "actual engine offer opens peace window");
+        var peace = (PeaceOfferScreen)game.ActiveOverlay!;
+        Observe("peace-answer-callback", "peace", () => Buttons(peace).First(b => b.Text == "No").EmitSignal(BaseButton.SignalName.Pressed));
+        Check(!game.Session.HasPendingPeaceOffers, "peace answer callback consumes offer once");
+    }
+
+    private void CheckTactical()
+    {
+        foreach (var zero in new[] { false, true })
+        {
+            int recordStart = Records().Length;
+            SettingsScreen.SetBattlePauses(zero ? 0 : 1, zero ? 0 : 2);
+            var game = AddGame(Classical());
+            game.SubmitForCheck("attack-army army-0 army-3");
+            var screen = (TacticalBattleScreen)game.ActiveOverlay!; screen.SetProcess(false);
+            screen.SkipPlayback();
+            var frameCount = Records().Count(r => Kind(r) == "Frame");
+            for (int i = 0; i < 50; i++) screen.AdvancePlayback(0);
+            Check(frameCount == Records().Count(r => Kind(r) == "Frame"), "idle/progress loop does not journal frames");
+            screen.PressToolbarButton("computer_general"); screen.SkipPlayback();
+            if (game.ActiveOverlay is TacticalBattleScreen active)
+            {
+                active.PressToolbarButton("surrender"); active.AnswerSurrender(true); active.SkipPlayback();
+            }
+            var all = Records().Skip(recordStart).ToArray();
+            Check(all.Any(r => Kind(r) == "Frame" && r.GetProperty("metadata").GetProperty("detail").GetString() == "Terminal")
+                && all.Any(r => Kind(r) == "Frame" && r.GetProperty("metadata").GetProperty("detail").GetString() == "Reconciliation"), "terminal and reconciliation immutable frames persisted");
+            Check(all.Any(r => Kind(r) == "Stage") && all.Any(r => Kind(r) == "Completion"), "zero/skip stage and completion receipts");
+            Check(game.ActiveOverlay is BattleEndedScreen, "terminal playback opens battle-ended result");
+            var resultBefore = all.Last(r => Kind(r) == "Result" && r.GetProperty("outcome").GetString() == "BEFORE").GetProperty("sequence").GetInt64();
+            Check(all.Where(r => Kind(r) == "Completion").Last().GetProperty("sequence").GetInt64() < resultBefore, "terminal completion persists before result opening");
+            Check(all.Any(r => Kind(r) == "Frame" && r.GetProperty("metadata").GetProperty("general").ValueKind == JsonValueKind.True), "Computer General immutable frame context persisted");
+        }
+        // A screen removed while still playing loses its pending callbacks as before; only receipt is added.
+        SettingsScreen.SetBattlePauses(1, 2);
+        var cancelling = AddGame(Classical()); cancelling.SubmitForCheck("attack-army army-0 army-3");
+        var playing = (TacticalBattleScreen)cancelling.ActiveOverlay!;
+        Check(playing.IsPlayingBack, "new battle has cancellable presentation");
+        int cancellations = Records().Count(r => Kind(r) == "Cancel");
+        RemoveChild(cancelling); cancelling.QueueFree(); _nodes.Remove(cancelling);
+        Check(Records().Count(r => Kind(r) == "Cancel") == cancellations + 1, "new-battle cancellation persisted");
+        SettingsScreen.SetBattlePauses(1, 2);
+    }
+    private void CheckPrivacy()
+    {
+        var text = ReadShared(Path.Combine(_directory, "journal-0.jsonl"));
+        foreach (var secret in new[] { "PrivateNameProbe", "missing-private-army", "private-content", _directory, "attack-army army-0" })
+            Check(!text.Contains(secret, StringComparison.Ordinal), "allowlisted journal excludes private payload");
+        Check(Records().Where(r => r.GetProperty("target").ValueKind == JsonValueKind.String).All(r => r.GetProperty("target").GetString()!.Length == 24), "save/load targets are opaque run-local tokens");
+    }
+    private MainGameScreen AddGame(GameSession session)
+    {
+        var game = new MainGameScreen { Session = session, RepositoryRoot = GameDataContext.RepositoryRoot };
+        game.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        AddChild(game); _nodes.Add(game); return game;
+    }
+    private static GameSession Classical(bool peacePair = false)
+    {
+        var r = GameDataContext.Repository.Resolve("classical-mediterranean");
+        var world = r.World with { StartingArmies = ValueList.From(r.World.StartingArmies.Select(a => a.Id == "army-3" ? a with { X = 101, Y = 37, Moves = 8 } : peacePair && a.Id == "army-1" ? a with { X = 98, Y = 37 } : peacePair && a.Id == "army-2" ? a with { X = 99, Y = 37 } : a)) };
+        var rules = r.Ruleset with { Flags = r.Ruleset.Flags with { NewGameTurnOrder = NewGameTurnOrderPolicy.Fixed } };
+        return new GameSession(world, rules, r.Scenario, null, "rome") { HumanBattles = HumanBattleMode.Tactical };
+    }
+    private static void ClickMap(GameMapView map, int x, int y)
+    {
+        map.CentreOnTile(x, y); var position = map.TileCenterForCheck(x, y);
+        map._GuiInput(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true, Position = position });
+        map._GuiInput(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = false, Position = position });
+    }
+    private async Task Settle() { for (int i = 0; i < 3; i++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame); }
+    private static IEnumerable<Button> Buttons(Node root) => root.GetChildren().SelectMany(n => n is Button b ? new[] { b }.Concat(Buttons(n)) : Buttons(n));
+    private void Check(bool condition, string message) { _ok &= condition; GD.Print((condition ? "PASS: " : "FAIL: ") + message); }
+    private JsonElement[] Records() => ReadShared(Path.Combine(_directory, "journal-0.jsonl")).Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonDocument.Parse(line).RootElement.Clone()).ToArray();
+    private static string Kind(JsonElement record) => record.GetProperty("kind").GetString()!;
+    private static string ReadShared(string path) { using var file = new FileStream(path, FileMode.Open, System.IO.FileAccess.Read, FileShare.ReadWrite | FileShare.Delete); using var reader = new StreamReader(file); return reader.ReadToEnd(); }
+}

@@ -245,6 +245,7 @@ public partial class MainGameScreen : Control
 
     public override void _Ready()
     {
+        AppDiagnostics.Detail(DiagnosticEvent.Settings, "Travel", paused: StrategicTravel.Paused, fast: StrategicTravel.Fast);
         UiKit.ApplyBackground(this, UiKit.Background);
 
         var root = new VBoxContainer();
@@ -2446,7 +2447,6 @@ public partial class MainGameScreen : Control
         AppDiagnostics.Detail(DiagnosticEvent.Overlay, overlay.GetType().Name);
         if (ActiveOverlay is { } previous)
         {
-            if (previous is TacticalBattleScreen { IsPlayingBack: true }) AppDiagnostics.Mark(DiagnosticEvent.Cancel, "tactical");
             RemoveChild(previous);
             previous.QueueFree();
         }
@@ -2495,7 +2495,6 @@ public partial class MainGameScreen : Control
         }
 
         AppDiagnostics.Detail(DiagnosticEvent.Overlay, "Close");
-        if (overlay is TacticalBattleScreen { IsPlayingBack: true }) AppDiagnostics.Mark(DiagnosticEvent.Cancel, "tactical");
         ActiveOverlay = null;
         RemoveChild(overlay);
         overlay.QueueFree();

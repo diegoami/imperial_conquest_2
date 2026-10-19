@@ -47,10 +47,14 @@ public sealed class DiagnosticJournal : IDisposable
     }
     public void Detail(DiagnosticEvent kind, DiagnosticDetail detail, long? turn = null, long? frame = null,
         long? command = null, string? battle = null, int? side = null, int? halfRound = null, bool? computer = null, bool? general = null,
-        double? shot = null, double? attack = null, bool? paused = null, bool? fast = null)
+        double? shot = null, double? attack = null, bool? paused = null, bool? fast = null,
+        string? nation = null, string? attacker = null, string? defender = null, int? actorSlot = null, int? targetSlot = null, bool? terminal = null, bool? placed = null)
     {
         Write(kind, "POINT", 0, "tactical", turn: turn, metadata: new { detail = detail.ToString(), frame, command,
             battle = battle is null ? null : Token(battle), side, halfRound, computer, general,
+            authoritativeTurn = turn, snapshot = frame is null ? null : "immutable-displayed-frame",
+            nation = nation is null ? null : Token(nation), attacker = attacker is null ? null : Token(attacker),
+            defender = defender is null ? null : Token(defender), actorSlot, targetSlot, terminal, placed,
             shot = shot is { } s && double.IsFinite(s) ? (double?)Math.Clamp(s, 0, 3) : null,
             attack = attack is { } a && double.IsFinite(a) ? (double?)Math.Clamp(a, 0, 3) : null, paused, fast });
     }
@@ -120,6 +124,9 @@ public sealed class DiagnosticJournal : IDisposable
         {
             if (line.Trim() == "News:") break;
             if (line.Contains(" rejected", StringComparison.OrdinalIgnoreCase)
+                || line.StartsWith("Could not ", StringComparison.Ordinal)
+                || line.StartsWith("A battle is open:", StringComparison.Ordinal)
+                || line.StartsWith("There is no battle to fight.", StringComparison.Ordinal)
                 || line.StartsWith("Usage:", StringComparison.Ordinal)
                 || line.StartsWith("Unknown command", StringComparison.Ordinal)
                 || line.StartsWith("Save failed", StringComparison.Ordinal)
@@ -155,6 +162,7 @@ public sealed class DiagnosticJournal : IDisposable
                 var record = new { utc = DateTimeOffset.UtcNow.ToString("O"), sequence = ++_sequence, run = RunId, operation,
                     kind = kind.ToString(), outcome, source = SafeSource(source), command = command is null ? null : CommandKind(command),
                     target = target is null ? null : TargetToken(target), format = target is null ? null : (TargetFormat(target)),
+                    category = command is null ? null : CommandKind(command) is "news" or "status" or "armies" or "cities" or "balance" or "map" ? "query" : "order",
                     arguments = command is null ? null : SafeArguments(command), turn, number, token = token is null ? null : Token(token), causes, metadata };
                 var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(record) + "\n");
                 if (bytes.Length > MaxRecordBytes) throw new InvalidDataException("Diagnostic record exceeded designed bound.");

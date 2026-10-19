@@ -94,7 +94,9 @@ public static class AppDiagnostics
                 Enum.TryParse<DiagnosticDetail>(stage ?? frame.Kind.ToString(), out var detail) && Enum.IsDefined(detail) ? detail : DiagnosticDetail.Unavailable,
                 turn: authoritativeTurn, frame: frame.FrameId, command: frame.CommandId, battle: frame.BattleId,
                 side: side, halfRound: view.Counter, computer: view.ComputerControlled[side], general: view.ComputerGeneral[side],
-                shot: SettingsScreen.BattleShotDelaySeconds, attack: SettingsScreen.BattleAttackDelaySeconds);
+                shot: SettingsScreen.BattleShotDelaySeconds, attack: SettingsScreen.BattleAttackDelaySeconds,
+                nation: side == 0 ? view.AttackerNationId : view.DefenderNationId, attacker: view.AttackerArmyId, defender: view.DefenderArmyId,
+                actorSlot: frame.Actor?.Slot, targetSlot: frame.Target?.Slot, terminal: view.IsOver, placed: view.Placed);
         }
         catch { }
     }

@@ -449,6 +449,11 @@ public partial class TacticalBattleScreen : Control
 
     public override void _Process(double delta) => AdvancePlayback(delta);
 
+    public override void _ExitTree()
+    {
+        if (IsPlayingBack) AppDiagnostics.Mark(DiagnosticEvent.Cancel, "tactical");
+    }
+
     /// <summary>
     /// A click on the side panel: during a replay it ends the replay, and turns <em>Computer general</em> off when
     /// the engine still has it on for a human side. Exposed for the headless check.
@@ -517,7 +522,7 @@ public partial class TacticalBattleScreen : Control
 
     private void Send(Func<GameSession, SessionOutput> order)
     {
-        var output = AppDiagnostics.Operation(DiagnosticEvent.BattleCommand, "tactical", () => order(Session), turn: Session.State.Calendar.TurnIndex);
+        var output = AppDiagnostics.Operation(DiagnosticEvent.BattleCommand, "tactical", () => order(Session), turn: Session.State.Calendar.TurnIndex, success: output => DiagnosticJournal.CommandSucceeded(output.Lines), nation: Session.State.ActiveNationId);
         SetPlaybackPauses();
         _battleId ??= output.TacticalTimeline.FirstOrDefault()?.BattleId;
         _playback.Begin(output.TacticalTimeline.Where(frame => frame.BattleId == _battleId), () => Finish(output));
