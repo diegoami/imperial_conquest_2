@@ -123,7 +123,7 @@ public partial class AppRoot : Control
 
     private void SwapTo(Control screen)
     {
-        AppDiagnostics.Mark(DiagnosticEvent.Screen, "app", token: screen.GetType().Name);
+        AppDiagnostics.Detail(DiagnosticEvent.Screen, screen.GetType().Name);
         foreach (var child in GetChildren())
         {
             RemoveChild(child);

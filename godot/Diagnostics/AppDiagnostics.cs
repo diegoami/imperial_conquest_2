@@ -27,7 +27,7 @@ public static class AppDiagnostics
             _journal.Startup(
                 ProjectSettings.GetSetting("application/config/version", "development").AsString(),
                 typeof(AppDiagnostics).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unavailable",
-                Godot.Engine.GetVersionInfo()["string"].AsString(), System.Environment.Version.ToString(), OS.GetName(), SettingsScreen.SelectedPackId);
+                Godot.Engine.GetVersionInfo()["string"].AsString(), System.Environment.Version.ToString(), OS.GetName(), SettingsScreen.SelectedPackId ?? "default");
         }
         catch { /* Diagnostics must not prevent application startup. */ }
     }
@@ -68,6 +68,25 @@ public static class AppDiagnostics
         try { _journal?.After(kind, operation, source, accepted); } catch { }
         return result;
     }
+    public static void Detail(DiagnosticEvent kind, string label, long? turn = null, bool? paused = null, bool? fast = null)
+    {
+        try { _journal?.Detail(kind, Enum.TryParse<DiagnosticDetail>(label, out var detail) && Enum.IsDefined(detail) ? detail : DiagnosticDetail.Unavailable,
+            turn: turn, shot: SettingsScreen.BattleShotDelaySeconds, attack: SettingsScreen.BattleAttackDelaySeconds, paused: paused, fast: fast); } catch { }
+    }
+    public static void Frame(TacticalBattleFrame frame, long authoritativeTurn, string? stage = null, TacticalPresentationSnapshot? displayed = null)
+    {
+        try
+        {
+            var view = (displayed ?? frame.After).View;
+            var side = view.SideToMove;
+            _journal?.Detail(stage is null ? DiagnosticEvent.Frame : DiagnosticEvent.Stage,
+                Enum.TryParse<DiagnosticDetail>(stage ?? frame.Kind.ToString(), out var detail) && Enum.IsDefined(detail) ? detail : DiagnosticDetail.Unavailable,
+                turn: authoritativeTurn, frame: frame.FrameId, command: frame.CommandId, battle: frame.BattleId,
+                side: side, halfRound: view.Counter, computer: view.ComputerControlled[side], general: view.ComputerGeneral[side],
+                shot: SettingsScreen.BattleShotDelaySeconds, attack: SettingsScreen.BattleAttackDelaySeconds);
+        }
+        catch { }
+    }
     public static SessionOutput Submit(GameSession session, string command, string source, string? target = null) =>
-        Operation(target is null ? DiagnosticEvent.Command : DiagnosticEvent.Save, source, () => session.Submit(command), command, target, session.State.Calendar.TurnIndex);
+        Operation(target is null ? DiagnosticEvent.Command : DiagnosticEvent.Save, source, () => session.Submit(command), command, target, session.State.Calendar.TurnIndex, success: output => target is null || output.Lines.Any(line => line.StartsWith("Saved to", StringComparison.Ordinal)));
 }

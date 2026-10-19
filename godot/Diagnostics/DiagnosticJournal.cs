@@ -5,6 +5,8 @@ using System.Text.Json;
 
 namespace IC2.Slice.Diagnostics;
 
+public enum DiagnosticDetail { Unavailable, AppRoot, MainMenu, MainGameScreen, NewGameFlow, LoadGameScreen, SettingsScreen, TacticalBattleScreen, BattleEndedScreen, DiplomacyScreen, ConfirmPrompt, Open, Close, Frame, Announcement, Travel, Arrival, RoutHold, RoutFade, Initial, Placement, Movement, Target, Projectile, Shot, Melee, Rout, Cascade, Removal, Morale, Setup, HalfRound, Controller, CapWithdrawal, Terminal, Reconciliation }
+
 public enum DiagnosticEvent { Startup, Screen, Focus, Quit, Command, Load, Save, Overlay, Result, Turn, Settings, BattleCommand, Frame, Stage, Skip, Cancel, Completion, Exception }
 
 /// <summary>Local diagnostic data only. No gameplay decisions depend on this writer.</summary>
@@ -41,6 +43,15 @@ public sealed class DiagnosticJournal : IDisposable
             product = "Imperial Conquest 2", version = SafeIdentifier(version, 80), development = version == "development",
             build = SafeIdentifier(build, 120), engine = SafeIdentifier(engine, 80), runtime = SafeIdentifier(runtime, 40),
             platform = SafeIdentifier(platform, 40), pack = SafeIdentifier(pack, 40), backend = "unavailable", adapter = "unavailable", driver = "unavailable" });
+    }
+    public void Detail(DiagnosticEvent kind, DiagnosticDetail detail, long? turn = null, long? frame = null,
+        long? command = null, string? battle = null, int? side = null, int? halfRound = null, bool? computer = null, bool? general = null,
+        double? shot = null, double? attack = null, bool? paused = null, bool? fast = null)
+    {
+        Write(kind, "POINT", 0, "tactical", turn: turn, metadata: new { detail = detail.ToString(), frame, command,
+            battle = battle is null ? null : Token(battle), side, halfRound, computer, general,
+            shot = shot is { } s && double.IsFinite(s) ? (double?)Math.Clamp(s, 0, 3) : null,
+            attack = attack is { } a && double.IsFinite(a) ? (double?)Math.Clamp(a, 0, 3) : null, paused, fast });
     }
     public long Before(DiagnosticEvent kind, string source, string? command = null, string? target = null, long? turn = null)
     {

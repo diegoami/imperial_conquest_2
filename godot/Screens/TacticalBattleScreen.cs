@@ -1,3 +1,4 @@
+using IC2.Slice.Diagnostics;
 using Godot;
 using IC2.Engine.Battle.Tactical;
 using IC2.Engine.Model;
@@ -164,7 +165,8 @@ public partial class TacticalBattleScreen : Control
                 : Model.DepartureLines.Count > 0 ? string.Join("\n", Model.DepartureLines)
                 : _playback.CurrentFrame is { } frame ? FrameMessage(frame) : string.Empty);
         };
-        _playback.FrameEntered += frame => FrameEntered?.Invoke(frame);
+        _playback.DiagnosticStageEntered += (frame, stage, snapshot) => AppDiagnostics.Frame(frame, Session.State.Calendar.TurnIndex, stage.ToString(), snapshot);
+        _playback.FrameEntered += frame => { AppDiagnostics.Frame(frame, Session.State.Calendar.TurnIndex, displayed: _playback.Snapshot); FrameEntered?.Invoke(frame); };
         _playback.ExchangeEntered += frame =>
         {
             ExchangesShown++;
@@ -443,7 +445,7 @@ public partial class TacticalBattleScreen : Control
     public void AdvancePlayback(double seconds) => _playback.Advance(seconds);
 
     /// <summary>Skips only waits; every frame and typed exchange still enters once.</summary>
-    public void SkipPlayback() => _playback.Finish();
+    public void SkipPlayback() { AppDiagnostics.Mark(DiagnosticEvent.Skip, "tactical"); _playback.Finish(); }
 
     public override void _Process(double delta) => AdvancePlayback(delta);
 
@@ -515,7 +517,7 @@ public partial class TacticalBattleScreen : Control
 
     private void Send(Func<GameSession, SessionOutput> order)
     {
-        var output = order(Session);
+        var output = AppDiagnostics.Operation(DiagnosticEvent.BattleCommand, "tactical", () => order(Session), turn: Session.State.Calendar.TurnIndex);
         SetPlaybackPauses();
         _battleId ??= output.TacticalTimeline.FirstOrDefault()?.BattleId;
         _playback.Begin(output.TacticalTimeline.Where(frame => frame.BattleId == _battleId), () => Finish(output));
@@ -523,6 +525,7 @@ public partial class TacticalBattleScreen : Control
 
     private void Finish(SessionOutput output)
     {
+        AppDiagnostics.Mark(DiagnosticEvent.Completion, "tactical");
         // Every terminal and housekeeping frame has already been displayed, including null OpenBattleView.
         Refresh();
         ShowMessage(output.TacticalTimeline.Count == 0

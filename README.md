@@ -127,3 +127,21 @@ The Godot project's main scene is the game (above). The research inspector is it
 - [Investigations](docs/investigations/README.md) — this repository's own evidence write-ups.
 - [Release plan](docs/release-plan.md) — how tasks turn into version tags and releases.
 - Research repository ([diegoami/imperial-conquest-2-research](https://github.com/diegoami/imperial-conquest-2-research)): [roadmap](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/roadmap.md), [research notes](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/research.md), and the full [reports index](https://github.com/diegoami/imperial-conquest-2-research/tree/main/docs/reports) — the evidence-based findings the design cites throughout.
+
+### Local diagnostics
+
+The game keeps engine logs under `user://logs/` and a structured journal under
+`user://logs/diagnostics/`. On Windows the usual expansion is
+`%APPDATA%/Godot/app_userdata/Imperial Conquest 2 Map Viewer/logs/`; engine user-data
+overrides can change the actual location. Saves keep their existing location.
+After a hang or crash, retain this entire logs folder before restarting repeatedly.
+The journal retains five files of at most 1 MiB each and flushes operation boundaries
+to the operating system. This is no power-loss guarantee. Engine logs retain five
+files but their current file has no documented byte-size limit; see
+[Godot file logging settings](https://docs.godotengine.org/en/4.6/classes/class_projectsettings.html#class-projectsettings-property-debug-file-logging-max-log-files).
+
+Logs stay local. The custom journal restricts private fields; raw engine logs may
+contain engine-generated paths, so review them before sharing. Diagnostics can
+identify emitted errors and the last flushed operation, but provide no native
+crash handler and cannot guarantee a native stack or a message the engine never
+emitted. Diagnostic receipts are designed instrumentation, not recovered original-game evidence.

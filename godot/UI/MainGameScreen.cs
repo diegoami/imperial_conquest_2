@@ -104,6 +104,7 @@ public partial class MainGameScreen : Control
 
     private void SkipTravelAndClearSelection()
     {
+        AppDiagnostics.Mark(DiagnosticEvent.Skip, "travel");
         StrategicTravel.Skip();
         _mapView.ClearSelection();
     }
@@ -492,9 +493,9 @@ public partial class MainGameScreen : Control
         _travelControls = new HBoxContainer { Visible = false };
         _travelControls.AddChild(UiKit.MakeLabel("Movement · orders locked", AppTheme.Body, UiKit.TextColor));
         var skip = new Button { Text = "Skip" };
-        skip.Pressed += () => StrategicTravel.Skip();
+        skip.Pressed += () => { AppDiagnostics.Mark(DiagnosticEvent.Skip, "travel"); StrategicTravel.Skip(); };
         var fast = new Button { Text = "Fast", ToggleMode = true };
-        fast.Toggled += pressed => StrategicTravel.Fast = pressed;
+        fast.Toggled += pressed => { StrategicTravel.Fast = pressed; AppDiagnostics.Detail(DiagnosticEvent.Settings, "Travel", paused: StrategicTravel.Paused, fast: pressed); };
         _travelControls.AddChild(skip); _travelControls.AddChild(fast);
         row.AddChild(_travelControls);
         var spacer = new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill };
@@ -2435,6 +2436,7 @@ public partial class MainGameScreen : Control
 
     private void ShowOverlay(Control overlay)
     {
+        AppDiagnostics.Detail(DiagnosticEvent.Overlay, overlay.GetType().Name);
         if (ActiveOverlay is { } previous)
         {
             RemoveChild(previous);
@@ -2484,6 +2486,7 @@ public partial class MainGameScreen : Control
             return;
         }
 
+        AppDiagnostics.Detail(DiagnosticEvent.Overlay, "Close");
         ActiveOverlay = null;
         RemoveChild(overlay);
         overlay.QueueFree();

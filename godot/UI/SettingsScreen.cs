@@ -1,3 +1,4 @@
+using IC2.Slice.Diagnostics;
 using Godot;
 using IC2.Slice.Screens;
 
@@ -71,6 +72,7 @@ public partial class SettingsScreen : Control
     {
         BattleShotDelaySeconds = BattlePauses.SnapShot(shotSeconds);
         BattleAttackDelaySeconds = BattlePauses.SnapAttack(attackSeconds);
+        AppDiagnostics.Detail(DiagnosticEvent.Settings, nameof(SettingsScreen));
     }
 
     public override void _Ready()
