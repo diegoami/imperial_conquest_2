@@ -1,5 +1,6 @@
 using Godot;
 using IC2.Engine.Battle;
+using IC2.Engine.Battle.Tactical;
 using IC2.Engine.Model;
 using IC2.Engine.Presentation;
 using IC2.Slice.Screens;
