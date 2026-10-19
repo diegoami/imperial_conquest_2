@@ -302,7 +302,15 @@ public partial class StrategicTravelCheck : Node
             await CheckTravelFeedback(main, id, selected, new GridPoint(52, 46), prefix + "-mid-" + zoom);
             await Capture(prefix + "-mid-" + zoom, "Fractional centre, locked orders, actual panel/minimap; " + zoom + " practical zoom.");
         }
-        main.MapView.CentreOnTile(50 + (int)Math.Ceiling(main.MapView.Size.X / TilePixels(main) / 2), 45);
+        main.MapView.CentreOnTile(50, 45);
+        await Frames();
+        // Use the actual drag path to put the fractional centre exactly on the clip edge.
+        // Integer camera tiles (floor OR ceil) cannot guarantee straddling at every viewport width.
+        var dragStart = main.MapView.Size / 2;
+        var drag = new Vector2(-main.MapView.StrategicDrawBoundsForCheck[id].GetCenter().X, 0);
+        main.MapView._GuiInput(new InputEventMouseButton { Position = dragStart, ButtonIndex = MouseButton.Left, Pressed = true });
+        main.MapView._GuiInput(new InputEventMouseMotion { Position = dragStart + drag, Relative = drag });
+        main.MapView._GuiInput(new InputEventMouseButton { Position = dragStart + drag, ButtonIndex = MouseButton.Left, Pressed = false });
         await Frames();
         var clippedBounds = main.MapView.StrategicDrawBoundsForCheck[id];
         Require(main.MapView.ClipContents && clippedBounds.Position.X < 0 && clippedBounds.End.X > 0,
