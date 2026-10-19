@@ -145,7 +145,9 @@ public sealed record ScatterOutcome(
 /// attempt, win or lose (<c>tests/fixtures/corpus.json</c> <c>siege.attritionEveryAttempt</c>).
 /// </param>
 /// <param name="Promotions">The winner's per-slot quality outcome. Empty when the variant does not promote.</param>
-/// <param name="AbsorbedMoney">Money the winner took from the loser.</param>
+/// <param name="AbsorbedMoney">
+/// The loser's full removed purse, before the winning purse's field-bound credit discards any excess.
+/// </param>
 /// <param name="AbsorbedSupplyTons">Supplies the winner actually gained, after whichever cap applied.</param>
 /// <param name="WinnerUnityDelta">The winner's nation's unity change, after the cap.</param>
 /// <param name="LoserUnityDelta">The loser's nation's unity change. Negative.</param>

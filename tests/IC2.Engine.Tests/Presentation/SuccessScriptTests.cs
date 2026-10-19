@@ -13,14 +13,14 @@ namespace IC2.Engine.Tests.Presentation;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>Two scripts, not one</strong> (Done-when 2b, added 2026-09-27 after PR #452's review): no
-/// single shipped scenario can host every reachable command. <c>success.txt</c> carries every command
-/// except <c>attack-fleet</c>; <c>success-fleet.txt</c> is a short, separate script on the shipped
-/// <c>toy-3city</c> scenario carrying only <c>attack-fleet</c> (composing its own <c>declare-war</c> ahead
-/// of the attack, exactly as <c>GameSession.Commands</c>'s remarks describe). Each is checked against its
-/// own golden, independently, by its own pair of tests below; <see cref="CommandCoverageTests"/> reads
-/// both goldens together when it checks that every non-excluded command type has an accepted line
-/// <em>somewhere</em>.
+/// <strong>Three fresh scripts.</strong> T178 splits the fixed Macedonia/seed3 coverage into
+/// <c>success.txt</c> (A: treaty and marine) and <c>success-trade-offer.txt</c> (B: incoming trade).
+/// B repeats the original prefix through its turn14 offer and accepts it at EOF. A retains the
+/// remaining original commands, adds one ordinary adjacent battle after original69, and answers the
+/// actual later treaty immediately after original79. Neither case supplies state to the other.
+/// <c>success-fleet.txt</c> remains a separate <c>toy-3city</c> case for <c>attack-fleet</c>.
+/// Each has full golden equality, fresh-session determinism and per-line own-verb acceptance;
+/// <see cref="CommandCoverageTests"/> aggregates all three nonempty goldens.
 /// </para>
 /// <para>
 /// <strong><c>success.txt</c>: scenario and seed.</strong> <c>classical-mediterranean</c>, seat
@@ -33,7 +33,7 @@ namespace IC2.Engine.Tests.Presentation;
 /// succeeding afterward (and vice versa) — the two can never both succeed against the same, sole other
 /// nation. <c>classical-mediterranean</c>'s sixteen nations give <c>propose-trade</c>,
 /// <c>propose-alliance</c>, <c>declare-war</c> and the naturally-arriving <c>accept-offer</c> each a
-/// distinct target, so all four succeed in the one script.
+/// distinct target across the two independent Macedonia scripts.
 /// </para>
 /// <para>
 /// <strong>Why <c>macedonia</c>.</strong> It starts at peace with every other nation (no pre-existing
@@ -75,14 +75,14 @@ namespace IC2.Engine.Tests.Presentation;
 /// remain unchanged; no new seed search was used for T171.
 /// </para>
 /// <para>
-/// <strong>T171 script boundary.</strong> With the corrected faithful mobilisation gates, the
-/// Thracian post-battle treaty offer is raised by the second of the three consecutive <c>end</c>
-/// lines after <c>split-fleet mac-fleet-1 mac-fleet-keep 13</c> and would lapse at the third if left
-/// unanswered. The single
-/// <c>peace-yes</c> now immediately follows that second <c>end</c>. Accepting that offer also leaves
-/// the existing late marine approach free: <c>move mac-marines 148 40</c> reaches its destination
-/// using 6 of 10 moves, followed by accepted embark and disembark commands. No preparation moves
-/// were needed. Every existing mutating command and its arguments are preserved.
+/// <strong>T178 script boundaries.</strong> A initiates <c>attack-army mac-sac-1 army-14</c>
+/// immediately after original69. The later original79 <c>end</c> raises an actual Thracian treaty
+/// addressed to Macedonia; the relocated original60 <c>peace-yes</c> answers it before another end
+/// could expire it. The unchanged original marine sequence then moves to (148,40), embarks and
+/// disembarks. B omits only the two originally unaccepted answers from original1 through70 and appends the
+/// original23 <c>accept-offer</c> immediately after original70's actual Numidia trade offer.
+/// The scorer correction and these script changes have separate causal evidence; two cases do not
+/// establish original-input equivalence. Scenario, seed, preset, turn order and mercenary IDs stay fixed.
 /// </para>
 /// <para>
 /// <strong>Random consumers.</strong> <see cref="Battle.BattleCasualties"/>'s casualty divisor
@@ -108,22 +108,9 @@ namespace IC2.Engine.Tests.Presentation;
 /// which asks only that the <em>command</em> is accepted, not that the battle is won.
 /// </para>
 /// <para>
-/// <strong>Confirmed unreachable, and excluded rather than forced (docs/tasks/T80.md Done-when 2b:
-/// "keyed exceptions, and nothing else").</strong>
-/// <strong>T80 rework round 1, N3: the previous version of this remark quoted "docs/tasks/T80.md's own
-/// Hazards: 'STOP and report which command, and why'" — that sentence is not in T80.md and never was
-/// (confirmed against its own history); it paraphrased an instruction from outside the task file, not a
-/// quote from it, and is dropped here rather than misattributed.</strong> Three command types have no
-/// accepted line in either script, each keyed to the issue that will remove the exception — see
-/// <see cref="CommandCoverageTests"/>'s own <c>ConfirmedUnreachable</c> set and its remarks for the full
-/// account:
+/// All exposed mutating verbs now have accepted lines across these scripts, including hiring,
+/// embarkation and disembarkation; <see cref="CommandCoverageTests"/>'s current exclusion set is empty.
 /// </para>
-/// <list type="bullet">
-/// <item><description><c>hire-mercenary</c> (<see cref="Recruitment.Commands.HireMercenaryCommand"/>),
-/// keyed to T56/#229.</description></item>
-/// <item><description><c>embark-army</c> and <c>disembark-army</c> (disembark can only ever follow a
-/// successful embark), keyed to T93/#453.</description></item>
-/// </list>
 /// <para>
 /// The three <c>Ai*</c>-prefixed command types (<see cref="Diplomacy.Commands.AiFormAllianceCommand"/>,
 /// <see cref="Diplomacy.Commands.AiFormTradeCommand"/>,
@@ -139,6 +126,12 @@ public sealed class SuccessScriptTests
 
     private static readonly string SuccessGoldenPath =
         Path.Combine(ModelTestPaths.RepositoryRoot, "tests", "fixtures", "cli", "success.golden.txt");
+
+    private static readonly string SuccessTradeOfferScriptPath =
+        Path.Combine(ModelTestPaths.RepositoryRoot, "tests", "fixtures", "cli", "success-trade-offer.txt");
+
+    private static readonly string SuccessTradeOfferGoldenPath =
+        Path.Combine(ModelTestPaths.RepositoryRoot, "tests", "fixtures", "cli", "success-trade-offer.golden.txt");
 
     private static readonly string SuccessFleetScriptPath =
         Path.Combine(ModelTestPaths.RepositoryRoot, "tests", "fixtures", "cli", "success-fleet.txt");
@@ -347,6 +340,28 @@ public sealed class SuccessScriptTests
     public void Every_mutating_line_in_the_success_golden_produced_an_accepted_outcome()
     {
         AssertEveryMutatingLineProducedAnAcceptedOutcome(File.ReadAllText(SuccessGoldenPath));
+    }
+
+    // ---- success-trade-offer.txt: an independent fresh Macedonia session ----
+
+    [Fact]
+    public void The_trade_offer_script_run_in_process_matches_the_committed_golden_transcript()
+    {
+        var transcript = RunTranscript(NewSuccessSession(), File.ReadAllLines(SuccessTradeOfferScriptPath));
+        Assert.Equal(File.ReadAllText(SuccessTradeOfferGoldenPath), transcript);
+    }
+
+    [Fact]
+    public void The_trade_offer_script_gives_an_identical_transcript_twice()
+    {
+        var lines = File.ReadAllLines(SuccessTradeOfferScriptPath);
+        Assert.Equal(RunTranscript(NewSuccessSession(), lines), RunTranscript(NewSuccessSession(), lines));
+    }
+
+    [Fact]
+    public void Every_mutating_line_in_the_trade_offer_golden_produced_an_accepted_outcome()
+    {
+        AssertEveryMutatingLineProducedAnAcceptedOutcome(File.ReadAllText(SuccessTradeOfferGoldenPath));
     }
 
     // ---- success-fleet.txt ----

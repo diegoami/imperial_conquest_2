@@ -228,9 +228,9 @@ public sealed class CommandCoverageTests
     /// <summary>
     /// Done-when 2, second half: "or has no line in the success-path script that the golden shows
     /// accepted" — for every command type this class has not named as a confirmed, documented gap.
-    /// Done-when 2b widened this to two goldens (<c>success.golden.txt</c> carries every command except
-    /// <c>attack-fleet</c>; <c>success-fleet.golden.txt</c> carries only <c>attack-fleet</c>) — a type
-    /// passes if its accepted line shows up in either.
+    /// T178 uses A for treaty/marine, B (<c>success-trade-offer.golden.txt</c>) for incoming trade,
+    /// and the unchanged <c>success-fleet.golden.txt</c> for <c>attack-fleet</c> — a type
+    /// passes if its own accepted line shows up in any of the three nonempty cases.
     /// </summary>
     /// <remarks>
     /// T80 rework round 1, B1 (blocking): this used to search the whole golden text for
@@ -249,11 +249,14 @@ public sealed class CommandCoverageTests
     [Fact]
     public void Every_reachable_command_type_has_an_accepted_line_in_the_success_golden()
     {
-        var blocks = GoldenTranscriptBlocks.Parse(File.ReadAllText(
-                Path.Combine(ModelTestPaths.RepositoryRoot, "tests", "fixtures", "cli", "success.golden.txt")))
-            .Concat(GoldenTranscriptBlocks.Parse(File.ReadAllText(
-                Path.Combine(ModelTestPaths.RepositoryRoot, "tests", "fixtures", "cli", "success-fleet.golden.txt"))))
-            .ToList();
+        var blocks = new List<GoldenTranscriptBlocks.Block>();
+        foreach (var fixture in new[] { "success.golden.txt", "success-trade-offer.golden.txt", "success-fleet.golden.txt" })
+        {
+            var caseBlocks = GoldenTranscriptBlocks.Parse(File.ReadAllText(
+                Path.Combine(ModelTestPaths.RepositoryRoot, "tests", "fixtures", "cli", fixture)));
+            Assert.NotEmpty(caseBlocks);
+            blocks.AddRange(caseBlocks);
+        }
 
         var missing = new List<string>();
         foreach (var commandType in AllCommandTypes)
@@ -273,7 +276,7 @@ public sealed class CommandCoverageTests
         Assert.True(
             missing.Count == 0,
             "The following command type(s) have no accepted line, attributed to their own verb's script "
-            + "line, in success.golden.txt or success-fleet.golden.txt: " + string.Join(", ", missing));
+            + "line, in success.golden.txt, success-trade-offer.golden.txt or success-fleet.golden.txt: " + string.Join(", ", missing));
     }
 
     /// <summary>

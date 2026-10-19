@@ -5,8 +5,9 @@ Generates a deterministic placeholder asset pack for testing and development.
 
 .DESCRIPTION
 Creates flat-color, uncompressed 24-bit BMP files for unit/terrain/city markers, terrain tiles,
-and silent audio stubs. All output is byte-identical across runs, suitable for checking into
-version control and testing.
+and silent audio stubs. The three tactical battle cues reuse the existing locally synthesized
+authored WAVs byte-for-byte from assets/packs/authored/sfx/; other sounds remain silent stubs.
+All output is byte-identical across runs, suitable for version control and testing.
 
 .PARAMETER OutputPath
 The directory to write the asset pack to. Created if it doesn't exist.
@@ -18,6 +19,17 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+# T183: validate every read-only authored input before generating any output. These are reused
+# assets, not new synthesis; resolving against this script keeps fresh-process scratch runs safe.
+$tacticalSounds = @("battle_arrows", "battle_javelin", "battle_melee")
+$authoredSfx = Join-Path $PSScriptRoot "../assets/packs/authored/sfx"
+foreach ($sfx in $tacticalSounds) {
+    $inputPath = Join-Path $authoredSfx "$sfx.wav"
+    if (!(Test-Path -LiteralPath $inputPath -PathType Leaf)) {
+        throw "T183 required authored tactical WAV missing: '$inputPath'."
+    }
+}
 
 # Ensure output directory exists
 if (!(Test-Path $OutputPath)) {
@@ -615,7 +627,11 @@ foreach ($button in $battleToolbar) {
 Write-Host "Generating WAV files..."
 foreach ($sfx in @("city_captured", "battle", "unit_move", "fleet_move", "battle_arrows", "battle_javelin", "battle_melee", "siege_failed", "fleet_sunk", "nation_conquered")) {
     $filepath = Join-Path -Path $OutputPath -ChildPath "sfx/$sfx.wav"
-    New-SilentWAV -Path $filepath
+    if ($tacticalSounds -contains $sfx) {
+        Copy-Item -LiteralPath (Join-Path $authoredSfx "$sfx.wav") -Destination $filepath -Force
+    } else {
+        New-SilentWAV -Path $filepath
+    }
     Write-Host "  + sfx/$sfx.wav"
 }
 
@@ -623,7 +639,7 @@ Write-Host "Generating manifest.json..."
 $manifest = [ordered]@{
     schemaVersion = 1
     name = "Placeholder Asset Pack"
-    description = "Generated placeholder assets - flat colors, silent audio stubs, good enough for development and testing."
+    description = "Generated placeholder assets - flat colors and silent audio stubs; battle_arrows, battle_javelin and battle_melee reuse existing locally synthesized authored cues byte-for-byte from assets/packs/authored/sfx/. Good enough for development and testing."
     assets = [ordered]@{}
 }
 
@@ -693,3 +709,8 @@ $json = $json.Substring(0, $assetsClose) + ",`n" + ($battleLines -join ",`n") + 
 [System.IO.File]::WriteAllText($manifestPath, $json)
 
 Write-Host "Success: Generated placeholder asset pack at: $OutputPath"
+
+# T182: replace the legacy generic markers with reproducible recognizable geometry.
+# This writes only the 21 battle/army/fleet icons and preserves every other pack asset.
+& python (Join-Path $PSScriptRoot 'generate-unit-glyphs.py') --pack-dir $OutputPath
+if ($LASTEXITCODE -ne 0) { throw 'Unit glyph generation failed.' }

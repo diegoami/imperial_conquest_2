@@ -68,6 +68,7 @@ public partial class SoundCuesCheck : Control
     private MainGameScreen _restartMainGame = null!;
     private int _frame;
     private int _step;
+    private bool _originalSound;
 
     private const string CaptureArmyId = "sound-cues-capture-army";
     private const string MoveArmyId = "sound-cues-move-army";
@@ -94,6 +95,7 @@ public partial class SoundCuesCheck : Control
 
     public override void _Ready()
     {
+        _originalSound = SettingsScreen.SoundEnabled;
         Size = GetViewport().GetVisibleRect().Size;
 
         // Build the session from the classical scenario, then place a rome army next to a fresh
@@ -330,6 +332,8 @@ public partial class SoundCuesCheck : Control
         }
         catch (System.Exception ex)
         {
+            SettingsScreen.SetSoundEnabledForCheck(_originalSound);
+            StopAllPlayers(this);
             GD.PrintErr($"SoundCuesCheck: unhandled exception: {ex}");
             GD.Print("SoundCuesCheck: exiting with code 1.");
             GetTree().Quit(1);
@@ -641,6 +645,7 @@ public partial class SoundCuesCheck : Control
 
     private void Finish()
     {
+        SettingsScreen.SetSoundEnabledForCheck(_originalSound);
         var exitCode = _ok ? 0 : 1;
         GD.Print($"SoundCuesCheck: exiting with code {exitCode}.");
         GetTree().Quit(exitCode);

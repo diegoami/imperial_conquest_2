@@ -1,3 +1,4 @@
+using IC2.Engine.Presentation;
 namespace IC2.Engine.Battle.Tactical;
 
 /// <summary>
@@ -44,6 +45,7 @@ public static class TacticalSurrender
             if (board.IsLive(s))
             {
                 board.Remove(s);
+                board.Capture(TacticalFrameKind.Removal, s);
             }
         }
 

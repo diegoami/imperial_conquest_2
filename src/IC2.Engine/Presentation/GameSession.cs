@@ -44,6 +44,28 @@ public sealed partial class GameSession
     private readonly SystemRegistry _registry;
     private readonly TurnCoordinator _coordinator;
     private readonly CommandDispatcher _dispatcher;
+    private readonly StrategicTravelTimeline _strategicTimeline = new();
+
+    /// <summary>Most recent transient delivery; consumers deduplicate by BatchId and StepId.</summary>
+    public StrategicTravelBatch LastStrategicTimeline { get; private set; } = StrategicTravelBatch.Empty;
+
+    /// <summary>Raised only after Submit completes. Subscriber failures cannot change gameplay.</summary>
+    public event Action<StrategicTravelBatch>? StrategicTimelinePublished;
+
+    /// <summary>Release the optional presentation recorder and any suspended replay references.</summary>
+    public void DisableStrategicObservations()
+    {
+        _strategicTimeline.Disable();
+        LastStrategicTimeline = StrategicTravelBatch.Empty;
+    }
+
+    /// <summary>Consume the mirror once, releasing its state references without disturbing an active AI replay.</summary>
+    public StrategicTravelBatch ConsumeStrategicTimeline()
+    {
+        var batch = LastStrategicTimeline;
+        LastStrategicTimeline = StrategicTravelBatch.Empty;
+        return batch;
+    }
 
     /// <summary>
     /// The nation the CLI's own <c>--seat</c> flag names, or <see langword="null"/> when it was not
@@ -711,8 +733,8 @@ public sealed partial class GameSession
         Scenario = scenario;
 
         _registry = SystemRegistry.FromEngineAssembly();
-        _dispatcher = new CommandDispatcher(_registry, ruleset, world, NullEventSink.Instance);
-        _coordinator = new TurnCoordinator(_registry, ruleset, world, NullEventSink.Instance, _dispatcher);
+        _dispatcher = new CommandDispatcher(_registry, ruleset, world, NullEventSink.Instance) { StrategicObserver = _strategicTimeline };
+        _coordinator = new TurnCoordinator(_registry, ruleset, world, NullEventSink.Instance, _dispatcher) { StrategicObserver = _strategicTimeline };
 
         var initial = GameStateFactory.CreateInitial(world, ruleset, scenario);
         State = seedOverride.HasValue ? initial with { RandomSeed = seedOverride.Value } : initial;
@@ -747,6 +769,7 @@ public sealed partial class GameSession
         // end" contract, which construction must not pre-empt.
         if (!_isWatchMode)
         {
+            _strategicTimeline.BeginSubmit(_humanSeatNationId ?? State.ActiveNationId);
             _pendingNewsBaseline = State.NewsLog.Slots;
             _pendingPrelude = AdvanceToHumanSeat();
         }
@@ -788,8 +811,8 @@ public sealed partial class GameSession
         Scenario = scenario;
 
         _registry = SystemRegistry.FromEngineAssembly();
-        _dispatcher = new CommandDispatcher(_registry, ruleset, world, NullEventSink.Instance);
-        _coordinator = new TurnCoordinator(_registry, ruleset, world, NullEventSink.Instance, _dispatcher);
+        _dispatcher = new CommandDispatcher(_registry, ruleset, world, NullEventSink.Instance) { StrategicObserver = _strategicTimeline };
+        _coordinator = new TurnCoordinator(_registry, ruleset, world, NullEventSink.Instance, _dispatcher) { StrategicObserver = _strategicTimeline };
 
         ResumeFrom(save);
     }
@@ -906,6 +929,8 @@ public sealed partial class GameSession
     {
         ArgumentNullException.ThrowIfNull(save);
 
+        _strategicTimeline.Reset();
+        LastStrategicTimeline = StrategicTravelBatch.Empty;
         State = save.State;
 
         var humanNationIds = State.Nations
@@ -932,8 +957,10 @@ public sealed partial class GameSession
         _battle = save.Battle is null
             ? null
             : TacticalBattleSession.Reopen(
-                State, Ruleset, save.Battle, TacticalBattleSession.RulesetAsksForExactRestore(Ruleset));
+                State, Ruleset, save.Battle, TacticalBattleSession.RulesetAsksForExactRestore(Ruleset), NextTacticalBattleIdentity());
         _pendingTacticalReport = null;
+        _pendingTacticalTimeline.Clear();
+        LastTacticalTimeline = ValueList<TacticalBattleFrame>.Empty;
         _pendingSeatFalls.Clear();
         LastSeatFalls = Array.Empty<SeatFall>();
 
@@ -1246,6 +1273,28 @@ public sealed partial class GameSession
     public IReadOnlyList<SeatFall> LastSeatFalls { get; private set; } = Array.Empty<SeatFall>();
 
     /// <summary>
+    /// The exact immutable batch the most recent Submit returned in SessionOutput.TacticalTimeline, mirrored for
+    /// adapters that retain only rendered lines. Empty before the first Submit; replaced on every return, including
+    /// empty, refused and read-only commands. Terminal frames remain available when OpenTacticalBattle is null.
+    /// This holds one returned batch, never the full battle history, and is cleared when a save is loaded.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public ValueList<TacticalBattleFrame> LastTacticalTimeline { get; private set; } = ValueList<TacticalBattleFrame>.Empty;
+
+    /// <summary>
+    /// Opening/reopening frames awaiting their first output delivery, available immediately after construction
+    /// from a battle save, before any command. Includes pending automatic opening frames. This immutable peek
+    /// neither drains nor reconstructs frames: the next Submit still returns the same frames through its existing
+    /// batch, possibly followed by that command's frames. Empty after delivery and whenever no opening is pending.
+    /// Consumers observing this and LastTacticalTimeline/SessionOutput must deduplicate by BattleId and FrameId;
+    /// the same frame has the same command/frame identities on every route. Reading never acknowledges a batch.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public ValueList<TacticalBattleFrame> InitialTacticalTimeline => ValueList.From(
+        _pendingTacticalTimeline.Where(f => f.CommandId == 0).Concat(
+            _battle?.PendingOpeningTimeline ?? ValueList<TacticalBattleFrame>.Empty));
+
+    /// <summary>
     /// T138: whether no human seat can give orders any more — the game is over, as
     /// <see cref="AnnounceGameOverIfNoHumanSeatRemains"/> sets it, or a <c>--seat</c>-style session's own
     /// seat is lost (<see cref="_seatLost"/>). The game-end window's own "The game is over." line and
@@ -1271,6 +1320,29 @@ public sealed partial class GameSession
     /// </summary>
     /// <param name="rawLine">One line of input, exactly as read from the script or the console.</param>
     public SessionOutput Submit(string rawLine)
+    {
+        ArgumentNullException.ThrowIfNull(rawLine);
+        LastStrategicTimeline = StrategicTravelBatch.Empty;
+        _strategicTimeline.BeginSubmit(_humanSeatNationId ?? State.ActiveNationId);
+        SessionOutput output;
+        try
+        {
+            output = SubmitCore(rawLine);
+        }
+        catch
+        {
+            _strategicTimeline.Rollback();
+            throw;
+        }
+        var batch = _strategicTimeline.Complete(State, _lap is not null, output.ShouldExit);
+        LastStrategicTimeline = batch;
+        if (StrategicTimelinePublished is { } subscribers)
+            foreach (Action<StrategicTravelBatch> subscriber in subscribers.GetInvocationList())
+                try { subscriber(batch); } catch { /* Presentation subscribers cannot affect execution. */ }
+        return output with { StrategicTimeline = batch };
+    }
+
+    private SessionOutput SubmitCore(string rawLine)
     {
         ArgumentNullException.ThrowIfNull(rawLine);
 
@@ -1868,17 +1940,20 @@ public sealed partial class GameSession
     {
         var seat = lap.Seat;
         var nationsBeforeThisSeatsTurn = State.Nations;
+        _strategicTimeline.BeginAttempt(lap);
         TurnResult result;
         if (UsesAiPhaseBattleGate())
         {
-            var gate = new AiPhaseBattleGate(_dispatcher, Ruleset, lap);
-            var gated = new TurnCoordinator(_registry, Ruleset, World, NullEventSink.Instance, gate);
+            var gate = new AiPhaseBattleGate(_dispatcher, Ruleset, lap, _strategicTimeline);
+            var gated = new TurnCoordinator(_registry, Ruleset, World, NullEventSink.Instance, gate) { StrategicObserver = _strategicTimeline };
             try
             {
                 result = gated.RunTurn(State);
             }
             catch (AiPhaseBattleSuspended suspended)
             {
+                _strategicTimeline.Battle(suspended.Command, suspended.AtAttack, suspended.AtAttack, completed: false);
+                _strategicTimeline.EndAttempt(completed: false);
                 OpenAiPhaseBattle(lines, lap, suspended);
                 return LapStep.Suspended;
             }
@@ -1888,6 +1963,7 @@ public sealed partial class GameSession
             result = _coordinator.RunTurn(State);
         }
 
+        _strategicTimeline.EndAttempt(completed: true);
         State = result.State;
 
         // T149: every seat the round plays (the ending seat's own RunTurn, then every AI seat
@@ -1994,13 +2070,15 @@ public sealed partial class GameSession
         private readonly ICommandDispatch _inner;
         private readonly Ruleset _ruleset;
         private readonly AiLap _lap;
+        private readonly StrategicTravelTimeline _strategic;
         private int _met;
 
-        public AiPhaseBattleGate(ICommandDispatch inner, Ruleset ruleset, AiLap lap)
+        public AiPhaseBattleGate(ICommandDispatch inner, Ruleset ruleset, AiLap lap, StrategicTravelTimeline strategic)
         {
             _inner = inner;
             _ruleset = ruleset;
             _lap = lap;
+            _strategic = strategic;
         }
 
         public CommandResult Dispatch(GameState state, ICommand command) =>
@@ -2025,6 +2103,8 @@ public sealed partial class GameSession
                 throw new InvalidOperationException(
                     "The replay of an AI seat's turn reached its attack in a different state than the first run did.");
             }
+
+            _strategic.Battle(command, state, done.After, completed: true, done.Events);
 
             foreach (var domainEvent in done.Events)
             {
@@ -2063,7 +2143,7 @@ public sealed partial class GameSession
     {
         var attack = suspended.Command;
         _battle = TacticalBattleSession.Open(
-            suspended.AtAttack, attack.AttackerArmyId, attack.TargetArmyId, Ruleset, out var opened);
+            suspended.AtAttack, attack.AttackerArmyId, attack.TargetArmyId, Ruleset, out var opened, NextTacticalBattleIdentity());
         lap.AtAttack = suspended.AtAttack;
         lap.Opened = opened;
         _lap = lap;

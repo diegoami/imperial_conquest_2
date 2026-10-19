@@ -35,6 +35,8 @@ namespace IC2.Slice.UI;
 /// </remarks>
 public partial class AreaMapView : Control
 {
+    public Func<GameState>? DisplayStateSource { get; set; }
+    public GameState DisplayState => DisplayStateSource?.Invoke() ?? _session!.State;
     private static readonly Color ViewRectColor = new(1f, 0.9f, 0.3f);
     private static readonly Color BorderColor = AppTheme.Scrim;
 
@@ -247,10 +249,10 @@ public partial class AreaMapView : Control
 
             foreach (var kind in _activeHighlights)
             {
-                tiles.UnionWith(AreaMapHighlights.TilesFor(state: _session.State, kind, viewedNationId: _viewedNationId));
+                tiles.UnionWith(AreaMapHighlights.TilesFor(state: DisplayState, kind, viewedNationId: _viewedNationId));
             }
 
-            if (_findCityId is not null && _session.State.CityById(_findCityId) is { } city)
+            if (_findCityId is not null && DisplayState.CityById(_findCityId) is { } city)
             {
                 tiles.Add((city.X, city.Y));
             }
@@ -628,7 +630,7 @@ public partial class AreaMapView : Control
 
         var drawn = new Dictionary<(int X, int Y), string>();
         var scale = _geometry!.Scale;
-        foreach (var slot in _session.State.MercenaryPool)
+        foreach (var slot in DisplayState.MercenaryPool)
         {
             if (slot.Troops == AreaMapHighlights.HiredSlotSentinelTroops)
             {

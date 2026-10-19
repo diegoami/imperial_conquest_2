@@ -19,11 +19,18 @@ namespace IC2.Engine.Battle.Tactical.General;
 /// </description></item>
 /// <item><description>
 /// It then takes as melee target the adjacent enemy with the smallest <c>theirs' = theirs − focus ×
-/// theirs</c> (troops; <c>focus</c> the own slots, alive or not, already targeting it; 32-bit, wrapping),
-/// ties to the first, provided <c>2 × theirs' div 3 &lt; mine</c> (the unit's troops). Its moves are not
+/// theirs</c> below 100000000, among candidates passing <c>2 × theirs' div 3 &lt; mine</c>.
+/// Strength is <c>((troops × quality) div 100) × morale × M[attacker][defender]</c>, with
+/// 32-bit wrapping products and signed division; <c>focus</c> counts own target words, dead slots
+/// included. Eligibility precedes strict minimization, so ties keep the first slot. Its moves are not
 /// checked again, as the report gives the pass.
 /// </description></item>
 /// </list>
+/// <para>
+/// Weighted melee strength and candidate-specific eligibility are confirmed by
+/// <c>2026-10-16-tactical-target-and-draw-attribution.md</c> �A, <c>FUN_0043A544</c>,
+/// products 39899�39926; this replaces the earlier troop-only implementation of that step.
+/// </para>
 /// <para>
 /// The <c>div 4</c> and the <c>2 × … div 3</c> are the pass's own shape (report §7); <c>combat.tactical</c>
 /// has no field for them, so they are written here, cited (T124's entry, amended by plan PR #686). The key
@@ -59,7 +66,7 @@ public static class GeneralPassTwo
         return ShotKey(board, slot, enemy);
     }
 
-    /// <summary>The pass-2 melee key of enemy <paramref name="enemy"/> for unit <paramref name="slot"/>: <c>theirs − focus × theirs</c>, 32-bit, wrapping.</summary>
+    /// <summary>The pass-2 weighted melee key of enemy <paramref name="enemy"/> for unit <paramref name="slot"/>: <c>theirs − focus × theirs</c>, 32-bit, wrapping.</summary>
     public static long MeleeKey(TacticalBattleState state, int slot, int enemy, TacticalContext context)
     {
         var board = TacticalBoard.Thaw(state, context, draws: null);
@@ -121,7 +128,7 @@ public static class GeneralPassTwo
         }
 
         var melee = -1;
-        var meleeTheirs = 0L;
+        var meleeTheirs = 100_000_000L; // Original FUN_0043A544's initial strict minimum.
         for (var e = enemyFirst; e < enemyFirst + board.SlotsPerSide; e++)
         {
             if (!board.IsLive(e) || board.Distance(slot, e) != 1)
@@ -130,15 +137,16 @@ public static class GeneralPassTwo
             }
 
             var adjusted = MeleeKey(board, slot, e);
-            if (melee < 0 || adjusted < meleeTheirs)
+            var odds = (board.Rules.WideArithmetic ? checked(OddsNumerator * adjusted)
+                : unchecked(OddsNumerator * (int)adjusted)) / OddsDenominator;
+            if (odds < Strength(board, slot, e) && adjusted < meleeTheirs)
             {
                 melee = e;
                 meleeTheirs = adjusted;
             }
         }
 
-        if (melee >= 0 && (board.Rules.WideArithmetic ? checked(OddsNumerator * meleeTheirs)
-                : unchecked(OddsNumerator * (int)meleeTheirs)) / OddsDenominator < board.Slots[slot].Troops)
+        if (melee >= 0)
         {
             journal?.Add(new GeneralDecision(slot, GeneralStep.PassTwoTarget, melee, board.Slots[melee].X, board.Slots[melee].Y));
             GeneralOrders.SetTarget(board, slot, melee);
@@ -147,10 +155,21 @@ public static class GeneralPassTwo
 
     internal static long MeleeKey(TacticalBoard board, int slot, int enemy)
     {
-        var theirs = board.Slots[enemy].Troops;
-        // combat.tactical.wideArithmetic widens the focus-adjusted troop product.
+        var theirs = Strength(board, enemy, slot);
+        // Preserve the same operation boundaries in the checked-wide variant.
         var focus = GeneralTargeting.Focus(board, board.SideOf(slot), enemy);
-        return board.Rules.WideArithmetic ? theirs - ((long)focus * theirs) : unchecked(theirs - (focus * theirs));
+        return board.Rules.WideArithmetic ? checked(theirs - (focus * theirs))
+            : unchecked((int)theirs - (focus * (int)theirs));
+    }
+
+    private static long Strength(TacticalBoard board, int attacker, int defender)
+    {
+        var unit = board.Slots[attacker];
+        var multiplier = board.Context.Matrix(unit.Type, board.Slots[defender].Type);
+        // FUN_0043A544, products 39899–39926: truncate BEFORE morale and matrix products.
+        return board.Rules.WideArithmetic
+            ? checked((((long)unit.Troops * unit.Quality) / 100) * unit.Morale * multiplier)
+            : unchecked(((unit.Troops * unit.Quality) / 100) * unit.Morale * multiplier);
     }
 
     internal static int ShotKey(TacticalBoard board, int slot, int enemy)

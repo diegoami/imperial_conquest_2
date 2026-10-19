@@ -2,6 +2,7 @@ using IC2.Engine.Ai;
 using IC2.Engine.Battle.Commands;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
+using IC2.Engine.Strength;
 using IC2.Engine.Tests.Battle.Commands;
 using Xunit;
 using CaptureFixtures = IC2.Engine.Tests.Cities.Capture.CaptureTestbed;
@@ -15,7 +16,7 @@ namespace IC2.Engine.Tests.Ai;
 /// functions the scorer uses (<c>2026-10-07-strategic-ai-turn.md</c> §3.3 and §5), so a removed or
 /// altered term moves a score the test pins to the integer.
 /// </summary>
-public sealed class AiArmyTargetTreeScorerTests
+public sealed partial class AiArmyTargetTreeScorerTests
 {
     private const string Us = "north";
     private const string Them = "south";
@@ -122,6 +123,9 @@ public sealed class AiArmyTargetTreeScorerTests
 
     private static int Strength(ArmyState army, AiView view) =>
         AiArmyTargetTree.AssaultStrength(army, view.Ruleset, Archer);
+
+    private static int FieldStrength(ArmyState army, AiView view) =>
+        ArmyPower.Compute(army.Units, army.Morale, view.Ruleset);
 
     private static int Defense(CityState city, AiView view) =>
         AiArmyTargetTree.CityDefense(city, view.Ruleset, view.State);
@@ -269,15 +273,15 @@ public sealed class AiArmyTargetTreeScorerTests
 
     /// <summary>A far weaker enemy within 7: the ratio is capped at 1000, then +1000 for weaker and near; at 7 only the cap.</summary>
     [Theory]
-    [InlineData(6, 2000)]
-    [InlineData(7, 1000)]
+    [InlineData(6, 2006)]
+    [InlineData(7, 1007)]
     public void Army_score_caps_the_ratio_at_one_thousand_then_adds_a_thousand_for_a_weaker_near_enemy(int distance, long expected)
     {
         var army = Army("a", Us, 10, 10, 20_000);
-        var enemy = Army("e", Them, 10 + distance, 10, 100);
+        var enemy = Army("e", Them, 10 + distance, 10, 400);
         var view = ViewOf([City("us-capital", Us, 8, 10), City("them-capital", Them, 30, 30)], [army, enemy]);
-        var s = Strength(army, view);
-        var t = Strength(enemy, view);
+        var s = FieldStrength(army, view);
+        var t = FieldStrength(enemy, view);
         Assert.True((110 * s / t) - distance > 1000 && t < s);
 
         var scored = AiArmyTargetTree.ScoreArmyTarget(view, army);
@@ -287,37 +291,37 @@ public sealed class AiArmyTargetTreeScorerTests
         Assert.Equal(expected, scored.Score);
     }
 
-    /// <summary>A moderately weaker enemy: no cap reached, so the score is the ratio minus the distance plus the +1000.</summary>
+    /// <summary>A moderately weaker enemy: no cap reached; the returned ratio includes the +1000 bonus and restored distance.</summary>
     [Fact]
     public void Army_score_without_the_cap_is_the_ratio_minus_distance_plus_the_weaker_bonus()
     {
         var enemy = Army("e", Them, 13, 10, 5_000);
-        var t = Strength(enemy, ViewOf([City("us-capital", Us, 8, 10)], [enemy]));
-        var army = Army("a", Us, 10, 10, TroopsWhere(x => StrengthOf(x) > t * 2));
+        var t = FieldStrength(enemy, ViewOf([City("us-capital", Us, 8, 10)], [enemy]));
+        var army = Army("a", Us, 10, 10, 10_400);
         var view = ViewOf([City("us-capital", Us, 8, 10), City("them-capital", Them, 30, 30)], [army, enemy]);
-        var s = Strength(army, view);
+        var s = FieldStrength(army, view);
         var raw = (110 * s / t) - 3;
         Assert.True(raw < 1000 && t < s);
 
         var scored = AiArmyTargetTree.ScoreArmyTarget(view, army);
 
-        Assert.Equal(raw + 1000, scored.Score);
+        Assert.Equal(raw + 1000 + 3, scored.Score);
     }
 
-    /// <summary>An equal or stronger enemy gets no bonus: the score is the ratio minus the distance.</summary>
+    /// <summary>An equal or stronger enemy gets no bonus; the winning distance is restored to the ratio.</summary>
     [Fact]
     public void Army_score_of_a_stronger_enemy_has_no_weaker_bonus()
     {
         var army = Army("a", Us, 10, 10, 1_000);
         var enemy = Army("e", Them, 13, 10, 3_000);
         var view = ViewOf([City("us-capital", Us, 8, 10), City("them-capital", Them, 30, 30)], [army, enemy]);
-        var s = Strength(army, view);
-        var t = Strength(enemy, view);
+        var s = FieldStrength(army, view);
+        var t = FieldStrength(enemy, view);
         Assert.True(t >= s);
 
         var scored = AiArmyTargetTree.ScoreArmyTarget(view, army);
 
-        Assert.Equal((110 * s / t) - 3, scored.Score);
+        Assert.Equal(110 * s / t, scored.Score);
     }
 
     /// <summary>An enemy in another region is halved before the cap.</summary>
@@ -330,15 +334,15 @@ public sealed class AiArmyTargetTreeScorerTests
             [City("us-capital", Us, 8, 10), City("them-capital", Them, 14, 10)],
             [army, enemy],
             ("us-capital", 0), ("them-capital", 1));
-        var s = Strength(army, view);
-        var t = Strength(enemy, view);
+        var s = FieldStrength(army, view);
+        var t = FieldStrength(enemy, view);
         Assert.True(t >= s);
         var raw = (110 * s / t) - 3;
         Assert.True(raw > 1);
 
         var scored = AiArmyTargetTree.ScoreArmyTarget(view, army);
 
-        Assert.Equal(raw - (raw / 2), scored.Score);
+        Assert.Equal(raw - (raw / 2) + 3, scored.Score);
     }
 
     // ---------- the reachability rule ([designed]: the user's decision of 2026-10-10 on #925) ----------
@@ -390,7 +394,7 @@ public sealed class AiArmyTargetTreeScorerTests
     public void Reachability_skips_a_target_whose_first_step_is_blocked_and_takes_the_next_best()
     {
         var army = Army("a", Us, 10, 10, 20_000);
-        var blockedTarget = Army("blocked", Them, 14, 10, 100);
+        var blockedTarget = Army("blocked", Them, 14, 10, 400);
         var openTarget = Army("open", Them, 10, 16, 1_000);
         var cities = new[] { City("us-capital", Us, 11, 10), City("them-capital", Them, 40, 40) };
 
@@ -405,7 +409,7 @@ public sealed class AiArmyTargetTreeScorerTests
         Assert.Equal("blocked", AiArmyTargetTree.ScoreArmyTarget(clear, army).Army!.Id);
 
         // An adjacent target is reachable even though its own tile is occupied.
-        var adjacent = Army("adjacent", Them, 11, 10, 100);
+        var adjacent = Army("adjacent", Them, 11, 10, 400);
         var adjacentView = ViewOf([City("us-capital", Us, 11, 12), City("them-capital", Them, 40, 40)], [army, adjacent]);
         Assert.Equal("adjacent", AiArmyTargetTree.ScoreArmyTarget(adjacentView, army).Army!.Id);
     }

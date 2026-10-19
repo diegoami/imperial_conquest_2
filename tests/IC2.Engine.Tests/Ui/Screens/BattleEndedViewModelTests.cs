@@ -69,4 +69,24 @@ public sealed class BattleEndedViewModelTests
         Assert.Equal($"The army of {winner} captured no money.", model.MoneyLine);
         Assert.Equal($"The army of {winner} captured no suuplies.", model.SuppliesLine);
     }
-}
+    [Fact]
+    public void Explanation_uses_captured_unity_and_keeps_casualties_beside_distinct_route_and_cascade_counts()
+    {
+        var (report, session) = Ended();
+        var facts = new TacticalBattleAftermath(
+            new(42, 2, 1, 300, 1200, false, 988, 990),
+            new(123, 3, 2, 0, 400, false, 400, 375), true, false, 200);
+        var model = BattleEndedViewModel.FromReport(report with { Aftermath = facts }, session.State, session.Ruleset);
+        Assert.Contains(model.AftermathLines, line => line.Contains("42 exchange casualties; 2 units routed, 1 more removed by morale cascade"));
+        Assert.Contains(model.AftermathLines, line => line.Contains("988 → 990 (+2)"));
+        Assert.Contains(model.AftermathLines, line => line.Contains("300 routed troops rejoined"));
+        Assert.Contains(model.AftermathLines, line => line.Contains("surviving remnant of 400 troops"));
+        Assert.Contains(model.AftermathLines, line => line.Contains("pursuit losses: 200"));
+    }
+
+    [Fact]
+    public void Legacy_report_without_capture_does_not_infer_a_unity_swing_from_final_state()
+    {
+        var (report, session) = Ended();
+        Assert.Empty(BattleEndedViewModel.FromReport(report with { Aftermath = null }, session.State, session.Ruleset).AftermathLines);
+    }}

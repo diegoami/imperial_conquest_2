@@ -251,6 +251,26 @@ public sealed class CliProcessTests
         }
     }
 
+    /// <summary>T178: execute each complete Success case through the actual built CLI, including EOF in B.</summary>
+    [Theory]
+    [InlineData("success")]
+    [InlineData("success-trade-offer")]
+    public async Task The_success_case_process_matches_its_complete_golden(string fixture)
+    {
+        var cliDll = FindCliDll();
+        Assert.True(cliDll is not null, "Build IC2.sln before testing: the real CLI DLL is required.");
+        using var process = StartCli(cliDll!,
+            $"--scenario classical-mediterranean --seat macedonia --seed 3 --turn-order fixed --script tests/fixtures/cli/{fixture}.txt");
+        var stdoutTask = process.StandardOutput.ReadToEndAsync();
+        var stderrTask = process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+        var stdout = await stdoutTask;
+        var stderr = await stderrTask;
+        Assert.True(process.ExitCode == 0, $"CLI exit {process.ExitCode}: {stderr}");
+        Assert.Equal(File.ReadAllText(Path.Combine(ModelTestPaths.RepositoryRoot,
+            "tests", "fixtures", "cli", fixture + ".golden.txt")), stdout);
+    }
+
     /// <summary>Starts the built CLI with the given argument string, redirecting both output streams.</summary>
     private static Process StartCli(string cliDll, string arguments)
     {

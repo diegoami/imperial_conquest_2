@@ -118,12 +118,22 @@ internal sealed class ReplayOutcome
 /// </summary>
 internal static class GoldenReplay
 {
-    /// <summary>
-    /// Both sides are played by the computer general from the start: Rome is a human nation under
-    /// <em>Computer general</em>, Gaul a computer nation (the task's "Who is computer-controlled"). Which side is a
-    /// computer <em>nation</em> comes from the imported game, never from here.
-    /// </summary>
-    private static readonly bool[] BothGenerals = { true, true };
+    // The recorded runs start a fresh process, open/attack with generals off, then click the human's
+    // toolbar after setup. Flags are runtime inputs, absent from original saves. Source: research500e521,
+    // 2026-10-16-computer-general-predicate-and-reload.md; conquest51ac45e b0_probe.cmd_resume,
+    // b3_crafted.run_scenario and b11_run's start/attack/play_battle sequence.
+    private static readonly bool[] GeneralsOff = { false, false };
+
+    /// <summary>The toolbar input after this human side's setup; the loop below supplies the driver.</summary>
+    internal static TacticalBattleState EnableRecordedHumanGeneral(TacticalBattleState state)
+    {
+        var side = state.SideToMove;
+        if (state.ComputerControlled[side] || state.ComputerGeneral[side])
+            return state;
+        var flags = state.ComputerGeneral.ToArray();
+        flags[side] = true;
+        return state with { ComputerGeneral = ValueList.From(flags) };
+    }
 
     /// <summary>
     /// Replays <paramref name="spec"/>. With <paramref name="compareBlocks"/> the port's block is compared with every
@@ -158,14 +168,14 @@ internal static class GoldenReplay
                 context,
                 draws);
             game = begun.Game;
-            state = begun.Battle with { ComputerGeneral = ValueList.From(BothGenerals) };
+            state = begun.Battle;
         }
         else
         {
             game = imported.Save.State;
             var block = BattleFixtures.Block(spec.Start);
             state = start is null
-                ? OriginalBattleBlockImport.Import(block, game, BothGenerals)
+                ? OriginalBattleBlockImport.Import(block, game, GeneralsOff)
                 : start(block, game);
             draws.Counter = state.Counter;
             state = TacticalHalfRound.Resume(state, context);
@@ -186,6 +196,8 @@ internal static class GoldenReplay
                 break;
             }
 
+            // Setup has already run; enabling does not retroactively change its move budgets.
+            state = EnableRecordedHumanGeneral(state);
             draws.Counter = state.Counter;
             state = state.Placed
                 ? general.Move(state, context, draws)

@@ -90,6 +90,7 @@ public sealed class CommandDispatcher : ICommandDispatch
     private readonly Ruleset _ruleset;
     private readonly World _world;
     private readonly IEventSink _sink;
+    internal IC2.Engine.Movement.IStrategicObservationRecorder? StrategicObserver { get; set; }
 
     /// <summary>Creates a dispatcher over a registry's command handlers.</summary>
     /// <param name="registry">The scanned registry supplying handlers.</param>
@@ -178,7 +179,7 @@ public sealed class CommandDispatcher : ICommandDispatch
             _world,
             command,
             SplitMix64Rng.ForStream(state.RandomSeed, StreamNameFor(kind)),
-            buffer);
+            buffer) { StrategicRoutes = StrategicObserver is null ? null : new() };
 
         var outcome = registration.Instance.Handle(command, context);
 
@@ -200,6 +201,12 @@ public sealed class CommandDispatcher : ICommandDispatch
         var next = accepted with { RandomSeed = RngStreams.Advance(accepted.RandomSeed) };
 
         var published = buffer.Events.ToArray();
+        if (StrategicObserver is { } observer)
+        {
+            try { observer.Accepted(command, state, next,
+                ValueList.From(context.StrategicRoutes ?? new()), ValueList<DomainEvent>.Of(published)); }
+            catch { observer.Disable(); StrategicObserver = null; }
+        }
         foreach (var domainEvent in published)
         {
             events.Publish(domainEvent);

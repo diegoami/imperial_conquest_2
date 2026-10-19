@@ -129,6 +129,9 @@ public partial class FleetCityOrdersCheck : Control
         var dialog = (SupplyDialog)_mainGame.ActiveOverlay!;
         dialog.SelectProviderForCheck(CityId);
         dialog.PressSupplyForCheck(100);
+        if (_mainGame.StrategicTravel.IsActive)
+            Check(!_mainGame.StrategicTravel.CommandsAllowed, "pending strategic travel withholds subsequent commands");
+        _mainGame.StrategicTravel.Skip();
 
         Check(_commandsSeen == before + 1, $"Supply fleet submits one command ({_commandsSeen - before})");
         var after = _session.State.FleetById(SupplyFleetId)!.SupplyTons;

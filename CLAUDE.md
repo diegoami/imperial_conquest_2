@@ -20,7 +20,8 @@ These outrank every other rule here when they conflict.
 
 21. **A failure on our side is fixed first.** A failed delegated run is never normal: diagnose it
     and fix the cause before anything else. Fall back to another model only when the provider does
-    not answer (quota, rate limit, 5xx, network); a flaw in our process, a missing login, a broken
+    not answer (quota, rate limit, 5xx, network), and the user has chosen the substitute under
+    rules 17–18; a flaw in our process, a missing login, a broken
     brief or a setup gap gets fixed, not routed around ([operating-guide §3](docs/operating-guide.md#3-standing-user-preferences)).
 22. **No delegated run loses its progress.** An implementer, or any run that changes files,
     commits and pushes as it goes and keeps `rendered/RUN-NOTES.md`; its notes are posted on the
@@ -100,37 +101,28 @@ Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), wh
 
 ## Model choice
 
-17. **The user chooses the models** (the user's decision of 2026-10-11, which replaces the quota-tracker
-    rules of 2026-10-08 and 2026-10-10 and issue #950). Two questions, asked with the question tool:
-    - **Before implementing**: does the main session implement it, or a subagent, and which model?
-      A subagent is the Agent tool with the model the user names (any model this session's backend
-      offers), or an OpenCode run, `scripts/external-implement.ps1 -Model <alias>`. Either way it
-      works in its own worktree under `ic2-work\`, keeps `rendered/RUN-NOTES.md`, pushes after every
-      commit and opens the PR. The main session implementing works in its own worktree too.
-    - **At every review** (a first review, a re-review, a re-check of named fixes): which OpenCode
-      model reviews? It runs as `scripts/external-review.ps1 -Reviewer <alias>`, one review at a time,
-      with `-FixturesDir` on this machine's fixtures clone. A PR gets one review unless the user asks
-      for more.
+17. **Delegate task authors by difficulty** (the user's standing decision of 2026-10-17,
+    replacing per-task model questions and quota-selected choices): **easy → Luna High;
+    medium → Sol light; hard → Sol medium; very hard → Sol high**. The main session assesses
+    difficulty and spawns the author. “Light” means `low` reasoning effort. Explicit per-task
+    overrides persist through rework. Record the assessment and actual model/effort on the issue
+    or PR. Authors work in their own worktrees, keep `rendered/RUN-NOTES.md`, push every commit
+    and open the PR. [Codex mapping](docs/codex.md#tools-and-roles) uses available native models.
+    The standing choice already supplies authorization: do not ask again for each task.
+    Quota recommendations are suggestions only; if the requested capability is unavailable,
+    diagnose/report it and ask for a new choice, never silently substitute a model or effort.
 
-    `curl -s 'localhost:8765/recommend?tier=heavy'` (or `tier=light`) is shown with each question as
-    a **suggestion only**: its `pick` or `pair`, with rank, outlook and reliability. The few fixed
-    rules: the reviewer is never of the implementer's family (the user's decision of 2026-10-13,
-    which lifted the DeepSeek ban and the Alibaba-only-on-request rule; only the family rule stays).
-    Log each choice on the issue or PR. This works whatever model the orchestrator
-    itself runs on (Claude, GLM, MiniMax): nothing here names the orchestrator's own model. Model ids
-    come from the provider's live list (`opencode models <provider>`), never memory. Heavy models run
-    at `medium` effort rather than `high` (the user's decision of 2026-10-05). If the quota service
-    does not answer, ask without the suggestion.
-
-18. **The light OpenAI model is the reviewer `luna`** (the alias `luna` maps to whatever
-    `opencode models openai` lists as the light OpenAI model at run time, `effort high`). It draws on
-    OpenAI's main quota like Sol, and is judged on that window. Only when OpenAI is exhausted does
-    Luna's own limit matter: `/quota/openai` then lists the alias under `when_exhausted.usable_models`,
-    and Luna alone can still run (the user's decision of 2026-10-09; the scripts read that field).
-    The OpenAI heavy model (`sol`) is never the reviewer (the alias is fixed, the model id under it
-    comes from `opencode models`). The Luna alias is the only OpenAI reviewer here; the heavier
-    OpenAI line never implements or reviews. A Luna on OpenCode Go (`opencode-go/…`) is a
-    known fault, not a ban: a proxy behind it has returned `Bad Request` in long agent loops.
+18. **Always use direct Kimi for independent review** (the same standing decision), including
+    plan PRs, re-reviews and checks of named fixes: **Kimi For Coding 1M**,
+    `kimi-code-plan-cn/kimi-for-coding`, at `https://api.kimi.com/coding/v1`, never OpenCode Go.
+    The reviewer is a separate agent/session in its own worktree at the supplied HEAD, never
+    the author or the author's model family. OpenAI authors use `-ExcludeModel sol` with the
+    existing scripts to exclude the entire OpenAI reviewer family. The standing reviewer choice
+    is already supplied; do not ask again. If direct Kimi is unavailable, diagnose/report it
+    and ask before another reviewer or route. One review per PR unless the user asks for more;
+    required rework checks, full findings, monitoring, posting, approval and applicable CI remain.
+    Earlier reviewer tiers/chains, heavy-Sol implementation bans, effort caps and automatic
+    model fallbacks are superseded by rules 17–18.
 
 20. **Use the providers' pricing windows deliberately, not by chance** (advice the main session gives the user when they choose a model, rule 17) (the owner's decision of
     2026-10-06). Alibaba is a route like any other (rule 17); for a Qwen

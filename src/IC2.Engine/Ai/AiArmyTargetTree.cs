@@ -55,8 +55,8 @@ public static class AiArmyTargetTree
     /// <summary>
     /// The original's <c>FUN_0044a98c</c> — city defence, exactly as
     /// <see cref="CompleteDefenderStrength.Compute"/> produces it (the garrison addend included). The
-    /// attacker's score = <c>strength×110 / cityDefense</c>, so the same defender strength the siege
-    /// resolver reads decides the AI's score.
+    /// attacker's score = <c>strength×110 / cityDefense</c>, so the complete attacker-independent defense is shared with the siege
+    /// resolver. The city scorer applies the attacking nation's allegiance adjustment separately.
     /// </summary>
     public static int CityDefense(
         CityState city,
@@ -89,7 +89,7 @@ public static class AiArmyTargetTree
 
     /// <summary>One army's choice: the picked enemy army, the score the scorer produced, and the distance.</summary>
     /// <param name="Army">The chosen army, or <see langword="null"/> when nothing qualifies.</param>
-    /// <param name="Score">The capped score the scorer returned on a hit.</param>
+    /// <param name="Score">The selected capped/bonus score plus its distance on a hit.</param>
     /// <param name="Distance">The Chebyshev distance from the deciding army to <paramref name="Army"/>.</param>
     public sealed record ArmyTarget(ArmyState? Army, long Score, int Distance, int Skipped = 0);
 
@@ -160,6 +160,13 @@ public static class AiArmyTargetTree
             }
 
             var cityDefense = CityDefense(city, view.Ruleset, view.State);
+            // FUN_0044ece4: attacker allegiance scales the complete defense before division
+            // and both doubling predicates (research 500e521, strategic-ai-regions-resupply §2.2).
+            if (string.Equals(army.Nation, city.Allegiance, StringComparison.Ordinal))
+            {
+                cityDefense = (int)((long)cityDefense
+                    * (100 - view.Ruleset.Siege.AttackerIsAllegianceDefenderReductionPercent) / 100);
+            }
             if (cityDefense <= 0)
             {
                 continue;
@@ -200,7 +207,7 @@ public static class AiArmyTargetTree
     /// <summary>
     /// The original's <c>FUN_0044ee60</c> — the best enemy field army for this army to attack. The
     /// score the decision tree compares against <see cref="AiWeightsRules.ArmyScoreThreshold"/> is the
-    /// cap-respecting term returned here.
+    /// selected capped/bonus term plus its distance returned here.
     /// </summary>
     public static ArmyTarget ScoreArmyTarget(
         AiView view,
@@ -216,7 +223,7 @@ public static class AiArmyTargetTree
         var weakerBonus = rules.ArmyScoreWeakerWithinBonus;
         var weakerDistThreshold = rules.ArmyScoreWeakerDistanceThreshold;
 
-        var strength = AssaultStrength(army, view.Ruleset, BattleCommandRuleset.ArcherUnitTypeIdIn(view.Ruleset)!);
+        var strength = ArmyPower.Compute(army.Units, army.Morale, view.Ruleset);
         var armyRegion = RegionOf(view, army.X, army.Y);
 
         ArmyState? best = null;
@@ -254,7 +261,7 @@ public static class AiArmyTargetTree
                 continue;
             }
 
-            var theirStrength = AssaultStrength(target, view.Ruleset, BattleCommandRuleset.ArcherUnitTypeIdIn(view.Ruleset)!);
+            var theirStrength = ArmyPower.Compute(target.Units, target.Morale, view.Ruleset);
             if (theirStrength <= 0)
             {
                 continue;
@@ -281,7 +288,7 @@ public static class AiArmyTargetTree
             }
         }
 
-        return new ArmyTarget(best, bestScore == long.MinValue ? 0 : bestScore, bestDistance, skipped);
+        return new ArmyTarget(best, bestScore == long.MinValue ? 0 : bestScore + bestDistance, bestDistance, skipped);
     }
 
     /// <summary>

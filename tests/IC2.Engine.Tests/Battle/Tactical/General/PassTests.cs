@@ -137,9 +137,8 @@ public class PassTests
     [Fact]
     public void Pass_2s_melee_target_minimises_theirs_minus_focus_times_theirs()
     {
-        // Two adjacent enemies: A (slot 20) 4,000 with focus 0 → 4000; B (slot 21) 9,000 targeted by own
-        // slot 1 (which has its target, so pass 2 skips it): focus 1 → 9000 − 9000 = 0. B wins, and
-        // 2 × 0 div 3 = 0 < 3000. With focus 2 it is 9000 − 18000 = −9000, smaller still.
+        // HI strengths: A 70,000; B 157,500. One focus makes B zero and eligible;
+        // without focus, only A passes the actor's 52,500 odds comparison.
         var one = General(
             (0, Unit(HI, 5, 5, 3000)), (1, Unit(HI, 7, 6, 3000, target: D0 + 1)),
             (D0, Unit(HI, 5, 6, 4000)), (D0 + 1, Unit(HI, 6, 6, 9000)));
@@ -158,9 +157,8 @@ public class PassTests
     [Fact]
     public void Pass_2_computes_theirs_minus_focus_times_theirs_in_32_bits_at_focus_4()
     {
-        // Enemy B, 30,000 troops, already targeted by four own slots (out of the battle, so pass 2 skips
-        // them): 30000 − 4 × 30000 = −90,000 in 32 bits (the clone's integer semantics, T123), well below A's
-        // 4,000, and 2 × −90000 div 3 = −60,000 < 3000.
+        // HI B strength 525,000, targeted by four dead own slots: adjusted -1,575,000.
+        // Dead target words count, and the focus arithmetic is signed 32-bit, not a word.
         var state = General(
             (0, Unit(HI, 5, 5, 3000)),
             (1, Unit(HI, 0, 0, 0, target: D0 + 1)), (2, Unit(HI, 0, 1, 0, target: D0 + 1)),
@@ -169,11 +167,8 @@ public class PassTests
 
         Assert.Equal(4, GeneralTargeting.Focus(state, 0, D0 + 1, Context));
 
-        // The key itself pins the width: 32 bits give −90,000. A 16-bit reading would give 4 × 30000 =
-        // 120,000 → (short) −11,072; 30000 + 11072 = 41,072 → (short) −24,464. Both pick B here, so which
-        // width the original uses is T129's to replay; this pins the port's.
-        Assert.Equal(-90_000, GeneralPassTwo.MeleeKey(state, 0, D0 + 1, Context));
-        Assert.Equal(4000, GeneralPassTwo.MeleeKey(state, 0, D0, Context));
+        Assert.Equal(-1_575_000, GeneralPassTwo.MeleeKey(state, 0, D0 + 1, Context));
+        Assert.Equal(70_000, GeneralPassTwo.MeleeKey(state, 0, D0, Context));
         Assert.Equal(D0 + 1, GeneralPassTwo.Run(state, Context, NoDraws.Instance).Slots[0].Target);
     }
 
@@ -182,7 +177,7 @@ public class PassTests
     {
         // The report gives pass 2's melee step after the shooting with no second moves check: a light
         // infantry that spent its moves shooting still takes an adjacent target that passes the odds test.
-        var state = General((0, Unit(LI, 5, 5, 3000)), (D0, Unit(HI, 5, 6, 4000)));
+        var state = General((0, Unit(LI, 5, 5, 3000)), (D0, Unit(LI, 5, 6, 4000)));
 
         var after = GeneralPassTwo.Run(state, Context, new ZeroDraws());
 
@@ -193,11 +188,10 @@ public class PassTests
     // ---- Pass 3: the threat move ----
 
     [Fact]
-    public void Pass_3s_threat_order_puts_archers_with_shots_first_by_minus_their_shot_bound()
+    public void Pass_3s_ordinary_actor_uses_weighted_enemy_strength_even_for_enemy_archers_with_shots()
     {
-        // Against my HI 3,000: LI 1,000 → 1000 × 350 × 4 div 10000 = 140; archers 1,500 with shots → their
-        // shot at me, 1500 × 350 × 2 div 157500 = 6, + 1 = 7, so −7; HI 4,000 → 700; archers 1,000 with no
-        // shots → M[Ar][HI] 3 → 105. Ascending: −7, 105, 140, 700.
+        // Against HI: Ar1500 × 350 × 3 / 10000 = 157, Ar1000 = 105,
+        // LI1000 × 350 × 4 / 10000 = 140, HI4000 = 700. Enemy shots do not select the mode.
         var state = General(
             (0, Unit(HI, 0, 0, 3000)),
             (D0, Unit(LI, 10, 10, 1000)),
@@ -205,15 +199,15 @@ public class PassTests
             (D0 + 2, Unit(HI, 12, 10, 4000)),
             (D0 + 3, Unit(AR, 13, 10, 1000, shots: 0)));
 
-        Assert.Equal(-7, GeneralPassThree.Threat(state, 0, D0 + 1, Context));
-        Assert.Equal(new[] { D0 + 1, D0 + 3, D0, D0 + 2 }, GeneralPassThree.ThreatOrder(state, 0, Context));
+        Assert.Equal(157, GeneralPassThree.Threat(state, 0, D0 + 1, Context));
+        Assert.Equal(new[] { D0 + 3, D0, D0 + 1, D0 + 2 }, GeneralPassThree.ThreatOrder(state, 0, Context));
     }
 
     [Fact]
     public void Pass_3s_threat_sort_is_the_originals_selection_sort_not_a_stable_one()
     {
-        // Threats a 700, b 350, c 700, d 350 (HI 4,000 / 2,000 against my HI). The exchange sort:
-        // i = 0: b < a swap → b a c d; i = 1: d < a swap → b d c a; i = 2: a < c no. So b, d, c, a,
+        // Threats a 700, b 350, c 700, d 350 (HI 4,000 / 2,000 against my HI). The one-swap selection sort:
+        // i = 0 selects b → b a c d; i = 1 selects d → b d c a; i = 2 keeps c. So b, d, c, a,
         // where a stable sort gives b, d, a, c.
         var state = General(
             (0, Unit(HI, 0, 0, 3000)),
@@ -371,19 +365,19 @@ public class PassTests
     }
 
     [Fact]
-    public void Pass_3_runs_the_threat_move_then_pass_2_then_the_flank_then_pass_2()
+    public void Pass_3s_threat_Walk_can_set_the_target_before_pass_2_runs()
     {
         // HC 3,000 (5 moves) at (0,5), one enemy HI 4,000 at (4,9). The threat move walks toward it,
-        // (1,6), (2,7), (3,8), stopping where the path reaches the enemy's cell, with 2 moves left. Pass 2
-        // then finds it adjacent: 2 × 4000 div 3 = 2666 < 3000, so it takes the target. The flank skips it
-        // (a target) and draws nothing; the second pass 2 skips it too.
+        // (1,6), (2,7), (3,8). Computer-driven Walk sets the adjacent enemy as its target because HC
+        // has no shots, stopping with 2 moves left. Pass 2 and flank then skip the targeted unit;
+        // there is no separate PassTwoTarget decision or draw.
         var state = General((0, Unit(HC, 0, 5, 3000)), (D0, Unit(HI, 4, 9, 4000)));
         var journal = new List<GeneralDecision>();
         var draws = new ScriptedDraws();
 
         var after = GeneralPassThree.Run(state, Context, draws, journal);
 
-        Assert.Equal(new[] { GeneralStep.ThreatLine, GeneralStep.PassTwoTarget }, journal.Select(j => j.Step).ToArray());
+        Assert.Equal(new[] { GeneralStep.ThreatLine }, journal.Select(j => j.Step).ToArray());
         Assert.Equal(new[] { (1, 6), (2, 7), (3, 8) }, Path(after, 0));
         Assert.Equal(2, after.Slots[0].Moves);
         Assert.Equal(D0, after.Slots[0].Target);

@@ -36,11 +36,22 @@ public sealed record SessionOutput(
     IReadOnlyList<SeatFall>? SeatFalls = null,
     bool GameOver = false)
 {
+    /// <summary>Ordered transient strategic boundaries. Empty for callers constructing an output directly.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public StrategicTravelBatch StrategicTimeline { get; init; } = StrategicTravelBatch.Empty;
+
     /// <summary>See this record's own <c>Battles</c> parameter doc. Never <see langword="null"/>.</summary>
     public IReadOnlyList<BattleResult> Battles { get; init; } = Battles ?? Array.Empty<BattleResult>();
 
     /// <summary>See this record's own <c>SeatFalls</c> parameter doc. Never <see langword="null"/>.</summary>
     public IReadOnlyList<SeatFall> SeatFalls { get; init; } = SeatFalls ?? Array.Empty<SeatFall>();
+
+    /// <summary>
+    /// Ordered transient tactical mutations produced by this submission, including opening automation and the
+    /// final exchange even when OpenBattleView is null. Consume this batch once; later submissions never replay it.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public IC2.Engine.Model.ValueList<TacticalBattleFrame> TacticalTimeline { get; init; } = IC2.Engine.Model.ValueList<TacticalBattleFrame>.Empty;
 
     /// <summary>
     /// T125: the tactical battle open once this call returned (the board, the 40 slots, who is to move), or

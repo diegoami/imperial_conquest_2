@@ -120,6 +120,8 @@ public sealed class MoveFleetCommandHandler : ICommandHandler<MoveFleetCommand>
             from, destination, fleet.Moves, context.Ruleset.Terrain, TileTypeIdAt, IsBlocked, context.Events,
             RoughSeaPrice);
 
+        context.RecordTravel(StrategicMarkerKind.Fleet, fleet.Id, fleet.Nation, null, fleet.CarriedArmyId, walk);
+
         var finalPosition = walk.FinalPosition;
         var coveredTileCode = InBounds(finalPosition, world)
             ? state.IsRoughSea(finalPosition.X, finalPosition.Y)

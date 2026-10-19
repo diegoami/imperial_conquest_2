@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Diagnostics;
 using IC2.Engine.Tests.TestInfrastructure;
 using Xunit;
 
@@ -42,9 +43,10 @@ public class ExportScriptReproducibilityTests
     {
         Skip.IfNot(OriginalFilesAvailability.IsConfigured, OriginalFilesAvailability.SkipReason);
 
-        var beforeWorld = Sha256(ExportedDataPaths.WorldFile);
-        var beforeRuleset = Sha256(ExportedDataPaths.RulesetFile);
-        var beforeScenario = Sha256(ExportedDataPaths.ScenarioFile);
+        using var restore = PreserveExportedFiles();
+        var beforeWorld = CommittedSha256(ExportedDataPaths.RepositoryRoot, ExportedDataPaths.WorldFile);
+        var beforeRuleset = CommittedSha256(ExportedDataPaths.RepositoryRoot, ExportedDataPaths.RulesetFile);
+        var beforeScenario = CommittedSha256(ExportedDataPaths.RepositoryRoot, ExportedDataPaths.ScenarioFile);
 
         var (exitCode, stdout, stderr) = RunExportScript();
         Assert.True(exitCode == 0, $"export-classical-world.cs exited {exitCode}.\nstdout:\n{stdout}\nstderr:\n{stderr}");
@@ -109,6 +111,76 @@ public class ExportScriptReproducibilityTests
                 File.Delete(tempIni);
             }
         }
+    }
+
+    // Read bytes from HEAD, never from files a previous export may already have rewritten.
+    internal static string CommittedSha256(string repositoryRoot, string path) =>
+        Convert.ToHexString(SHA256.HashData(Git(repositoryRoot,
+            "show", "HEAD:" + Path.GetRelativePath(repositoryRoot, path).Replace('\\', '/'))));
+
+    internal static IDisposable PreserveExportedFiles() => new ExportSnapshot(new[]
+    {
+        ExportedDataPaths.WorldFile, ExportedDataPaths.RulesetFile, ExportedDataPaths.ScenarioFile,
+        Path.Combine(ExportedDataPaths.RepositoryRoot, "data", "worlds", "classical-mediterranean.terrain.b64"),
+    });
+
+    private sealed class ExportSnapshot : IDisposable
+    {
+        private readonly Dictionary<string, byte[]> _files;
+        public ExportSnapshot(IEnumerable<string> paths) =>
+            _files = paths.ToDictionary(path => path, File.ReadAllBytes);
+        public void Dispose()
+        {
+            foreach (var (path, bytes) in _files) File.WriteAllBytes(path, bytes);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_stale_commit_is_detected_even_when_another_export_ran_first(bool previousExportRan)
+    {
+        var scratch = Directory.CreateTempSubdirectory("ic2-export-baseline-");
+        try
+        {
+            Git(scratch.FullName, "init", "--quiet");
+            var path = Path.Combine(scratch.FullName, "export.json");
+            File.WriteAllText(path, "stale committed export");
+            Git(scratch.FullName, "add", "export.json");
+            Git(scratch.FullName, "-c", "user.name=IC2 test", "-c", "user.email=test@example.invalid",
+                "-c", "commit.gpgsign=false", "commit", "--quiet", "-m", "test baseline");
+            var committed = Sha256(path);
+            if (previousExportRan) File.WriteAllText(path, "current exporter output");
+            var expected = CommittedSha256(scratch.FullName, path);
+            File.WriteAllText(path, "current exporter output");
+            Assert.Equal(committed, expected);
+            Assert.NotEqual(expected, Sha256(path));
+        }
+        finally
+        {
+            // Git object files are read-only on Windows; this directory belongs only to this test.
+            foreach (var file in scratch.EnumerateFiles("*", SearchOption.AllDirectories))
+                file.Attributes = FileAttributes.Normal;
+            scratch.Delete(recursive: true);
+        }
+    }
+
+    private static byte[] Git(string repositoryRoot, params string[] arguments)
+    {
+        var start = new ProcessStartInfo("git")
+        {
+            WorkingDirectory = repositoryRoot, UseShellExecute = false,
+            RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true,
+        };
+        foreach (var argument in arguments) start.ArgumentList.Add(argument);
+        using var process = Process.Start(start) ?? throw new InvalidOperationException("Could not start git.");
+        var error = process.StandardError.ReadToEndAsync();
+        using var bytes = new MemoryStream();
+        process.StandardOutput.BaseStream.CopyTo(bytes);
+        process.WaitForExit();
+        if (process.ExitCode != 0)
+            throw new InvalidOperationException($"git {string.Join(' ', arguments)} exited {process.ExitCode}: {error.GetAwaiter().GetResult()}");
+        return bytes.ToArray();
     }
 
     private static string Sha256(string path)

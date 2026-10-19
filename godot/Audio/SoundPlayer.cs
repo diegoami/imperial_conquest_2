@@ -38,6 +38,9 @@ namespace IC2.Slice.Audio;
 /// report does not time the original's own step gap; the 70 ms here is the gap the
 /// <c>sfx.unit_move</c> cue (0.05 s) ends and the next begins, with a 20 ms breath.
 /// </para>
+/// <para>T183's displayed tactical exchanges use a separate FIFO on these same players. Unlike
+/// strategic one-shots, identical tactical clips must all complete; Finished retires each head.
+/// Muting or opening another battlefield retires pending tactical audio rather than replaying it later.</para>
 /// <para>
 /// <strong>Missing packs.</strong> A key the pack lacks is silent — never a Godot default beep, never
 /// a fallback to the placeholder. The constructor logs the missing key through Godot's
@@ -51,6 +54,10 @@ public sealed partial class SoundPlayer : Node
 
     private readonly Dictionary<string, AudioStreamPlayer> _players = new(StringComparer.Ordinal);
     private readonly Queue<QueuedCue> _stepQueue = new();
+    private readonly Queue<QueuedTactical> _tacticalQueue = new();
+    private QueuedTactical? _activeTactical;
+    private long _tacticalSequence;
+    private readonly List<TacticalAudioReceipt> _tacticalReceipts = new();
     private readonly HashSet<string> _currentlyPlaying = new(StringComparer.Ordinal);
     private readonly List<string> _queuedForCheck = new();
     private readonly List<PlaybackLogEntry> _playbackLog = new();
@@ -60,12 +67,90 @@ public sealed partial class SoundPlayer : Node
 
     /// <summary>One playback event: a key's player started a stream, or finished one.</summary>
     public readonly record struct PlaybackLogEntry(string Key, bool Started, ulong TickMs);
+    private readonly record struct QueuedTactical(long Sequence, TacticalAudioCue Cue);
+    public readonly record struct TacticalAudioReceipt(long Sequence, TacticalAudioCue Cue, string Action,
+        string Reason, bool WasActive, ulong TickMs)
+    {
+        public string Key => Cue.Key;
+    }
+    public IReadOnlyList<TacticalAudioReceipt> TacticalReceiptsForCheck
+    {
+        get { var result = _tacticalReceipts.ToArray(); _tacticalReceipts.Clear(); return result; }
+    }
+    public IReadOnlyList<TacticalAudioReceipt> TacticalOutstandingForCheck => _tacticalQueue
+        .Select(cue => Receipt(cue, "pending")).Concat(_activeTactical is { } active
+            ? new[] { Receipt(active, "active", wasActive: true) } : Array.Empty<TacticalAudioReceipt>()).ToArray();
+    private static TacticalAudioReceipt Receipt(QueuedTactical cue, string action, string reason = "", bool wasActive = false) =>
+        new(cue.Sequence, cue.Cue, action, reason, wasActive, Time.GetTicksMsec());
+    private void RecordTactical(QueuedTactical cue, string action, string reason = "", bool wasActive = false) =>
+        _tacticalReceipts.Add(Receipt(cue, action, reason, wasActive));
 
     /// <summary>Whether sound is on. Mirrors <see cref="SettingsScreen.SoundEnabled"/>.</summary>
     public bool Muted
     {
         get => _muted;
-        set => _muted = value;
+        set
+        {
+            _muted = value;
+            if (!value) return;
+            _stepQueue.Clear();
+            ClearTactical("muted");
+        }
+    }
+
+    /// <summary>Read at playback as well as dispatch, so a queued cue honors a settings change.</summary>
+    public Func<bool>? SoundEnabled { get; set; }
+
+    public void ClearTactical(string reason = "battle-changed")
+    {
+        foreach (var cue in _tacticalQueue) RecordTactical(cue, "cancelled", reason);
+        _tacticalQueue.Clear();
+        if (_activeTactical is { } active)
+        {
+            RecordTactical(active, "cancelled", reason, wasActive: true);
+            _activeTactical = null;
+            _players[active.Cue.Key].Stop();
+        }
+    }
+
+    /// <summary>Every displayed exchange queues, including identical adjacent keys. Never restarts a clip.</summary>
+    public void PlayTactical(string key) => PlayTactical(new TacticalAudioCue("check", _tacticalSequence + 1, key));
+
+    public void PlayTactical(TacticalAudioCue cue)
+    {
+        if (SoundEnabled is not null) Muted = !SoundEnabled();
+        var key = cue.Key;
+        if (_muted || !_players.ContainsKey(key)) return;
+        var sequence = ++_tacticalSequence;
+        var queued = new QueuedTactical(sequence, cue);
+        _tacticalQueue.Enqueue(queued);
+        RecordTactical(queued, "accepted");
+        lock (_queuedForCheck) _queuedForCheck.Add(key);
+        PumpTactical();
+    }
+
+    public override void _Process(double delta)
+    {
+        if (SoundEnabled is not null) Muted = !SoundEnabled();
+        PumpTactical();
+    }
+
+    public override void _ExitTree() => ClearTactical("disposed");
+
+    private void PumpTactical()
+    {
+        if (SoundEnabled is not null) Muted = !SoundEnabled();
+        if (_muted) return;
+        // Playing can still read false in the same frame as Play(). Finished owns retirement,
+        // so another displayed exchange can never restart that not-yet-rendering clip.
+        if (_activeTactical is not null) return;
+        if (!_tacticalQueue.TryDequeue(out var cue)) return;
+        var key = cue.Cue.Key;
+        var player = _players[key];
+        _activeTactical = cue;
+        RecordTactical(cue, "started", wasActive: true);
+        lock (_playbackLog) _playbackLog.Add(new PlaybackLogEntry(key, Started: true, Time.GetTicksMsec()));
+        player.Play();
     }
 
     /// <summary>
@@ -251,6 +336,12 @@ public sealed partial class SoundPlayer : Node
             lock (_playbackLog)
             {
                 _playbackLog.Add(new PlaybackLogEntry(key, Started: false, Time.GetTicksMsec()));
+            }
+            if (_activeTactical is { } active && active.Cue.Key == key)
+            {
+                RecordTactical(active, "finished", wasActive: true);
+                _activeTactical = null;
+                PumpTactical();
             }
         };
     }

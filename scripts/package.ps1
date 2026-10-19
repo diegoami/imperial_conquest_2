@@ -297,6 +297,17 @@ try {
     if (Test-Path -LiteralPath $ExportRoot) { Remove-Item -LiteralPath $ExportRoot -Recurse -Force }
     New-Item -ItemType Directory -Force -Path $GameDir | Out-Null
 
+    # A fresh checkout has no imported font data. Godot initializes the custom theme before its
+    # export-time scan imports those fonts, so exporting immediately reports missing resources.
+    # Complete the editor import first; retain its diagnostics (initial theme-load errors can
+    # precede successful imports). The separate export below still rejects every ERROR line,
+    # including any resource error that persists after import, as well as non-zero native exits.
+    $importLog = Join-Path $RepoRoot 'rendered/export/package-import.log'
+    Write-Step "importing project resources before export; see $importLog"
+    & $GodotExe --headless --editor --path $GodotDir --import *> $importLog
+    $importCode = $LASTEXITCODE
+    if ($importCode -ne 0) { Fail "the Godot import exited with code $importCode; see $importLog." }
+
     $exportLog = Join-Path $RepoRoot 'rendered/export/package-export.log'
     Write-Step "exporting preset '$PresetName' to $ExePath"
     & $GodotExe --headless --path $GodotDir --export-release $PresetName $ExePath *> $exportLog

@@ -75,13 +75,16 @@ HI/Ar/HC/LI = 2/1/1/1; the following manual End turn reaches counter 4 and
 The raw draw stream splits at explicit lab-start reseeds to 1; a cross-start
 seed discontinuity is not an unexplained target draw. Off, on, interrupted
 and re-enabled runs are different input sequences. These findings do not
-resolve the 318-log targeting investigation. Its comparison remains dependent
-on a **reviewed, integrated control correction** and the copy-in/exhausted-move
-corrections, as required by [build issue 1107](https://github.com/diegoami/imperial_conquest_2/issues/1107)
+resolve the 318-log targeting investigation. At the October 16 evaluation
+checkpoint, its comparison required a **reviewed, integrated control correction**
+and the copy-in/exhausted-move corrections, as recorded by [build issue 1107](https://github.com/diegoami/imperial_conquest_2/issues/1107)
 and [research issue 25](https://github.com/diegoami/imperial-conquest-2-research/issues/25).
-Report promotion alone does not clear that gate. [Build issue 1104](https://github.com/diegoami/imperial_conquest_2/issues/1104)
-covers the control correction; the `improved` cap, remnant, pursuit and exact
-restore design is separate and is unchanged.
+Report promotion alone did not clear that gate. [Build issue 1104](https://github.com/diegoami/imperial_conquest_2/issues/1104)
+records the control correction. The later [target/draw investigation](tactical-target-and-draw-attribution.md)
+names the reviewed T175 control correction in its `257f2d2` comparison and keeps
+complete causal attribution open; this historical intake does not replace that
+later accounting. The `improved` cap, remnant, pursuit and exact restore design
+is separate and is unchanged.
 
 ## Coordinate regions and scorer arithmetic
 
@@ -183,20 +186,46 @@ spending, which is not attributed to support. The full foreign-purchase
 matrix remains unplayed. These automatic operations are distinct from the
 human repair dialog and its carrying-army/move restrictions.
 
-The remake's merged `AiResupplyPass` excludes embarked armies; its fleet
-radius reuses the army's <= 4. `AutomaticResupply.ForFleet` shares the army
-500-based purse hygiene and lacks automatic repair. `AiResupplyPass` also
-discards results with zero admitted tons and zero price, even when purse and
+## Remake comparison checkpoints
+
+The following findings describe the source read at build `5ca9c3f` during the
+October 16 evaluation, not a claim that all defects remain in later code.
+At that checkpoint, `AiResupplyPass` excluded embarked armies; its fleet
+radius reused the army's <= 4. `AutomaticResupply.ForFleet` shared the army
+500-based purse hygiene and lacked automatic repair. `AiResupplyPass` also
+discarded results with zero admitted tons and zero price, even when purse and
 treasury changed. The findings go through the bug lane, not an implementation
 on this evidence branch. Existing [759](https://github.com/diegoami/imperial_conquest_2/issues/759),
 [823](https://github.com/diegoami/imperial_conquest_2/issues/823) and
 [938](https://github.com/diegoami/imperial_conquest_2/issues/938) cover embarked
 support, fleet support and the missing region classifier respectively.
 
-The separately filed merged-code findings are [1145](https://github.com/diegoami/imperial_conquest_2/issues/1145)
+The separately filed source findings at that checkpoint were [1145](https://github.com/diegoami/imperial_conquest_2/issues/1145)
 (field-army strength, winning-distance return and city allegiance defense)
 and [1146](https://github.com/diegoami/imperial_conquest_2/issues/1146)
-(purse-only support discarded as a no-op). The scorer also uses id-based ties
+(purse-only support discarded as a no-op). The scorer also used id-based ties
 and wide winning-score storage, unlike the original's first equal candidate
 and word storage; those differences require an explicit fidelity accounting,
 without extrapolating the limited signed-operation probes to all overflow cases.
+
+The later source checkpoint is build `0056339972b95f257542525303521439fd468e60`:
+
+- [T176](../tasks/T176.md) changed original-economy support writeback to retain
+  any changed unit, city or nation record, including purse-only results. Designed
+  economy keeps the zero-ton/zero-price suppression
+  ([`AiResupplyPass`](https://github.com/diegoami/imperial_conquest_2/blob/0056339972b95f257542525303521439fd468e60/src/IC2.Engine/Ai/AiResupplyPass.cs)).
+- [T177](../tasks/T177.md) supplies the original fleet's strict distance bound,
+  additive grant and independent repair. Central-treasury mode omits the purse
+  grant but retains repair; designed fleets keep legacy hygiene and no automatic
+  repair ([`AutomaticResupply`](https://github.com/diegoami/imperial_conquest_2/blob/0056339972b95f257542525303521439fd468e60/src/IC2.Engine/Economy/AutomaticResupply.cs)).
+- [T178](../tasks/T178.md) supplies field-army strength, winning-distance return
+  and attacker-allegiance city-defense adjustment
+  ([`AiArmyTargetTree`](https://github.com/diegoami/imperial_conquest_2/blob/0056339972b95f257542525303521439fd468e60/src/IC2.Engine/Ai/AiArmyTargetTree.cs)).
+  That scorer still uses id-based ties and wide winning-score storage. Its
+  nearest-pinned-city `RegionOf` with fallback 0 still differs from the original
+  coordinate-pair classifier; embarked armies are still excluded by the support
+  pass. These are source comparisons, not runtime tests or new original evidence.
+
+These later corrections do not promote the staged Wine observations to native
+Windows confirmation, prove transported-coordinate synchronization, or settle
+the original's full word-overflow behavior.

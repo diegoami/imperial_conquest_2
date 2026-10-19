@@ -230,11 +230,17 @@ graph TD
   T168 --> T169[T169 UI theme]
   T81 --> T170[T170 sea terrain rename]
   T157 --> T171[T171 faithful mobilisation gates]
+  T176 --> T177[T177 faithful fleet support]
+  T177 --> T178[T178 target scorer terms]
+  T156 --> T178
   fix1120[fix 1120 truthful AI decision log] --> T171
   T87 --> T172[T172 faithful rebirth relations]
   T146 --> T172
   T129 --> T173[T173 copy-in targets]
   T129 --> T174[T174 exhausted-move ordering]
+  T129 --> T175[T175 general control]
+  T173 --> T175
+  T174 --> T175
   T156[T156 AI army target tree]
   T23 --> T26[T26 scenario docs+examples]
   T29 --> T26
@@ -302,6 +308,33 @@ graph TD
   T80 --> T93[T93 embark from an adjacent tile]
   T91 --> T79
   T85 --> T88[T88 war cascade + peace]
+  T125 --> T179[T179 typed tactical timeline]
+  T126 --> T179
+  T130 --> T179
+  T179 --> T180[T180 battle replay clarity]
+  T127 --> T181[T181 tactical aftermath]
+  T130 --> T181
+  T128 --> T182[T182 simple unit glyphs]
+  T182 --> T187[T187 readable strategic markers]
+  T124 --> T188[T188 weighted Pass2 eligibility]
+  T175 --> T188
+  T188 --> T189[T189 actor threat mode]
+  T189 --> T190[T190 exact threat selection]
+  T190 --> T191[T191 equal-row flank]
+  T171 --> T192[T192 recruitment power and deficit]
+  T178 --> T192
+  T72 --> T193[T193 capture purse bound]
+  T194[T194 strategic travel observations] --> T195[T195 strategic travel playback]
+  T187 --> T195
+  T180 --> T195
+  T183 --> T195
+  T179 --> T183[T183 tactical exchange audio]
+  T180 --> T183
+  T184[T184 original SAV writer] --> T185[T185 SAV bridge and converter]
+  R37[Research 37 evaluated complete mapping] -.-> T184
+  R37 --> T185
+  T185 --> T186[T186 SAV Save As]
+  T183 --> T186
 ```
 
 ### 1.1 Waves and the critical path
@@ -343,6 +376,10 @@ Waves are dependency layers, not concurrent batches: execution is serial, one co
 - **Looks independent but is not**: T12 (victory) is gated behind T06 because its 250 BC condition needs the calendar's year; T20 (save/load) could be written early, but its DoD ("a mid-game state round-trips after N turns") is only meaningful once the state is largely complete.
 
 ---
+
+### 1.3 v0.6.1 playtest work
+
+The owner requests tracked by [1190](https://github.com/diegoami/imperial_conquest_2/issues/1190) are mandatory in v0.6.1. After contract approval, T179, T181 and T182 can start as three disjoint tracks. T180 starts after T179 merges; T183 starts after T179 and T180 merge. T182 authors independently but final overlay/context sign-off uses T180. T181 owns WriteBack/result screens; T179 owns timeline/engine presentation seams; T180 then T183 exclusively own tactical/MainGame screen integration. Recheck implicit tests, compile registrations and generators for overlap before dispatch; serialize shared compile-registration hunks. The owner explicitly authorizes up to three disjoint tasks on this machine. One Godot process machine-wide, and no Godot launch/check while the owner plays; runtime/visual/audio gates remain required afterward. T184–T186 original-compatible SAV writer/export/converter and Save As work remain separately scoped by [1191](https://github.com/diegoami/imperial_conquest_2/issues/1191) as planned 0.7.x candidates; they do not block any 0.6.x release. T184 low-level writer work may start after contract approval; its merge still waits on evaluated [research 37](https://github.com/diegoami/imperial-conquest-2-research/issues/37) region/prototype findings. T185 starts only after T184 and a reviewed complete mapping from that research; T186 follows T185 and T183. The research gate does not block independent battle task readiness. All authors use `gpt-6.1-sol` (medium for hard T179/T180/T182/T184/T185, low for medium T181/T183/T186); independent review is direct `kimi-code-plan-cn/kimi-for-coding`, excluding OpenAI.
 
 ## 2. The tasks
 
@@ -1337,7 +1374,91 @@ Correction from [issue 1103](https://github.com/diegoami/imperial_conquest_2/iss
 
 Correction from [issue 1105](https://github.com/diegoami/imperial_conquest_2/issues/1105) → [full entry](tasks/T174.md).
 
+#### T175 Tactical setup and walking use the active side's computer-general control
+
+Correction from [issue 1104](https://github.com/diegoami/imperial_conquest_2/issues/1104) → [full entry](tasks/T175.md).
+
+#### T176 Faithful AI retains automatic-support changes when no supply moves
+
+Correction from [issue 1146](https://github.com/diegoami/imperial_conquest_2/issues/1146) → [full entry](tasks/T176.md).
+
+#### T177 Faithful AI fleets receive the original grant and automatic repair
+
+Correction from [issue 823](https://github.com/diegoami/imperial_conquest_2/issues/823) → [full entry](tasks/T177.md).
+
+#### T178 AI target scorers use field strength, winning distance and allegiance defense
+
+Correction from [issue 1145](https://github.com/diegoami/imperial_conquest_2/issues/1145); follows T177 for shared CLI transcript integration → [full entry](tasks/T178.md).
+
 ---
+
+#### T179 Ordered tactical presentation snapshots
+
+Owner playtest [1185](https://github.com/diegoami/imperial_conquest_2/issues/1185); typed chronology before replay UI/audio → [full entry](tasks/T179.md).
+
+#### T180 Coherent battle replay, combatants and controller handoffs
+
+Owner playtest [1186](https://github.com/diegoami/imperial_conquest_2/issues/1186); follows T179 and serializes screen ownership with T183 → [full entry](tasks/T180.md).
+
+#### T181 Explain tactical routing and the actual aftermath
+
+Owner playtest [1187](https://github.com/diegoami/imperial_conquest_2/issues/1187); separate transient aftermath capture/result-screen files → [full entry](tasks/T181.md).
+
+#### T182 Recognizable three-size battle, army and fleet glyphs
+
+Owner design [1188](https://github.com/diegoami/imperial_conquest_2/issues/1188); one author for both packs, 21 glyphs each → [full entry](tasks/T182.md).
+
+#### T183 Tactical exchange cues follow displayed playback
+
+Owner playtest [1189](https://github.com/diegoami/imperial_conquest_2/issues/1189); follows T179 and T180, existing WAVs → [full entry](tasks/T183.md).
+
+#### T184 Original-compatible SAV binary writer
+
+Planned 0.7.x candidate for [1191](https://github.com/diegoami/imperial_conquest_2/issues/1191); does not block any 0.6.x release. Documented low-level work may start after contract approval; merge waits for evaluated region/prototype research → [full entry](tasks/T184.md).
+
+#### T185 Native-state SAV export bridge and offline converter
+
+Planned 0.7.x candidate for [1191](https://github.com/diegoami/imperial_conquest_2/issues/1191); does not block any 0.6.x release. Starts after T184 and reviewed complete field/region mapping from research 37 → [full entry](tasks/T185.md).
+
+#### T186 In-game Save As original-compatible SAV
+
+Planned 0.7.x candidate for [1191](https://github.com/diegoami/imperial_conquest_2/issues/1191); does not block any 0.6.x release. Follows T185 and T183 to serialize MainGameScreen integration → [full entry](tasks/T186.md).
+
+#### T187 Readable strategic army and fleet markers
+
+Strategic display/picking [1199](https://github.com/diegoami/imperial_conquest_2/issues/1199); follows T182, runtime serialized with all Godot tasks; P2 in 0.6.x without a new v0.6.1 gate → [full entry](tasks/T187.md).
+
+#### T188 Pass 2 selects eligible weighted opponents
+
+Weighted Pass2 eligibility, correction [1164](https://github.com/diegoami/imperial_conquest_2/issues/1164) → [full entry](tasks/T188.md).
+
+#### T189 Threat movement uses the acting units shooting mode
+
+Actor threat mode, correction [1165](https://github.com/diegoami/imperial_conquest_2/issues/1165) → [full entry](tasks/T189.md).
+
+#### T190 Threat selection preserves original swaps and sentinels
+
+Exact threat selection, correction [1166](https://github.com/diegoami/imperial_conquest_2/issues/1166) → [full entry](tasks/T190.md).
+
+#### T191 Flank balance counts enemies on the same row
+
+Equal-row flank, correction [1167](https://github.com/diegoami/imperial_conquest_2/issues/1167) → [full entry](tasks/T191.md).
+
+#### T192 Faithful recruitment respects army power and its deficit
+
+Recruitment power/deficit, correction [1179](https://github.com/diegoami/imperial_conquest_2/issues/1179) → [full entry](tasks/T192.md).
+
+#### T193 Captured money respects the approved purse field bound
+
+Capture purse bound, correction [838](https://github.com/diegoami/imperial_conquest_2/issues/838) → [full entry](tasks/T193.md).
+
+#### T194 Accepted strategic routes and transient ordered observations
+
+Observer-only actual-route/session batches for [1236](https://github.com/diegoami/imperial_conquest_2/issues/1236); starts after approved merged contract and disjoint-Owns preflight, then supplies T195 → [full entry](tasks/T194.md).
+
+#### T195 Strategic travel presentation and arrival barrier
+
+Owner strategic movement [1224](https://github.com/diegoami/imperial_conquest_2/issues/1224); starts/merges after T194, T187, T180 and T183, with shared-writer/Godot serialization → [full entry](tasks/T195.md).
 
 #### T25 Battle result, diplomacy, and hotseat handoff screens
 
@@ -1542,3 +1663,24 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T172](#t172-faithful-rebirth-preserves-one-sided-relations-and-round-trips-them-through-saves) | Faithful rebirth relations | M12 | the user's choice | the user's choice | the user's choice | T87, T146 | [#1087](https://github.com/diegoami/imperial_conquest_2/issues/1087) |
 | [T173](#t173-tactical-copy-in-retains-original-attacker-targets-until-its-first-setup) | Copy-in targets | M21 | the user's choice | the user's choice | the user's choice | T129 | [#1103](https://github.com/diegoami/imperial_conquest_2/issues/1103) |
 | [T174](#t174-tactical-walking-checks-exhausted-moves-before-computer-targeting) | Exhausted-move ordering | M21 | the user's choice | the user's choice | the user's choice | T129 | [#1105](https://github.com/diegoami/imperial_conquest_2/issues/1105) |
+| [T175](#t175-tactical-setup-and-walking-use-the-active-sides-computer-general-control) | General control | M21 | the user's choice | the user's choice | the user's choice | T129, T173, T174 | [#1104](https://github.com/diegoami/imperial_conquest_2/issues/1104) |
+| [T176](#t176-faithful-ai-retains-automatic-support-changes-when-no-supply-moves) | Faithful support writeback | M12 | the user's choice | the user's choice | the user's choice | T60, T157 | [#1146](https://github.com/diegoami/imperial_conquest_2/issues/1146) |
+| [T177](#t177-faithful-ai-fleets-receive-the-original-grant-and-automatic-repair) | Faithful fleet support | M12 | the user's choice | the user's choice | the user's choice | T176 | [#823](https://github.com/diegoami/imperial_conquest_2/issues/823) |
+| [T178](#t178-ai-target-scorers-use-field-strength-winning-distance-and-allegiance-defense) | Target scorer terms | M12 | the user's choice | the user's choice | the user's choice | T156, T177 | [#1145](https://github.com/diegoami/imperial_conquest_2/issues/1145) |
+| [T179](#t179-ordered-tactical-presentation-snapshots) | Typed tactical timeline | M21/M18 | gpt-6.1-sol | Medium | direct Kimi | T125, T126, T130 | [#1185](https://github.com/diegoami/imperial_conquest_2/issues/1185) |
+| [T180](#t180-coherent-battle-replay-combatants-and-controller-handoffs) | Battle replay clarity | M21/M18 | gpt-6.1-sol | Medium | direct Kimi + human | T179 | [#1186](https://github.com/diegoami/imperial_conquest_2/issues/1186) |
+| [T181](#t181-explain-tactical-routing-and-the-actual-aftermath) | Tactical aftermath explanation | M21/M18 | gpt-6.1-sol | Low | direct Kimi + human | T127, T130 | [#1187](https://github.com/diegoami/imperial_conquest_2/issues/1187) |
+| [T182](#t182-recognizable-three-size-battle-army-and-fleet-glyphs) | Simple unit glyphs | M21/M18 | gpt-6.1-sol | Medium | direct Kimi + human | T128 | [#1188](https://github.com/diegoami/imperial_conquest_2/issues/1188) |
+| [T183](#t183-tactical-exchange-cues-follow-displayed-playback) | Tactical exchange audio | M21/M18 | gpt-6.1-sol | Low | direct Kimi + human | T179, T180 | [#1189](https://github.com/diegoami/imperial_conquest_2/issues/1189) |
+| [T184](#t184-original-compatible-sav-binary-writer) | Original SAV writer | M15 | gpt-6.1-sol | Medium | direct Kimi | approved plan; merge: evaluated research 37 | [#1191](https://github.com/diegoami/imperial_conquest_2/issues/1191) |
+| [T185](#t185-native-state-sav-export-bridge-and-offline-converter) | SAV export bridge/converter | M15 | gpt-6.1-sol | Medium | direct Kimi + original runtime | T184 + reviewed research 37 mapping | [#1191](https://github.com/diegoami/imperial_conquest_2/issues/1191) |
+| [T186](#t186-in-game-save-as-original-compatible-sav) | Save As SAV | M15 | gpt-6.1-sol | Low | direct Kimi + human/original runtime | T185, T183 | [#1191](https://github.com/diegoami/imperial_conquest_2/issues/1191) |
+| [T187](#t187-readable-strategic-army-and-fleet-markers) | Readable strategic markers | M18 | gpt-6.1-sol | Low | direct Kimi + human | T182 | [#1199](https://github.com/diegoami/imperial_conquest_2/issues/1199) |
+| [T188](#t188-pass-2-selects-eligible-weighted-opponents) | Weighted Pass2 eligibility | M21 | gpt-6.1-sol | Medium | direct Kimi | T124, T175 | [#1164](https://github.com/diegoami/imperial_conquest_2/issues/1164) |
+| [T189](#t189-threat-movement-uses-the-acting-units-shooting-mode) | Actor threat mode | M21 | gpt-6.1-sol | Medium | direct Kimi | T188 | [#1165](https://github.com/diegoami/imperial_conquest_2/issues/1165) |
+| [T190](#t190-threat-selection-preserves-original-swaps-and-sentinels) | Exact threat selection | M21 | gpt-6.1-sol | Low | direct Kimi | T189 | [#1166](https://github.com/diegoami/imperial_conquest_2/issues/1166) |
+| [T191](#t191-flank-balance-counts-enemies-on-the-same-row) | Equal-row flank | M21 | gpt-6.1-sol | Low | direct Kimi | T190 | [#1167](https://github.com/diegoami/imperial_conquest_2/issues/1167) |
+| [T192](#t192-faithful-recruitment-respects-army-power-and-its-deficit) | Recruitment power/deficit | M12 | gpt-6.1-sol | Medium | direct Kimi | T171, T178 | [#1179](https://github.com/diegoami/imperial_conquest_2/issues/1179) |
+| [T193](#t193-captured-money-respects-the-approved-purse-field-bound) | Capture purse bound | M3/M21 | Luna family | High | direct Kimi | T72 | [#838](https://github.com/diegoami/imperial_conquest_2/issues/838) |
+| [T194](#t194-accepted-strategic-routes-and-transient-ordered-observations) | Strategic travel observations | M18 | Sol family | Medium | direct Kimi | approved merged plan + disjoint Owns preflight | [#1236](https://github.com/diegoami/imperial_conquest_2/issues/1236) |
+| [T195](#t195-strategic-travel-presentation-and-arrival-barrier) | Strategic travel playback | M18 | Sol family | Medium | direct Kimi + human | T194, T187, T180, T183 | [#1224](https://github.com/diegoami/imperial_conquest_2/issues/1224) |

@@ -687,6 +687,8 @@ Console.WriteLine("World passes GameDataValidation.");
 // ============================================================================================
 var toyRulesetPath = Path.Combine(repoRoot, "data", "rulesets", "toy-ruleset.json");
 var toyRulesetJson = File.ReadAllText(toyRulesetPath);
+// T177: toy economy includes the five faithfulFleet support fields and their field-specific
+// provenance, plus legacy army/designed-fleet autoResupply qualifications; preserve all when cloning.
 var rulesetNode = JsonNode.Parse(toyRulesetJson, new JsonNodeOptions { PropertyNameCaseInsensitive = false })!.AsObject();
 
 var corpusPath = Path.Combine(repoRoot, "tests", "fixtures", "corpus.json");
@@ -895,12 +897,16 @@ const string classicalFaithfulIdProvenance =
 // preset-neutral at the source is what actually prevents that; this is the narrower safety net.
 var toyMentions = FindToyProvenanceMentions(rulesetNode);
 if (toyMentions.Count > 0)
-    throw new InvalidOperationException(
+{
+    Console.Error.WriteLine(
         "The following _provenance strings mention \"toy\", which would ship a note written from " +
         "toy-ruleset.json's own point of view inside classical-faithful.json -- fix the wording in " +
         "toy-ruleset.json (the rule: a provenance note never describes the file it sits in, except " +
         "_provenance.id, which the exporter owns explicitly) and re-run the export, never hand-edit " +
         "the committed JSON:\n  " + string.Join("\n  ", toyMentions));
+    Environment.ExitCode = 1;
+    return;
+}
 
 var rulesetJsonText = rulesetNode.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
 var ruleset = GameDataLoader.Load<Ruleset>("classical-faithful.json (in-memory)", rulesetJsonText);

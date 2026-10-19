@@ -395,6 +395,79 @@ public sealed class AiResupplyPassTests
         Assert.Equal(grant, result.State.ArmyById("supply-army")!.Money);
         Assert.Equal(treasury - grant, result.State.NationById(ArmyNation)!.Treasury);
     }
+
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(true, false, false)]
+    [InlineData(true, true, false)]
+    [InlineData(false, false, true)]
+    [InlineData(false, true, true)]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, true)]
+    public void Original_economy_retains_zero_ton_purse_changes_but_designed_keeps_T60(
+        bool fleet, bool original, bool surplus)
+    {
+        var rules = Ruleset with { Flags = Ruleset.Flags with
+        { AiEconomy = original ? AiEconomyModel.Original : AiEconomyModel.Designed } };
+        var cap = rules.Economy.PurseCapPerUnit;
+        var initialMoney = surplus ? cap + 100 : 0;
+        var state = SupplyState(armyMoney: initialMoney, fleetMoney: initialMoney);
+        state = state with
+        {
+            Armies = fleet ? ValueList<ArmyState>.Empty : ValueList.Of(state.Armies[0] with
+                { SupplyTons = SupplyCapacity.ArmyCapacityTons(state.Armies[0].TotalTroops, rules) }),
+            Fleets = fleet ? ValueList.Of(state.Fleets[0] with
+                { SupplyTons = SupplyCapacity.FleetCapacityTons(state.Fleets[0].Ships, rules) }) : ValueList<FleetState>.Empty,
+            Nations = ValueList.Of(state.Nations[0] with { Treasury = 1 }, state.Nations[1]),
+        };
+        var result = AiResupplyPass.Run(state, rules, ArmyNation);
+        var changed = original && !fleet; // T177: original fleet neither sweeps surplus nor grants at treasury 1.
+        var expectedMoney = !changed ? initialMoney : surplus ? cap : rules.Economy.AutoResupplyPurseTopUpAmount;
+        var expectedTreasury = !changed ? 1 : surplus ? 101 : 1 - rules.Economy.AutoResupplyPurseTopUpAmount;
+        Assert.Equal(expectedMoney, fleet ? result.State.Fleets[0].Money : result.State.Armies[0].Money);
+        Assert.Equal(expectedTreasury, result.State.Nations[0].Treasury);
+        Assert.Equal(original && !fleet ? 1 : 0, result.ArmyTransfers);
+        Assert.Equal(0, result.FleetTransfers);
+        Assert.Equal(0, result.TonsMoved);
+        Assert.Equal(0, result.TalentsPaid);
+        Assert.Equal(state.Cities, result.State.Cities);
+        if (fleet) Assert.Equal(state.Fleets[0].SupplyTons, result.State.Fleets[0].SupplyTons);
+        else Assert.Equal(state.Armies[0].SupplyTons, result.State.Armies[0].SupplyTons);
+        Assert.True(AiSubstantiveState.AreEquivalent(result.State, AiResupplyPass.Run(state, rules, ArmyNation).State));
+        Assert.Equal(result.ArmyTransfers, AiResupplyPass.Run(state, rules, ArmyNation).ArmyTransfers);
+        Assert.Equal(result.FleetTransfers, AiResupplyPass.Run(state, rules, ArmyNation).FleetTransfers);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Faithful_full_unit_visits_chain_updated_money_and_skip_identical_results(bool fleet)
+    {
+        var rules = Ruleset with { Flags = Ruleset.Flags with { AiEconomy = AiEconomyModel.Original } };
+        var state = SupplyState(armyMoney: 0, fleetMoney: 0);
+        var own = state.Cities[0];
+        state = state with
+        {
+            Cities = ValueList.Of(own, own with { Id = "second-own-city" }),
+            Armies = fleet ? ValueList<ArmyState>.Empty : ValueList.Of(state.Armies[0] with
+                { SupplyTons = SupplyCapacity.ArmyCapacityTons(state.Armies[0].TotalTroops, rules) }),
+            Fleets = fleet ? ValueList.Of(state.Fleets[0] with
+                { SupplyTons = SupplyCapacity.FleetCapacityTons(state.Fleets[0].Ships, rules) }) : ValueList<FleetState>.Empty,
+        };
+        var result = AiResupplyPass.Run(state, rules, ArmyNation);
+        var grant = fleet ? rules.Economy.FaithfulFleetPurseTopUpAmount : rules.Economy.AutoResupplyPurseTopUpAmount;
+        Assert.Equal(grant, fleet ? result.State.Fleets[0].Money : result.State.Armies[0].Money);
+        Assert.Equal(state.Nations[0].Treasury - grant, result.State.Nations[0].Treasury);
+        Assert.Equal(fleet ? 0 : 1, result.ArmyTransfers);
+        Assert.Equal(fleet ? 1 : 0, result.FleetTransfers);
+        Assert.Equal(0, result.TonsMoved);
+        Assert.Equal(0, result.TalentsPaid);
+        var again = AiResupplyPass.Run(result.State, rules, ArmyNation);
+        Assert.Equal(0, again.ArmyTransfers);
+        Assert.Equal(0, again.FleetTransfers);
+        Assert.True(AiSubstantiveState.AreEquivalent(result.State, again.State));
+    }
 }
 
 /// <summary>Small readability helper for the giveback assertion above.</summary>

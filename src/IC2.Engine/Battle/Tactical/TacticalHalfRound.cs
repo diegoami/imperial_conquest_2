@@ -13,7 +13,7 @@ public static class TacticalHalfRound
     /// <remarks>
     /// Let <c>dmin</c> be the smallest distance between a live own unit and a live enemy unit. For each of
     /// the side's 20 slots the melee target is cleared and the moves are reset to the type's stat; if the
-    /// side is computer-controlled (its nation; <em>Computer general</em> does not count), the type is not
+    /// side is computer-driven (its nation or its own <em>Computer general</em> flag), the type is not
     /// the exempt type (heavy infantry), <c>dmin &gt; 2</c> and the counter, read before its increment, is
     /// below 10, the moves are 1 instead (the slow advance). Then the computer general's 40 claims are
     /// cleared and the counter goes up by 1. It draws nothing.
@@ -26,9 +26,10 @@ public static class TacticalHalfRound
     }
 
     /// <summary>
-    /// Resumes a loaded battle block: the half-round setup for the side to move, exactly as the original's
-    /// load path runs it (moves refilled, targets cleared, the counter incremented again, so a pending
-    /// melee is lost). <c>game-design.md</c>, "Saves".
+    /// Runs setup for a resumed block with the caller's current control flags (moves refilled, targets
+    /// cleared, counter incremented). This primitive is not the whole original load lifecycle:
+    /// StartBattle sets up before clearing unsaved runtime general flags. Native clone saves supply
+    /// their own serialized flags. See <c>2026-10-16-computer-general-predicate-and-reload.md</c>.
     /// </summary>
     public static TacticalBattleState Resume(TacticalBattleState state, TacticalContext context) => Setup(state, context);
 
@@ -49,6 +50,7 @@ public static class TacticalHalfRound
 
     internal static void ApplySetup(TacticalBoard board)
     {
+        board.Capture();
         var rules = board.Rules;
         var context = board.Context;
         var side = board.SideToMove;
@@ -73,7 +75,7 @@ public static class TacticalHalfRound
         }
 
         // combat.tactical.slowAdvance gates the original reduced-move window.
-        var slowAdvance = rules.SlowAdvance && board.ComputerControlled[side]
+        var slowAdvance = rules.SlowAdvance && board.IsComputerDriven(side)
                           && minDistance > rules.SlowAdvanceMinDistance
                           && board.Counter < rules.SlowAdvanceHalfRounds;
 

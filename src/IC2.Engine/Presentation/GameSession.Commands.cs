@@ -242,6 +242,7 @@ public sealed partial class GameSession
             return IssueCommand(command);
         }
 
+        var observationCheckpoint = _strategicTimeline.Mark();
         var before = State;
         var declare = new DeclareWarCommand(State.ActiveNationId, targetNationId);
         var declared = _dispatcher.Dispatch(before, declare);
@@ -262,6 +263,7 @@ public sealed partial class GameSession
         // declaration: put the state from before the order back and report the attack's own line alone.
         if (ReferenceEquals(State, candidate))
         {
+            _strategicTimeline.Discard(observationCheckpoint);
             State = before;
             return attackLines;
         }
@@ -297,6 +299,9 @@ public sealed partial class GameSession
     private const string BattleOpenRefusedVerb = " battle-open";
 
     private TacticalBattleSession? _battle;
+    private long _tacticalBattleSequence;
+    private readonly List<TacticalBattleFrame> _pendingTacticalTimeline = new();
+    private string NextTacticalBattleIdentity() => $"tactical:{++_tacticalBattleSequence}";
 
     private IC2.Engine.Battle.Tactical.TacticalBattleReport? _pendingTacticalReport;
 
@@ -363,7 +368,11 @@ public sealed partial class GameSession
     {
         var report = _pendingTacticalReport;
         _pendingTacticalReport = null;
-        return output with { OpenBattleView = _battle?.View(), EndedBattleReport = report };
+        if (_battle is not null) _pendingTacticalTimeline.AddRange(_battle.DrainTimeline());
+        var timeline = IC2.Engine.Model.ValueList.From(_pendingTacticalTimeline);
+        _pendingTacticalTimeline.Clear();
+        LastTacticalTimeline = timeline;
+        return output with { OpenBattleView = _battle?.View(), EndedBattleReport = report, TacticalTimeline = timeline };
     }
 
     private static IReadOnlyList<string> RefuseWhileBattleOpen(string verb) =>
@@ -414,6 +423,7 @@ public sealed partial class GameSession
             return null;
         }
 
+        var observationCheckpoint = _strategicTimeline.Mark();
         var command = new AttackArmyCommand(State.ActiveNationId, attackerArmyId, defenderArmyId);
         var candidate = State;
         var lines = new List<string>();
@@ -434,6 +444,7 @@ public sealed partial class GameSession
 
         if (AttackLegality.Check(candidate, Ruleset, command) is not null)
         {
+            _strategicTimeline.Discard(observationCheckpoint);
             return null;
         }
 
@@ -444,11 +455,13 @@ public sealed partial class GameSession
                             || candidate.NationById(defender.Nation)?.Control == SeatControl.Human);
         if (!humanSide || !TacticalBattleSession.CanBeFought(candidate, attackerArmyId, defenderArmyId, Ruleset))
         {
+            _strategicTimeline.Discard(observationCheckpoint);
             return null;
         }
 
         AccumulateEvents(declaredEvents);
-        _battle = TacticalBattleSession.Open(candidate, attackerArmyId, defenderArmyId, Ruleset, out var opened);
+        _battle = TacticalBattleSession.Open(candidate, attackerArmyId, defenderArmyId, Ruleset, out var opened, NextTacticalBattleIdentity());
+        _strategicTimeline.Reconcile("human-battle-opening", candidate, opened);
         State = opened;
 
         lines.Add($"{command.Kind} accepted: the battle opens on the board.");
@@ -528,6 +541,7 @@ public sealed partial class GameSession
                 return new[] { usage };
         }
 
+        _pendingTacticalTimeline.AddRange(result.Timeline);
         var lines = new List<string>(result.Lines);
         if (result.Accepted && _battle.IsOver)
         {
@@ -570,6 +584,7 @@ public sealed partial class GameSession
             return;
         }
 
+        var strategicBefore = State;
         var nationsBefore = State.Nations;
         var conclusion = battle.Conclude(State, Ruleset, world: World);
         if (conclusion.State is null || conclusion.Report is null)
@@ -580,7 +595,9 @@ public sealed partial class GameSession
 
         AccumulateEvents(conclusion.Events);
         State = NewsLogWriter.Append(conclusion.State, conclusion.Events, Ruleset.NewsLog);
+        _strategicTimeline.Reconcile("human-battle-completion", strategicBefore, State);
         _pendingTacticalReport = conclusion.Report;
+        _pendingTacticalTimeline.AddRange(battle.DrainTimeline());
         _battle = null;
 
         lines.AddRange(TacticalBattleSession.ReportLines(conclusion.Report, State));
@@ -607,6 +624,7 @@ public sealed partial class GameSession
 
         lap.Done.Add(new AiPhaseBattleResult(lap.AtAttack!, conclusion.State, conclusion.Events));
         _pendingTacticalReport = conclusion.Report;
+        _pendingTacticalTimeline.AddRange(battle.DrainTimeline());
         _battle = null;
         _lap = null;
 

@@ -108,6 +108,9 @@ public sealed class MoveArmyCommandHandler : ICommandHandler<MoveArmyCommand>
         var walk = MovementWalker.Walk(
             from, destination, army.Moves, context.Ruleset.Terrain, TileTypeIdAt, IsBlocked, context.Events);
 
+        if (army.CoveredTileCode is not null && !army.IsEmbarked)
+            context.RecordTravel(StrategicMarkerKind.Army, army.Id, army.Nation, army.AboardFleetId, null, walk);
+
         var movesAfter = walk.StopReason == MovementStopReason.InsufficientMoves
             ? MovementAbortRule.MovesAfterAbortedStep(
                 walk.MovesRemaining, context.IssuingNation.Control, context.Ruleset.Flags.SeatAsymmetry)

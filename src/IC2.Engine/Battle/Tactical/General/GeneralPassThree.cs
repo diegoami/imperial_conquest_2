@@ -9,11 +9,11 @@ namespace IC2.Engine.Battle.Tactical.General;
 /// <list type="number">
 /// <item><description>
 /// <strong>The threat move.</strong> For each unit, in the general's order, with moves above 0 and no
-/// target: the live enemies, in slot order, are sorted ascending by threat, <c>troops × quality × morale
-/// × M[theirs][mine] div 10000</c>, an archers enemy with shots counting as <c>−shotBound</c> (its shot
-/// bound <c>n</c> against this unit, <see cref="TacticalShooting.Bound"/>), so the most damage comes
-/// first. The sort is the original's selection sort (<c>i</c> outer, <c>j = i + 1 …</c> inner, a swap on
-/// a strict <c>&lt;</c>), not a library sort: its tie order is the original's. Taking the enemies in
+/// target: all 20 enemy entries, initially in slot order, are sorted ascending by threat, <c>troops × quality × morale
+/// × M[theirs][mine] div 10000</c>. When the acting unit is an archer with positive shots, every
+/// enemy instead has key <c>−shotBound(actor, enemy)</c> (<c>FUN_0043A718</c>, target/draw report §B).
+/// Dead entries have key 1000000. Each suffix swaps its first strict minimum once; keys above
+/// 999999 stop traversal (FUN_0043A718, target/draw report §C). Taking the actionable enemies in
 /// that order, the unit moves toward the first with a clear line, or, if the line is blocked, toward
 /// the nearest empty cell with a clear line in that enemy's box; an enemy with neither is passed over.
 /// </description></item>
@@ -22,7 +22,7 @@ namespace IC2.Engine.Battle.Tactical.General;
 /// <strong>The flank.</strong> For each unit with no target whose moves are untouched (its type's full
 /// moves) or are the slow advance's 1 with the counter below 10 and a type other than heavy infantry:
 /// <c>h = −1</c> if the enemies' <c>minX ≤ 13 − maxX</c>, else <c>+1</c>; <c>Random(3) = 0</c> flips
-/// <c>h</c>; <c>v</c> is the sign of (enemies below − enemies above), 0 counting as −1. It tries
+/// <c>h</c>; <c>v</c> is the sign of (enemies below − enemies above or on the same row), 0 counting as −1. It tries
 /// <c>(x + moves × h, y + moves × v)</c>, then <c>(x + moves × h, y)</c>, each clamped to the board and
 /// needing an empty cell and a clear line, and walks to the first that qualifies.
 /// </description></item>
@@ -73,7 +73,7 @@ public static class GeneralPassThree
         return board.Freeze();
     }
 
-    /// <summary>The live enemies of unit <paramref name="slot"/>, in threat order (the selection sort).</summary>
+    /// <summary>The actionable enemies of unit <paramref name="slot"/>, in selection-sort order (keys ≤999999).</summary>
     public static IReadOnlyList<int> ThreatOrder(TacticalBattleState state, int slot, TacticalContext context)
     {
         var board = TacticalBoard.Thaw(state, context, draws: null);
@@ -106,10 +106,10 @@ public static class GeneralPassThree
 
     internal static long Threat(TacticalBoard board, int slot, int enemy)
     {
-        var them = board.Slots[enemy];
-        if (them.Type == board.Context.ArcherType && them.Shots > 0)
+        var actor = board.Slots[slot];
+        if (actor.Type == board.Context.ArcherType && actor.Shots > 0)
         {
-            return unchecked(-TacticalShooting.Bound(them, board.Slots[slot], board.Distance(enemy, slot), board.Context));
+            return unchecked(-TacticalShooting.Bound(actor, board.Slots[enemy], board.Distance(slot, enemy), board.Context));
         }
 
         return GeneralTargeting.Score(board, slot, enemy);
@@ -118,26 +118,36 @@ public static class GeneralPassThree
     internal static int[] ThreatOrder(TacticalBoard board, int slot)
     {
         var enemyFirst = board.FirstSlotOf(TacticalBoard.Other(board.SideOf(slot)));
-        var enemies = new List<int>();
-        for (var e = enemyFirst; e < enemyFirst + board.SlotsPerSide; e++)
+        // Dead entries participate in the original swaps, even though they cannot be consumed.
+        var order = new int[board.SlotsPerSide];
+        var keys = new long[order.Length];
+        for (var i = 0; i < order.Length; i++)
         {
-            if (board.IsLive(e))
-            {
-                enemies.Add(e);
-            }
+            order[i] = enemyFirst + i;
+            keys[i] = board.IsLive(order[i]) ? Threat(board, slot, order[i]) : 1000000;
         }
 
-        var order = enemies.ToArray();
-        var keys = order.Select(e => Threat(board, slot, e)).ToArray();
-        for (var i = 0; i < order.Length - 1; i++)
+        for (var i = 0; i < order.Length; i++)
         {
+            var minimum = i;
             for (var j = i + 1; j < order.Length; j++)
             {
-                if (keys[j] < keys[i])
+                if (keys[j] < keys[minimum])
                 {
-                    (order[i], order[j]) = (order[j], order[i]);
-                    (keys[i], keys[j]) = (keys[j], keys[i]);
+                    minimum = j;
                 }
+            }
+
+            (order[i], order[minimum]) = (order[minimum], order[i]);
+            (keys[i], keys[minimum]) = (keys[minimum], keys[i]);
+        }
+
+        // FUN_0043A718 sorts the complete table before stopping consumption at the sentinel.
+        for (var i = 0; i < keys.Length; i++)
+        {
+            if (keys[i] > 999999)
+            {
+                return order[..i];
             }
         }
 
@@ -162,7 +172,9 @@ public static class GeneralPassThree
                 return;
             }
 
-            if (GeneralLine.BoxCell(board, slot, enemy) is { } cell)
+            // FUN_0043A718 uses the same actor shooting condition for the threat box.
+            var radius = unit.Type == board.Context.ArcherType && unit.Shots > 0 ? 2 : 1;
+            if (GeneralLine.BoxCell(board, slot, enemy, radius) is { } cell)
             {
                 journal?.Add(new GeneralDecision(slot, GeneralStep.ThreatBox, enemy, cell.X, cell.Y));
                 TacticalMovement.Walk(board, slot, cell.X, cell.Y);
@@ -210,7 +222,7 @@ public static class GeneralPassThree
             {
                 below++;
             }
-            else if (enemy.Y < unit.Y)
+            else
             {
                 above++;
             }
