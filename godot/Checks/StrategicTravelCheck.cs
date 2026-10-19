@@ -157,6 +157,9 @@ public partial class StrategicTravelCheck : Node
             if (_selectionMode != "baseline" && fleet && overlap && zoom == "maximum")
             {
                 main.SelectArmyForCheck("a");
+                Require(map.SelectedStrategicMarkerForCheck == "a" && main.ContextPanel.SubjectForCheck == "Army:a"
+                    && main.CommandStrip.Selection == UnitStripSelection.OwnArmy,
+                    prefix + " inverse capped selection has army identity, panel and strip");
                 using var armySelected = await FeedbackImage(prefix + "-inverse-army-selected");
                 var kindDifferences = 0;
                 for (var y = (int)Math.Ceiling(origin.Y); y < origin.Y + pixelRect.Size.Y; y++)
@@ -458,6 +461,8 @@ public partial class StrategicTravelCheck : Node
             main.AreaMapView.Refresh(); await Frames();
             Require(main.AreaMapView.LastDrawnHighlightTilesForCheck.Contains((oldCity.X, oldCity.Y)), mode + ": actual Find-city highlight uses display state");
             Require(main.MapView.StrategicDrawBoundsForCheck.ContainsKey(fleet ? "f" : "a"), mode + ": moving marker survives later lifecycle change");
+            await Capture(_pack + "-selection-" + mode + "-before-boundary",
+                "Synthetic " + mode + ": selected prior-boundary marker remains visible before arrival; city panel intentionally inspects prior ownership.");
             main.AreaMapView.SetHighlight(AreaMapHighlightKind.MercenariesLightInfantry, true);
             main.StrategicTravel.Skip(); await Frames();
             Require(main.MapView.DisplayState == main.Session.State && main.ContextPanel.DisplayState == main.Session.State
@@ -472,6 +477,8 @@ public partial class StrategicTravelCheck : Node
             }, mode + ": actual final marker/lifecycle matches authoritative boundary");
             if (mode is "removal" or "merge" or "embark")
                 Require(main.MapView.SelectedStrategicMarkerForCheck is null, mode + ": missing/hidden selection clears on arrival");
+            await Capture(_pack + "-selection-" + mode + "-after-boundary",
+                "Synthetic " + mode + ": final marker and missing/hidden selection reconcile at established completion boundary.");
             if (mode == "capture")
             {
                 main.SelectArmyForCheck("a");
