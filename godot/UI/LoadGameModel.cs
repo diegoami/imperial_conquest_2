@@ -49,6 +49,44 @@ public static class LoadGameModel
             .ToList();
     }
 
+    /// <summary>A native save row, retaining its actual path for Continue.</summary>
+    public sealed record NativeSaveRow(string Path, string Text, DateTime LastWriteTimeUtc);
+
+    /// <summary>Native save rows for the Load screen; Browse keeps its separate alphabetic list.</summary>
+    public static IReadOnlyList<NativeSaveRow> ListNativeSaves(string folder)
+    {
+        if (!Directory.Exists(folder)) return Array.Empty<NativeSaveRow>();
+        try
+        {
+            return Directory.GetFiles(folder, "*", SearchOption.TopDirectoryOnly)
+                .Where(path => string.Equals(Path.GetExtension(path), ".json", StringComparison.OrdinalIgnoreCase))
+                .Select(NativeRow)
+                .OrderByDescending(row => row.LastWriteTimeUtc)
+                .ThenBy(row => System.IO.Path.GetFileName(row.Path), StringComparer.OrdinalIgnoreCase)
+                .ThenBy(row => System.IO.Path.GetFileName(row.Path), StringComparer.Ordinal)
+                .ToList();
+        }
+        catch (IOException) { return Array.Empty<NativeSaveRow>(); }
+        catch (UnauthorizedAccessException) { return Array.Empty<NativeSaveRow>(); }
+    }
+
+    private static NativeSaveRow NativeRow(string path)
+    {
+        string text;
+        var modified = DateTime.MinValue;
+        try
+        {
+            modified = File.GetLastWriteTimeUtc(path);
+            var summary = SaveManager.PeekSummaryFile(path);
+            text = $"{Path.GetFileName(path)} — {summary.ScenarioId}, turn {summary.TurnIndex}";
+        }
+        catch (Exception ex)
+        {
+            text = $"{Path.GetFileName(path)} — could not be read ({ex.Message})";
+        }
+        return new NativeSaveRow(path, text, modified);
+    }
+
     /// <summary>Opens <paramref name="path"/>; every failure becomes a message naming the file.</summary>
     public static Outcome Open(string path, GameDataRepository repository, HumanBattleMode humanBattles = HumanBattleMode.Instant)
     {
