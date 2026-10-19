@@ -20,6 +20,7 @@ disband-army mac-spare
 move mac-detached 157 31
 move army-8 135 52
 end
+accept-offer
 move mac-detached 155 29
 move army-8 135 52
 end
@@ -66,4 +67,3 @@ repair-fleet mac-fleet-1 1
 split-fleet mac-fleet-1 mac-fleet-keep 13
 end
 end
-accept-offer
