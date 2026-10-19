@@ -9,15 +9,18 @@ namespace IC2.Engine.Tests.Ui;
 public sealed class TacticalPlaybackAudioTests
 {
     [Theory]
-    [InlineData(0, false)]
-    [InlineData(1, false)]
-    [InlineData(1, true)]
-    public void Displayed_entry_delivers_every_exchange_once_in_order_through_terminal_and_half_rounds(double delay, bool finish)
+    [InlineData(0, 0, false)]
+    [InlineData(1, 1, false)]
+    [InlineData(1, 2, false)]
+    [InlineData(0.3, 2, false)]
+    [InlineData(3, 3, false)]
+    [InlineData(1, 2, true)]
+    public void Displayed_entry_delivers_every_exchange_once_in_order_through_terminal_and_half_rounds(double delay, double attackDelay, bool finish)
     {
         var (session, frames) = TacticalSoundCuesTests.Battle();
         var delivered = new List<TacticalAudioCue>();
         var adapter = new TacticalPlaybackAudio(session.Ruleset, () => true, delivered.Add);
-        var queue = new TacticalPlayback { ShotDelay = delay, AttackDelay = delay };
+        var queue = new TacticalPlayback { ShotDelay = delay, AttackDelay = attackDelay };
         queue.ExchangeEntered += adapter.ExchangeEntered;
         queue.Begin(frames);
         if (finish) { queue.Advance(0.25); queue.Finish(); }

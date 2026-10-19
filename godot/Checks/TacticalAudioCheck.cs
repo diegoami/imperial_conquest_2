@@ -41,6 +41,7 @@ public partial class TacticalAudioCheck : Node
                 {
                     await CheckProduction(selected, 0, false, true, true, "zero-delay");
                     await CheckProduction(selected, 1, false, true, true, "normal");
+                    await CheckProduction(selected, 1, false, true, true, "default-pace", attackDelay: 2);
                     await CheckProduction(selected, 1, false, true, true, "advance");
                     await CheckProduction(selected, 1, true, true, true, "skip");
                     await CheckProduction(selected, 1, true, true, true, "finish");
@@ -50,6 +51,8 @@ public partial class TacticalAudioCheck : Node
                 }
                 await CheckProduction(selected, 0, false, true);
                 await CheckProduction(selected, 1, false, true);
+                await CheckProduction(selected, 1, false, true, attackDelay: 2);
+                await CheckProduction(selected, 0.3, false, true, attackDelay: 2);
                 await CheckProduction(selected, 1, true, true);
                 await CheckProduction(selected, 1, true, false);
                 await CheckQueue(selected);
@@ -81,10 +84,10 @@ public partial class TacticalAudioCheck : Node
         GetTree().Quit(code);
     }
 
-    private async Task CheckProduction(string pack, double delay, bool finish, bool enabled, bool hearing = false, string hearingMode = "")
+    private async Task CheckProduction(string pack, double delay, bool finish, bool enabled, bool hearing = false, string hearingMode = "", double? attackDelay = null)
     {
         SettingsScreen.SetSoundEnabledForCheck(enabled);
-        SettingsScreen.SetBattlePauses(delay, delay);
+        SettingsScreen.SetBattlePauses(delay, attackDelay ?? delay);
         var toy = GameDataContext.Repository.Resolve("toy-3city");
         var world = toy.World with { StartingArmies = ValueList.Of(
             new StartingArmy("north-army-1", "north", 3, 2, 68, 100, 500, 5,
@@ -103,7 +106,7 @@ public partial class TacticalAudioCheck : Node
         _ = main.SoundPlayerForCheck.QueuedForCheck;
         if (hearing)
         {
-            var description = $"{pack}: {(enabled ? "Sound ON" : "Sound OFF — expect silence")}, delay {delay}, {hearingMode}. Expected: arrows / javelin / melee from displayed exchanges.";
+            var description = $"{pack}: {(enabled ? "Sound ON" : "Sound OFF — expect silence")}, shot {delay} / melee {attackDelay ?? delay}, {hearingMode}. Expected: arrows / javelin / melee from displayed exchanges.";
             Receipt(description);
             var layer = new CanvasLayer { Layer = 100 };
             var label = new Label { Text = description, Position = new Vector2(12, 4),

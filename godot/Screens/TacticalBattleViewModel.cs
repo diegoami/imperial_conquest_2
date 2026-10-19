@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using IC2.Engine.Battle.Tactical;
@@ -21,12 +22,16 @@ public sealed record BattleDisplay(
     int BoardWidth,
     int BoardHeight)
 {
+    /// <summary>Captured immutable nation metadata, never looked up in an advanced session state.</summary>
+    public IReadOnlyDictionary<string, BattleAllegiance> Allegiances { get; init; } =
+        FrozenDictionary<string, BattleAllegiance>.Empty;
+
     /// <summary>The names for <paramref name="view"/>, read from the game and the ruleset.</summary>
     /// <param name="view">The open battle.</param>
     /// <param name="state">The game the battle is fought in.</param>
     /// <param name="ruleset">The ruleset.</param>
     /// <returns>The display names.</returns>
-    public static BattleDisplay For(TacticalBattleView view, GameState state, Ruleset ruleset)
+    public static BattleDisplay For(TacticalBattleView view, GameState state, Ruleset ruleset, World? world = null)
     {
         ArgumentNullException.ThrowIfNull(view);
         ArgumentNullException.ThrowIfNull(state);
@@ -42,9 +47,33 @@ public sealed record BattleDisplay(
             state.NationById(view.DefenderNationId)?.Name ?? view.DefenderNationId,
             names,
             ruleset.Combat.Tactical.BoardWidth,
-            ruleset.Combat.Tactical.BoardHeight);
+            ruleset.Combat.Tactical.BoardHeight)
+        {
+            Allegiances = new[] { view.AttackerNationId, view.DefenderNationId }.Distinct().ToFrozenDictionary(
+                id => id, id => BattleAllegiance.For(id, world is null ? state.NationById(id)?.Name ?? id : world.NationById(id)?.Name ?? id, world),
+                StringComparer.Ordinal),
+        };
     }
 }
+
+/// <summary>Immutable display metadata, keyed by world identity. Aliases and text contrast are designed (T197).</summary>
+public sealed record BattleAllegiance(string NationId, string Caption, string ColorHex)
+{
+    public static BattleAllegiance For(string id, string name, World? world)
+    {
+        var caption = id switch { "seleucid" => "SELEUCID", "ptolemaic" => "PTOLEMEAN", _ => name.ToUpperInvariant() };
+        var color = BattleIconTint.ForNation(world, id)?.First ?? (R: (byte)220, G: (byte)220, B: (byte)220);
+        // Designed text-only contrast treatment: lift each dark palette channel halfway toward white.
+        // Light palettes retain their original first battle colour. Icons/nation data/role cues are untouched.
+        // Lifted channels are at least 128; a dark outline also separates light palettes from the panel.
+        var dark = (0.2126 * color.R + 0.7152 * color.G + 0.0722 * color.B) < 160;
+        byte Lift(byte channel) => dark ? (byte)(128 + channel / 2) : channel;
+        return new(id, caption, $"#{Lift(color.R):X2}{Lift(color.G):X2}{Lift(color.B):X2}");
+    }
+}
+
+/// <summary>Current exchange in plain accessible text and independently coloured, escaped unit spans.</summary>
+public sealed record BattleExchangePresentation(IReadOnlyList<string> PlainLines, IReadOnlyList<string> RichLines);
 
 /// <summary>A board/minimap glyph with its shared fractional pose and opacity.</summary>
 public sealed record BattleUnitView(BattleCellView Cell, double X, double Y, double Opacity);
@@ -255,16 +284,56 @@ public sealed class TacticalBattleViewModel
 
     public IReadOnlyList<string> ActorLines => ParticipantLines(ActorSlot, "ACTOR ○");
     public IReadOnlyList<string> TargetLines => ParticipantLines(TargetSlot, "TARGET ◇");
-    public IReadOnlyList<string> CurrentExchangeLines => ExchangeLines(CurrentExchange).Concat(DepartureLines).ToArray();
-    public IReadOnlyList<string> DepartureLines
+    public IReadOnlyList<string> CurrentExchangeLines => CurrentExchangePresentation.PlainLines;
+    public BattleExchangePresentation CurrentExchangePresentation
     {
         get
         {
-            if (DisplayedFrame?.Event is not (TacticalRoutedEvent or TacticalCascadeRemovedEvent)) return Array.Empty<string>();
-            var slot = DisplayedFrame.Actor!.Slot;
-            var cascade = DisplayedFrame.Event is TacticalCascadeRemovedEvent;
+            var exchange = PresentExchange(CurrentExchange, _display);
+            return new(exchange.PlainLines.Concat(DepartureLines).ToArray(),
+                exchange.RichLines.Concat(DeparturePresentation.RichLines).ToArray());
+        }
+    }
+
+    /// <summary>Escape raw input in one pass; generated lb/rb tags must never be re-escaped.</summary>
+    public static string EscapeRichText(string text) => string.Concat(text.Select(c => c switch
+        { '[' => "[lb]", ']' => "[rb]", _ => c.ToString() }));
+
+    public static BattleExchangePresentation PresentExchange(TacticalBattleFrame? frame, BattleDisplay display)
+    {
+        if (frame?.Event is not (TacticalShotEvent or TacticalMeleeEvent))
+            return new(Array.Empty<string>(), Array.Empty<string>());
+        string Unit(TacticalUnitIdentity identity, bool rich)
+        {
+            var metadata = Allegiance(display, identity);
+            var text = $"{metadata.Caption} #{identity.Slot} {frame.After.View.Slots[identity.Slot].Name}";
+            return rich ? $"[color={metadata.ColorHex}]{EscapeRichText(text)}[/color]" : text;
+        }
+        var action = frame.Event is TacticalShotEvent ? "SHOOTS AT" : "ATTACKS";
+        var losses = ExchangeLines(frame)[1];
+        return new(new[] { $"{Unit(frame.Actor!, false)} {action} {Unit(frame.Target!, false)}", losses },
+            new[] { $"{Unit(frame.Actor!, true)} {action} {Unit(frame.Target!, true)}", EscapeRichText(losses) });
+    }
+    private static BattleAllegiance Allegiance(BattleDisplay display, TacticalUnitIdentity identity) =>
+        display.Allegiances.GetValueOrDefault(identity.NationId)
+        ?? BattleAllegiance.For(identity.NationId,
+            identity.Side == 0 ? display.AttackerNationName : display.DefenderNationName, null);
+
+    public IReadOnlyList<string> DepartureLines => DeparturePresentation.PlainLines;
+    private BattleExchangePresentation DeparturePresentation
+    {
+        get
+        {
+            if (DisplayedFrame?.Event is not (TacticalRoutedEvent or TacticalCascadeRemovedEvent))
+                return new(Array.Empty<string>(), Array.Empty<string>());
+            var identity = DisplayedFrame.Actor!;
+            var metadata = Allegiance(_display, identity);
+            var prefix = DisplayedFrame.Event is TacticalCascadeRemovedEvent ? "ROUT CASCADE REMOVAL" : "UNIT ROUTED";
+            var unit = $"{metadata.Caption} #{identity.Slot} {_view.Slots[identity.Slot].Name}";
+            var role = identity.Side == 0 ? "Attacker" : "Defender";
             var status = Stage is TacticalPlaybackStage.RoutHold or TacticalPlaybackStage.RoutFade ? "departure pending" : "removed";
-            return new[] { $"{(cascade ? "ROUT CASCADE REMOVAL" : "UNIT ROUTED")} · #{slot} {_view.Slots[slot].Name} · {RosterTitle(SideOf(slot))} · {status}" };
+            return new(new[] { $"{prefix} · {unit} · {role} · {status}" },
+                new[] { $"[b]{prefix}[/b] · [color={metadata.ColorHex}]{EscapeRichText(unit)}[/color] · {role} · {status}" });
         }
     }
 

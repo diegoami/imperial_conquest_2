@@ -42,14 +42,19 @@ public partial class TacticalBattleCheck : Node
             CaptureReplay();
             return;
         }
+        var originalShot = SettingsScreen.BattleShotDelaySeconds;
+        var originalAttack = SettingsScreen.BattleAttackDelaySeconds;
         try
         {
+            Check(originalShot == 1 && originalAttack == 2, "fresh process starts with designed shot 1 / melee 2 defaults before any setter");
+            CheckPauseControlsAndPreservation();
             SettingsScreen.SetBattlePauses(0, 0);
             CheckTheBattleIsFoughtAndEnded();
             CheckAClickTheEngineRefusesShowsItsMessage();
             CheckSaveAsDuringTheBattleReopensIt();
             CheckThePausesAreDisplayOnly();
             CheckTypedFramePlayback();
+            CheckAllegianceScreen();
             CheckContinuousStages();
             CheckConsecutiveAiBattles();
             CheckSurrender();
@@ -63,7 +68,7 @@ public partial class TacticalBattleCheck : Node
         }
         finally
         {
-            SettingsScreen.SetBattlePauses(0, 0);
+            SettingsScreen.SetBattlePauses(originalShot, originalAttack);
             foreach (var path in _cleanup)
             {
                 try
@@ -104,7 +109,8 @@ public partial class TacticalBattleCheck : Node
                 picker.EmitSignal(OptionButton.SignalName.ItemSelected, index);
                 RemoveChild(settings);
                 settings.QueueFree();
-                SettingsScreen.SetBattlePauses(1, 1);
+                await CaptureReadability(pack);
+                SettingsScreen.SetBattlePauses(1, 2);
                 var main = Build(ClassicalSession());
                 main.SubmitForCheck(Attack);
                 var screen = (TacticalBattleScreen)main.ActiveOverlay!;
@@ -151,7 +157,7 @@ public partial class TacticalBattleCheck : Node
                         TacticalFrameKind.Controller when screen.ControllerLabel.Text.Contains("Computer general") => "general-handoff",
                         TacticalFrameKind.Movement => "movement",
                         TacticalFrameKind.Shot => "shot",
-                        TacticalFrameKind.Melee when screen.PreviousExchangeLabel.Text.Length > 0 => "melee-history",
+                        TacticalFrameKind.Melee => "melee-current",
                         TacticalFrameKind.Rout => "rout",
                         TacticalFrameKind.Cascade => "cascade",
                         TacticalFrameKind.Removal => "removal",
@@ -164,7 +170,7 @@ public partial class TacticalBattleCheck : Node
                 }
                 if (main.ActiveOverlay is not BattleEndedScreen) throw new InvalidOperationException("Terminal replay did not route to result.");
                 await Capture($"{pack}-result", screen);
-                foreach (var required in new[] { "human-combat-round", "human-after-enemy-melee", "general-handoff", "movement", "shot", "melee-history", "rout", "terminal", "reconciliation", "travel-0-start", "travel-0-interior", "travel-0-arrival", "travel-0-following-fight", "travel-1-start", "travel-1-interior", "travel-1-arrival", "travel-1-following-fight", "enemy-announcement", "rout-hold", "rout-fade-interior", "rout-removed" })
+                foreach (var required in new[] { "human-combat-round", "human-after-enemy-melee", "general-handoff", "movement", "shot", "melee-current", "rout", "terminal", "reconciliation", "travel-0-start", "travel-0-interior", "travel-0-arrival", "travel-0-following-fight", "travel-1-start", "travel-1-interior", "travel-1-arrival", "travel-1-following-fight", "enemy-announcement", "rout-hold", "rout-fade-interior", "rout-removed" })
                     if (!captured.Contains(required)) throw new InvalidOperationException($"Missing visual stage {pack}/{required}");
                 GD.Print($"T180 visual stages {pack}: {string.Join(", ", captured.Order())}");
                 Free(main);
@@ -188,6 +194,47 @@ public partial class TacticalBattleCheck : Node
         SettingsScreen.SetBattlePauses(0, 0);
         GD.Print($"TacticalBattleCheck: exiting with code {(ok ? 0 : 1)}.");
         GetTree().Quit(ok ? 0 : 1);
+    }
+
+    private async Task CaptureReadability(string pack)
+    {
+        SettingsScreen.SetBattlePauses(1, 2);
+        var main = Build(ReadabilitySession());
+        main.SubmitForCheck("attack-army north-army-1 south-army-1");
+        var screen = (TacticalBattleScreen)main.ActiveOverlay!;
+        screen.SetProcess(false);
+        screen.SkipPlayback();
+        foreach (var (shot, melee, name) in new[] { (1.0, 2.0, "defaults"), (0.0, 0.0, "explicit-zero"), (3.0, 3.0, "explicit-max") })
+        {
+            SettingsScreen.SetBattlePauses(shot, melee);
+            screen.PressToolbarButton("change_pauses");
+            await Capture($"{pack}-readability-pauses-{name}", screen);
+            screen.ClosePausesDialog();
+            var settings = new SettingsScreen();
+            settings.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+            AddChild(settings);
+            await Capture($"{pack}-readability-settings-{name}", screen);
+            RemoveChild(settings); settings.QueueFree();
+        }
+        foreach (var button in new[] { "friendly_units", "enemy_units" })
+        {
+            screen.PressToolbarButton(button);
+            await Capture($"{pack}-readability-{button}", screen);
+            screen.CloseUnitList();
+        }
+        SettingsScreen.SetBattlePauses(1, 2);
+        screen.PressToolbarButton("computer_general");
+        var captured = new HashSet<TacticalFrameKind>();
+        for (var step = 0; screen.IsPlayingBack && step < 100000; step++)
+        {
+            if (screen.DisplayedFrame is { Kind: TacticalFrameKind.Shot or TacticalFrameKind.Melee or TacticalFrameKind.Rout } frame
+                && captured.Add(frame.Kind))
+                await Capture($"{pack}-readability-{frame.Kind}", screen);
+            screen.AdvancePlayback(0.05);
+        }
+        if (!captured.Contains(TacticalFrameKind.Melee) || !captured.Contains(TacticalFrameKind.Rout))
+            throw new InvalidOperationException("Readability capture requires melee and prominent rout.");
+        Free(main);
     }
 
     private async Task CaptureTemporal(string pack, TacticalBattleScreen screen, Dictionary<string, long> selected, HashSet<string> captured)
@@ -438,6 +485,52 @@ public partial class TacticalBattleCheck : Node
         Free(mainGame);
     }
 
+    private void CheckNoPersistentListsOrHistory(TacticalBattleScreen screen)
+    {
+        var nodes = Descendants(screen).ToArray();
+        Check(!nodes.OfType<Label>().Any(label => label.Text == "Previous exchange" || label.Name == "PreviousExchangeLabel"), "previous exchange controls are absent from actual tree");
+        Check(!screen.UnitListOpen && screen.UnitListTexts.Count == 0, "no persistent roster is visible");
+        Check(!nodes.OfType<Button>().Any(button => button.Text == "Close unit list"), "closed deliberate list has no row controls in actual tree");
+        Check(nodes.OfType<RichTextLabel>().Contains(screen.ExchangeLabel) && screen.ExchangeLabel.Visible,
+            "current exchange rich control exists and is visible");
+    }
+
+    private void CheckPauseControlsAndPreservation()
+    {
+        foreach (var (shot, attack) in new[] { (1.0, 2.0), (0.0, 0.0), (0.3, 2.0), (3.0, 3.0) })
+        {
+            if (shot != 1 || attack != 2) SettingsScreen.SetBattlePauses(shot, attack);
+            for (var reopen = 0; reopen < 2; reopen++)
+            {
+                var settings = new SettingsScreen();
+                AddChild(settings);
+                CheckPauseSliders(settings, shot, attack, "Settings reopen");
+                RemoveChild(settings); settings.QueueFree();
+                var host = Build(ClassicalSession());
+                host.SubmitForCheck(Attack);
+                var screen = (TacticalBattleScreen)host.ActiveOverlay!;
+                screen.SkipPlayback();
+                screen.PressToolbarButton("change_pauses");
+                Check(screen.PausesDialogOpen, "Change pauses opens after settings navigation");
+                CheckPauseSliders(screen, shot, attack, "Change pauses reopen");
+                screen.ClosePausesDialog();
+                Check(SettingsScreen.BattleShotDelaySeconds == shot && SettingsScreen.BattleAttackDelaySeconds == attack,
+                    "screen creation/reopen/navigation preserves explicit pauses including zero");
+                Free(host);
+            }
+        }
+    }
+
+    private void CheckPauseSliders(Node root, double shot, double attack, string context)
+    {
+        var sliders = Descendants(root).OfType<HSlider>().ToArray();
+        Check(sliders.Length == 2, context + " has both pause controls");
+        if (sliders.Length != 2) return;
+        Check(sliders[0].Value == shot && sliders[1].Value == attack, context + " shows selected pauses");
+        Check(sliders.All(s => s.MinValue == 0 && s.MaxValue == 3)
+            && sliders[0].Step == 0.1 && sliders[1].Step == 1, context + " retains ranges and grids");
+    }
+
     // ---- Done-when 2: the pauses ----
 
     private void CheckThePausesAreDisplayOnly()
@@ -491,7 +584,7 @@ public partial class TacticalBattleCheck : Node
         SettingsScreen.SetBattlePauses(0, 0);
         Check(
             SettingsScreen.BattleShotDelaySeconds == 0 && SettingsScreen.BattleAttackDelaySeconds == 0,
-            "the default is 0 s");
+            "the explicit zero setting is retained");
 
         // Change pauses opens the dialog and writes the player setting.
         var dialogHost = Build(ClassicalSession());
@@ -513,7 +606,17 @@ public partial class TacticalBattleCheck : Node
         var opening = screen.DisplayedFrame;
         Check(opening is not null && screen.Model.View == opening.After.View, "opening batch reaches production screen via retained timeline");
         Check(screen.ControllerLabel.Text.Contains("Human") && screen.ControllerLabel.Text.Contains("placement"), "human placement controller is explicit");
-        Check(screen.RosterTexts.Contains(screen.Model.RosterTitle(0)) && screen.RosterTexts.Contains(screen.Model.RosterTitle(1)), "both strategic army rosters are present simultaneously");
+        CheckNoPersistentListsOrHistory(screen);
+        foreach (var (button, side) in new[] { ("friendly_units", screen.Model.View.SideToMove), ("enemy_units", 1 - screen.Model.View.SideToMove) })
+        {
+            screen.PressToolbarButton(button);
+            Check(screen.UnitListOpen && screen.UnitListTexts.Count == screen.Model.RosterRows(side).Count + 1,
+                button + " deliberately opens only the displayed side's units");
+            foreach (var row in screen.Model.RosterRows(side))
+                Check(screen.UnitListTexts.Any(text => text.Contains(string.Join(" · ", row.Cells))), button + " rows match displayed snapshot");
+            screen.CloseUnitList();
+            CheckNoPersistentListsOrHistory(screen);
+        }
         var seen = new List<TacticalBattleFrame>();
         var cues = new List<TacticalBattleFrame>();
         var terminalSeen = false;
@@ -536,7 +639,9 @@ public partial class TacticalBattleCheck : Node
         screen.ExchangeEntered += frame =>
         {
             cues.Add(frame);
-            Check(screen.ExchangeLabel.Text == string.Join("\n", TacticalBattleViewModel.ExchangeLines(frame)), "current typed exchange text agrees with entry notification");
+            Check(screen.ExchangePlainText == string.Join("\n", TacticalBattleViewModel.PresentExchange(frame, BattleDisplay.For(screen.Model.View, main.Session.State, main.Session.Ruleset, main.Session.World)).PlainLines), "current typed exchange text agrees with entry notification");
+            Check(screen.ExchangeLabel.GetParsedText() == screen.ExchangePlainText, "rich exchange parses to exact accessible plain text including arbitrary brackets");
+            Check(screen.ExchangeLabel.Text.Count(c => c == '[') >= 4, "current exchange has independent owner colour spans");
             Check(screen.ActorLabel.Text.Contains("#" + frame.Actor!.Slot) && screen.TargetLabel.Text.Contains("#" + frame.Target!.Slot), "participant panels use stable actor/target slots");
         };
         SettingsScreen.SetBattlePauses(0.2, 1);
@@ -556,7 +661,8 @@ public partial class TacticalBattleCheck : Node
         load.QueueFree();
         Check(saved is not null && saved.OpenTacticalBattle is null && saved.State == main.Session.State, "Save during intermediate playback serializes final authoritative session, never display snapshot");
         for (var i = 0; screen.IsPlayingBack && cues.Count < 2 && i < 10000; i++) screen.AdvancePlayback(0.05);
-        Check(cues.Count >= 2 && screen.PreviousExchangeLabel.Text.Length > 0, "current and previous exchanges have separate labels");
+        Check(cues.Count >= 2 && screen.ExchangePlainText.Length > 0, "current exchange stays visible across exchanges");
+        CheckNoPersistentListsOrHistory(screen);
         screen.SkipPlayback();
         Check(terminalSeen && reconciled && main.ActiveOverlay is BattleEndedScreen, "terminal and final reconciliation precede result routing");
         Check(seen.Select(f => (f.BattleId, f.FrameId)).Distinct().Count() == seen.Count, "every production frame entered once");
@@ -567,6 +673,31 @@ public partial class TacticalBattleCheck : Node
         Check(seen.Count == count, "finish and advance after completion repeat no frames");
         Free(main);
         SettingsScreen.SetBattlePauses(0, 0);
+    }
+
+    private void CheckAllegianceScreen()
+    {
+        SettingsScreen.SetBattlePauses(0, 0);
+        var main = Build(ReadabilitySession());
+        main.SubmitForCheck("attack-army north-army-1 south-army-1");
+        var screen = (TacticalBattleScreen)main.ActiveOverlay!;
+        var exchanges = 0;
+        screen.ExchangeEntered += frame =>
+        {
+            exchanges++;
+            Check(screen.ExchangePlainText.Contains("SELEUCID") && screen.ExchangePlainText.Contains("PTOLEMEAN"),
+                "actual screen identifies both stable world owners despite renamed nation/unit text");
+            Check(screen.ExchangeLabel.GetParsedText() == screen.ExchangePlainText, "actual rich text preserves literal bracket tags");
+            var colors = new[] { frame.Actor!.NationId, frame.Target!.NationId }
+                .Select(id => BattleAllegiance.For(id, "ignored", main.Session.World).ColorHex).ToArray();
+            Check(colors.Distinct().Count() == 2 && colors.All(color => screen.ExchangeLabel.Text.Contains("[color=" + color + "]")),
+                "actor and target have independent own-palette spans");
+            CheckNoPersistentListsOrHistory(screen);
+        };
+        screen.PressToolbarButton("computer_general");
+        Check(exchanges > 0 && main.Session.OpenTacticalBattle is null && main.ActiveOverlay is BattleEndedScreen,
+            "alias/escaped screen survives removed combatants and terminal null authoritative view");
+        Free(main);
     }
 
     private void CheckContinuousStages()
@@ -661,7 +792,7 @@ public partial class TacticalBattleCheck : Node
         Check(next is not null && next.DisplayedFrame?.BattleId == nextId && nextId != firstId, "next screen receives retained opening once with distinct battle identity");
         if (next is not null)
         {
-            Check(next.ExchangeLabel.Text.Length == 0 && next.PreviousExchangeLabel.Text.Length == 0, "next battle has no stale exchange history");
+            Check(next.ExchangePlainText.Length == 0 && !next.UnitListOpen, "next battle has no stale exchange history");
             Check(next.ControllerLabel.Text.Contains("Human") && next.ControllerLabel.Text.Contains("placement"), "human defender controller is explicit after AI battle handoff");
             next.PressToolbarButton("computer_general");
             Check(main.ActiveOverlay is BattleEndedScreen, "second battle independently reaches its result");
@@ -801,6 +932,32 @@ public partial class TacticalBattleCheck : Node
         var armies = resolved.World.StartingArmies.Select(a => a.Id == "army-3" ? a with { X = 101, Y = 37, Moves = 8 } : a).ToList();
         var world = resolved.World with { StartingArmies = ValueList.From(armies) };
         return new GameSession(world, ruleset, resolved.Scenario, null, "rome") { HumanBattles = HumanBattleMode.Tactical };
+    }
+
+    // Designed synthetic presentation fixture: real immutable nation identities/palettes on a small public world.
+    // All gameplay still comes from the ordinary producer; names deliberately contain literal rich-text tags.
+    private static GameSession ReadabilitySession()
+    {
+        var toy = GameDataContext.Repository.Resolve("toy-3city");
+        var classical = GameDataContext.Repository.Resolve("classical-mediterranean");
+        string Owner(string id) => id == "north" ? "seleucid" : "ptolemaic";
+        var ids = ValueList.Of("seleucid", "ptolemaic");
+        var world = toy.World with
+        {
+            Nations = ValueList.From(toy.World.Nations.Select(n => classical.World.NationById(Owner(n.Id))! with
+                { Name = "Renamed [b] faction", CapitalCityId = n.CapitalCityId })),
+            Cities = ValueList.From(toy.World.Cities.Select(c => c with { Owner = Owner(c.Owner), Allegiance = Owner(c.Allegiance) })),
+            StartingArmies = ValueList.Of(
+                new StartingArmy("north-army-1", "seleucid", 3, 2, 68, 100, 500, 5,
+                    ValueList.Of(new UnitSlot(0, "light_infantry", 9000, 6, "duplicate [color=red]"), new UnitSlot(1, "archers", 3000, 7, "duplicate [color=red]"))),
+                new StartingArmy("south-army-1", "ptolemaic", 4, 2, 59, 40, 60, 5,
+                    ValueList.Of(new UnitSlot(0, "heavy_infantry", 600, 6, "duplicate [color=red]")))),
+            StartingFleets = ValueList<StartingFleet>.Empty,
+            TurnOrder = ids,
+            StartingRelations = DiplomaticRelations.Uniform(ids, toy.Ruleset.Diplomacy.StateCodes.War),
+        };
+        var scenario = toy.Scenario with { Seats = ValueList.From(toy.Scenario.Seats.Select(seat => seat with { Nation = Owner(seat.Nation) })) };
+        return new GameSession(world, toy.Ruleset, scenario, seedOverride: 1, humanSeatNationId: "seleucid") { HumanBattles = HumanBattleMode.Tactical };
     }
 
     private static GameSession ToyAiAttackWithNeutralBattleSession()
