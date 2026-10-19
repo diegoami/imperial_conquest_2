@@ -1,3 +1,4 @@
+using IC2.Slice.Diagnostics;
 using Godot;
 using IC2.Engine.Battle.Tactical;
 using IC2.Engine.Model;
@@ -164,7 +165,8 @@ public partial class TacticalBattleScreen : Control
                 : Model.DepartureLines.Count > 0 ? string.Join("\n", Model.DepartureLines)
                 : _playback.CurrentFrame is { } frame ? FrameMessage(frame) : string.Empty);
         };
-        _playback.FrameEntered += frame => FrameEntered?.Invoke(frame);
+        _playback.DiagnosticStageEntered += (frame, stage, snapshot) => AppDiagnostics.Frame(frame, Session.State.Calendar.TurnIndex, stage.ToString(), snapshot);
+        _playback.FrameEntered += frame => { AppDiagnostics.Frame(frame, Session.State.Calendar.TurnIndex, displayed: _playback.Snapshot); FrameEntered?.Invoke(frame); };
         _playback.ExchangeEntered += frame =>
         {
             ExchangesShown++;
@@ -332,19 +334,19 @@ public partial class TacticalBattleScreen : Control
                 Refresh();
                 break;
             case BattleClickKind.Place:
-                Send(s => s.BattlePlace(click.Unit, click.X, click.Y));
+                Send(s => s.BattlePlace(click.Unit, click.X, click.Y), $"battle place {click.Unit} {click.X} {click.Y}");
                 break;
             case BattleClickKind.Move:
-                Send(s => s.BattleMove(click.Unit, click.X, click.Y));
+                Send(s => s.BattleMove(click.Unit, click.X, click.Y), $"battle move {click.Unit} {click.X} {click.Y}");
                 break;
             case BattleClickKind.Attack:
-                Send(s => s.BattleAttack(click.Unit, click.Enemy));
+                Send(s => s.BattleAttack(click.Unit, click.Enemy), $"battle attack {click.Unit} {click.Enemy}");
                 break;
             case BattleClickKind.Shoot:
-                Send(s => s.BattleShoot(click.Unit, click.Enemy));
+                Send(s => s.BattleShoot(click.Unit, click.Enemy), $"battle shoot {click.Unit} {click.Enemy}");
                 break;
             case BattleClickKind.Clear:
-                Send(s => s.BattleClear(click.Unit));
+                Send(s => s.BattleClear(click.Unit), $"battle clear {click.Unit}");
                 break;
         }
     }
@@ -385,13 +387,13 @@ public partial class TacticalBattleScreen : Control
                 Refresh();
                 break;
             case "end_turn":
-                Send(s => s.BattleEnd());
+                Send(s => s.BattleEnd(), "battle end");
                 break;
             case "change_pauses":
                 OpenPausesDialog();
                 break;
             case "computer_general":
-                Send(s => s.BattleGeneral(true));
+                Send(s => s.BattleGeneral(true), "battle general on");
                 break;
             case "surrender":
                 OpenSurrenderPrompt();
@@ -411,7 +413,7 @@ public partial class TacticalBattleScreen : Control
         CloseDialog();
         if (yes)
         {
-            Send(s => s.BattleSurrender(confirmed: true));
+            Send(s => s.BattleSurrender(confirmed: true), "battle surrender yes");
         }
     }
 
@@ -443,9 +445,14 @@ public partial class TacticalBattleScreen : Control
     public void AdvancePlayback(double seconds) => _playback.Advance(seconds);
 
     /// <summary>Skips only waits; every frame and typed exchange still enters once.</summary>
-    public void SkipPlayback() => _playback.Finish();
+    public void SkipPlayback() { RecordPlaybackBoundary(DiagnosticEvent.Skip); _playback.Finish(); }
 
     public override void _Process(double delta) => AdvancePlayback(delta);
+
+    public override void _ExitTree()
+    {
+        if (IsPlayingBack) RecordPlaybackBoundary(DiagnosticEvent.Cancel);
+    }
 
     /// <summary>
     /// A click on the side panel: during a replay it ends the replay, and turns <em>Computer general</em> off when
@@ -463,7 +470,7 @@ public partial class TacticalBattleScreen : Control
         SkipPlayback();
         if (generalOn && Session.OpenTacticalBattle is not null)
         {
-            Send(s => s.BattleGeneral(false));
+            Send(s => s.BattleGeneral(false), "battle general off");
         }
     }
 
@@ -513,16 +520,24 @@ public partial class TacticalBattleScreen : Control
         _playback.AttackDelay = SettingsScreen.BattleAttackDelaySeconds;
     }
 
-    private void Send(Func<GameSession, SessionOutput> order)
+    private void Send(Func<GameSession, SessionOutput> order, string diagnosticCommand)
     {
-        var output = order(Session);
+        var output = AppDiagnostics.Operation(DiagnosticEvent.BattleCommand, "tactical", () => order(Session), command: diagnosticCommand, turn: Session.State.Calendar.TurnIndex, success: output => DiagnosticJournal.CommandSucceeded(output.Lines), nation: Session.State.ActiveNationId);
         SetPlaybackPauses();
         _battleId ??= output.TacticalTimeline.FirstOrDefault()?.BattleId;
         _playback.Begin(output.TacticalTimeline.Where(frame => frame.BattleId == _battleId), () => Finish(output));
     }
 
+    private void RecordPlaybackBoundary(DiagnosticEvent kind)
+    {
+        if (_playback.CurrentFrame is { } frame)
+            AppDiagnostics.Frame(frame, Session.State.Calendar.TurnIndex, displayed: _playback.Snapshot, boundary: kind);
+        else AppDiagnostics.Mark(kind, "tactical");
+    }
+
     private void Finish(SessionOutput output)
     {
+        RecordPlaybackBoundary(DiagnosticEvent.Completion);
         // Every terminal and housekeeping frame has already been displayed, including null OpenBattleView.
         Refresh();
         ShowMessage(output.TacticalTimeline.Count == 0

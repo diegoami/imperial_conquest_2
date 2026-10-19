@@ -1,3 +1,4 @@
+using IC2.Slice.Diagnostics;
 using Godot;
 using IC2.Engine.Model;
 using IC2.Engine.Presentation;
@@ -1150,7 +1151,7 @@ public partial class GameMapView : Control
             return;
         }
 
-        var lines = _session.Submit(orderLine).Lines;
+        var lines = AppDiagnostics.Submit(_session, orderLine, "map").Lines;
         CommandIssued?.Invoke(lines);
         QueueRedraw();
     }

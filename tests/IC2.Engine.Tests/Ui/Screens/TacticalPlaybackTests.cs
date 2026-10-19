@@ -22,6 +22,29 @@ public sealed class TacticalPlaybackTests
         return (session, opening, session.BattleGeneral(true));
     }
 
+    [Fact]
+    public void Diagnostic_stages_capture_zero_and_skip_without_progress_spam_or_observer_influence()
+    {
+        var (_, opening, ending) = Battle();
+        foreach (bool skip in new[] { false, true })
+        {
+            var queue = new TacticalPlayback { ShotDelay = skip ? 1 : 0, AttackDelay = skip ? 2 : 0 };
+            var stages = new List<(long Frame, TacticalPlaybackStage Stage)>();
+            queue.DiagnosticStageEntered += (frame, stage, snapshot) => stages.Add((frame.FrameId, stage));
+            queue.DiagnosticStageEntered += (_, _, _) => throw new IOException("observer");
+            var seen = new List<TacticalBattleFrame>(); queue.FrameEntered += seen.Add;
+            queue.Begin(opening); queue.Finish(); queue.Begin(ending.TacticalTimeline); queue.Finish();
+            int count = stages.Count;
+            for(int i=0;i<1000;i++) queue.Advance(0.001);
+            Assert.Equal(count, stages.Count);
+            Assert.Equal(opening.Concat(ending.TacticalTimeline), seen);
+            Assert.Contains(stages, s => s.Stage == TacticalPlaybackStage.Announcement);
+            Assert.Contains(stages, s => s.Frame == ending.TacticalTimeline[^1].FrameId);
+            Assert.True(stages.Count <= seen.Count * 5);
+            Assert.True(stages.Zip(stages.Skip(1)).All(pair => pair.First != pair.Second));
+        }
+    }
+
     [Theory]
     [InlineData(0, 0, false)]
     [InlineData(1, 1, false)]

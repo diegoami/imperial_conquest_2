@@ -1,3 +1,4 @@
+using IC2.Slice.Diagnostics;
 using Godot;
 using IC2.Engine.Armies;
 using IC2.Engine.Model;
@@ -103,6 +104,7 @@ public partial class MainGameScreen : Control
 
     private void SkipTravelAndClearSelection()
     {
+        AppDiagnostics.Mark(DiagnosticEvent.Skip, "travel");
         StrategicTravel.Skip();
         _mapView.ClearSelection();
     }
@@ -243,6 +245,7 @@ public partial class MainGameScreen : Control
 
     public override void _Ready()
     {
+        AppDiagnostics.Detail(DiagnosticEvent.Settings, "Travel", paused: StrategicTravel.Paused, fast: StrategicTravel.Fast);
         UiKit.ApplyBackground(this, UiKit.Background);
 
         var root = new VBoxContainer();
@@ -491,9 +494,9 @@ public partial class MainGameScreen : Control
         _travelControls = new HBoxContainer { Visible = false };
         _travelControls.AddChild(UiKit.MakeLabel("Movement · orders locked", AppTheme.Body, UiKit.TextColor));
         var skip = new Button { Text = "Skip" };
-        skip.Pressed += () => StrategicTravel.Skip();
+        skip.Pressed += () => { AppDiagnostics.Mark(DiagnosticEvent.Skip, "travel"); StrategicTravel.Skip(); };
         var fast = new Button { Text = "Fast", ToggleMode = true };
-        fast.Toggled += pressed => StrategicTravel.Fast = pressed;
+        fast.Toggled += pressed => { StrategicTravel.Fast = pressed; AppDiagnostics.Detail(DiagnosticEvent.Settings, "Travel", paused: StrategicTravel.Paused, fast: pressed); };
         _travelControls.AddChild(skip); _travelControls.AddChild(fast);
         row.AddChild(_travelControls);
         var spacer = new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill };
@@ -1587,7 +1590,7 @@ public partial class MainGameScreen : Control
     private IReadOnlyList<string> SubmitFromDialog(string line)
     {
         if (!AllowStrategicInput()) return Array.Empty<string>();
-        var lines = Session.Submit(line).Lines;
+        var lines = AppDiagnostics.Submit(Session, line, "dialog").Lines;
         OnCommandIssued(lines);
         return lines;
     }
@@ -1705,7 +1708,7 @@ public partial class MainGameScreen : Control
             return false;
         }
 
-        var output = Session.Submit($"save {path}");
+        var output = AppDiagnostics.Submit(Session, $"save {path}", "save", path);
         OnCommandIssued(output.Lines);
         var confirmation = CommandOutcomeText.OutcomeBlock(output.Lines);
         _saveConfirmationLabel.Text = confirmation;
@@ -1796,7 +1799,7 @@ public partial class MainGameScreen : Control
     public IReadOnlyList<string> SubmitForCheck(string commandLine)
     {
         if (!AllowStrategicInput()) return Array.Empty<string>();
-        var lines = Session.Submit(commandLine).Lines;
+        var lines = AppDiagnostics.Submit(Session, commandLine, "check").Lines;
         OnCommandIssued(lines);
         return lines;
     }
@@ -1955,6 +1958,7 @@ public partial class MainGameScreen : Control
             || !Session.State.Nations.Any(n => n.Control == SeatControl.Human)) _displayViewer = activeId;
         var turnIndex = Session.State.Calendar.TurnIndex;
         var turnStarted = turnIndex != _lastKnownTurnIndex;
+        if (turnStarted) AppDiagnostics.Mark(DiagnosticEvent.Turn, "main", turnIndex, activeId);
         _lastKnownTurnIndex = turnIndex;
         if (turnStarted || !string.Equals(activeId, _lastKnownActiveNationId, StringComparison.Ordinal))
         {
@@ -2266,7 +2270,7 @@ public partial class MainGameScreen : Control
         screen.Answered += command =>
         {
             CloseOverlay(screen);
-            OnCommandIssued(Session.Submit(command).Lines);
+            OnCommandIssued(AppDiagnostics.Submit(Session, command, "peace").Lines);
         };
         ShowOverlay(screen);
     }
@@ -2339,7 +2343,10 @@ public partial class MainGameScreen : Control
         ShowOverlay(screen);
     }
 
-    private void ShowBattleEndedOverlay(TacticalBattleScreen battleScreen, SessionOutput output)
+    private void ShowBattleEndedOverlay(TacticalBattleScreen battleScreen, SessionOutput output) =>
+        AppDiagnostics.Operation(DiagnosticEvent.Result, "result", () => { ShowBattleEndedOverlayCore(battleScreen, output); return true; }, turn: Session.State.Calendar.TurnIndex);
+
+    private void ShowBattleEndedOverlayCore(TacticalBattleScreen battleScreen, SessionOutput output)
     {
         // An AI lap may already have opened another battle in the same submission. Keep its opening
         // across the current result's dismissal and any read-only/save calls that replace LastTacticalTimeline.
@@ -2362,7 +2369,10 @@ public partial class MainGameScreen : Control
         ShowOverlay(ended);
     }
 
-    private void ShowBattleResultOverlay(Engine.Battle.BattleResult battle)
+    private void ShowBattleResultOverlay(Engine.Battle.BattleResult battle) =>
+        AppDiagnostics.Operation(DiagnosticEvent.Result, "result", () => { ShowBattleResultOverlayCore(battle); return true; }, turn: Session.State.Calendar.TurnIndex);
+
+    private void ShowBattleResultOverlayCore(Engine.Battle.BattleResult battle)
     {
         var screen = new BattleResultScreen { Session = Session, Result = BattleResultViewModel.FromResult(battle) };
         screen.Closed += () =>
@@ -2434,6 +2444,7 @@ public partial class MainGameScreen : Control
 
     private void ShowOverlay(Control overlay)
     {
+        AppDiagnostics.Detail(DiagnosticEvent.Overlay, overlay.GetType().Name);
         if (ActiveOverlay is { } previous)
         {
             RemoveChild(previous);
@@ -2483,6 +2494,7 @@ public partial class MainGameScreen : Control
             return;
         }
 
+        AppDiagnostics.Detail(DiagnosticEvent.Overlay, "Close");
         ActiveOverlay = null;
         RemoveChild(overlay);
         overlay.QueueFree();

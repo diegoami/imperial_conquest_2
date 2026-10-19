@@ -25,6 +25,9 @@ public sealed class TacticalPlayback
     private (int X, int Y)? _destination;
 
     public event Action<TacticalBattleFrame>? FrameEntered;
+    /// <summary>Diagnostic-only discrete stage seam; observers cannot affect traversal.</summary>
+    public event Action<TacticalBattleFrame, TacticalPlaybackStage, TacticalPresentationSnapshot>? DiagnosticStageEntered;
+    private (string Battle, long Frame, TacticalPlaybackStage Stage)? _lastDiagnosticStage;
     /// <summary>T183's typed exactly-once exchange-entry seam, including zero delay and skip.</summary>
     public event Action<TacticalBattleFrame>? ExchangeEntered;
     /// <summary>Progress changes presentation only, never re-entering a frame or exchange.</summary>
@@ -216,6 +219,11 @@ public sealed class TacticalPlayback
         _duration = duration;
         _elapsed = 0;
         _interiorShown = false;
+        if (CurrentFrame is { } frame && _lastDiagnosticStage != (frame.BattleId, frame.FrameId, stage))
+        {
+            _lastDiagnosticStage = (frame.BattleId, frame.FrameId, stage);
+            try { DiagnosticStageEntered?.Invoke(frame, stage, Snapshot ?? frame.After); } catch { }
+        }
     }
 
     private void UpdatePose()

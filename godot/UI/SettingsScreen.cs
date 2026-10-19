@@ -1,3 +1,4 @@
+using IC2.Slice.Diagnostics;
 using Godot;
 using IC2.Slice.Screens;
 
@@ -50,7 +51,11 @@ public partial class SettingsScreen : Control
     /// without driving the CheckBox, so <see cref="MainGameScreen"/>'s production subscription
     /// (which reads <see cref="SoundEnabled"/> on every event) is what mutes the player.
     /// </summary>
-    public static void SetSoundEnabledForCheck(bool enabled) => SoundEnabled = enabled;
+    public static void SetSoundEnabledForCheck(bool enabled)
+    {
+        SoundEnabled = enabled;
+        AppDiagnostics.Detail(DiagnosticEvent.Settings, nameof(SettingsScreen));
+    }
 
     /// <summary>
     /// T127: the tactical battle screen's pause after a shot, in seconds (0 to 3.0 in 0.1 s steps; designed fresh-process default 1). A
@@ -71,6 +76,7 @@ public partial class SettingsScreen : Control
     {
         BattleShotDelaySeconds = BattlePauses.SnapShot(shotSeconds);
         BattleAttackDelaySeconds = BattlePauses.SnapAttack(attackSeconds);
+        AppDiagnostics.Detail(DiagnosticEvent.Settings, nameof(SettingsScreen));
     }
 
     public override void _Ready()
@@ -122,7 +128,12 @@ public partial class SettingsScreen : Control
             column.AddChild(UiKit.MakeLabel("No asset packs found under assets/packs/.", AppTheme.Body, UiKit.MutedTextColor));
         }
 
-        picker.ItemSelected += index => SelectedPackId = packs[(int)index];
+        AppDiagnostics.Detail(DiagnosticEvent.Settings, nameof(SettingsScreen));
+        picker.ItemSelected += index =>
+        {
+            SelectedPackId = packs[(int)index];
+            AppDiagnostics.Detail(DiagnosticEvent.Settings, nameof(SettingsScreen));
+        };
         column.AddChild(picker);
 
         // T149: the Sound on/off checkbox, kept the same way SelectedPackId's picker is — a static
@@ -134,7 +145,11 @@ public partial class SettingsScreen : Control
             Text = "Enabled",
             ButtonPressed = SoundEnabled,
         };
-        soundCheck.Toggled += pressed => SoundEnabled = pressed;
+        soundCheck.Toggled += pressed =>
+        {
+            SoundEnabled = pressed;
+            AppDiagnostics.Detail(DiagnosticEvent.Settings, nameof(SettingsScreen));
+        };
         column.AddChild(soundCheck);
 
         // T127: the tactical battle's two display-only pauses, as the original's Change pauses dialog offers them.

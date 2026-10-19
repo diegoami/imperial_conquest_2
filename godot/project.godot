@@ -6,7 +6,15 @@ boot_splash/show_image=false
 
 config/name="Imperial Conquest 2 Map Viewer"
 run/main_scene="res://UI/AppRoot.tscn"
+run/flush_stdout_on_print=true
 config/features=PackedStringArray("4.7", "C#")
+
+[debug]
+
+file_logging/enable_file_logging=true
+file_logging/enable_file_logging.pc=true
+file_logging/log_path="user://logs/godot.log"
+file_logging/max_log_files=5
 
 [display]
 
