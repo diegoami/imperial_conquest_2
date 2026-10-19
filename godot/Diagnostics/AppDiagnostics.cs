@@ -10,6 +10,9 @@ public static class AppDiagnostics
 {
     private static DiagnosticJournal? _journal;
     private static int _owners;
+    private static readonly object LifecycleGate = new();
+    internal static int ManagedHandlerRegistrations { get; private set; }
+    internal static int ManagedHandlerUnregistrations { get; private set; }
     public static string? DirectoryOverride { get; set; }
     /// <summary>Diagnostic observer runs after durable BEFORE and before the unchanged operation.
     /// Observer errors cannot change gameplay or suppress the operation.</summary>
@@ -17,6 +20,8 @@ public static class AppDiagnostics
     public static DiagnosticJournal? Journal => _journal;
     public static void Acquire()
     {
+        lock (LifecycleGate)
+        {
         if (_owners++ != 0) return;
         try
         {
@@ -24,19 +29,25 @@ public static class AppDiagnostics
                 warning: () => GD.PushWarning("Local diagnostics unavailable; gameplay continues."));
             AppDomain.CurrentDomain.UnhandledException += OnUnhandled;
             TaskScheduler.UnobservedTaskException += OnUnobserved;
+            ManagedHandlerRegistrations++;
             _journal.Startup(
                 ProjectSettings.GetSetting("application/config/version", "development").AsString(),
                 typeof(AppDiagnostics).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unavailable",
                 Godot.Engine.GetVersionInfo()["string"].AsString(), System.Environment.Version.ToString(), OS.GetName(), SettingsScreen.SelectedPackId ?? "default");
         }
         catch { /* Diagnostics must not prevent application startup. */ }
+        }
     }
     public static void Release()
     {
+        lock (LifecycleGate)
+        {
         if (_owners <= 0 || --_owners != 0) return;
         AppDomain.CurrentDomain.UnhandledException -= OnUnhandled;
         TaskScheduler.UnobservedTaskException -= OnUnobserved;
+        ManagedHandlerUnregistrations++;
         _journal?.Dispose(); _journal = null;
+        }
     }
     private static void OnUnhandled(object sender, UnhandledExceptionEventArgs args)
     { if (args.ExceptionObject is Exception exception) RecordException(exception); }
@@ -50,10 +61,10 @@ public static class AppDiagnostics
     public static void RecordException(Exception exception) { try { _journal?.Exception(exception); } catch { } }
     public static void Mark(DiagnosticEvent kind, string? source = null, long? number = null, string? token = null)
     { try { _journal?.Mark(kind, source, number, token); } catch { } }
-    public static T Operation<T>(DiagnosticEvent kind, string source, Func<T> action, string? command = null, string? target = null, long? turn = null, Func<T, bool>? success = null)
+    public static T Operation<T>(DiagnosticEvent kind, string source, Func<T> action, string? command = null, string? target = null, long? turn = null, Func<T, bool>? success = null, string? nation = null, bool? computer = null)
     {
         long operation = 0;
-        try { operation = _journal?.Before(kind, source, command, target, turn) ?? 0; } catch { }
+        try { operation = _journal?.Before(kind, source, command, target, turn, nation, computer) ?? 0; } catch { }
         try { BeforeObserver?.Invoke(kind, operation, source); } catch { }
         T result;
         try { result = action(); }
@@ -88,5 +99,5 @@ public static class AppDiagnostics
         catch { }
     }
     public static SessionOutput Submit(GameSession session, string command, string source, string? target = null) =>
-        Operation(target is null ? DiagnosticEvent.Command : DiagnosticEvent.Save, source, () => session.Submit(command), command, target, session.State.Calendar.TurnIndex, success: output => target is null || output.Lines.Any(line => line.StartsWith("Saved to", StringComparison.Ordinal)));
+        Operation(target is null ? DiagnosticEvent.Command : DiagnosticEvent.Save, source, () => session.Submit(command), command, target, session.State.Calendar.TurnIndex, success: output => target is null ? DiagnosticJournal.CommandSucceeded(output.Lines) : output.Lines.Any(line => line.StartsWith("Saved to", StringComparison.Ordinal)), nation: session.State.ActiveNationId, computer: session.State.NationById(session.State.ActiveNationId)?.Control == IC2.Engine.Model.SeatControl.Ai);
 }

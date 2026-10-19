@@ -66,6 +66,65 @@ public sealed class DiagnosticJournalTests : IDisposable
         Parallel.For(0,100,i=>journal.Exception(new Exception("private")));
         Assert.Equal(Enumerable.Range(1,100).Select(i=>(long)i),Read().Select(r=>r.GetProperty("sequence").GetInt64()));
     }
+    [Theory]
+    [InlineData("Move rejected (x): private", false)]
+    [InlineData("Usage: move <army>", false)]
+    [InlineData("Unknown command 'private'", false)]
+    [InlineData("move accepted", true)]
+    public void CommandRejectionsAreFailures(string outcome, bool expected) =>
+        Assert.Equal(expected, DiagnosticJournal.CommandSucceeded(new[] { "prelude rejected", "> private", outcome, "News:", "rejected old report" }));
+    [Fact] public void ExceptionRetainsSafeMeaningInnerCauseAndCodeFrames()
+    {
+        using var journal = new DiagnosticJournal(_directory);
+        try { ThrowDiagnosticProbe(); }
+        catch (Exception exception) { journal.Exception(exception); }
+        var causes = Read().Single().GetProperty("causes");
+        Assert.Contains("operation failed", causes[0].GetProperty("message").GetString());
+        Assert.Contains("access denied", causes[1].GetProperty("message").GetString());
+        Assert.Contains("ThrowDiagnosticProbe", causes[0].GetProperty("stack").ToString());
+        var text = ReadText(Path.Combine(_directory, "journal-0.jsonl"));
+        Assert.DoesNotContain("PrivateName", text);
+        Assert.DoesNotContain("Owner Name", text);
+    }
+    private static void ThrowDiagnosticProbe() => throw new InvalidOperationException(
+        "Operation failed for 'PrivateName' at C:/private/Owner Name/file.json", new IOException("Access denied: PrivateName"));
+    [Fact] public void MalformedAndMaximumFieldsRemainParseableAndDoNotDisableWriter()
+    {
+        int warnings = 0;
+        using var journal = new DiagnosticJournal(_directory, () => warnings++);
+        journal.Startup(new string('\u754c', 100000), new string('x', 100000), "4.7.2", "10", "Windows", "default");
+        var id = journal.Before(DiagnosticEvent.Load, "C:/private", "unknown \ud800 private", "bad\0path.json");
+        journal.After(DiagnosticEvent.Load, id, "load", false);
+        Exception exception = new IOException(new string('\u754c', 100000));
+        for (int i = 0; i < 20; i++) exception = new InvalidOperationException(new string('x', 100000), exception);
+        journal.Exception(exception);
+        journal.Mark(DiagnosticEvent.Focus, "gained");
+        Assert.Equal(0, warnings);
+        Assert.Equal(5, Read().Length);
+        Assert.Equal(4, Read()[3].GetProperty("causes").GetArrayLength());
+        foreach (var line in ReadText(Path.Combine(_directory, "journal-0.jsonl")).Split('\n', StringSplitOptions.RemoveEmptyEntries))
+            Assert.InRange(System.Text.Encoding.UTF8.GetByteCount(line) + 1, 1, DiagnosticJournal.MaxRecordBytes);
+    }
+    [Fact] public void RestartRetainsNewestRunsAndDoesNotTouchNeighbours()
+    {
+        Directory.CreateDirectory(_directory);
+        var neighbour = Path.Combine(_directory, "journal-private.jsonl");
+        File.WriteAllText(neighbour, "unrelated");
+        var runs = new List<string>();
+        for (int i = 0; i < 8; i++)
+        {
+            using var journal = new DiagnosticJournal(_directory);
+            runs.Add(journal.RunId);
+            journal.Mark(DiagnosticEvent.Startup, "app");
+        }
+        Assert.Equal("unrelated", File.ReadAllText(neighbour));
+        for (int i = 0; i < 5; i++)
+        {
+            using var record = JsonDocument.Parse(ReadText(Path.Combine(_directory, $"journal-{i}.jsonl")));
+            Assert.Equal(runs[7-i], record.RootElement.GetProperty("run").GetString());
+        }
+        Assert.False(File.Exists(Path.Combine(_directory, "journal-5.jsonl")));
+    }
     private void FillCurrent()
     {
         var path=Path.Combine(_directory,"journal-0.jsonl");

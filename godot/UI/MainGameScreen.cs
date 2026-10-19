@@ -1957,6 +1957,7 @@ public partial class MainGameScreen : Control
             || !Session.State.Nations.Any(n => n.Control == SeatControl.Human)) _displayViewer = activeId;
         var turnIndex = Session.State.Calendar.TurnIndex;
         var turnStarted = turnIndex != _lastKnownTurnIndex;
+        if (turnStarted) AppDiagnostics.Mark(DiagnosticEvent.Turn, "main", turnIndex, activeId);
         _lastKnownTurnIndex = turnIndex;
         if (turnStarted || !string.Equals(activeId, _lastKnownActiveNationId, StringComparison.Ordinal))
         {
@@ -2341,7 +2342,10 @@ public partial class MainGameScreen : Control
         ShowOverlay(screen);
     }
 
-    private void ShowBattleEndedOverlay(TacticalBattleScreen battleScreen, SessionOutput output)
+    private void ShowBattleEndedOverlay(TacticalBattleScreen battleScreen, SessionOutput output) =>
+        AppDiagnostics.Operation(DiagnosticEvent.Result, "result", () => { ShowBattleEndedOverlayCore(battleScreen, output); return true; }, turn: Session.State.Calendar.TurnIndex);
+
+    private void ShowBattleEndedOverlayCore(TacticalBattleScreen battleScreen, SessionOutput output)
     {
         // An AI lap may already have opened another battle in the same submission. Keep its opening
         // across the current result's dismissal and any read-only/save calls that replace LastTacticalTimeline.
@@ -2364,7 +2368,10 @@ public partial class MainGameScreen : Control
         ShowOverlay(ended);
     }
 
-    private void ShowBattleResultOverlay(Engine.Battle.BattleResult battle)
+    private void ShowBattleResultOverlay(Engine.Battle.BattleResult battle) =>
+        AppDiagnostics.Operation(DiagnosticEvent.Result, "result", () => { ShowBattleResultOverlayCore(battle); return true; }, turn: Session.State.Calendar.TurnIndex);
+
+    private void ShowBattleResultOverlayCore(Engine.Battle.BattleResult battle)
     {
         var screen = new BattleResultScreen { Session = Session, Result = BattleResultViewModel.FromResult(battle) };
         screen.Closed += () =>
@@ -2439,6 +2446,7 @@ public partial class MainGameScreen : Control
         AppDiagnostics.Detail(DiagnosticEvent.Overlay, overlay.GetType().Name);
         if (ActiveOverlay is { } previous)
         {
+            if (previous is TacticalBattleScreen { IsPlayingBack: true }) AppDiagnostics.Mark(DiagnosticEvent.Cancel, "tactical");
             RemoveChild(previous);
             previous.QueueFree();
         }
@@ -2487,6 +2495,7 @@ public partial class MainGameScreen : Control
         }
 
         AppDiagnostics.Detail(DiagnosticEvent.Overlay, "Close");
+        if (overlay is TacticalBattleScreen { IsPlayingBack: true }) AppDiagnostics.Mark(DiagnosticEvent.Cancel, "tactical");
         ActiveOverlay = null;
         RemoveChild(overlay);
         overlay.QueueFree();
