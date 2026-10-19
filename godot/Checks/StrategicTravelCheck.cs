@@ -96,37 +96,46 @@ public partial class StrategicTravelCheck : Node
         foreach (var overlap in new[] { false, true })
         foreach (var zoom in new[] { "fit", "minimum", "maximum" })
         {
+            var prefix = $"selection-{_pack}-{(fleet ? "fleet" : "army")}-{(light ? "light" : "dark")}-{(overlap ? "coincident" : "neighbour")}-{zoom}";
+            var filter = System.Environment.GetEnvironmentVariable("IC2_SELECTION_FILTER");
+            if (filter is not null && !prefix.Contains(filter, StringComparison.Ordinal)) continue;
             var main = await Open(FeedbackSession(fleet, light, overlap));
             var map = main.MapView;
             if (zoom != "fit") map.SetDrawnCellPixelsForCheck(zoom == "maximum" ? 72 : 3);
             map.CentreOnTile(50, 45);
             var id = fleet ? "f" : "a";
-            var prefix = $"selection-{_pack}-{(fleet ? "fleet" : "army")}-{(light ? "light" : "dark")}-{(overlap ? "coincident" : "neighbour")}-{zoom}";
             // Actual pointer chooses army on coincidences, even when the fleet is selected.
             map._GuiInput(new InputEventMouseMotion { Position = map.TileCenterForCheck(50, 45) });
             map.ClearSelection();
             using var unselected = await FeedbackImage(prefix + "-unselected");
+            var unselectedRect = FeedbackPixelRect(map, id, unselected);
             var before = main.Session.State;
             if (fleet && overlap) main.SelectFleetForCheck(id); // ordinary picking intentionally army-first
             else Click(map, new(50, 45), MouseButton.Left);
+            await Frames(); // command-strip layout changes the map's screen-space origin
+            map.CentreOnTile(50, 45);
+            map._GuiInput(new InputEventMouseMotion { Position = map.TileCenterForCheck(50, 45) });
             using var selected = await FeedbackImage(prefix + "-selected");
             Require(map.SelectedStrategicMarkerForCheck == id
                 && main.ContextPanel.SubjectForCheck == (fleet ? "Fleet:f" : "Army:a")
                 && main.CommandStrip.Selection == (fleet ? UnitStripSelection.OwnFleet : UnitStripSelection.OwnArmy),
                 prefix + " actual selection, panel subject and command strip agree");
             var rect = map.StrategicDrawBoundsForCheck[id];
-            var origin = map.GetGlobalTransformWithCanvas() * rect.Position;
+            var pixelRect = FeedbackPixelRect(map, id, selected);
+            var origin = pixelRect.Position;
             var changed = 0;
             var samples = 0;
-            for (var y = (int)Math.Ceiling(origin.Y - .5f); y + .5f < origin.Y + rect.Size.Y; y++)
-            for (var x = (int)Math.Ceiling(origin.X - .5f); x + .5f < origin.X + rect.Size.X; x++)
+            for (var y = (int)Math.Ceiling(origin.Y - .5f); y + .5f < origin.Y + pixelRect.Size.Y; y++)
+            for (var x = (int)Math.Ceiling(origin.X - .5f); x + .5f < origin.X + pixelRect.Size.X; x++)
             {
                 if (x < 0 || y < 0 || x >= selected.GetWidth() || y >= selected.GetHeight()) continue;
                 samples++;
-                var a = unselected.GetPixel(x, y); var b = selected.GetPixel(x, y);
+                var ux = (int)Math.Floor(unselectedRect.Position.X + (x + .5f - origin.X) * unselectedRect.Size.X / pixelRect.Size.X);
+                var uy = (int)Math.Floor(unselectedRect.Position.Y + (y + .5f - origin.Y) * unselectedRect.Size.Y / pixelRect.Size.Y);
+                var a = unselected.GetPixel(ux, uy); var b = selected.GetPixel(x, y);
                 if (Math.Max(Math.Abs(a.R - b.R), Math.Max(Math.Abs(a.G - b.G), Math.Abs(a.B - b.B))) >= .12f) changed++;
             }
-            var required = Math.Max(1, (int)Math.Floor(rect.Size.X / 2));
+            var required = Math.Max(1, (int)Math.Floor(pixelRect.Size.X / 2));
             var visible = changed >= required;
             GD.Print($"StrategicTravelCheck: BASELINE {prefix} visible={visible} changed={changed}/{samples} required={required} tile={TilePixels(main)} owner={(light ? "#F0E6BC/#182535" : "#182535/#F0E6BC")}");
             if (_selectionMode != "baseline") Require(visible, prefix + " rendered selected feedback remains distinguishable inside entity rectangle");
@@ -156,6 +165,16 @@ public partial class StrategicTravelCheck : Node
         }
     }
 
+    private Rect2 FeedbackPixelRect(GameMapView map, string id, Image image)
+    {
+        var rect = map.StrategicDrawBoundsForCheck[id];
+        var transform = GetViewport().GetFinalTransform() * map.GetGlobalTransformWithCanvas();
+        var origin = transform * rect.Position;
+        var end = transform * rect.End;
+        GD.Print($"StrategicTravelCheck: PIXEL-MASK {id} image={image.GetWidth()}x{image.GetHeight()} viewport={GetViewport().GetVisibleRect().Size} rect={origin}/{end - origin}");
+        return new Rect2(origin, end - origin);
+    }
+
     private async Task<Image> FeedbackImage(string name)
     {
         await Frames();
@@ -173,7 +192,9 @@ public partial class StrategicTravelCheck : Node
     private static GameSession FeedbackSession(bool fleet, bool light, bool overlap)
     {
         var initial = MovementSession(fleet, 10);
-        var world = initial.World with { Nations = ValueList.From(initial.World.Nations.Select(n => n with
+        var terrain = initial.World.TileTypes.First(t => t.Id == (fleet ? "sea_calm" : "plain")).Code;
+        var world = initial.World with { Width = 512, Height = 256,
+            Terrain = new(TerrainEncoding.RunLength, ValueList.Of(new TerrainRun(terrain, 512 * 256))), Nations = ValueList.From(initial.World.Nations.Select(n => n with
             { ColorHex = light ? "#F0E6BC" : "#182535", GlyphColorHex = light ? "#182535" : "#F0E6BC" })) };
         var state = initial.State;
         var template = GameStateFactory.CreateInitial(world, initial.Ruleset, initial.Scenario).Armies[0];
