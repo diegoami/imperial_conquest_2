@@ -22,31 +22,36 @@ public static class AppDiagnostics
     {
         lock (LifecycleGate)
         {
-        if (_owners++ != 0) return;
-        try
-        {
-            _journal = new DiagnosticJournal(DirectoryOverride ?? ProjectSettings.GlobalizePath("user://logs/diagnostics"),
-                warning: () => GD.PushWarning("Local diagnostics unavailable; gameplay continues."));
-            AppDomain.CurrentDomain.UnhandledException += OnUnhandled;
-            TaskScheduler.UnobservedTaskException += OnUnobserved;
-            ManagedHandlerRegistrations++;
-            _journal.Startup(
-                ProjectSettings.GetSetting("application/config/version", "development").AsString(),
-                typeof(AppDiagnostics).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unavailable",
-                Godot.Engine.GetVersionInfo()["string"].AsString(), System.Environment.Version.ToString(), OS.GetName(), SettingsScreen.SelectedPackId ?? "default");
-        }
-        catch { /* Diagnostics must not prevent application startup. */ }
+            if (_owners++ != 0) return;
+            try
+            {
+                _journal = new DiagnosticJournal(DirectoryOverride ?? ProjectSettings.GlobalizePath("user://logs/diagnostics"),
+                    warning: () => GD.PushWarning("Local diagnostics unavailable; gameplay continues."));
+                AppDomain.CurrentDomain.UnhandledException += OnUnhandled;
+                TaskScheduler.UnobservedTaskException += OnUnobserved;
+                ManagedHandlerRegistrations++;
+                var version = ProjectSettings.GetSetting("application/config/version", "development").AsString();
+                var build = typeof(AppDiagnostics).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unavailable";
+                var pack = SettingsScreen.SelectedPackId ?? IC2.Slice.Assets.AssetPackManifestLoader.DefaultPackId;
+                _journal.Startup(version, build, Godot.Engine.GetVersionInfo()["string"].AsString(),
+                    System.Environment.Version.ToString(), OS.GetName(), pack);
+                // Built-in file logging captures this trusted identity line, linking both local logs.
+                GD.Print($"IC2 diagnostics run={_journal.RunId} utc={DateTimeOffset.UtcNow:O} version={MetadataLabel(version, 80)} build={MetadataLabel(build, 120)} pack={MetadataLabel(pack, 40)}");
+            }
+            catch { /* Diagnostics must not prevent application startup. */ }
         }
     }
+    private static string MetadataLabel(string value, int limit) => new(value.Take(limit)
+        .Where(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '_' or '+' or '`' or '-').ToArray());
     public static void Release()
     {
         lock (LifecycleGate)
         {
-        if (_owners <= 0 || --_owners != 0) return;
-        AppDomain.CurrentDomain.UnhandledException -= OnUnhandled;
-        TaskScheduler.UnobservedTaskException -= OnUnobserved;
-        ManagedHandlerUnregistrations++;
-        _journal?.Dispose(); _journal = null;
+            if (_owners <= 0 || --_owners != 0) return;
+            AppDomain.CurrentDomain.UnhandledException -= OnUnhandled;
+            TaskScheduler.UnobservedTaskException -= OnUnobserved;
+            ManagedHandlerUnregistrations++;
+            _journal?.Dispose(); _journal = null;
         }
     }
     private static void OnUnhandled(object sender, UnhandledExceptionEventArgs args)
@@ -82,7 +87,8 @@ public static class AppDiagnostics
     public static void Detail(DiagnosticEvent kind, string label, long? turn = null, bool? paused = null, bool? fast = null)
     {
         try { _journal?.Detail(kind, Enum.TryParse<DiagnosticDetail>(label, out var detail) && Enum.IsDefined(detail) ? detail : DiagnosticDetail.Unavailable,
-            turn: turn, shot: SettingsScreen.BattleShotDelaySeconds, attack: SettingsScreen.BattleAttackDelaySeconds, paused: paused, fast: fast); } catch { }
+            turn: turn, shot: SettingsScreen.BattleShotDelaySeconds, attack: SettingsScreen.BattleAttackDelaySeconds, paused: paused, fast: fast,
+            pack: SettingsScreen.SelectedPackId ?? IC2.Slice.Assets.AssetPackManifestLoader.DefaultPackId, sound: SettingsScreen.SoundEnabled); } catch { }
     }
     public static void Frame(TacticalBattleFrame frame, long authoritativeTurn, string? stage = null, TacticalPresentationSnapshot? displayed = null, DiagnosticEvent? boundary = null)
     {
@@ -96,7 +102,8 @@ public static class AppDiagnostics
                 side: side, halfRound: view.Counter, computer: view.ComputerControlled[side], general: view.ComputerGeneral[side],
                 shot: SettingsScreen.BattleShotDelaySeconds, attack: SettingsScreen.BattleAttackDelaySeconds,
                 nation: side == 0 ? view.AttackerNationId : view.DefenderNationId, attacker: view.AttackerArmyId, defender: view.DefenderArmyId,
-                actorSlot: frame.Actor?.Slot, targetSlot: frame.Target?.Slot, terminal: view.IsOver, placed: view.Placed);
+                actorSlot: frame.Actor?.Slot, targetSlot: frame.Target?.Slot, terminal: view.IsOver, placed: view.Placed,
+                pack: SettingsScreen.SelectedPackId ?? IC2.Slice.Assets.AssetPackManifestLoader.DefaultPackId, sound: SettingsScreen.SoundEnabled);
         }
         catch { }
     }

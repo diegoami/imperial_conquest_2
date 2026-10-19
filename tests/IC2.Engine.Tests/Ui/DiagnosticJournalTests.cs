@@ -71,6 +71,7 @@ public sealed class DiagnosticJournalTests : IDisposable
     [InlineData("Usage: move <army>", false)]
     [InlineData("Unknown command 'private'", false)]
     [InlineData("move accepted", true)]
+    [InlineData("rename-unit accepted: unit now named Rejected", true)]
     public void CommandRejectionsAreFailures(string outcome, bool expected) =>
         Assert.Equal(expected, DiagnosticJournal.CommandSucceeded(new[] { "prelude rejected", "> private", outcome, "News:", "rejected old report" }));
     [Fact] public void ExceptionRetainsSafeMeaningInnerCauseAndCodeFrames()

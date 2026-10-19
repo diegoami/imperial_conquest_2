@@ -4,6 +4,7 @@ using System.Text.Json;
 using Godot;
 using IC2.Engine.Model;
 using IC2.Engine.Core;
+using IC2.Engine.Battle.Tactical;
 using IC2.Engine.Presentation;
 using IC2.Slice.Diagnostics;
 using IC2.Slice.Screens;
@@ -100,6 +101,7 @@ public partial class DiagnosticsCheck : Node
         _app.Notification((int)NotificationApplicationFocusIn);
         _app.ShowSettings();
         SettingsScreen.SetBattlePauses(1, 2);
+        CheckSettingsControls();
         Check(Records().Count(r => Kind(r) == "Focus") >= 2 && Records().Any(r => Kind(r) == "Settings"), "focus and explicit settings persisted");
         CheckManagedLifetime();
 
@@ -166,6 +168,9 @@ public partial class DiagnosticsCheck : Node
         // Report the measured synchronous disk-observer overhead; no duration promise for storage.
         GD.Print($"DiagnosticsCheck: boundary observer elapsed {_overhead.ElapsedMilliseconds} ms across {_observed.Count} operations.");
         await Settle();
+        var engineLog = ReadShared(ProjectSettings.GlobalizePath(ProjectSettings.GetSetting("debug/file_logging/log_path").AsString()));
+        Check(engineLog.Contains("run=" + startup.GetProperty("run").GetString(), StringComparison.Ordinal)
+            && engineLog.Contains("build=" + startup.GetProperty("metadata").GetProperty("build").GetString(), StringComparison.Ordinal), "engine and custom startup run/build identity correlate");
         CheckUnregistration();
         CheckStorageFailureIsolation();
     }
@@ -228,6 +233,36 @@ public partial class DiagnosticsCheck : Node
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void AbandonTask() { _ = Task.FromException(new IOException("Access denied for 'PrivateNameProbe'")); }
     private static void CollectTasks() { for (int i = 0; i < 3; i++) { GC.Collect(); GC.WaitForPendingFinalizers(); } }
+
+    private void CheckSettingsControls()
+    {
+        var picker = Walk(_app!.CurrentScreen!).OfType<OptionButton>().Single();
+        int initialPack = picker.Selected;
+        var sound = Walk(_app.CurrentScreen!).OfType<CheckBox>().Single();
+        bool originalSound = SettingsScreen.SoundEnabled;
+        try
+        {
+            if (picker.ItemCount > 1)
+            {
+                int other = (initialPack + 1) % picker.ItemCount;
+                picker.Select(other); picker.EmitSignal(OptionButton.SignalName.ItemSelected, (long)other);
+                var metadata = Records().Last(r => Kind(r) == "Settings").GetProperty("metadata");
+                Check(SettingsScreen.SelectedPackId == picker.GetItemText(other)
+                    && metadata.GetProperty("pack").GetString() == picker.GetItemText(other), "actual pack picker persists bounded selected pack context");
+            }
+            sound.SetPressedNoSignal(!originalSound); sound.EmitSignal(BaseButton.SignalName.Toggled, !originalSound);
+            Check(SettingsScreen.SoundEnabled == !originalSound && Records().Last(r => Kind(r) == "Settings").GetProperty("metadata").GetProperty("sound").GetBoolean() == !originalSound,
+                "actual sound toggle persists explicit preference");
+        }
+        finally
+        {
+            picker.Select(initialPack); picker.EmitSignal(OptionButton.SignalName.ItemSelected, (long)initialPack);
+            sound.SetPressedNoSignal(originalSound); sound.EmitSignal(BaseButton.SignalName.Toggled, originalSound);
+        }
+        Check(SettingsScreen.BattleShotDelaySeconds == 1 && SettingsScreen.BattleAttackDelaySeconds == 2 && SettingsScreen.SoundEnabled == originalSound,
+            "pack/sound controls preserve explicit battle pauses and restore preferences");
+    }
+    private static IEnumerable<Node> Walk(Node root) => root.GetChildren().SelectMany(n => new[] { n }.Concat(Walk(n)));
 
     private void CheckStorageFailureIsolation()
     {
@@ -299,19 +334,30 @@ public partial class DiagnosticsCheck : Node
         {
             long recordStart = Records().Last().GetProperty("sequence").GetInt64() + 1;
             SettingsScreen.SetBattlePauses(zero ? 0 : 1, zero ? 0 : 2);
-            var game = AddGame(Classical());
+            var reference = Classical();
+            var expectedFrames = new List<TacticalBattleFrame>();
+            expectedFrames.AddRange(reference.Submit("attack-army army-0 army-3").TacticalTimeline);
+            int expectedSubmits = 1, actualSubmits = 0;
+            var session = Classical(); session.EventsPublished += _ => actualSubmits++;
+            var game = AddGame(session);
             game.SubmitForCheck("attack-army army-0 army-3");
             var screen = (TacticalBattleScreen)game.ActiveOverlay!; screen.SetProcess(false);
             screen.SkipPlayback();
             var frameCount = Records().Count(r => Kind(r) == "Frame");
             for (int i = 0; i < 50; i++) screen.AdvancePlayback(0);
             Check(frameCount == Records().Count(r => Kind(r) == "Frame"), "idle/progress loop does not journal frames");
+            expectedFrames.AddRange(reference.BattleGeneral(true).TacticalTimeline); expectedSubmits++;
             screen.PressToolbarButton("computer_general"); screen.SkipPlayback();
             if (game.ActiveOverlay is TacticalBattleScreen active)
             {
+                expectedFrames.AddRange(reference.BattleSurrender(confirmed: true).TacticalTimeline); expectedSubmits++;
                 active.PressToolbarButton("surrender"); active.AnswerSurrender(true); active.SkipPlayback();
             }
             var all = Records().Where(r => r.GetProperty("sequence").GetInt64() >= recordStart).ToArray();
+            var expected = expectedFrames.DistinctBy(f => (f.BattleId, f.FrameId)).ToArray();
+            Check(actualSubmits == expectedSubmits && JsonSerializer.Serialize(session.State) == JsonSerializer.Serialize(reference.State), "journal preserves tactical command count/state/RNG against direct engine reference");
+            Check(all.Where(r => Kind(r) == "Frame").Select(r => r.GetProperty("metadata").GetProperty("frame").GetInt64()).SequenceEqual(expected.Select(f => f.FrameId))
+                && screen.ExchangesShown == expected.Count(f => f.Event is TacticalShotEvent or TacticalMeleeEvent), "zero/skip frames and exchanges retain exactly-once engine order");
             Check(all.Any(r => Kind(r) == "Frame" && r.GetProperty("metadata").GetProperty("detail").GetString() == "Terminal")
                 && all.Any(r => Kind(r) == "Frame" && r.GetProperty("metadata").GetProperty("detail").GetString() == "Reconciliation"), "terminal and reconciliation immutable frames persisted");
             Check(all.Any(r => Kind(r) == "Stage") && all.Any(r => Kind(r) == "Completion"), "zero/skip stage and completion receipts");

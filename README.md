@@ -134,6 +134,7 @@ The game keeps engine logs under `user://logs/` and a structured journal under
 `user://logs/diagnostics/`. On Windows the usual expansion is
 `%APPDATA%/Godot/app_userdata/Imperial Conquest 2 Map Viewer/logs/`; engine user-data
 overrides can change the actual location. Saves keep their existing location.
+Startup run ID, UTC time and build label link the engine log to its journal.
 After a hang or crash, retain this entire logs folder before restarting repeatedly.
 The journal retains five files of at most 1 MiB each and flushes operation boundaries
 to the operating system. This is no power-loss guarantee. Engine logs retain five

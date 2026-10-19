@@ -48,13 +48,14 @@ public sealed class DiagnosticJournal : IDisposable
     public void Detail(DiagnosticEvent kind, DiagnosticDetail detail, long? turn = null, long? frame = null,
         long? command = null, string? battle = null, int? side = null, int? halfRound = null, bool? computer = null, bool? general = null,
         double? shot = null, double? attack = null, bool? paused = null, bool? fast = null,
-        string? nation = null, string? attacker = null, string? defender = null, int? actorSlot = null, int? targetSlot = null, bool? terminal = null, bool? placed = null)
+        string? nation = null, string? attacker = null, string? defender = null, int? actorSlot = null, int? targetSlot = null, bool? terminal = null, bool? placed = null, string? pack = null, bool? sound = null)
     {
         Write(kind, "POINT", 0, "tactical", turn: turn, metadata: new { detail = detail.ToString(), frame, command,
             battle = battle is null ? null : Token(battle), side, halfRound, computer, general,
             authoritativeTurn = turn, snapshot = frame is null ? null : "immutable-displayed-frame",
             nation = nation is null ? null : Token(nation), attacker = attacker is null ? null : Token(attacker),
             defender = defender is null ? null : Token(defender), actorSlot, targetSlot, terminal, placed,
+            pack = pack is null ? null : SafeIdentifier(pack, 40), sound,
             shot = shot is { } s && double.IsFinite(s) ? (double?)Math.Clamp(s, 0, 3) : null,
             attack = attack is { } a && double.IsFinite(a) ? (double?)Math.Clamp(a, 0, 3) : null, paused, fast });
     }
@@ -124,7 +125,7 @@ public sealed class DiagnosticJournal : IDisposable
         foreach (var line in lines.Skip(start))
         {
             if (line.Trim() == "News:") break;
-            if (line.Contains(" rejected", StringComparison.OrdinalIgnoreCase)
+            if (Regex.IsMatch(line, @"^[A-Za-z][A-Za-z0-9.-]* rejected(?: \([A-Za-z0-9._-]{1,80}\))?:", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
                 || line.StartsWith("Could not ", StringComparison.Ordinal)
                 || line.StartsWith("A battle is open:", StringComparison.Ordinal)
                 || line.StartsWith("There is no battle to fight.", StringComparison.Ordinal)
@@ -164,7 +165,7 @@ public sealed class DiagnosticJournal : IDisposable
         return new { entity = entity is null ? null : Token(entity), numeric, mode };
     }
     private static string SafeType(Type type) => SafeIdentifier(type.FullName ?? type.Name, 96);
-    private static string SafeIdentifier(string value, int limit) => new(value.Take(limit).Where(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '_' or '+' or '`').ToArray());
+    private static string SafeIdentifier(string value, int limit) => new(value.Take(limit).Where(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '_' or '+' or '`' or '-').ToArray());
     private static string SafeSource(string? source) => source is "app" or "main" or "dialog" or "save" or "check" or "peace" or "map" or "diplomacy" or "news" or "load" or "managed" or "tactical" or "settings" or "lost" or "gained" or "result" or "travel" ? source : "other";
     private void Write(DiagnosticEvent kind, string outcome, long operation, string? source, string? command = null, string? target = null, long? turn = null, long? number = null, string? token = null, object? causes = null, object? metadata = null)
     {
