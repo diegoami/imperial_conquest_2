@@ -331,6 +331,8 @@ graph TD
   T180 --> T195
   T183 --> T195
   T179 --> T183[T183 tactical exchange audio]
+  T180 --> T197[T197 readable battle exchanges]
+  T183 --> T197
   T180 --> T183
   T184[T184 original SAV writer] --> T185[T185 SAV bridge and converter]
   R37[Research 37 evaluated complete mapping] -.-> T184
@@ -1466,6 +1468,10 @@ Owner strategic movement [1224](https://github.com/diegoami/imperial_conquest_2/
 
 Clear army/fleet milestone on existing [1010](https://github.com/diegoami/imperial_conquest_2/issues/1010), required in 0.6.x after T187/T195; reproduce first, bounded correction only if required, original colour/rhombus/town fidelity stays open under its evidence gate → [full entry](tasks/T196.md).
 
+#### T197 Readable current battle exchanges and deliberate unit lists
+
+Owner P1 [1260](https://github.com/diegoami/imperial_conquest_2/issues/1260), next 0.6.x; follows T180/T183, replaces persistent roster/history presentation and default-zero pauses, with explicit issue 1261 shared-writer hold → [full entry](tasks/T197.md).
+
 #### T25 Battle result, diplomacy, and hotseat handoff screens
 
 Godot screens → [full entry](tasks/T25.md) · [#25](https://github.com/diegoami/imperial_conquest_2/issues/25)
@@ -1691,3 +1697,4 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T194](#t194-accepted-strategic-routes-and-transient-ordered-observations) | Strategic travel observations | M18 | Sol family | Medium | direct Kimi | approved merged plan + disjoint Owns preflight | [#1236](https://github.com/diegoami/imperial_conquest_2/issues/1236) |
 | [T195](#t195-strategic-travel-presentation-and-arrival-barrier) | Strategic travel playback | M18 | Sol family | Medium | direct Kimi + human | T194, T187, T180, T183 | [#1224](https://github.com/diegoami/imperial_conquest_2/issues/1224) |
 | [T196](#t196-clear-strategic-army-and-fleet-selection-feedback) | Clear strategic selection | M18 | Sol family low | Medium | direct Kimi + human | T187, T195 | [#1010](https://github.com/diegoami/imperial_conquest_2/issues/1010) |
+| [T197](#t197-readable-current-battle-exchanges-and-deliberate-unit-lists) | Battle exchange readability | M21/M18 | Sol family | Medium | direct Kimi + human | T180, T183; 1261 serialization hold | [#1260](https://github.com/diegoami/imperial_conquest_2/issues/1260) |
