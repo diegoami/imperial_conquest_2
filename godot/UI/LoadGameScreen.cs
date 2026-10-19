@@ -93,47 +93,23 @@ public partial class LoadGameScreen : Control
 
     private void PopulateSaves(VBoxContainer list)
     {
-        var directory = ProjectSettings.GlobalizePath(SavesDirectory);
-        if (!Directory.Exists(directory))
+        var files = LoadGameModel.ListNativeSaves(ProjectSettings.GlobalizePath(SavesDirectory));
+        if (files.Count == 0)
         {
             _messageLabel.Text = "No saved games found.";
             return;
         }
 
-        var files = Directory.GetFiles(directory, "*.json", SearchOption.TopDirectoryOnly);
-        if (files.Length == 0)
-        {
-            _messageLabel.Text = "No saved games found.";
-            return;
-        }
-
-        foreach (var path in files)
-        {
-            AddSaveRow(list, path);
-        }
+        foreach (var save in files) AddSaveRow(list, save);
     }
 
-    private void AddSaveRow(VBoxContainer list, string path)
+    private void AddSaveRow(VBoxContainer list, LoadGameModel.NativeSaveRow save)
     {
         var row = new HBoxContainer();
         row.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         list.AddChild(row);
-
-        string label;
-        try
-        {
-            var summary = SaveManager.PeekSummaryFile(path);
-            label = $"{summary.Label} — {summary.ScenarioId}, turn {summary.TurnIndex}";
-        }
-        catch (Exception ex)
-        {
-            // T94 owns malformed-save handling; this screen reports the file could not be read rather
-            // than throwing out of _Ready or silently skipping it.
-            label = $"{Path.GetFileName(path)} — could not be read ({ex.Message})";
-        }
-
-        row.AddChild(UiKit.MakeLabel(label, AppTheme.Body, UiKit.TextColor));
-        row.AddChild(UiKit.MakeButton("Continue", () => OnContinuePressed(path), AppTheme.Button));
+        row.AddChild(UiKit.MakeLabel(save.Text, AppTheme.Body, UiKit.TextColor));
+        row.AddChild(UiKit.MakeButton("Continue", () => OnContinuePressed(save.Path), AppTheme.Button));
     }
 
     /// <summary>

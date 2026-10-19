@@ -52,6 +52,42 @@ public class LoadGameModelTests : IDisposable
         Assert.Empty(LoadGameModel.ListOpenable(Path.Combine(_dir, "missing")));
     }
 
+    [Fact]
+    public void Native_rows_show_actual_filenames_and_sort_newest_first_with_filename_ties()
+    {
+        var data = Repo().Resolve("classical-mediterranean");
+        var source = new GameSession(data.World, data.Ruleset, data.Scenario);
+        var old = Path.Combine(_dir, "a-old.json");
+        source.Submit($"save {old}");
+        var newer = Path.Combine(_dir, "z-new.json");
+        var tied = Path.Combine(_dir, "b-tie.json");
+        File.Copy(old, newer);
+        File.Copy(old, tied);
+        var time = new DateTime(2026, 1, 2, 0, 0, 0, DateTimeKind.Utc);
+        File.SetLastWriteTimeUtc(old, time.AddDays(-1));
+        File.SetLastWriteTimeUtc(newer, time);
+        File.SetLastWriteTimeUtc(tied, time);
+
+        var rows = LoadGameModel.ListNativeSaves(_dir);
+
+        Assert.Equal(new[] { tied, newer, old }, rows.Select(row => row.Path));
+        foreach (var row in rows) Assert.StartsWith(Path.GetFileName(row.Path) + " — ", row.Text);
+        Assert.True(LoadGameModel.Open(rows[1].Path, Repo()).Succeeded);
+    }
+
+    [Fact]
+    public void Native_rows_keep_malformed_files_identifiable_and_disappearing_files_fail_safely()
+    {
+        var path = Write("broken.json", new byte[] { 1, 2, 3 });
+        Write("original.sav", new byte[] { 1 });
+        var row = Assert.Single(LoadGameModel.ListNativeSaves(_dir));
+        Assert.Equal(path, row.Path);
+        Assert.StartsWith("broken.json — could not be read", row.Text);
+        File.Delete(path);
+        AssertRefused(LoadGameModel.Open(row.Path, Repo()), "broken.json");
+        Assert.Empty(LoadGameModel.ListNativeSaves(Path.Combine(_dir, "missing")));
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData(HumanBattleMode.Instant)]

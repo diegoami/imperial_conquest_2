@@ -49,6 +49,32 @@ public static class LoadGameModel
             .ToList();
     }
 
+    /// <summary>A native save row, retaining its actual path for Continue.</summary>
+    public sealed record NativeSaveRow(string Path, string Text, DateTime LastWriteTimeUtc);
+
+    /// <summary>Native save rows for the Load screen; Browse keeps its separate alphabetic list.</summary>
+    public static IReadOnlyList<NativeSaveRow> ListNativeSaves(string folder)
+    {
+        if (!Directory.Exists(folder)) return Array.Empty<NativeSaveRow>();
+        return Directory.GetFiles(folder, "*.json", SearchOption.TopDirectoryOnly)
+            .Select(NativeRow).ToList();
+    }
+
+    private static NativeSaveRow NativeRow(string path)
+    {
+        string text;
+        try
+        {
+            var summary = SaveManager.PeekSummaryFile(path);
+            text = $"{summary.Label} — {summary.ScenarioId}, turn {summary.TurnIndex}";
+        }
+        catch (Exception ex)
+        {
+            text = $"{Path.GetFileName(path)} — could not be read ({ex.Message})";
+        }
+        return new NativeSaveRow(path, text, File.GetLastWriteTimeUtc(path));
+    }
+
     /// <summary>Opens <paramref name="path"/>; every failure becomes a message naming the file.</summary>
     public static Outcome Open(string path, GameDataRepository repository, HumanBattleMode humanBattles = HumanBattleMode.Instant)
     {
