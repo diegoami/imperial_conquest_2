@@ -23,7 +23,7 @@ contents are retained locally and are not included here.
 **[derived]** Offline native unwind metadata and the Godot call site's
 arguments strongly match a blocking GPU timestamp-result read. This is not
 a debugger-symbolized identification or proof of the initiating fault.
-The corresponding [Godot source at commit ed1daf0bf](https://github.com/godotengine/godot/blob/ed1daf0bf/drivers/gles3/storage/utilities.cpp#L321-L339)
+The corresponding [Godot source at commit ed1daf0bf](https://github.com/godotengine/godot/blob/ed1daf0bf/drivers/gles3/storage/utilities.cpp#L343-L353)
 reads timestamp queries using `glGetQueryObjectui64v` and `GL_QUERY_RESULT`.
 Driver versus engine responsibility, the trigger, and the connection to the
 battle transition remain **[open]**. Source inspection does not justify a
@@ -37,12 +37,13 @@ Use these per-launch engine arguments before any `--` user-argument separator:
 --rendering-method gl_compatibility --rendering-driver opengl3_angle
 ```
 
-**[confirmed: code]** Godot's [Windows backend selection](https://github.com/godotengine/godot/blob/ed1daf0bf/platform/windows/display_server_windows.cpp#L7714-L7734)
-selects GLES mode for ANGLE; the timestamp read above is gated on desktop GL
-mode. This bypasses that particular read. No public timestamp-disable switch
+**[confirmed: code]** Godot's [Windows ANGLE API selection](https://github.com/godotengine/godot/blob/ed1daf0bf/platform/windows/gl_manager_windows_angle.cpp#L45-L56)
+uses Direct3D 11 and GLES; the [timestamp read is gated on desktop GL mode](https://github.com/godotengine/godot/blob/ed1daf0bf/drivers/gles3/storage/utilities.cpp#L343-L353).
+This bypasses that particular read. No public timestamp-disable switch
 was found in the inspected path. ANGLE initialization can
-[fall back to native OpenGL](https://github.com/godotengine/godot/blob/ed1daf0bf/platform/windows/display_server_windows.cpp#L7660-L7673),
-so successful startup alone does not establish which backend ran.
+[fall back to native OpenGL](https://github.com/godotengine/godot/blob/ed1daf0bf/platform/windows/display_server_windows.cpp#L8237-L8252)
+when `rendering/gl_compatibility/fallback_to_native` allows it and native GL
+is supported, so successful startup alone does not establish which backend ran.
 
 **[confirmed: startup only]** An owner-authorized temporary copy of unchanged
 v0.6.1 completed 600 frames, capped at 60 FPS in a 1024 x 768 window, with exit
