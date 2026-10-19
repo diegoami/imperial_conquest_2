@@ -142,6 +142,9 @@ public sealed class DiagnosticJournal : IDisposable
             if (Regex.IsMatch(line, @"^[A-Za-z][A-Za-z0-9.-]* rejected(?: \([A-Za-z0-9._-]{1,80}\))?:", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
                 || line.StartsWith("Could not ", StringComparison.Ordinal)
                 || line.StartsWith("Refused:", StringComparison.Ordinal)
+                || line.StartsWith("There is no pending peace treaty offer.", StringComparison.Ordinal)
+                || line.StartsWith("Unknown nation ", StringComparison.Ordinal)
+                || line.StartsWith("No human seat remains.", StringComparison.Ordinal)
                 || line.StartsWith("A battle is open:", StringComparison.Ordinal)
                 || line.StartsWith("There is no battle to fight.", StringComparison.Ordinal)
                 || line.StartsWith("Usage:", StringComparison.Ordinal)
@@ -199,7 +202,9 @@ public sealed class DiagnosticJournal : IDisposable
                 if (bytes.Length > MaxRecordBytes) throw new InvalidDataException("Diagnostic record exceeded designed bound.");
                 if (_stream!.Length + bytes.Length > MaxFileBytes) { _stream.Dispose(); _stream = null; Rotate(); Open(); }
                 _fault?.Invoke("append"); _stream!.Write(bytes);
-                _fault?.Invoke("flush"); _stream.Flush(flushToDisk: true);
+                // Points must remain visible across process failure without fsync in playback loops.
+                // Only operation boundaries request storage durability; neither guarantees power loss safety.
+                _fault?.Invoke("flush"); _stream.Flush(flushToDisk: outcome is "BEFORE" or "AFTER" or "FAILURE");
             }
             catch { Disable(); }
             finally { _writing = false; }

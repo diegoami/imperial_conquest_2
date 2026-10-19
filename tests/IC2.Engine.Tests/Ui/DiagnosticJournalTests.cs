@@ -19,6 +19,14 @@ public sealed class DiagnosticJournalTests : IDisposable
         Assert.Equal(operation, records[1].GetProperty("operation").GetInt64());
         Assert.DoesNotContain("secret-name", ReadText(Path.Combine(_directory,"journal-0.jsonl")));
     }
+    [Fact] public void PointIsVisibleToSeparateReaderBeforeDispose()
+    {
+        using var journal = new DiagnosticJournal(_directory);
+        journal.Mark(DiagnosticEvent.Stage, "tactical");
+        var point = Read().Single();
+        Assert.Equal("POINT", point.GetProperty("outcome").GetString());
+        Assert.Equal("Stage", point.GetProperty("kind").GetString());
+    }
     [Fact] public void TokensHidePathsAndRemainRecomputable()
     {
         using var journal = new DiagnosticJournal(_directory);
@@ -69,6 +77,9 @@ public sealed class DiagnosticJournalTests : IDisposable
     [Theory]
     [InlineData("Move rejected (x): private", false)]
     [InlineData("Refused: Cannot set a melee target during placement.", false)]
+    [InlineData("There is no pending peace treaty offer.", false)]
+    [InlineData("Unknown nation 'private'.", false)]
+    [InlineData("No human seat remains. The game is over.", false)]
     [InlineData("Usage: move <army>", false)]
     [InlineData("Unknown command 'private'", false)]
     [InlineData("move accepted", true)]
