@@ -56,23 +56,35 @@ public static class LoadGameModel
     public static IReadOnlyList<NativeSaveRow> ListNativeSaves(string folder)
     {
         if (!Directory.Exists(folder)) return Array.Empty<NativeSaveRow>();
-        return Directory.GetFiles(folder, "*.json", SearchOption.TopDirectoryOnly)
-            .Select(NativeRow).ToList();
+        try
+        {
+            return Directory.GetFiles(folder, "*", SearchOption.TopDirectoryOnly)
+                .Where(path => string.Equals(Path.GetExtension(path), ".json", StringComparison.OrdinalIgnoreCase))
+                .Select(NativeRow)
+                .OrderByDescending(row => row.LastWriteTimeUtc)
+                .ThenBy(row => System.IO.Path.GetFileName(row.Path), StringComparer.OrdinalIgnoreCase)
+                .ThenBy(row => System.IO.Path.GetFileName(row.Path), StringComparer.Ordinal)
+                .ToList();
+        }
+        catch (IOException) { return Array.Empty<NativeSaveRow>(); }
+        catch (UnauthorizedAccessException) { return Array.Empty<NativeSaveRow>(); }
     }
 
     private static NativeSaveRow NativeRow(string path)
     {
         string text;
+        var modified = DateTime.MinValue;
         try
         {
+            modified = File.GetLastWriteTimeUtc(path);
             var summary = SaveManager.PeekSummaryFile(path);
-            text = $"{summary.Label} — {summary.ScenarioId}, turn {summary.TurnIndex}";
+            text = $"{Path.GetFileName(path)} â€” {summary.ScenarioId}, turn {summary.TurnIndex}";
         }
         catch (Exception ex)
         {
-            text = $"{Path.GetFileName(path)} — could not be read ({ex.Message})";
+            text = $"{Path.GetFileName(path)} â€” could not be read ({ex.Message})";
         }
-        return new NativeSaveRow(path, text, File.GetLastWriteTimeUtc(path));
+        return new NativeSaveRow(path, text, modified);
     }
 
     /// <summary>Opens <paramref name="path"/>; every failure becomes a message naming the file.</summary>

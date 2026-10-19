@@ -59,6 +59,8 @@ public class LoadGameModelTests : IDisposable
         var source = new GameSession(data.World, data.Ruleset, data.Scenario);
         var old = Path.Combine(_dir, "a-old.json");
         source.Submit($"save {old}");
+        // Stored metadata is deliberately unrelated to the on-disk filenames.
+        Assert.DoesNotContain("a-old.json", SaveManager.PeekSummaryFile(old).Label);
         var newer = Path.Combine(_dir, "z-new.json");
         var tied = Path.Combine(_dir, "b-tie.json");
         File.Copy(old, newer);
@@ -71,8 +73,20 @@ public class LoadGameModelTests : IDisposable
         var rows = LoadGameModel.ListNativeSaves(_dir);
 
         Assert.Equal(new[] { tied, newer, old }, rows.Select(row => row.Path));
-        foreach (var row in rows) Assert.StartsWith(Path.GetFileName(row.Path) + " — ", row.Text);
+        foreach (var row in rows) Assert.StartsWith(Path.GetFileName(row.Path) + " â€” ", row.Text);
         Assert.True(LoadGameModel.Open(rows[1].Path, Repo()).Succeeded);
+    }
+
+    [Fact]
+    public void Native_row_primary_text_uses_filename_instead_of_stored_label()
+    {
+        var data = Repo().Resolve("classical-mediterranean");
+        var session = new GameSession(data.World, data.Ruleset, data.Scenario);
+        var path = Path.Combine(_dir, "my-actual-save.JSON");
+        session.Submit($"save {path}");
+        var row = Assert.Single(LoadGameModel.ListNativeSaves(_dir));
+        Assert.StartsWith("my-actual-save.JSON â€” ", row.Text);
+        Assert.Equal(path, row.Path);
     }
 
     [Fact]
@@ -82,7 +96,7 @@ public class LoadGameModelTests : IDisposable
         Write("original.sav", new byte[] { 1 });
         var row = Assert.Single(LoadGameModel.ListNativeSaves(_dir));
         Assert.Equal(path, row.Path);
-        Assert.StartsWith("broken.json — could not be read", row.Text);
+        Assert.StartsWith("broken.json â€” could not be read", row.Text);
         File.Delete(path);
         AssertRefused(LoadGameModel.Open(row.Path, Repo()), "broken.json");
         Assert.Empty(LoadGameModel.ListNativeSaves(Path.Combine(_dir, "missing")));

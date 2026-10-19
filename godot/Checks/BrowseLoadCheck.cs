@@ -73,6 +73,8 @@ public partial class BrowseLoadCheck : Node
             !string.Equals(Path.GetFullPath(_tempDir), Path.GetFullPath(savesDir), System.StringComparison.OrdinalIgnoreCase),
             "the copy is outside user://saves");
 
+        CheckNativeRows(saved!);
+
         appRoot.ShowLoadGame();
         if (!Check(appRoot.CurrentScreen is LoadGameScreen, "AppRoot shows the Load screen")) return;
         var load = (LoadGameScreen)appRoot.CurrentScreen!;
@@ -97,6 +99,48 @@ public partial class BrowseLoadCheck : Node
             $"same active seat ('{resumed.ActiveNationId}' vs '{originalState.ActiveNationId}')");
         Check(resumed.Calendar.TurnIndex == originalState.Calendar.TurnIndex,
             $"same turn ({resumed.Calendar.TurnIndex} vs {originalState.Calendar.TurnIndex})");
+    }
+
+    private void CheckNativeRows(string source)
+    {
+        var folder = Path.Combine(_tempDir!, "native-list");
+        Directory.CreateDirectory(folder);
+        var old = Path.Combine(folder, "a-old.json");
+        var newest = Path.Combine(folder, "z-newest.json");
+        var tie = Path.Combine(folder, "b-tie.json");
+        foreach (var path in new[] { old, newest, tie }) File.Copy(source, path);
+        var time = new DateTime(2026, 1, 2, 0, 0, 0, DateTimeKind.Utc);
+        File.SetLastWriteTimeUtc(old, time.AddDays(-1));
+        File.SetLastWriteTimeUtc(newest, time);
+        File.SetLastWriteTimeUtc(tie, time);
+        var broken = Path.Combine(folder, "broken.json");
+        File.WriteAllText(broken, "bad json");
+        File.SetLastWriteTimeUtc(broken, time.AddDays(-2));
+
+        var screen = new LoadGameScreen { SavesDirectoryForCheck = folder };
+        AddChild(screen);
+        var rows = screen.SaveListForCheck.GetChildren().OfType<HBoxContainer>().ToArray();
+        Check(rows.Length == 4, "native list retains malformed saves");
+        var expected = new[] { tie, newest, old, broken };
+        for (var i = 0; i < Math.Min(rows.Length, expected.Length); i++)
+        {
+            var text = rows[i].GetChildren().OfType<Label>().Single().Text;
+            Check(text.StartsWith(Path.GetFileName(expected[i]) + " — ", StringComparison.Ordinal),
+                "native row shows actual filename in newest-first order with filename ties");
+        }
+        if (rows.Length == 4)
+        {
+            var resumed = 0;
+            screen.GameResumed += _ => resumed++;
+            rows[1].GetChildren().OfType<Button>().Single().EmitSignal(BaseButton.SignalName.Pressed);
+            Check(resumed == 1 && screen.LastLoadedPath == newest, "real Continue button loads its corresponding actual path");
+            File.Delete(tie);
+            rows[0].GetChildren().OfType<Button>().Single().EmitSignal(BaseButton.SignalName.Pressed);
+            rows[3].GetChildren().OfType<Button>().Single().EmitSignal(BaseButton.SignalName.Pressed);
+            Check(resumed == 1, "disappearing and malformed native rows start no session");
+        }
+        RemoveChild(screen);
+        screen.QueueFree();
     }
 
     private bool Check(bool condition, string description)

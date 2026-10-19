@@ -55,6 +55,12 @@ public partial class LoadGameScreen : Control
 
     private Label _messageLabel = null!;
 
+    /// <summary>Check-only isolated save folder; production uses user://saves.</summary>
+    public string? SavesDirectoryForCheck { private get; set; }
+
+    /// <summary>The real rows and Continue buttons, exposed for screen wiring checks.</summary>
+    public VBoxContainer SaveListForCheck { get; private set; } = null!;
+
     public override void _Ready()
     {
         UiKit.ApplyBackground(this, UiKit.Background);
@@ -81,7 +87,7 @@ public partial class LoadGameScreen : Control
         header.AddChild(UiKit.MakeLabel("Load Game", AppTheme.Header, UiKit.AccentColor));
         header.AddChild(UiKit.MakeButton("Browse...", OnBrowsePressed, AppTheme.Button));
 
-        var list = new VBoxContainer();
+        var list = SaveListForCheck = new VBoxContainer();
         list.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(list);
 
@@ -93,7 +99,7 @@ public partial class LoadGameScreen : Control
 
     private void PopulateSaves(VBoxContainer list)
     {
-        var files = LoadGameModel.ListNativeSaves(ProjectSettings.GlobalizePath(SavesDirectory));
+        var files = LoadGameModel.ListNativeSaves(SavesDirectoryForCheck ?? ProjectSettings.GlobalizePath(SavesDirectory));
         if (files.Count == 0)
         {
             _messageLabel.Text = "No saved games found.";
