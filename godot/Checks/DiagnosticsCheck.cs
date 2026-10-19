@@ -168,11 +168,11 @@ public partial class DiagnosticsCheck : Node
         // Report the measured synchronous disk-observer overhead; no duration promise for storage.
         GD.Print($"DiagnosticsCheck: boundary observer elapsed {_overhead.ElapsedMilliseconds} ms across {_observed.Count} operations.");
         await Settle();
+        CheckUnregistration();
+        CheckStorageFailureIsolation();
         var engineLog = ReadShared(ProjectSettings.GlobalizePath(ProjectSettings.GetSetting("debug/file_logging/log_path").AsString()));
         Check(engineLog.Contains("run=" + startup.GetProperty("run").GetString(), StringComparison.Ordinal)
             && engineLog.Contains("build=" + startup.GetProperty("metadata").GetProperty("build").GetString(), StringComparison.Ordinal), "engine and custom startup run/build identity correlate");
-        CheckUnregistration();
-        CheckStorageFailureIsolation();
     }
 
     private void Observe(string name, string source, Action action, bool success = true, GameSession? session = null)
@@ -346,6 +346,13 @@ public partial class DiagnosticsCheck : Node
             var frameCount = Records().Count(r => Kind(r) == "Frame");
             for (int i = 0; i < 50; i++) screen.AdvancePlayback(0);
             Check(frameCount == Records().Count(r => Kind(r) == "Frame"), "idle/progress loop does not journal frames");
+            // During placement the real board routes a melee-target click and the engine refuses it.
+            var enemy = session.OpenTacticalBattle!.Slots.Select((slot, index) => (slot, index)).First(p => p.slot.IsLive && p.index >= 20);
+            expectedFrames.AddRange(reference.BattleAttack(0, enemy.index).TacticalTimeline); expectedSubmits++;
+            var beforeRefusal = JsonSerializer.Serialize(session.State);
+            screen.SelectUnit(0);
+            Observe("real-tactical-refusal", "tactical", () => screen.ClickCell(enemy.slot.X, enemy.slot.Y), false, session);
+            Check(JsonSerializer.Serialize(session.State) == beforeRefusal, "refused real tactical click preserves authoritative state/RNG");
             expectedFrames.AddRange(reference.BattleGeneral(true).TacticalTimeline); expectedSubmits++;
             screen.PressToolbarButton("computer_general"); screen.SkipPlayback();
             if (game.ActiveOverlay is TacticalBattleScreen active)

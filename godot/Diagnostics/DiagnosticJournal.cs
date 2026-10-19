@@ -98,19 +98,33 @@ public sealed class DiagnosticJournal : IDisposable
         var verb = command?.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.ToLowerInvariant();
         return verb is "end" or "save" or "news" or "move" or "attack" or "shoot" or "recruit" or "mobilize" or "tax" or "diplomacy" or "battle" or "general" or "place" or "clear" or "surrender" or "status" or "armies" or "cities" or "map" or "buy" or "attack-army" or "besiege-city" or "attack-fleet" or "disband-army" or "join-armies" or "join-units" or "split-army" or "army-transfer" or "split-unit" or "rename-unit" or "disband-unit" or "order-city" or "declare-war" or "make-peace" or "propose-alliance" or "propose-trade" or "accept-offer" or "peace-yes" or "peace-no" or "hire-mercenary" or "recruit-standing" or "disband-slot" or "move-fleet" or "order-fleet" or "repair-fleet" or "scuttle-fleet" or "split-fleet" or "join-fleets" or "embark-army" or "disembark-army" or "buy-fleet-supply" or "fleet-transfer" or "load" or "balance" or "set-tax" or "transfer-money" ? verb : "unknown";
     }
-    // A finite vocabulary retains BCL failure meaning while removing all user supplied payload.
-    private static readonly HashSet<string> ExceptionWords = new(
-        "access denied permission unauthorized file directory path not found could cannot read write open closed disposed object operation invalid failed failure unexpected index outside bounds array collection range argument null value required format input string incorrect supported stream disk full space insufficient memory timeout timed out cancelled canceled task exception inner caused by sharing violation used another process data corrupt malformed sequence contains no elements state does exist already empty is was the a an to of in for and or at has been being unable load save deserialize serialize json token expected end position line byte number length maximum exceeded invalidoperationexception ioexception unauthorizedaccessexception".Split(' '), StringComparer.OrdinalIgnoreCase);
+    // Emit owned diagnostic phrases only: even allowed words must not reconstruct a private payload.
+    private static readonly (string Pattern, string Text)[] ExceptionPhrases = {
+        ("access.*denied|permission denied", "access denied"),
+        ("could not find file|file not found", "file not found"),
+        ("could not find.*directory|directory not found", "directory not found"),
+        ("operation failed", "operation failed"),
+        ("outside.*bounds", "index outside bounds"),
+        ("sequence contains no elements", "sequence contains no elements"),
+        ("cannot access.*disposed|object.*disposed", "object disposed"),
+        ("not enough.*space|disk.*full|insufficient.*space", "insufficient disk space"),
+        ("sharing violation|used by another process", "sharing violation"),
+        ("insufficient.*memory|out of memory", "insufficient memory"),
+        ("timed out|timeout", "operation timed out"),
+        ("canceled|cancelled", "operation cancelled"),
+        ("invalid.*json|json.*invalid|invalid start of a value", "invalid json data"),
+        ("incorrect format|correct format|invalid format", "invalid format"),
+        ("value cannot be null|argument.*null", "null argument"),
+        ("not supported", "operation not supported"),
+    };
     private static string SafeExceptionMessage(string message)
     {
-        // Bound work before regex/encoding, and remove path/quoted spans before token selection.
+        // Bound matching work and remove quoted/path payloads. Never copy any matched input text.
         var bounded = message[..Math.Min(message.Length, 1024)];
         bounded = Regex.Replace(bounded, @"[\""'][^\""']*[\""']|(?:[A-Za-z]:[\\/]|/|\\)[^\r\n]*", " [redacted] ");
-        var words = Regex.Matches(bounded, @"[A-Za-z]+")
-            .Select(m => ExceptionWords.Contains(m.Value) ? m.Value.ToLowerInvariant() : "[redacted]")
-            .Take(20).ToArray();
-        var safe = string.Join(" ", words);
-        return safe[..Math.Min(safe.Length, 160)];
+        var phrases = ExceptionPhrases.Where(p => Regex.IsMatch(bounded, p.Pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+            .Select(p => p.Text).Take(3).ToArray();
+        return phrases.Length == 0 ? "message payload redacted" : string.Join("; ", phrases);
     }
     private static string TargetFormat(string target)
     {
@@ -127,6 +141,7 @@ public sealed class DiagnosticJournal : IDisposable
             if (line.Trim() == "News:") break;
             if (Regex.IsMatch(line, @"^[A-Za-z][A-Za-z0-9.-]* rejected(?: \([A-Za-z0-9._-]{1,80}\))?:", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
                 || line.StartsWith("Could not ", StringComparison.Ordinal)
+                || line.StartsWith("Refused:", StringComparison.Ordinal)
                 || line.StartsWith("A battle is open:", StringComparison.Ordinal)
                 || line.StartsWith("There is no battle to fight.", StringComparison.Ordinal)
                 || line.StartsWith("Usage:", StringComparison.Ordinal)

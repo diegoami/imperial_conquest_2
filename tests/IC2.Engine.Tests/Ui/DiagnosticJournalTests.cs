@@ -68,6 +68,7 @@ public sealed class DiagnosticJournalTests : IDisposable
     }
     [Theory]
     [InlineData("Move rejected (x): private", false)]
+    [InlineData("Refused: Cannot set a melee target during placement.", false)]
     [InlineData("Usage: move <army>", false)]
     [InlineData("Unknown command 'private'", false)]
     [InlineData("move accepted", true)]
@@ -149,6 +150,12 @@ public sealed class DiagnosticJournalTests : IDisposable
         Assert.Equal(0, warnings);
         Assert.Equal(4, Read().Single().GetProperty("causes").GetArrayLength());
         Assert.InRange(new FileInfo(Path.Combine(_directory, "journal-0.jsonl")).Length, 1, DiagnosticJournal.MaxRecordBytes);
+    }
+    [Fact] public void ExceptionDoesNotRecombinePrivatePayloadFromAllowedWords()
+    {
+        using var journal = new DiagnosticJournal(_directory);
+        journal.Exception(new InvalidOperationException("Operation failed; owner payload: file write access directory path"));
+        Assert.Equal("operation failed", Read().Single().GetProperty("causes")[0].GetProperty("message").GetString());
     }
     private void FillCurrent()
     {
