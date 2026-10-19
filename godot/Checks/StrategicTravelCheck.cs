@@ -118,8 +118,8 @@ public partial class StrategicTravelCheck : Node
             var origin = map.GetGlobalTransformWithCanvas() * rect.Position;
             var changed = 0;
             var samples = 0;
-            for (var y = (int)Math.Ceiling(origin.Y); y < origin.Y + rect.Size.Y; y++)
-            for (var x = (int)Math.Ceiling(origin.X); x < origin.X + rect.Size.X; x++)
+            for (var y = (int)Math.Ceiling(origin.Y - .5f); y + .5f < origin.Y + rect.Size.Y; y++)
+            for (var x = (int)Math.Ceiling(origin.X - .5f); x + .5f < origin.X + rect.Size.X; x++)
             {
                 if (x < 0 || y < 0 || x >= selected.GetWidth() || y >= selected.GetHeight()) continue;
                 samples++;
@@ -140,6 +140,10 @@ public partial class StrategicTravelCheck : Node
             Require(map.SelectedStrategicMarkerForCheck == id && main.ContextPanel.SubjectForCheck == "UnitList:neighbour"
                 && main.CommandStrip.Selection == (fleet ? UnitStripSelection.OwnFleet : UnitStripSelection.OwnArmy)
                 && main.Session.State == before, prefix + " right-click list preserves selected identity, armed strip and authoritative state");
+            if (zoom == "maximum")
+            {
+                using var listed = await FeedbackImage(prefix + "-right-list");
+            }
             if (overlap)
             {
                 Click(map, new(50, 45), MouseButton.Right);
