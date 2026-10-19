@@ -13,14 +13,13 @@ namespace IC2.Engine.Tests.Presentation;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>Three fresh scripts.</strong> T178 splits the fixed Macedonia/seed3 coverage into
-/// <c>success.txt</c> (A: treaty and marine) and <c>success-trade-offer.txt</c> (B: incoming trade).
-/// B repeats the original prefix through its turn14 offer and accepts it at EOF. A retains the
-/// remaining original commands, adds one ordinary adjacent battle after original69, and answers the
-/// actual later treaty immediately after original79. Neither case supplies state to the other.
-/// <c>success-fleet.txt</c> remains a separate <c>toy-3city</c> case for <c>attack-fleet</c>.
-/// Each has full golden equality, fresh-session determinism and per-line own-verb acceptance;
-/// <see cref="CommandCoverageTests"/> aggregates all three nonempty goldens.
+/// <strong>Four independent cases.</strong> T192 retains a corrected new-game Macedonia/seed3
+/// prefix in <c>success.txt</c>; B (<c>success-trade-offer.txt</c>) accepts its actual Numidia
+/// trade immediately after original end22 and replays every later command. The unchanged original
+/// A78–87 group lives in <c>success-treaty-load.txt</c>, resumed from one pinned native baseline
+/// port save before original78. That historical state is not supplied by corrected A. Fleet remains
+/// a fresh <c>toy-3city</c> case. Every case has nonempty golden equality, fresh-session/load
+/// determinism and per-line own-verb acceptance; <see cref="CommandCoverageTests"/> aggregates all four.
 /// </para>
 /// <para>
 /// <strong><c>success.txt</c>: scenario and seed.</strong> <c>classical-mediterranean</c>, seat
@@ -75,14 +74,13 @@ namespace IC2.Engine.Tests.Presentation;
 /// remain unchanged; no new seed search was used for T171.
 /// </para>
 /// <para>
-/// <strong>T178 script boundaries.</strong> A initiates <c>attack-army mac-sac-1 army-14</c>
-/// immediately after original69. The later original79 <c>end</c> raises an actual Thracian treaty
-/// addressed to Macedonia; the relocated original60 <c>peace-yes</c> answers it before another end
-/// could expire it. The unchanged original marine sequence then moves to (148,40), embarks and
-/// disembarks. B omits only the two originally unaccepted answers from original1 through70 and appends the
-/// original23 <c>accept-offer</c> immediately after original70's actual Numidia trade offer.
-/// The scorer correction and these script changes have separate causal evidence; two cases do not
-/// establish original-input equivalence. Scenario, seed, preset, turn order and mercenary IDs stay fixed.
+/// <strong>T192 boundaries and provenance.</strong> Command numbers refer to A at baseline
+/// <c>a3dbf161b3b40bb02717845e933754ef08623854</c>. Corrected A keeps original1–78 with only
+/// the three specified preparation moves and sacrificial attack relocation. The loaded group duplicates
+/// original78 and retains original79–87 unchanged, including the same peace answer and marine sequence.
+/// The native save was produced by ordinary baseline play/save after original77; it preserves the
+/// naturally reached root, human seat and fixed order. The adjacent provenance file records hashes,
+/// generation/validation and claim limits. No offer/state injection, reseeding or new search was used.
 /// </para>
 /// <para>
 /// <strong>Random consumers.</strong> <see cref="Battle.BattleCasualties"/>'s casualty divisor
@@ -362,6 +360,175 @@ public sealed class SuccessScriptTests
     public void Every_mutating_line_in_the_trade_offer_golden_produced_an_accepted_outcome()
     {
         AssertEveryMutatingLineProducedAnAcceptedOutcome(File.ReadAllText(SuccessTradeOfferGoldenPath));
+    }
+
+    // T192: historical native port snapshot; no field/seed/offer injection or new-game prelude.
+    private static string CliFixture(string name) => Path.Combine(ModelTestPaths.RepositoryRoot, "tests", "fixtures", "cli", name);
+    private static string TreatySavePath => Path.Combine(ModelTestPaths.RepositoryRoot, "tests", "fixtures", "saves", "success-treaty-before-end78.json");
+    private static GameSession NewTreatySession() => new(Classical.World, Classical.Ruleset, Classical.Scenario,
+        IC2.Engine.Persistence.SaveManager.LoadFile(TreatySavePath, Classical.World, Classical.Ruleset));
+
+    [Fact]
+    public void The_loaded_treaty_case_has_pinned_native_context_and_exact_roundtrip()
+    {
+        var file = System.Text.Encoding.UTF8.GetBytes(File.ReadAllText(TreatySavePath).Replace("\r\n", "\n", StringComparison.Ordinal));
+        Assert.Equal("7494a66e8a8488fe3a95d0d8b572cb09b2a825d2d59c95de0bb8ed4c178ae77e",
+            Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(file)));
+        var save = IC2.Engine.Persistence.SaveManager.LoadFile(TreatySavePath, Classical.World, Classical.Ruleset);
+        var text = IC2.Engine.Persistence.SaveManager.Serialize(save);
+        var copy = IC2.Engine.Persistence.SaveManager.Load("treaty-roundtrip", text, Classical.World, Classical.Ruleset);
+        Assert.Equal(File.ReadAllText(TreatySavePath).Replace("\r\n", "\n", StringComparison.Ordinal), text.Replace("\r\n", "\n", StringComparison.Ordinal));
+        Assert.Equal(text, IC2.Engine.Persistence.SaveManager.Serialize(copy));
+        Assert.Equal(save, copy);
+        Assert.Equal(save.State, copy.State);
+        Assert.Equal("a1fdb8d15ddcafeed384adc6712615e34e9a9054daf1eecf750a25068e2345c3", IC2.Engine.Core.GameStateHash.Compute(copy.State));
+        Assert.Equal(14811735145207618862UL, copy.State.RandomSeed);
+        Assert.Equal(15, copy.State.Calendar.TurnIndex);
+        Assert.Equal("macedonia", copy.State.ActiveNationId);
+        Assert.Equal("macedonia", Assert.Single(copy.State.Nations, n => n.Control == IC2.Engine.Model.SeatControl.Human).Id);
+        Assert.Equal("classical-mediterranean", copy.ScenarioId);
+        Assert.Equal("classical-mediterranean", copy.WorldId);
+        Assert.Equal("classical-faithful", copy.RulesetId);
+        Assert.Equal(new[] { "rome", "carthage", "seleucid", "ptolemaic", "macedonia", "numidia", "gaul", "greece", "celtiberia", "illyria", "dacia", "bithynia", "galatia", "armenia", "media", "thracia" }, copy.State.TurnOrder);
+        Assert.Null(copy.Battle);
+    }
+
+    [Fact]
+    public void The_loaded_treaty_case_matches_its_golden_and_accepts_a_real_offer_and_every_own_command()
+    {
+        var session = NewTreatySession();
+        var offers = new List<IC2.Engine.Battle.PeaceTreatyOffered>();
+        var battles = new List<IC2.Engine.Battle.BattleResolved>();
+        session.EventsPublished += events =>
+        {
+            offers.AddRange(events.OfType<IC2.Engine.Battle.PeaceTreatyOffered>());
+            battles.AddRange(events.OfType<IC2.Engine.Battle.BattleResolved>());
+        };
+        var transcript = RunTranscript(session, File.ReadAllLines(CliFixture("success-treaty-load.txt")));
+        AssertEveryMutatingLineProducedAnAcceptedOutcome(transcript);
+        Assert.Contains(offers, e => e.WinnerNationId == "thracia" && e.LoserNationId == "macedonia");
+        Assert.Contains(battles, e => e.Result.AttackerId == "army-14" && e.Result.DefenderId == "mac-merc" && e.Result.PeaceTreatyOffered);
+        Assert.Equal(File.ReadAllText(CliFixture("success-treaty-load.golden.txt")), transcript);
+        AssertEveryMutatingLineProducedAnAcceptedOutcome(File.ReadAllText(CliFixture("success-treaty-load.golden.txt")));
+    }
+
+    [Fact]
+    public void The_loaded_treaty_case_is_deterministic_from_two_fresh_loads()
+    {
+        var lines = File.ReadAllLines(CliFixture("success-treaty-load.txt"));
+        Assert.Equal(RunTranscript(NewTreatySession(), lines), RunTranscript(NewTreatySession(), lines));
+    }
+
+    // Immutable baseline input, not a regenerated current-state expectation. The mapping below
+    // pins every original command/argument and the only approved additions, relocations and split.
+    private const string OriginalA = """
+split-army army-8 mac-detached 0
+split-army army-8 mac-split 0
+join-armies army-8 mac-split
+split-army army-8 mac-marines 1
+split-army army-8 mac-spare 1
+order-city pella fortify 1
+recruit-standing pella light_infantry 200
+recruit-standing pella light_infantry 200
+order-fleet amphipolis 20 mac-fleet-1
+propose-trade illyria
+propose-alliance dacia
+declare-war armenia
+end
+make-peace illyria
+move mac-marines 144 42
+buy mac-marines pella 5
+move mac-spare 147 40
+move mac-spare 147 41
+disband-army mac-spare
+move mac-detached 157 31
+move army-8 135 52
+end
+move mac-detached 155 29
+move army-8 135 52
+end
+move army-8 135 52
+end
+move mac-detached 155 26
+end
+besiege-city army-8 phoenice
+split-army army-8 mac-sac-1 0
+end
+move mac-sac-1 151 31
+end
+move mac-sac-1 151 31
+end
+mobilize 2 mac-recruit-0
+mobilize 2 mac-recruit-1
+join-units mac-marines 1 2
+transfer-money army-8 100
+transfer-money army-8 -50
+move army-8 136 42
+buy mac-marines pella 5
+buy mac-marines pella 5000
+transfer-money mac-marines 100
+move mac-marines 137 42
+army-transfer mac-marines army-8 supply=2 money=20
+split-unit mac-marines 0 1000
+rename-unit mac-marines 0 LegioX
+disband-unit mac-marines 1
+split-unit mac-marines 1 200
+split-army mac-marines mac-merc 2 supply=45 money=80
+end
+move mac-merc 140 47
+move mac-merc 141 48
+hire-mercenary mac-merc 25
+end
+attack-army mac-detached army-14
+end
+end
+split-fleet mac-fleet-1 mac-fleet-2 10
+fleet-transfer mac-fleet-1 mac-fleet-2 1 1 0
+join-fleets mac-fleet-1 mac-fleet-2
+buy-fleet-supply mac-fleet-1 amphipolis 5
+repair-fleet mac-fleet-1 1
+split-fleet mac-fleet-1 mac-fleet-keep 13
+end
+attack-army mac-sac-1 army-14
+end
+end
+status
+news
+set-tax 20
+transfer-money mac-fleet-1 100
+transfer-money mac-fleet-1 -50 via mac-fleet-keep
+scuttle-fleet mac-fleet-1
+move mac-marines 142 42
+end
+peace-yes
+move mac-marines 148 40
+move-fleet mac-fleet-keep 148 41
+embark-army mac-marines mac-fleet-keep
+disembark-army mac-marines 148 40
+recruit-standing pella light_infantry 200
+disband-slot 0
+end
+quit
+""";
+
+    [Fact]
+    public void The_four_case_split_preserves_every_original_command_and_the_complete_marine_group()
+    {
+        var original = OriginalA.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => l.Trim()).ToArray();
+        Assert.Equal(87, original.Length);
+        var prefix = new List<string>();
+        for (var i = 1; i <= 78; i++)
+        {
+            if (i == 60) prefix.Add("move mac-sac-1 148 40");
+            if (i == 67) { prefix.Add("move mac-sac-1 154 35"); prefix.Add(original[67]); }
+            if (i != 68) prefix.Add(original[i - 1]);
+            if (i == 70) prefix.Add("move mac-merc 139 43");
+        }
+        var trade = original.Take(67).Append("end").ToList();
+        trade.Insert(22, "accept-offer");
+        Assert.Equal(prefix, File.ReadAllLines(SuccessScriptPath));
+        Assert.Equal(trade, File.ReadAllLines(SuccessTradeOfferScriptPath));
+        Assert.Equal(original.Skip(77), File.ReadAllLines(CliFixture("success-treaty-load.txt")));
     }
 
     // ---- success-fleet.txt ----

@@ -70,13 +70,14 @@ public sealed class AiFaithfulMobilizationGateTests
     }
 
     [Theory]
-    [InlineData(74900, true)]
-    [InlineData(75000, false)]
-    [InlineData(75100, false)]
+    [InlineData(59900, true)]
+    [InlineData(60000, false)]
+    [InlineData(60400, false)]
     public void Strict_threat_gate_cannot_be_bypassed_by_maximum_score(int troops, bool allowed)
     {
-        // One war contributes 15000; LI contributes (troops/100)*20.
+        // One war contributes 15000; morale100 gives own14900/15000/15100 respectively.
         var state = State(new[] { Slot() }, ownTroops: troops);
+        state = state with { Armies = ValueList.From(state.Armies.Select(a => a with { Morale = 100 })) };
         var own = AiFaithfulEconomy.Own(state, Rules, Me);
         var threat = AiFaithfulEconomy.Threat(state, Rules, Me);
         Assert.Equal(15000, threat);
@@ -177,6 +178,7 @@ public sealed class AiFaithfulMobilizationGateTests
         // Initial own=14000, threat=15000. Original slots0&2 each add600, covering the deficit.
         var slots = new[] { Slot(3000), Slot(1000), Slot(3000), Slot(1000), Slot(1000) };
         var state = State(slots, ownTroops: 70000);
+        state = state with { Armies = ValueList.From(state.Armies.Select(a => a with { Morale = 80 })) };
         var driven = Turn(state);
         Assert.Equal(new[] { 3000, 3000 }, driven.Mobilized.Select(e => e.Troops));
         Assert.Equal(3, driven.Outcome.State.NationById(Me)!.RecruitmentSlots.Count);

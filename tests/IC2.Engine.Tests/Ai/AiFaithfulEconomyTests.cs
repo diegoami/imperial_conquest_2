@@ -43,7 +43,7 @@ public sealed class AiFaithfulEconomyTests
         CaptureFixtures.City(id, id, x, y, owner, owner, 80, fort, 10, 100, 10);
 
     private static ArmyState Army(string id, string nation, int x, int y, string type, int troops) =>
-        CaptureFixtures.Army(id, nation, x, y, 60, CaptureFixtures.Unit(type, troops));
+        CaptureFixtures.Army(id, nation, x, y, 80, CaptureFixtures.Unit(type, troops));
 
     private static GameState Build(
         IEnumerable<ArmyState> armies,
@@ -139,9 +139,8 @@ public sealed class AiFaithfulEconomyTests
         Assert.Equal(15000 + 2000 + 500 + 1000, AiFaithfulEconomy.Threat(state, Rules(), Me));
     }
 
-    // The shipped weights are all multiples of 4, so with the shipped divisors every contribution divides
-    // exactly. These rules use divisor 3 for the three summed terms, so each army's contribution is
-    // fractional and the floor of the sum (13) differs from the sum of the floors (6 + 6 = 12).
+    // T192 adapts the helper only. Issue 1245 separately owns per-army division; keep the current
+    // aggregate division discriminating: two armies of power 80 give 160/3=53, not 26+26=52.
     private static Ruleset RulesWithDivisor3()
     {
         var rules = Rules();
@@ -156,16 +155,16 @@ public sealed class AiFaithfulEconomyTests
         };
     }
 
-    // 100 troops of light infantry are worth (100 / 100) x 20 = 20; two such armies are worth 40 together.
+    // 400 LI at morale 80: ((20*400/100)/80)*80 = 80 per army.
     [Fact]
     public void The_foreign_near_sum_is_floored_once_not_per_army()
     {
         var state = Build(new[]
         {
-            Army("f1", Friend, CapX + 1, CapY, "light_infantry", 100),
-            Army("f2", Friend, CapX + 2, CapY, "light_infantry", 100),
+            Army("f1", Friend, CapX + 1, CapY, "light_infantry", 400),
+            Army("f2", Friend, CapX + 2, CapY, "light_infantry", 400),
         });
-        Assert.Equal(13, AiFaithfulEconomy.Threat(state, RulesWithDivisor3(), Me)); // floor(40 / 3), not 6 + 6
+        Assert.Equal(53, AiFaithfulEconomy.Threat(state, RulesWithDivisor3(), Me));
     }
 
     [Fact]
@@ -175,11 +174,11 @@ public sealed class AiFaithfulEconomyTests
         var state = Build(
             new[]
             {
-                Army("e1", Foe, CapX + 15, CapY, "light_infantry", 100),
-                Army("e2", Foe, CapX + 15, CapY + 1, "light_infantry", 100),
+                Army("e1", Foe, CapX + 15, CapY, "light_infantry", 400),
+                Army("e2", Foe, CapX + 15, CapY + 1, "light_infantry", 400),
             },
             foeRelation: War);
-        Assert.Equal(15000 + 40 + 13, AiFaithfulEconomy.Threat(state, RulesWithDivisor3(), Me)); // floor(40 / 3), not 12
+        Assert.Equal(15000 + 160 + 53, AiFaithfulEconomy.Threat(state, RulesWithDivisor3(), Me));
     }
 
     [Fact]
@@ -188,11 +187,11 @@ public sealed class AiFaithfulEconomyTests
         var state = Build(
             new[]
             {
-                Army("f1", Friend, 1, 1, "light_infantry", 100),
-                Army("f2", Friend, 2, 2, "light_infantry", 100),
+                Army("f1", Friend, 1, 1, "light_infantry", 400),
+                Army("f2", Friend, 2, 2, "light_infantry", 400),
             },
             friendRelation: Alliance);
-        Assert.Equal(6000 + 13, AiFaithfulEconomy.Own(state, RulesWithDivisor3(), Me)); // floor(40 / 3), not 12
+        Assert.Equal(6000 + 53, AiFaithfulEconomy.Own(state, RulesWithDivisor3(), Me));
     }
 
     [Fact]
@@ -206,7 +205,7 @@ public sealed class AiFaithfulEconomyTests
     public void Term_6_every_own_army_adds_its_full_value()
     {
         var state = Build(new[] { Army("m", Me, 1, 1, "light_infantry", Army2000), Army("n", Me, 2, 2, "archers", 3500) });
-        Assert.Equal(2000 + (35 * 40), AiFaithfulEconomy.Own(state, Rules(), Me));
+        Assert.Equal(2000 + 1360, AiFaithfulEconomy.Own(state, Rules(), Me));
     }
 
     [Fact]
@@ -242,7 +241,7 @@ public sealed class AiFaithfulEconomyTests
     public void No_deficit_means_no_orders_and_equal_strength_is_no_deficit()
     {
         // own 15000 (one army of value 15000) == threat 15000 (one war): not a deficit.
-        var equal = Build(new[] { Army("m", Me, 1, 1, "light_infantry", 75000) }, foeRelation: War);
+        var equal = Build(new[] { Army("m", Me, 1, 1, "light_infantry", 60000) with { Morale = 100 } }, foeRelation: War);
         Assert.Equal(AiFaithfulEconomy.Own(equal, Rules(), Me), AiFaithfulEconomy.Threat(equal, Rules(), Me));
         Assert.Equal(0, Slots(RunEconomy(equal).Result.State));
 
@@ -253,16 +252,16 @@ public sealed class AiFaithfulEconomyTests
     [Fact]
     public void A_deficit_of_one_value_step_gives_orders()
     {
-        var short1 = Build(new[] { Army("m", Me, 1, 1, "light_infantry", 74900) }, foeRelation: War);
-        Assert.Equal(14980, AiFaithfulEconomy.Own(short1, Rules(), Me));
+        var short1 = Build(new[] { Army("m", Me, 1, 1, "light_infantry", 59900) with { Morale = 100 } }, foeRelation: War);
+        Assert.Equal(14900, AiFaithfulEconomy.Own(short1, Rules(), Me));
         Assert.True(Slots(RunEconomy(short1).Result.State) > 0);
     }
 
     [Fact]
-    public void A_deficit_with_a_healthy_treasury_gives_exactly_8_orders_a_turn()
+    public void A_deficit_with_a_healthy_treasury_stops_at_the_first_crossing()
     {
         var run = RunEconomy(Deficit());
-        Assert.Equal(8, Slots(run.Result.State));
+        Assert.Equal(4, Slots(run.Result.State)); //seed7 crosses the corrected15000 raw-power deficit on order4
         Assert.Equal(0, run.Result.Rejected);
     }
 
@@ -291,10 +290,10 @@ public sealed class AiFaithfulEconomyTests
     }
 
     [Fact]
-    public void At_the_floor_a_turn_places_at_most_3_orders_and_above_it_8()
+    public void At_the_floor_a_turn_places_at_most_3_orders_and_above_it_the_deficit_stops_it()
     {
         Assert.Equal(3, Slots(RunEconomy(Deficit(treasury: -20000)).Result.State));
-        Assert.Equal(8, Slots(RunEconomy(Deficit(treasury: 100000)).Result.State));
+        Assert.Equal(4, Slots(RunEconomy(Deficit(treasury: 100000)).Result.State));
     }
 
     [Fact]
@@ -492,8 +491,8 @@ public sealed class AiFaithfulEconomyTests
         var seat = new CountingRng(new SplitMix64Rng(11));
         var result = AiFaithfulEconomy.Run(state, rules, BattleCommandTestbed.ToyWorld, dispatcher, NullEventSink.Instance, seat, Me, new List<string>());
         Assert.Equal(0, seat.OwnDraws);
-        Assert.Equal(8, Slots(result.State));
-        Assert.Equal(16, seat.Child!.OwnDraws);
+        Assert.Equal(6, Slots(result.State)); //seed11 crosses15000 on order6
+        Assert.Equal(12, seat.Child!.OwnDraws);
 
         string Key(GameState s) => string.Join(
             ";", s.NationById(Me)!.RecruitmentSlots.Select(x => $"{x.TargetCityId}/{x.UnitTypeId}/{x.Troops}"));

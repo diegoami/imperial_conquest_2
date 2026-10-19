@@ -1,0 +1,82 @@
+> end
+Macedonia (macedonia) ends its turn.
+Numidia (numidia) takes its turn: 0 orders issued.
+Gaul (gaul) takes its turn: 5 orders issued.
+Greece (greece) takes its turn: 0 orders issued.
+Celtiberia (celtiberia) takes its turn: 8 orders issued.
+Illyria (illyria) takes its turn: 7 orders issued.
+Dacia (dacia) takes its turn: 0 orders issued.
+Bithynia (bithynia) takes its turn: 4 orders issued.
+Galatia (galatia) takes its turn: 3 orders issued.
+Armenia (armenia) takes its turn: 4 orders issued.
+Media (media) takes its turn: 2 orders issued.
+Thracia (thracia) takes its turn: 2 orders issued.
+  Weather: rough-sea-painted (week 7).
+  Weather: rough-sea-painted (week 7).
+  Weather: rough-sea-painted (week 7).
+After defeating you in battle Thracia are willing to end their war with you, if you agree to the terms below.
+An honourable peace with no reparations or penalties
+If the peace terms are acceptable click YES.
+Otherwise to continue the war click NO.
+Type 'peace-yes' to accept or 'peace-no' to decline.
+Rome (rome) takes its turn: 4 orders issued.
+Carthage (carthage) takes its turn: 1 order issued.
+Seleucid (seleucid) takes its turn: 16 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 10 orders issued.
+Now: Week 9, Autumn 270 BC. Active seat: Macedonia (macedonia).
+News:
+  Celtiberia destroys army of Carthage.
+  Celtiberia and Carthage have agreed to end their war.
+  Thracia destroys army of Macedonia.
+   
+  Week  9      Autumn      270BC
+
+> peace-yes
+diplomacy.accept-peace-treaty accepted.
+
+> move mac-marines 148 40
+mac-marines moved from (142,42) to (148,40), spending 6 of 10 moves.
+
+> move-fleet mac-fleet-keep 148 41
+naval.move-fleet accepted.
+
+> embark-army mac-marines mac-fleet-keep
+naval.embark-army accepted.
+
+> disembark-army mac-marines 148 40
+naval.disembark-army accepted.
+
+> recruit-standing pella light_infantry 200
+recruitment.recruit-standing-unit accepted.
+
+> disband-slot 0
+recruitment.disband-recruitment-slot accepted.
+
+> end
+Macedonia (macedonia) ends its turn.
+Numidia (numidia) takes its turn: 0 orders issued.
+Gaul (gaul) takes its turn: 3 orders issued.
+Greece (greece) takes its turn: 6 orders issued.
+Celtiberia (celtiberia) takes its turn: 3 orders issued.
+Illyria (illyria) takes its turn: 5 orders issued.
+Dacia (dacia) takes its turn: 0 orders issued.
+Bithynia (bithynia) takes its turn: 3 orders issued.
+Galatia (galatia) takes its turn: 3 orders issued.
+Armenia (armenia) takes its turn: 1 order issued.
+Media (media) takes its turn: 2 orders issued.
+Thracia (thracia) takes its turn: 2 orders issued.
+  Weather: rough-sea-painted (week 9).
+  Weather: rough-sea-painted (week 9).
+Rome (rome) takes its turn: 5 orders issued.
+Carthage (carthage) takes its turn: 1 order issued.
+Seleucid (seleucid) takes its turn: 13 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 10 orders issued.
+Now: Week 11, Autumn 270 BC. Active seat: Macedonia (macedonia).
+News:
+   
+  Week  11      Autumn      270BC
+  Sala   (Gaul)  falls to Rome.
+
+> quit
+Goodbye.
+

@@ -1,0 +1,10 @@
+end
+peace-yes
+move mac-marines 148 40
+move-fleet mac-fleet-keep 148 41
+embark-army mac-marines mac-fleet-keep
+disembark-army mac-marines 148 40
+recruit-standing pella light_infantry 200
+disband-slot 0
+end
+quit

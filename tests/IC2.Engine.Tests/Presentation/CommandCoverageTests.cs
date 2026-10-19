@@ -43,9 +43,9 @@ namespace IC2.Engine.Tests.Presentation;
 /// <see cref="Presentation.SuccessScriptTests"/>'s class remarks for the full account. <c>attack-fleet</c>
 /// and <c>peace-yes</c> — the two PR #452 originally reported as unreachable too — get no exception per
 /// that same Done-when 2b: both have an accepted line (<c>success-fleet.golden.txt</c> and a
-/// re-seeded <c>success.golden.txt</c> respectively), described in full in <c>SuccessScriptTests</c>. T93
+/// <c>success-treaty-load.golden.txt</c> respectively), described in full in <c>SuccessScriptTests</c>. T93
 /// removed the last two it had added for #453 (<c>embark-army</c>, <c>disembark-army</c>), which now have
-/// accepted lines in <c>success.golden.txt</c>.</description></item>
+/// accepted lines in <c>success-treaty-load.golden.txt</c>.</description></item>
 /// </list>
 /// </remarks>
 public sealed class CommandCoverageTests
@@ -228,9 +228,10 @@ public sealed class CommandCoverageTests
     /// <summary>
     /// Done-when 2, second half: "or has no line in the success-path script that the golden shows
     /// accepted" — for every command type this class has not named as a confirmed, documented gap.
-    /// T178 uses A for treaty/marine, B (<c>success-trade-offer.golden.txt</c>) for incoming trade,
+    /// T192 uses the native-save continuation for treaty/marine, corrected A for its prefix,
+    /// B (<c>success-trade-offer.golden.txt</c>) for incoming trade,
     /// and the unchanged <c>success-fleet.golden.txt</c> for <c>attack-fleet</c> — a type
-    /// passes if its own accepted line shows up in any of the three nonempty cases.
+    /// passes if its own accepted line shows up in any of the four nonempty cases, including the native-save treaty/marine continuation.
     /// </summary>
     /// <remarks>
     /// T80 rework round 1, B1 (blocking): this used to search the whole golden text for
@@ -250,7 +251,7 @@ public sealed class CommandCoverageTests
     public void Every_reachable_command_type_has_an_accepted_line_in_the_success_golden()
     {
         var blocks = new List<GoldenTranscriptBlocks.Block>();
-        foreach (var fixture in new[] { "success.golden.txt", "success-trade-offer.golden.txt", "success-fleet.golden.txt" })
+        foreach (var fixture in new[] { "success.golden.txt", "success-trade-offer.golden.txt", "success-fleet.golden.txt", "success-treaty-load.golden.txt" })
         {
             var caseBlocks = GoldenTranscriptBlocks.Parse(File.ReadAllText(
                 Path.Combine(ModelTestPaths.RepositoryRoot, "tests", "fixtures", "cli", fixture)));
@@ -276,7 +277,7 @@ public sealed class CommandCoverageTests
         Assert.True(
             missing.Count == 0,
             "The following command type(s) have no accepted line, attributed to their own verb's script "
-            + "line, in success.golden.txt, success-trade-offer.golden.txt or success-fleet.golden.txt: " + string.Join(", ", missing));
+            + "line, in the four success-case goldens: " + string.Join(", ", missing));
     }
 
     /// <summary>
