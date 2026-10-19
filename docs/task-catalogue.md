@@ -326,6 +326,8 @@ graph TD
   T72 --> T193[T193 capture purse bound]
   T194[T194 strategic travel observations] --> T195[T195 strategic travel playback]
   T187 --> T195
+  T187 --> T196[T196 clear strategic selection]
+  T195 --> T196
   T180 --> T195
   T183 --> T195
   T179 --> T183[T183 tactical exchange audio]
@@ -1460,6 +1462,10 @@ Observer-only actual-route/session batches for [1236](https://github.com/diegoam
 
 Owner strategic movement [1224](https://github.com/diegoami/imperial_conquest_2/issues/1224); starts/merges after T194, T187, T180 and T183, with shared-writer/Godot serialization → [full entry](tasks/T195.md).
 
+#### T196 Clear strategic army and fleet selection feedback
+
+Clear army/fleet milestone on existing [1010](https://github.com/diegoami/imperial_conquest_2/issues/1010), required in 0.6.x after T187/T195; reproduce first, bounded correction only if required, original colour/rhombus/town fidelity stays open under its evidence gate → [full entry](tasks/T196.md).
+
 #### T25 Battle result, diplomacy, and hotseat handoff screens
 
 Godot screens → [full entry](tasks/T25.md) · [#25](https://github.com/diegoami/imperial_conquest_2/issues/25)
@@ -1684,3 +1690,4 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T193](#t193-captured-money-respects-the-approved-purse-field-bound) | Capture purse bound | M3/M21 | Luna family | High | direct Kimi | T72 | [#838](https://github.com/diegoami/imperial_conquest_2/issues/838) |
 | [T194](#t194-accepted-strategic-routes-and-transient-ordered-observations) | Strategic travel observations | M18 | Sol family | Medium | direct Kimi | approved merged plan + disjoint Owns preflight | [#1236](https://github.com/diegoami/imperial_conquest_2/issues/1236) |
 | [T195](#t195-strategic-travel-presentation-and-arrival-barrier) | Strategic travel playback | M18 | Sol family | Medium | direct Kimi + human | T194, T187, T180, T183 | [#1224](https://github.com/diegoami/imperial_conquest_2/issues/1224) |
+| [T196](#t196-clear-strategic-army-and-fleet-selection-feedback) | Clear strategic selection | M18 | Sol family low | Medium | direct Kimi + human | T187, T195 | [#1010](https://github.com/diegoami/imperial_conquest_2/issues/1010) |
