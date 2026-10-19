@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using IC2.Engine.Battle.Tactical;
@@ -21,14 +22,15 @@ public sealed record BattleDisplay(
     int BoardWidth,
     int BoardHeight)
 {
+    /// <summary>Captured immutable nation metadata, never looked up in an advanced session state.</summary>
+    public IReadOnlyDictionary<string, BattleAllegiance> Allegiances { get; init; } =
+        FrozenDictionary<string, BattleAllegiance>.Empty;
+
     /// <summary>The names for <paramref name="view"/>, read from the game and the ruleset.</summary>
     /// <param name="view">The open battle.</param>
     /// <param name="state">The game the battle is fought in.</param>
     /// <param name="ruleset">The ruleset.</param>
     /// <returns>The display names.</returns>
-    public IReadOnlyDictionary<string, BattleAllegiance> Allegiances { get; init; } =
-        new Dictionary<string, BattleAllegiance>(StringComparer.Ordinal);
-
     public static BattleDisplay For(TacticalBattleView view, GameState state, Ruleset ruleset, World? world = null)
     {
         ArgumentNullException.ThrowIfNull(view);
@@ -47,7 +49,7 @@ public sealed record BattleDisplay(
             ruleset.Combat.Tactical.BoardWidth,
             ruleset.Combat.Tactical.BoardHeight)
         {
-            Allegiances = new[] { view.AttackerNationId, view.DefenderNationId }.Distinct().ToDictionary(
+            Allegiances = new[] { view.AttackerNationId, view.DefenderNationId }.Distinct().ToFrozenDictionary(
                 id => id, id => BattleAllegiance.For(id, world?.NationById(id)?.Name ?? state.NationById(id)?.Name ?? id, world),
                 StringComparer.Ordinal),
         };

@@ -593,7 +593,7 @@ public partial class TacticalBattleScreen : Control
         if (_listKind is null) return;
         var side = _listKind == ListKind.Enemy ? 1 - _perspective : _perspective;
         var displayedRows = Model.RosterRows(side);
-        _listTitle.Text = (_listKind == ListKind.Enemy ? "Enemy units · " : _listKind == ListKind.Friendly ? "Friendly units · " : "Unit moves · ") + Model.RosterTitle(side);
+        _listTitle.Text = (_listKind == ListKind.Enemy ? "Enemy units Â· " : _listKind == ListKind.Friendly ? "Friendly units Â· " : "Unit moves Â· ") + Model.RosterTitle(side);
         if (_rosterRowButtons.Count > 0 && _rosterRowButtons.Keys.Order().SequenceEqual(displayedRows.Select(r => r.Slot).Order()))
         {
             _rosterTexts.Clear();

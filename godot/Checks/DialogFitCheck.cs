@@ -104,6 +104,26 @@ public partial class DialogFitCheck : Control
         _cases.Enqueue(() => new PeaceOfferScreen { Model=new PeaceOfferViewModel("Offer of peace",new[]{"The enemy offers peace.","Do you accept?"},new[]{new PeaceOfferButton("Yes","peace-yes"),new PeaceOfferButton("No","peace-no")}) });
         _cases.Enqueue(() => new BattleEndedScreen { Model=new BattleEndedViewModel("Battle ended","Rome's army defeats Carthage's army.","Rome","Carthage",session.Ruleset.UnitTypes.Select(type=>new BattleEndedRow(type.Name,10000,8000,9000)).Append(new BattleEndedRow("Total",100000,80000,90000)).ToArray(),"The army of Rome captured 250 talents.","The army of Rome captured 100 tons of supplies.") });
         _cases.Enqueue(() => { var s=ClassicalSession();s.Submit("attack-army army-0 army-3");return new TacticalBattleScreen { Session=s,InitialView=s.OpenTacticalBattle!,RepositoryRoot=GameDataContext.RepositoryRoot }; });
+        foreach (var button in new[] { "friendly_units", "enemy_units" })
+        {
+            var captured = button;
+            _cases.Enqueue(() =>
+            {
+                var s = ClassicalSession(); s.Submit("attack-army army-0 army-3");
+                var screen = new TacticalBattleScreen { Session = s, InitialView = s.OpenTacticalBattle!,
+                    InitialTimeline = Array.Empty<TacticalBattleFrame>(), RepositoryRoot = GameDataContext.RepositoryRoot };
+                screen.Ready += () => screen.PressToolbarButton(captured);
+                return screen;
+            });
+        }
+        _cases.Enqueue(() =>
+        {
+            var s = ClassicalSession(); s.Submit("attack-army army-0 army-3");
+            var output = s.BattleGeneral(true);
+            var exchange = output.TacticalTimeline.First(f => f.Event is TacticalMeleeEvent);
+            return new TacticalBattleScreen { Session = s, InitialView = exchange.Before.View,
+                InitialTimeline = new[] { exchange }, RepositoryRoot = GameDataContext.RepositoryRoot };
+        });
     }
     private static Control MakeDialog(string name,GameSession session,bool fleetSupply)
     {
@@ -142,6 +162,8 @@ public partial class DialogFitCheck : Control
                     Assert(rect.Position.X >= scroll.GetGlobalRect().Position.X-1 && rect.End.X <= scroll.GetGlobalRect().End.X+1, $"{root.GetType().Name}: scroll content fits horizontally");
             }
             checkedControls++;
+            if (c is RichTextLabel rich && rich.Text.Length > 0)
+                Assert(rich.GetContentHeight() <= rich.Size.Y + 1, "current exchange rich text has no clipped lines");
             Assert(viewport.Grow(1).Encloses(rect),$"{root.GetType().Name}/{c.GetPath()}: rect {rect} fits {viewport}");
             if(c is Label label && label.Text.Length>0)
             {

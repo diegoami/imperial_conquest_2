@@ -503,7 +503,11 @@ public sealed class TacticalBattleViewModelTests
             [actorNation] = BattleAllegiance.For(actorNation, "North [b]", world),
             [targetNation] = BattleAllegiance.For(targetNation, "South [i]", world),
         };
-        display = display with { AttackerNationName = "misleading", DefenderNationName = "misleading", Allegiances = allegiances };
+        var captured = BattleDisplay.For(frames[0].After.View with { AttackerNationId = actorNation, DefenderNationId = targetNation },
+            session.State, session.Ruleset, world);
+        Assert.Equal(allegiances[actorNation], captured.Allegiances[actorNation]);
+        Assert.Equal(allegiances[targetNation], captured.Allegiances[targetNation]);
+        display = captured with { AttackerNationName = "misleading", DefenderNationName = "misleading" };
         Assert.Equal("#889098", allegiances[actorNation].ColorHex);
         Assert.Equal("#FFF0C0", allegiances[targetNation].ColorHex);
         foreach (var exchange in exchanges)
