@@ -532,13 +532,13 @@ public partial class TacticalBattleScreen : Control
         else OrderIssued?.Invoke(output);
     }
 
-    private static string FrameMessage(TacticalBattleFrame frame) => frame.Event switch
+    private string FrameMessage(TacticalBattleFrame frame) => frame.Event switch
     {
         TacticalMovedEvent move => $"ACTOR #{move.Slot} moves ({move.FromX},{move.FromY}) → ({move.ToX},{move.ToY})",
         TacticalRoutedEvent rout => $"#{rout.Slot} routed and removed",
         TacticalCascadeRemovedEvent cascade => $"#{cascade.Slot} removed in rout cascade",
         TacticalSurrenderedEvent surrender => $"{(surrender.Side == 0 ? "Attacker" : "Defender")} surrendered",
-        TacticalShotEvent or TacticalMeleeEvent => string.Join("\n", TacticalBattleViewModel.ExchangeLines(frame)),
+        TacticalShotEvent or TacticalMeleeEvent => string.Join("\n", TacticalBattleViewModel.PresentExchange(frame, _display).PlainLines),
         _ => frame.Kind switch
         {
             TacticalFrameKind.HalfRound => "Resolving the previous half-round before controller handoff",

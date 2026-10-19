@@ -549,4 +549,35 @@ public sealed class TacticalBattleViewModelTests
         Assert.Equal("CUSTOM [FACTION]", BattleAllegiance.For("custom", "Custom [Faction]", null).Caption);
     }
 
+    [Fact]
+    public void Routed_and_cascade_departures_keep_own_allegiance_color_literal_names_and_prominent_status()
+    {
+        var (session, _, _) = Opened();
+        var output = session.BattleGeneral(true);
+        var departures = output.TacticalTimeline.Where(frame => frame.Event is TacticalRoutedEvent or TacticalCascadeRemovedEvent).ToArray();
+        Assert.NotEmpty(departures);
+        foreach (var frame in departures)
+        {
+            var display = BattleDisplay.For(frame.Before.View, session.State, session.Ruleset, session.World);
+            var identity = frame.Actor!;
+            var metadata = display.Allegiances[identity.NationId];
+            foreach (var stage in new[] { TacticalPlaybackStage.RoutHold, TacticalPlaybackStage.RoutFade, TacticalPlaybackStage.Frame })
+            {
+                var snapshot = (stage == TacticalPlaybackStage.Frame ? frame.After : frame.Before) with
+                {
+                    View = frame.After.View with { Slots = IC2.Engine.Model.ValueList.From(frame.After.View.Slots.Select(u => u with { Name = "same [b] unit [/b]" })) },
+                };
+                var model = TacticalBattleViewModel.FromSnapshot(snapshot, display, frame: frame, stage: stage);
+                var plain = Assert.Single(model.CurrentExchangePresentation.PlainLines);
+                var rich = Assert.Single(model.CurrentExchangePresentation.RichLines);
+                Assert.Contains(metadata.Caption + " #" + identity.Slot, plain);
+                Assert.Contains("same [b] unit [/b]", plain);
+                Assert.Contains("[color=" + metadata.ColorHex + "]", rich);
+                Assert.DoesNotContain("same [b] unit", rich);
+                Assert.Contains(frame.Event is TacticalRoutedEvent ? "[b]UNIT ROUTED[/b]" : "[b]ROUT CASCADE REMOVAL[/b]", rich);
+                Assert.Contains(stage == TacticalPlaybackStage.Frame ? "removed" : "departure pending", plain);
+            }
+        }
+    }
+
 }

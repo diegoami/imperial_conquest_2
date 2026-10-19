@@ -50,7 +50,7 @@ public sealed record BattleDisplay(
             ruleset.Combat.Tactical.BoardHeight)
         {
             Allegiances = new[] { view.AttackerNationId, view.DefenderNationId }.Distinct().ToFrozenDictionary(
-                id => id, id => BattleAllegiance.For(id, world?.NationById(id)?.Name ?? state.NationById(id)?.Name ?? id, world),
+                id => id, id => BattleAllegiance.For(id, world is null ? state.NationById(id)?.Name ?? id : world.NationById(id)?.Name ?? id, world),
                 StringComparer.Ordinal),
         };
     }
@@ -291,7 +291,7 @@ public sealed class TacticalBattleViewModel
         {
             var exchange = PresentExchange(CurrentExchange, _display);
             return new(exchange.PlainLines.Concat(DepartureLines).ToArray(),
-                exchange.RichLines.Concat(DepartureLines.Select(line => "[b]" + EscapeRichText(line) + "[/b]")).ToArray());
+                exchange.RichLines.Concat(DeparturePresentation.RichLines).ToArray());
         }
     }
 
@@ -305,9 +305,7 @@ public sealed class TacticalBattleViewModel
             return new(Array.Empty<string>(), Array.Empty<string>());
         string Unit(TacticalUnitIdentity identity, bool rich)
         {
-            var metadata = display.Allegiances.GetValueOrDefault(identity.NationId)
-                ?? BattleAllegiance.For(identity.NationId,
-                    identity.Side == 0 ? display.AttackerNationName : display.DefenderNationName, null);
+            var metadata = Allegiance(display, identity);
             var text = $"{metadata.Caption} #{identity.Slot} {frame.After.View.Slots[identity.Slot].Name}";
             return rich ? $"[color={metadata.ColorHex}]{EscapeRichText(text)}[/color]" : text;
         }
@@ -316,15 +314,26 @@ public sealed class TacticalBattleViewModel
         return new(new[] { $"{Unit(frame.Actor!, false)} {action} {Unit(frame.Target!, false)}", losses },
             new[] { $"{Unit(frame.Actor!, true)} {action} {Unit(frame.Target!, true)}", EscapeRichText(losses) });
     }
-    public IReadOnlyList<string> DepartureLines
+    private static BattleAllegiance Allegiance(BattleDisplay display, TacticalUnitIdentity identity) =>
+        display.Allegiances.GetValueOrDefault(identity.NationId)
+        ?? BattleAllegiance.For(identity.NationId,
+            identity.Side == 0 ? display.AttackerNationName : display.DefenderNationName, null);
+
+    public IReadOnlyList<string> DepartureLines => DeparturePresentation.PlainLines;
+    private BattleExchangePresentation DeparturePresentation
     {
         get
         {
-            if (DisplayedFrame?.Event is not (TacticalRoutedEvent or TacticalCascadeRemovedEvent)) return Array.Empty<string>();
-            var slot = DisplayedFrame.Actor!.Slot;
-            var cascade = DisplayedFrame.Event is TacticalCascadeRemovedEvent;
+            if (DisplayedFrame?.Event is not (TacticalRoutedEvent or TacticalCascadeRemovedEvent))
+                return new(Array.Empty<string>(), Array.Empty<string>());
+            var identity = DisplayedFrame.Actor!;
+            var metadata = Allegiance(_display, identity);
+            var prefix = DisplayedFrame.Event is TacticalCascadeRemovedEvent ? "ROUT CASCADE REMOVAL" : "UNIT ROUTED";
+            var unit = $"{metadata.Caption} #{identity.Slot} {_view.Slots[identity.Slot].Name}";
+            var role = identity.Side == 0 ? "Attacker" : "Defender";
             var status = Stage is TacticalPlaybackStage.RoutHold or TacticalPlaybackStage.RoutFade ? "departure pending" : "removed";
-            return new[] { $"{(cascade ? "ROUT CASCADE REMOVAL" : "UNIT ROUTED")} · #{slot} {_view.Slots[slot].Name} · {RosterTitle(SideOf(slot))} · {status}" };
+            return new(new[] { $"{prefix} · {unit} · {role} · {status}" },
+                new[] { $"[b]{prefix}[/b] · [color={metadata.ColorHex}]{EscapeRichText(unit)}[/color] · {role} · {status}" });
         }
     }
 
