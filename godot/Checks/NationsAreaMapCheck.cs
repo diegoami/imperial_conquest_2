@@ -565,6 +565,9 @@ public partial class NationsAreaMapCheck : Control
         _movedArmyFrom = ArmyPosition(MovedArmyId);
         _drawCountBeforeEnd = _mainGame.AreaMapView.DrawCountForCheck;
         _mainGame.SubmitForCheck($"move {MovedArmyId} 100 36");
+        if (_mainGame.StrategicTravel.IsActive)
+            Check(!_mainGame.StrategicTravel.CommandsAllowed, "pending strategic travel withholds subsequent commands");
+        _mainGame.StrategicTravel.Skip();
         _expectedSessionCommands++;
     }
 
@@ -608,6 +611,9 @@ public partial class NationsAreaMapCheck : Control
     {
         var turnBefore = _mainGame.Session.State.Calendar.TurnIndex;
         _mainGame.SubmitForCheck("end");
+        if (_mainGame.StrategicTravel.IsActive)
+            Check(!_mainGame.StrategicTravel.CommandsAllowed, "pending strategic travel withholds subsequent commands");
+        _mainGame.StrategicTravel.Skip();
         _expectedSessionCommands++;
 
         Check(

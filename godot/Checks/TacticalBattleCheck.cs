@@ -768,6 +768,9 @@ public partial class TacticalBattleCheck : Node
         // An AI-versus-AI battle played within an end turn.
         var aiVsAi = Build(ClassicalAiVersusAiSession());
         aiVsAi.SubmitForCheck("end");
+        if (aiVsAi.StrategicTravel.IsActive)
+            Check(aiVsAi.ActiveOverlay is null, "strategic AI travel withholds the result until arrival");
+        aiVsAi.StrategicTravel.Skip();
         var battles = aiVsAi.Session.LastBattles;
         var neutral = battles.Where(b => aiVsAi.Session.State.NationById(b.AttackerNationId)?.Control == SeatControl.Ai
                                          && aiVsAi.Session.State.NationById(b.DefenderNationId)?.Control == SeatControl.Ai).ToList();

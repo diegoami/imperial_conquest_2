@@ -294,6 +294,9 @@ public partial class StrategyDialogsCheck : Control
         var dialog = (TaxationDialog)_mainGame.ActiveOverlay!;
         dialog.SetRateForCheck(20);
         dialog.OkForCheck();
+        if (_mainGame.StrategicTravel.IsActive)
+            Check(!_mainGame.StrategicTravel.CommandsAllowed, "pending strategic travel withholds subsequent commands");
+        _mainGame.StrategicTravel.Skip();
     }
 
     private void AssertTaxationSetRate()

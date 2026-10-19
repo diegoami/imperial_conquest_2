@@ -357,6 +357,9 @@ public partial class MapClickCheck : Control
 
     private void AssertMoveInReachKeepsSelection()
     {
+        if (_mainGame.StrategicTravel.IsActive)
+            Check(!_mainGame.StrategicTravel.CommandsAllowed, "pending strategic travel withholds subsequent commands");
+        _mainGame.StrategicTravel.Skip();
         var army = _session.State.ArmyById("army-0");
         Check(
             _commandsSubmitted == _commandsBefore + 1,
@@ -382,6 +385,9 @@ public partial class MapClickCheck : Control
 
     private void AssertMoveSpendsEveryMove()
     {
+        if (_mainGame.StrategicTravel.IsActive)
+            Check(!_mainGame.StrategicTravel.CommandsAllowed, "pending strategic travel withholds subsequent commands");
+        _mainGame.StrategicTravel.Skip();
         var army = _session.State.ArmyById("army-0");
         Check(
             _lastCommandLines.Contains("> move army-0 100 29", StringComparer.Ordinal),

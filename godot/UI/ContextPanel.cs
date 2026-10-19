@@ -44,6 +44,9 @@ public partial class ContextPanel : Control
 
     public required GameSession Session { get; init; }
 
+    public Func<GameState>? DisplayStateSource { get; set; }
+    public GameState DisplayState => DisplayStateSource?.Invoke() ?? Session.State;
+
     public required GameMapView MapView { get; init; }
 
     /// <summary>Raised after this panel issues a command, so <see cref="MainGameScreen"/> can append the
@@ -183,15 +186,15 @@ public partial class ContextPanel : Control
 
         switch (_selection.Kind)
         {
-            case SelectionKind.City when Session.State.CityById(_selection.Id!) is { } city:
+            case SelectionKind.City when DisplayState.CityById(_selection.Id!) is { } city:
                 _showMercenariesForCity = false;
                 BuildCityPanel(city);
                 break;
-            case SelectionKind.Army when Session.State.ArmyById(_selection.Id!) is { } army:
+            case SelectionKind.Army when DisplayState.ArmyById(_selection.Id!) is { } army:
                 _showMercenariesForCity = false;
                 BuildArmyPanel(army);
                 break;
-            case SelectionKind.Fleet when Session.State.FleetById(_selection.Id!) is { } fleet:
+            case SelectionKind.Fleet when DisplayState.FleetById(_selection.Id!) is { } fleet:
                 _showMercenariesForCity = false;
                 BuildFleetPanel(fleet);
                 break;
@@ -268,7 +271,7 @@ public partial class ContextPanel : Control
             return;
         }
 
-        var nation = Session.State.NationById(viewed);
+        var nation = DisplayState.NationById(viewed);
         if (nation is null)
         {
             Heading("Nation Overview");
@@ -279,7 +282,7 @@ public partial class ContextPanel : Control
         Heading("Nation Overview");
         Fact(nation.Name);
         _viewedNationLines = NationStatusModel.Build(
-            Session.State, Session.Ruleset, viewed, viewerNationId: Session.State.ActiveNationId);
+            DisplayState, Session.Ruleset, viewed, viewerNationId: DisplayState.ActiveNationId);
         foreach (var line in _viewedNationLines)
         {
             var color = line.IsRed ? ConqueredRowColor : UiKit.TextColor;
@@ -299,12 +302,12 @@ public partial class ContextPanel : Control
     /// <summary>The viewed nation once <see cref="SetViewedNation"/> has run; before that, the active
     /// seat's nation, so the panel's first paint is unchanged.</summary>
     private string? EffectiveViewedNationId() =>
-        _viewedNationSet ? _viewedNationId : Session.State.ActiveNationId;
+        _viewedNationSet ? _viewedNationId : DisplayState.ActiveNationId;
 
     private void BuildCityPanel(CityState city)
     {
-        var viewer = Session.State.ActiveNationId;
-        var lines = InformationPanelModel.City(Session.State, Session.World, Session.Ruleset, city, viewer);
+        var viewer = DisplayState.ActiveNationId;
+        var lines = InformationPanelModel.City(DisplayState, Session.World, Session.Ruleset, city, viewer);
         var cityHeading = $"City — {city.Name}";
         Heading(cityHeading);
         foreach (var line in lines)
@@ -316,16 +319,16 @@ public partial class ContextPanel : Control
         // "extras" the clone keeps (the heads-up "Under siege" line, the per-city tax rate, the
         // garrison and "In training here") — bug #608's tax-rate line is the third, the garrison is
         // here for the player until T113 hands the city's right click to its mercenaries.
-        Fact(IC2.Engine.Economy.HostileArmyAdjacent.IsThreatened(city, Session.State, Session.Ruleset) ? "Under siege." : "Not under siege.");
+        Fact(IC2.Engine.Economy.HostileArmyAdjacent.IsThreatened(city, DisplayState, Session.Ruleset) ? "Under siege." : "Not under siege.");
 
-        var owner = Session.State.NationById(city.Owner);
+        var owner = DisplayState.NationById(city.Owner);
         Fact($"Tax rate: {(owner?.TaxRatePercent.ToString() ?? "?")}%  (display-only — no command sets it; see this class's remarks)");
 
         Fact($"Garrison: {(city.Garrison.Count == 0 ? "none" : string.Join(", ", city.Garrison.Select(u => $"{u.Troops}x {u.UnitTypeId}")))}");
 
         // Fix #513: the regiments this city is training (the clone keeps it below the original's
         // facts so the carry-over from T110 still applies).
-        var inTraining = RecruitmentPanelViewModel.TrainingAtCity(Session.State, Session.Ruleset, city.Owner, city.Id);
+        var inTraining = RecruitmentPanelViewModel.TrainingAtCity(DisplayState, Session.Ruleset, city.Owner, city.Id);
         _content.AddChild(UiKit.MakeLabel("In training here", AppTheme.Body, UiKit.TextColor));
         if (inTraining.Count == 0)
         {
@@ -341,7 +344,7 @@ public partial class ContextPanel : Control
 
         // T109's Recruit section is stubbed as already removed: the merge order reconciles
         // when T109 lands, and this branch renders nothing in its place.
-        if (!string.Equals(city.Owner, Session.State.ActiveNationId, StringComparison.Ordinal))
+        if (!string.Equals(city.Owner, DisplayState.ActiveNationId, StringComparison.Ordinal))
         {
             Note("Only the active seat's own cities can be ordered.");
             return;
@@ -365,10 +368,10 @@ public partial class ContextPanel : Control
 
     private void BuildArmyPanel(ArmyState army)
     {
-        var isOwn = string.Equals(army.Nation, Session.State.ActiveNationId, StringComparison.Ordinal);
+        var isOwn = string.Equals(army.Nation, DisplayState.ActiveNationId, StringComparison.Ordinal);
         var lines = isOwn
-            ? InformationPanelModel.OwnArmy(Session.State, Session.World, Session.Ruleset, army)
-            : InformationPanelModel.ForeignArmy(Session.State, Session.World, Session.Ruleset, army);
+            ? InformationPanelModel.OwnArmy(DisplayState, Session.World, Session.Ruleset, army)
+            : InformationPanelModel.ForeignArmy(DisplayState, Session.World, Session.Ruleset, army);
 
         Heading($"Army — {army.Id}");
         foreach (var line in lines)
@@ -398,10 +401,10 @@ public partial class ContextPanel : Control
 
     private void BuildFleetPanel(FleetState fleet)
     {
-        var isOwn = string.Equals(fleet.Nation, Session.State.ActiveNationId, StringComparison.Ordinal);
+        var isOwn = string.Equals(fleet.Nation, DisplayState.ActiveNationId, StringComparison.Ordinal);
         var lines = isOwn
-            ? InformationPanelModel.OwnFleet(Session.State, Session.World, Session.Ruleset, fleet)
-            : InformationPanelModel.ForeignFleet(Session.State, Session.World, Session.Ruleset, fleet);
+            ? InformationPanelModel.OwnFleet(DisplayState, Session.World, Session.Ruleset, fleet)
+            : InformationPanelModel.ForeignFleet(DisplayState, Session.World, Session.Ruleset, fleet);
 
         Heading($"Fleet — {fleet.Id}");
         foreach (var line in lines)
@@ -445,29 +448,29 @@ public partial class ContextPanel : Control
     {
         switch (entity)
         {
-            case MapEntityKind.City when _showMercenariesForCity && Session.State.CityById(id) is { } mercCity:
+            case MapEntityKind.City when _showMercenariesForCity && DisplayState.CityById(id) is { } mercCity:
                 BuildCityMercenaryListing(mercCity);
                 return;
 
-            case MapEntityKind.City when Session.State.CityById(id) is { } city:
+            case MapEntityKind.City when DisplayState.CityById(id) is { } city:
                 Heading($"Units — {city.Name}");
                 Fact($"Owner: {DisplayNation(city.Owner)}  ·  Population: {city.PopulationThousands}k");
                 Note("The garrison:");
                 ListUnitSlots(city.Garrison);
                 return;
 
-            case MapEntityKind.Army when Session.State.ArmyById(id) is { } army:
+            case MapEntityKind.Army when DisplayState.ArmyById(id) is { } army:
                 Heading($"Units — {army.Id}");
                 Fact($"Nation: {DisplayNation(army.Nation)}  ·  Position: ({army.X}, {army.Y})");
                 Note("The army's units:");
                 ListUnitSlots(army.Units);
                 return;
 
-            case MapEntityKind.Fleet when Session.State.FleetById(id) is { } fleet:
+            case MapEntityKind.Fleet when DisplayState.FleetById(id) is { } fleet:
                 Heading($"Units — {fleet.Id}");
                 Fact($"Nation: {DisplayNation(fleet.Nation)}  ·  Position: ({fleet.X}, {fleet.Y})");
                 Fact($"Ships: {fleet.Ships}  ·  Condition: {fleet.ConditionPercent}%");
-                if (fleet.CarriedArmyId is { } aboard && Session.State.ArmyById(aboard) is { } carried)
+                if (fleet.CarriedArmyId is { } aboard && DisplayState.ArmyById(aboard) is { } carried)
                 {
                     Note($"The army aboard ({carried.Id}):");
                     ListUnitSlots(carried.Units);
@@ -495,7 +498,7 @@ public partial class ContextPanel : Control
     /// </summary>
     private void BuildCityMercenaryListing(CityState city)
     {
-        var model = MercenaryDialogModel.ForCity(Session.State, city.Id, Session.Ruleset);
+        var model = MercenaryDialogModel.ForCity(DisplayState, city.Id, Session.Ruleset);
         if (model.Offers.Count == 0)
         {
             Heading($"There are no mercenaries at {city.Name}");
@@ -539,9 +542,9 @@ public partial class ContextPanel : Control
             : string.Join(", ", units.Select(u =>
                 $"{u.Troops}x {u.UnitTypeId} ({ArmyDialogModels.QualityCaption(u.Quality)})"));
 
-    private string DisplayNation(string nationId) => Session.State.NationById(nationId)?.Name ?? nationId;
+    private string DisplayNation(string nationId) => DisplayState.NationById(nationId)?.Name ?? nationId;
 
-    private string CityName(string cityId) => Session.State.CityById(cityId)?.Name ?? cityId;
+    private string CityName(string cityId) => DisplayState.CityById(cityId)?.Name ?? cityId;
 
     private enum SelectionKind
     {
