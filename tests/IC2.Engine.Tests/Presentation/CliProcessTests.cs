@@ -255,12 +255,15 @@ public sealed class CliProcessTests
     [Theory]
     [InlineData("success")]
     [InlineData("success-trade-offer")]
+    [InlineData("success-treaty-load")]
     public async Task The_success_case_process_matches_its_complete_golden(string fixture)
     {
         var cliDll = FindCliDll();
         Assert.True(cliDll is not null, "Build IC2.sln before testing: the real CLI DLL is required.");
-        using var process = StartCli(cliDll!,
-            $"--scenario classical-mediterranean --seat macedonia --seed 3 --turn-order fixed --script tests/fixtures/cli/{fixture}.txt");
+        var context = fixture == "success-treaty-load"
+            ? "--load tests/fixtures/saves/success-treaty-before-end78.json"
+            : "--scenario classical-mediterranean --seat macedonia --seed 3 --turn-order fixed";
+        using var process = StartCli(cliDll!, $"{context} --script tests/fixtures/cli/{fixture}.txt");
         var stdoutTask = process.StandardOutput.ReadToEndAsync();
         var stderrTask = process.StandardError.ReadToEndAsync();
         await process.WaitForExitAsync();

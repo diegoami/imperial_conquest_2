@@ -57,6 +57,7 @@ hire-mercenary mac-merc 25
 end
 attack-army mac-detached army-14
 end
+move mac-sac-1 148 40
 end
 split-fleet mac-fleet-1 mac-fleet-2 10
 fleet-transfer mac-fleet-1 mac-fleet-2 1 1 0
@@ -64,10 +65,12 @@ join-fleets mac-fleet-1 mac-fleet-2
 buy-fleet-supply mac-fleet-1 amphipolis 5
 repair-fleet mac-fleet-1 1
 split-fleet mac-fleet-1 mac-fleet-keep 13
-end
+move mac-sac-1 154 35
 attack-army mac-sac-1 army-14
 end
 end
+end
+move mac-merc 139 43
 status
 news
 set-tax 20
@@ -76,12 +79,3 @@ transfer-money mac-fleet-1 -50 via mac-fleet-keep
 scuttle-fleet mac-fleet-1
 move mac-marines 142 42
 end
-peace-yes
-move mac-marines 148 40
-move-fleet mac-fleet-keep 148 41
-embark-army mac-marines mac-fleet-keep
-disembark-army mac-marines 148 40
-recruit-standing pella light_infantry 200
-disband-slot 0
-end
-quit
