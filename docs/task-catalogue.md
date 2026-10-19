@@ -332,6 +332,7 @@ graph TD
   T183 --> T195
   T179 --> T183[T183 tactical exchange audio]
   T180 --> T197[T197 readable battle exchanges]
+  T197 --> T198[T198 persistent diagnostics]
   T183 --> T197
   T180 --> T183
   T184[T184 original SAV writer] --> T185[T185 SAV bridge and converter]
@@ -1472,6 +1473,10 @@ Clear army/fleet milestone on existing [1010](https://github.com/diegoami/imperi
 
 Owner P1 [1260](https://github.com/diegoami/imperial_conquest_2/issues/1260), next 0.6.x; follows T180/T183, replaces persistent roster/history presentation and default-zero pauses, with explicit issue 1261 shared-writer hold → [full entry](tasks/T197.md).
 
+#### T198 Persistent local diagnostics for crash and hang investigation
+
+Owner [1266](https://github.com/diegoami/imperial_conquest_2/issues/1266); bounded local engine logs and breadcrumbs before next owner-retest patch, after T197 and PR1263 shared-writer serialization; does not claim hang fixed → [full entry](tasks/T198.md).
+
 #### T25 Battle result, diplomacy, and hotseat handoff screens
 
 Godot screens → [full entry](tasks/T25.md) · [#25](https://github.com/diegoami/imperial_conquest_2/issues/25)
@@ -1698,3 +1703,4 @@ The doc→GitHub half of the cross-reference; each issue links back to its entry
 | [T195](#t195-strategic-travel-presentation-and-arrival-barrier) | Strategic travel playback | M18 | Sol family | Medium | direct Kimi + human | T194, T187, T180, T183 | [#1224](https://github.com/diegoami/imperial_conquest_2/issues/1224) |
 | [T196](#t196-clear-strategic-army-and-fleet-selection-feedback) | Clear strategic selection | M18 | Sol family low | Medium | direct Kimi + human | T187, T195 | [#1010](https://github.com/diegoami/imperial_conquest_2/issues/1010) |
 | [T197](#t197-readable-current-battle-exchanges-and-deliberate-unit-lists) | Battle exchange readability | M21/M18 | Sol family | Medium | direct Kimi + human | T180, T183; 1261 serialization hold | [#1260](https://github.com/diegoami/imperial_conquest_2/issues/1260) |
+| [T198](#t198-persistent-local-diagnostics-for-crash-and-hang-investigation) | Persistent local diagnostics | M18/M21 | Sol family | Medium | direct Kimi | T197; PR1263 shared-writer serialization | [#1266](https://github.com/diegoami/imperial_conquest_2/issues/1266) |
