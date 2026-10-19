@@ -302,9 +302,11 @@ public partial class StrategicTravelCheck : Node
             await CheckTravelFeedback(main, id, selected, new GridPoint(52, 46), prefix + "-mid-" + zoom);
             await Capture(prefix + "-mid-" + zoom, "Fractional centre, locked orders, actual panel/minimap; " + zoom + " practical zoom.");
         }
-        main.MapView.CentreOnTile(50 + (int)Math.Floor(main.MapView.Size.X / TilePixels(main) / 2), 45);
+        main.MapView.CentreOnTile(50 + (int)Math.Ceiling(main.MapView.Size.X / TilePixels(main) / 2), 45);
         await Frames();
-        Require(main.MapView.ClipContents, "fractional moving art clips at actual pan edge");
+        var clippedBounds = main.MapView.StrategicDrawBoundsForCheck[id];
+        Require(main.MapView.ClipContents && clippedBounds.Position.X < 0 && clippedBounds.End.X > 0,
+            "fractional moving art actually straddles the left viewport clip edge");
         await Capture(prefix + "-mid-pan-edge", "Moving marker straddles actual viewport edge; pan/zoom stay available under input lock.");
         main.MapView.CentreOnTile(50, 45);
         Advance(main, .06);
