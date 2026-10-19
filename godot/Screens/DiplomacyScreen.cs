@@ -1,3 +1,4 @@
+using IC2.Slice.Diagnostics;
 using Godot;
 using IC2.Engine.Presentation;
 using IC2.Slice.UI;
@@ -139,7 +140,7 @@ public partial class DiplomacyScreen : Control
 
     private void Issue(string commandLine)
     {
-        var output = Session.Submit(commandLine);
+        var output = AppDiagnostics.Submit(Session, commandLine, "diplomacy");
         CommandIssued?.Invoke(output.Lines);
 
         // Rebuilds so the grid reflects the relation the command just changed immediately, the same

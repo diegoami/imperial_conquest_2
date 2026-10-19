@@ -1,3 +1,4 @@
+using IC2.Slice.Diagnostics;
 using Godot;
 using IC2.Engine.Persistence;
 using IC2.Engine.Presentation;
@@ -126,7 +127,7 @@ public partial class LoadGameScreen : Control
     /// </summary>
     private void OnContinuePressed(string path)
     {
-        var outcome = LoadGameModel.Open(path, GameDataContext.Repository, HumanBattleMode.Tactical);
+        var outcome = AppDiagnostics.Operation(DiagnosticEvent.Load, "load", () => LoadGameModel.Open(path, GameDataContext.Repository, HumanBattleMode.Tactical), target: path, success: outcome => outcome.Session is not null);
         if (outcome.Session is not { } session)
         {
             _messageLabel.Text = outcome.Message;

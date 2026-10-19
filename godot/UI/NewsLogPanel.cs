@@ -1,3 +1,4 @@
+using IC2.Slice.Diagnostics;
 using Godot;
 using IC2.Engine.Presentation;
 
@@ -57,7 +58,7 @@ public partial class NewsLogPanel : Control
     /// read of <c>GameState.NewsLog</c> that bypasses <see cref="GameSession"/>.</summary>
     public void Refresh()
     {
-        var output = Session.Submit("news");
+        var output = AppDiagnostics.Submit(Session, "news", "news");
         _text.Text = string.Join('\n', output.Lines);
     }
 }

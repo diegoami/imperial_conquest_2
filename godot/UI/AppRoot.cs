@@ -1,3 +1,4 @@
+using IC2.Slice.Diagnostics;
 using System;
 using Godot;
 
@@ -24,12 +25,15 @@ public partial class AppRoot : Control
     {
         // Bug #919: the window's close button must not quit an open game unasked; the close request
         // arrives as NotificationWMCloseRequest and HandleCloseRequest decides.
+        AppDiagnostics.Acquire();
         GetTree().AutoAcceptQuit = false;
         ShowMainMenu();
     }
 
     public override void _Notification(int what)
     {
+        if (what == NotificationApplicationFocusOut) AppDiagnostics.Mark(DiagnosticEvent.Focus, "lost");
+        if (what == NotificationApplicationFocusIn) AppDiagnostics.Mark(DiagnosticEvent.Focus, "gained");
         if (what == NotificationWMCloseRequest)
         {
             HandleCloseRequest();
@@ -50,8 +54,11 @@ public partial class AppRoot : Control
         }
     }
 
+    public override void _ExitTree() => AppDiagnostics.Release();
+
     private void Quit()
     {
+        AppDiagnostics.Mark(DiagnosticEvent.Quit, "app");
         if (QuitAction is { } action)
         {
             action();
@@ -116,6 +123,7 @@ public partial class AppRoot : Control
 
     private void SwapTo(Control screen)
     {
+        AppDiagnostics.Mark(DiagnosticEvent.Screen, "app", token: screen.GetType().Name);
         foreach (var child in GetChildren())
         {
             RemoveChild(child);

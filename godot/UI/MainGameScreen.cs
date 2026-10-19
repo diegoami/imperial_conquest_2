@@ -1,3 +1,4 @@
+using IC2.Slice.Diagnostics;
 using Godot;
 using IC2.Engine.Armies;
 using IC2.Engine.Model;
@@ -1587,7 +1588,7 @@ public partial class MainGameScreen : Control
     private IReadOnlyList<string> SubmitFromDialog(string line)
     {
         if (!AllowStrategicInput()) return Array.Empty<string>();
-        var lines = Session.Submit(line).Lines;
+        var lines = AppDiagnostics.Submit(Session, line, "dialog").Lines;
         OnCommandIssued(lines);
         return lines;
     }
@@ -1705,7 +1706,7 @@ public partial class MainGameScreen : Control
             return false;
         }
 
-        var output = Session.Submit($"save {path}");
+        var output = AppDiagnostics.Submit(Session, $"save {path}", "save", path);
         OnCommandIssued(output.Lines);
         var confirmation = CommandOutcomeText.OutcomeBlock(output.Lines);
         _saveConfirmationLabel.Text = confirmation;
@@ -1796,7 +1797,7 @@ public partial class MainGameScreen : Control
     public IReadOnlyList<string> SubmitForCheck(string commandLine)
     {
         if (!AllowStrategicInput()) return Array.Empty<string>();
-        var lines = Session.Submit(commandLine).Lines;
+        var lines = AppDiagnostics.Submit(Session, commandLine, "check").Lines;
         OnCommandIssued(lines);
         return lines;
     }
@@ -2266,7 +2267,7 @@ public partial class MainGameScreen : Control
         screen.Answered += command =>
         {
             CloseOverlay(screen);
-            OnCommandIssued(Session.Submit(command).Lines);
+            OnCommandIssued(AppDiagnostics.Submit(Session, command, "peace").Lines);
         };
         ShowOverlay(screen);
     }
