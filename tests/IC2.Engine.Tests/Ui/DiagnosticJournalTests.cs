@@ -125,6 +125,30 @@ public sealed class DiagnosticJournalTests : IDisposable
         }
         Assert.False(File.Exists(Path.Combine(_directory, "journal-5.jsonl")));
     }
+    [Fact] public void OnlyPositionAllowlistedNumericArgumentsAreRecorded()
+    {
+        using var journal = new DiagnosticJournal(_directory);
+        journal.Before(DiagnosticEvent.Command, "dialog", "rename-unit army-0 1 8675309");
+        journal.Before(DiagnosticEvent.Command, "dialog", "split-army army-0 8675309 0,1");
+        journal.Before(DiagnosticEvent.Command, "map", "move army-0 100 36");
+        journal.Before(DiagnosticEvent.Command, "check", "unknown 8675309");
+        var text = ReadText(Path.Combine(_directory, "journal-0.jsonl"));
+        Assert.DoesNotContain("8675309", text);
+        Assert.DoesNotContain("army-0", text);
+        Assert.Equal(new long[] { 100, 36 }, Read()[2].GetProperty("arguments").GetProperty("numeric").EnumerateArray().Select(n => n.GetInt64()));
+        Assert.Equal(JsonValueKind.Null, Read()[3].GetProperty("arguments").ValueKind);
+    }
+    [Fact] public void FourMaximumDiagnosticMessagesRemainUnderEncodedRecordCap()
+    {
+        int warnings = 0;
+        using var journal = new DiagnosticJournal(_directory, () => warnings++);
+        Exception exception = new IOException(string.Concat(Enumerable.Repeat("unauthorizedaccessexception ", 100)));
+        for (int i = 0; i < 4; i++) exception = new InvalidOperationException(exception.Message, exception);
+        journal.Exception(exception);
+        Assert.Equal(0, warnings);
+        Assert.Equal(4, Read().Single().GetProperty("causes").GetArrayLength());
+        Assert.InRange(new FileInfo(Path.Combine(_directory, "journal-0.jsonl")).Length, 1, DiagnosticJournal.MaxRecordBytes);
+    }
     private void FillCurrent()
     {
         var path=Path.Combine(_directory,"journal-0.jsonl");

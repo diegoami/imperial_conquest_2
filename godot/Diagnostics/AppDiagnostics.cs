@@ -84,13 +84,13 @@ public static class AppDiagnostics
         try { _journal?.Detail(kind, Enum.TryParse<DiagnosticDetail>(label, out var detail) && Enum.IsDefined(detail) ? detail : DiagnosticDetail.Unavailable,
             turn: turn, shot: SettingsScreen.BattleShotDelaySeconds, attack: SettingsScreen.BattleAttackDelaySeconds, paused: paused, fast: fast); } catch { }
     }
-    public static void Frame(TacticalBattleFrame frame, long authoritativeTurn, string? stage = null, TacticalPresentationSnapshot? displayed = null)
+    public static void Frame(TacticalBattleFrame frame, long authoritativeTurn, string? stage = null, TacticalPresentationSnapshot? displayed = null, DiagnosticEvent? boundary = null)
     {
         try
         {
             var view = (displayed ?? frame.After).View;
             var side = view.SideToMove;
-            _journal?.Detail(stage is null ? DiagnosticEvent.Frame : DiagnosticEvent.Stage,
+            _journal?.Detail(boundary ?? (stage is null ? DiagnosticEvent.Frame : DiagnosticEvent.Stage),
                 Enum.TryParse<DiagnosticDetail>(stage ?? frame.Kind.ToString(), out var detail) && Enum.IsDefined(detail) ? detail : DiagnosticDetail.Unavailable,
                 turn: authoritativeTurn, frame: frame.FrameId, command: frame.CommandId, battle: frame.BattleId,
                 side: side, halfRound: view.Counter, computer: view.ComputerControlled[side], general: view.ComputerGeneral[side],

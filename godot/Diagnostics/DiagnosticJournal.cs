@@ -94,7 +94,7 @@ public sealed class DiagnosticJournal : IDisposable
     public static string CommandKind(string? command)
     {
         // Never retain operands, even for known commands. Safe numeric context is supplied separately.
-        var verb = command?.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.ToLowerInvariant();
+        var verb = command?.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.ToLowerInvariant();
         return verb is "end" or "save" or "news" or "move" or "attack" or "shoot" or "recruit" or "mobilize" or "tax" or "diplomacy" or "battle" or "general" or "place" or "clear" or "surrender" or "status" or "armies" or "cities" or "map" or "buy" or "attack-army" or "besiege-city" or "attack-fleet" or "disband-army" or "join-armies" or "join-units" or "split-army" or "army-transfer" or "split-unit" or "rename-unit" or "disband-unit" or "order-city" or "declare-war" or "make-peace" or "propose-alliance" or "propose-trade" or "accept-offer" or "peace-yes" or "peace-no" or "hire-mercenary" or "recruit-standing" or "disband-slot" or "move-fleet" or "order-fleet" or "repair-fleet" or "scuttle-fleet" or "split-fleet" or "join-fleets" or "embark-army" or "disembark-army" or "buy-fleet-supply" or "fleet-transfer" or "load" or "balance" or "set-tax" or "transfer-money" ? verb : "unknown";
     }
     // A finite vocabulary retains BCL failure meaning while removing all user supplied payload.
@@ -108,7 +108,8 @@ public sealed class DiagnosticJournal : IDisposable
         var words = Regex.Matches(bounded, @"[A-Za-z]+")
             .Select(m => ExceptionWords.Contains(m.Value) ? m.Value.ToLowerInvariant() : "[redacted]")
             .Take(20).ToArray();
-        return string.Join(" ", words);
+        var safe = string.Join(" ", words);
+        return safe[..Math.Min(safe.Length, 160)];
     }
     private static string TargetFormat(string target)
     {
@@ -142,10 +143,24 @@ public sealed class DiagnosticJournal : IDisposable
         // IDs are opaque run-local tokens. Rename payloads/new entity names are excluded.
         var entity = kind is "move" or "move-fleet" or "attack-army" or "attack-fleet" or "besiege-city" or "rename-unit" or "disband-unit"
             or "declare-war" or "make-peace" or "propose-alliance" or "propose-trade" ? parts.FirstOrDefault() : null;
-        var numeric = (kind == "rename-unit" ? parts.Skip(1).Take(1) : parts.AsEnumerable())
-            .Select(value => long.TryParse(value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var number) ? (long?)number : null)
-            .Where(value => value is not null).Take(4).ToArray();
-        var mode = kind == "battle" && parts.FirstOrDefault() is "general" or "place" or "move" or "attack" or "shoot" or "end" or "surrender" or "show" ? parts[0] : null;
+        var mode = kind == "battle" && parts.FirstOrDefault() is "general" or "place" or "move" or "attack" or "shoot" or "clear" or "end" or "surrender" or "show" ? parts[0] : null;
+        int[] positions = kind switch
+        {
+            "move" or "move-fleet" => new[] { 1, 2 },
+            "rename-unit" or "disband-unit" or "hire-mercenary" or "repair-fleet" or "order-fleet" => new[] { 1 },
+            "split-unit" => new[] { 1, 2 },
+            "buy" or "recruit-standing" or "order-city" or "split-fleet" => new[] { 2 },
+            "set-tax" or "mobilize" or "disband-slot" => new[] { 0 },
+            "transfer-money" => new[] { 1 },
+            "fleet-transfer" => new[] { 2, 3, 4 },
+            "battle" when mode is "place" or "move" => new[] { 1, 2, 3 },
+            "battle" when mode is "attack" or "shoot" => new[] { 1, 2 },
+            "battle" when mode is "clear" => new[] { 1 },
+            _ => Array.Empty<int>(),
+        };
+        var numeric = positions.Where(i => i < parts.Length)
+            .Select(i => long.TryParse(parts[i], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var number) ? (long?)number : null)
+            .Where(value => value is not null).ToArray();
         return new { entity = entity is null ? null : Token(entity), numeric, mode };
     }
     private static string SafeType(Type type) => SafeIdentifier(type.FullName ?? type.Name, 96);

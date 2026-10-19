@@ -258,7 +258,7 @@ public partial class DiagnosticsCheck : Node
     {
         foreach (var zero in new[] { false, true })
         {
-            int recordStart = Records().Length;
+            long recordStart = Records().Last().GetProperty("sequence").GetInt64() + 1;
             SettingsScreen.SetBattlePauses(zero ? 0 : 1, zero ? 0 : 2);
             var game = AddGame(Classical());
             game.SubmitForCheck("attack-army army-0 army-3");
@@ -272,7 +272,7 @@ public partial class DiagnosticsCheck : Node
             {
                 active.PressToolbarButton("surrender"); active.AnswerSurrender(true); active.SkipPlayback();
             }
-            var all = Records().Skip(recordStart).ToArray();
+            var all = Records().Where(r => r.GetProperty("sequence").GetInt64() >= recordStart).ToArray();
             Check(all.Any(r => Kind(r) == "Frame" && r.GetProperty("metadata").GetProperty("detail").GetString() == "Terminal")
                 && all.Any(r => Kind(r) == "Frame" && r.GetProperty("metadata").GetProperty("detail").GetString() == "Reconciliation"), "terminal and reconciliation immutable frames persisted");
             Check(all.Any(r => Kind(r) == "Stage") && all.Any(r => Kind(r) == "Completion"), "zero/skip stage and completion receipts");
@@ -293,7 +293,7 @@ public partial class DiagnosticsCheck : Node
     }
     private void CheckPrivacy()
     {
-        var text = ReadShared(Path.Combine(_directory, "journal-0.jsonl"));
+        var text = string.Join("\n", Records().Select(r => r.GetRawText()));
         foreach (var secret in new[] { "PrivateNameProbe", "missing-private-army", "private-content", _directory, "attack-army army-0" })
             Check(!text.Contains(secret, StringComparison.Ordinal), "allowlisted journal excludes private payload");
         Check(Records().Where(r => r.GetProperty("target").ValueKind == JsonValueKind.String).All(r => r.GetProperty("target").GetString()!.Length == 24), "save/load targets are opaque run-local tokens");
@@ -320,7 +320,10 @@ public partial class DiagnosticsCheck : Node
     private async Task Settle() { for (int i = 0; i < 3; i++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame); }
     private static IEnumerable<Button> Buttons(Node root) => root.GetChildren().SelectMany(n => n is Button b ? new[] { b }.Concat(Buttons(n)) : Buttons(n));
     private void Check(bool condition, string message) { _ok &= condition; GD.Print((condition ? "PASS: " : "FAIL: ") + message); }
-    private JsonElement[] Records() => ReadShared(Path.Combine(_directory, "journal-0.jsonl")).Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonDocument.Parse(line).RootElement.Clone()).ToArray();
+    private JsonElement[] Records() => Enumerable.Range(0, 5).Reverse()
+        .Select(i => Path.Combine(_directory, $"journal-{i}.jsonl")).Where(File.Exists)
+        .SelectMany(path => ReadShared(path).Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        .Select(line => JsonDocument.Parse(line).RootElement.Clone()).ToArray();
     private static string Kind(JsonElement record) => record.GetProperty("kind").GetString()!;
     private static string ReadShared(string path) { using var file = new FileStream(path, FileMode.Open, System.IO.FileAccess.Read, FileShare.ReadWrite | FileShare.Delete); using var reader = new StreamReader(file); return reader.ReadToEnd(); }
 }
