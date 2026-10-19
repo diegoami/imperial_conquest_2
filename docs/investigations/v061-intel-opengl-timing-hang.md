@@ -48,12 +48,29 @@ so successful startup alone does not establish which backend ran.
 v0.6.1 completed 600 frames, capped at 60 FPS in a 1024 x 768 window, with exit
 code zero, no errors and no fallback. Its log explicitly identified ANGLE,
 Intel Iris Xe and Direct3D 11 with driver 32.0.101.7088. The executable hash
-was unchanged. This did **not** test battle completion. No driver, project,
-installation or shortcut was changed. Other GPU use, including a possible
-WSL/Pygame workload, was not established as causal; its actual backend was
-not verified and no other application was stopped.
+was unchanged. This did **not** test battle completion. That startup test
+changed no driver, project, installation or shortcut. Other GPU use,
+including a possible WSL/Pygame workload, was not established as causal; its
+actual backend was not verified and no other application was stopped.
 
-## Next-computer comparison
+## Driver update and same-machine startup checks
+
+**[confirmed: startup only]** Later on 2026-10-19 the owner updated the Intel
+driver and rebooted; the reboot was verified at 16:01 local time. Sequential
+startup checks of unchanged v0.6.1 on the same computer then completed 600
+frames each on native OpenGL and ANGLE/Direct3D 11. Both exited with code zero
+and no diagnostic errors. The native header identified OpenGL 3.3.0, Build
+32.0.101.7092; the ANGLE header identified ANGLE 2.1.1 and Direct3D 11 driver
+32.0.101.7092, with no native fallback. The executable SHA-256 remained
+`27FC0A42F8BDDBAFFC6A58E629102F2155E9FF78A7F04CF906CFF6CFAEEF36BD`.
+Neither check replayed the battle. The driver update is not yet established
+as a fix, and ANGLE remains an unverified battle-completion workaround.
+
+## Next battle comparison
+
+The owner resumed testing on the same computer after the driver update;
+this supersedes the earlier plan to move immediately to another computer.
+The comparison below also remains portable to another computer.
 
 Use the same v0.6.1 copy and a working copy of the confirmed starting save;
 preserve the source save and avoid overwriting it. Run one game instance at
