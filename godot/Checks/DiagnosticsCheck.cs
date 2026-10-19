@@ -112,11 +112,14 @@ public partial class DiagnosticsCheck : Node
         Check(JsonSerializer.Serialize(session.State) == stateBefore, "rejected order preserves state/RNG");
 
         var before = commands;
+        int mapCommands = 0;
+        game.MapView.CommandIssued += _ => mapCommands++;
         Observe("real-map-order", "map", () => { ClickMap(game.MapView, 100, 37); ClickMap(game.MapView, 100, 36); });
-        Check(commands == before + 1, "real map input submits exactly once");
+        Check(mapCommands == 1, $"real map input submits exactly once (producer count {mapCommands})");
         reference.Submit("move army-0 100 36");
         Check(JsonSerializer.Serialize(session.State) == JsonSerializer.Serialize(reference.State), "map instrumentation preserves authoritative state/RNG");
         game.CommandTable.TryInvoke("unit_map.cancel_selection");
+        Check(commands == before + 1, $"real map completion notifies exactly once (completion delta {commands - before})");
 
         game.OpenDiplomacyScreen();
         var diplomacy = (DiplomacyScreen)game.ActiveOverlay!;
