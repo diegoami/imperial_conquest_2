@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Godot;
 using IC2.Engine.Model;
+using IC2.Engine.Core;
 using IC2.Engine.Presentation;
 using IC2.Slice.Diagnostics;
 using IC2.Slice.Screens;
@@ -108,13 +109,13 @@ public partial class DiagnosticsCheck : Node
         int commands = 0; game.CommandIssued += _ => commands++;
         var reference = Classical();
         var stateBefore = JsonSerializer.Serialize(session.State);
-        Observe("main-rejected-command", "check", () => game.SubmitForCheck("move missing-private-army 100 36"), false);
+        Observe("main-rejected-command", "check", () => game.SubmitForCheck("move missing-private-army 100 36"), false, session);
         Check(JsonSerializer.Serialize(session.State) == stateBefore, "rejected order preserves state/RNG");
 
         var before = commands;
         int mapCommands = 0;
         game.MapView.CommandIssued += _ => mapCommands++;
-        Observe("real-map-order", "map", () => { ClickMap(game.MapView, 100, 37); ClickMap(game.MapView, 100, 36); });
+        Observe("real-map-order", "map", () => { ClickMap(game.MapView, 100, 37); ClickMap(game.MapView, 100, 36); }, session: session);
         Check(mapCommands == 1, $"real map input submits exactly once (producer count {mapCommands})");
         reference.Submit("move army-0 100 36");
         Check(JsonSerializer.Serialize(session.State) == JsonSerializer.Serialize(reference.State), "map instrumentation preserves authoritative state/RNG");
@@ -124,13 +125,13 @@ public partial class DiagnosticsCheck : Node
         game.OpenDiplomacyScreen();
         var diplomacy = (DiplomacyScreen)game.ActiveOverlay!;
         before = commands;
-        Observe("real-diplomacy-Issue", "diplomacy", () => diplomacy.Grid.GetChildren().OfType<Button>().First(b => !b.Disabled && b.Text == "Declare War").EmitSignal(BaseButton.SignalName.Pressed));
+        Observe("real-diplomacy-Issue", "diplomacy", () => diplomacy.Grid.GetChildren().OfType<Button>().First(b => !b.Disabled && b.Text == "Declare War").EmitSignal(BaseButton.SignalName.Pressed), session: session);
         Check(commands == before + 1, "diplomacy action submits exactly once");
         diplomacy.Close();
 
         var newsBefore = session.State.NewsLog.Slots.Select(e => e.Text).ToArray();
-        Observe("real-news-Refresh", "news", game.NewsLog.Refresh);
-        Observe("real-news-Toggle", "news", game.NewsLog.Toggle);
+        Observe("real-news-Refresh", "news", game.NewsLog.Refresh, session: session);
+        Observe("real-news-Toggle", "news", game.NewsLog.Toggle, session: session);
         var recordsBeforeHide = Records().Length;
         game.NewsLog.Toggle();
         Check(Records().Length == recordsBeforeHide && newsBefore.SequenceEqual(session.State.NewsLog.Slots.Select(e => e.Text)), "news hide submits nothing and read retains news content");
@@ -139,15 +140,15 @@ public partial class DiagnosticsCheck : Node
         Check(game.MenuBar.PressItemForCheck("unit_map.army_change_units"), "real change-units menu opens");
         var dialog = (ChangeUnitsDialog)game.ActiveOverlay!;
         before = commands;
-        Observe("dialog-submit", "dialog", () => dialog.RenameUnitForCheck(0, "PrivateNameProbe"));
+        Observe("dialog-submit", "dialog", () => dialog.RenameUnitForCheck(0, "PrivateNameProbe"), session: session);
         Check(commands == before + 1 && session.State.ArmyById("army-0")!.Units[0].Name == "PrivateNameProbe", "dialog preserves rename behavior and one submit");
         dialog.CancelForCheck();
 
         var save = Path.Combine(_directory, "PrivateNameProbe.json");
-        Observe("real-save-success", "save", () => game.SaveAsForCheck(save));
+        Observe("real-save-success", "save", () => game.SaveAsForCheck(save), session: session);
         Check(File.Exists(save), "save uses actual entry path");
         var directoryAsFile = Path.Combine(_directory, "blocked.json"); Directory.CreateDirectory(directoryAsFile);
-        Observe("real-save-failure", "save", () => game.SaveAsForCheck(directoryAsFile), false);
+        Observe("real-save-failure", "save", () => game.SaveAsForCheck(directoryAsFile), false, session);
         _app.ShowLoadGame(); var load = (LoadGameScreen)_app.CurrentScreen!;
         Observe("missing-load", "load", () => load.ContinueForCheck(Path.Combine(_directory, "missing-PrivateNameProbe.json")), false);
         var malformed = Path.Combine(_directory, "malformed-PrivateNameProbe.json"); File.WriteAllText(malformed, "{private-content");
@@ -166,9 +167,10 @@ public partial class DiagnosticsCheck : Node
         GD.Print($"DiagnosticsCheck: boundary observer elapsed {_overhead.ElapsedMilliseconds} ms across {_observed.Count} operations.");
         await Settle();
         CheckUnregistration();
+        CheckStorageFailureIsolation();
     }
 
-    private void Observe(string name, string source, Action action, bool success = true)
+    private void Observe(string name, string source, Action action, bool success = true, GameSession? session = null)
     {
         var before = Records().Where(r => r.GetProperty("source").GetString() == source && r.GetProperty("outcome").GetString() == "BEFORE").Select(r => r.GetProperty("operation").GetInt64()).ToHashSet();
         int observed = 0;
@@ -181,7 +183,12 @@ public partial class DiagnosticsCheck : Node
             _observed[operation] = name; observed++;
             _overhead.Stop();
         };
-        try { action(); } finally { AppDiagnostics.BeforeObserver = null; }
+        int submitted = 0;
+        Action<IReadOnlyList<DomainEvent>> countSubmit = _ => submitted++;
+        if (session is not null) session.EventsPublished += countSubmit;
+        try { action(); }
+        finally { AppDiagnostics.BeforeObserver = null; if (session is not null) session.EventsPublished -= countSubmit; }
+        if (session is not null) Check(submitted == 1, name + $": exactly one actual Session.Submit (count {submitted})");
         var added = Records().Where(r => r.GetProperty("source").GetString() == source && r.GetProperty("outcome").GetString() == "BEFORE" && !before.Contains(r.GetProperty("operation").GetInt64())).ToArray();
         Check(added.Length == 1 && observed == 1, name + ": exactly one real entry BEFORE");
         if (added.Length != 1) return;
@@ -222,6 +229,35 @@ public partial class DiagnosticsCheck : Node
     private static void AbandonTask() { _ = Task.FromException(new IOException("Access denied for 'PrivateNameProbe'")); }
     private static void CollectTasks() { for (int i = 0; i < 3; i++) { GC.Collect(); GC.WaitForPendingFinalizers(); } }
 
+    private void CheckStorageFailureIsolation()
+    {
+        var blocked = Path.Combine(_directory, "blocked-journal");
+        File.WriteAllText(blocked, "synthetic unrelated file");
+        var logPath = ProjectSettings.GlobalizePath(ProjectSettings.GetSetting("debug/file_logging/log_path").AsString());
+        const string warning = "Local diagnostics unavailable; gameplay continues.";
+        int warningsBefore = ReadShared(logPath).Split(warning, StringSplitOptions.None).Length - 1;
+        AppDiagnostics.DirectoryOverride = blocked;
+        AppDiagnostics.Acquire();
+        try
+        {
+            var session = Classical(); var reference = Classical();
+            var game = AddGame(session);
+            int submitted = 0; session.EventsPublished += _ => submitted++;
+            game.SubmitForCheck("news"); reference.Submit("news");
+            for (int i = 0; i < 20; i++) AppDiagnostics.Mark(DiagnosticEvent.Focus, "gained");
+            Check(submitted == 1 && JsonSerializer.Serialize(session.State) == JsonSerializer.Serialize(reference.State), "disabled journal cannot change actual gameplay submission/state/RNG");
+            var exception = new InvalidOperationException("Operation failed");
+            bool preserved = false;
+            try { AppDiagnostics.Operation<int>(DiagnosticEvent.Command, "check", () => throw exception); }
+            catch (InvalidOperationException caught) { preserved = ReferenceEquals(exception, caught); }
+            Check(preserved, "diagnostics preserves operation exception semantics");
+            int warningsAfter = ReadShared(logPath).Split(warning, StringSplitOptions.None).Length - 1;
+            Check(warningsAfter == warningsBefore + 1, "storage failure warns once without recursive logging");
+            Check(File.ReadAllText(blocked) == "synthetic unrelated file", "failed journal never modifies unrelated target");
+        }
+        finally { AppDiagnostics.Release(); AppDiagnostics.DirectoryOverride = _directory; }
+    }
+
     private async Task CheckMapConfirmation()
     {
         var game = AddGame(Classical(peacePair: true));
@@ -230,7 +266,7 @@ public partial class DiagnosticsCheck : Node
         ClickMap(game.MapView, 98, 37); ClickMap(game.MapView, 99, 37);
         Check(game.ActiveOverlay is ConfirmPrompt, "real map attack asks confirmation before submitting");
         Check(Records().Count(r => r.GetProperty("source").GetString() == "map" && r.GetProperty("outcome").GetString() == "BEFORE") == before, "unanswered confirmation submits nothing");
-        Observe("real-map-confirmation", "map", () => Buttons(game.ActiveOverlay!).First(b => b.Text == "Yes").EmitSignal(BaseButton.SignalName.Pressed));
+        Observe("real-map-confirmation", "map", () => Buttons(game.ActiveOverlay!).First(b => b.Text == "Yes").EmitSignal(BaseButton.SignalName.Pressed), session: game.Session);
         Check(game.ActiveOverlay is TacticalBattleScreen, "confirmed real map attack opens actual tactical battle");
     }
 
@@ -248,12 +284,12 @@ public partial class DiagnosticsCheck : Node
         var world = resolved.World with { StartingArmies = ValueList.From(armies), StartingRelations = resolved.World.StartingRelations!.WithRelation("rome", "carthage", rules.Diplomacy.StateCodes.War) };
         var scenario = resolved.Scenario with { Seats = ValueList.From(resolved.Scenario.Seats.Select(s => s with { Control = s.Nation == "rome" ? SeatControl.Human : SeatControl.Ai })) };
         var game = AddGame(new GameSession(world, rules, scenario, seedOverride: 20261005UL));
-        Observe("result-opening", "result", () => game.SubmitForCheck("attack-army army-0 army-2"));
+        Observe("result-opening", "result", () => game.SubmitForCheck("attack-army army-0 army-2"), session: game.Session);
         Check(game.ActiveOverlay is BattleResultScreen, "instant battle result opens");
         ((BattleResultScreen)game.ActiveOverlay!).Close();
         Check(game.ActiveOverlay is PeaceOfferScreen, "actual engine offer opens peace window");
         var peace = (PeaceOfferScreen)game.ActiveOverlay!;
-        Observe("peace-answer-callback", "peace", () => Buttons(peace).First(b => b.Text == "No").EmitSignal(BaseButton.SignalName.Pressed));
+        Observe("peace-answer-callback", "peace", () => Buttons(peace).First(b => b.Text == "No").EmitSignal(BaseButton.SignalName.Pressed), session: game.Session);
         Check(!game.Session.HasPendingPeaceOffers, "peace answer callback consumes offer once");
     }
 

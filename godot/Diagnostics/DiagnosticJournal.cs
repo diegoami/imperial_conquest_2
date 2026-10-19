@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 
 namespace IC2.Slice.Diagnostics;
 
-public enum DiagnosticDetail { Unavailable, AppRoot, MainMenu, MainGameScreen, NewGameFlow, LoadGameScreen, SettingsScreen, TacticalBattleScreen, BattleEndedScreen, DiplomacyScreen, ConfirmPrompt, Open, Close, Frame, Announcement, Travel, Arrival, RoutHold, RoutFade, Initial, Placement, Movement, Target, Projectile, Shot, Melee, Rout, Cascade, Removal, Morale, Setup, HalfRound, Controller, CapWithdrawal, Terminal, Reconciliation }
+public enum DiagnosticDetail { Unavailable, AppRoot, MainMenu, MainGameScreen, NewGameFlow, LoadGameScreen, SettingsScreen, TacticalBattleScreen, BattleEndedScreen, DiplomacyScreen, ConfirmPrompt, Open, Close, Frame, Announcement, Travel, Arrival, RoutHold, RoutFade, Initial, Placement, Movement, Target, Projectile, Shot, Melee, Rout, Cascade, Removal, Morale, Setup, HalfRound, Controller, CapWithdrawal, Terminal, Reconciliation, BattleResultScreen, GameEndScreen, HotseatHandoffScreen, PeaceOfferScreen, AboutDialog, ArmyTransferDialog, BalanceSheetDialog, BuildFleetDialog, ChangeUnitsDialog, FileDialog, FindCityDialog, FleetTransferDialog, FortifyDialog, RecruitMercenariesDialog, RecruitUnitDialog, RepairDialog, SplitArmyDialog, SplitFleetDialog, SupplyDialog, TaxationDialog, NewGameScreen, ScenarioSeatScreen, WorldChooserScreen }
 
 public enum DiagnosticEvent { Startup, Screen, Focus, Quit, Command, Load, Save, Overlay, Result, Turn, Settings, BattleCommand, Frame, Stage, Skip, Cancel, Completion, Exception }
 
