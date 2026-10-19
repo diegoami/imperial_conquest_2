@@ -176,6 +176,18 @@ public sealed class AiFaithfulRecruitmentDeficitTests
         Assert.Equal(1 + newCount, Queues(run).Length); NewResources(state, run, newCount);
     }
 
+    [Fact]
+    public void Existing_WORD_power_can_wrap_back_to_positive_after65536()
+    {
+        // HC65535: trunc65535/100*120=78600; stored signed WORD13064.
+        // InitialD15000 leaves1936 for two LI1000 queues; raw-int accounting would stop immediately.
+        var before = State(null, Slot(65535, type: "heavy_cavalry"));
+        var run = Run(before);
+        Assert.Equal(3, Queues(run).Length);
+        Assert.Empty(run.Events.Events.OfType<RecruitMobilized>());
+        NewResources(before, run, 2);
+    }
+
     [Theory]
     [InlineData(24, 8)] // at most8 even for requested15000
     [InlineData(0, 8)]

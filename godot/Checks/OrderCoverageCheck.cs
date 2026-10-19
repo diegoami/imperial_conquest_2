@@ -13,13 +13,12 @@ namespace IC2.Slice.Checks;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>Reuses the proven A/B/fleet scripts</strong> (<c>tests/fixtures/cli/success.txt</c>,
-/// <c>success-trade-offer.txt</c> and <c>success-fleet.txt</c>) rather than re-deriving valid ids by hand. All are
-/// already golden-tested (<c>tests/IC2.Engine.Tests/Presentation/SuccessScriptTests.cs</c>) to run every
-/// line through <see cref="GameSession"/>'s own command layer without error, at the exact
-/// scenario/seat/seed each needs. T192's native baseline-save continuation carries treaty/marine coverage; A retains its corrected prefix; B repeats the original
-/// prefix in a separate fresh identical Macedonia session and accepts its incoming trade offer.
-/// <c>success-fleet.txt</c> supplies <c>attack-fleet</c> from its own fresh toy session.
+/// <strong>Reuses the four golden-tested cases.</strong> Corrected <c>success.txt</c> is the
+/// new-game Macedonia prefix; <c>success-trade-offer.txt</c> accepts its actual original-end22 trade.
+/// <c>success-treaty-load.txt</c> resumes the same validated native baseline save as the CLI/xUnit case,
+/// then executes its real battle, immediate treaty answer and unchanged marine group.
+/// <c>success-fleet.txt</c> supplies <c>attack-fleet</c> from its own fresh toy session. All lines
+/// still use the existing judgment and aggregate reflection paths; no additional exclusions apply.
 /// </para>
 /// <para>
 /// <strong>Rework round 1 (PR #466 review, findings 1 and 5, both blocking): this class used to print

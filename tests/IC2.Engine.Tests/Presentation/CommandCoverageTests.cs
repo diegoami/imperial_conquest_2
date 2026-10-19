@@ -43,9 +43,9 @@ namespace IC2.Engine.Tests.Presentation;
 /// <see cref="Presentation.SuccessScriptTests"/>'s class remarks for the full account. <c>attack-fleet</c>
 /// and <c>peace-yes</c> — the two PR #452 originally reported as unreachable too — get no exception per
 /// that same Done-when 2b: both have an accepted line (<c>success-fleet.golden.txt</c> and a
-/// re-seeded <c>success.golden.txt</c> respectively), described in full in <c>SuccessScriptTests</c>. T93
+/// <c>success-treaty-load.golden.txt</c> respectively), described in full in <c>SuccessScriptTests</c>. T93
 /// removed the last two it had added for #453 (<c>embark-army</c>, <c>disembark-army</c>), which now have
-/// accepted lines in <c>success.golden.txt</c>.</description></item>
+/// accepted lines in <c>success-treaty-load.golden.txt</c>.</description></item>
 /// </list>
 /// </remarks>
 public sealed class CommandCoverageTests
@@ -228,7 +228,8 @@ public sealed class CommandCoverageTests
     /// <summary>
     /// Done-when 2, second half: "or has no line in the success-path script that the golden shows
     /// accepted" — for every command type this class has not named as a confirmed, documented gap.
-    /// T178 uses A for treaty/marine, B (<c>success-trade-offer.golden.txt</c>) for incoming trade,
+    /// T192 uses the native-save continuation for treaty/marine, corrected A for its prefix,
+    /// B (<c>success-trade-offer.golden.txt</c>) for incoming trade,
     /// and the unchanged <c>success-fleet.golden.txt</c> for <c>attack-fleet</c> — a type
     /// passes if its own accepted line shows up in any of the four nonempty cases, including the native-save treaty/marine continuation.
     /// </summary>

@@ -13,14 +13,13 @@ namespace IC2.Engine.Tests.Presentation;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>Three fresh scripts.</strong> T178 splits the fixed Macedonia/seed3 coverage into
-/// <c>success.txt</c> (A: treaty and marine) and <c>success-trade-offer.txt</c> (B: incoming trade).
-/// B repeats the original prefix through its turn14 offer and accepts it at EOF. A retains the
-/// remaining original commands, adds one ordinary adjacent battle after original69, and answers the
-/// actual later treaty immediately after original79. Neither case supplies state to the other.
-/// <c>success-fleet.txt</c> remains a separate <c>toy-3city</c> case for <c>attack-fleet</c>.
-/// T192 moves the unchanged original78–87 group to a native baseline-save continuation; A retains its corrected prefix, B incoming trade and fleet its toy battle. Each case has full golden equality, fresh-session/load determinism and per-line own-verb acceptance;
-/// <see cref="CommandCoverageTests"/> aggregates all four nonempty goldens.
+/// <strong>Four independent cases.</strong> T192 retains a corrected new-game Macedonia/seed3
+/// prefix in <c>success.txt</c>; B (<c>success-trade-offer.txt</c>) accepts its actual Numidia
+/// trade immediately after original end22 and replays every later command. The unchanged original
+/// A78–87 group lives in <c>success-treaty-load.txt</c>, resumed from one pinned native baseline
+/// port save before original78. That historical state is not supplied by corrected A. Fleet remains
+/// a fresh <c>toy-3city</c> case. Every case has nonempty golden equality, fresh-session/load
+/// determinism and per-line own-verb acceptance; <see cref="CommandCoverageTests"/> aggregates all four.
 /// </para>
 /// <para>
 /// <strong><c>success.txt</c>: scenario and seed.</strong> <c>classical-mediterranean</c>, seat
@@ -75,14 +74,13 @@ namespace IC2.Engine.Tests.Presentation;
 /// remain unchanged; no new seed search was used for T171.
 /// </para>
 /// <para>
-/// <strong>T178 script boundaries.</strong> A initiates <c>attack-army mac-sac-1 army-14</c>
-/// immediately after original69. The later original79 <c>end</c> raises an actual Thracian treaty
-/// addressed to Macedonia; the relocated original60 <c>peace-yes</c> answers it before another end
-/// could expire it. The unchanged original marine sequence then moves to (148,40), embarks and
-/// disembarks. B omits only the two originally unaccepted answers from original1 through70 and appends the
-/// original23 <c>accept-offer</c> immediately after original70's actual Numidia trade offer.
-/// The scorer correction and these script changes have separate causal evidence; two cases do not
-/// establish original-input equivalence. Scenario, seed, preset, turn order and mercenary IDs stay fixed.
+/// <strong>T192 boundaries and provenance.</strong> Command numbers refer to A at baseline
+/// <c>a3dbf161b3b40bb02717845e933754ef08623854</c>. Corrected A keeps original1–78 with only
+/// the three specified preparation moves and sacrificial attack relocation. The loaded group duplicates
+/// original78 and retains original79–87 unchanged, including the same peace answer and marine sequence.
+/// The native save was produced by ordinary baseline play/save after original77; it preserves the
+/// naturally reached root, human seat and fixed order. The adjacent provenance file records hashes,
+/// generation/validation and claim limits. No offer/state injection, reseeding or new search was used.
 /// </para>
 /// <para>
 /// <strong>Random consumers.</strong> <see cref="Battle.BattleCasualties"/>'s casualty divisor
