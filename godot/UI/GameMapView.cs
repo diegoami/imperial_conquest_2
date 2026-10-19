@@ -1336,6 +1336,22 @@ public partial class GameMapView : Control
                 DrawFleet(DisplayState.FleetById(marker.Id)!, tileSize);
             ForegroundMarkerForCheck = marker.Id;
         }
+
+        // [designed] T196: a hovered opaque army can cover a selected coincident fleet.
+        // Repaint ONLY the selected entity's contained feedback after all boards. Base art,
+        // owner tints, pointer winner and picking order remain the existing T187 policy.
+        // Use the selected marker (never hovered) and the same T195 fractional rectangle.
+        DrawSelectedStrategicFeedback(markers, tileSize);
+    }
+
+    private bool IsSelectedStrategicMarker(StrategicMarker marker) => marker.Kind == StrategicMarkerKind.Army
+        ? string.Equals(marker.Id, _selectedArmyId, StringComparison.Ordinal)
+        : string.Equals(marker.Id, _selectedFleetId, StringComparison.Ordinal);
+
+    private void DrawSelectedStrategicFeedback(IEnumerable<StrategicMarker> markers, float tileSize)
+    {
+        foreach (var marker in markers.Where(IsSelectedStrategicMarker))
+            DrawStrategicOutline(marker.Id, StrategicMarkerRect(marker, tileSize), true, marker.Kind);
     }
 
     private Vector2 TileCenter(int x, int y, float tileSize) =>
@@ -1401,7 +1417,7 @@ public partial class GameMapView : Control
     public Dictionary<string, Rect2> StrategicFeedbackBoundsForCheck { get; } = new();
     public HashSet<string> StrategicFallbackMarkersForCheck { get; } = new();
 
-    private void DrawStrategicOutline(string id, Rect2 rect, bool selected)
+    private void DrawStrategicOutline(string id, Rect2 rect, bool selected, StrategicMarkerKind? selectedKind = null)
     {
         var bounds = new StrategicMarkerBounds(rect.Position.X, rect.Position.Y, rect.Size.X);
         var outline = StrategicMarkerGeometry.Outline(bounds, selected);
@@ -1410,6 +1426,32 @@ public partial class GameMapView : Control
         DrawRect(new Rect2(outline.X, outline.Y, outline.Size, outline.Size),
             selected ? SelectedRingColor : CityRingColor, false,
             stroke);
+        if (selected && selectedKind is { } kind) DrawSelectedKindCue(rect, kind);
+    }
+
+    private void DrawSelectedKindCue(Rect2 rect, StrategicMarkerKind kind)
+    {
+        // [designed] Army/fleet can both reach the same 48px cap. A final frame alone
+        // could then look like selection of the hovered army instead of the hidden fleet.
+        // The A/F feedback tab identifies the selected KIND without repainting its board.
+        // Proportional vector strokes, no font/minimum-pixel floor: the entire cue stays
+        // inside the existing marker rectangle even at overview zoom. Panel/strip retain
+        // readable identity there; human clarity approval is separate from the pixel check.
+        var tab = new Rect2(rect.Position, new Vector2(rect.Size.X * .28f, rect.Size.Y * .32f));
+        DrawRect(tab, SelectedRingColor);
+        Vector2 P(float x, float y) => tab.Position + new Vector2(x * tab.Size.X, y * tab.Size.Y);
+        var ink = new Color(.05f, .06f, .07f);
+        var width = tab.Size.X * .12f;
+        if (kind == StrategicMarkerKind.Army)
+        {
+            DrawPolyline(new[] { P(.20f, .82f), P(.50f, .18f), P(.80f, .82f) }, ink, width);
+            DrawLine(P(.34f, .56f), P(.66f, .56f), ink, width);
+        }
+        else
+        {
+            DrawPolyline(new[] { P(.25f, .82f), P(.25f, .20f), P(.80f, .20f) }, ink, width);
+            DrawLine(P(.25f, .48f), P(.68f, .48f), ink, width);
+        }
     }
 
     private void DrawArmy(ArmyState army, float tileSize)
@@ -1422,7 +1464,7 @@ public partial class GameMapView : Control
         var (background, foreground) = NationColors(army.Nation);
         var rect = StrategicMarkerRect(new(army.Id, StrategicMarkerKind.Army, army.X, army.Y), tileSize);
         StrategicDrawBoundsForCheck[army.Id] = rect;
-        var selected = string.Equals(army.Id, _selectedArmyId, StringComparison.Ordinal);
+        var selected = IsSelectedStrategicMarker(new(army.Id, StrategicMarkerKind.Army, army.X, army.Y));
 
         // T94 (#454 item 3): the confirmed three-tier size marker -- MapMarkerKeys reads the ruleset's
         // own 25,000/50,000 boundaries, never T48's [designed] per-unit-type plurality.
@@ -1452,7 +1494,7 @@ public partial class GameMapView : Control
         var (background, foreground) = NationColors(fleet.Nation);
         var rect = StrategicMarkerRect(new(fleet.Id, StrategicMarkerKind.Fleet, fleet.X, fleet.Y), tileSize);
         StrategicDrawBoundsForCheck[fleet.Id] = rect;
-        var selected = string.Equals(fleet.Id, _selectedFleetId, StringComparison.Ordinal);
+        var selected = IsSelectedStrategicMarker(new(fleet.Id, StrategicMarkerKind.Fleet, fleet.X, fleet.Y));
 
         // T94: the confirmed three-tier fleet marker (ruleset's own 25/50 ship boundaries) -- the
         // fleet equivalent of DrawArmy's tier icon.

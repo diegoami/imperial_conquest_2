@@ -12,7 +12,8 @@ namespace IC2.Slice.Checks;
 /// <summary>Actual controls, drawing, dispatch and overlay routing on public synthetic scenarios.
 /// T196 windowed modes (after import; never headless): set IC2_SELECTION_MODE=baseline
 /// (record visibility) or pixels/final (assert visibility), IC2_TRAVEL_CAPTURE_DIR to an ignored
-/// evidence directory, IC2_TRAVEL_HEAD to exact git HEAD; then run
+/// evidence directory, IC2_TRAVEL_HEAD to exact git HEAD, IC2_SELECTION_FILTER=authored
+/// then placeholder (sequential runs in the same directory keep each run below900 frames); run
 /// godot --path godot res://Checks/StrategicTravelCheck.tscn --quit-after 900.
 /// Success: exactly "StrategicTravelCheck: exiting with code 0." and no FAIL/ERROR/FATAL.
 /// Production pixels failing the bounded .12 channel-difference mask assertion fail pixels/final.
@@ -153,6 +154,21 @@ public partial class StrategicTravelCheck : Node
                 $"{prefix},{samples},{changed},{required},{visible}\n");
             Require(rect.Size.X <= TilePixels(main) + .01f && rect.Size.Y <= TilePixels(main) + .01f,
                 prefix + " actual marker remains one projected tile");
+            if (_selectionMode != "baseline" && fleet && overlap && zoom == "maximum")
+            {
+                main.SelectArmyForCheck("a");
+                using var armySelected = await FeedbackImage(prefix + "-inverse-army-selected");
+                var kindDifferences = 0;
+                for (var y = (int)Math.Ceiling(origin.Y); y < origin.Y + pixelRect.Size.Y; y++)
+                for (var x = (int)Math.Ceiling(origin.X); x < origin.X + pixelRect.Size.X; x++)
+                {
+                    var a = selected.GetPixel(x, y); var b = armySelected.GetPixel(x, y);
+                    if (Math.Max(Math.Abs(a.R - b.R), Math.Max(Math.Abs(a.G - b.G), Math.Abs(a.B - b.B))) >= .12f) kindDifferences++;
+                }
+                Require(kindDifferences >= required, prefix + " capped coincident selected KIND has distinct rendered feedback, not hovered-army identity");
+                main.SelectFleetForCheck("f");
+                await Frames();
+            }
             // Right-click a different visible neighbour through the real event/panel path.
             Click(map, new(51, 45), MouseButton.Right);
             await Frames();
