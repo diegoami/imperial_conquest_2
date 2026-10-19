@@ -9,7 +9,14 @@ using TravelKind = IC2.Engine.Movement.StrategicMarkerKind;
 
 namespace IC2.Slice.Checks;
 
-/// <summary>Actual controls, drawing, dispatch and overlay routing on public synthetic scenarios.</summary>
+/// <summary>Actual controls, drawing, dispatch and overlay routing on public synthetic scenarios.
+/// T196 windowed modes (after import; never headless): set IC2_SELECTION_MODE=baseline
+/// (record visibility) or pixels/final (assert visibility), IC2_TRAVEL_CAPTURE_DIR to an ignored
+/// evidence directory, IC2_TRAVEL_HEAD to exact git HEAD; then run
+/// godot --path godot res://Checks/StrategicTravelCheck.tscn --quit-after 900.
+/// Success: exactly "StrategicTravelCheck: exiting with code 0." and no FAIL/ERROR/FATAL.
+/// Production pixels failing the bounded .12 channel-difference mask assertion fail pixels/final.
+/// Baseline mode retains all semantic/footprint assertions but logs visibility failures for reproduction.</summary>
 public partial class StrategicTravelCheck : Node
 {
     private bool _ok = true;
@@ -18,6 +25,9 @@ public partial class StrategicTravelCheck : Node
     private readonly HashSet<string> _pacingPacks = new();
     private readonly string? _directory = System.Environment.GetEnvironmentVariable("IC2_TRAVEL_CAPTURE_DIR");
     private string _pack = "";
+    // Named T196 real-window mode: baseline records failures without changing production;
+    // pixels/final assert the same rendered comparison. Headless execution is rejected.
+    private readonly string? _selectionMode = System.Environment.GetEnvironmentVariable("IC2_SELECTION_MODE");
 
     public override async void _Ready()
     {
@@ -27,13 +37,18 @@ public partial class StrategicTravelCheck : Node
         var attack = SettingsScreen.BattleAttackDelaySeconds;
         try
         {
-            if (!string.IsNullOrWhiteSpace(_directory) && DisplayServer.GetName() == "headless")
+            if ((!string.IsNullOrWhiteSpace(_directory) || _selectionMode is not null) && DisplayServer.GetName() == "headless")
                 throw new InvalidOperationException("Window evidence requires the real windowed display driver.");
             SettingsScreen.SetSoundEnabledForCheck(false);
             foreach (var selected in new[] { "authored", "placeholder" })
             {
                 _pack = selected;
                 typeof(SettingsScreen).GetProperty(nameof(SettingsScreen.SelectedPackId))!.SetValue(null, selected);
+                if (_selectionMode is not null)
+                {
+                    await CheckSelectionFeedback();
+                    continue;
+                }
                 foreach (var fleet in new[] { false, true })
                 foreach (var selection in new[] { false, true })
                     await CheckTravel(fleet, selection);
@@ -66,6 +81,107 @@ public partial class StrategicTravelCheck : Node
         await ToSignal(GetTree().CreateTimer(2), SceneTreeTimer.SignalName.Timeout);
         GD.Print($"StrategicTravelCheck: exiting with code {(_ok ? 0 : 1)}.");
         GetTree().Quit(_ok ? 0 : 1);
+    }
+
+    // [designed] Acceptance measurement, not an original-game colour specification:
+    // compare the SAME viewport/owner/entity/pointer with only selection changed. Sample
+    // pixel centres inside its actual art rectangle (bounded by one projected tile).
+    // A channel difference >= .12 in at least max(1, floor(width/2)) pixels rejects a
+    // missing/indistinguishable/occluded selection without prescribing its hue. Human
+    // assessment remains required; this metric alone does not establish clarity.
+    private async Task CheckSelectionFeedback()
+    {
+        foreach (var fleet in new[] { false, true })
+        foreach (var light in new[] { false, true })
+        foreach (var overlap in new[] { false, true })
+        foreach (var zoom in new[] { "fit", "minimum", "maximum" })
+        {
+            var main = await Open(FeedbackSession(fleet, light, overlap));
+            var map = main.MapView;
+            if (zoom != "fit") map.SetDrawnCellPixelsForCheck(zoom == "maximum" ? 72 : 3);
+            map.CentreOnTile(50, 45);
+            var id = fleet ? "f" : "a";
+            var prefix = $"selection-{_pack}-{(fleet ? "fleet" : "army")}-{(light ? "light" : "dark")}-{(overlap ? "coincident" : "neighbour")}-{zoom}";
+            // Actual pointer chooses army on coincidences, even when the fleet is selected.
+            map._GuiInput(new InputEventMouseMotion { Position = map.TileCenterForCheck(50, 45) });
+            map.ClearSelection();
+            using var unselected = await FeedbackImage(prefix + "-unselected");
+            var before = main.Session.State;
+            if (fleet && overlap) main.SelectFleetForCheck(id); // ordinary picking intentionally army-first
+            else Click(map, new(50, 45), MouseButton.Left);
+            using var selected = await FeedbackImage(prefix + "-selected");
+            Require(map.SelectedStrategicMarkerForCheck == id
+                && main.ContextPanel.SubjectForCheck == (fleet ? "Fleet:f" : "Army:a")
+                && main.CommandStrip.Selection == (fleet ? UnitStripSelection.OwnFleet : UnitStripSelection.OwnArmy),
+                prefix + " actual selection, panel subject and command strip agree");
+            var rect = map.StrategicDrawBoundsForCheck[id];
+            var origin = map.GetGlobalTransformWithCanvas() * rect.Position;
+            var changed = 0;
+            var samples = 0;
+            for (var y = (int)Math.Ceiling(origin.Y); y < origin.Y + rect.Size.Y; y++)
+            for (var x = (int)Math.Ceiling(origin.X); x < origin.X + rect.Size.X; x++)
+            {
+                if (x < 0 || y < 0 || x >= selected.GetWidth() || y >= selected.GetHeight()) continue;
+                samples++;
+                var a = unselected.GetPixel(x, y); var b = selected.GetPixel(x, y);
+                if (Math.Max(Math.Abs(a.R - b.R), Math.Max(Math.Abs(a.G - b.G), Math.Abs(a.B - b.B))) >= .12f) changed++;
+            }
+            var required = Math.Max(1, (int)Math.Floor(rect.Size.X / 2));
+            var visible = changed >= required;
+            GD.Print($"StrategicTravelCheck: BASELINE {prefix} visible={visible} changed={changed}/{samples} required={required} tile={TilePixels(main)} owner={(light ? "#F0E6BC/#182535" : "#182535/#F0E6BC")}");
+            if (_selectionMode != "baseline") Require(visible, prefix + " rendered selected feedback remains distinguishable inside entity rectangle");
+            if (!string.IsNullOrWhiteSpace(_directory)) File.AppendAllText(Path.Combine(_directory, "selection-pixels.csv"),
+                $"{prefix},{samples},{changed},{required},{visible}\n");
+            Require(rect.Size.X <= TilePixels(main) + .01f && rect.Size.Y <= TilePixels(main) + .01f,
+                prefix + " actual marker remains one projected tile");
+            // Right-click a different visible neighbour through the real event/panel path.
+            Click(map, new(51, 45), MouseButton.Right);
+            await Frames();
+            Require(map.SelectedStrategicMarkerForCheck == id && main.ContextPanel.SubjectForCheck == "UnitList:neighbour"
+                && main.CommandStrip.Selection == (fleet ? UnitStripSelection.OwnFleet : UnitStripSelection.OwnArmy)
+                && main.Session.State == before, prefix + " right-click list preserves selected identity, armed strip and authoritative state");
+            if (overlap)
+            {
+                Click(map, new(50, 45), MouseButton.Right);
+                Require(map.LastClickContextForCheck?.Target is { Kind: MapEntityKind.Army, Id: "a" },
+                    prefix + " same-tile pointer winner remains army before fleet and city");
+            }
+            map.ClearSelection();
+            Require(map.SelectedStrategicMarkerForCheck is null && main.CommandStrip.Selection == UnitStripSelection.None,
+                prefix + " deselection clears map and command strip");
+        }
+    }
+
+    private async Task<Image> FeedbackImage(string name)
+    {
+        await Frames();
+        await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+        var image = GetViewport().GetTexture().GetImage();
+        if (!string.IsNullOrWhiteSpace(_directory))
+        {
+            Directory.CreateDirectory(_directory);
+            Require(image.SavePng(Path.Combine(_directory, name + ".png")) == Error.Ok, "real window capture " + name);
+            _captures.Add((name + ".png", "T196 " + _selectionMode + ": " + name + "; same entity, terrain, owner and pointer."));
+        }
+        return image;
+    }
+
+    private static GameSession FeedbackSession(bool fleet, bool light, bool overlap)
+    {
+        var initial = MovementSession(fleet, 10);
+        var world = initial.World with { Nations = ValueList.From(initial.World.Nations.Select(n => n with
+            { ColorHex = light ? "#F0E6BC" : "#182535", GlyphColorHex = light ? "#182535" : "#F0E6BC" })) };
+        var state = initial.State;
+        var template = GameStateFactory.CreateInitial(world, initial.Ruleset, initial.Scenario).Armies[0];
+        var army = template with { Id = "a", X = 50, Y = 45, Nation = "north", Moves = 10, AboardFleetId = null };
+        var neighbour = army with { Id = "neighbour", X = 51 };
+        var armies = fleet && !overlap ? ValueList.Of(neighbour) : ValueList.Of(army, neighbour);
+        var fleets = state.Fleets;
+        if (!fleet && overlap) fleets = ValueList.Of(new FleetState("f", "north", 50, 45, 10, 30, 100, 100, 100, null, null, null, null));
+        state = state with { Armies = armies, Fleets = fleets,
+            Cities = ValueList.From(state.Cities.Select((c, i) => c with { X = overlap && i == 0 ? 50 : 40 + i * 10, Y = overlap && i == 0 ? 45 : 40 })) };
+        return new(world, initial.Ruleset, initial.Scenario,
+            new SaveGame(state.SchemaVersion, "selection-feedback", "selection-feedback", state.ScenarioId, state.WorldId, state.RulesetId, state));
     }
 
     private async Task CheckTravel(bool fleet, bool selected)

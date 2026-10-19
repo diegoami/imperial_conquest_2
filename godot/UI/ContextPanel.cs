@@ -123,6 +123,9 @@ public partial class ContextPanel : Control
     public bool HasViewedNationLineForCheck(string key) =>
         ViewedNationLinesForCheck?.Any(line => string.Equals(line.Key, key, StringComparison.Ordinal)) == true;
 
+    /// <summary>Check-only inspection of the subject currently rendered by this panel.</summary>
+    public string SubjectForCheck => $"{_selection.Kind}:{_selection.Id}";
+
     public void ShowCity(string cityId)
     {
         _selection = Selection.ForCity(cityId);
