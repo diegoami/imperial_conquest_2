@@ -134,6 +134,7 @@ public sealed class AiCommandLegalityTests
         _output.WriteLine("command kinds exercised: " + string.Join(", ", kinds));
 
         Assert.Contains("battle.attack-army", kinds);
+        Assert.Contains("battle.besiege-city", kinds);
         Assert.Contains("diplomacy.declare-war", kinds);
         Assert.Contains("movement.move-army", kinds);
         Assert.Contains("recruitment.recruit-standing-unit", kinds);
@@ -276,6 +277,16 @@ public sealed class AiCommandLegalityTests
                                 // and the battery actually reaches battle.besiege-city.
                                 ? c with { Loyalty = 1, FortificationCode = 0, PopulationThousands = 1 }
                                 : c)),
+                        // The enemy field army stands about twice as strong as the acting one, so the
+                        // tree's army score stays under 100 and the defenceless city beside the acting
+                        // army is the target it picks: the battery reaches battle.besiege-city.
+                        Armies = ValueList.From(baseState.Armies.Select(a =>
+                            string.Equals(a.Id, "defender-army", StringComparison.Ordinal)
+                                ? CaptureFixtures.Army(
+                                        "defender-army", Other, 4, 2, 60,
+                                        CaptureFixtures.Unit("light_infantry", 30000))
+                                    with { Moves = 5 }
+                                : a)),
                     },
                     Acting, Other),
                 a => a with { X = 6, Y = 4 }),

@@ -111,6 +111,32 @@ public sealed class AiArmyTargetTreeDecisionTests
         Assert.Equal(expected, decision.Selected);
     }
 
+    /// <summary>
+    /// T156 (issue #925) Done-when 2's "supplies 1" boundary: the cityOutOfReach term
+    /// <c>(supplies &lt; rules.DemoralisedSuppliesThreshold &amp;&amp; cityDist &gt; rules.MercenaryRunCityDistanceFar)</c>
+    /// reads exactly <c>supplies &lt; 1</c> at the shipped thresholds (1 and 19). The
+    /// <c>A_city_beyond_19_with_no_supplies_is_not_attacked</c> row already pins supplies=0 +
+    /// cityDist=20 → MoveToResupplyCity (the test failed before the reachable-fallback fix proved it);
+    /// the supplies=1 case must hit the opposite branch, <c>AttackCity</c>, because supplies=1 is
+    /// not less than 1. A mutation that flips the comparison to <c>&lt;=</c>, or to <c>&lt; 2</c>, or that
+    /// drops the supplies conjunct, OR that flips the threshold to 0, moves this row's kind from
+    /// AttackCity back to MoveToResupplyCity — the test fails on any of them, naming the constant.
+    /// </summary>
+    [Theory]
+    [InlineData(19, Kind.AttackCity)]
+    [InlineData(20, Kind.AttackCity)]
+    public void A_city_beyond_19_with_one_ton_of_supplies_is_still_attacked(int cityDist, Kind expected)
+    {
+        // armyScore 50 < 100 makes the outer guard true (we are inside the resupply-or-city branch).
+        // cityScore 150 means cityScore < 100 is false; the conjunct supplies < 1 is also false at
+        // supplies=1. The cityOutOfReach guard is therefore false on both terms, and the decision
+        // is AttackCity. Without the outer armyScore < 100 the decision is AttackArmy, which would
+        // test nothing about the (supplies < 1) gate at all.
+        var decision = Decide(50, 3, 150, cityDist, hasCity: true, supplies: 1);
+
+        Assert.Equal(expected, decision.Selected);
+    }
+
     // ---------- the mercenary run: troops / 500 < supplies and a city target exists ----------
 
     [Theory]

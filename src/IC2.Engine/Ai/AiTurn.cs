@@ -172,12 +172,25 @@ public static class AiTurn
         // once per action rather than once per turn. See AiSiegeGateTally.
         var siegeGates = new AiSiegeGateTally();
 
+        // Hazards step 4 (#925): an army boxed in (moves left, no reachable resupply, garrison or
+        // emergency tile) stays put, and the log says so once per army per turn, whichever path found it.
+        var boxedInLogged = new HashSet<string>(StringComparer.Ordinal);
+
         for (var action = 0; action < ruleset.Ai.MaxActionsPerTurn; action++)
         {
             var view = new AiView(state, ruleset, world, nationId);
             var candidates = new List<AiCandidate>();
+            var boxedIn = new List<string>();
             AiMilitaryPhase.Propose(
-                view, personality, rng, marched, candidates, action == 0 ? siegeGates : null);
+                view, personality, rng, marched, candidates, action == 0 ? siegeGates : null, boxedIn);
+            foreach (var boxedArmyId in boxedIn)
+            {
+                if (boxedInLogged.Add(boxedArmyId))
+                {
+                    log.Add(Inv("no reachable move for {0}: army stays put", boxedArmyId));
+                }
+            }
+
             AiEconomyPhase.Propose(view, personality, candidates);
             // T82 (#359, bug #357, Owns amendment PR #378): the same seat-turn IRng AiMilitaryPhase
             // already receives above, so AiDiplomacyPhase's own Random(20) alliance roll is drawn from
@@ -241,7 +254,7 @@ public static class AiTurn
                 && beforeTile.Y == afterTile.Y)
             {
                 RunGarrisonFallback(view, armyId, ruleset, commands, events, ref state, log,
-                    ref issued, ref rejected, ref mismatches, marched);
+                    ref issued, ref rejected, ref mismatches, marched, boxedInLogged);
             }
 
             if (AiSubstantiveState.AreEquivalent(before, state))
@@ -312,7 +325,8 @@ public static class AiTurn
     /// T156 (issue #925) Done-when 3: the original's garrison fallback
     /// (<c>FUN_0044ebe8</c>). When the chosen command was accepted but that army's tile is unchanged --
     /// directly, not via <see cref="AiSubstantiveState.AreEquivalent"/>'s whole-state comparison -- the
-    /// driver runs the fallback for that army: if some other own army is already within
+    /// driver runs the fallback for that army: if some own army (the army itself included, on the
+    /// report's "if *some own army*" reading) is already within
     /// <see cref="AiWeightsRules.GarrisonFallbackCapitalDistance"/> tiles of the capital, head for the
     /// nearest city of any owner; otherwise head for the capital. The fallback is one more command
     /// (<c>MoveArmyCommand</c>), so its accepted/rejected path feeds the same counters as any other
@@ -329,21 +343,42 @@ public static class AiTurn
         ref int issued,
         ref int rejected,
         ref int mismatches,
-        List<string> marched)
+        List<string> marched,
+        HashSet<string> boxedInLogged)
     {
-        if (AiArmyTargetTree.GarrisonFallback(view, state.ArmyById(armyId)!, state) is not { } dest)
+        var army = state.ArmyById(armyId)!;
+        (int X, int Y)? dest = AiArmyTargetTree.GarrisonFallback(view, army, state);
+        string? tierLabel = null;
+        if (dest is null)
         {
-            log.Add(Inv("garrison fallback skipped for {0}: no capital", armyId));
+            // Hazards' "fallback is reachable too": when no garrison candidate is reachable, try the
+            // emergency move (the tile the existing move command can reach this turn).
+            dest = AiArmyTargetTree.EmergencyMoveDestination(view, army, state);
+            tierLabel = dest is null ? null : "emergency move";
+        }
+
+        if (dest is not { } target)
+        {
+            // Boxed in: every distinct tile is unreachable. The Hazards' "Staying put" branch — the AI
+            // is not idle by choice; nothing is reachable and the log records that explicitly.
+            if (boxedInLogged.Add(armyId))
+            {
+                log.Add(Inv("no reachable move for {0}: army stays put", armyId));
+            }
+
             return;
         }
 
-        var army = state.ArmyById(armyId)!;
+        var rationale = tierLabel is null
+            ? Inv("garrison fallback {0} toward ({1}, {2})", armyId, target.X, target.Y)
+            : Inv("emergency move {0} toward ({1}, {2}): no garrison destination is reachable", armyId, target.X, target.Y);
+
         var candidate = AiCandidate.Single(
             AiPhase.Military,
             AiCandidate.ApproachKind,
-            new Movement.Commands.MoveArmyCommand(view.NationId, armyId, dest.X, dest.Y),
+            new Movement.Commands.MoveArmyCommand(view.NationId, armyId, target.X, target.Y),
             ruleset.Ai.MinimumActionScore,
-            Inv("garrison fallback {0} toward ({1}, {2})", armyId, dest.X, dest.Y),
+            rationale,
             armyId);
 
         var before = state;
@@ -361,7 +396,12 @@ public static class AiTurn
         if (execution.Issued > 0)
         {
             marched.Add(armyId);
-            log.Add(Inv("garrison fallback moved {0} to ({1}, {2})", armyId, dest.X, dest.Y));
+            log.Add(Inv(
+                "{0} moved {1} to ({2}, {3})",
+                tierLabel ?? "garrison fallback",
+                armyId,
+                target.X,
+                target.Y));
         }
     }
 

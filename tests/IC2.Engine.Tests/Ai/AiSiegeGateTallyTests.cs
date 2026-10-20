@@ -201,6 +201,10 @@ public sealed class AiSiegeGateTallyTests
 
         Assert.Equal(0, driven.Outcome.CommandsRejected);
         Assert.Equal(2, driven.Events.OfType<RecruitMobilized>().Count());
+        // Sanity: the turn really did take more than one dispatched action -- both mobilize slots landed
+        // (whatever else the turn went on to do afterward, such as the newly mobilized army marching or
+        // a diplomacy candidate winning a later pass; see this test's own remarks and review round 1, N1).
+        Assert.Empty(driven.Outcome.State.NationById(Acting)!.RecruitmentSlots);
 
         var gateLine = Assert.Single(
             driven.Outcome.Log, l => l.StartsWith("siege gates: ", StringComparison.Ordinal));

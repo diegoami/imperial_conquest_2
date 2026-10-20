@@ -80,14 +80,20 @@ public static class AiMilitaryPhase
     /// into it — see <see cref="AiSiegeGateTally"/> for why that measurement exists and why it
     /// cannot change what the AI decides.
     /// </param>
-    /// <exception cref="ArgumentNullException">Any argument but <paramref name="siegeGates"/> is null.</exception>
+    /// <param name="boxedIn">
+    /// Optional. Receives the id of every army the tree could give no command and whose garrison fallback
+    /// and emergency move found no reachable tile (Hazards step 4); the turn driver logs
+    /// <c>no reachable move</c> for each.
+    /// </param>
+    /// <exception cref="ArgumentNullException">Any argument but <paramref name="siegeGates"/> and <paramref name="boxedIn"/> is null.</exception>
     public static void Propose(
         AiView view,
         AiPersonalityProfile personality,
         IRng rng,
         IReadOnlyList<string> armiesAlreadyMarched,
         List<AiCandidate> into,
-        AiSiegeGateTally? siegeGates = null)
+        AiSiegeGateTally? siegeGates = null,
+        ICollection<string>? boxedIn = null)
     {
         ArgumentNullException.ThrowIfNull(view);
         ArgumentNullException.ThrowIfNull(personality);
@@ -109,7 +115,7 @@ public static class AiMilitaryPhase
                 continue;
             }
 
-            ProposeArmyTree(view, army, progress, armiesAlreadyMarched, into, siegeGates);
+            ProposeArmyTree(view, army, progress, armiesAlreadyMarched, into, siegeGates, boxedIn);
         }
 
         foreach (var fleet in view.OwnFleets())
@@ -285,7 +291,8 @@ public static class AiMilitaryPhase
         long progress,
         IReadOnlyList<string> armiesAlreadyMarched,
         List<AiCandidate> into,
-        AiSiegeGateTally? siegeGates)
+        AiSiegeGateTally? siegeGates,
+        ICollection<string>? boxedIn)
     {
         var archerUnitTypeId = BattleCommandRuleset.ArcherUnitTypeIdIn(view.Ruleset);
         var fortifyOrder = BattleCommandRuleset.FortificationOrderIdIn(view.Ruleset);
@@ -298,7 +305,7 @@ public static class AiMilitaryPhase
         }
 
         var atWar = AnyAtWar(view);
-        var decision = AiArmyTargetTree.Decide(view, army, atWar);
+        var decision = AiArmyTargetTree.DecideUnlogged(view, army, atWar, out var decisionRecord);
         var mayMarch = !Contains(armiesAlreadyMarched, army.Id);
         var candidatesBefore = into.Count;
 
@@ -331,7 +338,7 @@ public static class AiMilitaryPhase
             case AiArmyTargetTree.Kind.AttackArmy:
                 if (decision.TargetArmy is { } targetArmy)
                 {
-                    AddArmyTargetCandidate(view, army, targetArmy, mayMarch, into);
+                    AddArmyTargetCandidate(view, army, targetArmy, progress, mayMarch, into);
                 }
 
                 break;
@@ -362,7 +369,7 @@ public static class AiMilitaryPhase
                     case AiArmyTargetTree.Continuation.ChaseArmy:
                         if (decision.TargetArmy is { } chaseArmy)
                         {
-                            AddArmyTargetCandidate(view, army, chaseArmy, mayMarch, into);
+                            AddArmyTargetCandidate(view, army, chaseArmy, progress, mayMarch, into);
                         }
 
                         break;
@@ -384,13 +391,37 @@ public static class AiMilitaryPhase
         // produced no executable command (nothing proposable to march at, an adjacent target whose
         // attack is not legal), the garrison fallback (FUN_0044ebe8) picks the destination. The
         // post-execution fallback in AiTurn covers an accepted command that moved nothing; this covers
-        // the army that never got a command at all.
-        if (mayMarch
-            && into.Count == candidatesBefore
-            && AiArmyTargetTree.GarrisonFallback(view, army, view.State) is { } fallback)
+        // the army that never got a command at all. Hazards' three-tier fallback (reachable garrison
+        // candidates first, then the emergency move the walker can actually reach, then "stay put"
+        // with the log message) handles the case the review proved: an army boxed in by obstacles
+        // behind both the resupply and the garrison destination.
+        if (mayMarch && into.Count == candidatesBefore)
         {
-            AddMarchCandidate(view, army, fallback.X, fallback.Y, AiCandidate.ApproachKind,
-                "garrison fallback", view.Ruleset.Ai.ReinforceCityBaseScore, progress, into);
+            var garrison = AiArmyTargetTree.GarrisonFallback(view, army, view.State);
+            var fallbackDest = garrison ?? AiArmyTargetTree.EmergencyMoveDestination(view, army, view.State);
+            if (fallbackDest is { } dest)
+            {
+                var why = garrison is null
+                    ? "emergency move (no garrison destination is reachable)"
+                    : "garrison fallback";
+                AddMarchCandidate(view, army, dest.X, dest.Y, AiCandidate.ApproachKind,
+                    why, view.Ruleset.Ai.ReinforceCityBaseScore, progress, into);
+            }
+            else
+            {
+                // Boxed in: no resupply, garrison or emergency destination is reachable. The turn driver
+                // writes the "no reachable move" line from this list, once per army per turn.
+                boxedIn?.Add(army.Id);
+            }
+        }
+
+        // The decision log (Done-when 6) records a decision of the turn. An army that has not marched is
+        // decided here; one that has marched is decided again only to find the attack its march brought
+        // within reach, and is recorded only when that attack is offered: it is not decided again
+        // otherwise, its turn is spent.
+        if (mayMarch || into.Count > candidatesBefore)
+        {
+            AiArmyTargetTree.LogDecision(decisionRecord);
         }
     }
 
@@ -461,6 +492,7 @@ public static class AiMilitaryPhase
         AiView view,
         ArmyState army,
         ArmyState targetArmy,
+        long progress,
         bool mayMarch,
         List<AiCandidate> into)
     {
@@ -483,8 +515,13 @@ public static class AiMilitaryPhase
 
         if (mayMarch)
         {
+            // T156 rework round 1 N2: the other marches pass `progress` so the WithVictoryAwareness
+            // multiplier tracks the actor's own progress toward its victory condition. The
+            // minimum-score floor in AddMarchCandidate still masks the difference (the chosen
+            // score sits at or above the floor in every preset), so this matches pass-through
+            // behaviour and is the do-not-change-the-rules correction.
             AddMarchCandidate(view, army, targetArmy.X, targetArmy.Y, AiCandidate.ApproachKind,
-                "approach target army", view.Ruleset.Ai.ApproachCityBaseScore, 0, into);
+                "approach target army", view.Ruleset.Ai.ApproachCityBaseScore, progress, into);
         }
     }
 
@@ -505,7 +542,10 @@ public static class AiMilitaryPhase
         List<AiCandidate> into)
     {
         var command = new Movement.Commands.MoveArmyCommand(view.NationId, army.Id, x, y);
-        if (!IsProposableMove(view, army, command))
+        // The march must also make progress this turn: a first step dearer than the army's moves would
+        // be accepted and park the army with its moves zeroed (Sol's R1 on PR #933). Not proposing it
+        // lets the caller's fallback chain (garrison, then the emergency move) take over.
+        if (!IsProposableMove(view, army, command) || !AiArmyTargetTree.MarchMakesProgress(view, army, x, y))
         {
             return;
         }

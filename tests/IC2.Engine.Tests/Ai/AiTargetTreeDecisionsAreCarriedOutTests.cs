@@ -44,9 +44,11 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
             session.EventsPublished += events => round.AddRange(events);
 
             var attackDecisions = 0;
-            var armyTurns = 0;
+            var checkedDecisions = 0;
             var carriedOut = 0;
             var skipped = 0;
+            var allDecisions = 0;
+            var allSkipped = 0;
             var captures = 0;
             var exceptions = new List<string>();
             var seatName = resolved.World.Nations.Single(n => string.Equals(n.Id, seat, StringComparison.Ordinal)).Name;
@@ -59,40 +61,44 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
 
                 captures += round.OfType<CityFallsToNation>().Count(c => c.NewOwner != seatName);
                 var turns = SplitByNationTurn(round);
+                // The whole-run measure (the final review's R5): every decision the log records, whatever its
+                // kind, with the candidates the reachability rule skipped while making it.
+                allDecisions += log.Count;
+                allSkipped += log.Sum(d => d.Skipped);
                 attackDecisions += log.Count(d => d.Kind is AiArmyTargetTree.Kind.AttackCity or AiArmyTargetTree.Kind.AttackArmy);
 
-                // An army's first decision of its seat's turn is the one its one march (or attack) acts on;
-                // a later decision after the march has spent the army's turn is not owed another march.
-                foreach (var firstDecision in log
-                    .GroupBy(d => (d.NationId, d.ArmyId))
-                    .Select(g => g.First())
+                // EVERY attack decision the log records is owed a carried-out attack or march toward its
+                // target (the review's R1/R2): an army that has spent its march is not decided again, so
+                // there is no later decision to exempt.
+                foreach (var decision in log
                     .Where(d => d.Kind is AiArmyTargetTree.Kind.AttackCity or AiArmyTargetTree.Kind.AttackArmy))
                 {
-                    armyTurns++;
-                    skipped += firstDecision.Skipped;
-                    if (turns.TryGetValue(firstDecision.NationId, out var carriedEvents) && IsCarriedOut(firstDecision, carriedEvents))
+                    checkedDecisions++;
+                    skipped += decision.Skipped;
+                    if (turns.TryGetValue(decision.NationId, out var carriedEvents) && IsCarriedOut(decision, carriedEvents))
                     {
                         carriedOut++;
                     }
 
-                    if (!turns.TryGetValue(firstDecision.NationId, out var turnEvents) || !IsCarriedOut(firstDecision, turnEvents))
+                    if (!turns.TryGetValue(decision.NationId, out var turnEvents) || !IsCarriedOut(decision, turnEvents))
                     {
-                        exceptions.Add(Describe(r, firstDecision) + " | ALLDEC " + string.Join(",", log.Where(d => d.ArmyId == firstDecision.ArmyId).Select(d => $"{d.Kind}@({d.ArmyX},{d.ArmyY})")) + " | " + (turns.TryGetValue(firstDecision.NationId, out var te) ? string.Join(";", te.Where(e => e is ArmyMoved am && am.ArmyId == firstDecision.ArmyId).Select(e => { var am = (ArmyMoved)e; return $"moved ({am.FromX},{am.FromY})>({am.ToX},{am.ToY})"; }).DefaultIfEmpty("no move")) + " " + string.Join(";", te.OfType<AiTurnDecided>().SelectMany(t => t.Lines).Where(l => l.Contains(firstDecision.ArmyId, StringComparison.Ordinal)).Take(3)) : "no turn"));
+                        exceptions.Add(Describe(r, decision));
                     }
                 }
             }
 
             output.WriteLine(
                 $"seat {seat} seed {(seed is null ? "default" : seed.ToString())}: "
-                + $"{attackDecisions} attack decisions in {armyTurns} army-turns, {captures} AI captures, {carriedOut} carried out, {skipped} candidates skipped by the reachability rule, "
+                + $"{attackDecisions} attack decisions, {checkedDecisions} checked, {captures} AI captures, {carriedOut} carried out, "
+                + $"{allSkipped} candidates skipped by the reachability rule across all {allDecisions} logged decisions "
+                + $"({skipped} of them in attack decisions), "
                 + $"{exceptions.Count} exceptions");
-            output.WriteLine($"  by garrison fallback: {exceptions.Count(e => e.Contains("garrison fallback", StringComparison.Ordinal))}, no move at all: {exceptions.Count(e => e.Contains("| no move", StringComparison.Ordinal))}");
             foreach (var exception in exceptions.Take(12))
             {
                 output.WriteLine("  exception: " + exception);
             }
 
-            Assert.True(armyTurns > 0, "the runs must contain attack decisions to be a test");
+            Assert.True(checkedDecisions > 0, "the runs must contain attack decisions to be a test");
             Assert.True(carriedOut > 0, "each run must log at least one attack decision that is carried out");
             Assert.Empty(exceptions);
         }

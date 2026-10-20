@@ -54,19 +54,11 @@ public sealed class AiPersonalityTests
         var bold = AiScriptedStates.DriveOneTurn(AtWar(Bold));
         var timid = AiScriptedStates.DriveOneTurn(AtWar(Timid));
 
-        // T156 (issue #925): Done-when 3's garrison fallback runs after the attack -- the army is on
-        // its original tile afterwards, so the driver runs the fallback, which is one more command. The
-        // asserted kinds list is therefore "attack-army followed by at most one march".
-        Assert.Contains("battle.attack-army", bold.IssuedKinds);
-        Assert.Single(bold.IssuedKinds, k => k == "battle.attack-army");
-        Assert.True(bold.IssuedKinds.Count <= 2,
-            $"expected at most two issued commands (attack + optional fallback), got {bold.IssuedKinds.Count}: "
-            + string.Join(", ", bold.IssuedKinds));
-        Assert.Contains("battle.attack-army", timid.IssuedKinds);
-        Assert.Single(timid.IssuedKinds, k => k == "battle.attack-army");
-        Assert.True(timid.IssuedKinds.Count <= 2,
-            $"expected at most two issued commands (attack + optional fallback), got {timid.IssuedKinds.Count}: "
-            + string.Join(", ", timid.IssuedKinds));
+        // An accepted attack zeroes the attacker's moves, so the driver's garrison fallback (which only
+        // runs for an army with moves left and an unchanged tile) never follows it: exactly one command.
+        Assert.Equal(new[] { "battle.attack-army" }, bold.IssuedKinds);
+        Assert.Equal(new[] { "battle.attack-army" }, timid.IssuedKinds);
+
         Assert.Equal(0, bold.Outcome.CommandsRejected);
         Assert.Equal(0, timid.Outcome.CommandsRejected);
         Assert.Equal(0, bold.Outcome.ProjectionMismatches);
