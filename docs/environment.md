@@ -4,7 +4,7 @@ What this machine provides to the build, beyond the toolchain that [operating-gu
 
 ## ElevenLabs (sound generation)
 
-`scripts/generate-sounds.ps1` ([T149](https://github.com/diegoami/imperial_conquest_2/blob/local/docs/tasks/T149.md)) generates the authored pack's `sfx.*` sounds through
+`scripts/generate-sounds.ps1` ([T149](https://github.com/diegoami/imperial_conquest_2/blob/archive/desktop-2026-10-20/docs/tasks/T149.md)) generates the authored pack's `sfx.*` sounds through
 ElevenLabs' sound-generation endpoint, with the key in the user environment variable `ELEVENLABS_API_KEY`. It is
 read like `OPENROUTER_API_KEY`: the process environment first, then the Windows user scope. It is never printed,
 logged, written to a file or passed on a command line.
