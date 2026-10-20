@@ -17,5 +17,5 @@ The audit's findings live in [game-design.md](game-design.md); a claim that need
 | Q6 | Reproduce the original's human-versus-AI asymmetries? | `classical-faithful` reproduces them, `improved` normalises them |
 | Q7 | Is city development a direction to expand, or stay at exactly one order? | leave the door open |
 | Q8 | What is the policy on reproducing original bugs? | `classical-faithful` reproduces them, `improved` fixes them silently |
-| Q9 |  |  |
+| Q9 | The cost of an order at your own versus another city | Free at your own cities, costs money elsewhere (from the user's own play experience) |
 | Q10 | Does the newly-found rout mechanic change `combat.onDefeat`'s `improved` design? | no change |
