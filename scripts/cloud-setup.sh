@@ -17,6 +17,6 @@ for t in git gh jq python3 dotnet rclone; do have "$t" && echo "ok      $t" || e
 [ -n "${GH_TOKEN:-}" ]        && echo "ok      GH_TOKEN set"        || echo "MISSING GH_TOKEN"
 [ -n "${IC2_DRIVE_REMOTE:-}" ] && echo "ok      IC2_DRIVE_REMOTE=$IC2_DRIVE_REMOTE" || echo "unset   IC2_DRIVE_REMOTE (artifacts fall back to releases)"
 have rclone && [ -n "${IC2_DRIVE_REMOTE:-}" ] && { rclone lsd "${IC2_DRIVE_REMOTE%%:*}:" >/dev/null 2>&1 && echo "ok      rclone reaches Drive" || echo "FAILED  rclone cannot reach Drive (token, or network allowlist)"; }
-have gh && [ -n "${GH_TOKEN:-}" ] && { gh auth status >/dev/null 2>&1 && echo "ok      gh authenticated" || echo "FAILED  gh not authenticated"; }
+have gh && [ -n "${GH_TOKEN:-}" ] && { gh api repos/diegoami/imperial_conquest_2 --jq .full_name >/dev/null 2>&1 && echo "ok      gh REST works (GraphQL may be blocked: use gh api, docs/cloud-mode.md)" || echo "FAILED  gh REST call failed (token, or network allowlist for api.github.com)"; }
 if [ -n "${IC2_DRIVE_ASSETS:-}" ] && [ ! -f assets.local.ini ] && have rclone; then bash "$(dirname "$0")/fetch-assets.sh" || echo "FAILED  fetch-assets"; fi
 true

@@ -55,3 +55,27 @@ Per release milestone, one big review, run **directly from a CLI** and not throu
 - **Follow-ups.** Non-blocking review findings become one `T<nn> follow-up` issue per merge.
 - **Plan and design changes** go through a PR; wording and routine doc claims go straight to `main`.
   A design decision is the user's, never decided by an agent.
+
+## GitHub from the cloud: REST only
+
+The cloud sandbox may block GraphQL, and `gh issue`, `gh pr` and `gh repo view` all use it, so they fail even with a valid
+`GH_TOKEN` (`gh auth status` fails the same way). `gh api` on REST endpoints works. Use these:
+
+```bash
+R=repos/diegoami/imperial_conquest_2
+# triage queue / ready tasks (issues endpoint also returns PRs: filter them out)
+gh api "$R/issues?labels=triage:needed&state=open&per_page=100" --jq '.[]|select(.pull_request|not)|"#\(.number) \(.title)"'
+gh api "$R/issues?labels=task,status:ready&state=open" --jq '.[]|"#\(.number) \(.title)"'
+# labels
+gh api -X POST "$R/issues/<n>/labels" -f 'labels[]=status:in-progress'
+gh api -X DELETE "$R/issues/<n>/labels/triage:needed"
+# comment
+gh api "$R/issues/<n>/comments" -F body=@file.md
+# open a PR, then squash-merge it
+gh api "$R/pulls" -f title='T<nn>: <subject>' -f head=<branch> -f base=main -F body=@pr.md
+gh api -X PUT "$R/pulls/<n>/merge" -f merge_method=squash
+# CI state of a PR's head
+gh api "$R/commits/<sha>/check-runs" --jq '.check_runs[]|"\(.name) \(.conclusion)"'
+```
+
+`git push`, clone and fetch are unaffected. In a session with the GitHub connector, its tools can replace these.

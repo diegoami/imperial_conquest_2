@@ -38,8 +38,12 @@ out="rendered/review-$tag.md"
   echo
   echo "## The milestone's claims"
   if command -v gh >/dev/null 2>&1; then
-    gh issue list --milestone "$tag" --state all --json number,title,state \
-      --jq '.[] | "- #\(.number) [\(.state)] \(.title)"' 2>/dev/null || echo "(no GitHub milestone named $tag)"
+    # REST only: gh issue/pr/repo commands use GraphQL, which the cloud sandbox may block
+    ms="$(gh api "repos/{owner}/{repo}/milestones?state=all&per_page=100" --jq ".[]|select(.title==\"$tag\")|.number" 2>/dev/null || true)"
+    if [ -n "$ms" ]; then
+      gh api "repos/{owner}/{repo}/issues?milestone=$ms&state=all&per_page=100" \
+        --jq '.[]|select(.pull_request|not)|"- #\(.number) [\(.state)] \(.title)"'
+    else echo "(no GitHub milestone named $tag)"; fi
   fi
   grep -n -A40 -i "$tag" docs/release-plan.md | head -80 || true
   echo
@@ -57,10 +61,8 @@ $cli < "$brief" | tee "$out"
 echo "review saved: $out"
 
 if [ "$post" -eq 1 ]; then
-  pr="$(gh pr list --head "review/$tag" --json number --jq '.[0].number' 2>/dev/null || true)"
-  if [ -n "$pr" ]; then gh pr comment "$pr" --body-file "$out"
-  else
-    n="$(gh issue list --milestone "$tag" --label milestone --json number --jq '.[0].number' 2>/dev/null || true)"
-    [ -n "$n" ] && gh issue comment "$n" --body-file "$out" || echo "no PR or milestone issue to post on; left in $out"
-  fi
+  owner="$(gh api "repos/{owner}/{repo}" --jq .owner.login)"
+  pr="$(gh api "repos/{owner}/{repo}/pulls?head=$owner:review/$tag&state=open" --jq '.[0].number // empty' 2>/dev/null || true)"
+  if [ -n "$pr" ]; then gh api "repos/{owner}/{repo}/issues/$pr/comments" -F body=@"$out" --jq .html_url
+  else echo "no review PR for review/$tag; review left in $out (post it by hand)"; fi
 fi
