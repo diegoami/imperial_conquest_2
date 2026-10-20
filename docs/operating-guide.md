@@ -1,5 +1,7 @@
 # Operating guide
 
+> **Cloud mode (2026-10-20): [cloud-mode.md](cloud-mode.md) supersedes this document wherever they differ.** Worktrees, delegated OpenCode runs, reviewer tiers/families/models, run notes, watch monitors and `machine:*` rules below are history (the `local` branch keeps the desktop process intact). Reviews are optional and the harness's own; only the milestone review is mandatory ([milestone-review.md](milestone-review.md)). Read §4.4–4.7, §5, §6 for what still applies (gates, labels, conventions).
+
 The agent-facing half of operating this project: where everything lives, how tasks are run, the
 working rules, and the standing preferences. The process contract is [build-process.md](build-process.md)
 and the tasks are in [task-catalogue.md](task-catalogue.md).

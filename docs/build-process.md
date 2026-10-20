@@ -1,5 +1,7 @@
 # Build process: how the build runs
 
+> **Cloud mode (2026-10-20): [cloud-mode.md](cloud-mode.md) supersedes this document wherever they differ.** Worktrees, delegated OpenCode runs, reviewer tiers/families/models, run notes, watch monitors and `machine:*` rules below are history (the `local` branch keeps the desktop process intact). Reviews are optional and the harness's own; only the milestone review is mandatory ([milestone-review.md](milestone-review.md)). Read §4.4–4.7, §5, §6 for what still applies (gates, labels, conventions).
+
 This document is the **process contract** for building the reimplementation. It covers:
 - who does what;
 - how a task goes from `status:ready` to merged;

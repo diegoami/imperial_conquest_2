@@ -1,156 +1,25 @@
 # Imperial Conquest 2
 
-Read [`docs/operating-guide.md`](docs/operating-guide.md) before doing anything. It is the entry point: where everything lives, how the project is operated, and the standing preferences. This file lists only the rules that must never be forgotten.
+Cloud-first. The previous, desktop-only process (worktrees, delegated OpenCode runs, mandatory
+cross-family review) is frozen on the `local` branch and is **not** in force here. Read
+[`docs/cloud-mode.md`](docs/cloud-mode.md) first: it is the whole process on one page. Then
+[`docs/operating-guide.md`](docs/operating-guide.md) for where things live.
 
-1. **The main session runs the build.** It plans, runs tasks with `/run-task` (an implementer, then an independent reviewer, then the merge), triages bugs, and talks to the user. There is no orchestrator ([build-process.md §3.1](docs/build-process.md#31-the-roles), [Appendix C](docs/build-process.md#appendix-c-the-run-task-skill)).
-2. **Agents never work in the main checkout.** Implementers and reviewers use their own worktrees under `C:\Users\diego\projects\ic2-work\`, and the main checkout is the main session's ([build-process.md §7](docs/build-process.md#7-concurrency-single-instance-and-local-only)).
-3. **Status lives on GitHub labels only.** No document carries a status snapshot, so never add one ([build-process.md §5](docs/build-process.md#5-status-lives-on-github)). **Contracts live in the repository** (the catalogue, the process, the design documents and the investigations) because a review diffs them against a commit; **living reference lives in the [wiki](https://github.com/diegoami/imperial_conquest_2/wiki)** and is edited there, not here.
-4. **Plan and design changes go to a plan PR.** The routine tier merges on the opener's authority; the contract tier merges on another session's review, and waits for the user only when that review says `user decision` ([build-process.md §4.9](docs/build-process.md#49-plan-prs-two-tiers)). A merge's routine doc claims go straight to `main`. When unsure, ask.
-5. **A question is not a request to edit files.** Answer it; propose any fix and wait.
-6. **Upstream defects go through the bug list.** Suspend, file, plan, resume; never patch another task's Owns list. A bug whose fix stays in the files it names and changes no rule's outcome runs as a `fix`, not a task ([build-process.md §4.6](docs/build-process.md#46-bugs-and-follow-ups), [§4.10](docs/build-process.md#410-the-fix-lane)).
-7. **Relay review findings in full**: the whole list, linked or verbatim, never a subset.
-8. **Merge only with an approving review and green CI.** T16 and T22 also need the user's thumbs-up.
-9. **Commit and push research-repo work without asking.**
-10. **At session start**, check the triage queue (`gh issue list --label triage:needed --state open`) and any task left in flight (`status:in-progress`, `in-review`, `rework`, `escalated`), and tell the user where things stand. A task carrying another machine's `machine:*` label is that machine's: report it, never resume it ([build-process.md §8](docs/build-process.md#8-two-machines)). Also count the **unevaluated research reports** with `bash scripts/unevaluated-reports.sh` ([evidence-pipeline.md](docs/evidence-pipeline.md#what-triggers-it)). Report the count in the session-start message only, never in a document, and offer to run `/process-evidence` when it is not zero. If the script fails, report the failure and go on: it blocks nothing.
+## Rules that must never be forgotten
 
-
-### Highest priority (the user's rules of 2026-10-10)
-
-These outrank every other rule here when they conflict.
-
-21. **A failure on our side is fixed first.** A failed delegated run is never normal: diagnose it
-    and fix the cause before anything else. Fall back to another model only when the provider does
-    not answer (quota, rate limit, 5xx, network), and the user has chosen the substitute under
-    rules 17–18; a flaw in our process, a missing login, a broken
-    brief or a setup gap gets fixed, not routed around ([operating-guide §3](docs/operating-guide.md#3-standing-user-preferences)).
-22. **No delegated run loses its progress.** An implementer, or any run that changes files,
-    commits and pushes as it goes and keeps `rendered/RUN-NOTES.md`; its notes are posted on the
-    task's issue when it ends (`scripts/external-implement.ps1` does it for an OpenCode run, the main
-    session for a Claude subagent), so any session on any machine can see where it is and resume
-    it. A read-only reviewer's progress is its review, which the review script posts. A run that
-    holds work only locally, or a gap that lets it, is a defect to fix ([running-notes.md](docs/running-notes.md)).
-23. **Keep watching every running agent and tell the user what it is doing, in plain language**:
-    which step it is on, what it changed, what it found. Never raw log lines, byte counts or
-    "signal changed".
-
----
+1. **Work in the checkout you are given.** No git worktrees, no second clones. Branch, commit, push, open a PR.
+2. **Review is optional and belongs to the harness.** Use the default harness (`/code-review`, a subagent, or none) when it helps. No required reviewer family, fresh checkout, worktree, or posted verdict. Merge needs green CI; nothing else.
+3. **Milestones get one big review**, run directly from the CLI by `scripts/review-milestone.sh`, not by the harness ([docs/milestone-review.md](docs/milestone-review.md)).
+4. **Status lives on GitHub labels only.** No document carries a status snapshot.
+5. **Everything we produce stays reachable**: small files in the repo, big ones in a release or the Drive location ([docs/artifacts.md](docs/artifacts.md)). Original-game files, and anything derived from them, never enter the repo or a release (copyright).
+6. **A question is not a request to edit files.** Answer it; propose a fix and wait.
+7. **Upstream defects go through the bug list** (file an issue; do not patch another task's files).
+8. **Research-repo work** (`imperial-conquest-2-research`): commit and push without asking.
+9. **At session start**, run `gh issue list --label triage:needed --state open` and list anything `status:in-progress`, and tell the user where things stand.
 
 ## Token economy
 
-These bound the cost of following rules 1–10. Where one appears to conflict with *"read
-[`docs/operating-guide.md`](docs/operating-guide.md) before doing anything"*, it does not: that means
-**read the operating guide**, not everything it links to.
-
-Agreed on [#264](https://github.com/diegoami/imperial_conquest_2/issues/264), which measured the cost.
-
-11. **Never read a large file in full. Extract the slice.** The files below are excerpt-only unless
-    their row says otherwise, and reading an excerpt-only file whole is a defect rather than
-    thoroughness:
-
-    | File | Whole | Read it like this |
-    | --- | ---: | --- |
-    | `docs/task-catalogue.md` | ~9,000 tok (index only, since [T61](https://github.com/diegoami/imperial_conquest_2/issues/273)) | small enough to `Read` whole; a task's own entry is `docs/tasks/T<nn>.md` — a plain `Read`, **~1,300 tok**, no `awk` needed |
-    | `data/worlds/classical-mediterranean.json` | ~70,000 tok (terrain moved out by [T62](https://github.com/diegoami/imperial_conquest_2/issues/274)) | `jq 'del(.cities)'` · `jq '.cities[] \| select(.name=="Rome")'` |
-    | `data/rulesets/*.json` | ~20,000–23,000 tok | `jq '.<block>'` — the one block the task touches |
-    | `tests/fixtures/corpus.json` | ~31,000 tok | `jq` the one failing entry |
-    | `docs/build-process.md`, `game-design.md`, `design-audit.md`, `asset-specification.md` | ~13,000–16,000 tok | `grep -n '<heading>'`, then `sed -n 'A,Bp'` |
-
-    The terrain grid is the sidecar `classical-mediterranean.terrain.b64`, a 119,468-character base64
-    string on one line. It is never worth reading; its schema is in `src/IC2.Engine/Model/`.
-
-    What stays excerpt-only is what is large by nature: the world's city list, the rulesets, the fixtures
-    corpus and the long design documents above ([T61](https://github.com/diegoami/imperial_conquest_2/issues/273)
-    split the catalogue per task and [T62](https://github.com/diegoami/imperial_conquest_2/issues/274) moved the
-    terrain grid to a sidecar).
-
-12. **Scope every search.** `grep -rn "<pattern>" src tests`, never `grep -rn "<pattern>" .`. Prefer
-    `git ls-files` over `find`: it honours `.gitignore` for free. Never traverse `bin/`, `obj/`,
-    `.godot/`, `.vs/`, `.vscode/`, `.claude/`, `/rendered/`, `/screenshots/`, `/recordings/`, or
-    `assets/packs/**/*.bmp` — git-ignored but present on disk, and a `.` search walks all of them.
-
-13. **Surgical output.** Propose changes as minimal diffs or single functions. Never paste a file
-    back to show a one-line edit — name the file and line, show the hunk. `Ruleset.cs` is 1,211
-    lines and `InstantBattleResolver.cs` is 966; quoting either back costs four figures and tells the
-    user nothing they lack. Do not restate a task's Owns/Scope/Done-when block that the user can read
-    in the issue.
-
-14. **Quiet terminal.** Raw command output is the cheapest way to waste a context window.
-    `dotnet build|test IC2.sln --nologo -v q` and report counts; `git status --porcelain`;
-    `git diff --stat` before any full diff; pipe anything long through `tail`/`head`/`grep`. On a red
-    build or test, report the **failing assertion and its file:line**, never the whole run. Never
-    `cat` a JSON data file — `jq` the path.
-
-15. **A subagent brief carries the excerpt, not the pointer.** `/run-task` dispatches an implementer
-    and then an independent reviewer, each cold, each in its own worktree, and a rework round doubles
-    it again. A brief that points at the contract instead of carrying it makes **every agent, every round**
-    read the index, the entry and whatever the entry links to (incident 14 on the wiki's
-    [Process incidents](https://github.com/diegoami/imperial_conquest_2/wiki/Process-incidents) page). So **paste the extracted task entry into the brief**, name the exact files in its Owns
-    list, and quote the `build-process.md` section the brief depends on with an anchor for the rest.
-    On a rework round, relay the reviewer's findings in full (rule 7) — the findings, not the diff
-    they refer to. **This is the highest-leverage rule here**: 11–14 save one agent's budget; this
-    one saves every agent's, on every round.
-
-16. **Offer a fresh session only at a true seam** — when a session ends on a completed task **and
-    nothing is in flight**. Do not propose one on turn count, and never after a merge that a live
-    investigation runs through: the harness already compacts long conversations, which drops the
-    replay cost while keeping the reasoning, and a forced restart discards the half worth keeping.
-    Any handoff names **issue numbers and labels only**; a prose summary of where the build stands is
-    the status snapshot rule 3 forbids.
-
----
-
-## Model choice
-
-17. **Delegate task authors by difficulty** (the user's standing decision of 2026-10-17,
-    replacing per-task model questions and quota-selected choices): **easy → Luna High;
-    medium → Sol light; hard → Sol medium; very hard → Sol high**. The main session assesses
-    difficulty and spawns the author. “Light” means `low` reasoning effort. Explicit per-task
-    overrides persist through rework. Record the assessment and actual model/effort on the issue
-    or PR. Authors work in their own worktrees, keep `rendered/RUN-NOTES.md`, push every commit
-    and open the PR. [Codex mapping](docs/codex.md#tools-and-roles) uses available native models.
-    The standing choice already supplies authorization: do not ask again for each task.
-    Quota recommendations are suggestions only; if the requested capability is unavailable,
-    diagnose/report it and ask for a new choice, never silently substitute a model or effort.
-
-18. **Always use direct Kimi for independent review** (the same standing decision), including
-    plan PRs, re-reviews and checks of named fixes: **Kimi For Coding 1M**,
-    `kimi-code-plan-cn/kimi-for-coding`, at `https://api.kimi.com/coding/v1`, never OpenCode Go.
-    The reviewer is a separate agent/session in its own worktree at the supplied HEAD, never
-    the author or the author's model family. OpenAI authors use `-ExcludeModel sol` with the
-    existing scripts to exclude the entire OpenAI reviewer family. The standing reviewer choice
-    is already supplied; do not ask again. If direct Kimi is unavailable, diagnose/report it
-    and ask before another reviewer or route. One review per PR unless the user asks for more;
-    required rework checks, full findings, monitoring, posting, approval and applicable CI remain.
-    Earlier reviewer tiers/chains, heavy-Sol implementation bans, effort caps and automatic
-    model fallbacks are superseded by rules 17–18.
-
-20. **Use the providers' pricing windows deliberately, not by chance** (advice the main session gives the user when they choose a model, rule 17) (the owner's decision of
-    2026-10-06). Alibaba is a route like any other (rule 17); for a Qwen
-    route (`ali-qwen-*`; `-Route alibaba` or a `qwen*` model), read
-    `curl -s localhost:8765/quota/alibaba | jq .pricing`: when `discount_now` is false, prefer
-    another entry for a long run, or start it after `next_change_at`. Alibaba's GLM (`ali-glm`) has
-    no discount, so the time does not matter for it. Likewise read
-    `curl -s localhost:8765/quota/zai | jq .pricing`: when `peak_now` is true (Mon–Fri 14:00–18:00
-    UTC+8; a promotion keeps it off-peak until the tracker's `promo_off_peak_until`, 2026-10-07 16:00
-    UTC, so peaks start on 8 October, as the owner's note says), the GLM heavy model costs 3× quota
-    (its id comes from `opencode models zai`), so prefer another provider for a
-    long run then (not `ali-glm`). If the tracker does not answer, run as usual; never block on it.
-
----
-
-## Delegated runs
-
-19. **Read what a delegated run returned before you retry it, re-route it or call it a failure.
-    Never retry blind** (the owner's rule of 2026-10-05).
-    - **OpenCode runs** (`scripts/external-implement.ps1`, `scripts/external-review.ps1`): an exit
-      with no PR or no posted review looks the same for an early end and for a run that stopped and
-      reported a blocker, and the log's tail shows only the last tool output, not the model's final
-      message. Read the final message from the session record:
-      `python scripts/read-opencode-session.py <ses_…>` (the id is the log's
-      `opencode: session ses_… started` line; add `--alibaba` for an `alibaba-token-plan/…` run). It opens the database read-only; never read
-      `auth.json` beside it.
-    - **Claude agents**: read the agent's final report (its hand-back) in full before acting.
-    - **A run that stopped and reported gets an answer**: amend the task, decide, or escalate, and
-      post the report on the task's issue so it is kept.
-    - Treat any earlier "model X ends runs early" verdict as unconfirmed until its runs' final
-      messages have been read.
+- Never read a large file whole: `docs/task-catalogue.md` is an index (a task is `docs/tasks/T<nn>.md`); use `jq` on `data/worlds/*.json` and `data/rulesets/*.json` (`jq 'del(.cities)'`); never open `*.terrain.b64` or `tests/fixtures/corpus.json`; for the long design docs `grep -n` a heading, then `sed -n`.
+- Scope searches (`grep -rn x src tests`), never `.`. Skip `bin/ obj/ .godot/ rendered/ screenshots/ recordings/ assets/packs/`.
+- Quiet terminal: `dotnet build|test IC2.sln --nologo -v q`; report counts and the failing assertion with file:line.
+- Minimal diffs; do not paste files back.
