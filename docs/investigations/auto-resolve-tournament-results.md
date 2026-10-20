@@ -1,7 +1,7 @@
 # Auto-resolve tournament: the scorecard
 
 **Status: data plus analysis, not a decision.** This document records what T59
-([#250](https://github.com/diegoami/imperial_conquest_2/issues/250), [`docs/tasks/T59.md`](../tasks/T59.md))
+([#250](https://github.com/diegoami/imperial_conquest_2/issues/250), [`docs/tasks/T59.md`](https://github.com/diegoami/imperial_conquest_2/blob/local/docs/tasks/T59.md))
 measured when it ran the five candidates of [`auto-resolve-approaches.md`](auto-resolve-approaches.md)
 against that document's metric suite (§8). **It does not pick a winner and it does not rank the
 candidates.** The user decides from the scorecard. Every table lists the candidates in the neutral key

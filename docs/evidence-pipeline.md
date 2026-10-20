@@ -1,6 +1,6 @@
 # The evidence-processing pipeline: `/process-evidence`
 
-A second pipeline, separate from the build pipeline in [build-process.md](build-process.md). That one turns a settled design into code; this one turns new play evidence (saves, recordings, session notes) and the results of experiments on the original game into settled design — the step that has to happen *before* the task catalogue can be trusted. It runs as a Claude Code skill (`.claude/skills/process-evidence/SKILL.md`), invoked as `/process-evidence [path or description]`. This document is the source of truth for the skill's content, the same relationship [build-process.md Appendix C](build-process.md#appendix-c-the-run-task-skill) has to `/run-task`: the skill is a local, git-ignored install, reinstalled verbatim from the fenced block below if it is ever missing.
+A second pipeline, separate from the build pipeline in [build-process.md](build-process.md). That one turns a settled design into code; this one turns new play evidence (saves, recordings, session notes) and the results of experiments on the original game into settled design — the step that has to happen *before* the task catalogue can be trusted. It runs as a Claude Code skill (`.claude/skills/process-evidence/SKILL.md`), invoked as `/process-evidence [path or description]`. This document is the source of truth for the skill's content, the same relationship [build-process.md Appendix C](https://github.com/diegoami/imperial_conquest_2/blob/local/docs/build-process.md#appendix-c-the-run-task-skill) has to `/run-task`: the skill is a local, git-ignored install, reinstalled verbatim from the fenced block below if it is ever missing.
 
 ## What triggers it
 
@@ -47,11 +47,11 @@ Stages 1 and 2 are the skill's two dispatches, unchanged. Stage 0 has two runner
 **Stage 2 — RE findings → this repository**, dispatched only after stage 1 reports back (never both at once — a real sequential dependency). A second, fresh Opus agent. Give it exactly what stage 1 changed (report names and commit hash — don't make it re-discover this). For an unevaluated research report there is no stage 1, because the report is already its output: give stage 2 the report names and each one's range of research commits, as `scripts/unevaluated-reports.sh` printed it. Its job is to check **every document claim** the new evidence touches, applied to the new evidence instead of a merged task. Each finding takes exactly one of four routes:
 
 1. **Claims.** For each document — `design-audit.md` and `game-design.md` claims, the investigations index, release-plan gates, the operating guide's §7 open items, the README — decide whether the new evidence confirms, corrects or closes something, and draft the fix in place (current fact only, cited).
-2. **Defects in merged code.** A merged constant, field or rule the evidence shows to be wrong is **filed as a `bug` issue, labelled `triage:needed`**, with the evidence ([build-process.md §4.6](build-process.md#46-bugs-and-follow-ups)), never patched. The main session's triage decides what happens to it.
-3. **Tasks not yet dispatched.** A scope or DoD change to a task that has not started is drafted as an edit to that task's entry, `docs/tasks/T<nn>.md`, on the same review branch; a DoD only changes by a reviewed commit ([build-process.md §4.3](build-process.md#43-the-dod-is-not-negotiable-by-an-agent)).
+2. **Defects in merged code.** A merged constant, field or rule the evidence shows to be wrong is **filed as a `bug` issue, labelled `triage:needed`**, with the evidence ([cloud-mode.md](cloud-mode.md#bugs-follow-ups-and-triage)), never patched. The main session's triage decides what happens to it.
+3. **Tasks not yet dispatched.** A scope or DoD change to a task that has not started is drafted as an edit to that task's entry, `docs/tasks/T<nn>.md`, on the same review branch; a DoD only changes by a reviewed commit ([build-process.md §4.3](https://github.com/diegoami/imperial_conquest_2/blob/local/docs/build-process.md#43-the-dod-is-not-negotiable-by-an-agent)).
 4. **Design decisions.** A genuine judgment call is **not decided**: pose it plainly, the way `design-audit.md` §3's questions were raised, and stop.
 
-Stage 2 writes no status, because status lives only in GitHub labels. It works in **its own worktree on a new branch** off `origin/main`, never in the main checkout, pushes that branch, and does not merge: evidence-driven changes are new content, so they go through review rather than straight to `main`. **Report back to the main session**: the branch, what changed and why, any bug issues filed, and any open question for the human. The planner triages the bugs ([build-process.md §4.6](build-process.md#46-bugs-and-follow-ups)), takes the branch and the open questions to the user, and decides what enters the build.
+Stage 2 writes no status, because status lives only in GitHub labels. It works on **a new branch** off `origin/main`, pushes that branch, and does not merge: evidence-driven changes are new content, so they go through review rather than straight to `main`. **Report back to the main session**: the branch, what changed and why, any bug issues filed, and any open question for the human. The planner triages the bugs ([cloud-mode.md](cloud-mode.md#bugs-follow-ups-and-triage)), takes the branch and the open questions to the user, and decides what enters the build.
 
 **The main session invokes `/process-evidence`** and coordinates both dispatches: dispatch stage 1, wait for its completion notification (don't poll), dispatch stage 2 with stage 1's actual output as input, then relay the result to the user. Neither stage dispatches build tasks. If stage 1 finds nothing worth writing up, stop there and say so — no stage 2 over nothing.
 
@@ -133,9 +133,8 @@ unevaluated research reports: `bash scripts/unevaluated-reports.sh` ("What trigg
 5. Otherwise dispatch **stage 2** (Opus, fresh agent, given exactly what stage 1 changed) per the
    "Stage 2" section: every document claim the new evidence touches, defects in merged code
    filed as `bug` issues labelled `triage:needed` (never patched), catalogue edits only for tasks
-   not yet dispatched, design decisions posed and not made, no status edits. It works in its own
-   worktree (`git worktree add <sibling-path> -b evidence/<slug> origin/main`), never in the main
-   checkout, and pushes that branch without merging.
+   not yet dispatched, design decisions posed and not made, no status edits. It works on its
+   own branch (`evidence/<slug>`, off `origin/main`) and pushes it without merging.
 6. Wait for stage 2's completion notification; stage 2 reports back to you, the main session.
 7. Relay to the user: what stage 1 found and where (research-repo commit), what stage 2 proposes and
    where (this repo's branch), the bug issues it filed (in your `triage:needed` queue,

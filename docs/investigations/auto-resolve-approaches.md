@@ -2,7 +2,7 @@
 
 **Status: specification, not a decision.** This document specifies five battle-resolution models
 precisely enough for T59 ([#250](https://github.com/diegoami/imperial_conquest_2/issues/250),
-[`docs/tasks/T59.md`](../tasks/T59.md)) to implement and measure, and it defines the metric suite
+[`docs/tasks/T59.md`](https://github.com/diegoami/imperial_conquest_2/blob/local/docs/tasks/T59.md)) to implement and measure, and it defines the metric suite
 T59 measures them with. It **does not pick a winner and does not rank the candidates.** T59 measures
 them, and the user decides from T59's scorecard. Task T58, [#251](https://github.com/diegoami/imperial_conquest_2/issues/251).
 
@@ -96,7 +96,7 @@ what each one predicts for the discriminating observation. §8 is the metric sui
   an estimate of how well the model plays.
 - **Whether the game changes at all.** Nothing here touches `InstantBattleResolver`, `BattleCasualties`,
   `ScatterPlacement`, a shipped ruleset, or a `Ruleset` flag. T59 implements behind a measurement seam
-  and wires nothing into the game ([T59](../tasks/T59.md) Hazards). Adopting any candidate is a
+  and wires nothing into the game ([T59](https://github.com/diegoami/imperial_conquest_2/blob/local/docs/tasks/T59.md) Hazards). Adopting any candidate is a
   later task, gated by the user.
 - **The tactical battle screen.** It **remains a v2 item**, per the user's decision of 2026-09-20
   recorded in T58's entry. Candidate C2 runs the original's tactical *model* headless. It is not a
@@ -118,7 +118,7 @@ what each one predicts for the discriminating observation. §8 is the metric sui
   times them. So this changes no candidate.
 - **Final constant values for adoption.** Every `[designed]` constant here exists so that T59 can
   measure without inventing anything. None of them is a tuned value. T59 must not retune them
-  ([T59](../tasks/T59.md) Hazards), and adopting a candidate would reopen them.
+  ([T59](https://github.com/diegoami/imperial_conquest_2/blob/local/docs/tasks/T59.md) Hazards), and adopting a candidate would reopen them.
 - **The open RE items in §10.** This task produced no new evidence. Where the evidence runs out,
   the gap is marked `[open]` and bridged by a `[designed]` placeholder.
 
@@ -284,7 +284,7 @@ The ruleset does **not** carry:
 
 K31, the 20-unit cap, is carried, as `armyManagement.maxUnitsPerArmy`.
 
-T59 may not add ruleset fields ([T59](../tasks/T59.md) Hazards), so these are **candidate-local
+T59 may not add ruleset fields ([T59](https://github.com/diegoami/imperial_conquest_2/blob/local/docs/tasks/T59.md) Hazards), so these are **candidate-local
 constants**. They are cited to their reports in §4.1 and belong in T59's candidate code, not in a
 ruleset.
 
@@ -1306,7 +1306,7 @@ a **fixed** count per battle. The others are variable, and are stated per event.
 **Pass band.** It **passes if** `E_c ≤ 240 s` **and** `p99_c ≤ 50 ms`.
 
 **Why.**
-- T22 **asserts** a 300-second budget for the whole soak ([T22](../tasks/T22.md) Done-when 2). A
+- T22 **asserts** a 300-second budget for the whole soak ([T22](https://github.com/diegoami/imperial_conquest_2/blob/local/docs/tasks/T22.md) Done-when 2). A
   candidate that would push the soak past it cannot ship, and 240 seconds leaves 20% of the budget
   as headroom for CI variance.
 - The 50 ms per-battle ceiling exists because a real game resolves more battles per turn than the
@@ -1659,8 +1659,8 @@ research repository at `origin/main`, read without touching its working tree.
 - `src/IC2.Engine/Battle/` (`InstantBattleResolver`, `BattleCasualties`, `ScatterPlacement`) and
   `src/IC2.Engine/Strength/ArmyPower.cs`, for the confirmed formulas as merged.
 - `data/rulesets/*.json` `.combat` and `.unitTypes`, for the values and their provenance strings.
-- [`T22`](../tasks/T22.md) Done-when 2 and `AiSoakTests`/`AiTestbed`, for the budget.
-- [`T59`](../tasks/T59.md), for what this document must give its implementer.
+- [`T22`](https://github.com/diegoami/imperial_conquest_2/blob/local/docs/tasks/T22.md) Done-when 2 and `AiSoakTests`/`AiTestbed`, for the budget.
+- [`T59`](https://github.com/diegoami/imperial_conquest_2/blob/local/docs/tasks/T59.md), for what this document must give its implementer.
 
 No battle-withdrawal, pursuit or retreat mechanic, no partial-defeat outcome, and no army-level
 break exists anywhere in the corpus. Every C4 and C5 army-level constant, and every C5 flight

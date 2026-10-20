@@ -1,6 +1,6 @@
 # The UI's look, evaluated, with font and palette candidates (T168)
 
-**Task:** [T168](../tasks/T168.md), issue [#1072](https://github.com/diegoami/imperial_conquest_2/issues/1072), planned from [#899](https://github.com/diegoami/imperial_conquest_2/issues/899) and [#1070](https://github.com/diegoami/imperial_conquest_2/issues/1070). [T169](../tasks/T169.md) applies what the user chooses here. **Nothing in the game changes in T168.**
+**Task:** [T168](https://github.com/diegoami/imperial_conquest_2/blob/local/docs/tasks/T168.md), issue [#1072](https://github.com/diegoami/imperial_conquest_2/issues/1072), planned from [#899](https://github.com/diegoami/imperial_conquest_2/issues/899) and [#1070](https://github.com/diegoami/imperial_conquest_2/issues/1070). [T169](https://github.com/diegoami/imperial_conquest_2/blob/local/docs/tasks/T169.md) applies what the user chooses here. **Nothing in the game changes in T168.**
 
 **The user's words** (2026-10-12): *"most important is the font refont (too impersonal and not compact enough)"*. From #899 (2026-10-09): the army panel's font is too large and its line spacing too loose; an ancient-looking font, more font variety, a reworked colour scheme. From #1070: the transfer dialog's font is too big.
 
@@ -159,4 +159,4 @@ The 13 candidate boards (`rendered/candidates/`): `00-baseline.png`; `01..04` pa
 
 ## 7. The user's decision
 
-The user's pick at T168's review (2026-10-12): **pairing A** (Cinzel for titles, headers and the menu bar; Source Sans 3 for panels, tables and the news log), the **Bronze Night** palette, and the **compact type scale proposed in section 4**, unchanged. [T169](../tasks/T169.md) applies it.
+The user's pick at T168's review (2026-10-12): **pairing A** (Cinzel for titles, headers and the menu bar; Source Sans 3 for panels, tables and the news log), the **Bronze Night** palette, and the **compact type scale proposed in section 4**, unchanged. [T169](https://github.com/diegoami/imperial_conquest_2/blob/local/docs/tasks/T169.md) applies it.

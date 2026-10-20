@@ -145,7 +145,7 @@ Record the recording's filename and the frame timestamps in the report, so the n
 
 ## 7. Output
 
-A report in the research repo, following its `[confirmed]` / `[derived]` / `[designed]` discipline, committed and pushed to `main` without asking. If the recording settles something a build-repo document currently claims otherwise, that is a **finding to report**, never a silent edit — it goes through the bug list ([build-process.md §4.6](build-process.md#46-bugs-and-follow-ups)), exactly as `/process-evidence` stage 2 requires.
+A report in the research repo, following its `[confirmed]` / `[derived]` / `[designed]` discipline, committed and pushed to `main` without asking. If the recording settles something a build-repo document currently claims otherwise, that is a **finding to report**, never a silent edit — it goes through the bug list ([build-process.md §4.6](https://github.com/diegoami/imperial_conquest_2/blob/local/docs/build-process.md#46-bugs-and-follow-ups)), exactly as `/process-evidence` stage 2 requires.
 
 State plainly **how much of the run was examined**. "Two of twenty-two recordings, four timestamps" is an honest header and stops the next reader assuming the run is exhausted.
 
