@@ -40,3 +40,18 @@ Per release milestone, one big review, run **directly from a CLI** and not throu
 - `assets.local.ini` and the original game files do not exist in the cloud. Tests that need them skip;
   CI sets `IC2_FIXTURES_DIR` from the private `ic2-test-fixtures` repository, and cloud sessions with
   access can do the same (`gh repo clone diegoami/ic2-test-fixtures`, then export the variable).
+
+## Bugs, follow-ups and triage
+
+- **Bugs.** A defect in merged code is a `bug` issue labelled `triage:needed`. The task that found it is
+  suspended, never patched across another task's files.
+- **Triage** (the main session's queue: `gh issue list --label triage:needed --state open`) picks one
+  outcome, records it in a comment and removes the label:
+  1. **fix**: stays within the files the bug names and changes no rule's outcome. Branch `fix/<issue>-<slug>`,
+     a test that fails before and passes after, commit `fix <issue>: <subject>`, PR body `Closes #<issue>`.
+  2. **correction task**: a new `docs/tasks/T<nn>.md` and issue.
+  3. **fold** into an upcoming task that touches those files.
+  4. **close** with a reason.
+- **Follow-ups.** Non-blocking review findings become one `T<nn> follow-up` issue per merge.
+- **Plan and design changes** go through a PR; wording and routine doc claims go straight to `main`.
+  A design decision is the user's, never decided by an agent.
