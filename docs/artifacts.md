@@ -19,3 +19,11 @@ or release does not change that. Evidence made from them stays in the originals 
 `imp_conquest_fixtures` releases already in use ([operating-guide §1.2](operating-guide.md)); the
 older rule "no save, screenshot, recording or game file enters either repository" applies to
 that material only. `.gitignore`'s `*.zip`/`*.exe` lines do not apply to `artifacts/`.
+
+## Original game files in the cloud
+
+A cloud session has no copy of the original game. `scripts/fetch-assets.sh` pulls it from the user's **private** Drive
+folder (`IC2_DRIVE_ASSETS`, an rclone path such as `gdrive:IC2/original`) into `~/ic2-original`, outside the repository,
+and writes the git-ignored `assets.local.ini`. The files live only in that Drive folder and the temporary session; they
+are never committed, released or put in `artifacts/`. The save corpus comes separately from the private
+`ic2-test-fixtures` repository (`IC2_FIXTURES_DIR`). `scripts/cloud-setup.sh` does both when the variables are set.
