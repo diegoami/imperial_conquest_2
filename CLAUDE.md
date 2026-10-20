@@ -15,7 +15,7 @@ cross-family review) is frozen on the `local` branch and is **not** in force her
 6. **A question is not a request to edit files.** Answer it; propose a fix and wait.
 7. **Upstream defects go through the bug list** (file an issue; do not patch another task's files).
 8. **Research-repo work** (`imperial-conquest-2-research`): commit and push without asking.
-9. **At session start**, run `gh issue list --label triage:needed --state open` and list anything `status:in-progress`, and tell the user where things stand.
+9. **At session start**, check the triage queue (`gh issue list --label triage:needed --state open`; if GraphQL is blocked, the REST form in [docs/cloud-mode.md](docs/cloud-mode.md#github-from-the-cloud-rest-only)) and anything `status:in-progress`, and tell the user where things stand.
 
 ## Token economy
 
