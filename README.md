@@ -67,13 +67,11 @@ An unknown id is rejected with the list of valid ids. Type `help` for the comman
 
 ## Current state
 
-**[`v0.4.0`](https://github.com/diegoami/imperial_conquest_2/releases/tag/v0.4.0) — *Playable with a UI, from source*** is the latest release. The Godot project plays a game with the map, the context panel, the news log and the battle-result, diplomacy and hotseat-handoff screens, and saves and resumes it. `IC2.Cli` plays the same engine headless. What each release adds is in [release-plan.md §2](docs/release-plan.md#2-the-release-ladder).
+**[`v0.6.2`](https://github.com/diegoami/imperial_conquest_2/releases/tag/v0.6.2)** is the latest release (a pre-release; see the [releases](https://github.com/diegoami/imperial_conquest_2/releases) for the Windows build). The Godot project plays a game with the map, the context panel, the news log and the battle-result, diplomacy and hotseat-handoff screens, and saves and resumes it. `IC2.Cli` plays the same engine headless. What each release adds is in [release-plan.md §2](docs/release-plan.md#2-the-release-ladder).
 
-Progress lives on GitHub, not in this file: each [task issue](https://github.com/diegoami/imperial_conquest_2/issues?q=label%3Atask)'s `status:*` label, and the [pull requests](https://github.com/diegoami/imperial_conquest_2/pulls). What is built and what is next is in the [task catalogue](docs/task-catalogue.md). How to query the board: [Where the build stands](https://github.com/diegoami/imperial_conquest_2/wiki/Where-the-build-stands) on the wiki.
+Progress lives on GitHub, not in this file: each [task issue](https://github.com/diegoami/imperial_conquest_2/issues?q=label%3Atask)'s `status:*` label, and the [pull requests](https://github.com/diegoami/imperial_conquest_2/pulls). What is next is in the [task catalogue](docs/task-catalogue.md) (open tasks only). How to query the board: [Where the build stands](https://github.com/diegoami/imperial_conquest_2/wiki/Where-the-build-stands) on the wiki.
 
-Operating the project — the task loop, the skills, where everything lives, bugs: [docs/operating-guide.md](docs/operating-guide.md).
-
-Codex setup and workflow mappings: [docs/codex.md](docs/codex.md). Claude Code keeps its existing instructions and local skills; both use the same project contracts.
+Operating the project — the task loop, review, bugs, milestone review: [docs/cloud-mode.md](docs/cloud-mode.md); where everything lives: [docs/operating-guide.md](docs/operating-guide.md). The earlier desktop-only process (worktrees, delegated runs) is frozen at the [`archive/desktop-2026-10-20`](https://github.com/diegoami/imperial_conquest_2/tree/archive/desktop-2026-10-20) tag.
 
 
 ## Building the reimplementation
@@ -119,10 +117,10 @@ The Godot project's main scene is the game (above). The research inspector is it
 
 ## Further reading
 
-- [Operating guide](docs/operating-guide.md) — start here: where everything lives, how the sessions, skills and pipeline are run, what's still open.
-- [Game design](docs/game-design.md) and its [design audit](docs/design-audit.md) — what the reimplementation will be, and what the evidence actually supports.
+- [Cloud mode](docs/cloud-mode.md) — start here: the whole process on one page. [Operating guide](docs/operating-guide.md) — where everything lives.
+- [Game design](docs/game-design.md) and the archived [design audit](docs/design-audit.md) — what the reimplementation will be, and the decisions behind it.
 - [Task catalogue](docs/task-catalogue.md) — the build tasks and their dependency graph.
-- [Build process](docs/build-process.md) — how tasks are dispatched, reviewed, merged and documented by the agent pipeline.
+- [Build process](docs/build-process.md) — merge gates, labels and git conventions. [Milestone review](docs/milestone-review.md) and [artifacts](docs/artifacts.md).
 - [Evidence pipeline](docs/evidence-pipeline.md) — the `/process-evidence` skill that turns new saves/recordings/notes into research-repo findings and then game-design implications.
 - [Investigations](docs/investigations/README.md) — this repository's own evidence write-ups.
 - [Release plan](docs/release-plan.md) — how tasks turn into version tags and releases.
