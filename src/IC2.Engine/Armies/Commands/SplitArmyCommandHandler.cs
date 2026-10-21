@@ -35,7 +35,7 @@ public sealed class SplitArmyCommandHandler : ICommandHandler<SplitArmyCommand>
         {
             return CommandOutcome.Reject(
                 SplitArmyRejections.TooFewUnitsToSplit,
-                $"Army '{army.Id}' has fewer than {rules.SplitMinUnits} units and cannot be split.");
+                $"You can not split an army containing only {rules.SplitMinUnits - 1} unit.");
         }
 
         var selection = command.UnitIndicesToNewArmy;

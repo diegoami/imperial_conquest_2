@@ -342,7 +342,7 @@ public static class AttackLegality
         {
             return Refuse(
                 AttackFleetRejections.TargetDockedAtItsOwnCity,
-                $"You cannot attack fleet '{target.Id}' docked at its own city '{harbour.Id}'.");
+                "You cannot attack a fleet docked at its own city !");
         }
 
         if (WarCheck(state, ruleset, attacker.Nation, target.Nation, AttackFleetRejections.NotAtWar) is { } notAtWar)

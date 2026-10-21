@@ -190,7 +190,7 @@ public sealed class WarOnlyWithALegalAttackTests
         var line = SingleLineAfterEcho(output);
         Assert.StartsWith(
             "battle.attack-fleet rejected (battle.target-docked-at-own-city): ", line, StringComparison.Ordinal);
-        Assert.Contains("docked at its own city 'akra-leuke'", line, StringComparison.Ordinal);
+        Assert.EndsWith("You cannot attack a fleet docked at its own city !", line, StringComparison.Ordinal);
         Assert.DoesNotContain(
             output.Lines, l => l.Contains("diplomacy.declare-war", StringComparison.Ordinal));
 

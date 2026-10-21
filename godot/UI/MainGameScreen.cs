@@ -541,7 +541,7 @@ public partial class MainGameScreen : Control
     {
         // File: New/Open/Close leave the game, each after a confirmation [designed]; Save and Save As
         // save. The seat commands are not in the table at all (the user's decision, T100's Scope).
-        BindStrategicCommand("file.new", () => ConfirmLeavingGame("start a new game", () => OwningAppRoot?.ShowNewGameFlow()));
+        BindStrategicCommand("file.new", () => ConfirmLeavingGame(NewGameAction, () => OwningAppRoot?.ShowNewGameFlow()));
         BindStrategicCommand("file.open", () => ConfirmLeavingGame("open a saved game", () => OwningAppRoot?.ShowLoadGame()));
         BindStrategicCommand("file.save", () => OnSavePressed(checkUniqueSuffix: null));
         BindStrategicCommand("file.save_as", ShowSaveAsPrompt);
@@ -852,11 +852,17 @@ public partial class MainGameScreen : Control
     /// it is driven directly (a headless check). The three File commands that leave the game need it.</summary>
     private AppRoot? OwningAppRoot => GetParent() as AppRoot;
 
+    private const string NewGameAction = "start a new game";
+
     /// <summary>Asks before leaving the current game (T100 Scope: New, Open and Close confirm; Save does
-    /// not). [designed]: the original's own prompts are in the form stream and unread.</summary>
+    /// not). New asks the original's own question (#801 P10); the original asks nothing for Open or Close,
+    /// so those keep this app's [designed] line.</summary>
     private void ConfirmLeavingGame(string action, Action onConfirmed)
     {
-        var prompt = new ConfirmPrompt { Question = $"The current game will be left to {action}. Continue?" };
+        var question = action == NewGameAction
+            ? "Are you sure you want to start a new game ?"
+            : $"The current game will be left to {action}. Continue?";
+        var prompt = new ConfirmPrompt { Question = question };
         prompt.Confirmed += () =>
         {
             CloseOverlay(prompt);
@@ -1191,7 +1197,7 @@ public partial class MainGameScreen : Control
             return;
         }
 
-        var prompt = new ConfirmPrompt { Question = $"Disband army {army.Id}?" };
+        var prompt = new ConfirmPrompt { Question = "Are you sure you want to disband this army ?" };
         prompt.Confirmed += () =>
         {
             CloseOverlay(prompt);

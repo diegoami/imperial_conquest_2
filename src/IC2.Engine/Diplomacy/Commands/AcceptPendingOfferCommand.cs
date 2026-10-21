@@ -148,7 +148,7 @@ public sealed class AcceptPendingOfferCommandHandler : ICommandHandler<AcceptPen
                 if (relation < codes.Peace)
                 {
                     return CommandOutcome.Reject(
-                        AcceptPendingOfferRejections.Cooldown, $"'{proposer.Name}' does not want to ally with you.");
+                        AcceptPendingOfferRejections.Cooldown, $"{proposer.Name} does not want to ally with your nation.");
                 }
 
                 // T82 (#359, bug #357 item 3), corrected in rework round 1 (B2):
@@ -163,7 +163,7 @@ public sealed class AcceptPendingOfferCommandHandler : ICommandHandler<AcceptPen
                 {
                     return CommandOutcome.Reject(
                         AcceptPendingOfferRejections.SideAtWar,
-                        $"You cannot ally with '{proposer.Name}' while you, or one of your allies, is at war.");
+                        $"You cannot ally with {proposer.Name} while you, or one of your allies, is at war.");
                 }
             }
 
@@ -182,7 +182,7 @@ public sealed class AcceptPendingOfferCommandHandler : ICommandHandler<AcceptPen
         if (relation < codes.Peace)
         {
             return CommandOutcome.Reject(
-                AcceptPendingOfferRejections.Cooldown, $"'{proposer.Name}' does not want to trade with you.");
+                AcceptPendingOfferRejections.Cooldown, $"{proposer.Name} does not want to trade with you.");
         }
 
         if (relation == codes.Trade)
@@ -194,7 +194,7 @@ public sealed class AcceptPendingOfferCommandHandler : ICommandHandler<AcceptPen
         if (relation > codes.Trade)
         {
             return CommandOutcome.Reject(
-                AcceptPendingOfferRejections.AlliedOrAtWar, $"You cannot trade with '{proposer.Name}'.");
+                AcceptPendingOfferRejections.AlliedOrAtWar, $"You cannot trade with {proposer.Name}.");
         }
 
         // T82 rework round 1 (B3): decompiled-ai-offers-to-human-seats.md §3 -- "the human's working row
@@ -207,7 +207,7 @@ public sealed class AcceptPendingOfferCommandHandler : ICommandHandler<AcceptPen
         {
             return CommandOutcome.Reject(
                 AcceptPendingOfferRejections.TradeCapReached,
-                $"You already trade with {ruleset.Diplomacy.MaxTradePartners} nations.");
+                $"You can only trade with {ruleset.Diplomacy.MaxTradePartners} nations.");
         }
 
         // T82 rework round 1 (B3), corrected in rework round 2 (R2 -- the earlier remark here claimed

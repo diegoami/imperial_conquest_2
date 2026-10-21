@@ -100,7 +100,7 @@ public sealed class RecruitStandingUnitCommandHandler : ICommandHandler<RecruitS
         {
             return CommandOutcome.Reject(
                 RecruitStandingUnitRejections.RecruitmentTableFull,
-                $"Nation '{nation.Id}' already has {context.Ruleset.Recruitment.MaxSlots} units in training.");
+                $"You have reached your limit of {context.Ruleset.Recruitment.MaxSlots} units.");
         }
 
         // T155 (#515, #904) — the capital-or-75% gate, the original's third refusal ("This city's

@@ -50,7 +50,7 @@ public sealed class SplitUnitCommandHandler : ICommandHandler<SplitUnitCommand>
         {
             return CommandOutcome.Reject(
                 SplitUnitRejections.TooManyUnits,
-                $"Army '{army.Id}' already holds {rules.MaxUnitsPerArmy} units; it cannot take another.");
+                $"This army already has {rules.MaxUnitsPerArmy} units.");
         }
 
         // Regulars are auto-named with the next free ordinal for their type across the nation's armies and

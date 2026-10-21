@@ -108,7 +108,7 @@ public sealed class MakePeaceCommandHandler : ICommandHandler<MakePeaceCommand>
         if (relation == codes.War && target.Control == SeatControl.Ai)
         {
             return CommandOutcome.Reject(
-                MakePeaceRejections.Refused, $"'{target.Name}' does not want to make peace at this time.");
+                MakePeaceRejections.Refused, $"{target.Name} does not want to make peace at this time.");
         }
 
         state = RelationTransitions.BreakToPeace(state, ruleset, command.IssuingNationId, command.TargetNationId);

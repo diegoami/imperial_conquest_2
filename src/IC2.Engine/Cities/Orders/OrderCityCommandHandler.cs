@@ -58,7 +58,7 @@ public sealed class OrderCityCommandHandler : ICommandHandler<OrderCityCommand>
         {
             return CommandOutcome.Reject(
                 CityOrderRejections.FortifyRefusedWhileUnderSiege,
-                $"City '{city.Name}' is under siege and cannot be {command.OrderId}ified.");
+                $"You cannot {command.OrderId} a city which is under siege.");
         }
 
         // Check if already at maximum
@@ -67,7 +67,7 @@ public sealed class OrderCityCommandHandler : ICommandHandler<OrderCityCommand>
         {
             return CommandOutcome.Reject(
                 CityOrderRejections.FortifyRefusedAtMaxPercent,
-                $"City '{city.Name}' is already fully {command.OrderId}ified.");
+                $"This city cannot be {Participle(command.OrderId)} any further.");
         }
 
         // Check if order already pending
@@ -75,7 +75,7 @@ public sealed class OrderCityCommandHandler : ICommandHandler<OrderCityCommand>
         {
             return CommandOutcome.Reject(
                 CityOrderRejections.FortifyRefusedOrderPending,
-                $"City '{city.Name}' already has a {command.OrderId} order pending.");
+                $"This city is already being {Participle(command.OrderId)}.");
         }
 
         // Check points don't exceed max available
@@ -144,4 +144,8 @@ public sealed class OrderCityCommandHandler : ICommandHandler<OrderCityCommand>
         }
         return ValueList.From(list);
     }
+
+    /// <summary>The order's past participle for the original's refusal lines (#801 R23, R24): "fortify" reads "fortified".</summary>
+    private static string Participle(string orderId) =>
+        orderId.EndsWith('y') ? string.Concat(orderId.AsSpan(0, orderId.Length - 1), "ied") : orderId + "ed";
 }
