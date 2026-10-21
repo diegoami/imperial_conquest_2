@@ -198,6 +198,10 @@ public partial class MainGameScreen : Control
     private NewsLogPanel _newsLog = null!;
     private Label _lastCommandLabel = null!;
 
+    // #1286: a refused order's message over the map; dialogs show their own reply instead.
+    private readonly OrderNotice _orderNotice = new();
+    private bool _submittingFromDialog;
+
     // T147 (bug #781 point 4): the NewsLog slots after the previous command, so the output area can show
     // the entries this command added (the peace treaty's "have agreed to end their war." line among
     // them). Every command path funnels through OnCommandIssued, which updates it. The entries compare
@@ -306,6 +310,7 @@ public partial class MainGameScreen : Control
             StrategicInputAllowed = AllowStrategicInput,
         };
         body.AddChild(_mapView);
+        _mapView.AddChild(_orderNotice);
 
         // T102/T110: the right-hand column is the Area-map strip above the overview mini-map above the
         // context panel. The mini-map's own 320 px width stays inside the context panel's 340 px floor, and
@@ -355,7 +360,7 @@ public partial class MainGameScreen : Control
         // Save path. Wrapping at word boundaries, a three-line ceiling with an ellipsis, and the full
         // text in the tooltip keep a long result from widening this full-rect root or pushing the
         // context panel off-screen.
-        _lastCommandLabel = UiKit.MakeLabel(string.Empty, AppTheme.Note, UiKit.MutedTextColor);
+        _lastCommandLabel = UiKit.MakeLabel(string.Empty, AppTheme.Note, UiKit.TextColor);
         _lastCommandLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _lastCommandLabel.MaxLinesVisible = LastCommandVisibleLineCount;
         _lastCommandLabel.ClipText = true;
@@ -1607,11 +1612,45 @@ public partial class MainGameScreen : Control
     {
         if (!AllowStrategicInput()) return Array.Empty<string>();
         var lines = AppDiagnostics.Submit(Session, line, "dialog").Lines;
-        OnCommandIssued(lines);
+        _submittingFromDialog = true;
+        try
+        {
+            OnCommandIssued(lines);
+        }
+        finally
+        {
+            _submittingFromDialog = false;
+        }
 
         // #1280 F3: the dialog shows its reply in plain words, as the screen's message line does.
         return lines.Select(CommandOutcomeWording.ReadableLine).ToList();
     }
+
+    /// <summary>
+    /// #1286: a refused order's plain message over the map, unless a dialog gave the order (it shows its own
+    /// reply) or the battle screen covers the map (it shows the message itself).
+    /// </summary>
+    private void ShowRefusalNotice(IReadOnlyList<string> lines)
+    {
+        if (_submittingFromDialog || ActiveOverlay is TacticalBattleScreen)
+        {
+            return;
+        }
+
+        var refusals = lines.Select(CommandOutcomeWording.RefusalMessage).OfType<string>().ToList();
+        if (refusals.Count > 0)
+        {
+            _orderNotice.ShowMessage(string.Join('\n', refusals));
+        }
+        else
+        {
+            // A later order that went through replaces an old refusal rather than leaving it in view.
+            _orderNotice.Close();
+        }
+    }
+
+    /// <summary>#1286: the message the refusal notice over the map shows, or empty when it is closed.</summary>
+    public string OrderNoticeForCheck => _orderNotice.Message;
 
     /// <summary>Shows a screen-level message without issuing a command — see <see cref="LastMessageForCheck"/>.</summary>
     private void ShowScreenMessage(string message)
@@ -1963,6 +2002,7 @@ public partial class MainGameScreen : Control
         _lastCommandLabel.Text = outcome;
         _lastCommandLabel.TooltipText = outcome;
         UpdateLastCommandLinesSkipped();
+        ShowRefusalNotice(lines);
 
         // T127: the battle screen covers the map, so it shows the engine's answer itself (a refused Save during an
         // AI-phase battle shows the engine's own message and nothing else).
