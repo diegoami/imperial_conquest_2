@@ -1472,8 +1472,7 @@ public partial class GameMapView : Control
             // authored silhouette tinted with the owner's foreground colour; only a selected marker
             // is outlined (in gold).
             var rect = new Rect2(center - new Vector2(radius, radius), new Vector2(radius, radius) * 2f);
-            DrawRect(rect, background);
-            DrawTextureRect(texture, rect, false, foreground);
+            DrawTownPlate(texture, rect, background, foreground, rank == MapMarkerKeys.CapitalRank);
             if (selected)
             {
                 DrawRect(rect, SelectedRingColor, false, 2.5f);
@@ -1578,9 +1577,9 @@ public partial class GameMapView : Control
         if (MissingStrategicTexturesForCheck) texture = null;
         if (texture is not null)
         {
-            // #1291: the owner's three unit colours on a shaded field (UnitMarkerPalette); only a
-            // selected marker is outlined (in gold).
-            DrawUnitMarker(texture, rect, army.Nation, background);
+            // #1291: the owner's three unit colours on a shaded field (UnitMarkerPalette), as a round
+            // token so an army never reads as a town; only a selected marker is outlined (in gold).
+            DrawUnitMarker(texture, rect, army.Nation, background, MarkerShape.Token);
             if (selected)
             {
                 DrawStrategicOutline(army.Id, rect, true);
@@ -1607,9 +1606,9 @@ public partial class GameMapView : Control
         if (MissingStrategicTexturesForCheck) texture = null;
         if (texture is not null)
         {
-            // #1291: the owner's three unit colours on a shaded field (UnitMarkerPalette); only a
-            // selected marker is outlined (in gold).
-            DrawUnitMarker(texture, rect, fleet.Nation, background);
+            // #1291: the owner's three unit colours on a shaded field (UnitMarkerPalette), as a shield
+            // with a keel so a fleet reads as a ship; only a selected marker is outlined (in gold).
+            DrawUnitMarker(texture, rect, fleet.Nation, background, MarkerShape.Hull);
             if (selected)
             {
                 DrawStrategicOutline(fleet.Id, rect, true);
@@ -1623,32 +1622,136 @@ public partial class GameMapView : Control
         DrawStrategicOutline(fleet.Id, rect, selected);
     }
 
-    /// <summary>
-    /// #1291: an army or fleet marker in <see cref="UnitMarkerPalette"/>'s colours -- the owner's field
-    /// shaded light at the top to dark at the bottom, a darker one-pixel edge against the terrain, the
-    /// silhouette in the second unit colour and a thin inner frame in the third. A nation with no
-    /// palette keeps the flat <paramref name="background"/> and a luminance-chosen figure.
-    /// </summary>
-    private void DrawUnitMarker(Texture2D texture, Rect2 rect, string nationId, Color background)
+    /// <summary>The outline a strategic marker is drawn in: towns are plates, armies tokens, fleets hulls.</summary>
+    private enum MarkerShape
     {
-        if (UnitMarkerPalette.ForOwner(_session?.World, nationId) is not { } palette)
+        Plate,
+        Token,
+        Hull,
+    }
+
+    /// <summary>
+    /// #1291 and the 2026-10-21 marker pass: an army or fleet marker in <see cref="UnitMarkerPalette"/>'s
+    /// colours, in its kind's own outline over a drop shadow -- the owner's field lit from the top, a thin
+    /// inner ring in the third unit colour, the silhouette in the second over a contrasting halo, and a
+    /// dark edge against the terrain. A nation with no palette keeps its flat
+    /// <paramref name="background"/>. Everything stays inside <paramref name="rect"/>, the marker's hit box.
+    /// </summary>
+    private void DrawUnitMarker(Texture2D texture, Rect2 rect, string nationId, Color background, MarkerShape shape)
+    {
+        var palette = UnitMarkerPalette.ForOwner(_session?.World, nationId);
+        var field = new MarkerTint(background.R, background.G, background.B, 1f);
+        var top = palette is { } p1 ? ToColor(p1.Top) : ToColor(MarkerShading.Top(field));
+        var bottom = palette is { } p2 ? ToColor(p2.Bottom) : ToColor(MarkerShading.Bottom(field));
+        var edge = palette is { } p3 ? ToColor(p3.Edge) : ToColor(MarkerShading.Edge(field));
+        var figure = palette is { } p4 ? p4.Figure : MarkerTint.FallbackForeground(field);
+
+        var body = MarkerOutline(rect.Grow(-ShadowOffset(rect)), shape);
+        DrawColoredPolygon(Shifted(body, ShadowOffset(rect)), ToColor(MarkerShading.Shadow));
+        DrawPolygon(body, Gradient(body, rect, top, bottom));
+        if (palette is { } p5)
         {
-            DrawRect(rect, background);
-            var unknown = new MarkerTint(background.R, background.G, background.B, background.A);
-            DrawTextureRect(texture, rect, false, ToColor(MarkerTint.FallbackForeground(unknown)));
-            return;
+            var ring = MarkerOutline(rect.Grow(-ShadowOffset(rect) - Mathf.Max(1.5f, rect.Size.X / 9f)), shape);
+            DrawPolyline(Closed(ring), ToColor(p5.Accent), Mathf.Max(1f, rect.Size.X / 16f), true);
         }
 
-        var top = ToColor(palette.Top);
-        var bottom = ToColor(palette.Bottom);
-        DrawPolygon(
-            new[] { rect.Position, new Vector2(rect.End.X, rect.Position.Y), rect.End, new Vector2(rect.Position.X, rect.End.Y) },
-            new[] { top, top, bottom, bottom });
-        var frame = Mathf.Max(1f, rect.Size.X / 14f);
-        DrawRect(rect.Grow(-frame * 1.5f), ToColor(palette.Accent), false, frame);
-        DrawTextureRect(texture, rect, false, ToColor(palette.Figure));
-        DrawRect(rect, ToColor(palette.Edge), false, 1f);
+        DrawHaloedFigure(texture, rect.Grow(-rect.Size.X * 0.12f), figure);
+        DrawPolyline(Closed(body), edge, 1f, true);
     }
+
+    /// <summary>
+    /// The 2026-10-21 marker pass: a town's square plate over a drop shadow, its owner colour lit from the
+    /// top, the building in the owner's glyph colour over a contrasting halo so it reads on any field, and a
+    /// capital framed in that glyph colour as well.
+    /// </summary>
+    private void DrawTownPlate(Texture2D texture, Rect2 rect, Color background, Color foreground, bool capital)
+    {
+        var field = new MarkerTint(background.R, background.G, background.B, 1f);
+        var body = MarkerOutline(rect.Grow(-ShadowOffset(rect)), MarkerShape.Plate);
+        DrawColoredPolygon(Shifted(body, ShadowOffset(rect)), ToColor(MarkerShading.Shadow));
+        DrawPolygon(body, Gradient(body, rect, ToColor(MarkerShading.Top(field)), ToColor(MarkerShading.Bottom(field))));
+        var inset = 0.06f;
+        if (capital)
+        {
+            // A thin frame near the edge, and the building drawn smaller so the two never touch.
+            var frame = Mathf.Max(1f, rect.Size.X / 22f);
+            DrawPolyline(Closed(MarkerOutline(rect.Grow(-ShadowOffset(rect) - (frame * 1.5f)), MarkerShape.Plate)), foreground, frame, true);
+            inset = 0.14f;
+        }
+
+        DrawHaloedFigure(texture, rect.Grow(-rect.Size.X * inset), new MarkerTint(foreground.R, foreground.G, foreground.B, 1f));
+        DrawPolyline(Closed(body), ToColor(MarkerShading.Edge(field)), 1f, true);
+    }
+
+    /// <summary>The figure drawn four times one pixel out in its halo colour, then once on top.</summary>
+    private void DrawHaloedFigure(Texture2D texture, Rect2 rect, MarkerTint figure)
+    {
+        var halo = ToColor(MarkerShading.Halo(figure));
+        var step = Mathf.Max(1f, rect.Size.X / 24f);
+        foreach (var offset in new[] { new Vector2(step, 0), new Vector2(-step, 0), new Vector2(0, step), new Vector2(0, -step) })
+        {
+            DrawTextureRect(texture, new Rect2(rect.Position + offset, rect.Size), false, halo);
+        }
+
+        DrawTextureRect(texture, rect, false, ToColor(figure));
+    }
+
+    /// <summary>The drop shadow's offset, which the body leaves room for inside the hit box.</summary>
+    private static float ShadowOffset(Rect2 rect) => Mathf.Max(1f, rect.Size.X / 16f);
+
+    /// <summary>
+    /// A marker's outline inside <paramref name="rect"/>: a square plate, a round token, or a hull (a
+    /// shield whose sides curve in to a keel at the bottom centre).
+    /// </summary>
+    private static Vector2[] MarkerOutline(Rect2 rect, MarkerShape shape)
+    {
+        var c = rect.GetCenter();
+        var r = rect.Size.X / 2f;
+        switch (shape)
+        {
+            case MarkerShape.Token:
+                return Enumerable.Range(0, TokenSegments)
+                    .Select(i => c + (new Vector2(Mathf.Cos(Mathf.Tau * i / TokenSegments), Mathf.Sin(Mathf.Tau * i / TokenSegments)) * r))
+                    .ToArray();
+            case MarkerShape.Hull:
+            {
+                var points = new List<Vector2> { rect.Position, new(rect.End.X, rect.Position.Y) };
+                const int Curve = 8;
+                for (var i = 1; i <= Curve; i++)
+                {
+                    // Right side: straight to 45% height, then curving in to the keel.
+                    var t = (float)i / Curve;
+                    var y = rect.Position.Y + (rect.Size.Y * (0.45f + (0.55f * t)));
+                    var x = rect.End.X - (r * (1f - Mathf.Cos(t * Mathf.Pi / 2f)));
+                    points.Add(new Vector2(x, y));
+                }
+
+                for (var i = Curve - 1; i >= 1; i--)
+                {
+                    var t = (float)i / Curve;
+                    var y = rect.Position.Y + (rect.Size.Y * (0.45f + (0.55f * t)));
+                    var x = rect.Position.X + (r * (1f - Mathf.Cos(t * Mathf.Pi / 2f)));
+                    points.Add(new Vector2(x, y));
+                }
+
+                points.Add(new Vector2(rect.Position.X, rect.Position.Y + (rect.Size.Y * 0.45f)));
+                return points.ToArray();
+            }
+
+            default:
+                return new[] { rect.Position, new Vector2(rect.End.X, rect.Position.Y), rect.End, new Vector2(rect.Position.X, rect.End.Y) };
+        }
+    }
+
+    private const int TokenSegments = 28;
+
+    /// <summary>Each point's colour on a top-to-bottom gradient across <paramref name="bounds"/>.</summary>
+    private static Color[] Gradient(Vector2[] points, Rect2 bounds, Color top, Color bottom) =>
+        points.Select(p => top.Lerp(bottom, Mathf.Clamp((p.Y - bounds.Position.Y) / bounds.Size.Y, 0f, 1f))).ToArray();
+
+    private static Vector2[] Shifted(Vector2[] points, float by) => points.Select(p => p + new Vector2(by, by)).ToArray();
+
+    private static Vector2[] Closed(Vector2[] points) => points.Append(points[0]).ToArray();
 
     /// <summary>
     /// The owner's (background, foreground) pair for every marker fill and pack-icon tint: the loaded
