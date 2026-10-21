@@ -7037,7 +7037,7 @@
     }
   ],
   "_provenance": {
-    "terrain": "historical: coastline, relief and rivers simplified from present-day geography (the modern coast is close enough at this scale; the Po delta and the Tuscan and Latin coastal plains have moved by a few kilometres since antiquity, under one tile here). designed: the simplification itself, drawn by hand as the polygons and polylines in tools/Italy/build_italy.py. Built by tools/Italy/build_italy.py into tools/Italy/italy-500bc.png and imported with tools/TerrainImport.",
+    "terrain": "designed: coastline, relief and rivers drawn by hand from general knowledge of present-day geography, as the polygons and polylines in tools/Italy/build_italy.py; no atlas, map or dataset is the source, so the shapes cite none (the modern coast is close enough at this scale; the Po delta and the Tuscan and Latin coastal plains have moved by a few kilometres since antiquity, under one tile here). Built by tools/Italy/build_italy.py into tools/Italy/italy-500bc.png and imported with tools/TerrainImport.",
     "width": "designed: 11.6 degrees of longitude (7 E to 18.6 E) at 18 tiles per degree; the Balkan shore beyond is drawn as sea.",
     "height": "designed: 9.7 degrees of latitude (36.6 N to 46.3 N, the Alpine crest) at 24 tiles per degree, so tiles are about 4.6 km square; Africa is drawn as sea.",
     "tileTypes": "designed: the twelve terrain types of the classical world, reused unchanged so the ruleset's costs apply. Forest stands for wooded hill country, as in the original.",

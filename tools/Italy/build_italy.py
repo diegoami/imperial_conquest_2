@@ -33,11 +33,11 @@ TPD_LON, TPD_LAT = 18, 24
 WIDTH = round((LON_MAX - LON_MIN) * TPD_LON)   # 209
 HEIGHT = round((LAT_MAX - LAT_MIN) * TPD_LAT)  # 233
 
-GEOGRAPHY = ("historical: coastline, relief and rivers simplified from present-day geography "
-             "(the modern coast is close enough at this scale; the Po delta and the Tuscan and Latin "
-             "coastal plains have moved by a few kilometres since antiquity, under one tile here). "
-             "designed: the simplification itself, drawn by hand as the polygons and polylines in "
-             "tools/Italy/build_italy.py.")
+GEOGRAPHY = ("designed: coastline, relief and rivers drawn by hand from general knowledge of present-day "
+             "geography, as the polygons and polylines in tools/Italy/build_italy.py; no atlas, map or "
+             "dataset is the source, so the shapes cite none (the modern coast is close enough at this "
+             "scale; the Po delta and the Tuscan and Latin coastal plains have moved by a few kilometres "
+             "since antiquity, under one tile here).")
 
 def cell(lon, lat):
     return (int((lon - LON_MIN) * TPD_LON), int((LAT_MAX - lat) * TPD_LAT))
@@ -728,7 +728,7 @@ PERSONALITY = {"rome": (0.6, 0.7), "etruria": (0.5, 0.5), "samnites": (0.8, 0.6)
 WEALTH_PER_THOUSAND = 3000
 
 def build_world(grid):
-    classical = json.loads((ROOT / "data/worlds/classical-mediterranean.json").read_text())
+    classical = json.loads((ROOT / "data/worlds/classical-mediterranean.json").read_text(encoding="utf-8"))
     taken = set()
     cities = []
     for c in CITIES:
@@ -822,7 +822,7 @@ def build_world(grid):
     return world
 
 def build_ruleset():
-    ruleset = json.loads((ROOT / "data/rulesets/classical-faithful.json").read_text())
+    ruleset = json.loads((ROOT / "data/rulesets/classical-faithful.json").read_text(encoding="utf-8"))
     ruleset["id"] = WORLD_ID
     ruleset["name"] = "Italy, 500 BC"
     ruleset["description"] = ("The classical-faithful rules, unchanged except for the calendar: the campaign "
@@ -864,7 +864,7 @@ def build_scenario():
         listed=True)
 
 def dump(path, document):
-    path.write_text(json.dumps(document, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(document, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
 
 def main():
     grid = build_terrain()
