@@ -100,6 +100,9 @@ public partial class ConfirmPrompt : Control
         }
     }
 
+    /// <summary>Answers as the Yes or No button does, for the headless checks.</summary>
+    public void AnswerForCheck(bool yes) => Answer(yes);
+
     private void Answer(bool yes)
     {
         if (yes)

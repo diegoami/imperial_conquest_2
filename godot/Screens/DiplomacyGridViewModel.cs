@@ -1,3 +1,4 @@
+using IC2.Engine.Diplomacy;
 using IC2.Engine.Model;
 
 namespace IC2.Slice.Screens;
@@ -110,5 +111,41 @@ public static class DiplomacyGridViewModel
         }
 
         return $"Unknown ({value})";
+    }
+
+    /// <summary>
+    /// #1280 F4: every nation a declaration on <paramref name="targetId"/> would put
+    /// <paramref name="activeNationId"/> at war with, the target first — the engine's own
+    /// <see cref="RelationTransitions.DeclareWar"/> run on the current state (it is pure), so the target's
+    /// allies its cascade drags in are listed exactly as the declaration will make them.
+    /// </summary>
+    public static IReadOnlyList<string> WarDeclarationEnemies(GameState state, Ruleset ruleset, string activeNationId, string targetId)
+    {
+        var war = ruleset.Diplomacy.StateCodes.War;
+        var after = RelationTransitions.DeclareWar(state, ruleset, activeNationId, targetId);
+        return state.Nations
+            .Where(n => !string.Equals(n.Id, activeNationId, StringComparison.Ordinal)
+                && state.Relations.Get(activeNationId, n.Id) != war
+                && after.Relations.Get(activeNationId, n.Id) == war)
+            .OrderBy(n => string.Equals(n.Id, targetId, StringComparison.Ordinal) ? 0 : 1)
+            .Select(n => n.Id)
+            .ToList();
+    }
+
+    /// <summary>#1280 F4: the confirmation Declare War asks, naming every nation the war will be with.</summary>
+    public static string WarDeclarationQuestion(GameState state, Ruleset ruleset, string activeNationId, string targetId)
+    {
+        string Name(string id) => state.NationById(id)?.Name ?? id;
+        var allies = WarDeclarationEnemies(state, ruleset, activeNationId, targetId)
+            .Where(id => !string.Equals(id, targetId, StringComparison.Ordinal))
+            .Select(Name)
+            .ToList();
+        var question = $"Declare war on {Name(targetId)}?";
+        return allies.Count switch
+        {
+            0 => question,
+            1 => $"{question} Its ally {allies[0]} will also be at war with you.",
+            _ => $"{question} Its allies {string.Join(", ", allies.Take(allies.Count - 1))} and {allies[^1]} will also be at war with you.",
+        };
     }
 }

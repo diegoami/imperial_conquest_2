@@ -118,12 +118,21 @@ public static class CommandOutcomeWording
         ByKind.TryGetValue(kind, out var wording) ? wording : null;
 
     /// <summary>
-    /// Replaces one exact <c>"{kind} accepted."</c> line with its wording, and returns the line unchanged
-    /// for every other line (a rejection, the composed declaration, or a kind with no wording).
+    /// Replaces one exact <c>"{kind} accepted."</c> line with its wording, and an engine refusal
+    /// (<c>"{kind} rejected ({code}): {message}"</c>, <c>GameSession.IssueCommand</c>'s shape) with its own
+    /// plain message, capitalised (#1280 F3: "diplomacy.propose-trade rejected
+    /// (diplomacy.target-trade-cap-reached): 'Carthage' already trades with 3 nations." reads
+    /// "'Carthage' already trades with 3 nations."). Every other line is returned unchanged (the composed
+    /// declaration, or a kind with no wording).
     /// </summary>
     public static string ReadableLine(string line)
     {
         ArgumentNullException.ThrowIfNull(line);
+        if (RefusalMessage(line) is { } refusal)
+        {
+            return refusal;
+        }
+
         if (!line.EndsWith(AcceptanceSuffix, StringComparison.Ordinal))
         {
             return line;
@@ -133,9 +142,42 @@ public static class CommandOutcomeWording
         return For(kind) ?? line;
     }
 
+    private const string RejectedMarker = " rejected (";
+
+    /// <summary>
+    /// #1280 F3: the plain message of a <c>"{kind} rejected ({code}): {message}"</c> line, its first letter
+    /// capitalised, or <see langword="null"/> for any other line (or one whose message is empty).
+    /// </summary>
+    public static string? RefusalMessage(string line)
+    {
+        ArgumentNullException.ThrowIfNull(line);
+        var marker = line.IndexOf(RejectedMarker, StringComparison.Ordinal);
+        // The refusing command: a namespaced kind ("diplomacy.propose-trade") or the session's own Move/Purchase.
+        var kind = marker > 0 ? line[..marker] : string.Empty;
+        if (kind.Contains(' ', StringComparison.Ordinal) || !(kind.Contains('.', StringComparison.Ordinal) || kind is "Move" or "Purchase"))
+        {
+            return null;
+        }
+
+        var close = line.IndexOf("): ", marker, StringComparison.Ordinal);
+        if (close < 0)
+        {
+            return null;
+        }
+
+        var message = line[(close + 3)..].Trim();
+        if (message.Length == 0)
+        {
+            return null;
+        }
+
+        var first = message.IndexOf(message.FirstOrDefault(char.IsLetter));
+        return first < 0 ? message : message[..first] + char.ToUpperInvariant(message[first]) + message[(first + 1)..];
+    }
+
     /// <summary>
     /// Applies <see cref="ReadableLine"/> to each newline-separated line of an outcome block. The
-    /// engine's rejected lines and its composed <c>accepted (…)</c> lines are untouched.
+    /// engine's composed <c>accepted (…)</c> lines are untouched.
     /// </summary>
     public static string Apply(string block)
     {

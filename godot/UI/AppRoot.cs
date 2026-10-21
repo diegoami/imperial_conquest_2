@@ -27,6 +27,14 @@ public partial class AppRoot : Control
         // arrives as NotificationWMCloseRequest and HandleCloseRequest decides.
         AppDiagnostics.Acquire();
         GetTree().AutoAcceptQuit = false;
+
+        // #1293: the player's remembered settings, only when this is the running game; a check that
+        // hosts an AppRoot keeps the defaults and never writes the player's file.
+        if (GetTree().CurrentScene == this)
+        {
+            SettingsScreen.LoadAndApply(ProjectSettings.GlobalizePath("user://settings.json"), this);
+        }
+
         ShowMainMenu();
     }
 

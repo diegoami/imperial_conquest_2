@@ -149,7 +149,11 @@ public partial class DiagnosticsCheck : Node
         game.OpenDiplomacyScreen();
         var diplomacy = (DiplomacyScreen)game.ActiveOverlay!;
         before = commands;
-        Observe("real-diplomacy-Issue", "diplomacy", () => diplomacy.Grid.GetChildren().OfType<Button>().First(b => !b.Disabled && b.Text == "Declare War").EmitSignal(BaseButton.SignalName.Pressed), session: session);
+        Observe("real-diplomacy-Issue", "diplomacy", () =>
+        {
+            diplomacy.Grid.GetChildren().OfType<Button>().First(b => !b.Disabled && b.Text == "Declare War").EmitSignal(BaseButton.SignalName.Pressed);
+            diplomacy.PendingPrompt!.AnswerForCheck(yes: true); // #1280 F4: Declare War confirms first.
+        }, session: session);
         Check(commands == before + 1, "diplomacy action submits exactly once");
         diplomacy.Close();
 
@@ -258,9 +262,9 @@ public partial class DiagnosticsCheck : Node
 
     private void CheckSettingsControls()
     {
-        var picker = Walk(_app!.CurrentScreen!).OfType<OptionButton>().Single();
+        var picker = Walk(_app!.CurrentScreen!).OfType<OptionButton>().Single(o => o.Name == SettingsScreen.PackPickerName);
         int initialPack = picker.Selected;
-        var sound = Walk(_app.CurrentScreen!).OfType<CheckBox>().Single();
+        var sound = Walk(_app.CurrentScreen!).OfType<CheckBox>().Single(c => c.Name == SettingsScreen.SoundCheckName);
         bool originalSound = SettingsScreen.SoundEnabled;
         try
         {

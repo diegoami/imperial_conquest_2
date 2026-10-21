@@ -162,6 +162,18 @@ public partial class ScreensCheck : Node
             screen.Grid.GetChildCount() >= 12,
             $"the diplomacy grid renders a header row plus at least one nation row (found {screen.Grid.GetChildCount()} cells)");
 
+        // #1280 F4: Declare War asks first; Esc (No) declares nothing.
+        var codes = screen.Session.Ruleset.Diplomacy.StateCodes;
+        var relationBefore = screen.Session.State.Relations.Get(screen.Session.State.ActiveNationId, "south");
+        screen.Grid.GetChildren().OfType<Button>().First(b => !b.Disabled && b.Text == "Declare War").EmitSignal(BaseButton.SignalName.Pressed);
+        Check(screen.PendingPrompt is { } prompt && prompt.Question.StartsWith("Declare war on ", StringComparison.Ordinal),
+            $"Declare War opens a confirmation (got '{screen.PendingPrompt?.Question}')");
+        Check(screen.Session.State.Relations.Get(screen.Session.State.ActiveNationId, "south") == relationBefore,
+            "nothing is declared before the answer");
+        GetViewport().PushInput(new InputEventKey { Keycode = Key.Escape, PhysicalKeycode = Key.Escape, Pressed = true });
+        Check(screen.Session.State.Relations.Get(screen.Session.State.ActiveNationId, "south") != codes.War && screen.IsInsideTree(),
+            "Esc on the confirmation declares no war and leaves the diplomacy screen open");
+
         screen.Close();
         RemoveChild(screen);
         QueueFixtureFree(screen);
@@ -207,7 +219,11 @@ public partial class ScreensCheck : Node
             Check(
                 battleScreen.Result.AttackerId == "north-army-1" && battleScreen.Result.DefenderId == "south-army-1",
                 "the opened battle-result screen carries the battle this attack actually resolved");
-            battleScreen.Close();
+
+            // #1280 F9: Esc dismisses the report, as Close does.
+            GetViewport().PushInput(new InputEventKey { Keycode = Key.Escape, PhysicalKeycode = Key.Escape, Pressed = true });
+            Check(mainGame.ActiveOverlay is null, "Esc closes the battle-result screen (#1280 F9)");
+            if (mainGame.ActiveOverlay is BattleResultScreen stillOpen) stillOpen.Close();
         }
 
         RemoveChild(mainGame);

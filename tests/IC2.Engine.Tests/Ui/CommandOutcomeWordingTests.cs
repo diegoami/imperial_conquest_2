@@ -122,7 +122,7 @@ public sealed class CommandOutcomeWordingTests
             "no.such-kind accepted.",
             CommandOutcomeWording.ReadableLine("no.such-kind accepted."));
         Assert.Equal(
-            "battle.besiege-city rejected (battle.siege-not-adjacent): the army is not adjacent.",
+            "The army is not adjacent.",
             CommandOutcomeWording.ReadableLine("battle.besiege-city rejected (battle.siege-not-adjacent): the army is not adjacent."));
         Assert.Equal(
             "diplomacy.declare-war accepted (composed ahead of the attack).",
@@ -176,4 +176,22 @@ public sealed class CommandOutcomeWordingTests
             $"CommandOutcomeWordingTests.PlaceholderFor has no case for parameter type '{type}' "
             + $"(parameter '{parameter.Name}').");
     }
+
+    [Theory]
+    [InlineData("diplomacy.propose-trade rejected (diplomacy.target-trade-cap-reached): 'Carthage' already trades with 3 nations.",
+        "'Carthage' already trades with 3 nations.")]
+    [InlineData("Move rejected (movement.no-moves): the army has no moves left.", "The army has no moves left.")]
+    [InlineData("Purchase rejected (economy.too-little-money): too little money.", "Too little money.")]
+    public void A_refusal_reads_as_its_own_plain_message(string line, string expected)
+    {
+        Assert.Equal(expected, CommandOutcomeWording.ReadableLine(line));
+        Assert.Equal(expected, CommandOutcomeWording.Apply(line));
+    }
+
+    [Theory]
+    [InlineData("Saved to user://saves/a.json")]
+    [InlineData("diplomacy.declare-war accepted (composed ahead of the attack).")]
+    [InlineData("Rome rejected (the offer): nothing")]
+    [InlineData("battle.attack-army rejected (battle.x): ")]
+    public void Other_lines_are_not_refusals(string line) => Assert.Null(CommandOutcomeWording.RefusalMessage(line));
 }

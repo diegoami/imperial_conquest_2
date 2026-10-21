@@ -137,4 +137,56 @@ public sealed class DiplomacyGridViewModelTests
             Assert.True(row.CanMakePeace == result.IsAccepted, $"relation value {value}");
         }
     }
+
+    private static (GameState State, Ruleset Ruleset) Classical()
+    {
+        var resolved = IC2.Engine.Serialization.GameDataRepository.Load(IC2.Engine.Tests.Model.TestPaths.DataRoot).Resolve("classical-mediterranean");
+        return (GameStateFactory.CreateInitial(resolved.World, resolved.Ruleset, resolved.Scenario), resolved.Ruleset);
+    }
+
+    [Fact]
+    public void Declaring_war_lists_the_targets_allies_the_cascade_drags_in()
+    {
+        var (state, ruleset) = Classical();
+        var codes = ruleset.Diplomacy.StateCodes;
+        state = state with
+        {
+            Relations = state.Relations
+                .WithRelation("carthage", "numidia", codes.Alliance)
+                .WithRelation("carthage", "celtiberia", codes.Alliance)
+                .WithRelation("rome", "numidia", codes.Peace)
+                .WithRelation("rome", "carthage", codes.Peace),
+        };
+
+        Assert.Equal(new[] { "carthage", "numidia", "celtiberia" }.OrderBy(x => x == "carthage" ? 0 : 1),
+            DiplomacyGridViewModel.WarDeclarationEnemies(state, ruleset, "rome", "carthage").OrderBy(x => x == "carthage" ? 0 : 1));
+        Assert.Equal("carthage", DiplomacyGridViewModel.WarDeclarationEnemies(state, ruleset, "rome", "carthage")[0]);
+        var question = DiplomacyGridViewModel.WarDeclarationQuestion(state, ruleset, "rome", "carthage");
+        Assert.StartsWith("Declare war on Carthage? Its allies ", question);
+        Assert.Contains("Numidia", question);
+        Assert.Contains("Celtiberia", question);
+        Assert.EndsWith(" will also be at war with you.", question);
+    }
+
+    [Fact]
+    public void Declaring_war_on_a_nation_without_allies_names_only_it()
+    {
+        var (state, ruleset) = Classical();
+        var codes = ruleset.Diplomacy.StateCodes;
+        var lonely = state.Nations.Select(n => n.Id).First(id => id != "rome"
+            && state.Nations.All(o => o.Id == id || state.Relations.Get(id, o.Id) != codes.Alliance)
+            && state.Relations.Get("rome", id) != codes.War);
+
+        Assert.Equal(new[] { lonely }, DiplomacyGridViewModel.WarDeclarationEnemies(state, ruleset, "rome", lonely));
+        Assert.Equal($"Declare war on {state.NationById(lonely)!.Name}?", DiplomacyGridViewModel.WarDeclarationQuestion(state, ruleset, "rome", lonely));
+    }
+
+    [Fact]
+    public void Previewing_a_declaration_changes_nothing()
+    {
+        var (state, ruleset) = Classical();
+        var before = System.Text.Json.JsonSerializer.Serialize(state);
+        DiplomacyGridViewModel.WarDeclarationQuestion(state, ruleset, "rome", "carthage");
+        Assert.Equal(before, System.Text.Json.JsonSerializer.Serialize(state));
+    }
 }

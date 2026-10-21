@@ -112,7 +112,7 @@ public partial class DiplomacyScreen : Control
     {
         Grid.AddChild(UiKit.MakeLabel(row.NationName, AppTheme.Body, UiKit.TextColor));
         Grid.AddChild(UiKit.MakeLabel(row.RelationLabel, AppTheme.Body, UiKit.TextColor));
-        Grid.AddChild(MakeActionButton("Declare War", row.CanDeclareWar, () => Issue($"declare-war {row.NationId}")));
+        Grid.AddChild(MakeActionButton("Declare War", row.CanDeclareWar, () => ConfirmDeclareWar(row.NationId)));
         Grid.AddChild(MakeActionButton("Make Peace", row.CanMakePeace, () => Issue($"make-peace {row.NationId}")));
         Grid.AddChild(MakeActionButton("Ally", row.CanProposeAlliance, () => Issue($"propose-alliance {row.NationId}")));
         Grid.AddChild(MakeActionButton("Trade", row.CanProposeTrade, () => Issue($"propose-trade {row.NationId}")));
@@ -137,6 +137,32 @@ public partial class DiplomacyScreen : Control
         button.Disabled = !enabled;
         return button;
     }
+
+    /// <summary>
+    /// #1280 F4: Declare War asks first, naming every nation the war will be with (the target's allies
+    /// join it); Yes issues <c>declare-war</c>, No or Esc changes nothing.
+    /// </summary>
+    private void ConfirmDeclareWar(string targetId)
+    {
+        var prompt = new ConfirmPrompt
+        {
+            Question = DiplomacyGridViewModel.WarDeclarationQuestion(Session.State, Session.Ruleset, Session.State.ActiveNationId, targetId),
+        };
+        void Dismiss()
+        {
+            RemoveChild(prompt);
+            prompt.QueueFree();
+        }
+
+        prompt.Confirmed += () => { Dismiss(); Issue($"declare-war {targetId}"); };
+        prompt.Refused += Dismiss;
+        prompt.SetAnchorsPreset(LayoutPreset.FullRect);
+        PendingPrompt = prompt;
+        AddChild(prompt);
+    }
+
+    /// <summary>#1280 F4: the open Declare War confirmation, for the headless check.</summary>
+    public ConfirmPrompt? PendingPrompt { get; private set; }
 
     private void Issue(string commandLine)
     {

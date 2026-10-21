@@ -353,7 +353,7 @@ public partial class StrategicMarkersCheck : Control
     {
         var settings = new SettingsScreen();
         AddChild(settings);
-        var picker = settings.FindChildren("*", "OptionButton", true, false).OfType<OptionButton>().First();
+        var picker = settings.FindChildren("*", "OptionButton", true, false).OfType<OptionButton>().First(o => o.Name == SettingsScreen.PackPickerName);
         var index = Enumerable.Range(0, picker.ItemCount).Single(i => picker.GetItemText(i) == pack);
         picker.Select(index);
         picker.EmitSignal(OptionButton.SignalName.ItemSelected, index);
