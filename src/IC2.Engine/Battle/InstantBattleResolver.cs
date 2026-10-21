@@ -723,7 +723,9 @@ public static class InstantBattleResolver
     /// scatter to, so the flag is explicitly out of scope for sieges (<c>docs/game-design.md</c>
     /// §"The defeated side's fate"), and T17 depends on that staying true.
     /// <see cref="BattleResult.AppliedDefeatOutcome"/> is therefore <see langword="null"/> and
-    /// <see cref="BattleResult.LoserFate"/> is <see cref="LoserFate.Unaffected"/> for every siege.
+    /// <see cref="BattleResult.LoserFate"/> is <see cref="LoserFate.Unaffected"/> for every siege, except
+    /// that a besieger its own attrition emptied is reported <see cref="LoserFate.Destroyed"/> with its
+    /// whole force as the loser's casualties (#511).
     /// <strong>T63 correction (bug #293):</strong> an earlier revision of this remark also said the
     /// resolver "does not... move loyalty", which was the very defect #293 filed — the original folds the
     /// city's own loyalty/fortification/population erosion into this same function, on every attempt, win
@@ -952,6 +954,7 @@ public static class InstantBattleResolver
         var casualtyRatio = Math.Max(
             siege.AttritionRatioFloor, Math.Min(siege.AttritionRatioCeiling, clampInput));
 
+        var troopsBefore = attacker.TotalTroops;
         var (reducedUnits, losses, applied) =
             BattleCasualties.Apply(attacker.Units, casualtyRatio, rng, ruleset.Combat);
 
@@ -968,6 +971,10 @@ public static class InstantBattleResolver
         // report BattleSide.Attacker here even though no capture follows -- a result a caller could
         // read as "the city fell" when it did not.
         var reportedAttackerWon = attackerWon && !attackerEmptied;
+
+        // #511: an emptied besieger is gone, so the result reports it destroyed with its whole force lost,
+        // not "unaffected" with only the attrition.
+        var attackerLosses = attackerEmptied ? troopsBefore : applied;
 
         var armies = new List<ArmyState>();
         foreach (var army in state.Armies)
@@ -1005,9 +1012,9 @@ public static class InstantBattleResolver
             defenderPower,
             reportedAttackerWon ? BattleSide.Attacker : BattleSide.Defender,
             AppliedDefeatOutcome: null,
-            LoserFate.Unaffected,
+            attackerEmptied ? LoserFate.Destroyed : LoserFate.Unaffected,
             reportedAttackerWon ? applied : 0,
-            reportedAttackerWon ? 0 : applied,
+            reportedAttackerWon ? 0 : attackerLosses,
             losses,
             ValueList<UnitPromotion>.Empty,
             AbsorbedMoney: 0,

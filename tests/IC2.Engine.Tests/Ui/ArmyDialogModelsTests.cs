@@ -537,8 +537,10 @@ public sealed class ArmyDialogModelsTests
     [InlineData(7, "good")]
     [InlineData(8, "very good")]
     [InlineData(9, "elite")]
-    [InlineData(4, "4")]
-    [InlineData(0, "0")]
+    [InlineData(4, "very poor")]
+    [InlineData(3, "not ready")]
+    [InlineData(0, "not ready")]
+    [InlineData(10, "10")]
     public void Quality_caption_maps_the_roster_tiers_and_falls_back_to_the_number(int quality, string expected)
     {
         Assert.Equal(expected, ArmyDialogModels.QualityCaption(quality));
