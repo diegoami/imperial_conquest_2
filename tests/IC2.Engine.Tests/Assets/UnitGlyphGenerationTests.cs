@@ -48,6 +48,15 @@ public sealed class UnitGlyphGenerationTests
                     Assert.Equal(dot ? Lime : Purple, pixels[y * 32 + x]);
                 }
             }
+            else if (pack == "authored")
+            {
+                // The owner's request of 2026-10-21 (scripts/generate-strategic-markers.py): an opaque
+                // recolour template on the purple field, white outline, blue body/sail and a black hull.
+                Assert.Equal(Purple, pixels[0]);
+                foreach (var color in new[] { Purple, White, Blue })
+                    Assert.Contains(color, pixels);
+                Assert.All(pixels, p => Assert.Contains(p, new[] { Purple, White, Blue, Black }));
+            }
             else
             {
                 Assert.Contains(0u, pixels);
@@ -82,7 +91,7 @@ public sealed class UnitGlyphGenerationTests
         foreach (var kind in new[] { "army", "fleet" })
         {
             var areas = Enumerable.Range(1, 3).Select(tier =>
-                ReadPixels(Path.Combine(root, kind, $"tier{tier}.bmp")).Count(p => p == White)).ToArray();
+                ReadPixels(Path.Combine(root, kind, $"tier{tier}.bmp")).Count(p => p != 0 && p != Purple)).ToArray();
             Assert.True(areas[0] < areas[1] && areas[1] < areas[2], $"{kind}: unordered areas {string.Join(",", areas)}");
         }
     }

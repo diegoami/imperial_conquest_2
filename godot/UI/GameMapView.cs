@@ -179,6 +179,9 @@ public partial class GameMapView : Control
 
     private GameSession? _session;
     private AssetPackTextureLoader? _assetLoader;
+
+    /// <summary>Army, fleet and town templates recoloured per owner, by pack key and nation (null: not a template).</summary>
+    private readonly Dictionary<(string Key, string Nation), Texture2D?> _ownerTemplates = new();
     private float _zoom = 1f;
     private Vector2 _pan = Vector2.Zero;
     private Vector2 _pressPosition;
@@ -1465,7 +1468,22 @@ public partial class GameMapView : Control
         // MapMarkerKeys selects the live capital marker or a population tier, shared with Slice.cs.
         // T163: shipped rulesets use thresholds [25, 50, 100] (population in thousands), giving
         // four town tiers; a national capital uses its own marker at any population.
-        var texture = _assetLoader?.TryGetTexture(MapMarkerKeys.CityIcon(DisplayState, city, _session!.Ruleset.MapMarkers));
+        var key = MapMarkerKeys.CityIcon(DisplayState, city, _session!.Ruleset.MapMarkers);
+        var texture = _assetLoader?.TryGetTexture(key);
+        if (texture is not null && OwnerTemplate(key, texture, city.Owner) is { } tile)
+        {
+            // As DrawArmy: the original's idea of a town marker, a building on the owner's square, in the
+            // same three colours (asset-specification.md §3.3), still sized by the town's rank (#1309).
+            var tileRect = new Rect2(center - new Vector2(radius, radius), new Vector2(radius, radius) * 2f);
+            DrawTemplateTile(tile, tileRect, background);
+            if (selected)
+            {
+                DrawRect(tileRect, SelectedRingColor, false, 2.5f);
+            }
+
+            return;
+        }
+
         if (texture is not null)
         {
             // T97: the original's marker -- a square filled with the owner's background colour, the
@@ -1573,8 +1591,23 @@ public partial class GameMapView : Control
 
         // T94 (#454 item 3): the confirmed three-tier size marker -- MapMarkerKeys reads the ruleset's
         // own 25,000/50,000 boundaries, never T48's [designed] per-unit-type plurality.
-        var texture = _assetLoader?.TryGetTexture(MapMarkerKeys.ArmyIcon(army, _session!.Ruleset.MapMarkers));
+        var key = MapMarkerKeys.ArmyIcon(army, _session!.Ruleset.MapMarkers);
+        var texture = _assetLoader?.TryGetTexture(key);
         if (MissingStrategicTexturesForCheck) texture = null;
+        if (texture is not null && OwnerTemplate(key, texture, army.Nation) is { } tile)
+        {
+            // The owner's request of 2026-10-21: the original's idea of an army marker, a soldier on a
+            // square in the owner's three colours, larger and better armed with each size tier
+            // (scripts/generate-army-markers.py draws the templates).
+            DrawTemplateTile(tile, rect, background);
+            if (selected)
+            {
+                DrawStrategicOutline(army.Id, rect, true);
+            }
+
+            return;
+        }
+
         if (texture is not null)
         {
             // #1291: the owner's three unit colours on a shaded field (UnitMarkerPalette), as a round
@@ -1602,8 +1635,21 @@ public partial class GameMapView : Control
 
         // T94: the confirmed three-tier fleet marker (ruleset's own 25/50 ship boundaries) -- the
         // fleet equivalent of DrawArmy's tier icon.
-        var texture = _assetLoader?.TryGetTexture(MapMarkerKeys.FleetIcon(fleet, _session!.Ruleset.MapMarkers));
+        var key = MapMarkerKeys.FleetIcon(fleet, _session!.Ruleset.MapMarkers);
+        var texture = _assetLoader?.TryGetTexture(key);
         if (MissingStrategicTexturesForCheck) texture = null;
+        if (texture is not null && OwnerTemplate(key, texture, fleet.Nation) is { } tile)
+        {
+            // As DrawArmy: the original's idea of a fleet marker, a ship on the owner's square.
+            DrawTemplateTile(tile, rect, background);
+            if (selected)
+            {
+                DrawStrategicOutline(fleet.Id, rect, true);
+            }
+
+            return;
+        }
+
         if (texture is not null)
         {
             // #1291: the owner's three unit colours on a shaded field (UnitMarkerPalette), as a shield
@@ -1620,6 +1666,53 @@ public partial class GameMapView : Control
         StrategicFallbackMarkersForCheck.Add(fleet.Id);
         DrawRect(rect, background);
         DrawStrategicOutline(fleet.Id, rect, selected);
+    }
+
+    /// <summary>
+    /// <paramref name="texture"/> recoloured in <paramref name="nationId"/>'s three unit colours, the way
+    /// the original recolours its unit icons (<see cref="BattleIconTint"/>: the template's purple, white
+    /// and blue), or <see langword="null"/> when the texture is not such a template (its top-left pixel
+    /// is not the purple field; a pack with single-colour silhouettes keeps the tinted marker).
+    /// </summary>
+    private Texture2D? OwnerTemplate(string key, Texture2D texture, string nationId)
+    {
+        if (_ownerTemplates.TryGetValue((key, nationId), out var cached))
+        {
+            return cached;
+        }
+
+        Texture2D? result = null;
+        if (texture.GetImage() is { } image && BattleIconTint.ForNation(_session?.World, nationId) is { } colors)
+        {
+            image.Convert(Image.Format.Rgba8);
+            var corner = image.GetPixel(0, 0);
+            var purple = BattleIconTint.PurpleMarker;
+            if (Mathf.RoundToInt(corner.R * 255) == purple.R && Mathf.RoundToInt(corner.G * 255) == purple.G
+                && Mathf.RoundToInt(corner.B * 255) == purple.B)
+            {
+                var data = image.GetData();
+                BattleIconTint.Recolour(colors, data, 4);
+                result = ImageTexture.CreateFromImage(
+                    Image.CreateFromData(image.GetWidth(), image.GetHeight(), false, Image.Format.Rgba8, data));
+            }
+        }
+
+        _ownerTemplates[(key, nationId)] = result;
+        return result;
+    }
+
+    /// <summary>
+    /// A recoloured template drawn as the whole marker: a square tile over a drop shadow, with a dark
+    /// edge in the owner's field colour against the terrain. Everything stays inside <paramref name="rect"/>.
+    /// </summary>
+    private void DrawTemplateTile(Texture2D tile, Rect2 rect, Color background)
+    {
+        var shadow = ShadowOffset(rect);
+        var body = new Rect2(rect.Position, rect.Size - new Vector2(shadow, shadow));
+        DrawRect(new Rect2(body.Position + new Vector2(shadow, shadow), body.Size), ToColor(MarkerShading.Shadow));
+        DrawTextureRect(tile, body, false);
+        var field = new MarkerTint(background.R, background.G, background.B, 1f);
+        DrawRect(body, ToColor(MarkerShading.Edge(field)), false, 1f);
     }
 
     /// <summary>The outline a strategic marker is drawn in: towns are plates, armies tokens, fleets hulls.</summary>
