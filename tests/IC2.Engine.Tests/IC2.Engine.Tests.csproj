@@ -54,6 +54,8 @@
       Godot dependency to this project, the same guarantee T21's ProjectReference grant above gave
       for IC2.Data/IC2.Inspect.
     -->
+    <Compile Include="../../tools/TerrainImport/PngCodec.cs" Link="Tools/PngCodec.cs" />
+    <Compile Include="../../tools/TerrainImport/TerrainImporter.cs" Link="Tools/TerrainImporter.cs" />
     <Compile Include="../../godot/Assets/AssetKeyResolver.cs" Link="Assets/AssetKeyResolver.cs" />
 
     <!--

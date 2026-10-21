@@ -96,6 +96,42 @@ The total count across all runs must equal `width × height`. A large export (th
 `classical-mediterranean` world) instead uses `"base64"` with `dataFile`, keeping the grid out of the
 JSON entirely; see rule 11 of `CLAUDE.md` — the sidecar is never worth reading directly.
 
+### Authoring terrain from a PNG
+
+New worlds paint their terrain as a PNG and convert it with the offline importer in `tools/TerrainImport` (T201). Each pixel is one tile, and the pixel's colour is the tile's terrain code. Cities, nations, armies and everything else stay hand-written JSON; the importer only does terrain.
+
+**Palette** (`[designed]`; `dotnet run --project tools/TerrainImport -- palette` prints it):
+
+| Code | Tile id | Colour |
+|------|---------|--------|
+| 0 | `sea_calm` | `#2A5CAA` |
+| 1 | `sea_rough` | `#14306A` |
+| 2 | `plain` | `#9CCB5A` |
+| 3 | `desert` | `#E8D58A` |
+| 4 | `forest` | `#2E7D32` |
+| 5 | `mountains` | `#8D6E63` |
+| 6 | `river_1` | `#80DEEA` |
+| 7 | `river_2` | `#4DD0E1` |
+| 8 | `river_3` | `#26C6DA` |
+| 9 | `river_4` | `#00BCD4` |
+| 10 | `river_5` | `#00ACC1` |
+| 11 | `river_6` | `#0097A7` |
+
+**Workflow:**
+
+1. Write the world JSON with its `width` and `height` (1–1024 tiles each), the `tileTypes` the map uses (copy the classical world's list for codes 0–11), and `"terrain": { "encoding": "base64", "dataFile": "<world-id>.terrain.b64" }`.
+2. Start a map of the right size: `dotnet run --project tools/TerrainImport -- blank <width> <height> map.png` (all calm sea). To edit an existing world instead, use `export --world <world.json> map.png`.
+3. Paint it in any image editor, using only the palette colours, with no antialiasing, transparency or interlacing. 8-bit RGB, RGBA or indexed PNGs are read.
+4. Import: `dotnet run --project tools/TerrainImport -- import map.png --world <world.json>`. It refuses the map, naming the pixel or tiles, when:
+   - its size differs from the world's;
+   - a pixel is not a palette colour;
+   - a river stroke (4-connected tiles of codes 6–11) touches neither the sea nor the map edge.
+
+   It then loads the world through the engine's own loader with the new terrain. Only if that load succeeds does it write the sidecar named by `dataFile`, next to the world JSON.
+5. Commit the PNG as the terrain's source with the world and its sidecar, and record the terrain's provenance (`[designed]`, or the source it was traced from). Re-importing the same PNG writes a byte-identical sidecar, and `export` then `import` reproduces a world's sidecar exactly. Never commit a map traced from, or derived from, the original game's files.
+
+The area map draws any world inside its 320 × 180 px budget: a world that fits at a whole number of pixels per tile keeps that (the classical 320 × 140 at exactly 1), and a larger one is scaled down to fit (160 × 200 draws at 0.9 px per tile). The main map always fills its view, in portrait or wide proportions.
+
 ### Tile types
 
 Each tile type in `tileTypes` is an object with:
