@@ -21,4 +21,10 @@ public static class GameDataContext
 
     public static GameDataRepository Repository =>
         _repository ??= GameSessionFactory.LoadRepository(RepositoryRoot);
+
+    /// <summary>
+    /// T200: makes <see cref="Repository"/> <paramref name="repository"/> (a check's test-only data root), or, with
+    /// <see langword="null"/>, the shipped data again. For check scenes only.
+    /// </summary>
+    public static void UseRepositoryForCheck(GameDataRepository? repository) => _repository = repository;
 }

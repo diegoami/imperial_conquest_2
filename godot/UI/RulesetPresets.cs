@@ -1,3 +1,6 @@
+using IC2.Engine.Model;
+using IC2.Engine.Serialization;
+
 namespace IC2.Slice.UI;
 
 /// <summary>
@@ -15,6 +18,9 @@ public enum RulesetPreset
 {
     ClassicalFaithful,
     Improved,
+
+    /// <summary>T200: a scenario marked <c>"listed": true</c> in the data, with a card built from it.</summary>
+    Listed,
 }
 
 /// <summary>
@@ -152,6 +158,71 @@ public static class RulesetPresets
     /// <summary>Both cards, in the order the chooser renders them — Classical Faithful first.</summary>
     public static readonly IReadOnlyList<RulesetCard> Cards = new[] { ClassicalFaithful, Improved };
 
-    public static RulesetCard CardFor(RulesetPreset preset) =>
-        preset == RulesetPreset.ClassicalFaithful ? ClassicalFaithful : Improved;
+    public static RulesetCard CardFor(RulesetPreset preset) => preset switch
+    {
+        RulesetPreset.ClassicalFaithful => ClassicalFaithful,
+        RulesetPreset.Improved => Improved,
+        _ => throw new ArgumentOutOfRangeException(nameof(preset), preset, "A listed scenario's card comes from CardsFor."),
+    };
+
+    /// <summary>
+    /// T200: every New Game card: the two presets, then one card for each scenario of <paramref name="repository"/>
+    /// marked <c>"listed": true</c> that no preset already offers, by id. A listed scenario that does not resolve
+    /// is left out rather than breaking the chooser.
+    /// </summary>
+    public static IReadOnlyList<RulesetCard> CardsFor(GameDataRepository repository)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        var cards = new List<RulesetCard>(Cards);
+        foreach (var scenario in repository.Scenarios.Where(s => s.Listed).OrderBy(s => s.Id, StringComparer.Ordinal))
+        {
+            if (cards.Any(c => string.Equals(c.ScenarioId, scenario.Id, StringComparison.Ordinal)))
+            {
+                continue;
+            }
+
+            try
+            {
+                cards.Add(CardForScenario(repository.Resolve(scenario.Id)));
+            }
+            catch (GameDataException)
+            {
+                // Left out: the data error is the author's to fix, and the presets stay playable.
+            }
+        }
+
+        return cards;
+    }
+
+    /// <summary>T200: the card of one listed scenario: its name, its map, its ruleset, its goal and its nations.</summary>
+    public static RulesetCard CardForScenario(ResolvedScenario resolved)
+    {
+        ArgumentNullException.ThrowIfNull(resolved);
+        var (scenario, world, ruleset) = (resolved.Scenario, resolved.World, resolved.Ruleset);
+        var summary = new[]
+        {
+            $"Map: {world.Name}.",
+            $"Rules: {ruleset.Name}.",
+            VictoryLineFor(scenario),
+            $"{scenario.Seats.Count} nations; you choose yours on the next screen.",
+        };
+        return new RulesetCard(RulesetPreset.Listed, ruleset.Id, scenario.Id, scenario.Name, summary);
+    }
+
+    /// <summary>T200: the goal line of a listed scenario's card, from the scenario's own condition (T199).</summary>
+    public static string VictoryLineFor(Scenario scenario)
+    {
+        ArgumentNullException.ThrowIfNull(scenario);
+        var goal = scenario.Victory.Type switch
+        {
+            VictoryConditionType.TotalConquest => "Win by holding every city on the map.",
+            VictoryConditionType.Domination => "Win by holding every city of every nation still at war with you.",
+            VictoryConditionType.ScoreAtTurnLimit => "Win with the highest score when the turn limit is reached.",
+            VictoryConditionType.Custom => "Win by meeting this scenario's own goal.",
+            _ => "Win by this scenario's victory condition.",
+        };
+        return scenario.TurnLimit is { } limit && scenario.Victory.Type == VictoryConditionType.ScoreAtTurnLimit
+            ? $"{goal[..^1]} ({limit} turns)."
+            : goal;
+    }
 }

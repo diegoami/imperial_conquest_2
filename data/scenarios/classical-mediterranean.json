@@ -98,5 +98,6 @@
     "victory": "confirmed: the original's only win condition is holding every city on the map -- corpus id victory.allCitiesThreshold (334).",
     "turnLimit": "designed: the original has no turn limit, only the hard end year (ruleset victory.hardEndYearBc) -- corpus id victory.yearLimitBC. Left unset (no additional cap) for the faithful preset.",
     "randomSeed": "designed: a fixed seed so a load of this scenario is reproducible, per docs/game-design.md principle 4. The value (270, the campaign's start year BC) carries no meaning beyond that."
-  }
+  },
+  "listed": true
 }

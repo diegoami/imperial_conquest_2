@@ -43,9 +43,9 @@ public partial class NewGameFlow : Control
         Chooser = chooser;
         AddChild(chooser);
 
-        chooser.Continued += preset =>
+        chooser.Continued += card =>
         {
-            _selection.RulesetPreset = preset;
+            _selection.SelectedCard = card;
             ShowSeatStep();
         };
         chooser.BackRequested += () => BackToMenuRequested?.Invoke();

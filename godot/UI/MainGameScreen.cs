@@ -123,7 +123,9 @@ public partial class MainGameScreen : Control
     /// <c>godot/Checks/MenuBarCheck.cs</c> can read its handler counter
     /// (<see cref="GameCommandTable.IssuedCount"/>) without re-deriving which commands were pressed.
     /// </summary>
-    public GameCommandTable CommandTable { get; } = new();
+    public GameCommandTable CommandTable => _commandTable ??= new GameCommandTable(Session.World);
+
+    private GameCommandTable? _commandTable;
 
     /// <summary>T100: the original's seven-menu menu bar. Exposed for <c>godot/Checks/MenuBarCheck.cs</c>.</summary>
     public GameMenuBar MenuBar { get; private set; } = null!;
@@ -594,7 +596,7 @@ public partial class MainGameScreen : Control
 
         // T110: the Nations menu and its toolbar swatches set the viewed nation. None of these submits a
         // command (Done-when 7) — only the panel and the highlight scope change.
-        foreach (var row in GameCommandTable.Rows.Where(
+        foreach (var row in CommandTable.MenuRows.Where(
             r => string.Equals(r.Menu, "Nations", StringComparison.Ordinal)))
         {
             var nationId = string.Equals(row.Id, "nations.all", StringComparison.Ordinal)
@@ -693,7 +695,7 @@ public partial class MainGameScreen : Control
     /// </summary>
     private void WireNationSwatches()
     {
-        foreach (var row in GameCommandTable.Rows.Where(
+        foreach (var row in CommandTable.MenuRows.Where(
             r => string.Equals(r.Menu, "Nations", StringComparison.Ordinal)))
         {
             if (Toolbar.ButtonFor(row.Id) is not { } button)
@@ -739,7 +741,7 @@ public partial class MainGameScreen : Control
     private void SyncNationChecksAndSwatches()
     {
         var currentRow = NationRowId(ViewedNationId);
-        foreach (var row in GameCommandTable.Rows.Where(
+        foreach (var row in CommandTable.MenuRows.Where(
             r => string.Equals(r.Menu, "Nations", StringComparison.Ordinal)))
         {
             if (Toolbar.ButtonFor(row.Id) is { } button)
@@ -755,7 +757,7 @@ public partial class MainGameScreen : Control
 
         for (var i = 0; i < popup.ItemCount; i++)
         {
-            var row = GameCommandTable.Rows.FirstOrDefault(r =>
+            var row = CommandTable.MenuRows.FirstOrDefault(r =>
                 string.Equals(r.Menu, "Nations", StringComparison.Ordinal)
                 && string.Equals(r.Caption, popup.GetItemText(i), StringComparison.Ordinal));
             if (row is not null)
@@ -789,7 +791,7 @@ public partial class MainGameScreen : Control
 
         for (var i = 0; i < popup.ItemCount; i++)
         {
-            var row = GameCommandTable.Rows.FirstOrDefault(r =>
+            var row = CommandTable.MenuRows.FirstOrDefault(r =>
                 string.Equals(r.Menu, "Area map", StringComparison.Ordinal)
                 && r.Submenu is null
                 && string.Equals(r.Caption, popup.GetItemText(i), StringComparison.Ordinal));

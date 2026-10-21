@@ -956,7 +956,8 @@ var scenario = new Scenario(
         ("seats", "designed: every nation defaults to AI control. The original assigns the human seat(s) and shuffles the turn order at New Game (TPremierForm_NewGame's FUN_00448aa4 -- docs/investigations/dat-file-layout.md); this scenario, loaded as-is, is an all-AI game."),
         ("victory", "confirmed: the original's only win condition is holding every city on the map -- corpus id victory.allCitiesThreshold (334)."),
         ("turnLimit", "designed: the original has no turn limit, only the hard end year (ruleset victory.hardEndYearBc) -- corpus id victory.yearLimitBC. Left unset (no additional cap) for the faithful preset."),
-        ("randomSeed", "designed: a fixed seed so a load of this scenario is reproducible, per docs/game-design.md principle 4. The value (270, the campaign's start year BC) carries no meaning beyond that.")));
+        ("randomSeed", "designed: a fixed seed so a load of this scenario is reproducible, per docs/game-design.md principle 4. The value (270, the campaign's start year BC) carries no meaning beyond that.")),
+    Listed: true);
 
 GameDataValidation.Validate("classical-mediterranean.json (scenario, in-memory)", scenario);
 Console.WriteLine("Scenario passes GameDataValidation.");

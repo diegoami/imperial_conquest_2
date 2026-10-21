@@ -79,7 +79,7 @@ public partial class CommandToolbar : PanelContainer
 
         row.AddChild(new VSeparator());
 
-        foreach (var nationRow in GameCommandTable.Rows.Where(r => string.Equals(r.Menu, "Nations", StringComparison.Ordinal)))
+        foreach (var nationRow in Table.MenuRows.Where(r => string.Equals(r.Menu, "Nations", StringComparison.Ordinal)))
         {
             row.AddChild(nationRow.Id == "nations.all" ? BuildAllNationsButton(nationRow) : BuildNationSwatch(nationRow));
         }

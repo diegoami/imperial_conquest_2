@@ -100,7 +100,26 @@ public sealed class GameCommandTable
     /// separate and [open] (see <see cref="CommandToolbar"/>). Declared after <see cref="NationRows"/>
     /// because a static field initialiser runs in textual order and <see cref="BuildRows"/> reads it.
     /// </summary>
-    public static IReadOnlyList<GameCommandRow> Rows { get; } = BuildRows();
+    public static IReadOnlyList<GameCommandRow> Rows { get; } = BuildRows(NationRows);
+
+    /// <summary>
+    /// T200: a table whose Nations rows are <paramref name="world"/>'s own nations, in the world's order, so a
+    /// non-classical world's menu and toolbar list exactly its nations. Without a world, or on the classical
+    /// world, <see cref="MenuRows"/> is <see cref="Rows"/> itself.
+    /// </summary>
+    public GameCommandTable(IC2.Engine.Model.World? world = null)
+    {
+        MenuRows = world is null
+            ? Rows
+            : BuildRows(world.Nations.Select(n => (n.Id, n.Name)).ToArray());
+    }
+
+    /// <summary>T200: this table's rows: <see cref="Rows"/> with the Nations rows of the world it was built for.</summary>
+    public IReadOnlyList<GameCommandRow> MenuRows { get; }
+
+    /// <summary>The row of this table with <paramref name="id"/>, or <see langword="null"/>.</summary>
+    public GameCommandRow? MenuRowById(string id) =>
+        MenuRows.FirstOrDefault(row => string.Equals(row.Id, id, StringComparison.Ordinal));
 
     /// <summary>The row with <paramref name="id"/>, or <see langword="null"/> when the id is not a command.</summary>
     public static GameCommandRow? RowById(string id) =>
@@ -122,7 +141,7 @@ public sealed class GameCommandTable
     public void Bind(string id, Action handler)
     {
         ArgumentNullException.ThrowIfNull(handler);
-        if (RowById(id) is not { } row)
+        if (MenuRowById(id) is not { } row)
         {
             throw new ArgumentException($"'{id}' is not a row of {nameof(GameCommandTable)}.", nameof(id));
         }
@@ -155,7 +174,7 @@ public sealed class GameCommandTable
         return true;
     }
 
-    private static IReadOnlyList<GameCommandRow> BuildRows()
+    private static IReadOnlyList<GameCommandRow> BuildRows(IReadOnlyList<(string Id, string Name)> nations)
     {
         var rows = new List<GameCommandRow>
         {
@@ -181,7 +200,7 @@ public sealed class GameCommandTable
 
         // ---- Nations (audit §1.4): the original's own 16, in the shipped world's order, plus All nations ----
         // T110 wires them: choosing one sets the viewed nation and shows its status panel.
-        foreach (var (id, name) in NationRows)
+        foreach (var (id, name) in nations)
         {
             rows.Add(new GameCommandRow($"nations.{id}", "Nations", null, name, null, null, Wired: true));
         }
