@@ -135,7 +135,7 @@ public static class InformationPanelModel
             : city.PopulationThousands * 100 / city.MaxPopulationThousands;
         lines.Add(new InformationPanelLine(
             CityPopulationKey,
-            $"Population: {city.PopulationThousands * 1000} ({percent}%)"));
+            $"Population: {InformationWords.Grouped((long)city.PopulationThousands * 1000)} ({percent}%)"));
 
         // C05: Loyalty word.
         lines.Add(new InformationPanelLine(CityLoyaltyKey, $"Loyalty: {InformationWords.Loyalty(city.Loyalty)}"));
@@ -160,7 +160,7 @@ public static class InformationPanelModel
         if (isOwn)
         {
             var talents = CityTaxContribution.Compute(city);
-            lines.Add(new InformationPanelLine(CityTributeKey, $"Tribute: {talents} talents"));
+            lines.Add(new InformationPanelLine(CityTributeKey, $"Tribute: {InformationWords.Grouped(talents)} talents"));
         }
         else
         {
@@ -174,7 +174,7 @@ public static class InformationPanelModel
         // city the line is blank"). The blank keeps the field's position in the original's order.
         lines.Add(new InformationPanelLine(
             CitySupplyKey,
-            isOwn ? $"Supply: {city.SupplyTons} tons" : "Supply:"));
+            isOwn ? $"Supply: {InformationWords.Grouped(city.SupplyTons)} tons" : "Supply:"));
 
         return lines;
     }
@@ -252,7 +252,7 @@ public static class InformationPanelModel
 
         AddUnitTypeLines(army, lines);
         lines.Add(new InformationPanelLine(
-            ArmyTotalTroopsKey, $"Total troops: {army.TotalTroops}"));
+            ArmyTotalTroopsKey, $"Total troops: {InformationWords.Grouped(army.TotalTroops)}"));
 
         // A09: No. of units — the index of the LAST unit with troops above 0, plus 1. Distinct from a
         // count when a slot in the middle is empty (rows A09).
@@ -266,9 +266,9 @@ public static class InformationPanelModel
         // never changes a result with the shipped prices).
         var (regulars, mercs) = SumUpkeepByKind(army, ruleset);
         lines.Add(new InformationPanelLine(
-            ArmyRegularsCostKey, $"Regulars cost: {regulars} talents per quarter"));
+            ArmyRegularsCostKey, $"Regulars cost: {InformationWords.Grouped(regulars)} talents per quarter"));
         lines.Add(new InformationPanelLine(
-            ArmyMercenaryPayKey, $"Mercenary pay: {mercs} talents per quarter"));
+            ArmyMercenaryPayKey, $"Mercenary pay: {InformationWords.Grouped(mercs)} talents per quarter"));
 
         // Bug #861: below the original's lines, one regiment-quality line per unit in slot order, the
         // unit list's own format. The blank separator above A12 keeps A01..A11 in the original's
@@ -308,7 +308,7 @@ public static class InformationPanelModel
 
         AddUnitTypeLines(army, lines);
         lines.Add(new InformationPanelLine(
-            ArmyTotalTroopsKey, $"Total troops: {army.TotalTroops}"));
+            ArmyTotalTroopsKey, $"Total troops: {InformationWords.Grouped(army.TotalTroops)}"));
 
         // The clone's own Troops line is replaced by these (the research read's foreign-army rows:
         // the original does NOT draw the unit counts on a foreign army either, so the clone's
@@ -333,12 +333,12 @@ public static class InformationPanelModel
                 ? 0
                 : SupplyCapacity.PercentFull(army.SupplyTons, army.TotalTroops, ruleset);
             lines.Add(new InformationPanelLine(
-                ArmySupplyKey, $"Supply: {army.SupplyTons} tons  ({pct}%)"));
+                ArmySupplyKey, $"Supply: {InformationWords.Grouped(army.SupplyTons)} tons  ({pct}%)"));
             // A04
             lines.Add(new InformationPanelLine(
                 ArmyMoraleKey, $"Morale: {InformationWords.Morale(army.Morale)}"));
             // A05
-            lines.Add(new InformationPanelLine(ArmyMoneyKey, $"Money: {army.Money} talents"));
+            lines.Add(new InformationPanelLine(ArmyMoneyKey, $"Money: {InformationWords.Grouped(army.Money)} talents"));
         }
         else
         {
@@ -379,7 +379,7 @@ public static class InformationPanelModel
             var troops = sums.TryGetValue(typeId, out t) ? t : 0;
             lines.Add(new InformationPanelLine(
                 ArmyUnitTypeKeyPrefix + typeId,
-                $"{UnitTypeLabel(typeId, troops, troops)}: {troops}"));
+                $"{UnitTypeLabel(typeId, troops, troops)}: {InformationWords.Grouped(troops)}"));
         }
     }
 
@@ -512,9 +512,9 @@ public static class InformationPanelModel
             var capacity = SupplyCapacity.FleetCapacityTons(fleet.Ships, ruleset);
             var pct = capacity == 0 ? 0 : fleet.SupplyTons * 100 / capacity;
             lines.Add(new InformationPanelLine(
-                FleetSupplyKey, $"Supply: {fleet.SupplyTons} tons  ({pct}%)"));
+                FleetSupplyKey, $"Supply: {InformationWords.Grouped(fleet.SupplyTons)} tons  ({pct}%)"));
             // F06
-            lines.Add(new InformationPanelLine(FleetMoneyKey, $"Money: {fleet.Money} talents"));
+            lines.Add(new InformationPanelLine(FleetMoneyKey, $"Money: {InformationWords.Grouped(fleet.Money)} talents"));
         }
         else
         {
@@ -529,7 +529,7 @@ public static class InformationPanelModel
         // F07 (always): Capacity = ships × TransportTroopsPerShip troops
         var transport = ruleset.Naval.TransportTroopsPerShip;
         lines.Add(new InformationPanelLine(
-            FleetCapacityKey, $"Capacity: {fleet.Ships * transport} troops"));
+            FleetCapacityKey, $"Capacity: {InformationWords.Grouped((long)fleet.Ships * transport)} troops"));
 
         // F08 (always): Sea
         var sea = fleet.CoveredTileCode is { } code
@@ -575,9 +575,9 @@ public static class InformationPanelModel
         var pct = army.TotalTroops == 0
             ? 0
             : SupplyCapacity.PercentFull(army.SupplyTons, army.TotalTroops, ruleset);
-        yield return new InformationPanelLine(ArmySupplyKey, $"Supply: {army.SupplyTons} tons  ({pct}%)");
+        yield return new InformationPanelLine(ArmySupplyKey, $"Supply: {InformationWords.Grouped(army.SupplyTons)} tons  ({pct}%)");
         yield return new InformationPanelLine(ArmyMoraleKey, $"Morale: {InformationWords.Morale(army.Morale)}");
-        yield return new InformationPanelLine(ArmyMoneyKey, $"Money: {army.Money} talents");
+        yield return new InformationPanelLine(ArmyMoneyKey, $"Money: {InformationWords.Grouped(army.Money)} talents");
 
         // No Terrain in the F09 block: the embarked army has CoveredTileCode = null (the same
         // sentinel that suppresses the on-map Terrain line).
@@ -596,11 +596,11 @@ public static class InformationPanelModel
 
             yield return new InformationPanelLine(
                 ArmyUnitTypeKeyPrefix + typeId,
-                $"{UnitTypeDisplayName(typeId)}: {sum}");
+                $"{UnitTypeDisplayName(typeId)}: {InformationWords.Grouped(sum)}");
         }
 
         yield return new InformationPanelLine(
-            ArmyTotalTroopsKey, $"Total troops: {army.TotalTroops}");
+            ArmyTotalTroopsKey, $"Total troops: {InformationWords.Grouped(army.TotalTroops)}");
         yield return new InformationPanelLine(
             ArmyNoOfUnitsKey, $"No. of units: {LastNonEmptyIndexPlusOne(army)}");
 
@@ -608,9 +608,9 @@ public static class InformationPanelModel
 
         var (regulars, mercs) = SumUpkeepByKind(army, ruleset);
         yield return new InformationPanelLine(
-            ArmyRegularsCostKey, $"Regulars cost: {regulars} talents per quarter");
+            ArmyRegularsCostKey, $"Regulars cost: {InformationWords.Grouped(regulars)} talents per quarter");
         yield return new InformationPanelLine(
-            ArmyMercenaryPayKey, $"Mercenary pay: {mercs} talents per quarter");
+            ArmyMercenaryPayKey, $"Mercenary pay: {InformationWords.Grouped(mercs)} talents per quarter");
     }
 
     private static IEnumerable<InformationPanelLine> ForeignArmyFromSupplyOn(
@@ -638,10 +638,10 @@ public static class InformationPanelModel
 
             yield return new InformationPanelLine(
                 ArmyUnitTypeKeyPrefix + typeId,
-                $"{UnitTypeDisplayName(typeId)}: {sum}");
+                $"{UnitTypeDisplayName(typeId)}: {InformationWords.Grouped(sum)}");
         }
 
         yield return new InformationPanelLine(
-            ArmyTotalTroopsKey, $"Total troops: {army.TotalTroops}");
+            ArmyTotalTroopsKey, $"Total troops: {InformationWords.Grouped(army.TotalTroops)}");
     }
 }

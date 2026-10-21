@@ -187,7 +187,7 @@ public partial class InformationPanelCheck : Control
         Check(PanelHasLabel($"Controlled by: {rome.Name}"), "Rome's city lists the controlled-by nation");
         Check(PanelHasLabel($"Allegiance to: {rome.Name}"), "Rome's city lists the allegiance-to nation");
         Check(
-            PanelHasLabel($"Population: {city.PopulationThousands * 1000} ({percent}%)"),
+            PanelHasLabel($"Population: {InformationWords.Grouped((long)city.PopulationThousands * 1000)} ({percent}%)"),
             "Rome's city shows population in people and the percent of max");
         Check(
             PanelHasLabel($"Loyalty: {InformationWords.Loyalty(city.Loyalty)}"),
@@ -196,7 +196,7 @@ public partial class InformationPanelCheck : Control
             PanelHasLabelStartingWith("Fortification:"),
             "Rome's city shows the fortification line");
         Check(
-            PanelHasLabel($"Tribute: {IC2.Engine.Economy.CityTaxContribution.Compute(city)} talents"),
+            PanelHasLabel($"Tribute: {InformationWords.Grouped(IC2.Engine.Economy.CityTaxContribution.Compute(city))} talents"),
             "Rome's city shows tribute in talents (own city)");
         Check(PanelHasLabel("Supply: 990 tons"), "Rome's city shows supply in tons (own city)");
         Check(
@@ -221,14 +221,14 @@ public partial class InformationPanelCheck : Control
 
         Check(PanelHasLabel($"Moves: {army.Moves}"), "the panel shows the army's moves");
         Check(
-            PanelHasLabel($"Supply: {army.SupplyTons} tons  ({pct}%)"),
+            PanelHasLabel($"Supply: {InformationWords.Grouped(army.SupplyTons)} tons  ({pct}%)"),
             "the panel shows supply tons and the PercentFull percent");
         Check(
             PanelHasLabel($"Morale: {InformationWords.Morale(army.Morale)}"),
             "the panel shows the morale word");
-        Check(PanelHasLabel($"Money: {army.Money} talents"), "the panel shows the army money");
+        Check(PanelHasLabel($"Money: {InformationWords.Grouped(army.Money)} talents"), "the panel shows the army money");
         Check(
-            PanelHasLabel($"Total troops: {army.TotalTroops}"),
+            PanelHasLabel($"Total troops: {InformationWords.Grouped(army.TotalTroops)}"),
             "the panel shows Total troops");
 
         if (army.CoveredTileCode is { } code)
@@ -250,7 +250,7 @@ public partial class InformationPanelCheck : Control
             var sum = sums.TryGetValue(typeId, out var v) ? v : 0;
             var displayName = UnitDisplayName(typeId);
             Check(
-                PanelHasLabel($"{displayName}: {sum}"),
+                PanelHasLabel($"{displayName}: {InformationWords.Grouped(sum)}"),
                 $"the panel sums the {displayName} troop count");
         }
     }
@@ -299,12 +299,12 @@ public partial class InformationPanelCheck : Control
             var sum = sums.TryGetValue(typeId, out var v) ? v : 0;
             var displayName = UnitDisplayName(typeId);
             Check(
-                PanelHasLabel($"{displayName}: {sum}"),
+                PanelHasLabel($"{displayName}: {InformationWords.Grouped(sum)}"),
                 $"the foreign panel sums {displayName}");
         }
 
         Check(
-            PanelHasLabel($"Total troops: {army.TotalTroops}"),
+            PanelHasLabel($"Total troops: {InformationWords.Grouped(army.TotalTroops)}"),
             "the foreign panel shows Total troops");
 
         // The brief's "no upkeep on a foreign army" — the panel does not draw No. of units /
@@ -340,7 +340,7 @@ public partial class InformationPanelCheck : Control
 
         var transport = _mainGame.Session.Ruleset.Naval.TransportTroopsPerShip;
         Check(
-            PanelHasLabel($"Capacity: {fleet.Ships * transport} troops"),
+            PanelHasLabel($"Capacity: {InformationWords.Grouped((long)fleet.Ships * transport)} troops"),
             "the fleet's Capacity is shown");
 
         var expectedSea = $"Sea: {InformationWords.Sea(fleet.CoveredTileCode ?? 0)}";
@@ -378,7 +378,7 @@ public partial class InformationPanelCheck : Control
 
         var transport = _mainGame.Session.Ruleset.Naval.TransportTroopsPerShip;
         Check(
-            PanelHasLabel($"Capacity: {fleet.Ships * transport} troops"),
+            PanelHasLabel($"Capacity: {InformationWords.Grouped((long)fleet.Ships * transport)} troops"),
             "the carrying fleet's Capacity is shown");
 
         var expectedSea = $"Sea: {InformationWords.Sea(fleet.CoveredTileCode ?? 0)}";
@@ -400,7 +400,7 @@ public partial class InformationPanelCheck : Control
         Check(PanelHasLabel("Money: withheld"), "the carried army's panel withholds money (active-seat rule)");
 
         Check(
-            PanelHasLabel($"Total troops: {_mainGame.Session.State.ArmyById(PtolemyCargoArmyId)!.TotalTroops}"),
+            PanelHasLabel($"Total troops: {InformationWords.Grouped(_mainGame.Session.State.ArmyById(PtolemyCargoArmyId)!.TotalTroops)}"),
             "the carried army's panel still shows its own Total troops line");
 
         // F09 omits No. of units, Regulars cost and Mercenary pay on a foreign carried army.
@@ -433,7 +433,7 @@ public partial class InformationPanelCheck : Control
             PanelHasLabel($"Leader: {carthage.LeaderName}"),
             "Carthage's panel shows the leader");
         Check(
-            PanelHasLabel($"Population: {carthage.Wealth}"),
+            PanelHasLabel($"Population: {InformationWords.Grouped(carthage.Wealth)}"),
             "Carthage's panel shows Population (Wealth)");
         Check(
             PanelHasLabel($"Unity: {InformationWords.Unity(carthage.Unity)}"),
@@ -490,11 +490,11 @@ public partial class InformationPanelCheck : Control
     private void AssertOwnNationPanelAndRomeCityPanel()
     {
         var rome = _mainGame.Session.State.NationById(RomeId)!;
-        Check(PanelHasLabel($"Population: {rome.Wealth}"), "Rome's own panel shows Population (Wealth, 2577000)");
+        Check(PanelHasLabel($"Population: {InformationWords.Grouped(rome.Wealth)}"), "Rome's own panel shows Population (Wealth, 2,577,000)");
         Check(PanelHasLabel($"Unity: {InformationWords.Unity(rome.Unity)}"), "Rome's own panel shows Unity as a word");
         Check(PanelHasLabel($"Mobilized: {rome.MobilizedPercent}%"), "Rome's own panel shows Mobilized");
         Check(
-            PanelHasLabel($"Treasury: {rome.Treasury} talents"),
+            PanelHasLabel($"Treasury: {InformationWords.Grouped(rome.Treasury)} talents"),
             "Rome's own panel shows Treasury with the ' talents' suffix (R4 of the R1 review)");
 
         // Clicking Rome (the capital) while the active seat is Rome shows the own shape — tribute
@@ -502,7 +502,7 @@ public partial class InformationPanelCheck : Control
         LeftClick(RomeCityTileX, RomeCityTileY);
         var city = _mainGame.Session.State.CityById(RomeCityId)!;
         var talents = IC2.Engine.Economy.CityTaxContribution.Compute(city);
-        Check(PanelHasLabel($"Tribute: {talents} talents"), "Rome's city shows tribute in talents (own)");
+        Check(PanelHasLabel($"Tribute: {InformationWords.Grouped(talents)} talents"), "Rome's city shows tribute in talents (own)");
         Check(PanelHasLabel("Supply: 990 tons"), "Rome's city shows supply in tons (own)");
     }
 

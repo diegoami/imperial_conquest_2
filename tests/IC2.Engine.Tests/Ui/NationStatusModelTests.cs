@@ -73,15 +73,16 @@ public sealed class NationStatusModelTests
 
         // N05: Population = the nation's stored wealth field (3000 × Σ city populations in
         // thousands), per the research read; bug #742's fix.
-        Assert.Equal($"Population: {rome.Wealth}", byKey[NationStatusModel.PopulationKey]);
+        Assert.Equal($"Population: {InformationWords.Grouped(rome.Wealth)}", byKey[NationStatusModel.PopulationKey]);
         Assert.Equal(2_577_000, rome.Wealth);
+        Assert.Equal("Population: 2,577,000", byKey[NationStatusModel.PopulationKey]); // #732 L14: grouped
 
         // N06: Unity is the band word, not the number.
         Assert.Equal($"Unity: {InformationWords.Unity(rome.Unity)}", byKey[NationStatusModel.UnityKey]);
 
         Assert.Equal($"Tax rate: {rome.TaxRatePercent}%", byKey[NationStatusModel.TaxRateKey]);
         Assert.Equal($"Mobilized: {rome.MobilizedPercent}%", byKey[NationStatusModel.MobilizedKey]);
-        Assert.Equal($"Treasury: {rome.Treasury} talents", byKey[NationStatusModel.TreasuryKey]);
+        Assert.Equal($"Treasury: {InformationWords.Grouped(rome.Treasury)} talents", byKey[NationStatusModel.TreasuryKey]);
 
         // N11: every other nation has a relation row. The text uses the original's words
         // (trade/ally/war) on a "Name: word" line, or just the name when the value is <= 0
@@ -134,7 +135,7 @@ public sealed class NationStatusModelTests
         Assert.Equal($"Cities: {state.CountCitiesOwnedBy(CarthageId)}", byKey[NationStatusModel.CitiesKey]);
 
         // 2026-10-05 decision: Population, Unity and Tax rate join the foreign panel.
-        Assert.Equal($"Population: {carthage.Wealth}", byKey[NationStatusModel.PopulationKey]);
+        Assert.Equal($"Population: {InformationWords.Grouped(carthage.Wealth)}", byKey[NationStatusModel.PopulationKey]);
         Assert.Equal($"Unity: {InformationWords.Unity(carthage.Unity)}", byKey[NationStatusModel.UnityKey]);
         Assert.Equal($"Tax rate: {carthage.TaxRatePercent}%", byKey[NationStatusModel.TaxRateKey]);
 

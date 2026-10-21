@@ -82,7 +82,7 @@ public sealed class InformationPanelModelTests
         // C04: Population = pop × 1000 + trunc(pop × 100 / maxPop)%.
         var percent = city.PopulationThousands * 100 / city.MaxPopulationThousands;
         Assert.Equal(
-            $"Population: {city.PopulationThousands * 1000} ({percent}%)",
+            $"Population: {InformationWords.Grouped((long)city.PopulationThousands * 1000)} ({percent}%)",
             byKey[InformationPanelModel.CityPopulationKey]);
 
         // C05: Loyalty band word.
@@ -100,11 +100,11 @@ public sealed class InformationPanelModelTests
         // for the quarterly rebuild).
         var expectedTribute = CityTaxContribution.Compute(city);
         Assert.Equal(
-            $"Tribute: {expectedTribute} talents",
+            $"Tribute: {InformationWords.Grouped(expectedTribute)} talents",
             byKey[InformationPanelModel.CityTributeKey]);
 
         // C10: Supply with tons. Rome's starting supply is 990; the brief's expectation matches.
-        Assert.Equal($"Supply: {city.SupplyTons} tons", byKey[InformationPanelModel.CitySupplyKey]);
+        Assert.Equal($"Supply: {InformationWords.Grouped(city.SupplyTons)} tons", byKey[InformationPanelModel.CitySupplyKey]);
     }
 
     [Fact]
@@ -176,10 +176,10 @@ public sealed class InformationPanelModelTests
         var asOwnKey = ByKey(asOwn);
         var talents = CityTaxContribution.Compute(carthago);
         Assert.Equal(
-            $"Tribute: {talents} talents",
+            $"Tribute: {InformationWords.Grouped(talents)} talents",
             asOwnKey[InformationPanelModel.CityTributeKey]);
         Assert.Equal(
-            $"Supply: {carthago.SupplyTons} tons",
+            $"Supply: {InformationWords.Grouped(carthago.SupplyTons)} tons",
             asOwnKey[InformationPanelModel.CitySupplyKey]);
     }
 
@@ -357,7 +357,7 @@ public sealed class InformationPanelModelTests
         // this formula as matching the original. TotalTroops==0 is impossible for a non-empty army.
         var pct = SupplyCapacity.PercentFull(army.SupplyTons, army.TotalTroops, ruleset);
         Assert.Equal(
-            $"Supply: {army.SupplyTons} tons  ({pct}%)",
+            $"Supply: {InformationWords.Grouped(army.SupplyTons)} tons  ({pct}%)",
             byKey[InformationPanelModel.ArmySupplyKey]);
 
         // A04: Morale word.
@@ -366,7 +366,7 @@ public sealed class InformationPanelModelTests
             byKey[InformationPanelModel.ArmyMoraleKey]);
 
         // A05: Money.
-        Assert.Equal($"Money: {army.Money} talents", byKey[InformationPanelModel.ArmyMoneyKey]);
+        Assert.Equal($"Money: {InformationWords.Grouped(army.Money)} talents", byKey[InformationPanelModel.ArmyMoneyKey]);
 
         // A06: Terrain. army-0 may or may not have a covered tile (classical shipped state may
         // stage them); either path is allowed but the line, when present, reads the tile name.
@@ -382,11 +382,11 @@ public sealed class InformationPanelModelTests
         {
             var key = InformationPanelModel.ArmyUnitTypeKeyPrefix + typeId;
             var sum = sums.TryGetValue(typeId, out var v) ? v : 0;
-            Assert.Equal($"{UnitDisplayName(typeId)}: {sum}", byKey[key]);
+            Assert.Equal($"{UnitDisplayName(typeId)}: {InformationWords.Grouped(sum)}", byKey[key]);
         }
 
         Assert.Equal(
-            $"Total troops: {army.TotalTroops}",
+            $"Total troops: {InformationWords.Grouped(army.TotalTroops)}",
             byKey[InformationPanelModel.ArmyTotalTroopsKey]);
 
         // A09: No. of units = the index of the last slot with troops > 0, plus 1.
@@ -394,8 +394,8 @@ public sealed class InformationPanelModelTests
 
         // A10 / A11: upkeep totals.
         var (regulars, mercenaries) = SumUpkeepByKind(army, ruleset);
-        Assert.Equal($"Regulars cost: {regulars} talents per quarter", byKey[InformationPanelModel.ArmyRegularsCostKey]);
-        Assert.Equal($"Mercenary pay: {mercenaries} talents per quarter", byKey[InformationPanelModel.ArmyMercenaryPayKey]);
+        Assert.Equal($"Regulars cost: {InformationWords.Grouped(regulars)} talents per quarter", byKey[InformationPanelModel.ArmyRegularsCostKey]);
+        Assert.Equal($"Mercenary pay: {InformationWords.Grouped(mercenaries)} talents per quarter", byKey[InformationPanelModel.ArmyMercenaryPayKey]);
     }
 
     [Fact]
@@ -462,8 +462,8 @@ public sealed class InformationPanelModelTests
         Assert.Equal(4, regulars);
         Assert.Equal(18, mercs);
 
-        Assert.Equal($"Regulars cost: {regulars} talents per quarter", byKey[InformationPanelModel.ArmyRegularsCostKey]);
-        Assert.Equal($"Mercenary pay: {mercs} talents per quarter", byKey[InformationPanelModel.ArmyMercenaryPayKey]);
+        Assert.Equal($"Regulars cost: {InformationWords.Grouped(regulars)} talents per quarter", byKey[InformationPanelModel.ArmyRegularsCostKey]);
+        Assert.Equal($"Mercenary pay: {InformationWords.Grouped(mercs)} talents per quarter", byKey[InformationPanelModel.ArmyMercenaryPayKey]);
     }
 
     // ========================================================================
@@ -551,10 +551,10 @@ public sealed class InformationPanelModelTests
         var byKey = ByKey(lines);
         var (regulars, mercs) = SumUpkeepByKind(army, ruleset);
         Assert.Equal(
-            $"Mercenary pay: {mercs} talents per quarter",
+            $"Mercenary pay: {InformationWords.Grouped(mercs)} talents per quarter",
             byKey[InformationPanelModel.ArmyMercenaryPayKey]);
         Assert.Equal(
-            $"Regulars cost: {regulars} talents per quarter",
+            $"Regulars cost: {InformationWords.Grouped(regulars)} talents per quarter",
             byKey[InformationPanelModel.ArmyRegularsCostKey]);
     }
 
@@ -631,14 +631,14 @@ public sealed class InformationPanelModelTests
         foreach (var typeId in InformationPanelModel.UnitTypeIds)
         {
             var sum = sums.TryGetValue(typeId, out var v) ? v : 0;
-            var expected = $"{UnitDisplayName(typeId)}: {sum}";
+            var expected = $"{UnitDisplayName(typeId)}: {InformationWords.Grouped(sum)}";
             var key = InformationPanelModel.ArmyUnitTypeKeyPrefix + typeId;
             Assert.Equal(expected, byKey[key]);
         }
 
         // A08: Total troops (always).
         Assert.Equal(
-            $"Total troops: {army.TotalTroops}",
+            $"Total troops: {InformationWords.Grouped(army.TotalTroops)}",
             byKey[InformationPanelModel.ArmyTotalTroopsKey]);
 
         // The foreign army's panel carries no No. of units, Regulars cost, or Mercenary pay.
@@ -722,15 +722,15 @@ public sealed class InformationPanelModelTests
         var capacity = SupplyCapacity.FleetCapacityTons(fleet.Ships, ruleset);
         var pct = capacity == 0 ? 0 : fleet.SupplyTons * 100 / capacity;
         Assert.Equal(
-            $"Supply: {fleet.SupplyTons} tons  ({pct}%)",
+            $"Supply: {InformationWords.Grouped(fleet.SupplyTons)} tons  ({pct}%)",
             byKey[InformationPanelModel.FleetSupplyKey]);
 
-        Assert.Equal($"Money: {fleet.Money} talents", byKey[InformationPanelModel.FleetMoneyKey]);
+        Assert.Equal($"Money: {InformationWords.Grouped(fleet.Money)} talents", byKey[InformationPanelModel.FleetMoneyKey]);
 
         // F07: Capacity = ships × TransportTroopsPerShip (ruleset data, never a literal).
         var transport = ruleset.Naval.TransportTroopsPerShip;
         Assert.Equal(
-            $"Capacity: {fleet.Ships * transport} troops",
+            $"Capacity: {InformationWords.Grouped((long)fleet.Ships * transport)} troops",
             byKey[InformationPanelModel.FleetCapacityKey]);
 
         // F08: Sea — calm for code 0, rough for anything else.
@@ -777,7 +777,7 @@ public sealed class InformationPanelModelTests
         Assert.Equal($"Ships: {fleet.Ships}", byKey[InformationPanelModel.FleetShipsKey]);
         var transport = session.Ruleset.Naval.TransportTroopsPerShip;
         Assert.Equal(
-            $"Capacity: {fleet.Ships * transport} troops",
+            $"Capacity: {InformationWords.Grouped((long)fleet.Ships * transport)} troops",
             byKey[InformationPanelModel.FleetCapacityKey]);
         var expectedSea = $"Sea: {InformationWords.Sea(fleet.CoveredTileCode ?? 0)}";
         Assert.Equal(expectedSea, byKey[InformationPanelModel.FleetSeaKey]);

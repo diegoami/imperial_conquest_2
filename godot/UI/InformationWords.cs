@@ -24,6 +24,12 @@ namespace IC2.Slice.UI;
 /// </remarks>
 public static class InformationWords
 {
+    /// <summary>
+    /// #732 L14: a figure with a comma every three digits, as the original's information panels print it
+    /// (<c>FUN_00448e74</c>, feature inventory row L14, [derived]).
+    /// </summary>
+    public static string Grouped(long value) => value.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
+
     // ---- Unity ----
 
     /// <summary><c>trunc(unity / 100)</c> into a six-word table, the bands the research read's

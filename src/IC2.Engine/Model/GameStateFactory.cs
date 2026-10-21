@@ -87,22 +87,9 @@ public static class GameStateFactory
                            + "Every nation in the world needs an explicit seat; the engine never defaults one.",
                            nameof(scenario));
 
-            // Follow-up #106 item 1: this duplicates VictoryEvaluator's own private city-count scan, but
-            // over World.Cities (ValueList<CityDefinition>) rather than GameState.Cities
-            // (ValueList<CityState>) -- there is no scenario state yet at this point, only the world
-            // definition. GameState.CountCitiesOwnedBy (added alongside the quarterly treasury credit's
-            // own need for a live city count) covers the GameState-Cities half of that duplication;
-            // unifying this loop with it too would need a shared element-agnostic abstraction over both
-            // record types, which reaches into src/IC2.Engine/Victory/** (VictoryEvaluator's own file),
-            // outside this task's Owns list. Left as its own loop rather than half-fixed.
-            var cityCount = 0;
-            foreach (var city in world.Cities)
-            {
-                if (string.Equals(city.Owner, definition.Id, StringComparison.Ordinal))
-                {
-                    cityCount++;
-                }
-            }
+            // #106 item 1: there is no GameState yet, so this counts World.Cities through the same
+            // ownership rule GameState.CountCitiesOwnedBy uses (CityOwnership.IsOwnedBy).
+            var cityCount = world.Cities.Count(city => CityOwnership.IsOwnedBy(city.Owner, definition.Id));
 
             nations[i] = new NationState(
                 Id: definition.Id,

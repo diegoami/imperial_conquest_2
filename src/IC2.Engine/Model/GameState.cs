@@ -98,16 +98,15 @@ public sealed record GameState(
     /// Shared by the quarterly treasury credit's per-city term (<c>cityCount × 7</c>,
     /// <c>nation-tax-base-and-city-economy-fields.md</c>) and <c>VictoryEvaluator</c>'s own city count —
     /// two different call sites over the same live <see cref="Cities"/> list, kept as one linear scan
-    /// here rather than two (follow-up #106 item 1's live-<see cref="GameState"/> half; the
-    /// <c>GameStateFactory</c> count at scenario start reads <see cref="World.Cities"/> instead, a
-    /// different element type, so it is not unified with this one — see that method's own remarks).
+    /// here rather than two. #106 item 1: the ownership test is <see cref="CityOwnership.IsOwnedBy"/>, which
+    /// <c>GameStateFactory</c>'s count over <see cref="World.Cities"/> at scenario start shares.
     /// </summary>
     public int CountCitiesOwnedBy(string nationId)
     {
         var count = 0;
         foreach (var city in Cities)
         {
-            if (string.Equals(city.Owner, nationId, StringComparison.Ordinal))
+            if (CityOwnership.IsOwnedBy(city.Owner, nationId))
             {
                 count++;
             }
