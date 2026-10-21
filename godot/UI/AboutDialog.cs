@@ -1,3 +1,4 @@
+using System.Reflection;
 using Godot;
 
 namespace IC2.Slice.UI;
@@ -8,8 +9,8 @@ namespace IC2.Slice.UI;
 /// </summary>
 /// <remarks>
 /// The version is read from the Godot project's own <c>application/config/version</c> setting rather
-/// than hardcoded, with <c>"development"</c> as the honest fallback when the setting is absent (as it
-/// is today — <c>godot/project.godot</c> names no version, and this task does not own that file). A
+/// than hardcoded, with <see cref="AppVersion.Describe"/>'s <c>"development"</c> as the honest fallback when the
+/// setting is empty (as it is today — <c>godot/project.godot</c> names no version; bug #1283). A
 /// hardcoded number here would go stale at the next release and duplicate a value that belongs to the
 /// project metadata.
 /// </remarks>
@@ -42,7 +43,7 @@ public partial class AboutDialog : Control
 
         column.AddChild(UiKit.MakeLabel("Imperial Conquest 2", AppTheme.Header, UiKit.AccentColor));
 
-        VersionText = $"Version {ProjectSettings.GetSetting("application/config/version", "development").AsString()}";
+        VersionText = $"Version {AppVersion.Describe(ProjectSettings.GetSetting("application/config/version").AsString(), typeof(AboutDialog).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion)}";
         column.AddChild(UiKit.MakeLabel(VersionText, AppTheme.Body, UiKit.MutedTextColor));
 
         var recreation = UiKit.MakeLabel("A re-creation of the 1996 strategy game.", AppTheme.Body, UiKit.TextColor);

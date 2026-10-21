@@ -69,6 +69,8 @@
     <Compile Include="../../godot/UI/NewGameSelection.cs" Link="Ui/NewGameSelection.cs" />
     <!-- T165: the Godot-free half of the Load game screen (opens a .json or an original .sav). -->
     <Compile Include="../../godot/UI/LoadGameModel.cs" Link="Ui/LoadGameModel.cs" />
+    <!-- Bug #1283: the About box and diagnostics version text, Godot-free. -->
+    <Compile Include="../../godot/UI/AppVersion.cs" Link="Ui/AppVersion.cs" />
 
     <!--
       T25 (tests/IC2.Engine.Tests/Ui/Screens/**): the same seam, one file further. BattleResultViewModel.cs,

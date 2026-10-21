@@ -30,8 +30,8 @@ public static class AppDiagnostics
                 AppDomain.CurrentDomain.UnhandledException += OnUnhandled;
                 TaskScheduler.UnobservedTaskException += OnUnobserved;
                 ManagedHandlerRegistrations++;
-                var version = ProjectSettings.GetSetting("application/config/version", "development").AsString();
                 var build = typeof(AppDiagnostics).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unavailable";
+                var version = IC2.Slice.UI.AppVersion.Describe(ProjectSettings.GetSetting("application/config/version").AsString(), informationalVersion: null);
                 var pack = SettingsScreen.SelectedPackId ?? IC2.Slice.Assets.AssetPackManifestLoader.DefaultPackId;
                 _journal.Startup(version, build, Godot.Engine.GetVersionInfo()["string"].AsString(),
                     System.Environment.Version.ToString(), OS.GetName(), pack);
