@@ -407,6 +407,23 @@ public sealed class TacticalBattleViewModel
         return lines;
     }
 
+    /// <summary>
+    /// #1292: the hover text of the unit drawn at a board cell — name, nation, type and troops, plus morale,
+    /// moves and shots for the perspective side's own units (what <see cref="ParticipantLines"/> shows) —
+    /// or <see langword="null"/> when no unit is drawn there.
+    /// </summary>
+    /// <param name="x">The cell's column.</param>
+    /// <param name="engineY">The cell's row in engine coordinates.</param>
+    public string? HoverText(int x, int engineY)
+    {
+        var cell = Cells.FirstOrDefault(c => c.X == x && c.Y == engineY && c.IconKey is not null && c.Slot >= 0 && c.Slot < _view.Slots.Count);
+        if (cell is null) return null;
+        var unit = _view.Slots[cell.Slot];
+        var side = SideOf(cell.Slot);
+        var text = $"{unit.Name} ({NationName(side)})\n{TypeName(unit.Type)} · {unit.Troops} troops";
+        return side == _perspective ? $"{text}\nMorale: {MoraleTier(unit.Morale)} · moves {unit.Moves} · shots {unit.Shots}" : text;
+    }
+
     public IReadOnlyList<BattleListRow> RosterRows(int side) => LiveOf(side).Concat(Pose is { Departing: true } departing && SideOf(departing.Glyph.Slot) == side
         ? new[] { departing.Glyph.Slot } : Array.Empty<int>()).Distinct().Select(slot =>
     {

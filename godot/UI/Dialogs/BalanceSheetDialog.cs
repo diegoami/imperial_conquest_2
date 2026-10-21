@@ -162,8 +162,8 @@ public partial class BalanceSheetDialog : Control
     {
         if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape })
         {
-            Ok();
             GetViewport().SetInputAsHandled();
+            Ok();
         }
     }
 }

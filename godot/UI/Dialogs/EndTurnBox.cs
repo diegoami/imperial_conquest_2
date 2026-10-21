@@ -83,8 +83,8 @@ public partial class EndTurnBox : Control
     {
         if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape })
         {
-            Answer(makeMoreMoves: true);
             GetViewport().SetInputAsHandled();
+            Answer(makeMoreMoves: true);
         }
     }
 

@@ -217,8 +217,8 @@ public partial class SupplyDialog : Control
     {
         if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape })
         {
-            Close();
             GetViewport().SetInputAsHandled();
+            Close();
         }
     }
 

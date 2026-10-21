@@ -59,6 +59,32 @@ public sealed class TacticalBattleViewModelTests
     }
 
     [Fact]
+    public void Hovering_a_unit_names_it_and_only_the_own_side_shows_morale()
+    {
+        var (_, view, display) = Opened();
+        var model = TacticalBattleViewModel.From(view, display);
+
+        foreach (var cell in model.Cells)
+        {
+            var text = model.HoverText(cell.X, cell.Y);
+            if (cell.IconKey is null)
+            {
+                Assert.Null(text);
+                continue;
+            }
+
+            var unit = view.Slots[cell.Slot];
+            Assert.NotNull(text);
+            Assert.StartsWith(unit.Name, text);
+            Assert.Contains($"{unit.Troops} troops", text);
+            Assert.Equal(model.CanSeeDetails(model.SideOf(cell.Slot)), text.Contains("Morale:"));
+        }
+
+        Assert.Contains(model.Cells, c => c.IconKey is not null && model.CanSeeDetails(model.SideOf(c.Slot)));
+        Assert.Contains(model.Cells, c => c.IconKey is not null && !model.CanSeeDetails(model.SideOf(c.Slot)));
+    }
+
+    [Fact]
     public void The_selected_cell_carries_the_cursor()
     {
         var (_, view, display) = Opened();

@@ -155,8 +155,8 @@ public partial class RepairDialog : Control
     {
         if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape })
         {
-            Cancel();
             GetViewport().SetInputAsHandled();
+            Cancel();
         }
     }
 
