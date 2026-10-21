@@ -96,6 +96,12 @@ public partial class ItalyLaunchCheck : Control
         var popup = _mainGame.MenuBar.MenuForCheck("Nations");
         var rows = popup is null ? 0 : Enumerable.Range(0, popup.ItemCount).Count(i => popup.GetItemText(i).Length > 0);
         Check(rows == 13, $"the Nations menu lists the twelve nations and All nations ({rows} rows)");
+        // #1309: a capital draws larger than a city, and a city larger than a village.
+        _mainGame.MapView.SetDrawnCellPixelsForCheck(16f);
+        var capital = _mainGame.MapView.CityMarkerRadiusForCheck("roma");
+        var city = _mainGame.MapView.CityMarkerRadiusForCheck("veii");
+        var village = _mainGame.MapView.CityMarkerRadiusForCheck("eretum");
+        Check(capital > city && city > village, $"town markers grow with size: Roma {capital:F1} px, Veii {city:F1} px, Eretum {village:F1} px");
         var terrain = _mainGame.MapView.TerrainDrawRectForCheck;
         Check(terrain.Encloses(new Rect2(Vector2.Zero, _mainGame.MapView.Size)), "the map fills its view");
     }

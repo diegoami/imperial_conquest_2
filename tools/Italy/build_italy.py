@@ -830,12 +830,16 @@ def build_ruleset():
     ruleset["calendar"]["startYearBc"] = 500
     ruleset["calendar"]["_provenance"]["startYearBc"] = (
         "designed (owner decision D3, 2026-10-21): 500 BC, the Etruscans at their greatest extent and the Roman Republic newly founded.")
+    ruleset["mapMarkers"]["cityPopulationTierThresholds"] = [6, 10, 18]
+    ruleset["mapMarkers"].setdefault("_provenance", {})["cityPopulationTierThresholds"] = (
+        "designed (#1309): the town tiers on this campaign's own scale (3-30 thousand people), so its towns spread "
+        "over all four markers; the classical thresholds [25, 50, 100] would put 229 of its 231 towns in the smallest.")
     ruleset["victory"]["hardEndYearBc"] = 460
     ruleset["victory"]["_provenance"]["hardEndYearBc"] = (
         "designed (owner decision D3, 2026-10-21): a 40-year reign, twice the classical game's 20, at the same two weeks per turn.")
     ruleset.setdefault("_provenance", {})["_group"] = (
         "designed: a copy of data/rulesets/classical-faithful.json (rulesets have no inheritance), made by tools/Italy/build_italy.py; "
-        "only id, name, description, calendar.startYearBc and victory.hardEndYearBc differ.")
+        "only id, name, description, calendar.startYearBc, victory.hardEndYearBc and mapMarkers.cityPopulationTierThresholds differ.")
     return ruleset
 
 def build_scenario():
