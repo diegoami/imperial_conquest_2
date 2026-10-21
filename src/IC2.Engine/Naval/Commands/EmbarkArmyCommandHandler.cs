@@ -94,7 +94,7 @@ public sealed class EmbarkArmyCommandHandler : ICommandHandler<EmbarkArmyCommand
         {
             return CommandOutcome.Reject(
                 EmbarkArmyRejections.ArmyTooLarge,
-                $"Army '{army.Id}' has {totalTroops} troops, more than fleet '{fleet.Id}''s capacity of {capacity}.");
+                "The army is too large for this fleet.");
         }
 
         var units = trims

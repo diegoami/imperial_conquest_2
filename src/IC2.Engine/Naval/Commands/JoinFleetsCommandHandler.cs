@@ -84,7 +84,7 @@ public sealed class JoinFleetsCommandHandler : ICommandHandler<JoinFleetsCommand
         if (survivor.IsCarryingArmy || absorbed.IsCarryingArmy)
         {
             return CommandOutcome.Reject(
-                JoinFleetsRejections.CarryingArmy, "Neither fleet may carry an army to join.");
+                JoinFleetsRejections.CarryingArmy, "You cannot join fleets if one is carrying an army.");
         }
 
         var rules = context.Ruleset.Naval;

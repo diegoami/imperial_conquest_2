@@ -219,6 +219,7 @@ public partial class CommandFeedbackCheck : Control
         Check(
             _mainGame.LastCommandText == ReadableLine,
             $"an accepted order's label shows its readable wording (got '{_mainGame.LastCommandText}')");
+        Check(_mainGame.OrderNoticeForCheck.Length == 0, "an accepted order shows no refusal notice over the map (#1286)");
         CheckVisibleGeometry("an accepted order");
         CheckLinesMapOneToOne("an accepted order");
         CheckTooltipCarriesTheWholeBlock();
@@ -246,6 +247,9 @@ public partial class CommandFeedbackCheck : Control
             && char.IsUpper(visible[0].First(char.IsLetter))
             && visible[0].Contains("is not adjacent to 'misurata'", StringComparison.Ordinal),
             $"a rejected order's visible line is its refusal alone (got '{string.Join("|", visible)}')");
+        Check(
+            _mainGame.OrderNoticeForCheck == visible[0],
+            $"a rejected order's refusal is also shown over the map (#1286; got '{_mainGame.OrderNoticeForCheck}')");
         CheckVisibleGeometry("a rejected order");
         CheckLinesMapOneToOne("a rejected order");
         CheckTooltipCarriesTheWholeBlock();
@@ -263,6 +267,7 @@ public partial class CommandFeedbackCheck : Control
         Check(
             _mainGame.LastCommandText.Split('\n').Length > 3,
             "the end's block really is longer than the label's three-line window");
+        Check(_mainGame.OrderNoticeForCheck.Length == 0, "an end turn closes the earlier refusal notice (#1286)");
         CheckVisibleGeometry("an end turn");
         CheckLinesMapOneToOne("an end turn");
 

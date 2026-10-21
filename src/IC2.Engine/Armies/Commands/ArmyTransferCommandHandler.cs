@@ -126,7 +126,7 @@ public sealed class ArmyTransferCommandHandler : ICommandHandler<ArmyTransferCom
         {
             return CommandOutcome.Reject(
                 ArmyTransferRejections.CombinedUnitsTooLarge,
-                $"There would be more than {rules.MaxUnitsPerArmy} units in one of the armies.");
+                $"This army already has {rules.MaxUnitsPerArmy} units.");
         }
 
         var finalSourceTroops = SumTroops(finalSourceUnits);
@@ -135,7 +135,7 @@ public sealed class ArmyTransferCommandHandler : ICommandHandler<ArmyTransferCom
         {
             return CommandOutcome.Reject(
                 ArmyTransferRejections.CombinedTroopsTooLarge,
-                $"There would be more than {rules.MaxTroopsPerArmy} troops in one of the armies.");
+                $"An army can not hold more than {News.NewsLogWriter.FormatGroupedAmount(rules.MaxTroopsPerArmy)} troops.");
         }
 
         var sourceIsEmpty = finalSourceUnits.Count == 0;

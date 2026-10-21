@@ -41,7 +41,7 @@ public sealed class ScuttleFleetCommandHandler : ICommandHandler<ScuttleFleetCom
         if (fleet.IsCarryingArmy)
         {
             return CommandOutcome.Reject(
-                ScuttleFleetRejections.CarryingArmy, $"Fleet '{fleet.Id}' is carrying an army and cannot be scuttled.");
+                ScuttleFleetRejections.CarryingArmy, "A fleet cannot be scuttled while it is carrying an army.");
         }
 
         CityState? nearbyOwnedCity = null;
@@ -64,7 +64,7 @@ public sealed class ScuttleFleetCommandHandler : ICommandHandler<ScuttleFleetCom
         {
             return CommandOutcome.Reject(
                 ScuttleFleetRejections.NotNearOwnedCity,
-                $"Fleet '{fleet.Id}' must be near one of its own nation's cities to scuttle.");
+                "To scuttle a fleet it must be near one of your cities.");
         }
 
         var updatedCity = nearbyOwnedCity with { SupplyTons = nearbyOwnedCity.SupplyTons + fleet.SupplyTons };

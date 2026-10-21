@@ -43,7 +43,7 @@ public sealed class RepairFleetCommandHandler : ICommandHandler<RepairFleetComma
         if (fleet.IsCarryingArmy)
         {
             return CommandOutcome.Reject(
-                RepairFleetRejections.CarryingArmy, $"Fleet '{fleet.Id}' is carrying an army and cannot be repaired.");
+                RepairFleetRejections.CarryingArmy, "A fleet cannot be repaired while it is carrying an army.");
         }
 
         if (command.Points <= 0)
@@ -74,7 +74,7 @@ public sealed class RepairFleetCommandHandler : ICommandHandler<RepairFleetComma
         {
             return CommandOutcome.Reject(
                 RepairFleetRejections.NotAtOwnedCity,
-                $"Fleet '{fleet.Id}' can only be repaired at one of its own nation's cities.");
+                "The fleet can only be repaired at one of your cities.");
         }
 
         var rules = context.Ruleset.Naval;

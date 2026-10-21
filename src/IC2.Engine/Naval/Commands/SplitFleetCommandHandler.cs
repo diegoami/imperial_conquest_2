@@ -39,7 +39,7 @@ public sealed class SplitFleetCommandHandler : ICommandHandler<SplitFleetCommand
         if (fleet.IsCarryingArmy)
         {
             return CommandOutcome.Reject(
-                SplitFleetRejections.CarryingArmy, $"Fleet '{fleet.Id}' is carrying an army and cannot be split.");
+                SplitFleetRejections.CarryingArmy, "You can not split a fleet carrying an army.");
         }
 
         var rules = context.Ruleset.Naval;
@@ -47,7 +47,7 @@ public sealed class SplitFleetCommandHandler : ICommandHandler<SplitFleetCommand
         {
             return CommandOutcome.Reject(
                 SplitFleetRejections.TooFewShipsToSplit,
-                $"Fleet '{fleet.Id}' has fewer than {rules.SplitMinShips} ships and cannot be split.");
+                $"You can not split a fleet containing less than {rules.SplitMinShips} ships.");
         }
 
         if (command.ShipsToNewFleet < 1 || command.ShipsToNewFleet >= fleet.Ships)
@@ -85,7 +85,7 @@ public sealed class SplitFleetCommandHandler : ICommandHandler<SplitFleetCommand
         {
             return CommandOutcome.Reject(
                 SplitFleetRejections.NoFreeAdjacentTile,
-                $"Fleet '{fleet.Id}' has no free adjacent tile for the new fleet.");
+                "You can not make any more fleets at this time.");
         }
 
         var remainingFleet = fleet with

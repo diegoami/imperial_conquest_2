@@ -95,8 +95,7 @@ public sealed class MobilizeRecruitSlotCommandHandler : ICommandHandler<Mobilize
             {
                 return CommandOutcome.Reject(
                     MobilizeRecruitSlotRejections.NoReceivingArmy,
-                    $"No army of '{nation.Id}' can receive the recruit at '{city.Id}', and none can be "
-                    + "created beside it.");
+                    "You cannot mobilise a unit at this time.");
             }
 
             receivingArmy = created;

@@ -40,7 +40,7 @@ public sealed class DisbandArmyCommandHandler : ICommandHandler<DisbandArmyComma
         {
             return CommandOutcome.Reject(
                 DisbandArmyRejections.NotNearOwnCity,
-                $"Army '{army.Id}' must be near one of its own nation's cities to disband.");
+                "An army must be near its own city to disband.");
         }
 
         var updatedCity = nearbyOwnCity with { SupplyTons = nearbyOwnCity.SupplyTons + army.SupplyTons };

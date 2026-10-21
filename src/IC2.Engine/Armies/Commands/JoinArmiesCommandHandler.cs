@@ -65,7 +65,7 @@ public sealed class JoinArmiesCommandHandler : ICommandHandler<JoinArmiesCommand
         {
             return CommandOutcome.Reject(
                 JoinArmiesRejections.CombinedUnitsTooLarge,
-                $"There are more than {rules.MaxUnitsPerArmy} units in these armies combined.");
+                $"These 2 armies combined contain more than {rules.MaxUnitsPerArmy} units.");
         }
 
         var combinedTroops = survivor.TotalTroops + absorbed.TotalTroops;
@@ -73,7 +73,7 @@ public sealed class JoinArmiesCommandHandler : ICommandHandler<JoinArmiesCommand
         {
             return CommandOutcome.Reject(
                 JoinArmiesRejections.CombinedTroopsTooLarge,
-                $"There are more than {rules.MaxTroopsPerArmy} troops in these armies combined.");
+                $"These 2 armies combined contain more than {News.NewsLogWriter.FormatGroupedAmount(rules.MaxTroopsPerArmy)} troops.");
         }
 
         // T72 (bug #315): the join's pooled purse is an UNCAPPED add. 2026-10-05-army-purse-writes-and-

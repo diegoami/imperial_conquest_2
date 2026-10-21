@@ -105,7 +105,7 @@ public sealed class ProposeTradeCommandHandler : ICommandHandler<ProposeTradeCom
         if (relation < codes.Peace)
         {
             return CommandOutcome.Reject(
-                ProposeTradeRejections.Cooldown, $"'{target.Name}' does not want to trade with you.");
+                ProposeTradeRejections.Cooldown, $"{target.Name} does not want to trade with you.");
         }
 
         if (relation == codes.Trade)
@@ -117,7 +117,7 @@ public sealed class ProposeTradeCommandHandler : ICommandHandler<ProposeTradeCom
         if (relation > codes.Trade)
         {
             return CommandOutcome.Reject(
-                ProposeTradeRejections.AlliedOrAtWar, $"You cannot trade with '{target.Name}'.");
+                ProposeTradeRejections.AlliedOrAtWar, $"You cannot trade with {target.Name}.");
         }
 
         // Rework round 2, R2: the issuer's own cap is a plain refusal, never waived by anything --
@@ -127,7 +127,7 @@ public sealed class ProposeTradeCommandHandler : ICommandHandler<ProposeTradeCom
         {
             return CommandOutcome.Reject(
                 ProposeTradeRejections.IssuerCapReached,
-                $"You already trade with {ruleset.Diplomacy.MaxTradePartners} nations.");
+                $"You can only trade with {ruleset.Diplomacy.MaxTradePartners} nations.");
         }
 
         // Rework round 2, R2: the target's own cap refuses too, unless a pending trade offer from that
@@ -144,7 +144,7 @@ public sealed class ProposeTradeCommandHandler : ICommandHandler<ProposeTradeCom
         {
             return CommandOutcome.Reject(
                 ProposeTradeRejections.TargetCapReached,
-                $"'{target.Name}' already trades with {ruleset.Diplomacy.MaxTradePartners} nations.");
+                $"You cannot trade with {target.Name}.");
         }
 
         if (hasPendingTradeOfferFromTarget)

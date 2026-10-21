@@ -91,7 +91,7 @@ public sealed class ProposeAllianceCommandHandler : ICommandHandler<ProposeAllia
             if (relation < codes.Peace)
             {
                 return CommandOutcome.Reject(
-                    ProposeAllianceRejections.Cooldown, $"'{target.Name}' does not want to ally with you.");
+                    ProposeAllianceRejections.Cooldown, $"{target.Name} does not want to ally with your nation.");
             }
 
             // T82 rework round 1 (B2): decompiled-ai-offers-to-human-seats.md §3 is explicit that only the
@@ -103,7 +103,7 @@ public sealed class ProposeAllianceCommandHandler : ICommandHandler<ProposeAllia
             {
                 return CommandOutcome.Reject(
                     ProposeAllianceRejections.SideAtWar,
-                    $"'{target.Name}' will not ally while you, or one of your allies, is at war.");
+                    $"{target.Name} does not want to ally with your nation.");
             }
         }
 

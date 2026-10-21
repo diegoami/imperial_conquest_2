@@ -132,8 +132,7 @@ public sealed class HireMercenaryCommandHandler : ICommandHandler<HireMercenaryC
         {
             return CommandOutcome.Reject(
                 HireMercenaryRejections.OverArmyUnitCap,
-                $"Army '{army.Id}' already has {army.Units.Count} units; hiring one more would exceed the "
-                + $"{context.Ruleset.ArmyManagement.MaxUnitsPerArmy}-unit cap.");
+                $"This army already has {context.Ruleset.ArmyManagement.MaxUnitsPerArmy} units.");
         }
 
         // The original's own refusal "You cannot recruit from an enemy city.": relation[city.owner][me]
@@ -148,7 +147,7 @@ public sealed class HireMercenaryCommandHandler : ICommandHandler<HireMercenaryC
         {
             return CommandOutcome.Reject(
                 HireMercenaryRejections.EnemyCity,
-                $"'{chosenCity.Id}' belongs to '{chosenCity.Owner}', at war with '{command.IssuingNationId}'.");
+                "You cannot recruit from an enemy city.");
         }
 
         // Bug #769: the original's supply floor, tested after the enemy city and before the fleet. The

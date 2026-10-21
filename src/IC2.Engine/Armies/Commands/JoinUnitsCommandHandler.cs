@@ -66,7 +66,7 @@ public sealed class JoinUnitsCommandHandler : ICommandHandler<JoinUnitsCommand>
         {
             return CommandOutcome.Reject(
                 JoinUnitsRejections.OverBattalionSize,
-                $"Combined troops ({combinedTroops}) would exceed {first.UnitTypeId}'s battalion size of {type.StandardBattalionSize}.");
+                "These units are too large to be combined.");
         }
 
         // Integer average (sum / n, truncated toward zero) -- see JoinUnitsCommand's remarks on rounding.

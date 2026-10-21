@@ -144,10 +144,10 @@ naval.move-fleet rejected (naval.out-of-bounds): (999, 999) is outside the 8x6 m
 naval.order-fleet rejected (naval.city-not-coastal): City 'portus' does not touch the sea.
 
 > repair-fleet north-fleet-1 5
-naval.repair-fleet rejected (naval.not-at-owned-city): Fleet 'north-fleet-1' can only be repaired at one of its own nation's cities.
+naval.repair-fleet rejected (naval.not-at-owned-city): The fleet can only be repaired at one of your cities.
 
 > split-fleet north-fleet-1 north-fleet-3 5
-naval.split-fleet rejected (naval.too-few-ships-to-split): Fleet 'north-fleet-1' has fewer than 20 ships and cannot be split.
+naval.split-fleet rejected (naval.too-few-ships-to-split): You can not split a fleet containing less than 20 ships.
 
 > join-fleets north-fleet-1 north-fleet-3
 naval.join-fleets rejected (naval.unknown-fleet): 'north-fleet-3' is not a known fleet.
