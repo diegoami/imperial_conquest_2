@@ -117,6 +117,11 @@ New worlds paint their terrain as a PNG and convert it with the offline importer
 | 9 | `river_4` | `#00BCD4` |
 | 10 | `river_5` | `#00ACC1` |
 | 11 | `river_6` | `#0097A7` |
+| 12 | `hills` | `#B5A642` |
+
+Codes 0–11 are the classical world's own tile types. Code 12, hills, is not in the classical set: a world that paints it must declare it in its `tileTypes` (the Italy world does), and its ruleset should price it in `terrain.moveCosts` (the Italy ruleset charges 2, like forest). The map draws hills as a blend of plain and mountain.
+
+The six river codes are connectivity pieces, not kinds of river. Each one says which two edges of the tile the river leaves by: 6 west–east, 7 north–south, 8 east+north, 9 east+south, 10 west+south, 11 west+north. Paint each river tile with the piece that joins it to its neighbours. A river may end in the sea, in a lake (a calm-sea tile inside the land) or in another river.
 
 **Workflow:**
 

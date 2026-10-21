@@ -739,6 +739,50 @@ public partial class GameMapView : Control
     /// circular fillet at each river cell's centre — built once at <see cref="Attach"/> (the Opus review
     /// of PR #806 N2), so a river is one smooth stroke rather than a run of tight quarter-arc corners.
     /// </summary>
+    /// <summary>The ink of the hill marks: a dark olive, drawn over the plain-coloured hills surface.</summary>
+    private static readonly Color HillMarkColor = new(0.22f, 0.24f, 0.10f, 0.85f);
+
+    /// <summary>
+    /// T202: hills (code 12) have no surface art of their own, so each visible hills tile gets a small hill mark,
+    /// the arc of a printed map's hachure. Skipped when tiles are too small to read.
+    /// </summary>
+    private void DrawHills(float tileSize)
+    {
+        if (_terrainCells is null || _session is null || tileSize < 5f)
+        {
+            return;
+        }
+
+        var world = _session.World;
+        var x0 = Math.Max(0, (int)Math.Floor(-_pan.X / tileSize));
+        var y0 = Math.Max(0, (int)Math.Floor(-_pan.Y / tileSize));
+        var x1 = Math.Min(world.Width - 1, (int)Math.Ceiling((Size.X - _pan.X) / tileSize));
+        var y1 = Math.Min(world.Height - 1, (int)Math.Ceiling((Size.Y - _pan.Y) / tileSize));
+        var width = Mathf.Max(tileSize * 0.09f, 1f);
+        var arc = new Vector2[7];
+        for (var y = y0; y <= y1; y++)
+        {
+            for (var x = x0; x <= x1; x++)
+            {
+                if (_terrainCells[(y * world.Width) + x] != TerrainSplatMap.HillsCode)
+                {
+                    continue;
+                }
+
+                // alternate rows offset the mark, so a hill country reads as a field of hills, not a grid
+                var origin = _pan + new Vector2(x + ((y & 1) == 0 ? 0.30f : 0.62f), y + 0.62f) * tileSize;
+                var radius = tileSize * 0.26f;
+                for (var k = 0; k < arc.Length; k++)
+                {
+                    var angle = Mathf.Pi + (Mathf.Pi * k / (arc.Length - 1));
+                    arc[k] = origin + new Vector2(Mathf.Cos(angle) * radius, Mathf.Sin(angle) * radius * 0.8f);
+                }
+
+                DrawPolyline(arc, HillMarkColor, width, true);
+            }
+        }
+    }
+
     private void DrawRivers(float tileSize)
     {
         if (_riverChains is null || tileSize < 4f)
@@ -1373,6 +1417,7 @@ public partial class GameMapView : Control
             _drawnSurface = new TerrainSurfaceState(TerrainSurfaceKind.FlatFallback, ResolvedSurfaceKeys());
         }
 
+        DrawHills(tileSize);
         DrawRivers(tileSize);
 
         // T110: the map always draws every layer. The bottom toolbar's Cities/Armies/Fleets toggles hid

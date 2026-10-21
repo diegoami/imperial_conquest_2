@@ -18,7 +18,8 @@ public sealed record TerrainSwatch(int Code, string TileId, int Rgb)
 /// </summary>
 /// <remarks>
 /// The palette is <strong>[designed]</strong> (T201): one colour per shipped terrain code 0–11
-/// (<c>data/worlds/classical-mediterranean.json</c>'s <c>tileTypes</c>), chosen to be told apart at a glance.
+/// (<c>data/worlds/classical-mediterranean.json</c>'s <c>tileTypes</c>), chosen to be told apart at a glance,
+/// plus code 12, hills (T202), which a world must declare in its own <c>tileTypes</c> to use.
 /// It is documented in <c>docs/scenario-authoring.md</c>, "Authoring terrain from a PNG".
 /// </remarks>
 public static class TerrainImporter
@@ -41,6 +42,7 @@ public static class TerrainImporter
         new TerrainSwatch(9, "river_4", 0x00BCD4),
         new TerrainSwatch(10, "river_5", 0x00ACC1),
         new TerrainSwatch(11, "river_6", 0x0097A7),
+        new TerrainSwatch(12, "hills", 0xB5A642),
     };
 
     /// <summary>Whether <paramref name="code"/> is a sea code (0–1).</summary>
@@ -166,7 +168,7 @@ public static class TerrainImporter
         var indices = new byte[codes.Length];
         for (var i = 0; i < codes.Length; i++)
         {
-            if (codes[i] is < 0 or > 11)
+            if (codes[i] < 0 || codes[i] >= Palette.Count)
             {
                 throw new TerrainImportException($"Tile ({i % width}, {i / width}) has code {codes[i]}, which has no palette colour.");
             }

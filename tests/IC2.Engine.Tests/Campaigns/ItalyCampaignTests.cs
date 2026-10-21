@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using IC2.Engine.Ai;
+using IC2.Engine.Model;
 using IC2.Engine.Serialization;
 using IC2.Slice.UI;
 using IC2.Tools.TerrainImport;
@@ -34,7 +35,7 @@ public sealed class ItalyCampaignTests
     }
 
     [Fact]
-    public void The_ruleset_is_the_classical_one_but_for_its_calendar()
+    public void The_ruleset_is_the_classical_one_but_for_its_calendar_and_hills()
     {
         var italy = Repository.RulesetById(Id)!;
         var classical = Repository.RulesetById("classical-faithful")!;
@@ -46,6 +47,11 @@ public sealed class ItalyCampaignTests
             Description = italy.Description,
             Calendar = classical.Calendar with { StartYearBc = 500, Provenance = italy.Calendar.Provenance },
             Victory = classical.Victory with { HardEndYearBc = 460, Provenance = italy.Victory.Provenance },
+            Terrain = classical.Terrain with
+            {
+                MoveCosts = ValueList.From(classical.Terrain.MoveCosts.Append(new TerrainMoveCost("hills", 2))),
+                Provenance = italy.Terrain.Provenance,
+            },
             Provenance = italy.Provenance,
         };
         Assert.Equal(expected, italy);
