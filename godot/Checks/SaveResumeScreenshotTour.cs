@@ -131,7 +131,7 @@ public partial class SaveResumeScreenshotTour : Control
             case 6 when _frame >= SettleFrames:
                 Capture("04-resumed-main-game-screen.png");
                 GD.Print("SaveResumeScreenshotTour: done.");
-                GetTree().Quit(0); // triggers _ExitTree, which cleans up the save this tour produced
+                CheckExit.Quit(this, 0); // triggers _ExitTree, which cleans up the save this tour produced
                 break;
         }
     }

@@ -188,7 +188,7 @@ public partial class CommandFeedbackCheck : Control
         {
             GD.PrintErr($"CommandFeedbackCheck: unhandled exception: {ex}");
             GD.Print("CommandFeedbackCheck: exiting with code 1.");
-            GetTree().Quit(1);
+            CheckExit.Quit(this, 1);
         }
     }
 
@@ -471,7 +471,7 @@ public partial class CommandFeedbackCheck : Control
         }
 
         GD.Print($"CommandFeedbackCheck: exiting with code {exitCode}.");
-        GetTree().Quit(exitCode);
+        CheckExit.Quit(this, exitCode);
     }
 
     private void Check(bool condition, string what)

@@ -33,7 +33,7 @@ public partial class RecruitAfterLoadCheck : Node
         }
 
         GD.Print($"RecruitAfterLoadCheck: exiting with code {(_ok ? 0 : 1)}.");
-        GetTree().Quit(_ok ? 0 : 1);
+        CheckExit.Quit(this, _ok ? 0 : 1);
     }
 
     private void CleanUp()

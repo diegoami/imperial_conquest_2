@@ -162,7 +162,7 @@ public partial class SettingsCheck : Control
         SettingsScreen.SettingsPath = null;
         if (File.Exists(_file)) File.Delete(_file);
         GD.Print($"SettingsCheck: exiting with code {(_ok ? 0 : 1)}.");
-        GetTree().Quit(_ok ? 0 : 1);
+        CheckExit.Quit(this, _ok ? 0 : 1);
     }
 
     private void ClickTile(int x, int y)

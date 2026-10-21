@@ -36,7 +36,7 @@ public partial class CloseAndSaveCheck : Node
 
         var exitCode = _ok ? 0 : 1;
         GD.Print($"CloseAndSaveCheck: exiting with code {exitCode}.");
-        GetTree().Quit(exitCode);
+        CheckExit.Quit(this, exitCode);
     }
 
     private void CleanUp()

@@ -61,7 +61,7 @@ public partial class ChangeUnitsDialogTests : Control
         catch (Exception ex)
         {
             GD.PrintErr($"ChangeUnitsDialogTests: unhandled exception: {ex}");
-            GetTree().Quit(1);
+            CheckExit.Quit(this, 1);
         }
     }
 
@@ -203,7 +203,7 @@ public partial class ChangeUnitsDialogTests : Control
     private void Finish()
     {
         GD.Print($"ChangeUnitsDialogTests: exiting with code {(_ok ? 0 : 1)}.");
-        GetTree().Quit(_ok ? 0 : 1);
+        CheckExit.Quit(this, _ok ? 0 : 1);
     }
 
     /// <summary>

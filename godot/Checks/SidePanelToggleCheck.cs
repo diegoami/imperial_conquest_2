@@ -112,7 +112,7 @@ public partial class SidePanelToggleCheck : Control
         catch (Exception ex)
         {
             GD.PrintErr($"SidePanelToggleCheck: unhandled exception: {ex}");
-            GetTree().Quit(1);
+            CheckExit.Quit(this, 1);
         }
     }
 
@@ -367,7 +367,7 @@ public partial class SidePanelToggleCheck : Control
     {
         new SidePanelToggle().Set(true);
         GD.Print($"SidePanelToggleCheck: exiting with code {(_ok ? 0 : 1)}.");
-        GetTree().Quit(_ok ? 0 : 1);
+        CheckExit.Quit(this, _ok ? 0 : 1);
     }
 
     private static bool Inside(Rect2 r, Vector2 v) =>

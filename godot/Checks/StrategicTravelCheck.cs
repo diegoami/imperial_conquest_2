@@ -81,7 +81,7 @@ public partial class StrategicTravelCheck : Node
         GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
         await ToSignal(GetTree().CreateTimer(2), SceneTreeTimer.SignalName.Timeout);
         GD.Print($"StrategicTravelCheck: exiting with code {(_ok ? 0 : 1)}.");
-        GetTree().Quit(_ok ? 0 : 1);
+        CheckExit.Quit(this, _ok ? 0 : 1);
     }
 
     // [designed] Acceptance measurement, not an original-game colour specification:

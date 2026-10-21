@@ -30,7 +30,7 @@ public partial class EndTurnBoxCheck : Control
 
         var exitCode = _ok ? 0 : 1;
         GD.Print($"EndTurnBoxCheck: exiting with code {exitCode}.");
-        GetTree().Quit(exitCode);
+        CheckExit.Quit(this, exitCode);
     }
 
     private void CheckWarningBoxAndAnswers()

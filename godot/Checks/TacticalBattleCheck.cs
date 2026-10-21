@@ -88,7 +88,7 @@ public partial class TacticalBattleCheck : Node
         await ToSignal(GetTree().CreateTimer(2.0), SceneTreeTimer.SignalName.Timeout);
         var exitCode = _ok ? 0 : 1;
         GD.Print($"TacticalBattleCheck: exiting with code {exitCode}.");
-        GetTree().Quit(exitCode);
+        CheckExit.Quit(this, exitCode);
     }
 
     private static IEnumerable<Node> Descendants(Node node) => node.GetChildren().SelectMany(child => new[] { child }.Concat(Descendants(child)));
@@ -193,7 +193,7 @@ public partial class TacticalBattleCheck : Node
         catch (Exception ex) { GD.PrintErr($"FAIL: capture replay {ex}"); ok = false; }
         SettingsScreen.SetBattlePauses(0, 0);
         GD.Print($"TacticalBattleCheck: exiting with code {(ok ? 0 : 1)}.");
-        GetTree().Quit(ok ? 0 : 1);
+        CheckExit.Quit(this, ok ? 0 : 1);
     }
 
     private async Task CaptureReadability(string pack)

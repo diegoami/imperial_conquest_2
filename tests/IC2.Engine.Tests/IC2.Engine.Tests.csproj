@@ -75,6 +75,8 @@
     <Compile Include="../../godot/UI/UserSettings.cs" Link="Ui/UserSettings.cs" />
     <!-- The rename to "Open Imperial Conquest": user:// data migration, Godot-free. -->
     <Compile Include="../../godot/UI/UserDataMigration.cs" Link="Ui/UserDataMigration.cs" />
+    <!-- #1289: the Help page's "How to play" text, Godot-free. -->
+    <Compile Include="../../godot/UI/HowToPlay.cs" Link="Ui/HowToPlay.cs" />
 
     <!--
       T25 (tests/IC2.Engine.Tests/Ui/Screens/**): the same seam, one file further. BattleResultViewModel.cs,

@@ -55,7 +55,7 @@ public partial class MalformedSaveCheck : Node
 
         var exitCode = _ok ? 0 : 1;
         GD.Print($"MalformedSaveCheck: exiting with code {exitCode}.");
-        GetTree().Quit(exitCode);
+        CheckExit.Quit(this, exitCode);
     }
 
     private void Run()

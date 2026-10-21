@@ -40,7 +40,7 @@ public partial class RulesetFlowCheck : Node
 
         var exitCode = _ok ? 0 : 1;
         GD.Print($"RulesetFlowCheck: exiting with code {exitCode}.");
-        GetTree().Quit(exitCode);
+        CheckExit.Quit(this, exitCode);
     }
 
     private void CheckChooserRendersBothCardsEquallyWeighted()

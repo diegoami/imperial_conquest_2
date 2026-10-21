@@ -181,7 +181,7 @@ public partial class DialogFitCheck : Control
         return null;
     }
     private void Assert(bool condition,string detail) { if(!condition){GD.PrintErr("FAIL DialogFitCheck: "+detail);_ok=false;} }
-    private void Finish() { var code=_ok?0:1;GD.Print($"DialogFitCheck: exiting with code {code}.");GetTree().Quit(code);SetProcess(false); }
+    private void Finish() { var code=_ok?0:1;GD.Print($"DialogFitCheck: exiting with code {code}.");CheckExit.Quit(this, code);SetProcess(false); }
     private static IEnumerable<Node> Descendants(Node node)
     {
         foreach(var child in node.GetChildren()){yield return child;foreach(var nested in Descendants(child))yield return nested;}

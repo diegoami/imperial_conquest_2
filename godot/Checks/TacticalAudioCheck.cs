@@ -81,7 +81,7 @@ public partial class TacticalAudioCheck : Node
         await ToSignal(GetTree().CreateTimer(2), SceneTreeTimer.SignalName.Timeout);
         var code = _ok ? 0 : 1;
         GD.Print($"TacticalAudioCheck: exiting with code {code}.");
-        GetTree().Quit(code);
+        CheckExit.Quit(this, code);
     }
 
     private async Task CheckProduction(string pack, double delay, bool finish, bool enabled, bool hearing = false, string hearingMode = "", double? attackDelay = null)

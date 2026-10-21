@@ -86,7 +86,7 @@ public partial class OrderCoverageCheck : Node
         }
 
         GD.Print($"OrderCoverageCheck: exiting with code {exitCode}.");
-        GetTree().Quit(exitCode);
+        CheckExit.Quit(this, exitCode);
     }
 
     private bool Run()

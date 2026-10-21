@@ -56,7 +56,7 @@ public partial class PeaceOfferCheck : Node
 
         var exitCode = _ok ? 0 : 1;
         GD.Print($"PeaceOfferCheck: exiting with code {exitCode}.");
-        GetTree().Quit(exitCode);
+        CheckExit.Quit(this, exitCode);
     }
 
     // ---- Done-when 4(a) ----

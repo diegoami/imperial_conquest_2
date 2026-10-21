@@ -42,7 +42,7 @@ public partial class AssetPackSelectionCheck : Node
 
         var exitCode = _ok ? 0 : 1;
         GD.Print($"AssetPackSelectionCheck: exiting with code {exitCode}.");
-        GetTree().Quit(exitCode);
+        CheckExit.Quit(this, exitCode);
     }
 
     private void Run()

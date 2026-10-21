@@ -117,7 +117,7 @@ public partial class EndTurnBoxScreenshotTour : Control
             case 7 when _frame >= SettleFrames:
                 Capture("02-five-lines.png");
                 GD.Print("EndTurnBoxScreenshotTour: done.");
-                GetTree().Quit(0);
+                CheckExit.Quit(this, 0);
                 break;
         }
     }

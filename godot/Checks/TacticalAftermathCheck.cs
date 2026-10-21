@@ -78,6 +78,6 @@ public partial class TacticalAftermathCheck : Node
         }
         catch (Exception ex) { GD.PrintErr($"FAIL: TacticalAftermathCheck {ex}"); ok = false; }
         GD.Print($"TacticalAftermathCheck: exiting with code {(ok ? 0 : 1)}.");
-        GetTree().Quit(ok ? 0 : 1);
+        CheckExit.Quit(this, ok ? 0 : 1);
     }
 }

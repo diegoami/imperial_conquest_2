@@ -37,7 +37,7 @@ public partial class OfferNoticeCheck : Node
 
         var exitCode = _ok ? 0 : 1;
         GD.Print($"OfferNoticeCheck: exiting with code {exitCode}.");
-        GetTree().Quit(exitCode);
+        CheckExit.Quit(this, exitCode);
     }
 
     private void Run()

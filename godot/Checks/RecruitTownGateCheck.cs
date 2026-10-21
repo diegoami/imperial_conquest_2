@@ -106,7 +106,7 @@ public partial class RecruitTownGateCheck : Control
         {
             GD.PrintErr($"RecruitTownGateCheck: unhandled exception: {ex}");
             GD.Print("RecruitTownGateCheck: exiting with code 1.");
-            GetTree().Quit(1);
+            CheckExit.Quit(this, 1);
         }
     }
 
@@ -377,7 +377,7 @@ public partial class RecruitTownGateCheck : Control
     private void Finish()
     {
         GD.Print($"RecruitTownGateCheck: exiting with code {(_ok ? 0 : 1)}.");
-        GetTree().Quit(_ok ? 0 : 1);
+        CheckExit.Quit(this, _ok ? 0 : 1);
     }
 
     private static IEnumerable<Button> ButtonsUnder(Node root)

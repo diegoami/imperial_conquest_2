@@ -102,7 +102,7 @@ public partial class DiagnosticsCheck : Node
     private void Finish()
     {
         GD.Print($"DiagnosticsCheck: exiting with code {(_ok ? 0 : 1)}.");
-        GetTree().Quit(_ok ? 0 : 1);
+        CheckExit.Quit(this, _ok ? 0 : 1);
     }
     private async Task Run()
     {

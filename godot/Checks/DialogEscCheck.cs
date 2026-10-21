@@ -109,7 +109,7 @@ public partial class DialogEscCheck : Control
         OS.RemoveLogger(_logger);
         SetProcess(false);
         GD.Print($"DialogEscCheck: exiting with code {(_ok ? 0 : 1)}.");
-        GetTree().Quit(_ok ? 0 : 1);
+        CheckExit.Quit(this, _ok ? 0 : 1);
     }
 
     private void Check(bool condition, string description)

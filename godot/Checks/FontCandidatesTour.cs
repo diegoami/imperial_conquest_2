@@ -124,7 +124,7 @@ public partial class FontCandidatesTour : Control
         if (_asIsSteps.Count == 0)
         {
             GD.Print("FontCandidatesTour (asis): done.");
-            GetTree().Quit(0);
+            CheckExit.Quit(this, 0);
             return;
         }
 

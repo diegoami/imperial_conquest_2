@@ -129,7 +129,7 @@ public partial class TerrainSurfaceCheck : Control
         catch (Exception ex)
         {
             GD.PrintErr($"TerrainSurfaceCheck: unhandled exception: {ex}");
-            GetTree().Quit(1);
+            CheckExit.Quit(this, 1);
         }
     }
 
@@ -309,7 +309,7 @@ public partial class TerrainSurfaceCheck : Control
             case 24 when _frame >= SettleFrames:
                 Capture("05-rim-probe.png");
                 GD.Print("TerrainSurfaceCheck: screenshot tour done.");
-                GetTree().Quit(0);
+                CheckExit.Quit(this, 0);
                 break;
         }
     }
@@ -442,7 +442,7 @@ public partial class TerrainSurfaceCheck : Control
     {
         var exitCode = _ok ? 0 : 1;
         GD.Print($"TerrainSurfaceCheck: exiting with code {exitCode}.");
-        GetTree().Quit(exitCode);
+        CheckExit.Quit(this, exitCode);
     }
 
     private void Check(bool condition, string description)

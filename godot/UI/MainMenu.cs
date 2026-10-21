@@ -44,6 +44,7 @@ public partial class MainMenu : Control
 
         column.AddChild(UiKit.MakeButton("New Game", OnNewGamePressed, AppTheme.Button));
         column.AddChild(UiKit.MakeButton("Load", OnLoadPressed, AppTheme.Button));
+        column.AddChild(UiKit.MakeButton("How to play", OnHowToPlayPressed, AppTheme.Button));
         column.AddChild(UiKit.MakeButton("Settings", OnSettingsPressed, AppTheme.Button));
         column.AddChild(UiKit.MakeButton("Quit", OnQuitPressed, AppTheme.Button));
     }
@@ -53,6 +54,19 @@ public partial class MainMenu : Control
     private void OnLoadPressed() => LoadRequested?.Invoke();
 
     private void OnSettingsPressed() => SettingsRequested?.Invoke();
+
+    /// <summary>#1289: the Help page, "How to play" first, over the menu (no game yet, so no ruleset).</summary>
+    public void OnHowToPlayPressed()
+    {
+        var page = new HelpPage();
+        page.Closed += () =>
+        {
+            RemoveChild(page);
+            page.QueueFree();
+        };
+        page.SetAnchorsPreset(LayoutPreset.FullRect);
+        AddChild(page);
+    }
 
     private void OnQuitPressed() => GetTree().Quit();
 }
