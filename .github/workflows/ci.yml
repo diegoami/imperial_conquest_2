@@ -254,6 +254,7 @@ jobs:
           set +e
           skip=""
           failed=0
+          failed_names=""
           run=0
           for scene in godot/Checks/*Check.tscn godot/Screens/Checks/*Check.tscn; do
             name="$(basename "$scene" .tscn)"
@@ -267,9 +268,14 @@ jobs:
             echo "== ${name} =="
             godot --headless --path godot "res://${scene#godot/}" --quit-after 900 2>&1 | tee "$log"
             code="${PIPESTATUS[0]}"
-            if [ "$code" -ne 0 ]; then echo "FAIL ${name}: exit $code"; failed=$((failed + 1)); continue; fi
-            if ! grep -q "${name}: exiting with code 0." "$log"; then echo "FAIL ${name}: no completion marker"; failed=$((failed + 1)); continue; fi
-            if grep -q 'FAIL' "$log"; then echo "FAIL ${name}: a FAIL line"; failed=$((failed + 1)); continue; fi
+            if [ "$code" -ne 0 ]; then echo "FAIL ${name}: exit $code"; failed=$((failed + 1)); failed_names="${failed_names} ${name}"; continue; fi
+            if ! grep -q "${name}: exiting with code 0." "$log"; then echo "FAIL ${name}: no completion marker"; failed=$((failed + 1)); failed_names="${failed_names} ${name}"; continue; fi
+            if grep -q 'FAIL' "$log"; then echo "FAIL ${name}: a FAIL line"; failed=$((failed + 1)); failed_names="${failed_names} ${name}"; continue; fi
+          done
+          # The full log is too long to page through; repeat each failure's own lines at the end.
+          for name in ${failed_names}; do
+            echo "== failed: ${name} =="
+            grep -E 'FAIL|SCRIPT ERROR|ERROR:|Exception' "$RUNNER_TEMP/check-${name}.txt" | head -n 25
           done
           echo "check scenes run: ${run}; failed: ${failed}"
           test "$failed" -eq 0
