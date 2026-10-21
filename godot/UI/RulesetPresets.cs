@@ -201,8 +201,8 @@ public static class RulesetPresets
         var (scenario, world, ruleset) = (resolved.Scenario, resolved.World, resolved.Ruleset);
         var summary = new[]
         {
-            $"Map: {world.Name}.",
-            $"Rules: {ruleset.Name}.",
+            $"Map: {world.Name}, {world.Width} × {world.Height} tiles.",
+            $"Rules: {ruleset.Description}",
             VictoryLineFor(scenario),
             $"{scenario.Seats.Count} nations; you choose yours on the next screen.",
         };

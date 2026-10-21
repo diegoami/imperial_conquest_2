@@ -441,6 +441,12 @@ public sealed partial class GameSession
         return true;
     }
 
+    /// <summary>
+    /// T202: the reign's length in years, from the ruleset (the start year less the hard end year). The original's
+    /// text says 20, which is exactly what the classical rulesets give (270 - 250); a 40-year campaign says 40.
+    /// </summary>
+    private int ReignYears => Ruleset.Calendar.StartYearBc - Ruleset.Victory.HardEndYearBc;
+
     /// <summary>T199: how the scenario's winner won, for the fall text and the game-over line.</summary>
     private string ScenarioWinPhrase() => _scenarioWin?.ConditionType switch
     {
@@ -1191,7 +1197,7 @@ public sealed partial class GameSession
     private string FallMessageFor(SeatFallReason reason, string? conqueror) => reason switch
     {
         SeatFallReason.AllCities => "You have conquerred the Mediterranean, a unique achievement.",
-        SeatFallReason.HardEndYear => "You have reached the end of your allotted 20 years.",
+        SeatFallReason.HardEndYear => $"You have reached the end of your allotted {ReignYears} years.",
         SeatFallReason.Unpopularity => "Your unpopularity has forced the army to overthrow you.",
         SeatFallReason.Unpaid => "Your army have deposed you because they have not been paid.",
         SeatFallReason.Conquered => $"Your nation has been conquerred by {NationName(conqueror!)}.",
@@ -2272,7 +2278,7 @@ public sealed partial class GameSession
         return reason switch
         {
             SeatFallReason.AllCities => "has conquered the Mediterranean and is handed to the AI.",
-            SeatFallReason.HardEndYear => "has reached the end of its allotted 20 years and is handed to the AI.",
+            SeatFallReason.HardEndYear => $"has reached the end of its allotted {ReignYears} years and is handed to the AI.",
             SeatFallReason.Unpopularity => "has been overthrown by the army and handed to the AI.",
             SeatFallReason.Unpaid => "has been deposed by its unpaid army and handed to the AI.",
             _ => "has been conquered and handed to the AI.",
