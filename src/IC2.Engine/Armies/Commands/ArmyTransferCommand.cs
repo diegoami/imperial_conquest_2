@@ -89,6 +89,9 @@ public static class ArmyTransferRejections
     /// <summary>Either named army id does not exist.</summary>
     public static readonly RejectionCode UnknownArmy = new("armies.army-transfer-unknown-army");
 
+    /// <summary>#802 R30: the receiving army is aboard a fleet without room for the troops moved to it.</summary>
+    public static readonly RejectionCode FleetCannotCarry = new("armies.army-transfer-fleet-cannot-carry");
+
     /// <summary>Either named army belongs to a nation other than the one issuing the command.</summary>
     public static readonly RejectionCode NotYourArmy = new("armies.army-transfer-not-your-army");
 

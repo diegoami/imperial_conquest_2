@@ -43,6 +43,12 @@ public sealed class RenameUnitCommandHandler : ICommandHandler<RenameUnitCommand
                 $"Army '{army.Id}' has {army.Units.Count} units; index {command.UnitIndex} is out of range.");
         }
 
+        // #721 R37: the original renames only regular units.
+        if (!army.Units[command.UnitIndex].IsRegular)
+        {
+            return CommandOutcome.Reject(RenameUnitRejections.NotRegular, "You can only rename regular units.");
+        }
+
         if (!IsValidName(command.Name))
         {
             return CommandOutcome.Reject(

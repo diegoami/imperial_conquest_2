@@ -37,6 +37,12 @@ public sealed class SplitUnitCommandHandler : ICommandHandler<SplitUnitCommand>
 
         var source = army.Units[command.UnitIndex];
 
+        // #802 R39 (play CU02): the original splits only regular units.
+        if (!source.IsRegular)
+        {
+            return CommandOutcome.Reject(SplitUnitRejections.NotRegular, "You can only split regular units.");
+        }
+
         // [designed] 0 < troops < the unit's own troops -- see SplitUnitCommand's remarks (issue #565).
         if (command.Troops <= 0 || command.Troops >= source.Troops)
         {

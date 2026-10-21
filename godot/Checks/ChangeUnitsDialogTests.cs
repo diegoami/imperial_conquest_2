@@ -39,6 +39,7 @@ public partial class ChangeUnitsDialogTests : Control
     public override void _Ready()
     {
         _session = BuildSession();
+        _steps.Add(RenameAndSplitRefuseTwoUnits);
         _steps.Add(DisbandSingleUnitPromptAndNo);
         _steps.Add(DisbandTwoUnitsPromptAndNo);
         _steps.Add(DisbandTwoUnitsYes);
@@ -177,6 +178,28 @@ public partial class ChangeUnitsDialogTests : Control
         {
             dialog.UnitListForCheck.Select(index, single: false);
         }
+    }
+
+    /// <summary>#721 R36 and #802 R38: Rename unit and Split unit with two units selected refuse and submit nothing.</summary>
+    private void RenameAndSplitRefuseTwoUnits()
+    {
+        var dialog = OpenDialog();
+        foreach (var (caption, refusal) in new[]
+        {
+            ("Rename unit", ChangeUnitsModel.RenameOneAtATime),
+            ("Split unit", ChangeUnitsModel.SplitOneAtATime),
+        })
+        {
+            SelectUnits(dialog, 0, 1);
+            _submitted.Clear();
+            var button = ButtonsUnder(dialog).FirstOrDefault(b => b.Text == caption);
+            Check(button is not null, $"the Change units dialog has a {caption} button");
+            button?.EmitSignal(BaseButton.SignalName.Pressed);
+            Check(dialog.ReplyForCheck == refusal, $"{caption} with two units selected says '{refusal}' (got '{dialog.ReplyForCheck}')");
+            Check(_submitted.Count == 0, $"{caption} with two units selected submits nothing");
+        }
+
+        dialog.QueueFree();
     }
 
     /// <summary>Presses the dialog's real Disband button and returns the prompt it opened.</summary>

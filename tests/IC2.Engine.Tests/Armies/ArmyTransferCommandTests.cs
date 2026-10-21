@@ -900,4 +900,28 @@ public sealed class ArmyTransferCommandTests
         Assert.Equal(100, result.State.ArmyById("within-b")!.SupplyTons);
         Assert.Equal(before.Supply, Totals(result.State).Supply);
     }
+
+    /// <summary>#802 R30 (play TR3b): troops moved into an army aboard a fleet must fit the fleet's ships.</summary>
+    [Theory]
+    [InlineData(4, false)] // 4 ships x 500 = 2,000: the 1,000 + 1,000 after the move just fits.
+    [InlineData(3, true)]  // 3 ships x 500 = 1,500: no room for the second unit.
+    public void Transfer_IntoAnArmyAboardAFleet_MustFitTheFleet(int ships, bool refused)
+    {
+        var fleet = new FleetState(
+            "ferry", NorthNationId, 6, 5, Moves: 5, Ships: ships, ConditionPercent: 100, Money: 0, SupplyTons: 0,
+            ConstructionTicksRemaining: null, BuildCityId: null, CarriedArmyId: "rome-f", CoveredTileCode: null);
+        var state = WithArmies(
+            InitialState(),
+            Army("rome-e", NorthNationId, 5, 5, Units(2)),
+            Army("rome-f", NorthNationId, 6, 5, Units(1, prefix: "v"), coveredTileCode: null, aboardFleetId: "ferry"));
+        state = state with { Fleets = ValueList.Of(fleet) };
+
+        var result = Dispatcher().Dispatch(state, OneWay("rome-e", "rome-f", ValueList.Of(0), 0, 0));
+
+        Assert.Equal(refused, result.IsRejected);
+        if (refused)
+        {
+            Assert.Equal(ArmyTransferRejections.FleetCannotCarry, result.Code);
+        }
+    }
 }

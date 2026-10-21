@@ -112,6 +112,12 @@ public static class HireMercenaryRejections
     public static readonly RejectionCode OverArmyTroopCap = new("mercenary.over-army-troop-cap");
 
     /// <summary>
+    /// #802 R09: the army already holds more than the troop cap, so it takes no mercenaries at all
+    /// ("This army cannot get any bigger."), tested before the enemy city and the supplies.
+    /// </summary>
+    public static readonly RejectionCode ArmyCannotGrow = new("mercenary.army-cannot-grow");
+
+    /// <summary>
     /// The hiring army is embarked on a fleet with too little remaining capacity for the hired troops —
     /// the confirmed <em>"This fleet has too little space for these mercenaries."</em>
     /// (<c>tests/fixtures/corpus.json</c> <c>error.mercenaryFleetNoSpace</c>).

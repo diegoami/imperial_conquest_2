@@ -106,25 +106,9 @@ public sealed class HireMercenaryCommandHandler : ICommandHandler<HireMercenaryC
                 + $"city '{chosenCity.Id}' at ({chosenCity.X},{chosenCity.Y}).");
         }
 
-        // Bug #755/T143: this is the minimum purse the hire must pass, not a charge. The hire below
-        // writes no Money at all; the value travels on the event as HireGate so no reader mistakes it
-        // for talents paid.
-        var hireGate = MercenaryHireCost.Compute(slot.Troops, slot.UnitTypeId, slot.Quality, context.Ruleset);
-        if (army.Money < hireGate)
-        {
-            return CommandOutcome.Reject(
-                HireMercenaryRejections.InsufficientMoney,
-                "Your army has too little money to pay these mercenaries.");
-        }
-
-        var troopsAfterHire = army.TotalTroops + slot.Troops;
-        if (troopsAfterHire > context.Ruleset.ArmyManagement.MaxTroopsPerArmy)
-        {
-            return CommandOutcome.Reject(
-                HireMercenaryRejections.OverArmyTroopCap,
-                "An army can not contain more than 100,000 troops.");
-        }
-
+        // #802: the original's order. Before its dialog opens: 20 units (R08), an army already over
+        // 100,000 (R09), an enemy city (R10), supplies (R11); then, per hire, the purse (R25), 100,000
+        // after the hire (R26) and the fleet's space (R27).
         // T15 Done-when 6 (issue #181): the hire always appends exactly one unit slot, so the check is
         // the same shape as JoinArmiesCommandHandler's own MaxUnitsPerArmy cap -- inclusive, so an army
         // at 19 units accepting a hire (ending at 20) is still allowed.
@@ -133,6 +117,15 @@ public sealed class HireMercenaryCommandHandler : ICommandHandler<HireMercenaryC
             return CommandOutcome.Reject(
                 HireMercenaryRejections.OverArmyUnitCap,
                 $"This army already has {context.Ruleset.ArmyManagement.MaxUnitsPerArmy} units.");
+        }
+
+        // #802 R09: an army already over the troop cap is refused before the dialog opens, ahead of the
+        // enemy city and the supplies (TUnitMap_RecruitMercenaries; R26 below is the per-hire test).
+        if (army.TotalTroops > context.Ruleset.ArmyManagement.MaxTroopsPerArmy)
+        {
+            return CommandOutcome.Reject(
+                HireMercenaryRejections.ArmyCannotGrow,
+                "This army cannot get any bigger.");
         }
 
         // The original's own refusal "You cannot recruit from an enemy city.": relation[city.owner][me]
@@ -164,6 +157,25 @@ public sealed class HireMercenaryCommandHandler : ICommandHandler<HireMercenaryC
             return CommandOutcome.Reject(
                 HireMercenaryRejections.TooFewSupplies,
                 "No mercenaries will join an army with so few supplies.");
+        }
+
+        // Bug #755/T143: this is the minimum purse the hire must pass, not a charge. The hire below
+        // writes no Money at all; the value travels on the event as HireGate so no reader mistakes it
+        // for talents paid.
+        var hireGate = MercenaryHireCost.Compute(slot.Troops, slot.UnitTypeId, slot.Quality, context.Ruleset);
+        if (army.Money < hireGate)
+        {
+            return CommandOutcome.Reject(
+                HireMercenaryRejections.InsufficientMoney,
+                "Your army has too little money to pay these mercenaries.");
+        }
+
+        var troopsAfterHire = army.TotalTroops + slot.Troops;
+        if (troopsAfterHire > context.Ruleset.ArmyManagement.MaxTroopsPerArmy)
+        {
+            return CommandOutcome.Reject(
+                HireMercenaryRejections.OverArmyTroopCap,
+                "An army can not contain more than 100,000 troops.");
         }
 
         if (army.IsEmbarked)

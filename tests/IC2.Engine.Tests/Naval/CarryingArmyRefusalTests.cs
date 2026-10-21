@@ -94,4 +94,49 @@ public sealed class CarryingArmyRefusalTests
         Assert.True(absorbedCarries.IsRejected);
         Assert.Equal(JoinFleetsRejections.CarryingArmy, absorbedCarries.Code);
     }
+
+    private static GameState WithCarryingFleet(GameState state, Func<FleetState, FleetState> change) =>
+        state with
+        {
+            Fleets = ValueList.From(state.Fleets.Select(f =>
+                string.Equals(f.Id, CarryingFleetId, StringComparison.Ordinal) ? change(f) : f)),
+        };
+
+    /// <summary>#802: when both hold, the original reports the 100-ship cap before the carried army (play UF05c).</summary>
+    [Fact]
+    public void Join_OverTheShipCapAndCarrying_ReportsTheShipCapFirst()
+    {
+        var state = WithCarryingFleet(BuildState(), f => f with { Ships = 90 });
+
+        var result = NavalTestbed.RealEngineDispatcher().Dispatch(state, new JoinFleetsCommand(NationId, CarryingFleetId, OtherFleetId));
+
+        Assert.Equal(JoinFleetsRejections.CombinedShipsTooLarge, result.Code);
+    }
+
+    /// <summary>#802: away from an own city and carrying, the original reports the missing city first (R13 before R14).</summary>
+    [Fact]
+    public void Repair_AwayFromACityAndCarrying_ReportsTheCityFirst()
+    {
+        var state = WithCarryingFleet(BuildState(), f => f with { X = f.X + 20, Y = f.Y + 20 });
+        state = state with
+        {
+            Armies = ValueList.From(state.Armies.Select(a => a with { X = a.X + 20, Y = a.Y + 20 })),
+        };
+
+        var result = NavalTestbed.RealEngineDispatcher().Dispatch(state, new RepairFleetCommand(NationId, CarryingFleetId, Points: 5));
+
+        Assert.Equal(RepairFleetRejections.NotAtOwnedCity, result.Code);
+    }
+
+    /// <summary>#802: under 20 ships and carrying, the original reports the ship count first (R17 before R18).</summary>
+    [Fact]
+    public void Split_UnderTwentyShipsAndCarrying_ReportsTheShipCountFirst()
+    {
+        var state = WithCarryingFleet(BuildState(), f => f with { Ships = 10 });
+
+        var result = NavalTestbed.RealEngineDispatcher().Dispatch(
+            state, new SplitFleetCommand(NationId, CarryingFleetId, "new-split-fleet", ShipsToNewFleet: 5));
+
+        Assert.Equal(SplitFleetRejections.TooFewShipsToSplit, result.Code);
+    }
 }

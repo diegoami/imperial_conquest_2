@@ -459,4 +459,41 @@ public sealed class HireMercenaryCommandHandlerTests
         var onCityResult = dispatcher.Dispatch(before, new HireMercenaryCommand(before.ActiveNationId, "north-army-1", onCity.SlotIndex));
         Assert.True(onCityResult.IsAccepted, onCityResult.ToString());
     }
+
+    /// <summary>#802: the original tests the 20-unit cap before the purse, so a full, penniless army hears about its units.</summary>
+    [Fact]
+    public void A_full_army_with_no_money_is_refused_for_its_units_first()
+    {
+        var dispatcher = RecruitmentTestbed.Dispatcher();
+        var initial = RecruitmentTestbed.InitialState();
+        var army = ArmyWithUnits(20, "full-poor") with { Money = 0 };
+        var offer = new MercenaryPoolSlot(SlotIndex: 42, X: 2, Y: 1, NameLabel: 3, UnitTypeId: "light_infantry", Troops: 10, Quality: 5);
+        var before = RecruitmentTestbed.WithMercenaryPool(
+            initial with { Armies = ValueList.From(initial.Armies.Append(army)) }, offer);
+
+        var result = dispatcher.Dispatch(before, new HireMercenaryCommand(before.ActiveNationId, army.Id, offer.SlotIndex));
+
+        Assert.Equal(HireMercenaryRejections.OverArmyUnitCap, result.Code);
+    }
+
+    /// <summary>#802 R09: an army already over 100,000 troops "cannot get any bigger", before the purse and the per-hire cap.</summary>
+    [Fact]
+    public void An_army_already_over_the_troop_cap_cannot_get_any_bigger()
+    {
+        var dispatcher = RecruitmentTestbed.Dispatcher();
+        var initial = RecruitmentTestbed.InitialState();
+        var cap = RecruitmentTestbed.Ruleset.ArmyManagement.MaxTroopsPerArmy;
+        var army = new ArmyState(
+            "over-cap", "north", 3, 2, Moves: 5, Morale: 68, Money: 0, SupplyTons: 100_000,
+            CoveredTileCode: 2, AboardFleetId: null,
+            Units: ValueList.Of(new UnitSlot(0, "light_infantry", cap / 2 + 1, 6, "a"), new UnitSlot(0, "light_infantry", cap / 2 + 1, 6, "b")));
+        var offer = new MercenaryPoolSlot(SlotIndex: 43, X: 2, Y: 1, NameLabel: 3, UnitTypeId: "light_infantry", Troops: 10, Quality: 5);
+        var before = RecruitmentTestbed.WithMercenaryPool(
+            initial with { Armies = ValueList.From(initial.Armies.Append(army)) }, offer);
+
+        var result = dispatcher.Dispatch(before, new HireMercenaryCommand(before.ActiveNationId, army.Id, offer.SlotIndex));
+
+        Assert.Equal(HireMercenaryRejections.ArmyCannotGrow, result.Code);
+        Assert.Contains("This army cannot get any bigger.", result.ToString(), StringComparison.Ordinal);
+    }
 }

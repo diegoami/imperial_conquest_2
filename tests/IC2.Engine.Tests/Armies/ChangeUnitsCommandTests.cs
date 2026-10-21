@@ -197,8 +197,9 @@ public sealed class ChangeUnitsCommandTests
         Assert.Equal(state.ArmyById("inherit-a")!.TotalTroops, result.State.ArmyById("inherit-a")!.TotalTroops);
     }
 
+    /// <summary>#802 R39 (play CU02): the original splits only regular units, so a mercenary split is refused.</summary>
     [Fact]
-    public void SplitUnit_AMercenarySplitOffInheritsTypeQualityAndMarker()
+    public void SplitUnit_AMercenaryIsRefused()
     {
         var state = WithArmies(
             InitialState(),
@@ -208,15 +209,23 @@ public sealed class ChangeUnitsCommandTests
 
         var result = Dispatcher().Dispatch(state, new SplitUnitCommand(NorthNationId, "inherit-b", 0, 2_000));
 
-        Assert.True(result.IsAccepted, result.ToString());
-        var updated = result.State.ArmyById("inherit-b")!;
-        var splitOff = updated.Units[^1];
-        Assert.Equal("heavy_infantry", splitOff.UnitTypeId);
-        Assert.Equal(7, splitOff.Quality);
-        Assert.Equal(9, splitOff.MercenaryLabel);
-        Assert.True(splitOff.IsMercenary);
-        Assert.Equal("Gallic", splitOff.Name); // [designed] a mercenary keeps the source name.
-        Assert.Equal(5_000, updated.TotalTroops);
+        Assert.True(result.IsRejected);
+        Assert.Equal(SplitUnitRejections.NotRegular, result.Code);
+        Assert.Equal(state, result.State);
+    }
+
+    /// <summary>#721 R37: the original renames only regular units.</summary>
+    [Fact]
+    public void RenameUnit_AMercenaryIsRefused()
+    {
+        var state = WithArmies(
+            InitialState(),
+            Army("rename-m", NorthNationId, 5, 5, new[] { MercenaryUnit("Gallic") }));
+
+        var result = Dispatcher().Dispatch(state, new RenameUnitCommand(NorthNationId, "rename-m", 0, "Gauls"));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(RenameUnitRejections.NotRegular, result.Code);
     }
 
     [Fact]

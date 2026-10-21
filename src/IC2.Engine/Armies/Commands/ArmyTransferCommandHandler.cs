@@ -138,6 +138,14 @@ public sealed class ArmyTransferCommandHandler : ICommandHandler<ArmyTransferCom
                 $"An army can not hold more than {News.NewsLogWriter.FormatGroupedAmount(rules.MaxTroopsPerArmy)} troops.");
         }
 
+        // #802 R30 (play TR3b): an army aboard a fleet may not end with more troops than its ships carry.
+        if (ExceedsFleet(state, source, finalSourceTroops, context.Ruleset)
+            || ExceedsFleet(state, target, finalTargetTroops, context.Ruleset))
+        {
+            return CommandOutcome.Reject(
+                ArmyTransferRejections.FleetCannotCarry, "This fleet can not carry any more troops.");
+        }
+
         var sourceIsEmpty = finalSourceUnits.Count == 0;
         var targetIsEmpty = finalTargetUnits.Count == 0;
 
@@ -343,4 +351,10 @@ public sealed class ArmyTransferCommandHandler : ICommandHandler<ArmyTransferCom
     /// <summary>Chebyshev distance through the engine's single shared metric.</summary>
     private static int ChebyshevDistance(int fromX, int fromY, int toX, int toY) =>
         LandingTile.ChebyshevDistance(new GridPoint(fromX, fromY), new GridPoint(toX, toY));
+
+    private static bool ExceedsFleet(GameState state, ArmyState army, int finalTroops, Ruleset ruleset) =>
+        army.IsEmbarked
+        && finalTroops > army.TotalTroops
+        && state.FleetById(army.AboardFleetId!) is { } fleet
+        && finalTroops > fleet.Ships * ruleset.Naval.TransportTroopsPerShip;
 }
