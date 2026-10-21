@@ -27,7 +27,7 @@ public sealed class ItalyCampaignTests
 
         Assert.True(resolved.Scenario.Listed);
         Assert.Equal(12, resolved.World.Nations.Count);
-        Assert.Equal((139, 155), (resolved.World.Width, resolved.World.Height));
+        Assert.Equal((209, 233), (resolved.World.Width, resolved.World.Height));
         Assert.Equal(500, resolved.Ruleset.Calendar.StartYearBc);
         Assert.Equal(460, resolved.Ruleset.Victory.HardEndYearBc);
         Assert.Contains(RulesetPresets.CardsFor(Repository), card => card.ScenarioId == Id && card.DisplayName == "Italy, 500 BC");

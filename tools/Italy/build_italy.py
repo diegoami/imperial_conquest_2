@@ -22,14 +22,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 WORLD_ID = "italy-500bc"
 
-# ---- the grid: an equirectangular frame, 12 tiles per degree of longitude, 16 per degree of latitude,
-# which makes tiles about 6.9 km square at 42 N (cos 42 = 0.743; 111 km x 0.743 / 12 ~ 111 km / 16).
+# ---- the grid: an equirectangular frame, 18 tiles per degree of longitude, 24 per degree of latitude,
+# which makes tiles about 4.6 km square at 42 N (cos 42 = 0.743; 111 km x 0.743 / 18 ~ 111 km / 24).
+# designed (owner decision, 2026-10-21): 1.5 times the first grid, so the 231 towns sit as far apart in
+# tiles as the classical map's cities (median nearest neighbour about 4.3 tiles against 4.5).
 # designed (owner review, 2026-10-21): clipped to Italy and its islands, so no empty country is left:
 # the frame stops at the Alpine crest, and the Balkan shore and Africa are left off (drawn as sea).
 LON_MIN, LON_MAX, LAT_MIN, LAT_MAX = 7.0, 18.6, 36.6, 46.3
-TPD_LON, TPD_LAT = 12, 16
-WIDTH = round((LON_MAX - LON_MIN) * TPD_LON)   # 139
-HEIGHT = round((LAT_MAX - LAT_MIN) * TPD_LAT)  # 155
+TPD_LON, TPD_LAT = 18, 24
+WIDTH = round((LON_MAX - LON_MIN) * TPD_LON)   # 209
+HEIGHT = round((LAT_MAX - LAT_MIN) * TPD_LAT)  # 233
 
 GEOGRAPHY = ("historical: coastline, relief and rivers simplified from present-day geography "
              "(the modern coast is close enough at this scale; the Po delta and the Tuscan and Latin "
@@ -564,7 +566,7 @@ def value_noise(x, y, scale, seed):
     return (a + (b - a) * tx) + ((c + (d - c) * tx) - (a + (b - a) * tx)) * ty
 
 def forest_noise(x, y):
-    return 0.6 * value_noise(x, y, 7.0, 1) + 0.4 * value_noise(x, y, 3.0, 2)
+    return 0.6 * value_noise(x, y, 10.5, 1) + 0.4 * value_noise(x, y, 4.5, 2)
 
 MOUNTAIN_FOREST_THRESHOLD = 0.55
 # designed: lower means more forest. The upland is mostly forest (the original's forest stands for hill
@@ -671,7 +673,7 @@ def build_terrain():
             grid[c[1]][c[0]] = EXIT_CODE[frozenset(exits)]
     return grid
 
-ROUGH_SEA_DISTANCE = 14
+ROUGH_SEA_DISTANCE = 21
 
 PALETTE = [0x2A5CAA, 0x14306A, 0x9CCB5A, 0xE8D58A, 0x2E7D32, 0x8D6E63,
            0x80DEEA, 0x4DD0E1, 0x26C6DA, 0x00BCD4, 0x00ACC1, 0x0097A7]  # tools/TerrainImport palette
@@ -808,8 +810,8 @@ def build_world(grid):
         weatherCentres=[dict(x=x, y=y) for x, y in weather],
         _provenance={
             "terrain": GEOGRAPHY + " Built by tools/Italy/build_italy.py into tools/Italy/italy-500bc.png and imported with tools/TerrainImport.",
-            "width": "designed: 11.6 degrees of longitude (7 E to 18.6 E) at 12 tiles per degree; the Balkan shore beyond is drawn as sea.",
-            "height": "designed: 9.7 degrees of latitude (36.6 N to 46.3 N, the Alpine crest) at 16 tiles per degree, so tiles are about 6.9 km square; Africa is drawn as sea.",
+            "width": "designed: 11.6 degrees of longitude (7 E to 18.6 E) at 18 tiles per degree; the Balkan shore beyond is drawn as sea.",
+            "height": "designed: 9.7 degrees of latitude (36.6 N to 46.3 N, the Alpine crest) at 24 tiles per degree, so tiles are about 4.6 km square; Africa is drawn as sea.",
             "tileTypes": "designed: the twelve terrain types of the classical world, reused unchanged so the ruleset's costs apply. Forest stands for wooded hill country, as in the original.",
             "lakes": "historical: Benacus, Larius, Verbanus, Sebinus, Trasumennus, Volsiniensis, Sabatinus and Fucinus (Pliny, Natural History 2.224, 3.131; Livy 22.4 on Trasumennus). Fucinus was drained in the 1870s. designed: their simplified outlines.",
             "turnOrder": "designed: the nations in the order of NATIONS in tools/Italy/build_italy.py.",
