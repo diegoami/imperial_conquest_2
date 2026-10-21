@@ -199,6 +199,9 @@ public partial class InformationPanelCheck : Control
             PanelHasLabel($"Tribute: {IC2.Engine.Economy.CityTaxContribution.Compute(city)} talents"),
             "Rome's city shows tribute in talents (own city)");
         Check(PanelHasLabel("Supply: 990 tons"), "Rome's city shows supply in tons (own city)");
+        Check(
+            PanelHasLabel($"Tax rate: {rome.TaxRatePercent}%"),
+            "bug #608: Rome's city shows the tax rate with no stale display-only remark");
     }
 
     // ---- Own army panel — R5: driven by a real map click at army-0's tile ----

@@ -19,13 +19,8 @@ namespace IC2.Slice.UI;
 /// the Nations menu: selecting Carthage while Rome is the active seat shows Carthage's panel and
 /// Carthage's cities as foreign.
 /// <list type="bullet">
-/// <item><description><strong>Two known engine gaps, reported rather than worked around</strong> (<c>docs/tasks/T24.md</c>):
-/// "If a screen needs an engine or view-model capability that GameSession doesn't expose, do NOT change
-/// src/. STOP and report what's missing.":</description></item>
-/// <item><description><strong>Tax rate is display-only.</strong> <see cref="NationState.TaxRatePercent"/>
-/// is read all over the economy systems but nothing in <c>src/IC2.Engine/Economy/Commands</c> or
-/// <c>src/IC2.Engine/Cities/Orders</c> ever writes it — there is no command that sets a nation's tax
-/// rate. This panel shows the value; it has no control to change it.</description></item>
+/// <item><description><strong>The tax rate is shown, not set here.</strong> <see cref="NationState.TaxRatePercent"/>
+/// is set by Strategy → Taxation (T103's <c>set-tax</c>, T109's dialog); this panel only shows it (bug #608).</description></item>
 /// <item><description><strong>The panels are information only.</strong> T112 removed the last order
 /// buttons — the city panel's Order Fortification (and, before it, Recruit) and the fleet panel's Repair
 /// and Scuttle — so this panel renders no command button at all (the user's decision that it shows
@@ -325,7 +320,7 @@ public partial class ContextPanel : Control
         Fact(IC2.Engine.Economy.HostileArmyAdjacent.IsThreatened(city, DisplayState, Session.Ruleset) ? "Under siege." : "Not under siege.");
 
         var owner = DisplayState.NationById(city.Owner);
-        Fact($"Tax rate: {(owner?.TaxRatePercent.ToString() ?? "?")}%  (display-only — no command sets it; see this class's remarks)");
+        Fact($"Tax rate: {(owner?.TaxRatePercent.ToString() ?? "?")}%");
 
         Fact($"Garrison: {(city.Garrison.Count == 0 ? "none" : string.Join(", ", city.Garrison.Select(u => $"{u.Troops}x {u.UnitTypeId}")))}");
 
