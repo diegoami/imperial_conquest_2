@@ -159,26 +159,12 @@ public static class Deposition
         }
 
         var totalCities = state.Cities.Count;
-        if (totalCities > 0 && CountCitiesOwnedBy(state, nation.Id) >= totalCities)
+        if (totalCities > 0 && state.CountCitiesOwnedBy(nation.Id) >= totalCities)
         {
             return true;
         }
 
         return InDebt(nation, ruleset);
-    }
-
-    private static int CountCitiesOwnedBy(GameState state, string nationId)
-    {
-        var count = 0;
-        foreach (var city in state.Cities)
-        {
-            if (string.Equals(city.Owner, nationId, StringComparison.Ordinal))
-            {
-                count++;
-            }
-        }
-
-        return count;
     }
 
     /// <summary>

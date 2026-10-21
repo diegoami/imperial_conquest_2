@@ -128,7 +128,7 @@ public static class NationStatusModel
         };
 
         // N05–N07: Population (Wealth), Unity word, Tax rate — both own and foreign.
-        lines.Add(new NationStatusLine(PopulationKey, $"Population: {nation.Wealth}"));
+        lines.Add(new NationStatusLine(PopulationKey, $"Population: {InformationWords.Grouped(nation.Wealth)}"));
         lines.Add(new NationStatusLine(UnityKey, $"Unity: {InformationWords.Unity(nation.Unity)}"));
         lines.Add(new NationStatusLine(TaxRateKey, $"Tax rate: {nation.TaxRatePercent}%"));
 
@@ -143,7 +143,7 @@ public static class NationStatusModel
             // N09: the own Treasury line carries the same ' talents' suffix the engine's other
             // money lines use (R4 of the R1 review: the omission broke the panel's text
             // consistency with city tribute and army money lines).
-            lines.Add(new NationStatusLine(TreasuryKey, $"Treasury: {nation.Treasury} talents"));
+            lines.Add(new NationStatusLine(TreasuryKey, $"Treasury: {InformationWords.Grouped(nation.Treasury)} talents"));
         }
         else
         {
@@ -242,7 +242,7 @@ public static class NationStatusModel
             var regiment = inTraining[i];
             lines.Add(new NationStatusLine(
                 TrainingKeyPrefix + i,
-                $"{regiment.UnitTypeId} — {regiment.Troops} troops — {regiment.ReadinessText} — at "
+                $"{regiment.UnitTypeId} — {InformationWords.Grouped(regiment.Troops)} troops — {regiment.ReadinessText} — at "
                 + $"{CityName(state, regiment.TargetCityId)}"));
         }
     }

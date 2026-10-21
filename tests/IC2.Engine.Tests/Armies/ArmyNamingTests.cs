@@ -236,4 +236,19 @@ public sealed class ArmyNamingTests
         // ignored, exactly as the original's own troops > 0 filter would skip it.
         Assert.Equal("2nd Foot Battalion", ArmyNaming.NextName(state, NorthNationId, "light_infantry"));
     }
+
+    /// <summary>#626: after a unit renamed to the 99th, the next name repeats 99 and still fits the save's 23 characters.</summary>
+    [Fact]
+    public void NextName_StopsAtTheNinetyNinth_SoTheNameFitsTheSave()
+    {
+        var state = WithArmies(InitialState(), Army("roman-h", NorthNationId, 1, 1, new[]
+        {
+            RegularUnit("99th Dragoons Battalion", "heavy_cavalry"),
+        }));
+
+        var next = ArmyNaming.NextName(state, NorthNationId, "heavy_cavalry");
+
+        Assert.Equal("99th Dragoons Battalion", next);
+        Assert.True(next.Length <= 23);
+    }
 }

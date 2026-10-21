@@ -104,7 +104,7 @@ public static class VictoryEvaluator
                     continue;
                 }
 
-                if (CountCitiesOwnedBy(state, nation.Id) == totalCities)
+                if (state.CountCitiesOwnedBy(nation.Id) == totalCities)
                 {
                     return VictoryOutcome.Won(VictoryConditionType.TotalConquest, nation.Id);
                 }
@@ -295,21 +295,7 @@ public static class VictoryEvaluator
     }
 
     private static int ScoreFor(GameState state, NationState nation) =>
-        CountCitiesOwnedBy(state, nation.Id) + nation.Treasury + nation.Unity;
-
-    private static int CountCitiesOwnedBy(GameState state, string nationId)
-    {
-        var count = 0;
-        foreach (var city in state.Cities)
-        {
-            if (string.Equals(city.Owner, nationId, StringComparison.Ordinal))
-            {
-                count++;
-            }
-        }
-
-        return count;
-    }
+        state.CountCitiesOwnedBy(nation.Id) + nation.Treasury + nation.Unity;
 
     /// <summary>
     /// Every nation's owned-city count, in one pass over <see cref="GameState.Cities"/>. Keyed lookup

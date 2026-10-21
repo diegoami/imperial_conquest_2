@@ -135,14 +135,12 @@ public static class ArmyNaming
     /// unit's ordinal is retired, not recycled.
     /// </para>
     /// <para>
-    /// <strong>There is no 99 cap here, deliberately.</strong>
+    /// <strong>The ordinal stops at 99 (#626).</strong>
     /// <c>decompiled-mobilization-and-mercenary-restock.md</c> §3 records that <c>FUN_0044a218</c>
-    /// "picks the lowest ordinal <c>N</c> in <c>1..99</c> … if all of 1..98 are taken it sticks at
-    /// 99" — but that sentence describes the <em>smallest-unused</em> loop the same corpus refutes
-    /// (see this class's remarks), and under one-past-the-highest there is no search to terminate and
-    /// so nothing to stick at. The highest ordinal anywhere in the pair that settles the rule is 9, so
-    /// the corpus does not reach the question, and #243 granted these files for its two defects only.
-    /// Recorded here rather than left in a pull-request body, which does not survive the merge.
+    /// works in <c>1..99</c> and "sticks at 99". Whether its one-past-the-highest scan also stops there is
+    /// unproven (the corpus never passes 9), but without the cap a renamed "99th Dragoons Battalion" made
+    /// the next one "100th Dragoons Battalion", 24 characters, one more than the save's 23-character unit
+    /// name holds. [designed] on that evidence: ordinal 99 repeats rather than overflowing the field.
     /// </para>
     private static int NextOrdinal(GameState state, string nationId, string unitTypeId, string label)
     {
@@ -168,8 +166,11 @@ public static class ArmyNaming
             highest = Math.Max(highest, HighestOrdinal(city.Garrison, unitTypeId, label));
         }
 
-        return highest + 1;
+        return Math.Min(highest + 1, MaxOrdinal);
     }
+
+    /// <summary>The highest ordinal a generated name carries (#626; see <see cref="NextOrdinal"/>).</summary>
+    private const int MaxOrdinal = 99;
 
     /// <summary>
     /// The highest ordinal borne by a regular unit of <paramref name="unitTypeId"/> in
