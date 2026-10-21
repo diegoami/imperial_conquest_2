@@ -277,7 +277,7 @@ public partial class MapClickCheck : Control
         Check(army is not null, "army-0 stands at (100,37) in the fixture");
         Check(ArmyIsSelected("army-0"), "a left click on an own army selects it");
 
-        CheckPanelShowsHeading("Army — army-0");
+        CheckPanelShowsSubject("Army", "army-0");
         // T140: each fact is its own line, and morale is a word (the research read's bands).
         foreach (var field in StatsFields)
         {
@@ -329,7 +329,7 @@ public partial class MapClickCheck : Control
         Check(
             _selectionsCleared == _clearedBefore + 1,
             "a left click on a foreign army beyond attack reach drops the selection");
-        CheckPanelShowsHeading("Army — army-11");
+        CheckPanelShowsSubject("Army", "army-11");
         foreach (var field in StatsFields)
         {
             var line = PanelFieldLine(field);
@@ -374,7 +374,7 @@ public partial class MapClickCheck : Control
         Check(
             _selectionsCleared == _clearedBefore,
             "the army is still selected after a move that leaves moves >= 1 (no SelectionCleared)");
-        CheckPanelShowsHeading("Army — army-0");
+        CheckPanelShowsSubject("Army", "army-0");
     }
 
     private void ClickFarLandTile()
@@ -615,7 +615,7 @@ public partial class MapClickCheck : Control
         Check(
             _armySelectedCount == _armiesBefore,
             "the embarked army is not selected in the fleet's place");
-        CheckPanelShowsHeading("Fleet — rome-carry-fleet");
+        CheckPanelShowsSubject("Fleet", "rome-carry-fleet");
     }
 
     private void ClickRightOnOwnCarryingFleet()
@@ -653,7 +653,7 @@ public partial class MapClickCheck : Control
     private void AssertAttackFleetSelected()
     {
         Check(_fleetSelectedCount > _fleetsBefore, "a left click selects the own attack fleet");
-        CheckPanelShowsHeading("Fleet — rome-attack-fleet");
+        CheckPanelShowsSubject("Fleet", "rome-attack-fleet");
     }
 
     private void ClickForeignCarryingFleet()
@@ -767,7 +767,7 @@ public partial class MapClickCheck : Control
     // ---- the panel and selection observables ----
 
     /// <summary>Selection is observable only through the panel the map's events drive — T96's own lesson.</summary>
-    private bool ArmyIsSelected(string armyId) => PanelShowsHeading($"Army — {armyId}");
+    private bool ArmyIsSelected(string armyId) => PanelShowsSubject("Army", armyId);
 
     private bool ArmyIsNotSelected() => !PanelHeadingStartsWith("Army —");
 
@@ -775,11 +775,18 @@ public partial class MapClickCheck : Control
 
     private bool CityIsNotSelected() => !PanelHeadingStartsWith("City —");
 
+    /// <summary>#1288: the panel heads an army or fleet with its kind only; the subject names which one.</summary>
+    private bool PanelShowsSubject(string kind, string id) =>
+        PanelShowsHeading(kind) && _mainGame.ContextPanel.SubjectForCheck == $"{kind}:{id}";
+
     private bool PanelShowsHeading(string text) =>
         FindPanelLabel(label => label.Text == text) is { Visible: true };
 
     private bool PanelHeadingStartsWith(string prefix) =>
         FindPanelLabel(label => label.Text.StartsWith(prefix, StringComparison.Ordinal)) is { Visible: true };
+
+    private void CheckPanelShowsSubject(string kind, string id) =>
+        Check(PanelShowsSubject(kind, id), $"the panel shows {kind} {id} after layout frames");
 
     private void CheckPanelShowsHeading(string text) =>
         Check(PanelShowsHeading(text), $"the panel shows its '{text}' view after layout frames");

@@ -569,10 +569,10 @@ public partial class TacticalBattleScreen : Control
         TacticalShotEvent or TacticalMeleeEvent => string.Join("\n", TacticalBattleViewModel.PresentExchange(frame, _display).PlainLines),
         _ => frame.Kind switch
         {
-            TacticalFrameKind.HalfRound => "Resolving the previous half-round before controller handoff",
-            TacticalFrameKind.Setup => "Round state updated — controller ready",
-            TacticalFrameKind.Terminal => "Battle ended — completing battlefield updates",
-            TacticalFrameKind.Reconciliation => "Battlefield reconciled",
+            TacticalFrameKind.HalfRound => "Finishing the previous half-round",
+            TacticalFrameKind.Setup => "Next half-round ready",
+            TacticalFrameKind.Terminal => "Battle over — finishing the last moves",
+            TacticalFrameKind.Reconciliation => "Battlefield updated",
             _ => frame.Kind.ToString(),
         },
     };

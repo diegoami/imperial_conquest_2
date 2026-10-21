@@ -30,7 +30,15 @@ public sealed record RulesetCard(
     string RulesetId,
     string ScenarioId,
     string DisplayName,
-    IReadOnlyList<string> Summary);
+    IReadOnlyList<string> Summary)
+{
+    /// <summary>
+    /// #1288 (F5 of #1280): the same five dimensions as <see cref="Summary"/>, in the player's words —
+    /// what the chooser card shows. <see cref="Summary"/> keeps the exact ruleset paths and caveats and
+    /// is the line's tooltip.
+    /// </summary>
+    public IReadOnlyList<string> PlayerSummary { get; init; } = Summary;
+}
 
 /// <summary>
 /// The two shipped cards New Game's ruleset chooser renders, and which scenario each one bootstraps —
@@ -106,7 +114,17 @@ public static class RulesetPresets
             "Human vs AI: reproduces the original's asymmetric seat rules exactly as coded (flags.seatAsymmetry: faithful).",
             "Bugs: reproduces two confirmed decompiled bugs — the 8-column thaw bug and the 16-bit siege-ratio clamp.",
             "A defeated army or fleet is destroyed outright (flags.combatOnDefeat: destroyed).",
-        });
+        })
+    {
+        PlayerSummary = new[]
+        {
+            "Diplomacy: the original's rules for war, peace, trade and alliances.",
+            "Victory: total conquest — hold every city on the map.",
+            "Computer and human nations play by the original's different rules, exactly as it had them.",
+            "Keeps two known bugs of the original game, for faithfulness.",
+            "A defeated army or fleet is destroyed.",
+        },
+    };
 
     public static readonly RulesetCard Improved = new(
         RulesetPreset.Improved,
@@ -120,7 +138,17 @@ public static class RulesetPresets
             "Human vs AI: the same rules apply to every seat, human or AI (flags.seatAsymmetry: normalized).",
             "Bugs: the thaw-column and siege-ratio-clamp bugs are both fixed.",
             "A defeated army or fleet survives at reduced strength and scatters, so it can be pursued later (flags.combatOnDefeat: scatter).",
-        });
+        })
+    {
+        PlayerSummary = new[]
+        {
+            "Diplomacy: the same rules as Classical Faithful.",
+            "Victory: domination — hold every city of every nation still at war with you.",
+            "Every nation, human or computer, plays by the same rules.",
+            "The original's two known bugs are fixed.",
+            "A defeated army or fleet survives weakened and scatters, so it can be pursued.",
+        },
+    };
 
     /// <summary>Both cards, in the order the chooser renders them — Classical Faithful first.</summary>
     public static readonly IReadOnlyList<RulesetCard> Cards = new[] { ClassicalFaithful, Improved };

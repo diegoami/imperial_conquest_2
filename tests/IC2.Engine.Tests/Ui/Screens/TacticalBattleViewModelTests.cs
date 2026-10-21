@@ -432,7 +432,7 @@ public sealed class TacticalBattleViewModelTests
         Assert.Contains("Computer general", general.ControllerText);
         var resolving = TacticalBattleViewModel.FromSnapshot(pending.After, display, resolvingHalfRound: true);
         Assert.DoesNotContain("Human", resolving.ControllerText);
-        Assert.Contains("handoff pending", resolving.ControllerText);
+        Assert.StartsWith("Finishing the previous half-round", resolving.ControllerText); // #1288: no "controller handoff" jargon
     }
 
     [Fact]

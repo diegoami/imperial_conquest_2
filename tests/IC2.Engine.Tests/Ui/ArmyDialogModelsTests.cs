@@ -34,6 +34,17 @@ public sealed class ArmyDialogModelsTests
 
     private static ResolvedScenario Classical => LazyClassical.Value;
 
+    [Theory]
+    [InlineData(4100, "light_infantry", null, null, "4,100 Light infantry")]
+    [InlineData(2000, "heavy_infantry", 5, null, "2,000 Heavy infantry (poor)")]
+    [InlineData(950, "archers", 6, "1st Archers", "950 Archers (average) — 1st Archers")]
+    [InlineData(10, "war_elephants", null, null, "10 war_elephants")]
+    public void A_unit_line_uses_the_rulesets_own_type_name(int troops, string type, int? quality, string? name, string expected)
+    {
+        // #1288 (F5 of #1280): "4100x light_infantry" is internal text; the player reads the ruleset's name.
+        Assert.Equal(expected, ArmyDialogModels.UnitLine(Classical.Ruleset, troops, type, quality, name));
+    }
+
     private static GameSession Session(int aSupply = 200, int bSupply = 10, int aMoney = 200, int bMoney = 100)
     {
         var resolved = Classical;

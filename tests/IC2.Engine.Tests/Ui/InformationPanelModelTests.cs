@@ -529,14 +529,14 @@ public sealed class InformationPanelModelTests
             qualityKeys);
 
         // The captions come from ArmyDialogModels.QualityCaption (5 → poor, 6 → average, 8 → very
-        // good), in the unit list's "{troops}x {unitTypeId} ({caption})" format, in slot order.
+        // good), in the unit list's "{troops} {unit type name} ({caption})" format (#1288), in slot order.
         var texts = lines.Skip(mercIndex + 2).Select(line => line.Text).ToList();
         Assert.Equal(
             new[]
             {
-                "2000x light_infantry (poor)",
-                "5000x heavy_infantry (average)",
-                "3000x archers (very good)",
+                "2,000 Light infantry (poor)",
+                "5,000 Heavy infantry (average)",
+                "3,000 Archers (very good)",
             },
             texts);
 

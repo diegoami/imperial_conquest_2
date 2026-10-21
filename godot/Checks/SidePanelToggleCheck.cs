@@ -275,7 +275,7 @@ public partial class SidePanelToggleCheck : Control
     /// <summary>
     /// Whether the panel is showing an army's own view. T111 moved the army orders — Disband among
     /// them — out of this panel and into their own dialogs, so the old Disband-button probe no longer
-    /// exists. The army panel's one stable marker is its heading, <c>"Army — {army.Id}"</c>
+    /// exists. The army panel's one stable marker is its heading, <c>"Army"</c> (#1288), with the panel's subject
     /// (<see cref="ContextPanel.BuildArmyPanel"/>), the same heading <c>MapClickCheck</c> already keys
     /// on. A selected unit is not a nation status panel, so the two nation accessors remain as a guard
     /// against the All-nations and nation-overview views.
@@ -283,8 +283,8 @@ public partial class SidePanelToggleCheck : Control
     private bool ShowsArmyView() =>
         _mainGame.ContextPanel.StatusNationIdForCheck is null
         && !_mainGame.ContextPanel.ShowsAllNationsForCheck
-        && AllLabels(_mainGame.ContextPanel).Any(
-            label => label.Text.StartsWith("Army — ", StringComparison.Ordinal));
+        && _mainGame.ContextPanel.SubjectForCheck.StartsWith("Army:", StringComparison.Ordinal)
+        && AllLabels(_mainGame.ContextPanel).Any(label => label.Text == "Army");
 
     private void OpenOverlay()
     {

@@ -232,7 +232,7 @@ public static class InformationPanelModel
     /// <summary>
     /// The own-army panel's lines — rows A01–A11, in the original's order, then a blank separator and
     /// one regiment-quality line per unit (in slot order, the unit list's format
-    /// <c>"{troops}x {unitTypeId} ({QualityCaption(quality)})"</c>). The quality lines are the fix for
+    /// <see cref="ArmyDialogModels.UnitLine"/>, e.g. "2,000 Light infantry (poor)", #1288). The quality lines are the fix for
     /// bug #861: T111's regiment quality on the army panel, applied to the own army only (a foreign
     /// army's panel withholds its units, as before).
     /// </summary>
@@ -279,7 +279,7 @@ public static class InformationPanelModel
             var slot = army.Units[i];
             lines.Add(new InformationPanelLine(
                 ArmyUnitQualityKeyPrefix + i,
-                $"{slot.Troops}x {slot.UnitTypeId} ({ArmyDialogModels.QualityCaption(slot.Quality)})"));
+                ArmyDialogModels.UnitLine(ruleset, slot.Troops, slot.UnitTypeId, slot.Quality)));
         }
 
         return lines;

@@ -57,6 +57,24 @@ public sealed class RulesetPresetsTests
     }
 
     [Fact]
+    public void Every_cards_player_summary_has_the_same_five_lines_without_ruleset_paths()
+    {
+        // #1288 (F5 of #1280): the card shows the player's words; the paths stay in Summary (the tooltip).
+        foreach (var card in RulesetPresets.Cards)
+        {
+            Assert.Equal(card.Summary.Count, card.PlayerSummary.Count);
+            Assert.NotSame(card.Summary, card.PlayerSummary);
+            Assert.All(card.PlayerSummary, line =>
+            {
+                Assert.False(string.IsNullOrWhiteSpace(line));
+                Assert.DoesNotContain("flags.", line, StringComparison.Ordinal);
+                Assert.DoesNotContain("victory.", line, StringComparison.Ordinal);
+                Assert.DoesNotContain("engine", line, StringComparison.OrdinalIgnoreCase);
+            });
+        }
+    }
+
+    [Fact]
     public void Every_cards_summary_is_non_empty_and_has_five_lines()
     {
         // docs/tasks/T24.md: "diplomacy, victory condition, human/AI symmetry, bug reproduction, and ...

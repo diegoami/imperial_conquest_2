@@ -635,7 +635,7 @@ public partial class TacticalBattleCheck : Node
                 foreach (var row in screen.Model.RosterRows(side))
                     Check(row.Cells[2] == displayed.View.Slots[row.Slot].Troops.ToString(), "roster troops equal displayed snapshot");
             if (frame.Kind == TacticalFrameKind.HalfRound)
-                Check(screen.ControllerLabel.Text.Contains("handoff pending") && !screen.CaptionLabel.Text.Contains("to move units"), "pre-melee handoff does not announce next human turn");
+                Check(screen.ControllerLabel.Text.StartsWith("Finishing the previous half-round", StringComparison.Ordinal) && !screen.CaptionLabel.Text.Contains("to move units"), "pre-melee handoff does not announce next human turn");
             if (frame.Kind == TacticalFrameKind.Terminal) terminalSeen = true;
             if (terminalSeen && frame.Kind == TacticalFrameKind.Reconciliation) reconciled = true;
         };

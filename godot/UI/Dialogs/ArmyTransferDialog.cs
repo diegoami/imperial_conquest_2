@@ -471,14 +471,12 @@ public partial class ArmyTransferDialog : Control
         _moneyLabel.Text = NetLabel("Money", _model.MoneyNet, _model.MaxMoneyToPartner, _model.MaxMoneyBack);
     }
 
-    private static void Fill(ItemList list, IEnumerable<TransferRow> rows)
+    private void Fill(ItemList list, IEnumerable<TransferRow> rows)
     {
         list.Clear();
         foreach (var row in rows)
         {
-            var name = string.IsNullOrEmpty(row.Unit.Name) ? string.Empty : $" — {row.Unit.Name}";
-            list.AddItem(
-                $"{row.Unit.Troops}x {row.Unit.UnitTypeId} ({ArmyDialogModels.QualityCaption(row.Unit.Quality)}){name}");
+            list.AddItem(ArmyDialogModels.UnitLine(Session.Ruleset, row.Unit.Troops, row.Unit.UnitTypeId, row.Unit.Quality, row.Unit.Name));
         }
     }
 
