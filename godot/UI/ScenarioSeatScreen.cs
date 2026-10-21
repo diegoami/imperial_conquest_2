@@ -29,8 +29,11 @@ public partial class ScenarioSeatScreen : Control
     /// <summary>Raised by the "Back" button — returns to the ruleset chooser.</summary>
     public event Action? BackRequested;
 
-    private OptionButton _seatPicker = null!;
     private IReadOnlyList<SeatOption> _seatOptions = Array.Empty<SeatOption>();
+    private readonly Dictionary<string, CheckBox> _humanBoxes = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, LineEdit> _leaderEdits = new(StringComparer.Ordinal);
+    private Button _startButton = null!;
+    private Label _playersLine = null!;
     private HSlider _aggressionSlider = null!;
     private HSlider _expansionSlider = null!;
     private HSlider _loyaltySlider = null!;
@@ -68,37 +71,103 @@ public partial class ScenarioSeatScreen : Control
         column.AddChild(UiKit.MakeLabel($"World: {resolved.World.Id} · {_seatOptions.Count} nations", AppTheme.Body, UiKit.MutedTextColor));
 
         column.AddChild(new HSeparator());
-        column.AddChild(UiKit.MakeLabel("Play as:", AppTheme.Header, UiKit.TextColor));
+        // #719: the original's "Human and computer leaders" form: a Human tick and an editable leader's name per
+        // nation; computer nations' names are greyed. Two or more humans play hotseat.
+        column.AddChild(UiKit.MakeLabel("Players:", AppTheme.Header, UiKit.TextColor));
+        _playersLine = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.MutedTextColor);
+        column.AddChild(_playersLine);
 
-        _seatPicker = new OptionButton
+        var scroll = new ScrollContainer
         {
-            CustomMinimumSize = new Vector2(260, 36),
-            SizeFlagsHorizontal = SizeFlags.ShrinkBegin,
+            CustomMinimumSize = new Vector2(0, 420),
+            SizeFlagsVertical = SizeFlags.ExpandFill,
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
         };
+        column.AddChild(scroll);
+        var grid = new GridContainer { Columns = 3 };
+        grid.AddThemeConstantOverride("h_separation", AppTheme.DialogGap * 2);
+        grid.AddThemeConstantOverride("v_separation", 4);
+        scroll.AddChild(grid);
+        foreach (var heading in new[] { "Nation", "Human", "Leader's name" })
+        {
+            grid.AddChild(UiKit.MakeLabel(heading, AppTheme.Body, UiKit.AccentColor));
+        }
+
+        var humansAtStart = resolved.Scenario.Seats.Where(seat => seat.Control == SeatControl.Human).Select(seat => seat.Nation).ToHashSet();
+        if (humansAtStart.Count == 0 && _seatOptions.Count > 0)
+        {
+            humansAtStart.Add(_seatOptions[0].NationId);
+        }
+
         foreach (var option in _seatOptions)
         {
-            _seatPicker.AddItem(option.DisplayName);
-        }
+            var nationId = option.NationId;
+            var name = UiKit.MakeLabel(option.DisplayName, AppTheme.Body, UiKit.TextColor);
+            name.CustomMinimumSize = new Vector2(200, 0);
+            grid.AddChild(name);
 
-        if (_seatOptions.Count > 0)
-        {
-            _seatPicker.Selected = 0;
-        }
+            var human = new CheckBox { Name = $"Human_{nationId}", ButtonPressed = humansAtStart.Contains(nationId) };
+            human.Toggled += _ => RefreshPlayers();
+            grid.AddChild(human);
+            _humanBoxes[nationId] = human;
 
-        column.AddChild(_seatPicker);
+            var leader = new LineEdit
+            {
+                Name = $"Leader_{nationId}",
+                PlaceholderText = resolved.World.NationById(nationId)?.LeaderName ?? string.Empty,
+                MaxLength = NewGameSelection.MaxLeaderNameLength,
+                CustomMinimumSize = new Vector2(260, 0),
+            };
+            grid.AddChild(leader);
+            _leaderEdits[nationId] = leader;
+        }
 
         column.AddChild(new HSeparator());
         column.AddChild(UiKit.MakeLabel(
-            "AI personality (applies to every AI-controlled nation):", AppTheme.Header, UiKit.TextColor));
+            "AI personality (applies to every computer nation):", AppTheme.Header, UiKit.TextColor));
 
         _aggressionSlider = AddPersonalitySlider(column, "Aggression");
         _expansionSlider = AddPersonalitySlider(column, "Expansion drive");
         _loyaltySlider = AddPersonalitySlider(column, "Loyalty to alliances");
 
         column.AddChild(new Control { CustomMinimumSize = new Vector2(0, 12) });
-        var startButton = UiKit.MakeButton("Start Game", OnStartPressed, AppTheme.Button);
-        startButton.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
-        column.AddChild(startButton);
+        _startButton = UiKit.MakeButton("Start Game", OnStartPressed, AppTheme.Button);
+        _startButton.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
+        column.AddChild(_startButton);
+        RefreshPlayers();
+    }
+
+    /// <summary>#719: the nations ticked Human, in seat order.</summary>
+    public IReadOnlyList<string> HumanNationIds =>
+        _seatOptions.Select(o => o.NationId).Where(id => _humanBoxes.TryGetValue(id, out var box) && box.ButtonPressed).ToList();
+
+    /// <summary>#719: whether Start Game can be pressed (at least one human).</summary>
+    public bool CanStart => !_startButton.Disabled;
+
+    /// <summary>#719, for checks: tick or clear a nation's Human box, as a click would.</summary>
+    public void SetHumanForCheck(string nationId, bool human) => _humanBoxes[nationId].ButtonPressed = human;
+
+    /// <summary>#719, for checks: type a leader's name, as the keyboard would.</summary>
+    public void SetLeaderNameForCheck(string nationId, string name) => _leaderEdits[nationId].Text = name;
+
+    /// <summary>#719, for checks: whether a nation's leader's name can be edited (only a human's can).</summary>
+    public bool IsLeaderEditableForCheck(string nationId) => _leaderEdits[nationId].Editable;
+
+    private void RefreshPlayers()
+    {
+        foreach (var (nationId, box) in _humanBoxes)
+        {
+            _leaderEdits[nationId].Editable = box.ButtonPressed;
+        }
+
+        var count = HumanNationIds.Count;
+        _startButton.Disabled = count == 0;
+        _playersLine.Text = count switch
+        {
+            0 => "Tick at least one nation a person plays.",
+            1 => "One player; the computer plays every other nation.",
+            _ => $"{count} players take turns at this computer (hotseat); the computer plays the rest.",
+        };
     }
 
     private HSlider AddPersonalitySlider(VBoxContainer column, string label)
@@ -130,13 +199,24 @@ public partial class ScenarioSeatScreen : Control
 
     private void OnStartPressed()
     {
-        if (_seatOptions.Count == 0)
+        var humans = HumanNationIds;
+        if (humans.Count == 0)
         {
             return;
         }
 
-        var chosenIndex = Mathf.Clamp(_seatPicker.Selected, 0, _seatOptions.Count - 1);
-        Selection.HumanNationId = _seatOptions[chosenIndex].NationId;
+        Selection.HumanNationIds.Clear();
+        Selection.HumanNationIds.AddRange(humans);
+        Selection.LeaderNames.Clear();
+        foreach (var nationId in humans)
+        {
+            var typed = _leaderEdits[nationId].Text.Trim();
+            if (typed.Length > 0)
+            {
+                Selection.LeaderNames[nationId] = typed;
+            }
+        }
+
         Selection.AiPersonalityOverride = new AiPersonality(
             _aggressionSlider.Value, _expansionSlider.Value, _loyaltySlider.Value);
 

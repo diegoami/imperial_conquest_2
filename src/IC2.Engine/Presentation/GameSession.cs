@@ -447,6 +447,23 @@ public sealed partial class GameSession
     /// </summary>
     private int ReignYears => Ruleset.Calendar.StartYearBc - Ruleset.Victory.HardEndYearBc;
 
+    /// <summary>#719: <paramref name="state"/> with the typed leader names, trimmed; blank names are ignored.</summary>
+    private static GameState ApplyLeaderNames(GameState state, IReadOnlyDictionary<string, string>? leaderNames)
+    {
+        if (leaderNames is null || leaderNames.Count == 0)
+        {
+            return state;
+        }
+
+        return state with
+        {
+            Nations = ValueList.From(state.Nations.Select(nation =>
+                leaderNames.TryGetValue(nation.Id, out var typed) && !string.IsNullOrWhiteSpace(typed)
+                    ? nation with { LeaderName = typed.Trim() }
+                    : nation)),
+        };
+    }
+
     /// <summary>T199: how the scenario's winner won, for the fall text and the game-over line.</summary>
     private string ScenarioWinPhrase() => _scenarioWin?.ConditionType switch
     {
@@ -758,12 +775,16 @@ public sealed partial class GameSession
     /// its nation the CLI's <em>only</em> human seat, never a second one alongside whatever the scenario
     /// already assigned. <see langword="null"/> keeps every seat exactly as the scenario assigns it.
     /// </param>
+    /// <param name="leaderNames">
+    /// #719: leader names the players typed at New Game, by nation id, replacing the leader the New Game draw
+    /// picked. A blank name keeps the drawn one. <see langword="null"/> renames nobody.
+    /// </param>
     /// <exception cref="ArgumentException">
     /// <paramref name="humanSeatNationId"/> names a nation <paramref name="scenario"/> assigns no seat to.
     /// </exception>
     public GameSession(
         World world, Ruleset ruleset, Scenario scenario, ulong? seedOverride = null,
-        string? humanSeatNationId = null)
+        string? humanSeatNationId = null, IReadOnlyDictionary<string, string>? leaderNames = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(ruleset);
@@ -817,6 +838,7 @@ public sealed partial class GameSession
         // the fall sites below redraw from the same world pool the New Game used. Its own stream, so no
         // other seeded outcome moves; a world without a pool draws nothing.
         State = NewGameLeaders.Apply(State, World);
+        State = ApplyLeaderNames(State, leaderNames);
 
         // T119 (#602): the New Game turn-order shuffle, after the seed override and before any seat is
         // advanced (the original shuffles before the seat form opens, so the human's seat does not change

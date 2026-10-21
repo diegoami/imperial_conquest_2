@@ -31,7 +31,27 @@ public sealed class NewGameSelection
     /// The human seat's nation id, or <see langword="null"/> before the seat step has ever set one — a
     /// screen that reads this before the seat step ran is a bug, not a state to silently default from.
     /// </summary>
-    public string? HumanNationId { get; set; }
+    public string? HumanNationId
+    {
+        get => HumanNationIds.Count > 0 ? HumanNationIds[0] : null;
+        set
+        {
+            HumanNationIds.Clear();
+            if (value is not null)
+            {
+                HumanNationIds.Add(value);
+            }
+        }
+    }
+
+    /// <summary>#719: every nation a person plays, in seat order; two or more make a hotseat game.</summary>
+    public List<string> HumanNationIds { get; } = new();
+
+    /// <summary>#719: the longest leader name New Game accepts. <c>[designed]</c>: room for a Roman three-part name.</summary>
+    public const int MaxLeaderNameLength = 24;
+
+    /// <summary>#719: the leader names typed at New Game, by nation id (blank keeps the drawn leader).</summary>
+    public Dictionary<string, string> LeaderNames { get; } = new(StringComparer.Ordinal);
 
     /// <summary>
     /// The New Game flow's own AI personality sliders (<c>docs/game-design.md</c> §"User interface"
@@ -99,24 +119,38 @@ public static class GameSessionFactory
     /// </summary>
     public static GameSession CreateSession(GameDataRepository repository, NewGameSelection selection)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(selection.HumanNationId);
+        if (selection.HumanNationIds.Count == 0)
+        {
+            throw new ArgumentException("New Game needs at least one human nation.", nameof(selection));
+        }
 
         var resolved = ResolveSelectedScenario(repository, selection);
         var scenario = resolved.Scenario;
+        var humans = selection.HumanNationIds;
 
-        if (selection.AiPersonalityOverride is { } personality)
+        // #719: every seat a person ticked is human, every other one AI (with the chosen personality, if any).
+        scenario = scenario with
         {
-            scenario = scenario with
-            {
-                Seats = ValueList.From(scenario.Seats.Select(seat =>
-                    string.Equals(seat.Nation, selection.HumanNationId, StringComparison.Ordinal)
-                        ? seat
-                        : seat with { Personality = personality })),
-            };
-        }
+            Seats = ValueList.From(scenario.Seats.Select(seat => humans.Contains(seat.Nation)
+                ? seat with { Control = SeatControl.Human }
+                : seat with
+                {
+                    Control = SeatControl.Ai,
+                    Personality = selection.AiPersonalityOverride ?? seat.Personality,
+                })),
+        };
 
-        // T127: the Godot UI fights a human's field battle on the board.
-        return new GameSession(resolved.World, resolved.Ruleset, scenario, humanSeatNationId: selection.HumanNationId)
+        // T127: the Godot UI fights a human's field battle on the board. One human plays as the --seat
+        // session always has; two or more keep the scenario's seats, which makes a hotseat game.
+        return new GameSession(
+            resolved.World,
+            resolved.Ruleset,
+            scenario,
+            humanSeatNationId: humans.Count == 1 ? humans[0] : null,
+            leaderNames: selection.LeaderNames.ToDictionary(
+                pair => pair.Key,
+                pair => pair.Value.Trim()[..Math.Min(pair.Value.Trim().Length, NewGameSelection.MaxLeaderNameLength)],
+                StringComparer.Ordinal))
         {
             HumanBattles = HumanBattleMode.Tactical,
         };

@@ -109,4 +109,51 @@ public sealed class NewGameSelectionTests
         // the two subtypes.
         Assert.ThrowsAny<ArgumentException>(() => GameSessionFactory.CreateSession(Repository, selection));
     }
+
+    /// <summary>#719: two ticked nations make a hotseat game; every other seat is the computer's, with the chosen personality.</summary>
+    [Fact]
+    public void Two_human_nations_start_a_hotseat_game()
+    {
+        var selection = new NewGameSelection { RulesetPreset = RulesetPreset.ClassicalFaithful };
+        selection.HumanNationIds.AddRange(new[] { "rome", "carthage" });
+        selection.AiPersonalityOverride = new AiPersonality(0.3, 0.4, 0.5);
+
+        var session = GameSessionFactory.CreateSession(Repository, selection);
+
+        var humans = session.State.Nations.Where(n => n.Control == SeatControl.Human).Select(n => n.Id).Order().ToArray();
+        Assert.Equal(new[] { "carthage", "rome" }, humans);
+        Assert.All(
+            session.Scenario.Seats.Where(s => s.Control == SeatControl.Ai),
+            seat => Assert.Equal(new AiPersonality(0.3, 0.4, 0.5), seat.Personality));
+        Assert.Contains(session.State.ActiveNationId, humans);
+    }
+
+    /// <summary>#719: one ticked nation plays as before, every other seat AI.</summary>
+    [Fact]
+    public void One_human_nation_plays_alone()
+    {
+        var selection = new NewGameSelection { RulesetPreset = RulesetPreset.ClassicalFaithful, HumanNationId = "greece" };
+
+        var session = GameSessionFactory.CreateSession(Repository, selection);
+
+        Assert.Equal("greece", Assert.Single(session.State.Nations, n => n.Control == SeatControl.Human).Id);
+    }
+
+    /// <summary>#719: typed leader names replace the drawn leader; blank keeps it; long ones are cut to the limit.</summary>
+    [Fact]
+    public void Typed_leader_names_replace_the_drawn_leaders()
+    {
+        var selection = new NewGameSelection { RulesetPreset = RulesetPreset.ClassicalFaithful };
+        selection.HumanNationIds.AddRange(new[] { "rome", "carthage", "gaul" });
+        selection.LeaderNames["rome"] = "  Lucius Junius Brutus ";
+        selection.LeaderNames["carthage"] = "   ";
+        selection.LeaderNames["gaul"] = new string('V', 40);
+        var drawn = GameSessionFactory.CreateSession(Repository, new NewGameSelection { RulesetPreset = RulesetPreset.ClassicalFaithful, HumanNationId = "rome" });
+
+        var session = GameSessionFactory.CreateSession(Repository, selection);
+
+        Assert.Equal("Lucius Junius Brutus", session.State.NationById("rome")!.LeaderName);
+        Assert.Equal(drawn.State.NationById("carthage")!.LeaderName, session.State.NationById("carthage")!.LeaderName);
+        Assert.Equal(new string('V', NewGameSelection.MaxLeaderNameLength), session.State.NationById("gaul")!.LeaderName);
+    }
 }
