@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Checks/ItalyLaunchCheck.cs" id="1_italy_launch_check"]
+
+[node name="ItalyLaunchCheck" type="Control"]
+script = ExtResource("1_italy_launch_check")

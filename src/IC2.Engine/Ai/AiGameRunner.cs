@@ -46,6 +46,8 @@ public enum AiGameEnding
 /// <param name="IdleBySeat">#1290: each seat's idle seat-turns, reported and never failed on.</param>
 /// <param name="FinalState">The state the game ended in.</param>
 /// <param name="Transcript">The per-seed log — the Done-when 4 artifact.</param>
+/// <param name="CitiesCaptured">T204: how many times a city changed owner during the game.</param>
+/// <param name="SiegesFailed">T204: how many sieges ended with the city holding (<see cref="IC2.Engine.Cities.Capture.CityFailsToBeCaptured"/>).</param>
 public sealed record AiGameResult(
     ulong Seed,
     AiGameEnding Ending,
@@ -60,13 +62,15 @@ public sealed record AiGameResult(
     int FullRoundStalls,
     IReadOnlyList<AiSeatIdleRecord> IdleBySeat,
     GameState FinalState,
-    IReadOnlyList<string> Transcript)
+    IReadOnlyList<string> Transcript,
+    int CitiesCaptured = 0,
+    int SiegesFailed = 0)
 {
     /// <summary>A one-line summary, for a soak's own report.</summary>
     public string Summary() => string.Format(
         CultureInfo.InvariantCulture,
         "seed {0}: {1}{2} after {3} turns, {4} commands, {5} rejected, {6} mismatches, "
-        + "{7} commandless turns, longest stall run {8}, full-round stalls {9}",
+        + "{7} commandless turns, longest stall run {8}, full-round stalls {9}, cities captured {10}, sieges failed {11}",
         Seed,
         Ending,
         WinningNationId is null ? string.Empty : " by " + WinningNationId,
@@ -76,7 +80,9 @@ public sealed record AiGameResult(
         ProjectionMismatches,
         CommandlessTurns,
         LongestStallRun,
-        FullRoundStalls);
+        FullRoundStalls,
+        CitiesCaptured,
+        SiegesFailed);
 }
 
 /// <summary>
@@ -177,6 +183,8 @@ public static class AiGameRunner
         var rejected = 0;
         var mismatches = 0;
         var cappedTurns = 0;
+        var captured = 0;
+        var siegesFailed = 0;
         var commandless = 0;
         var stalls = new AiStallTracker();
 
@@ -217,6 +225,9 @@ public static class AiGameRunner
                     case GameExpired:
                         ending = AiGameEnding.Expired;
                         break;
+                    case IC2.Engine.Cities.Capture.CityFailsToBeCaptured:
+                        siegesFailed++;
+                        break;
                     default:
                         break;
                 }
@@ -226,6 +237,8 @@ public static class AiGameRunner
             {
                 commandless++;
             }
+
+            captured += CountOwnerChanges(before, state);
 
             var idle = turnCommands == 0 && AiSubstantiveState.AreEquivalent(before, state);
             var liveSeats = 0;
@@ -280,9 +293,27 @@ public static class AiGameRunner
             stalls.FullRoundStalls,
             stalls.IdleBySeat,
             state,
-            transcript);
+            transcript,
+            captured,
+            siegesFailed);
 
         transcript.Add(outcome.Summary());
         return outcome;
+    }
+
+    /// <summary>T204: the cities whose owner differs between two states, matched by id.</summary>
+    private static int CountOwnerChanges(GameState before, GameState after)
+    {
+        var changes = 0;
+        foreach (var city in after.Cities)
+        {
+            var earlier = before.CityById(city.Id);
+            if (earlier is not null && !string.Equals(earlier.Owner, city.Owner, StringComparison.Ordinal))
+            {
+                changes++;
+            }
+        }
+
+        return changes;
     }
 }
