@@ -9,6 +9,10 @@ small sailboat to a galley with three shields and a larger galley with four, as 
 a keep, and a capital is a columned temple; a town's (background, outline, fill) are the same three
 colours (§3.3).
 
+It also draws the terrain tiles the map's "Classic tiles" style lays one per cell (terrain/*.bmp,
+24-bit opaque, seamless at the cell edges): plains with grass strokes, a forest of round trees,
+mountain peaks with snow, desert sand with specks and dunes, and calm and rough sea with waves.
+
 Each 32x32 template uses the three colours the original's recolour replaces (BattleIconTint,
 docs/asset-specification.md §2): purple 0x800080 is the field (the owner's first colour), white the
 outline, limbs and weapon (the second), blue 0x0000FF the helmet, body, shield and sail (the
@@ -231,6 +235,95 @@ def draw_city(kind):
     return image
 
 
+def wrap(cells):
+    return {(x % SIZE, y % SIZE) for (x, y) in cells}
+
+
+def disc(cx, cy, r):
+    return {(x, y) for y in range(cy - r, cy + r + 1) for x in range(cx - r, cx + r + 1)
+            if (x - cx) ** 2 + (y - cy) ** 2 <= r * r + r}
+
+
+def wave_row(y0, amplitude, period, phase=0):
+    """A sine stroke across the tile; a period dividing 32 keeps it seamless."""
+    import math
+    return {(x, y0 + round(amplitude * math.sin(2 * math.pi * (x + phase) / period))) for x in range(SIZE)}
+
+
+def draw_terrain(name):
+    def fill(colour):
+        return [[colour] * SIZE for _ in range(SIZE)]
+
+    def paint(image, cells, colour):
+        for (x, y) in wrap(cells):
+            image[y][x] = colour
+
+    if name == "plain":
+        image = fill((92, 164, 58))
+        for (x0, y0) in ((2, 4), (18, 9), (8, 16), (24, 21), (3, 27), (14, 29)):
+            # A short grass stroke: a little rising-and-falling wave, five cells long.
+            paint(image, {(x0, y0 + 1), (x0 + 1, y0), (x0 + 2, y0), (x0 + 3, y0 + 1), (x0 + 4, y0 + 1), (x0 + 5, y0)}, (56, 118, 38))
+        paint(image, {(11, 6), (28, 14), (20, 26)}, (150, 205, 96))
+    elif name == "forest":
+        image = fill((40, 92, 34))
+        for (cx, cy, r) in ((7, 7, 5), (23, 5, 5), (15, 18, 6), (29, 21, 5), (5, 26, 5)):
+            paint(image, {(cx, cy + r), (cx, cy + r + 1), (cx, cy + r + 2)}, (96, 62, 30))  # trunk
+            ring = {(x + dx, y + dy) for (x, y) in disc(cx, cy, r) for dx in (-1, 0, 1) for dy in (-1, 0, 1)}
+            paint(image, ring - disc(cx, cy, r), (20, 52, 18))
+            paint(image, disc(cx, cy, r), (62, 140, 46))
+            paint(image, disc(cx - r // 3, cy - r // 3, max(1, r // 3)), (110, 182, 72))
+    elif name == "mountain":
+        image = fill((132, 124, 98))
+        for (cx, peak, base) in ((10, 6, 27), (24, 11, 30)):
+            height = base - peak
+            for d in range(height + 1):
+                half = (d * 11) // height
+                y = peak + d
+                paint(image, {(x, y) for x in range(cx - half, cx)}, (176, 166, 140))   # lit face
+                paint(image, {(x, y) for x in range(cx, cx + half + 1)}, (88, 80, 66))  # shaded face
+                paint(image, {(cx - half - 1, y), (cx + half + 1, y)}, (52, 46, 40))
+            paint(image, {(x, peak + d) for d in range(4) for x in range(cx - d * 11 // height, cx + d * 11 // height + 1)}, (245, 245, 250))
+            paint(image, {(cx, peak - 1)}, (52, 46, 40))
+    elif name == "desert":
+        image = fill((226, 198, 112))
+        paint(image, wave_row(9, 2, 32), (204, 170, 86))
+        paint(image, wave_row(24, 2, 32, 16), (204, 170, 86))
+        for (x, y) in ((4, 3), (13, 5), (27, 4), (8, 14), (21, 16), (30, 13), (2, 20), (15, 21), (25, 28), (6, 30), (18, 29)):
+            paint(image, {(x, y)}, (140, 104, 52))
+        for (x, y) in ((10, 11), (24, 9), (28, 23), (12, 26)):
+            paint(image, {(x, y)}, (246, 228, 160))
+    elif name == "sea_calm":
+        image = fill((36, 88, 172))
+        for y0 in (6, 22):
+            paint(image, {(x, y) for (x, y) in wave_row(y0, 2, 16) if (x // 8) % 2 == 0}, (110, 160, 228))
+        for y0 in (14, 30):
+            paint(image, {(x, y) for (x, y) in wave_row(y0, 2, 16, 8) if (x // 8) % 2 == 1}, (110, 160, 228))
+    elif name == "sea_rough":
+        image = fill((22, 58, 132))
+        for y0 in (4, 12, 20, 28):
+            paint(image, wave_row(y0, 2, 16, y0), (96, 146, 214))
+            paint(image, {(x, y - 1) for (x, y) in wave_row(y0, 2, 16, y0) if (x + y0) % 16 == 4}, (232, 240, 250))
+    else:  # river: plain with a stream across it
+        image = draw_terrain("plain")
+        band = set()
+        for (x, y) in wave_row(16, 3, 32):
+            band |= {(x, y - 2), (x, y - 1), (x, y), (x, y + 1)}
+        paint(image, band, (52, 112, 200))
+    return image
+
+
+TERRAIN = ("plain", "desert", "forest", "mountain", "river", "sea_calm", "sea_rough")
+
+
+def write_bmp24(path, image):
+    """24-bit opaque, bottom-up: the pack's terrain tile format (asset-specification.md §1.2)."""
+    rows = b"".join(bytes(v for (r, g, b) in row for v in (b, g, r)) for row in reversed(image))
+    header = struct.pack("<2sIHHI", b"BM", 14 + 40 + len(rows), 0, 0, 54)
+    info = struct.pack("<IiiHHIIiiII", 40, SIZE, SIZE, 1, 24, 0, len(rows), 2835, 2835, 0, 0)
+    with open(path, "wb") as f:
+        f.write(header + info + rows)
+
+
 def write_bmp(path, image):
     """32-bit BGRA, opaque, bottom-up: the pack's sprite format (asset-specification.md §1.2)."""
     rows = b"".join(bytes(v for (r, g, b) in reversed_row for v in (b, g, r, 255))
@@ -253,6 +346,10 @@ def main(argv=None):
         os.makedirs(os.path.join(args.out, kind), exist_ok=True)
         name = tier if isinstance(tier, str) else f"tier{tier}"
         write_bmp(os.path.join(args.out, kind, f"{name}.bmp"), image)
+    terrain = {name: draw_terrain(name) for name in TERRAIN}
+    os.makedirs(os.path.join(args.out, "terrain"), exist_ok=True)
+    for name, image in terrain.items():
+        write_bmp24(os.path.join(args.out, "terrain", f"{name}.bmp"), image)
     if args.preview:
         from PIL import Image
         owners = [((0xFF, 0x00, 0x00), (0x00, 0x00, 0x00), (0xFF, 0xFF, 0xFF)),
@@ -271,6 +368,17 @@ def main(argv=None):
                 sheet.paste(tile.resize((SIZE * scale, SIZE * scale), Image.NEAREST),
                             (8 + col * (SIZE * scale + 8), 8 + row * (SIZE * scale + 8)))
         sheet.save(args.preview)
+        # The terrain tiles, each as a 3x3 block so the seams show, side by side.
+        block = SIZE * 3 * 3
+        tiles = Image.new("RGB", (len(terrain) * (block + 8) + 8, block + 16), (40, 40, 40))
+        for col, (name, image) in enumerate(terrain.items()):
+            tile = Image.new("RGB", (SIZE, SIZE))
+            tile.putdata([p for r in image for p in r])
+            big = Image.new("RGB", (SIZE * 3, SIZE * 3))
+            for i in range(9):
+                big.paste(tile, ((i % 3) * SIZE, (i // 3) * SIZE))
+            tiles.paste(big.resize((block, block), Image.NEAREST), (8 + col * (block + 8), 8))
+        tiles.save(args.preview.replace(".png", "-terrain.png"))
     return 0
 
 

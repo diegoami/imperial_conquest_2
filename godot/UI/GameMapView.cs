@@ -208,6 +208,14 @@ public partial class GameMapView : Control
     private ShaderMaterial? _surfaceMaterial;
     private TerrainSurfaceState _drawnSurface;
 
+    // The "Classic tiles" map style (the owner's request of 2026-10-21): one tile per cell, drawn by
+    // TerrainTiles.gdshader on the same surface canvas. The cells' tile layers are one byte per cell;
+    // the tiles are a mipmapped texture array. Either missing falls back to the painted surface.
+    private Shader? _paintedShader;
+    private Shader? _tilesShader;
+    private ImageTexture? _tileLayersTexture;
+    private Texture2DArray? _tileArray;
+
     private string? _selectedCityId;
     private string? _selectedArmyId;
     private string? _selectedFleetId;
@@ -236,6 +244,8 @@ public partial class GameMapView : Control
     // (godot/Checks/SidePanelToggleCheck.cs) without stopping the re-fit on a real window resize.
     private Vector2 _lastParentSize;
 
+    public override void _ExitTree() => SettingsScreen.Committed -= QueueRedraw;
+
     public override void _Ready()
     {
         FocusMode = FocusModeEnum.All;
@@ -260,6 +270,7 @@ public partial class GameMapView : Control
         // Resized fires closes that gap without re-fitting (and so discarding the player's own zoom/pan)
         // on every later resize too.
         Resized += OnResized;
+        SettingsScreen.Committed += QueueRedraw;
         MouseExited += () => { _markerPointer = null; QueueRedraw(); };
     }
 
@@ -639,7 +650,65 @@ public partial class GameMapView : Control
         }
 
         EnsureSurfaceCanvas();
+        ResolveTileResources();
         BindSurfaceUniforms();
+    }
+
+    /// <summary>The cells' tile layers and the tile array for the "Classic tiles" style, or nulls.</summary>
+    private void ResolveTileResources()
+    {
+        if (_session is null || _terrainCells is null)
+        {
+            return;
+        }
+
+        var layers = TerrainSplatMap.BakeTileLayers(_terrainCells);
+        _tileLayersTexture = ImageTexture.CreateFromImage(
+            Image.CreateFromData(_session.World.Width, _session.World.Height, false, Image.Format.R8, layers));
+
+        var images = new Godot.Collections.Array<Image>();
+        foreach (var key in TerrainSplatMap.TileKeysByLayer)
+        {
+            if (_assetLoader?.TryGetTexture(key)?.GetImage() is not { } image
+                || (images.Count > 0 && image.GetSize() != images[0].GetSize()))
+            {
+                _tileArray = null;
+                return;
+            }
+
+            image.Convert(Image.Format.Rgba8);
+            image.GenerateMipmaps();
+            images.Add(image);
+        }
+
+        _tileArray = new Texture2DArray();
+        _tileArray.CreateFromImages(images);
+    }
+
+    /// <summary>Whether the "Classic tiles" style is chosen and everything it draws with resolved.</summary>
+    private bool TilesReady =>
+        SettingsScreen.MapStyleId == MapStyles.Tiles
+        && _surfaceCanvas is not null
+        && _surfaceMaterial is not null
+        && _tilesShader is not null
+        && _tileLayersTexture is not null
+        && _tileArray is not null;
+
+    private void BindTileUniforms()
+    {
+        if (_surfaceMaterial is null || _session is null)
+        {
+            return;
+        }
+
+        if (_surfaceMaterial.Shader != _tilesShader)
+        {
+            _surfaceMaterial.Shader = _tilesShader;
+        }
+
+        _surfaceMaterial.SetShaderParameter("cell_layers", _tileLayersTexture);
+        _surfaceMaterial.SetShaderParameter("tiles", _tileArray);
+        _surfaceMaterial.SetShaderParameter("world_size", new Vector2(_session.World.Width, _session.World.Height));
     }
 
     /// <summary>
@@ -676,6 +745,8 @@ public partial class GameMapView : Control
             return;
         }
 
+        _paintedShader = shader;
+        _tilesShader = GD.Load<Shader>("res://UI/TerrainTiles.gdshader");
         _surfaceMaterial = new ShaderMaterial { Shader = shader };
 
         // Wrapping and filtering of the texture uniforms come from the shader's own sampler hints
@@ -701,6 +772,11 @@ public partial class GameMapView : Control
         if (_surfaceMaterial is null || _session is null || _splatMap is null)
         {
             return;
+        }
+
+        if (_paintedShader is not null && _surfaceMaterial.Shader != _paintedShader)
+        {
+            _surfaceMaterial.Shader = _paintedShader;
         }
 
         _surfaceMaterial.SetShaderParameter("splat_a", _splatTextureA);
@@ -1355,7 +1431,15 @@ public partial class GameMapView : Control
         // T148: one shader pass over the whole terrain rectangle when every surface resource resolved;
         // otherwise the flat-colour texture is drawn exactly as before. The recorded state is what the
         // draw actually did, never a recomputation from the configured material.
-        if (SurfaceReady)
+        if (TilesReady)
+        {
+            BindTileUniforms();
+            _surfaceCanvas!.Position = mapRect.Position;
+            _surfaceCanvas.Size = mapRect.Size;
+            _surfaceCanvas.Visible = true;
+            _drawnSurface = new TerrainSurfaceState(TerrainSurfaceKind.Tiles, TerrainSplatMap.TileKeysByLayer);
+        }
+        else if (SurfaceReady)
         {
             BindSurfaceUniforms();
             _surfaceCanvas!.Position = mapRect.Position;
@@ -1877,6 +1961,9 @@ public enum TerrainSurfaceKind
 
     /// <summary>The surface shader drew the whole terrain rectangle from the six seamless textures.</summary>
     Shader,
+
+    /// <summary>The tile shader drew one terrain tile per cell (the "Classic tiles" map style).</summary>
+    Tiles,
 
     /// <summary>The flat-colour texture drew instead (a shader or surface texture was missing).</summary>
     FlatFallback,
