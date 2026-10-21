@@ -82,11 +82,13 @@ public static class ArmyDialogModels
         + (string.IsNullOrEmpty(name) ? string.Empty : $" — {name}");
 
     /// <summary>
-    /// The quality caption the army panel and the unit list print for a raw quality tier — the roster's
-    /// own words for 5–9, and the tier's number below 5 (see this class's remarks).
+    /// The quality caption the army panel and the unit list print for a raw quality tier: the original's word
+    /// table (#741): "not ready" for 0–3, "very poor" for 4, poor … elite for 5–9, and the number otherwise.
     /// </summary>
     public static string QualityCaption(int quality) => quality switch
     {
+        >= 0 and <= 3 => "not ready",
+        4 => "very poor",
         5 => "poor",
         6 => "average",
         7 => "good",

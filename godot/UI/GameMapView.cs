@@ -153,7 +153,7 @@ public partial class GameMapView : Control
     /// <see cref="MapClickOutcome.ConfirmationText"/>). The screen that wires this opens its
     /// <c>ConfirmPrompt</c>; its answer comes back through
     /// <see cref="AnswerAttackConfirmation"/> — Yes submits the order (the engine composes the
-    /// declaration of war itself), No drops the selection. Never raised when already at war.
+    /// declaration of war itself), No keeps the selection (#583). Never raised when already at war.
     /// </summary>
     public event Action<MapClickOutcome>? AttackConfirmationRequested;
 
@@ -1226,8 +1226,8 @@ public partial class GameMapView : Control
     /// <summary>
     /// The answer to a raised <see cref="AttackConfirmationRequested"/>: Yes submits the order (the
     /// engine's own <c>ComposeDeclareWarIfNeeded</c> puts the declaration of war in front of it, so
-    /// the UI never submits a second one) and ends the selection; No submits nothing and drops the
-    /// selection. The prompt's own buttons call this — public for the screen that wires them.
+    /// the UI never submits a second one) and ends the selection; No submits nothing and keeps the
+    /// selection (#583). The prompt's own buttons call this — public for the screen that wires them.
     /// </summary>
     public void AnswerAttackConfirmation(bool yes)
     {
@@ -1238,13 +1238,16 @@ public partial class GameMapView : Control
         }
 
         _pendingConfirmedAttack = null;
-        if (yes)
+        if (!yes)
         {
-            SubmitMapOrder(outcome.OrderLine!);
+            // #583: the original keeps the army selected after No (research 2026-10-02-unit-map-mouse-orders-
+            // and-tax-range.md, observation (b): the selected-army variable still held it), so a second click
+            // on the target asks again.
+            return;
         }
 
-        // Either answer ends the selection: the audit's "On no … the selection is simply dropped", and
-        // "the selection also ends by itself after an attack".
+        // "The selection also ends by itself after an attack."
+        SubmitMapOrder(outcome.OrderLine!);
         ClearSelection();
     }
 

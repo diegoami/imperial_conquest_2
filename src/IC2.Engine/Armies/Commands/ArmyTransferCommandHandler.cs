@@ -116,8 +116,12 @@ public sealed class ArmyTransferCommandHandler : ICommandHandler<ArmyTransferCom
 
         // Both compositions after both directions, since each side now both gives and receives.
         var rules = context.Ruleset.ArmyManagement;
-        var finalSourceUnits = ValueList.From(remainingUnits.Concat(returning));
-        var finalTargetUnits = ValueList.From(remainingTarget.Concat(moving));
+        // #869: each direction moves its selected units highest original slot first, each written at the
+        // receiver's unit count (TArmyToArmy_Army1Transfer's loop from slot 19 down; research
+        // 2026-10-08-transfer-dialog-20-units-and-slot-gaps.md, [confirmed] cases c1, c3, c4), so they land in
+        // descending slot order.
+        var finalSourceUnits = ValueList.From(remainingUnits.Concat(returning.AsEnumerable().Reverse()));
+        var finalTargetUnits = ValueList.From(remainingTarget.Concat(moving.AsEnumerable().Reverse()));
         if (finalSourceUnits.Count > rules.MaxUnitsPerArmy || finalTargetUnits.Count > rules.MaxUnitsPerArmy)
         {
             return CommandOutcome.Reject(

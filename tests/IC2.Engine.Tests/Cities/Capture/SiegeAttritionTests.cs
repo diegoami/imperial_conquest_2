@@ -213,7 +213,11 @@ public sealed class SiegeAttritionTests
         Assert.Equal(BattleSide.Defender, siege.Result.Winner);
         Assert.False(siege.Result.AttackerWon);
         Assert.Equal(0, siege.Result.WinnerCasualties);
-        Assert.Equal(8, siege.Result.LoserCasualties); // the besieger's own 8 lost troops, now attributed to the "loser"
+        // #511: the besieger is gone, so it is reported destroyed with its whole force lost, not just the
+        // 8 troops of this attempt's attrition.
+        Assert.Equal(attacker.TotalTroops, siege.Result.LoserCasualties);
+        Assert.Equal(LoserFate.Destroyed, siege.Result.LoserFate);
+        Assert.True(attacker.TotalTroops > 8);
 
         var sink = new RecordingEventSink();
         var outcome = CityCaptureResolver.ResolveOutcome(

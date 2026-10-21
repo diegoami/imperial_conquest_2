@@ -166,7 +166,13 @@ public partial class GameMenuBar : HBoxContainer
         var id = index;
         popup.AddItem(row.Caption, id);
         popup.SetItemDisabled(index, !row.Wired);
-        popup.SetItemChecked(index, string.Equals(row.Id, "help.show_hints", StringComparison.Ordinal) && _hintsEnabled);
+
+        // #612: Show hints carries a check mark, so it must be a check item; SetItemChecked alone draws nothing.
+        if (string.Equals(row.Id, "help.show_hints", StringComparison.Ordinal))
+        {
+            popup.SetItemAsCheckable(index, true);
+            popup.SetItemChecked(index, _hintsEnabled);
+        }
 
         // The observed shortcut is shown, never registered as a Godot accelerator (rework B4). A live
         // accelerator acts in Godot's shortcut-input pass, before MainGameScreen._UnhandledInput's

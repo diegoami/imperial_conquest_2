@@ -260,4 +260,24 @@ public sealed class JoinArmiesCommandHandlerTests
         Assert.True(result.IsRejected);
         Assert.Equal(JoinArmiesRejections.SameArmy, result.Code);
     }
+
+    /// <summary>
+    /// #869: the partner's units land after the survivor's as its slot 0, then its last unit down to its second
+    /// (research case c1: kept slot 10 = P-0, slots 11-19 = P-9 ... P-1).
+    /// </summary>
+    [Fact]
+    public void Join_LandsThePartnersSlotZeroThenItsUnitsFromTheLast()
+    {
+        var state = WithArmies(
+            InitialState(),
+            Army("join-s", NorthNationId, 3, 3, Units(2)),
+            Army("join-t", NorthNationId, 4, 3, Units(4, "v")));
+
+        var result = Dispatcher().Dispatch(state, new JoinArmiesCommand(NorthNationId, "join-s", "join-t"));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        Assert.Equal(
+            new[] { "u0", "u1", "v0", "v3", "v2", "v1" },
+            result.State.ArmyById("join-s")!.Units.Select(u => u.Name));
+    }
 }

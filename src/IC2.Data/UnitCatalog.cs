@@ -17,8 +17,15 @@ public static class UnitCatalog
         _ => $"type {code}"
     };
 
+    /// <summary>
+    /// The quality word for a quality code: the DAT's word table indexed by quality (#741, research
+    /// <c>2026-10-05-information-window-fields-and-bands.md</c>): "not ready" for 0–3, "very poor" for 4, then
+    /// poor … elite for 5–9.
+    /// </summary>
     public static string QualityName(ushort code) => code switch
     {
+        <= 3 => "not ready",
+        4 => "very poor",
         5 => "poor",
         6 => "average",
         7 => "good",

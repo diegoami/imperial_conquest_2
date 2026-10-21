@@ -90,7 +90,7 @@ public sealed class JoinArmiesCommandHandler : ICommandHandler<JoinArmiesCommand
         // NOWHERE, not to a treasury, because this path moves money between the two army records only.
         var joined = survivor with
         {
-            Units = ValueList.From(survivor.Units.Concat(absorbed.Units)),
+            Units = ValueList.From(survivor.Units.Concat(InOriginalJoinOrder(absorbed.Units))),
             SupplyTons = survivor.SupplyTons + absorbed.SupplyTons,
             Money = PurseAccounting.Credit(survivor.Money, absorbed.Money),
             Moves = 0,
@@ -101,5 +101,25 @@ public sealed class JoinArmiesCommandHandler : ICommandHandler<JoinArmiesCommand
             .Select(a => string.Equals(a.Id, survivor.Id, StringComparison.Ordinal) ? joined : a);
 
         return CommandOutcome.Accept(state with { Armies = ValueList.From(updatedArmies) });
+    }
+
+    /// <summary>
+    /// #869: the order the original lands a partner's units in. Its merge loop always moves the partner's slot 0,
+    /// and each removal refills slot 0 with the partner's last unit (<c>FUN_0044a66c</c>, <c>FUN_0044ac3c</c>;
+    /// research <c>2026-10-08-join-armies-20-unit-gate-counts-last-slot.md</c>, [confirmed] cases c1 and c4), so the
+    /// units arrive as slot 0, then the last, the next-to-last, … the second.
+    /// </summary>
+    internal static IEnumerable<UnitSlot> InOriginalJoinOrder(ValueList<UnitSlot> partner)
+    {
+        if (partner.Count == 0)
+        {
+            yield break;
+        }
+
+        yield return partner[0];
+        for (var i = partner.Count - 1; i >= 1; i--)
+        {
+            yield return partner[i];
+        }
     }
 }

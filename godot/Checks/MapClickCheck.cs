@@ -224,9 +224,8 @@ public partial class MapClickCheck : Control
             (BetweenStepsFrames, ClickNoOnPrompt),
             (BetweenStepsFrames, AssertNoSubmitsNothing),
 
-            // Done-when 3's second half: Yes submits, with one composed declaration of war.
-            (BetweenStepsFrames, ClickSelectArmy1Again),
-            (BetweenStepsFrames, AssertArmy1Reselected),
+            // Done-when 3's second half: Yes submits, with one composed declaration of war. #583: No kept the
+            // army selected, so the second click on the target asks again with no re-selection.
             (BetweenStepsFrames, ClickAdjacentForeignArmyAgain),
             (BetweenStepsFrames, AssertSameClickPromptsAgain),
             (BetweenStepsFrames, ClickYesOnPrompt),
@@ -442,15 +441,11 @@ public partial class MapClickCheck : Control
             _mainGame.ActiveOverlay is null,
             "No closes the prompt");
         Check(
-            _selectionsCleared > _clearedBefore && ArmyIsNotSelected(),
-            "No drops the selection");
+            _selectionsCleared == _clearedBefore && _map.SelectedStrategicMarkerForCheck == "army-1",
+            $"No keeps the army selected (#583, the original's behaviour; selected {_map.SelectedStrategicMarkerForCheck ?? "none"})");
     }
 
     // ---- Done-when 3's second half: Yes submits, one declaration of war ----
-
-    private void ClickSelectArmy1Again() => LeftClick(98, 37);
-
-    private void AssertArmy1Reselected() => Check(ArmyIsSelected("army-1"), "army-1 is re-selected for the attack");
 
     private void ClickAdjacentForeignArmyAgain()
     {
@@ -688,9 +683,8 @@ public partial class MapClickCheck : Control
             "No on the fleet prompt submits nothing (no declaration of war)");
         Check(_mainGame.ActiveOverlay is null, "No closes the fleet prompt");
         Check(
-            _selectionsCleared > _clearedBefore && ArmyIsNotSelected(),
-            "No drops the selection");
-        CheckPanelShowsHeading("Nation Overview");
+            _selectionsCleared == _clearedBefore,
+            "No keeps the fleet selected (#583, the original's behaviour)");
     }
 
     // ---- the drivers: the real input path, never a shortcut around it ----

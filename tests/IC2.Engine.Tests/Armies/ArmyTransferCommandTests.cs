@@ -89,6 +89,26 @@ public sealed class ArmyTransferCommandTests
         Assert.Equal(before.Money, after.Money);
     }
 
+    /// <summary>
+    /// #869: each direction moves its selected units highest original slot first, appended at the receiver's
+    /// unit count (research case c3: slots 0-1 selected, slot 1 lands first).
+    /// </summary>
+    [Fact]
+    public void Transfer_LandsTheMovedUnitsHighestSlotFirst_InBothDirections()
+    {
+        var state = WithArmies(
+            InitialState(),
+            Army("rome-c", NorthNationId, 5, 5, Units(4)),
+            Army("rome-d", NorthNationId, 6, 5, Units(3, prefix: "v")));
+
+        var result = Dispatcher().Dispatch(
+            state, TwoWay("rome-c", "rome-d", ValueList.Of(0, 1, 3), 0, 0, ValueList.Of(0, 2), 0, 0));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        Assert.Equal(new[] { "u2", "v2", "v0" }, result.State.ArmyById("rome-c")!.Units.Select(u => u.Name));
+        Assert.Equal(new[] { "v1", "u3", "u1", "u0" }, result.State.ArmyById("rome-d")!.Units.Select(u => u.Name));
+    }
+
     [Fact]
     public void Transfer_AtDistanceZero_IsRejectedAndTheStateIsUntouched()
     {
