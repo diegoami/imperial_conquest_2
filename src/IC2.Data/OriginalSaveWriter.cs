@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -36,7 +37,7 @@ public static class OriginalSaveWriter
             try
             {
                 using (output) { output.Write(bytes); output.Flush(flushToDisk: true); }
-                File.Move(temporary, destination, overwrite: false);
+                PublishNoReplace(temporary, destination);
                 ownsTemporary = false;
                 return new(destination, plan.TemplateSha256, hash, bytes.Length, plan.Layout,
                     plan.ProfileId, plan.IsIdentity, plan.TaxEdit, changed.AsReadOnly());
@@ -50,6 +51,38 @@ public static class OriginalSaveWriter
         }
         throw new IOException("All 64 exclusive temporary names are occupied.");
     }
+
+    /// <summary>
+    /// Bug #1298: publishes <paramref name="temporary"/> as <paramref name="destination"/> only if nothing is there,
+    /// atomically. On Unix <see cref="File.Move(string, string, bool)"/> with <c>overwrite: false</c> checks and then
+    /// <c>rename(2)</c>s, so two concurrent writers could both succeed, the second replacing the first. <c>link(2)</c>
+    /// fails with <c>EEXIST</c> atomically instead; the temporary name is removed once the link exists. Windows'
+    /// no-replace move is already atomic. A filesystem without hard links falls back to the move.
+    /// </summary>
+    private static void PublishNoReplace(string temporary, string destination)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            File.Move(temporary, destination, overwrite: false);
+            return;
+        }
+
+        if (link(temporary, destination) == 0)
+        {
+            File.Delete(temporary);
+            return;
+        }
+
+        var errno = Marshal.GetLastPInvokeError();
+        if (errno == EEXIST) throw new IOException("Destination already exists.");
+        File.Move(temporary, destination, overwrite: false);
+    }
+
+    /// <summary><c>EEXIST</c>: 17 on Linux and macOS.</summary>
+    private const int EEXIST = 17;
+
+    [DllImport("libc", SetLastError = true)]
+    private static extern int link(string oldpath, string newpath);
 
     private static bool Occupied(string path) => Path.Exists(path) || File.Exists(path) || Directory.Exists(path)
         || new FileInfo(path).LinkTarget is not null;

@@ -32,11 +32,11 @@ public partial class MainMenu : Control
         column.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         center.AddChild(column);
 
-        var title = UiKit.MakeLabel("Imperial Conquest 2", AppTheme.Title, UiKit.AccentColor);
+        var title = UiKit.MakeLabel("Open Imperial Conquest", AppTheme.Title, UiKit.AccentColor);
         title.HorizontalAlignment = HorizontalAlignment.Center;
         column.AddChild(title);
 
-        var subtitle = UiKit.MakeLabel("A reimplementation of the 1996 strategy game", AppTheme.Body, UiKit.MutedTextColor);
+        var subtitle = UiKit.MakeLabel("A reimplementation of Imperial Conquest 2, the 1996 strategy game", AppTheme.Body, UiKit.MutedTextColor);
         subtitle.HorizontalAlignment = HorizontalAlignment.Center;
         column.AddChild(subtitle);
 

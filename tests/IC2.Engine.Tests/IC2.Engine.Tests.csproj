@@ -73,6 +73,8 @@
     <Compile Include="../../godot/UI/AppVersion.cs" Link="Ui/AppVersion.cs" />
     <!-- #1293: the remembered display settings, Godot-free. -->
     <Compile Include="../../godot/UI/UserSettings.cs" Link="Ui/UserSettings.cs" />
+    <!-- The rename to "Open Imperial Conquest": user:// data migration, Godot-free. -->
+    <Compile Include="../../godot/UI/UserDataMigration.cs" Link="Ui/UserDataMigration.cs" />
 
     <!--
       T25 (tests/IC2.Engine.Tests/Ui/Screens/**): the same seam, one file further. BattleResultViewModel.cs,

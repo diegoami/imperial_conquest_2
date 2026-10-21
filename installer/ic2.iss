@@ -19,7 +19,7 @@
   #define OutputDir "..\rendered\release"
 #endif
 
-#define AppName "Imperial Conquest 2"
+#define AppName "Open Imperial Conquest"
 #define AppExe "IC2.MapViewer.exe"
 
 [Setup]
