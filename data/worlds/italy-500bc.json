@@ -1,0 +1,3474 @@
+{
+  "schemaVersion": 1,
+  "id": "italy-500bc",
+  "name": "Italy, 500 BC",
+  "width": 150,
+  "height": 168,
+  "terrain": {
+    "encoding": "base64",
+    "runs": null,
+    "data": null,
+    "dataFile": "italy-500bc.terrain.b64"
+  },
+  "tileTypes": [
+    {
+      "id": "sea_calm",
+      "code": 0,
+      "name": "Sea",
+      "passableByArmies": false,
+      "passableByFleets": true,
+      "_provenance": {
+        "code": "confirmed: terrain-move-cost-table-in-dat.md -- cell code 0, named 'Sea' in the DAT terrain table at 0x1F622; corpus id terrain.moveCost.code0."
+      }
+    },
+    {
+      "id": "sea_rough",
+      "code": 1,
+      "name": "Sea",
+      "passableByArmies": false,
+      "passableByFleets": true,
+      "_provenance": {
+        "code": "confirmed: terrain-move-cost-table-in-dat.md -- cell code 1, a second 'Sea' entry distinguished only by its higher move cost; corpus id terrain.moveCost.code1."
+      }
+    },
+    {
+      "id": "plain",
+      "code": 2,
+      "name": "Plain",
+      "passableByArmies": true,
+      "passableByFleets": false,
+      "_provenance": {
+        "code": "confirmed: terrain-move-cost-table-in-dat.md; corpus id terrain.moveCost.code2."
+      }
+    },
+    {
+      "id": "desert",
+      "code": 3,
+      "name": "Desert",
+      "passableByArmies": true,
+      "passableByFleets": false,
+      "_provenance": {
+        "code": "confirmed: terrain-move-cost-table-in-dat.md; corpus id terrain.moveCost.code3."
+      }
+    },
+    {
+      "id": "forest",
+      "code": 4,
+      "name": "Forest",
+      "passableByArmies": true,
+      "passableByFleets": false,
+      "_provenance": {
+        "code": "confirmed: terrain-move-cost-table-in-dat.md; corpus id terrain.moveCost.code4."
+      }
+    },
+    {
+      "id": "mountains",
+      "code": 5,
+      "name": "Mountains",
+      "passableByArmies": true,
+      "passableByFleets": false,
+      "_provenance": {
+        "code": "confirmed: terrain-move-cost-table-in-dat.md; corpus id terrain.moveCost.code5."
+      }
+    },
+    {
+      "id": "river_1",
+      "code": 6,
+      "name": "River",
+      "passableByArmies": true,
+      "passableByFleets": false,
+      "_provenance": {
+        "code": "confirmed: terrain-move-cost-table-in-dat.md -- six distinct river codes, 6..11, all named 'River'; corpus id terrain.moveCost.code6."
+      }
+    },
+    {
+      "id": "river_2",
+      "code": 7,
+      "name": "River",
+      "passableByArmies": true,
+      "passableByFleets": false,
+      "_provenance": {
+        "code": "confirmed: terrain-move-cost-table-in-dat.md; corpus id terrain.moveCost.code7."
+      }
+    },
+    {
+      "id": "river_3",
+      "code": 8,
+      "name": "River",
+      "passableByArmies": true,
+      "passableByFleets": false,
+      "_provenance": {
+        "code": "confirmed: terrain-move-cost-table-in-dat.md; corpus id terrain.moveCost.code8."
+      }
+    },
+    {
+      "id": "river_4",
+      "code": 9,
+      "name": "River",
+      "passableByArmies": true,
+      "passableByFleets": false,
+      "_provenance": {
+        "code": "confirmed: terrain-move-cost-table-in-dat.md; corpus id terrain.moveCost.code9."
+      }
+    },
+    {
+      "id": "river_5",
+      "code": 10,
+      "name": "River",
+      "passableByArmies": true,
+      "passableByFleets": false,
+      "_provenance": {
+        "code": "confirmed: terrain-move-cost-table-in-dat.md; corpus id terrain.moveCost.code10."
+      }
+    },
+    {
+      "id": "river_6",
+      "code": 11,
+      "name": "River",
+      "passableByArmies": true,
+      "passableByFleets": false,
+      "_provenance": {
+        "code": "confirmed: terrain-move-cost-table-in-dat.md; corpus id terrain.moveCost.code11."
+      }
+    }
+  ],
+  "nations": [
+    {
+      "id": "rome",
+      "name": "Rome",
+      "colorHex": "#B71C1C",
+      "leaderName": "Servius Sulpicius",
+      "capitalCityId": "roma",
+      "treasury": 900,
+      "unity": 760,
+      "wealth": 186000,
+      "taxBase": 176,
+      "taxRatePercent": 10,
+      "mobilizedPercent": 20,
+      "population": 62,
+      "battleColorsHex": [
+        "#B71C1C",
+        "#FFFFFF",
+        "#FFD54F"
+      ],
+      "glyphColorHex": "#FFD54F",
+      "_provenance": {
+        "_group": "historical: the early Roman Republic and its Latin neighbours, founded (by tradition) in 509 BC (Livy 2.1); Servius Sulpicius Camerinus was consul in 500 BC (Livy 2.19).",
+        "colorHex": "designed: a colour of its own, told apart from its neighbours on the map.",
+        "treasury": "designed: larger for the trading powers (Carthage, the Greeks, Etruria).",
+        "unity": "designed: higher for the hill peoples and the Gauls, lower for the league-like Greeks and Etruscans.",
+        "population": "derived: the sum of its cities' populations.",
+        "wealth": "derived: population x 3000, the classical world's own ratio.",
+        "taxBase": "derived: four times its cities' tribute, the classical world's own ratio.",
+        "taxRatePercent": "designed: 10%, the classical world's usual rate.",
+        "mobilizedPercent": "designed: 20%."
+      }
+    },
+    {
+      "id": "etruria",
+      "name": "Etruscans",
+      "colorHex": "#6A1B9A",
+      "leaderName": "Lars Porsenna",
+      "capitalCityId": "tarquinii",
+      "treasury": 1600,
+      "unity": 700,
+      "wealth": 621000,
+      "taxBase": 576,
+      "taxRatePercent": 10,
+      "mobilizedPercent": 20,
+      "population": 207,
+      "battleColorsHex": [
+        "#6A1B9A",
+        "#FFFFFF",
+        "#FFFFFF"
+      ],
+      "glyphColorHex": "#FFFFFF",
+      "_provenance": {
+        "_group": "historical: the Etruscan cities, at their greatest extent c. 500 BC, from Campania to the Po (Polybius 2.17; Livy 5.33); Lars Porsenna of Clusium attacked Rome c. 508 BC (Livy 2.9-2.14). designed: one nation for a league of independent cities.",
+        "colorHex": "designed: a colour of its own, told apart from its neighbours on the map.",
+        "treasury": "designed: larger for the trading powers (Carthage, the Greeks, Etruria).",
+        "unity": "designed: higher for the hill peoples and the Gauls, lower for the league-like Greeks and Etruscans.",
+        "population": "derived: the sum of its cities' populations.",
+        "wealth": "derived: population x 3000, the classical world's own ratio.",
+        "taxBase": "derived: four times its cities' tribute, the classical world's own ratio.",
+        "taxRatePercent": "designed: 10%, the classical world's usual rate.",
+        "mobilizedPercent": "designed: 20%."
+      }
+    },
+    {
+      "id": "samnites",
+      "name": "Samnites",
+      "colorHex": "#2E7D32",
+      "leaderName": "Gavius Pontius",
+      "capitalCityId": "bovianum",
+      "treasury": 500,
+      "unity": 820,
+      "wealth": 123000,
+      "taxBase": 116,
+      "taxRatePercent": 10,
+      "mobilizedPercent": 20,
+      "population": 41,
+      "battleColorsHex": [
+        "#2E7D32",
+        "#FFFFFF",
+        "#FFFFFF"
+      ],
+      "glyphColorHex": "#FFFFFF",
+      "_provenance": {
+        "_group": "historical: the Samnite peoples of the central southern Apennines (Livy 7.29; Strabo 5.4.12). designed: the leader's name, an Oscan name of the kind Livy 9.1 records, a century later.",
+        "colorHex": "designed: a colour of its own, told apart from its neighbours on the map.",
+        "treasury": "designed: larger for the trading powers (Carthage, the Greeks, Etruria).",
+        "unity": "designed: higher for the hill peoples and the Gauls, lower for the league-like Greeks and Etruscans.",
+        "population": "derived: the sum of its cities' populations.",
+        "wealth": "derived: population x 3000, the classical world's own ratio.",
+        "taxBase": "derived: four times its cities' tribute, the classical world's own ratio.",
+        "taxRatePercent": "designed: 10%, the classical world's usual rate.",
+        "mobilizedPercent": "designed: 20%."
+      }
+    },
+    {
+      "id": "umbrians",
+      "name": "Umbrians",
+      "colorHex": "#F9A825",
+      "leaderName": "Vibius Trebonius",
+      "capitalCityId": "iguvium",
+      "treasury": 400,
+      "unity": 720,
+      "wealth": 102000,
+      "taxBase": 100,
+      "taxRatePercent": 10,
+      "mobilizedPercent": 20,
+      "population": 34,
+      "battleColorsHex": [
+        "#F9A825",
+        "#FFFFFF",
+        "#3E2723"
+      ],
+      "glyphColorHex": "#3E2723",
+      "_provenance": {
+        "_group": "historical: the Umbrians east of the Tiber (Herodotus 1.94; Pliny, Natural History 3.112). designed: the leader's name.",
+        "colorHex": "designed: a colour of its own, told apart from its neighbours on the map.",
+        "treasury": "designed: larger for the trading powers (Carthage, the Greeks, Etruria).",
+        "unity": "designed: higher for the hill peoples and the Gauls, lower for the league-like Greeks and Etruscans.",
+        "population": "derived: the sum of its cities' populations.",
+        "wealth": "derived: population x 3000, the classical world's own ratio.",
+        "taxBase": "derived: four times its cities' tribute, the classical world's own ratio.",
+        "taxRatePercent": "designed: 10%, the classical world's usual rate.",
+        "mobilizedPercent": "designed: 20%."
+      }
+    },
+    {
+      "id": "veneti",
+      "name": "Veneti",
+      "colorHex": "#0277BD",
+      "leaderName": "Ostiala Gallenia",
+      "capitalCityId": "ateste",
+      "treasury": 500,
+      "unity": 740,
+      "wealth": 108000,
+      "taxBase": 104,
+      "taxRatePercent": 10,
+      "mobilizedPercent": 20,
+      "population": 36,
+      "battleColorsHex": [
+        "#0277BD",
+        "#FFFFFF",
+        "#FFFFFF"
+      ],
+      "glyphColorHex": "#FFFFFF",
+      "_provenance": {
+        "_group": "historical: the Veneti at the head of the Adriatic (Herodotus 1.196; Polybius 2.17; Livy 1.1). designed: the leader's name.",
+        "colorHex": "designed: a colour of its own, told apart from its neighbours on the map.",
+        "treasury": "designed: larger for the trading powers (Carthage, the Greeks, Etruria).",
+        "unity": "designed: higher for the hill peoples and the Gauls, lower for the league-like Greeks and Etruscans.",
+        "population": "derived: the sum of its cities' populations.",
+        "wealth": "derived: population x 3000, the classical world's own ratio.",
+        "taxBase": "derived: four times its cities' tribute, the classical world's own ratio.",
+        "taxRatePercent": "designed: 10%, the classical world's usual rate.",
+        "mobilizedPercent": "designed: 20%."
+      }
+    },
+    {
+      "id": "ligurians",
+      "name": "Ligurians",
+      "colorHex": "#5D4037",
+      "leaderName": "Comberanus",
+      "capitalCityId": "genua",
+      "treasury": 350,
+      "unity": 760,
+      "wealth": 69000,
+      "taxBase": 68,
+      "taxRatePercent": 10,
+      "mobilizedPercent": 20,
+      "population": 23,
+      "battleColorsHex": [
+        "#5D4037",
+        "#FFFFFF",
+        "#FFFFFF"
+      ],
+      "glyphColorHex": "#FFFFFF",
+      "_provenance": {
+        "_group": "historical: the Ligurian peoples of the north-west coast and Apennines (Strabo 4.6.1-4.6.3). designed: the leader's name.",
+        "colorHex": "designed: a colour of its own, told apart from its neighbours on the map.",
+        "treasury": "designed: larger for the trading powers (Carthage, the Greeks, Etruria).",
+        "unity": "designed: higher for the hill peoples and the Gauls, lower for the league-like Greeks and Etruscans.",
+        "population": "derived: the sum of its cities' populations.",
+        "wealth": "derived: population x 3000, the classical world's own ratio.",
+        "taxBase": "derived: four times its cities' tribute, the classical world's own ratio.",
+        "taxRatePercent": "designed: 10%, the classical world's usual rate.",
+        "mobilizedPercent": "designed: 20%."
+      }
+    },
+    {
+      "id": "senones",
+      "name": "Senones",
+      "colorHex": "#E65100",
+      "leaderName": "Brennus",
+      "capitalCityId": "sena",
+      "treasury": 300,
+      "unity": 780,
+      "wealth": 54000,
+      "taxBase": 52,
+      "taxRatePercent": 10,
+      "mobilizedPercent": 20,
+      "population": 18,
+      "battleColorsHex": [
+        "#E65100",
+        "#FFFFFF",
+        "#FFFFFF"
+      ],
+      "glyphColorHex": "#FFFFFF",
+      "_provenance": {
+        "_group": "historical: the Senones, the Gauls of the Adriatic coast who sacked Rome under Brennus c. 390 BC (Livy 5.35-5.38; Polybius 2.17). designed: placed in Italy a century early, at the owner's choice (decision D4), to give the Adriatic a Gaulish power.",
+        "colorHex": "designed: a colour of its own, told apart from its neighbours on the map.",
+        "treasury": "designed: larger for the trading powers (Carthage, the Greeks, Etruria).",
+        "unity": "designed: higher for the hill peoples and the Gauls, lower for the league-like Greeks and Etruscans.",
+        "population": "derived: the sum of its cities' populations.",
+        "wealth": "derived: population x 3000, the classical world's own ratio.",
+        "taxBase": "derived: four times its cities' tribute, the classical world's own ratio.",
+        "taxRatePercent": "designed: 10%, the classical world's usual rate.",
+        "mobilizedPercent": "designed: 20%."
+      }
+    },
+    {
+      "id": "insubres",
+      "name": "Insubres",
+      "colorHex": "#00897B",
+      "leaderName": "Bellovesus",
+      "capitalCityId": "mediolanum",
+      "treasury": 400,
+      "unity": 780,
+      "wealth": 96000,
+      "taxBase": 96,
+      "taxRatePercent": 10,
+      "mobilizedPercent": 20,
+      "population": 32,
+      "battleColorsHex": [
+        "#00897B",
+        "#FFFFFF",
+        "#FFFFFF"
+      ],
+      "glyphColorHex": "#FFFFFF",
+      "_provenance": {
+        "_group": "historical: the Insubres, the Gauls of the upper Po who founded Mediolanum under Bellovesus (Livy 5.34, by tradition c. 600 BC). designed: Bellovesus as the leader in 500 BC.",
+        "colorHex": "designed: a colour of its own, told apart from its neighbours on the map.",
+        "treasury": "designed: larger for the trading powers (Carthage, the Greeks, Etruria).",
+        "unity": "designed: higher for the hill peoples and the Gauls, lower for the league-like Greeks and Etruscans.",
+        "population": "derived: the sum of its cities' populations.",
+        "wealth": "derived: population x 3000, the classical world's own ratio.",
+        "taxBase": "derived: four times its cities' tribute, the classical world's own ratio.",
+        "taxRatePercent": "designed: 10%, the classical world's usual rate.",
+        "mobilizedPercent": "designed: 20%."
+      }
+    },
+    {
+      "id": "campanians",
+      "name": "Campanians",
+      "colorHex": "#AD1457",
+      "leaderName": "Marius Statius",
+      "capitalCityId": "nuceria",
+      "treasury": 700,
+      "unity": 690,
+      "wealth": 99000,
+      "taxBase": 92,
+      "taxRatePercent": 10,
+      "mobilizedPercent": 20,
+      "population": 33,
+      "battleColorsHex": [
+        "#AD1457",
+        "#FFFFFF",
+        "#FFFFFF"
+      ],
+      "glyphColorHex": "#FFFFFF",
+      "_provenance": {
+        "_group": "historical: the Oscan-speaking towns of Campania (Strabo 5.4.3-5.4.8). designed: one nation for them, and the leader's name.",
+        "colorHex": "designed: a colour of its own, told apart from its neighbours on the map.",
+        "treasury": "designed: larger for the trading powers (Carthage, the Greeks, Etruria).",
+        "unity": "designed: higher for the hill peoples and the Gauls, lower for the league-like Greeks and Etruscans.",
+        "population": "derived: the sum of its cities' populations.",
+        "wealth": "derived: population x 3000, the classical world's own ratio.",
+        "taxBase": "derived: four times its cities' tribute, the classical world's own ratio.",
+        "taxRatePercent": "designed: 10%, the classical world's usual rate.",
+        "mobilizedPercent": "designed: 20%."
+      }
+    },
+    {
+      "id": "magnagraecia",
+      "name": "Magna Graecia",
+      "colorHex": "#1565C0",
+      "leaderName": "Aristophilides",
+      "capitalCityId": "taras",
+      "treasury": 1400,
+      "unity": 650,
+      "wealth": 357000,
+      "taxBase": 324,
+      "taxRatePercent": 10,
+      "mobilizedPercent": 20,
+      "population": 119,
+      "battleColorsHex": [
+        "#1565C0",
+        "#FFFFFF",
+        "#FFEB3B"
+      ],
+      "glyphColorHex": "#FFEB3B",
+      "_provenance": {
+        "_group": "historical: the Greek cities of southern Italy (Strabo 6.1-6.3); Aristophilides was king of Taras c. 520 BC (Herodotus 3.136). designed: one nation, led from Taras, for many independent poleis.",
+        "colorHex": "designed: a colour of its own, told apart from its neighbours on the map.",
+        "treasury": "designed: larger for the trading powers (Carthage, the Greeks, Etruria).",
+        "unity": "designed: higher for the hill peoples and the Gauls, lower for the league-like Greeks and Etruscans.",
+        "population": "derived: the sum of its cities' populations.",
+        "wealth": "derived: population x 3000, the classical world's own ratio.",
+        "taxBase": "derived: four times its cities' tribute, the classical world's own ratio.",
+        "taxRatePercent": "designed: 10%, the classical world's usual rate.",
+        "mobilizedPercent": "designed: 20%."
+      }
+    },
+    {
+      "id": "syracuse",
+      "name": "Syracuse",
+      "colorHex": "#4527A0",
+      "leaderName": "Gelon",
+      "capitalCityId": "syracusae",
+      "treasury": 1500,
+      "unity": 680,
+      "wealth": 324000,
+      "taxBase": 308,
+      "taxRatePercent": 10,
+      "mobilizedPercent": 20,
+      "population": 108,
+      "battleColorsHex": [
+        "#4527A0",
+        "#FFFFFF",
+        "#FFFFFF"
+      ],
+      "glyphColorHex": "#FFFFFF",
+      "_provenance": {
+        "_group": "historical: the Greek cities of Sicily (Thucydides 6.3-6.5); Gelon, master of Gela from 491 BC and of Syracuse from 485 BC (Herodotus 7.154-7.156). designed: Syracuse leading the Sicilian Greeks already in 500 BC, and Gelon as its leader.",
+        "colorHex": "designed: a colour of its own, told apart from its neighbours on the map.",
+        "treasury": "designed: larger for the trading powers (Carthage, the Greeks, Etruria).",
+        "unity": "designed: higher for the hill peoples and the Gauls, lower for the league-like Greeks and Etruscans.",
+        "population": "derived: the sum of its cities' populations.",
+        "wealth": "derived: population x 3000, the classical world's own ratio.",
+        "taxBase": "derived: four times its cities' tribute, the classical world's own ratio.",
+        "taxRatePercent": "designed: 10%, the classical world's usual rate.",
+        "mobilizedPercent": "designed: 20%."
+      }
+    },
+    {
+      "id": "carthage",
+      "name": "Carthage",
+      "colorHex": "#37474F",
+      "leaderName": "Hamilcar",
+      "capitalCityId": "motya",
+      "treasury": 2400,
+      "unity": 700,
+      "wealth": 201000,
+      "taxBase": 192,
+      "taxRatePercent": 10,
+      "mobilizedPercent": 20,
+      "population": 67,
+      "battleColorsHex": [
+        "#37474F",
+        "#FFFFFF",
+        "#FFC107"
+      ],
+      "glyphColorHex": "#FFC107",
+      "_provenance": {
+        "_group": "historical: Carthage's holdings in western Sicily and Sardinia (Thucydides 6.2.6; Polybius 3.22, the first treaty with Rome, 509 BC); Hamilcar commanded at Himera in 480 BC (Herodotus 7.165-7.167). designed: Africa is left out (decision D5), so the capital is Motya.",
+        "colorHex": "designed: a colour of its own, told apart from its neighbours on the map.",
+        "treasury": "designed: larger for the trading powers (Carthage, the Greeks, Etruria).",
+        "unity": "designed: higher for the hill peoples and the Gauls, lower for the league-like Greeks and Etruscans.",
+        "population": "derived: the sum of its cities' populations.",
+        "wealth": "derived: population x 3000, the classical world's own ratio.",
+        "taxBase": "derived: four times its cities' tribute, the classical world's own ratio.",
+        "taxRatePercent": "designed: 10%, the classical world's usual rate.",
+        "mobilizedPercent": "designed: 20%."
+      }
+    }
+  ],
+  "cities": [
+    {
+      "id": "roma",
+      "name": "Roma",
+      "x": 72,
+      "y": 81,
+      "owner": "rome",
+      "allegiance": "rome",
+      "loyalty": 80,
+      "supplyTons": 220,
+      "fortificationCode": 50,
+      "populationThousands": 30,
+      "maxPopulationThousands": 45,
+      "tribute": 21,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Roma: Rome (Livy 1-2). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "tibur",
+      "name": "Tibur",
+      "x": 75,
+      "y": 80,
+      "owner": "rome",
+      "allegiance": "rome",
+      "loyalty": 80,
+      "supplyTons": 88,
+      "fortificationCode": 35,
+      "populationThousands": 8,
+      "maxPopulationThousands": 12,
+      "tribute": 6,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Tibur: a Latin town (Livy 7.9). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "praeneste",
+      "name": "Praeneste",
+      "x": 76,
+      "y": 82,
+      "owner": "rome",
+      "allegiance": "rome",
+      "loyalty": 80,
+      "supplyTons": 94,
+      "fortificationCode": 40,
+      "populationThousands": 9,
+      "maxPopulationThousands": 14,
+      "tribute": 6,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Praeneste: a Latin town (Livy 3.8). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "ardea",
+      "name": "Ardea",
+      "x": 72,
+      "y": 86,
+      "owner": "rome",
+      "allegiance": "rome",
+      "loyalty": 80,
+      "supplyTons": 82,
+      "fortificationCode": 35,
+      "populationThousands": 7,
+      "maxPopulationThousands": 10,
+      "tribute": 5,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Ardea: the Rutulian town besieged by the last king (Livy 1.57). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "antium",
+      "name": "Antium",
+      "x": 73,
+      "y": 88,
+      "owner": "rome",
+      "allegiance": "rome",
+      "loyalty": 80,
+      "supplyTons": 88,
+      "fortificationCode": 30,
+      "populationThousands": 8,
+      "maxPopulationThousands": 12,
+      "tribute": 6,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Antium: the Volscian port (Livy 2.33). designed: held by Rome's side in 500 BC. site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "tarquinii",
+      "name": "Tarquinii",
+      "x": 63,
+      "y": 76,
+      "owner": "etruria",
+      "allegiance": "etruria",
+      "loyalty": 80,
+      "supplyTons": 172,
+      "fortificationCode": 45,
+      "populationThousands": 22,
+      "maxPopulationThousands": 33,
+      "tribute": 15,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Tarquinii: an Etruscan city (Livy 1.34). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "veii",
+      "name": "Veii",
+      "x": 70,
+      "y": 79,
+      "owner": "etruria",
+      "allegiance": "etruria",
+      "loyalty": 80,
+      "supplyTons": 160,
+      "fortificationCode": 50,
+      "populationThousands": 20,
+      "maxPopulationThousands": 30,
+      "tribute": 14,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Veii: the Etruscan city at war with Rome in the early Republic (Livy 2.48-2.53). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "caere",
+      "name": "Caere",
+      "x": 67,
+      "y": 80,
+      "owner": "etruria",
+      "allegiance": "etruria",
+      "loyalty": 80,
+      "supplyTons": 148,
+      "fortificationCode": 40,
+      "populationThousands": 18,
+      "maxPopulationThousands": 27,
+      "tribute": 13,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Caere: an Etruscan city (Livy 1.2). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "vulci",
+      "name": "Vulci",
+      "x": 61,
+      "y": 73,
+      "owner": "etruria",
+      "allegiance": "etruria",
+      "loyalty": 80,
+      "supplyTons": 124,
+      "fortificationCode": 35,
+      "populationThousands": 14,
+      "maxPopulationThousands": 21,
+      "tribute": 10,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Vulci: an Etruscan city (Pliny, Natural History 3.52). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "volsinii",
+      "name": "Volsinii",
+      "x": 67,
+      "y": 68,
+      "owner": "etruria",
+      "allegiance": "etruria",
+      "loyalty": 80,
+      "supplyTons": 130,
+      "fortificationCode": 45,
+      "populationThousands": 15,
+      "maxPopulationThousands": 22,
+      "tribute": 10,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Volsinii: an Etruscan city (Livy 5.31). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "clusium",
+      "name": "Clusium",
+      "x": 65,
+      "y": 63,
+      "owner": "etruria",
+      "allegiance": "etruria",
+      "loyalty": 80,
+      "supplyTons": 136,
+      "fortificationCode": 40,
+      "populationThousands": 16,
+      "maxPopulationThousands": 24,
+      "tribute": 11,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Clusium: Porsenna's city (Livy 2.9). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "perusia",
+      "name": "Perusia",
+      "x": 71,
+      "y": 62,
+      "owner": "etruria",
+      "allegiance": "etruria",
+      "loyalty": 80,
+      "supplyTons": 112,
+      "fortificationCode": 45,
+      "populationThousands": 12,
+      "maxPopulationThousands": 18,
+      "tribute": 8,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Perusia: an Etruscan city (Livy 9.37). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "arretium",
+      "name": "Arretium",
+      "x": 64,
+      "y": 56,
+      "owner": "etruria",
+      "allegiance": "etruria",
+      "loyalty": 80,
+      "supplyTons": 112,
+      "fortificationCode": 35,
+      "populationThousands": 12,
+      "maxPopulationThousands": 18,
+      "tribute": 8,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Arretium: an Etruscan city (Livy 9.37). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "volaterrae",
+      "name": "Volaterrae",
+      "x": 52,
+      "y": 57,
+      "owner": "etruria",
+      "allegiance": "etruria",
+      "loyalty": 80,
+      "supplyTons": 112,
+      "fortificationCode": 50,
+      "populationThousands": 12,
+      "maxPopulationThousands": 18,
+      "tribute": 8,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Volaterrae: an Etruscan city (Strabo 5.2.6). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "populonia",
+      "name": "Populonia",
+      "x": 48,
+      "y": 64,
+      "owner": "etruria",
+      "allegiance": "etruria",
+      "loyalty": 80,
+      "supplyTons": 88,
+      "fortificationCode": 30,
+      "populationThousands": 8,
+      "maxPopulationThousands": 12,
+      "tribute": 6,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Populonia: the Etruscan iron port facing Elba (Strabo 5.2.6). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "faesulae",
+      "name": "Faesulae",
+      "x": 57,
+      "y": 52,
+      "owner": "etruria",
+      "allegiance": "etruria",
+      "loyalty": 80,
+      "supplyTons": 88,
+      "fortificationCode": 35,
+      "populationThousands": 8,
+      "maxPopulationThousands": 12,
+      "tribute": 6,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Faesulae: an Etruscan town (Polybius 2.25). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "felsina",
+      "name": "Felsina",
+      "x": 58,
+      "y": 40,
+      "owner": "etruria",
+      "allegiance": "etruria",
+      "loyalty": 80,
+      "supplyTons": 112,
+      "fortificationCode": 30,
+      "populationThousands": 12,
+      "maxPopulationThousands": 18,
+      "tribute": 8,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Felsina: Etruscan Bologna (Pliny, Natural History 3.115). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "spina",
+      "name": "Spina",
+      "x": 67,
+      "y": 36,
+      "owner": "etruria",
+      "allegiance": "etruria",
+      "loyalty": 80,
+      "supplyTons": 100,
+      "fortificationCode": 20,
+      "populationThousands": 10,
+      "maxPopulationThousands": 15,
+      "tribute": 7,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Spina: the Etruscan port of the Po delta (Strabo 5.1.7). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "mantua",
+      "name": "Mantua",
+      "x": 51,
+      "y": 29,
+      "owner": "etruria",
+      "allegiance": "etruria",
+      "loyalty": 80,
+      "supplyTons": 82,
+      "fortificationCode": 25,
+      "populationThousands": 7,
+      "maxPopulationThousands": 10,
+      "tribute": 5,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Mantua: an Etruscan town of the Po (Pliny, Natural History 3.130). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "capua",
+      "name": "Capua",
+      "x": 94,
+      "y": 94,
+      "owner": "etruria",
+      "allegiance": "etruria",
+      "loyalty": 80,
+      "supplyTons": 136,
+      "fortificationCode": 40,
+      "populationThousands": 16,
+      "maxPopulationThousands": 24,
+      "tribute": 11,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Capua: Etruscan Capua, taken by the Samnites in 423 BC (Livy 4.37). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "alalia",
+      "name": "Alalia",
+      "x": 35,
+      "y": 78,
+      "owner": "etruria",
+      "allegiance": "etruria",
+      "loyalty": 80,
+      "supplyTons": 70,
+      "fortificationCode": 25,
+      "populationThousands": 5,
+      "maxPopulationThousands": 8,
+      "tribute": 4,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Alalia: the Corsican port held by the Etruscans after the battle of Alalia, c. 540 BC (Herodotus 1.165-1.167). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "bovianum",
+      "name": "Bovianum",
+      "x": 95,
+      "y": 88,
+      "owner": "samnites",
+      "allegiance": "samnites",
+      "loyalty": 80,
+      "supplyTons": 100,
+      "fortificationCode": 40,
+      "populationThousands": 10,
+      "maxPopulationThousands": 15,
+      "tribute": 7,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Bovianum: a chief Samnite town (Livy 9.31). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "aesernia",
+      "name": "Aesernia",
+      "x": 92,
+      "y": 86,
+      "owner": "samnites",
+      "allegiance": "samnites",
+      "loyalty": 80,
+      "supplyTons": 76,
+      "fortificationCode": 35,
+      "populationThousands": 6,
+      "maxPopulationThousands": 9,
+      "tribute": 4,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Aesernia: a Samnite town (Livy 10.31; Strabo 5.3.10). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "saepinum",
+      "name": "Saepinum",
+      "x": 97,
+      "y": 89,
+      "owner": "samnites",
+      "allegiance": "samnites",
+      "loyalty": 80,
+      "supplyTons": 76,
+      "fortificationCode": 35,
+      "populationThousands": 6,
+      "maxPopulationThousands": 9,
+      "tribute": 4,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Saepinum: a Samnite town (Livy 10.45). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "caudium",
+      "name": "Caudium",
+      "x": 97,
+      "y": 95,
+      "owner": "samnites",
+      "allegiance": "samnites",
+      "loyalty": 80,
+      "supplyTons": 76,
+      "fortificationCode": 35,
+      "populationThousands": 6,
+      "maxPopulationThousands": 9,
+      "tribute": 4,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Caudium: the Samnite town by the Caudine Forks (Livy 9.2). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "maleventum",
+      "name": "Maleventum",
+      "x": 99,
+      "y": 93,
+      "owner": "samnites",
+      "allegiance": "samnites",
+      "loyalty": 80,
+      "supplyTons": 88,
+      "fortificationCode": 35,
+      "populationThousands": 8,
+      "maxPopulationThousands": 12,
+      "tribute": 6,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Maleventum: the Samnite town later renamed Beneventum (Livy 9.27; Pliny, Natural History 3.105). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "aufidena",
+      "name": "Aufidena",
+      "x": 90,
+      "y": 84,
+      "owner": "samnites",
+      "allegiance": "samnites",
+      "loyalty": 80,
+      "supplyTons": 70,
+      "fortificationCode": 40,
+      "populationThousands": 5,
+      "maxPopulationThousands": 8,
+      "tribute": 4,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Aufidena: a Samnite town (Livy 10.12). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "iguvium",
+      "name": "Iguvium",
+      "x": 72,
+      "y": 58,
+      "owner": "umbrians",
+      "allegiance": "umbrians",
+      "loyalty": 80,
+      "supplyTons": 82,
+      "fortificationCode": 40,
+      "populationThousands": 7,
+      "maxPopulationThousands": 10,
+      "tribute": 5,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Iguvium: the Umbrian town of the Iguvine Tables. site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "tuder",
+      "name": "Tuder",
+      "x": 71,
+      "y": 67,
+      "owner": "umbrians",
+      "allegiance": "umbrians",
+      "loyalty": 80,
+      "supplyTons": 82,
+      "fortificationCode": 40,
+      "populationThousands": 7,
+      "maxPopulationThousands": 10,
+      "tribute": 5,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Tuder: an Umbrian town (Pliny, Natural History 3.113). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "asisium",
+      "name": "Asisium",
+      "x": 73,
+      "y": 62,
+      "owner": "umbrians",
+      "allegiance": "umbrians",
+      "loyalty": 80,
+      "supplyTons": 70,
+      "fortificationCode": 35,
+      "populationThousands": 5,
+      "maxPopulationThousands": 8,
+      "tribute": 4,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Asisium: an Umbrian town (Pliny, Natural History 3.113). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "spoletium",
+      "name": "Spoletium",
+      "x": 74,
+      "y": 68,
+      "owner": "umbrians",
+      "allegiance": "umbrians",
+      "loyalty": 80,
+      "supplyTons": 76,
+      "fortificationCode": 40,
+      "populationThousands": 6,
+      "maxPopulationThousands": 9,
+      "tribute": 4,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Spoletium: an Umbrian town (Livy 22.9). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "ameria",
+      "name": "Ameria",
+      "x": 71,
+      "y": 71,
+      "owner": "umbrians",
+      "allegiance": "umbrians",
+      "loyalty": 80,
+      "supplyTons": 70,
+      "fortificationCode": 35,
+      "populationThousands": 5,
+      "maxPopulationThousands": 8,
+      "tribute": 4,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Ameria: an Umbrian town (Pliny, Natural History 3.114). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "sarsina",
+      "name": "Sarsina",
+      "x": 67,
+      "y": 49,
+      "owner": "umbrians",
+      "allegiance": "umbrians",
+      "loyalty": 80,
+      "supplyTons": 64,
+      "fortificationCode": 30,
+      "populationThousands": 4,
+      "maxPopulationThousands": 6,
+      "tribute": 3,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Sarsina: an Umbrian town (Polybius 2.24). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "ateste",
+      "name": "Ateste",
+      "x": 61,
+      "y": 29,
+      "owner": "veneti",
+      "allegiance": "veneti",
+      "loyalty": 80,
+      "supplyTons": 94,
+      "fortificationCode": 30,
+      "populationThousands": 9,
+      "maxPopulationThousands": 14,
+      "tribute": 6,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Ateste: the chief Venetic centre of the early Iron Age (Este). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "patavium",
+      "name": "Patavium",
+      "x": 64,
+      "y": 25,
+      "owner": "veneti",
+      "allegiance": "veneti",
+      "loyalty": 80,
+      "supplyTons": 106,
+      "fortificationCode": 35,
+      "populationThousands": 11,
+      "maxPopulationThousands": 16,
+      "tribute": 8,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Patavium: the Venetic city (Livy 10.2; Strabo 5.1.7). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "altinum",
+      "name": "Altinum",
+      "x": 70,
+      "y": 23,
+      "owner": "veneti",
+      "allegiance": "veneti",
+      "loyalty": 80,
+      "supplyTons": 76,
+      "fortificationCode": 25,
+      "populationThousands": 6,
+      "maxPopulationThousands": 9,
+      "tribute": 4,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Altinum: a Venetic port (Strabo 5.1.7). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "vicetia",
+      "name": "Vicetia",
+      "x": 60,
+      "y": 23,
+      "owner": "veneti",
+      "allegiance": "veneti",
+      "loyalty": 80,
+      "supplyTons": 70,
+      "fortificationCode": 25,
+      "populationThousands": 5,
+      "maxPopulationThousands": 8,
+      "tribute": 4,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Vicetia: a Venetic town (Strabo 5.1.8). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "opitergium",
+      "name": "Opitergium",
+      "x": 71,
+      "y": 19,
+      "owner": "veneti",
+      "allegiance": "veneti",
+      "loyalty": 80,
+      "supplyTons": 70,
+      "fortificationCode": 25,
+      "populationThousands": 5,
+      "maxPopulationThousands": 8,
+      "tribute": 4,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Opitergium: a Venetic town (Strabo 5.1.8). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "genua",
+      "name": "Genua",
+      "x": 29,
+      "y": 41,
+      "owner": "ligurians",
+      "allegiance": "ligurians",
+      "loyalty": 80,
+      "supplyTons": 82,
+      "fortificationCode": 30,
+      "populationThousands": 7,
+      "maxPopulationThousands": 10,
+      "tribute": 5,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Genua: the Ligurian port (Strabo 4.6.1). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "albingaunum",
+      "name": "Albingaunum",
+      "x": 19,
+      "y": 47,
+      "owner": "ligurians",
+      "allegiance": "ligurians",
+      "loyalty": 80,
+      "supplyTons": 64,
+      "fortificationCode": 30,
+      "populationThousands": 4,
+      "maxPopulationThousands": 6,
+      "tribute": 3,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Albingaunum: a Ligurian town (Strabo 4.6.1). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "intimilium",
+      "name": "Album Intimilium",
+      "x": 12,
+      "y": 51,
+      "owner": "ligurians",
+      "allegiance": "ligurians",
+      "loyalty": 80,
+      "supplyTons": 64,
+      "fortificationCode": 30,
+      "populationThousands": 4,
+      "maxPopulationThousands": 6,
+      "tribute": 3,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Album Intimilium: a Ligurian town (Strabo 4.6.1). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "segesta-t",
+      "name": "Segesta Tigulliorum",
+      "x": 34,
+      "y": 43,
+      "owner": "ligurians",
+      "allegiance": "ligurians",
+      "loyalty": 80,
+      "supplyTons": 58,
+      "fortificationCode": 25,
+      "populationThousands": 3,
+      "maxPopulationThousands": 4,
+      "tribute": 2,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Segesta Tigulliorum: a Ligurian town (Pliny, Natural History 3.48). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "taurasia",
+      "name": "Taurasia",
+      "x": 13,
+      "y": 30,
+      "owner": "ligurians",
+      "allegiance": "ligurians",
+      "loyalty": 80,
+      "supplyTons": 70,
+      "fortificationCode": 30,
+      "populationThousands": 5,
+      "maxPopulationThousands": 8,
+      "tribute": 4,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Taurasia: the town of the Taurini (Appian, Hannibalic War 5; Polybius 3.60). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "sena",
+      "name": "Sena Gallica",
+      "x": 80,
+      "y": 52,
+      "owner": "senones",
+      "allegiance": "senones",
+      "loyalty": 80,
+      "supplyTons": 70,
+      "fortificationCode": 25,
+      "populationThousands": 5,
+      "maxPopulationThousands": 8,
+      "tribute": 4,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Sena Gallica: the Senones' coastal town (Polybius 2.19). designed: Gaulish a century early. site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "ariminum",
+      "name": "Ariminum",
+      "x": 72,
+      "y": 47,
+      "owner": "senones",
+      "allegiance": "senones",
+      "loyalty": 80,
+      "supplyTons": 76,
+      "fortificationCode": 25,
+      "populationThousands": 6,
+      "maxPopulationThousands": 9,
+      "tribute": 4,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Ariminum: the site of Ariminum (Polybius 2.21). designed: held by the Senones in 500 BC. site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "pisaurum",
+      "name": "Pisaurum",
+      "x": 76,
+      "y": 49,
+      "owner": "senones",
+      "allegiance": "senones",
+      "loyalty": 80,
+      "supplyTons": 64,
+      "fortificationCode": 20,
+      "populationThousands": 4,
+      "maxPopulationThousands": 6,
+      "tribute": 3,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Pisaurum: the site of Pisaurum (Livy 39.44). designed: held by the Senones in 500 BC. site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "fanum",
+      "name": "Fanum",
+      "x": 77,
+      "y": 50,
+      "owner": "senones",
+      "allegiance": "senones",
+      "loyalty": 80,
+      "supplyTons": 58,
+      "fortificationCode": 20,
+      "populationThousands": 3,
+      "maxPopulationThousands": 4,
+      "tribute": 2,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Fanum: the site of Fanum Fortunae. designed: a Senonian town in 500 BC. site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "mediolanum",
+      "name": "Mediolanum",
+      "x": 32,
+      "y": 24,
+      "owner": "insubres",
+      "allegiance": "insubres",
+      "loyalty": 80,
+      "supplyTons": 94,
+      "fortificationCode": 30,
+      "populationThousands": 9,
+      "maxPopulationThousands": 14,
+      "tribute": 6,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Mediolanum: the Insubres' town (Livy 5.34; Polybius 2.34). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "comum",
+      "name": "Comum",
+      "x": 31,
+      "y": 19,
+      "owner": "insubres",
+      "allegiance": "insubres",
+      "loyalty": 80,
+      "supplyTons": 70,
+      "fortificationCode": 30,
+      "populationThousands": 5,
+      "maxPopulationThousands": 8,
+      "tribute": 4,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Comum: a town of the lakes (Livy 33.36). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "novaria",
+      "name": "Novaria",
+      "x": 25,
+      "y": 24,
+      "owner": "insubres",
+      "allegiance": "insubres",
+      "loyalty": 80,
+      "supplyTons": 64,
+      "fortificationCode": 25,
+      "populationThousands": 4,
+      "maxPopulationThousands": 6,
+      "tribute": 3,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Novaria: a town of the upper Po plain (Pliny, Natural History 3.124). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "laus",
+      "name": "Laus",
+      "x": 35,
+      "y": 27,
+      "owner": "insubres",
+      "allegiance": "insubres",
+      "loyalty": 80,
+      "supplyTons": 64,
+      "fortificationCode": 25,
+      "populationThousands": 4,
+      "maxPopulationThousands": 6,
+      "tribute": 3,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Laus: Laus Pompeia, an Insubrian town (Pliny, Natural History 3.124). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "bergomum",
+      "name": "Bergomum",
+      "x": 38,
+      "y": 20,
+      "owner": "insubres",
+      "allegiance": "insubres",
+      "loyalty": 80,
+      "supplyTons": 70,
+      "fortificationCode": 30,
+      "populationThousands": 5,
+      "maxPopulationThousands": 8,
+      "tribute": 4,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Bergomum: a town of the Orobii (Pliny, Natural History 3.124). designed: Insubrian here. site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "brixia",
+      "name": "Brixia",
+      "x": 44,
+      "y": 23,
+      "owner": "insubres",
+      "allegiance": "insubres",
+      "loyalty": 80,
+      "supplyTons": 70,
+      "fortificationCode": 30,
+      "populationThousands": 5,
+      "maxPopulationThousands": 8,
+      "tribute": 4,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Brixia: the Cenomani's town (Livy 32.30). designed: Insubrian here. site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "nuceria",
+      "name": "Nuceria",
+      "x": 97,
+      "y": 100,
+      "owner": "campanians",
+      "allegiance": "campanians",
+      "loyalty": 80,
+      "supplyTons": 94,
+      "fortificationCode": 35,
+      "populationThousands": 9,
+      "maxPopulationThousands": 14,
+      "tribute": 6,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Nuceria: Nuceria Alfaterna, an Oscan town (Livy 9.41). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "nola",
+      "name": "Nola",
+      "x": 96,
+      "y": 97,
+      "owner": "campanians",
+      "allegiance": "campanians",
+      "loyalty": 80,
+      "supplyTons": 94,
+      "fortificationCode": 40,
+      "populationThousands": 9,
+      "maxPopulationThousands": 14,
+      "tribute": 6,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Nola: an Oscan-Campanian town (Livy 8.23). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "pompeii",
+      "name": "Pompeii",
+      "x": 95,
+      "y": 100,
+      "owner": "campanians",
+      "allegiance": "campanians",
+      "loyalty": 80,
+      "supplyTons": 76,
+      "fortificationCode": 30,
+      "populationThousands": 6,
+      "maxPopulationThousands": 9,
+      "tribute": 4,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Pompeii: an Oscan town (Strabo 5.4.8). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "acerrae",
+      "name": "Acerrae",
+      "x": 94,
+      "y": 96,
+      "owner": "campanians",
+      "allegiance": "campanians",
+      "loyalty": 80,
+      "supplyTons": 70,
+      "fortificationCode": 25,
+      "populationThousands": 5,
+      "maxPopulationThousands": 8,
+      "tribute": 4,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Acerrae: a Campanian town (Livy 8.17). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "abella",
+      "name": "Abella",
+      "x": 97,
+      "y": 96,
+      "owner": "campanians",
+      "allegiance": "campanians",
+      "loyalty": 80,
+      "supplyTons": 64,
+      "fortificationCode": 25,
+      "populationThousands": 4,
+      "maxPopulationThousands": 6,
+      "tribute": 3,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Abella: a Campanian town (Virgil, Aeneid 7.740). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "taras",
+      "name": "Taras",
+      "x": 128,
+      "y": 104,
+      "owner": "magnagraecia",
+      "allegiance": "magnagraecia",
+      "loyalty": 80,
+      "supplyTons": 184,
+      "fortificationCode": 50,
+      "populationThousands": 24,
+      "maxPopulationThousands": 36,
+      "tribute": 17,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Taras: the Spartan colony (Strabo 6.3.2). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "metapontum",
+      "name": "Metapontum",
+      "x": 123,
+      "y": 105,
+      "owner": "magnagraecia",
+      "allegiance": "magnagraecia",
+      "loyalty": 80,
+      "supplyTons": 112,
+      "fortificationCode": 35,
+      "populationThousands": 12,
+      "maxPopulationThousands": 18,
+      "tribute": 8,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Metapontum: an Achaean colony (Strabo 6.1.15). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "croton",
+      "name": "Croton",
+      "x": 126,
+      "y": 126,
+      "owner": "magnagraecia",
+      "allegiance": "magnagraecia",
+      "loyalty": 80,
+      "supplyTons": 160,
+      "fortificationCode": 40,
+      "populationThousands": 20,
+      "maxPopulationThousands": 30,
+      "tribute": 14,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Croton: the Achaean colony that destroyed Sybaris in 510 BC (Strabo 6.1.12-6.1.13). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "locri",
+      "name": "Locri",
+      "x": 116,
+      "y": 140,
+      "owner": "magnagraecia",
+      "allegiance": "magnagraecia",
+      "loyalty": 80,
+      "supplyTons": 112,
+      "fortificationCode": 35,
+      "populationThousands": 12,
+      "maxPopulationThousands": 18,
+      "tribute": 8,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Locri: Locri Epizephyrii (Strabo 6.1.7). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "rhegium",
+      "name": "Rhegium",
+      "x": 110,
+      "y": 142,
+      "owner": "magnagraecia",
+      "allegiance": "magnagraecia",
+      "loyalty": 80,
+      "supplyTons": 112,
+      "fortificationCode": 40,
+      "populationThousands": 12,
+      "maxPopulationThousands": 18,
+      "tribute": 8,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Rhegium: the Chalcidian colony on the strait (Strabo 6.1.6). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "caulonia",
+      "name": "Caulonia",
+      "x": 119,
+      "y": 137,
+      "owner": "magnagraecia",
+      "allegiance": "magnagraecia",
+      "loyalty": 80,
+      "supplyTons": 76,
+      "fortificationCode": 30,
+      "populationThousands": 6,
+      "maxPopulationThousands": 9,
+      "tribute": 4,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Caulonia: an Achaean colony (Strabo 6.1.10). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "hipponion",
+      "name": "Hipponion",
+      "x": 115,
+      "y": 133,
+      "owner": "magnagraecia",
+      "allegiance": "magnagraecia",
+      "loyalty": 80,
+      "supplyTons": 76,
+      "fortificationCode": 30,
+      "populationThousands": 6,
+      "maxPopulationThousands": 9,
+      "tribute": 4,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Hipponion: a Locrian colony (Strabo 6.1.5). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "elea",
+      "name": "Elea",
+      "x": 104,
+      "y": 109,
+      "owner": "magnagraecia",
+      "allegiance": "magnagraecia",
+      "loyalty": 80,
+      "supplyTons": 76,
+      "fortificationCode": 30,
+      "populationThousands": 6,
+      "maxPopulationThousands": 9,
+      "tribute": 4,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Elea: the Phocaean colony founded c. 540 BC (Herodotus 1.167). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "poseidonia",
+      "name": "Poseidonia",
+      "x": 102,
+      "y": 105,
+      "owner": "magnagraecia",
+      "allegiance": "magnagraecia",
+      "loyalty": 80,
+      "supplyTons": 94,
+      "fortificationCode": 35,
+      "populationThousands": 9,
+      "maxPopulationThousands": 14,
+      "tribute": 6,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Poseidonia: the Sybarite colony, later Paestum (Strabo 5.4.13). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "cumae",
+      "name": "Cumae",
+      "x": 90,
+      "y": 97,
+      "owner": "magnagraecia",
+      "allegiance": "magnagraecia",
+      "loyalty": 80,
+      "supplyTons": 112,
+      "fortificationCode": 45,
+      "populationThousands": 12,
+      "maxPopulationThousands": 18,
+      "tribute": 8,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Cumae: the oldest Greek colony in Italy, under Aristodemus c. 504 BC (Dionysius of Halicarnassus 7.3-7.12). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "syracusae",
+      "name": "Syracusae",
+      "x": 104,
+      "y": 158,
+      "owner": "syracuse",
+      "allegiance": "syracuse",
+      "loyalty": 80,
+      "supplyTons": 190,
+      "fortificationCode": 55,
+      "populationThousands": 25,
+      "maxPopulationThousands": 38,
+      "tribute": 18,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Syracusae: the Corinthian colony (Thucydides 6.3). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "gela",
+      "name": "Gela",
+      "x": 93,
+      "y": 158,
+      "owner": "syracuse",
+      "allegiance": "syracuse",
+      "loyalty": 80,
+      "supplyTons": 124,
+      "fortificationCode": 40,
+      "populationThousands": 14,
+      "maxPopulationThousands": 21,
+      "tribute": 10,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Gela: the Rhodian-Cretan colony, Gelon's first city (Thucydides 6.4; Herodotus 7.153-7.156). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "akragas",
+      "name": "Akragas",
+      "x": 85,
+      "y": 155,
+      "owner": "syracuse",
+      "allegiance": "syracuse",
+      "loyalty": 80,
+      "supplyTons": 136,
+      "fortificationCode": 45,
+      "populationThousands": 16,
+      "maxPopulationThousands": 24,
+      "tribute": 11,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Akragas: Gela's colony (Thucydides 6.4). designed: on Syracuse's side in 500 BC. site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "leontini",
+      "name": "Leontini",
+      "x": 102,
+      "y": 155,
+      "owner": "syracuse",
+      "allegiance": "syracuse",
+      "loyalty": 80,
+      "supplyTons": 88,
+      "fortificationCode": 35,
+      "populationThousands": 8,
+      "maxPopulationThousands": 12,
+      "tribute": 6,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Leontini: a Chalcidian colony (Thucydides 6.3). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "catana",
+      "name": "Catana",
+      "x": 102,
+      "y": 152,
+      "owner": "syracuse",
+      "allegiance": "syracuse",
+      "loyalty": 80,
+      "supplyTons": 94,
+      "fortificationCode": 35,
+      "populationThousands": 9,
+      "maxPopulationThousands": 14,
+      "tribute": 6,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Catana: a Chalcidian colony (Thucydides 6.3). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "naxos",
+      "name": "Naxos",
+      "x": 104,
+      "y": 146,
+      "owner": "syracuse",
+      "allegiance": "syracuse",
+      "loyalty": 80,
+      "supplyTons": 70,
+      "fortificationCode": 30,
+      "populationThousands": 5,
+      "maxPopulationThousands": 8,
+      "tribute": 4,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Naxos: the first Greek colony in Sicily (Thucydides 6.3). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "camarina",
+      "name": "Camarina",
+      "x": 96,
+      "y": 161,
+      "owner": "syracuse",
+      "allegiance": "syracuse",
+      "loyalty": 80,
+      "supplyTons": 76,
+      "fortificationCode": 30,
+      "populationThousands": 6,
+      "maxPopulationThousands": 9,
+      "tribute": 4,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Camarina: a Syracusan colony (Thucydides 6.5). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "zancle",
+      "name": "Zancle",
+      "x": 108,
+      "y": 140,
+      "owner": "syracuse",
+      "allegiance": "syracuse",
+      "loyalty": 80,
+      "supplyTons": 88,
+      "fortificationCode": 35,
+      "populationThousands": 8,
+      "maxPopulationThousands": 12,
+      "tribute": 6,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Zancle: the colony on the strait, later Messana (Thucydides 6.4). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "himera",
+      "name": "Himera",
+      "x": 87,
+      "y": 144,
+      "owner": "syracuse",
+      "allegiance": "syracuse",
+      "loyalty": 80,
+      "supplyTons": 82,
+      "fortificationCode": 35,
+      "populationThousands": 7,
+      "maxPopulationThousands": 10,
+      "tribute": 5,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Himera: Zancle's colony, the battlefield of 480 BC (Thucydides 6.5; Herodotus 7.165). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "selinus",
+      "name": "Selinus",
+      "x": 75,
+      "y": 150,
+      "owner": "syracuse",
+      "allegiance": "syracuse",
+      "loyalty": 80,
+      "supplyTons": 100,
+      "fortificationCode": 40,
+      "populationThousands": 10,
+      "maxPopulationThousands": 15,
+      "tribute": 7,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Selinus: the Megarian colony (Thucydides 6.4). designed: on Syracuse's side. site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "motya",
+      "name": "Motya",
+      "x": 71,
+      "y": 146,
+      "owner": "carthage",
+      "allegiance": "carthage",
+      "loyalty": 80,
+      "supplyTons": 100,
+      "fortificationCode": 45,
+      "populationThousands": 10,
+      "maxPopulationThousands": 15,
+      "tribute": 7,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Motya: the Phoenician island town of western Sicily (Thucydides 6.2.6). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "panormus",
+      "name": "Panormus",
+      "x": 82,
+      "y": 142,
+      "owner": "carthage",
+      "allegiance": "carthage",
+      "loyalty": 80,
+      "supplyTons": 112,
+      "fortificationCode": 45,
+      "populationThousands": 12,
+      "maxPopulationThousands": 18,
+      "tribute": 8,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Panormus: a Phoenician town of Sicily (Thucydides 6.2.6). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "soluntum",
+      "name": "Soluntum",
+      "x": 84,
+      "y": 142,
+      "owner": "carthage",
+      "allegiance": "carthage",
+      "loyalty": 80,
+      "supplyTons": 70,
+      "fortificationCode": 35,
+      "populationThousands": 5,
+      "maxPopulationThousands": 8,
+      "tribute": 4,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Soluntum: a Phoenician town of Sicily (Thucydides 6.2.6). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "eryx",
+      "name": "Eryx",
+      "x": 73,
+      "y": 143,
+      "owner": "carthage",
+      "allegiance": "carthage",
+      "loyalty": 80,
+      "supplyTons": 70,
+      "fortificationCode": 45,
+      "populationThousands": 5,
+      "maxPopulationThousands": 8,
+      "tribute": 4,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Eryx: the Elymian town allied to Carthage (Thucydides 6.2.3; Diodorus 14.48). designed: Carthaginian here. site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "segesta",
+      "name": "Segesta",
+      "x": 76,
+      "y": 144,
+      "owner": "carthage",
+      "allegiance": "carthage",
+      "loyalty": 80,
+      "supplyTons": 76,
+      "fortificationCode": 40,
+      "populationThousands": 6,
+      "maxPopulationThousands": 9,
+      "tribute": 4,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Segesta: the Elymian town allied to Carthage (Thucydides 6.2.3). designed: Carthaginian here. site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "karalis",
+      "name": "Karalis",
+      "x": 31,
+      "y": 124,
+      "owner": "carthage",
+      "allegiance": "carthage",
+      "loyalty": 80,
+      "supplyTons": 88,
+      "fortificationCode": 35,
+      "populationThousands": 8,
+      "maxPopulationThousands": 12,
+      "tribute": 6,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Karalis: the Phoenician-Punic town of Sardinia (Pausanias 10.17.9). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "nora",
+      "name": "Nora",
+      "x": 28,
+      "y": 128,
+      "owner": "carthage",
+      "allegiance": "carthage",
+      "loyalty": 80,
+      "supplyTons": 70,
+      "fortificationCode": 30,
+      "populationThousands": 5,
+      "maxPopulationThousands": 8,
+      "tribute": 4,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Nora: a Phoenician town of Sardinia (Pausanias 10.17.5). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "tharros",
+      "name": "Tharros",
+      "x": 24,
+      "y": 114,
+      "owner": "carthage",
+      "allegiance": "carthage",
+      "loyalty": 80,
+      "supplyTons": 76,
+      "fortificationCode": 30,
+      "populationThousands": 6,
+      "maxPopulationThousands": 9,
+      "tribute": 4,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Tharros: a Phoenician-Punic town of Sardinia (Ptolemy 3.3.2). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "sulcis",
+      "name": "Sulcis",
+      "x": 23,
+      "y": 127,
+      "owner": "carthage",
+      "allegiance": "carthage",
+      "loyalty": 80,
+      "supplyTons": 76,
+      "fortificationCode": 30,
+      "populationThousands": 6,
+      "maxPopulationThousands": 9,
+      "tribute": 4,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Sulcis: a Phoenician town of Sardinia (Pausanias 10.17.9). site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    },
+    {
+      "id": "olbia",
+      "name": "Olbia",
+      "x": 35,
+      "y": 97,
+      "owner": "carthage",
+      "allegiance": "carthage",
+      "loyalty": 80,
+      "supplyTons": 64,
+      "fortificationCode": 25,
+      "populationThousands": 4,
+      "maxPopulationThousands": 6,
+      "tribute": 3,
+      "garrison": [],
+      "_provenance": {
+        "_group": "historical: Olbia: the port of north-east Sardinia (Pausanias 10.17.5). designed: Carthaginian here. site location from the Barrington Atlas of the Greek and Roman World (ed. R. Talbert, 2000), rounded to the map grid.",
+        "owner": "designed: the owner in 500 BC, simplified to the campaign's twelve nations from the city's history above.",
+        "loyalty": "designed: every city starts at 80, above the 65 defection floor.",
+        "populationThousands": "designed: a relative size, larger for the cities the ancient sources treat as leading; no census exists for 500 BC.",
+        "fortificationCode": "designed: larger for the cities the sources call strong; same scale as the classical world's codes.",
+        "supplyTons": "designed: 40 tons plus 6 per thousand people.",
+        "tribute": "designed: 0.7 per thousand people.",
+        "maxPopulationThousands": "designed: half as much again as the starting population."
+      }
+    }
+  ],
+  "startingArmies": [
+    {
+      "id": "army-rome",
+      "nation": "rome",
+      "x": 73,
+      "y": 81,
+      "morale": 70,
+      "money": 100,
+      "supplyTons": 120,
+      "moves": 8,
+      "units": [
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "heavy_infantry",
+          "troops": 4200,
+          "quality": 7,
+          "name": "1st Spearmen"
+        },
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "light_infantry",
+          "troops": 3000,
+          "quality": 6,
+          "name": "2nd Foot"
+        },
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "light_cavalry",
+          "troops": 600,
+          "quality": 5,
+          "name": "3rd Horse"
+        }
+      ],
+      "_provenance": {
+        "_group": "designed: one field army beside the capital; sizes larger for the military powers the sources describe."
+      }
+    },
+    {
+      "id": "army-etruria",
+      "nation": "etruria",
+      "x": 64,
+      "y": 76,
+      "morale": 70,
+      "money": 100,
+      "supplyTons": 120,
+      "moves": 8,
+      "units": [
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "heavy_infantry",
+          "troops": 4500,
+          "quality": 7,
+          "name": "1st Spearmen"
+        },
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "heavy_infantry",
+          "troops": 3500,
+          "quality": 6,
+          "name": "2nd Spearmen"
+        },
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "archers",
+          "troops": 1500,
+          "quality": 5,
+          "name": "3rd Archers"
+        },
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "heavy_cavalry",
+          "troops": 800,
+          "quality": 6,
+          "name": "4th Knights"
+        }
+      ],
+      "_provenance": {
+        "_group": "designed: one field army beside the capital; sizes larger for the military powers the sources describe."
+      }
+    },
+    {
+      "id": "army-samnites",
+      "nation": "samnites",
+      "x": 96,
+      "y": 88,
+      "morale": 70,
+      "money": 100,
+      "supplyTons": 120,
+      "moves": 8,
+      "units": [
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "light_infantry",
+          "troops": 4000,
+          "quality": 7,
+          "name": "1st Foot"
+        },
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "heavy_infantry",
+          "troops": 3000,
+          "quality": 7,
+          "name": "2nd Spearmen"
+        },
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "light_cavalry",
+          "troops": 700,
+          "quality": 6,
+          "name": "3rd Horse"
+        }
+      ],
+      "_provenance": {
+        "_group": "designed: one field army beside the capital; sizes larger for the military powers the sources describe."
+      }
+    },
+    {
+      "id": "army-umbrians",
+      "nation": "umbrians",
+      "x": 73,
+      "y": 58,
+      "morale": 70,
+      "money": 100,
+      "supplyTons": 120,
+      "moves": 8,
+      "units": [
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "light_infantry",
+          "troops": 3000,
+          "quality": 5,
+          "name": "1st Foot"
+        },
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "heavy_infantry",
+          "troops": 2000,
+          "quality": 5,
+          "name": "2nd Spearmen"
+        }
+      ],
+      "_provenance": {
+        "_group": "designed: one field army beside the capital; sizes larger for the military powers the sources describe."
+      }
+    },
+    {
+      "id": "army-veneti",
+      "nation": "veneti",
+      "x": 62,
+      "y": 29,
+      "morale": 70,
+      "money": 100,
+      "supplyTons": 120,
+      "moves": 8,
+      "units": [
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "light_infantry",
+          "troops": 2500,
+          "quality": 5,
+          "name": "1st Foot"
+        },
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "light_cavalry",
+          "troops": 1200,
+          "quality": 6,
+          "name": "2nd Horse"
+        }
+      ],
+      "_provenance": {
+        "_group": "designed: one field army beside the capital; sizes larger for the military powers the sources describe."
+      }
+    },
+    {
+      "id": "army-ligurians",
+      "nation": "ligurians",
+      "x": 30,
+      "y": 41,
+      "morale": 70,
+      "money": 100,
+      "supplyTons": 120,
+      "moves": 8,
+      "units": [
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "light_infantry",
+          "troops": 3500,
+          "quality": 6,
+          "name": "1st Foot"
+        },
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "archers",
+          "troops": 800,
+          "quality": 5,
+          "name": "2nd Archers"
+        }
+      ],
+      "_provenance": {
+        "_group": "designed: one field army beside the capital; sizes larger for the military powers the sources describe."
+      }
+    },
+    {
+      "id": "army-senones",
+      "nation": "senones",
+      "x": 81,
+      "y": 53,
+      "morale": 70,
+      "money": 100,
+      "supplyTons": 120,
+      "moves": 8,
+      "units": [
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "light_infantry",
+          "troops": 4000,
+          "quality": 6,
+          "name": "1st Foot"
+        },
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "heavy_cavalry",
+          "troops": 1200,
+          "quality": 6,
+          "name": "2nd Knights"
+        }
+      ],
+      "_provenance": {
+        "_group": "designed: one field army beside the capital; sizes larger for the military powers the sources describe."
+      }
+    },
+    {
+      "id": "army-insubres",
+      "nation": "insubres",
+      "x": 33,
+      "y": 24,
+      "morale": 70,
+      "money": 100,
+      "supplyTons": 120,
+      "moves": 8,
+      "units": [
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "light_infantry",
+          "troops": 4500,
+          "quality": 6,
+          "name": "1st Foot"
+        },
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "heavy_cavalry",
+          "troops": 1500,
+          "quality": 6,
+          "name": "2nd Knights"
+        }
+      ],
+      "_provenance": {
+        "_group": "designed: one field army beside the capital; sizes larger for the military powers the sources describe."
+      }
+    },
+    {
+      "id": "army-campanians",
+      "nation": "campanians",
+      "x": 98,
+      "y": 100,
+      "morale": 70,
+      "money": 100,
+      "supplyTons": 120,
+      "moves": 8,
+      "units": [
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "heavy_infantry",
+          "troops": 2500,
+          "quality": 5,
+          "name": "1st Spearmen"
+        },
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "light_cavalry",
+          "troops": 1200,
+          "quality": 6,
+          "name": "2nd Horse"
+        }
+      ],
+      "_provenance": {
+        "_group": "designed: one field army beside the capital; sizes larger for the military powers the sources describe."
+      }
+    },
+    {
+      "id": "army-magnagraecia",
+      "nation": "magnagraecia",
+      "x": 129,
+      "y": 104,
+      "morale": 70,
+      "money": 100,
+      "supplyTons": 120,
+      "moves": 8,
+      "units": [
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "heavy_infantry",
+          "troops": 5000,
+          "quality": 7,
+          "name": "1st Spearmen"
+        },
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "archers",
+          "troops": 1200,
+          "quality": 6,
+          "name": "2nd Archers"
+        },
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "light_cavalry",
+          "troops": 800,
+          "quality": 6,
+          "name": "3rd Horse"
+        }
+      ],
+      "_provenance": {
+        "_group": "designed: one field army beside the capital; sizes larger for the military powers the sources describe."
+      }
+    },
+    {
+      "id": "army-syracuse",
+      "nation": "syracuse",
+      "x": 103,
+      "y": 158,
+      "morale": 70,
+      "money": 100,
+      "supplyTons": 120,
+      "moves": 8,
+      "units": [
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "heavy_infantry",
+          "troops": 5000,
+          "quality": 7,
+          "name": "1st Spearmen"
+        },
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "archers",
+          "troops": 1500,
+          "quality": 6,
+          "name": "2nd Archers"
+        },
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "heavy_cavalry",
+          "troops": 1000,
+          "quality": 7,
+          "name": "3rd Knights"
+        }
+      ],
+      "_provenance": {
+        "_group": "designed: one field army beside the capital; sizes larger for the military powers the sources describe."
+      }
+    },
+    {
+      "id": "army-carthage",
+      "nation": "carthage",
+      "x": 72,
+      "y": 146,
+      "morale": 70,
+      "money": 100,
+      "supplyTons": 120,
+      "moves": 8,
+      "units": [
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "heavy_infantry",
+          "troops": 4000,
+          "quality": 6,
+          "name": "1st Spearmen"
+        },
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "light_infantry",
+          "troops": 2500,
+          "quality": 6,
+          "name": "2nd Foot"
+        },
+        {
+          "mercenaryLabel": 0,
+          "unitTypeId": "light_cavalry",
+          "troops": 1000,
+          "quality": 6,
+          "name": "3rd Horse"
+        }
+      ],
+      "_provenance": {
+        "_group": "designed: one field army beside the capital; sizes larger for the military powers the sources describe."
+      }
+    }
+  ],
+  "startingFleets": [
+    {
+      "id": "fleet-etruria",
+      "nation": "etruria",
+      "x": 67,
+      "y": 82,
+      "ships": 40,
+      "conditionPercent": 90,
+      "money": 200,
+      "supplyTons": 60,
+      "moves": 25,
+      "_provenance": {
+        "_group": "designed: a fleet off its main port, for the sea powers (Herodotus 1.166 on the Etruscan and Carthaginian fleets at Alalia; Thucydides 1.14 on Sicilian Greek fleets)."
+      }
+    },
+    {
+      "id": "fleet-campanians",
+      "nation": "campanians",
+      "x": 93,
+      "y": 100,
+      "ships": 15,
+      "conditionPercent": 90,
+      "money": 200,
+      "supplyTons": 60,
+      "moves": 25,
+      "_provenance": {
+        "_group": "designed: a fleet off its main port, for the sea powers (Herodotus 1.166 on the Etruscan and Carthaginian fleets at Alalia; Thucydides 1.14 on Sicilian Greek fleets)."
+      }
+    },
+    {
+      "id": "fleet-magnagraecia",
+      "nation": "magnagraecia",
+      "x": 128,
+      "y": 105,
+      "ships": 30,
+      "conditionPercent": 90,
+      "money": 200,
+      "supplyTons": 60,
+      "moves": 25,
+      "_provenance": {
+        "_group": "designed: a fleet off its main port, for the sea powers (Herodotus 1.166 on the Etruscan and Carthaginian fleets at Alalia; Thucydides 1.14 on Sicilian Greek fleets)."
+      }
+    },
+    {
+      "id": "fleet-syracuse",
+      "nation": "syracuse",
+      "x": 105,
+      "y": 158,
+      "ships": 50,
+      "conditionPercent": 90,
+      "money": 200,
+      "supplyTons": 60,
+      "moves": 25,
+      "_provenance": {
+        "_group": "designed: a fleet off its main port, for the sea powers (Herodotus 1.166 on the Etruscan and Carthaginian fleets at Alalia; Thucydides 1.14 on Sicilian Greek fleets)."
+      }
+    },
+    {
+      "id": "fleet-carthage",
+      "nation": "carthage",
+      "x": 70,
+      "y": 146,
+      "ships": 60,
+      "conditionPercent": 90,
+      "money": 200,
+      "supplyTons": 60,
+      "moves": 25,
+      "_provenance": {
+        "_group": "designed: a fleet off its main port, for the sea powers (Herodotus 1.166 on the Etruscan and Carthaginian fleets at Alalia; Thucydides 1.14 on Sicilian Greek fleets)."
+      }
+    }
+  ],
+  "turnOrder": [
+    "rome",
+    "etruria",
+    "samnites",
+    "umbrians",
+    "veneti",
+    "ligurians",
+    "senones",
+    "insubres",
+    "campanians",
+    "magnagraecia",
+    "syracuse",
+    "carthage"
+  ],
+  "startingRelations": {
+    "nationIds": [
+      "rome",
+      "etruria",
+      "samnites",
+      "umbrians",
+      "veneti",
+      "ligurians",
+      "senones",
+      "insubres",
+      "campanians",
+      "magnagraecia",
+      "syracuse",
+      "carthage"
+    ],
+    "matrix": [
+      [
+        0,
+        3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        3,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        3,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        3
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        3,
+        0
+      ]
+    ]
+  },
+  "weatherCentres": [
+    {
+      "x": 51,
+      "y": 88
+    },
+    {
+      "x": 63,
+      "y": 104
+    },
+    {
+      "x": 75,
+      "y": 115
+    },
+    {
+      "x": 87,
+      "y": 120
+    },
+    {
+      "x": 54,
+      "y": 128
+    },
+    {
+      "x": 66,
+      "y": 128
+    },
+    {
+      "x": 96,
+      "y": 124
+    },
+    {
+      "x": 48,
+      "y": 108
+    },
+    {
+      "x": 58,
+      "y": 80
+    },
+    {
+      "x": 40,
+      "y": 75
+    },
+    {
+      "x": 18,
+      "y": 83
+    },
+    {
+      "x": 13,
+      "y": 67
+    },
+    {
+      "x": 21,
+      "y": 56
+    },
+    {
+      "x": 132,
+      "y": 136
+    },
+    {
+      "x": 126,
+      "y": 150
+    },
+    {
+      "x": 116,
+      "y": 156
+    },
+    {
+      "x": 133,
+      "y": 83
+    },
+    {
+      "x": 114,
+      "y": 70
+    },
+    {
+      "x": 97,
+      "y": 57
+    },
+    {
+      "x": 82,
+      "y": 40
+    }
+  ],
+  "_provenance": {
+    "terrain": "historical: coastline, relief and rivers simplified from present-day geography (the modern coast is close enough at this scale; the Po delta and the Tuscan and Latin coastal plains have moved by a few kilometres since antiquity, under one tile here). designed: the simplification itself, drawn by hand as the polygons and polylines in tools/Italy/build_italy.py. Built by tools/Italy/build_italy.py into tools/Italy/italy-500bc.png and imported with tools/TerrainImport.",
+    "width": "designed: 12.5 degrees of longitude (6.5 E to 19 E) at 12 tiles per degree.",
+    "height": "designed: 10.5 degrees of latitude (36.5 N to 47 N) at 16 tiles per degree, so tiles are about 6.9 km square.",
+    "tileTypes": "designed: the twelve terrain types of the classical world, reused unchanged so the ruleset's costs apply.",
+    "turnOrder": "designed: the nations in the order of NATIONS in tools/Italy/build_italy.py.",
+    "startingRelations": "designed: peace everywhere except these wars. rome-etruria: historical: Rome's wars with Veii and Porsenna in the first years of the Republic (Livy 2.6-2.15, 2.42-2.53). magnagraecia-etruria: historical: Aristodemus of Cumae fought the Etruscans at Cumae (524 BC) and Aricia (c. 504 BC) (Dionysius of Halicarnassus 7.3-7.6; Livy 2.14). syracuse-carthage: historical: the Sicilian Greeks' wars with Carthage, which ended at Himera in 480 BC (Herodotus 7.165-7.167). designed: at war from the start. samnites-campanians: designed: the Samnites' push into Campania, which took Capua in 423 BC (Livy 4.37), begun early.",
+    "weatherCentres": "designed: twenty points of open sea, each at least 10 tiles from the edge, for the rough-sea overlay.",
+    "startingFleets": "designed: one fleet each for the sea powers."
+  }
+}

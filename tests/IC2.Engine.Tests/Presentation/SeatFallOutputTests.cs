@@ -78,7 +78,9 @@ public sealed class SeatFallOutputTests
         var fall = Assert.Single(output.SeatFalls);
         Assert.Equal("north", fall.NationId);
         Assert.Equal(SeatFallReason.HardEndYear, fall.Reason);
-        Assert.Equal("You have reached the end of your allotted 20 years.", fall.Text);
+        // T202: the reign's length comes from the ruleset (start year less hard end year): 20 under the classical
+        // rules (SeatFallTextsTests), 0 for this fixture, whose start year is moved onto the end year.
+        Assert.Equal("You have reached the end of your allotted 0 years.", fall.Text);
         Assert.Contains(fall.Text, output.Lines);
         Assert.Equal(fall.LeaderName, session.State.NationById("north")!.LeaderName);
         Assert.Equal(session.State.Calendar.YearBc, fall.YearBc);

@@ -20,6 +20,7 @@ Each source string must start with one of these tags:
 - **`derived:`** The value is computed from other confirmed data (e.g., a total or average).
 - **`designed:`** The value is a design choice (a toy fixture, a new invention, or an improvement). Must also state what was searched and came up empty.
 - **`open:`** The value is a placeholder pending research. Include the research question.
+- **`historical:`** A fact about the ancient world (a city, its site, a people, a date, a leader), with its source: an ancient author and passage (e.g. "Livy 2.48") or a modern reference work (e.g. the Barrington Atlas). Used by authored campaigns such as `italy-500bc`; whatever the source does not settle (a nation's grouping, a start-of-game owner) is added as `designed:` in the same entry.
 
 Example:
 ```json
