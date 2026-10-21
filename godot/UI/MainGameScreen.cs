@@ -1615,7 +1615,7 @@ public partial class MainGameScreen : Control
 
     private void ShowHelpPage()
     {
-        var page = new HelpPage();
+        var page = new HelpPage { Ruleset = Session.Ruleset };
         page.Closed += () => CloseOverlay(page);
         ShowOverlay(page);
     }

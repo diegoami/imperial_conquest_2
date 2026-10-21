@@ -557,6 +557,13 @@ public partial class MenuBarCheck : Control
         Check(
             _mainGame.ActiveOverlay is HelpPage,
             $"Help topics opens the help page (got {_mainGame.ActiveOverlay?.GetType().Name ?? "null"})");
+        if (_mainGame.ActiveOverlay is HelpPage help)
+        {
+            // #1289: a new player's question comes first.
+            Check(help.Tabs.CurrentTab == 0 && help.Tabs.GetTabTitle(0) == "How to play" && help.Tabs.GetTabCount() == 2,
+                $"the help page opens on its How to play tab (tab {help.Tabs.CurrentTab}: '{help.Tabs.GetTabTitle(help.Tabs.CurrentTab)}')");
+        }
+
         CloseOverlay<HelpPage>();
     }
 
