@@ -1,6 +1,5 @@
 using System.Text.Json.Nodes;
 using IC2.Engine.Ai;
-using IC2.Engine.Model;
 using IC2.Engine.Serialization;
 using IC2.Slice.UI;
 using IC2.Tools.TerrainImport;
@@ -28,14 +27,14 @@ public sealed class ItalyCampaignTests
 
         Assert.True(resolved.Scenario.Listed);
         Assert.Equal(12, resolved.World.Nations.Count);
-        Assert.Equal((150, 168), (resolved.World.Width, resolved.World.Height));
+        Assert.Equal((139, 155), (resolved.World.Width, resolved.World.Height));
         Assert.Equal(500, resolved.Ruleset.Calendar.StartYearBc);
         Assert.Equal(460, resolved.Ruleset.Victory.HardEndYearBc);
         Assert.Contains(RulesetPresets.CardsFor(Repository), card => card.ScenarioId == Id && card.DisplayName == "Italy, 500 BC");
     }
 
     [Fact]
-    public void The_ruleset_is_the_classical_one_but_for_its_calendar_and_hills()
+    public void The_ruleset_is_the_classical_one_but_for_its_calendar()
     {
         var italy = Repository.RulesetById(Id)!;
         var classical = Repository.RulesetById("classical-faithful")!;
@@ -47,11 +46,6 @@ public sealed class ItalyCampaignTests
             Description = italy.Description,
             Calendar = classical.Calendar with { StartYearBc = 500, Provenance = italy.Calendar.Provenance },
             Victory = classical.Victory with { HardEndYearBc = 460, Provenance = italy.Victory.Provenance },
-            Terrain = classical.Terrain with
-            {
-                MoveCosts = ValueList.From(classical.Terrain.MoveCosts.Append(new TerrainMoveCost("hills", 2))),
-                Provenance = italy.Terrain.Provenance,
-            },
             Provenance = italy.Provenance,
         };
         Assert.Equal(expected, italy);

@@ -51,7 +51,6 @@ public partial class AreaMapView : Control
             ["Desert"] = new Color(0.62f, 0.52f, 0.28f),
             ["Forest"] = new Color(0.10f, 0.28f, 0.14f),
             ["Mountains"] = new Color(0.42f, 0.38f, 0.36f),
-            ["Hills"] = new Color(0.40f, 0.42f, 0.22f),
             ["River"] = new Color(0.14f, 0.46f, 0.70f),
         };
 

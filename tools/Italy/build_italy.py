@@ -24,10 +24,12 @@ WORLD_ID = "italy-500bc"
 
 # ---- the grid: an equirectangular frame, 12 tiles per degree of longitude, 16 per degree of latitude,
 # which makes tiles about 6.9 km square at 42 N (cos 42 = 0.743; 111 km x 0.743 / 12 ~ 111 km / 16).
-LON_MIN, LON_MAX, LAT_MIN, LAT_MAX = 6.5, 19.0, 36.5, 47.0
+# designed (owner review, 2026-10-21): clipped to Italy and its islands, so no empty country is left:
+# the frame stops at the Alpine crest, and the Balkan shore and Africa are left off (drawn as sea).
+LON_MIN, LON_MAX, LAT_MIN, LAT_MAX = 7.0, 18.6, 36.6, 46.3
 TPD_LON, TPD_LAT = 12, 16
-WIDTH = round((LON_MAX - LON_MIN) * TPD_LON)   # 150
-HEIGHT = round((LAT_MAX - LAT_MIN) * TPD_LAT)  # 168
+WIDTH = round((LON_MAX - LON_MIN) * TPD_LON)   # 139
+HEIGHT = round((LAT_MAX - LAT_MIN) * TPD_LAT)  # 155
 
 GEOGRAPHY = ("historical: coastline, relief and rivers simplified from present-day geography "
              "(the modern coast is close enough at this scale; the Po delta and the Tuscan and Latin "
@@ -56,10 +58,7 @@ MAINLAND = [
     (16.28, 41.32), (15.92, 41.63), (16.18, 41.88), (15.88, 41.93), (14.99, 42.00), (14.71, 42.12),
     (14.21, 42.46), (13.97, 42.75), (13.88, 42.95), (13.52, 43.62), (13.22, 43.72), (12.91, 43.91),
     (12.57, 44.06), (12.28, 44.42), (12.50, 44.95), (12.28, 45.22), (12.33, 45.44), (12.89, 45.60),
-    (13.38, 45.68), (13.77, 45.65), (13.73, 45.55), (13.60, 45.10), (13.85, 44.87), (14.10, 45.20),
-    (14.44, 45.33), (14.90, 44.99), (15.23, 44.12), (15.90, 43.73), (16.44, 43.51), (17.02, 43.30),
-    (17.60, 43.00), (18.09, 42.65), (18.53, 42.45), (18.84, 42.29), (19.0, 42.18),
-    (19.0, 47.0), (6.5, 47.0),
+    (13.38, 45.68), (13.77, 45.65), (14.0, 45.70), (14.0, 46.5), (6.5, 46.5), (6.5, 43.15),
 ]
 SICILY = [
     (15.55, 38.19), (15.65, 38.27), (15.24, 38.22), (14.60, 38.08), (14.02, 38.04), (13.36, 38.12),
@@ -82,27 +81,40 @@ AFRICA = [  # the corner of north Africa the frame catches: land, but no city (o
     (9.87, 37.27), (10.27, 37.17), (10.30, 36.85), (10.60, 36.95), (11.05, 37.08), (11.10, 36.85),
     (10.90, 36.5),
 ]
-LAND = [MAINLAND, SICILY, SARDINIA, CORSICA, ELBA, AFRICA]
+LAND = [MAINLAND, SICILY, SARDINIA, CORSICA, ELBA]  # Africa is left off (decision D5)
 
 # The Alpine and Dinaric mountain belt, as one polygon over the mainland's north and east.
 ALPS = [
     (6.5, 43.85), (7.30, 44.10), (7.55, 44.45), (7.35, 44.75), (7.40, 45.20), (7.75, 45.50),
     (8.30, 45.80), (8.80, 45.95), (9.40, 45.85), (10.20, 45.90), (10.70, 45.85), (11.20, 46.00),
-    (11.90, 46.00), (12.40, 46.15), (13.10, 46.20), (13.60, 46.00), (14.00, 45.75), (14.30, 45.60),
-    (15.00, 45.30), (15.60, 44.70), (16.00, 44.30), (17.00, 43.60), (18.20, 43.00), (19.0, 42.60),
-    (19.0, 47.0), (6.5, 47.0),
+    (11.90, 46.00), (12.40, 46.15), (13.10, 46.20), (13.60, 46.00), (14.1, 45.90), (14.1, 46.6), (6.5, 46.6),
 ]
-# Mountain spines as (polyline, half-width in degrees).
+# The Apennines and the island ranges as (polyline, half-width in degrees): wooded upland (forest, the
+# original's own stand-in for hills), passable at forest cost. Only the high massifs below are mountains.
 SPINES = [
-    ([(7.60, 44.20), (8.30, 44.30), (8.90, 44.50), (9.50, 44.45), (10.00, 44.30)], 0.14),        # Ligurian Apennines
-    ([(10.00, 44.30), (11.00, 44.10), (12.00, 43.70), (12.80, 43.20)], 0.18),                     # northern Apennines
-    ([(12.80, 43.20), (13.30, 42.70), (13.56, 42.47), (13.90, 42.10), (14.50, 41.60)], 0.30),     # central Apennines
-    ([(14.50, 41.60), (15.20, 41.00), (15.70, 40.50), (16.00, 40.00), (16.20, 39.90)], 0.20),     # southern Apennines
-    ([(16.20, 39.90), (16.30, 39.30), (16.10, 38.50), (15.90, 38.20)], 0.14),                     # Calabria
-    ([(13.40, 37.85), (14.00, 37.90), (14.80, 37.95)], 0.12),                                     # Madonie and Nebrodi
-    ([(14.99, 37.75), (14.99, 37.75)], 0.12),                                                     # Etna
-    ([(9.10, 40.40), (9.35, 39.95)], 0.22),                                                       # Gennargentu
-    ([(8.95, 42.50), (9.10, 42.00), (9.20, 41.70)], 0.15),                                        # Corsica
+    ([(7.60, 44.20), (8.30, 44.30), (8.90, 44.50), (9.50, 44.45), (10.00, 44.30)], 0.12),        # Ligurian Apennines
+    ([(10.00, 44.30), (11.00, 44.10), (12.00, 43.70), (12.80, 43.20)], 0.15),                     # northern Apennines
+    ([(12.80, 43.20), (13.30, 42.70), (13.56, 42.47), (13.90, 42.10), (14.50, 41.60)], 0.24),     # central Apennines
+    ([(14.50, 41.60), (15.20, 41.00), (15.70, 40.50), (16.00, 40.00), (16.20, 39.90)], 0.16),     # southern Apennines
+    ([(16.20, 39.90), (16.30, 39.30), (16.10, 38.50), (15.90, 38.20)], 0.12),                     # Calabria
+    ([(13.40, 37.85), (14.00, 37.90), (14.80, 37.95)], 0.10),                                     # Madonie and Nebrodi
+    ([(9.10, 40.40), (9.35, 39.95)], 0.18),                                                       # Gennargentu
+    ([(8.95, 42.50), (9.10, 42.00), (9.20, 41.70)], 0.12),                                        # Corsica
+]
+MASSIFS = [  # the high ground that stays mountain: (lon, lat, radius in degrees)
+    (10.25, 44.05, 0.07),   # the Apuan Alps
+    (10.70, 44.19, 0.07),   # Monte Cimone
+    (13.25, 42.85, 0.09),   # the Sibillini
+    (13.56, 42.47, 0.11),   # Gran Sasso
+    (13.38, 42.15, 0.07),   # Velino
+    (14.09, 42.09, 0.09),   # the Majella
+    (14.40, 41.45, 0.07),   # the Matese
+    (16.20, 39.90, 0.10),   # Pollino
+    (15.95, 38.17, 0.07),   # Aspromonte
+    (14.99, 37.75, 0.10),   # Etna
+    (14.00, 37.87, 0.06),   # the Madonie
+    (9.33, 40.02, 0.10),    # Gennargentu
+    (8.95, 42.38, 0.09),    # Monte Cinto
 ]
 FORESTS = [  # forests named by the sources or plain on the map, always forest: (lon, lat, radius in degrees)
     (12.15, 42.40, 0.16),   # the Ciminian forest, "more impassable than the German forests" (Livy 9.36)
@@ -123,29 +135,11 @@ LAKES = [  # polygons, or (lon, lat, radius) circles; inland calm water
     (12.23, 42.12, 0.07),   # Sabatinus (Bracciano)
     (13.55, 42.00, 0.10),   # Fucinus, drained in the 1870s
 ]
-PO_PLAIN = [  # the Po and Venetian lowland: no hills
+PO_PLAIN = [  # the Po and Venetian lowland
     (7.5, 44.75), (7.6, 45.2), (8.3, 45.5), (9.0, 45.65), (10.0, 45.55), (11.0, 45.45), (11.5, 45.6),
     (12.3, 45.75), (13.3, 45.85), (13.4, 45.7), (12.5, 45.3), (12.4, 44.9), (12.3, 44.3), (11.5, 44.45),
     (10.5, 44.75), (9.5, 44.95), (8.6, 44.85), (8.0, 44.6),
 ]
-HILL_BAND = 0.38  # hills this far beyond a mountain spine's edge, in degrees
-HILLS = [  # hill country off the main spines: (lon, lat, radius in degrees)
-    (11.20, 43.35, 0.40),   # the Tuscan hills
-    (10.95, 43.10, 0.25),   # the Colline Metallifere
-    (12.70, 41.75, 0.12),   # the Alban hills
-    (13.05, 41.58, 0.18),   # the Monti Lepini
-    (12.75, 42.25, 0.20),   # the Sabine hills
-    (8.30, 45.00, 0.25),    # the Monferrato
-    (8.05, 44.55, 0.25),    # the Langhe
-    (11.70, 45.30, 0.08),   # the Euganean hills
-    (11.53, 45.45, 0.08),   # the Berici hills
-    (16.60, 40.90, 0.35),   # the Murge
-    (15.63, 40.95, 0.12),   # Vultur
-    (15.95, 41.80, 0.25),   # the Gargano
-    (15.25, 40.25, 0.22),   # the Cilento
-    (13.90, 45.20, 0.20),   # Istria
-]
-ISLAND_HILL_DEPTH = 3  # island tiles at least this far from the sea are hills
 RIVERS = {  # source to mouth; each must end in the sea
     "Padus (Po)": [(7.10, 44.70), (7.68, 45.07), (7.90, 45.19), (8.45, 45.13), (9.15, 45.12), (9.69, 45.05),
                    (10.02, 45.13), (10.80, 45.05), (11.13, 45.07), (11.60, 44.95), (12.20, 44.95), (12.60, 44.95)],
@@ -572,8 +566,10 @@ def value_noise(x, y, scale, seed):
 def forest_noise(x, y):
     return 0.6 * value_noise(x, y, 7.0, 1) + 0.4 * value_noise(x, y, 3.0, 2)
 
-MOUNTAIN_FOREST_THRESHOLD = 0.66
-FOREST_THRESHOLD = {"hills": 0.50, "plain": 0.60, "lowland": 0.55}  # designed: lower means more forest
+MOUNTAIN_FOREST_THRESHOLD = 0.55
+# designed: lower means more forest. The upland is mostly forest (the original's forest stands for hill
+# country), with clearings for its valleys and passes.
+FOREST_THRESHOLD = {"upland": 0.30, "plain": 0.62, "lowland": 0.58}
 
 def in_lake(lon, lat):
     for lake in LAKES:
@@ -594,7 +590,6 @@ def spine_distance(lon, lat):
 
 def build_terrain():
     grid = [[0] * WIDTH for _ in range(HEIGHT)]
-    island = [[False] * WIDTH for _ in range(HEIGHT)]
     for y in range(HEIGHT):
         for x in range(WIDTH):
             lon, lat = centre(x, y)
@@ -603,7 +598,6 @@ def build_terrain():
                 grid[y][x] = 0
                 continue
             grid[y][x] = 2
-            island[y][x] = land[0] is not MAINLAND and land[0] is not AFRICA
 
     # distance (in tiles) of every cell from water, for island interiors and for rough sea
     def distances(is_source):
@@ -621,7 +615,6 @@ def build_terrain():
                     distance[ny][nx] = distance[y][x] + 1
                     queue.append((nx, ny))
         return distance
-    from_water = distances(lambda code: code in (0, 1))
     from_land = distances(lambda code: code not in (0, 1))
 
     for y in range(HEIGHT):
@@ -632,21 +625,18 @@ def build_terrain():
                 continue
             lon, lat = centre(x, y)
             lowland = inside(PO_PLAIN, lon, lat)
-            spine = spine_distance(lon, lat)
-            if (inside(ALPS, lon, lat) and inside(MAINLAND, lon, lat)) or spine <= 0:
-                # designed: the wider ranges are broken by mountain woods
-                alpine = inside(ALPS, lon, lat) and spine > 0
-                grid[y][x] = 4 if alpine and forest_noise(x, y) >= MOUNTAIN_FOREST_THRESHOLD else 5
+            near = lambda points: any(dist_to_segment(lon, lat, (px, py), (px, py)) <= r for px, py, r in points)
+            if (inside(ALPS, lon, lat) and not lowland) or near(MASSIFS):
+                # designed: the Alps are mountain, broken by wooded valleys
+                alpine_wood = inside(ALPS, lon, lat) and forest_noise(x, y) >= MOUNTAIN_FOREST_THRESHOLD
+                grid[y][x] = 4 if alpine_wood else 5
                 continue
-            hilly = (not lowland and (spine <= HILL_BAND or inside(ALPS, lon, lat + HILL_BAND)))
-            hilly = hilly or any(dist_to_segment(lon, lat, (hx, hy), (hx, hy)) <= r for hx, hy, r in HILLS)
-            hilly = hilly or (island[y][x] and from_water[y][x] >= ISLAND_HILL_DEPTH)
-            kind = "hills" if hilly else ("lowland" if lowland else "plain")
-            named_forest = any(dist_to_segment(lon, lat, (fx, fy), (fx, fy)) <= r for fx, fy, r in FORESTS)
-            if named_forest or forest_noise(x, y) >= FOREST_THRESHOLD[kind]:
+            upland = spine_distance(lon, lat) <= 0
+            kind = "upland" if upland else ("lowland" if lowland else "plain")
+            if near(FORESTS) or forest_noise(x, y) >= FOREST_THRESHOLD[kind]:
                 grid[y][x] = 4
             else:
-                grid[y][x] = 12 if hilly else 2
+                grid[y][x] = 2
 
     for name, points in RIVERS.items():
         # a hand-drawn end may stop just short of the coast: continue in the last direction (up to 1 degree)
@@ -684,7 +674,7 @@ def build_terrain():
 ROUGH_SEA_DISTANCE = 14
 
 PALETTE = [0x2A5CAA, 0x14306A, 0x9CCB5A, 0xE8D58A, 0x2E7D32, 0x8D6E63,
-           0x80DEEA, 0x4DD0E1, 0x26C6DA, 0x00BCD4, 0x00ACC1, 0x0097A7, 0xB5A642]  # tools/TerrainImport palette
+           0x80DEEA, 0x4DD0E1, 0x26C6DA, 0x00BCD4, 0x00ACC1, 0x0097A7]  # tools/TerrainImport palette
 
 def write_png(path, grid):
     def chunk(kind, data):
@@ -709,7 +699,7 @@ def nearest(grid, start, ok, taken):
                 queue.append(n)
     raise SystemExit(f"no cell near {start}")
 
-LAND_CELL = lambda code: code in (2, 3, 4, 5, 12)
+LAND_CELL = lambda code: code in (2, 3, 4, 5)
 SEA_CELL = lambda code: code in (0, 1)
 
 UNIT_NAMES = {"light_infantry": "Foot", "heavy_infantry": "Spearmen", "archers": "Archers",
@@ -734,9 +724,6 @@ PERSONALITY = {"rome": (0.6, 0.7), "etruria": (0.5, 0.5), "samnites": (0.8, 0.6)
                "veneti": (0.3, 0.3), "ligurians": (0.5, 0.4), "senones": (0.9, 0.8), "insubres": (0.8, 0.7),
                "campanians": (0.4, 0.4), "magnagraecia": (0.4, 0.5), "syracuse": (0.7, 0.7), "carthage": (0.6, 0.6)}
 WEALTH_PER_THOUSAND = 3000
-
-HILLS_TILE = dict(id="hills", code=12, name="Hills", passableByArmies=True, passableByFleets=False,
-                  _provenance={"code": "designed: a thirteenth terrain type for this campaign (owner request, 2026-10-21); the classical worlds have no hills."})
 
 def build_world(grid):
     classical = json.loads((ROOT / "data/worlds/classical-mediterranean.json").read_text())
@@ -807,23 +794,23 @@ def build_world(grid):
         matrix[i][j] = matrix[j][i] = 3
     weather = [nearest(grid, cell(lon, lat), SEA_CELL, set()) for lon, lat in [
         (10.8, 41.5), (11.8, 40.5), (12.8, 39.8), (13.8, 39.5), (11.0, 39.0), (12.0, 39.0), (14.5, 39.2),
-        (10.5, 40.2), (11.4, 42.0), (9.9, 42.3), (8.0, 41.8), (7.6, 42.8), (8.3, 43.5), (17.5, 38.5),
-        (17.0, 37.6), (16.2, 37.2), (17.6, 41.8), (16.0, 42.6), (14.6, 43.4), (13.4, 44.5)]]
+        (10.5, 40.2), (11.4, 42.0), (9.9, 42.3), (8.0, 41.8), (8.2, 42.6), (8.6, 43.5), (17.5, 38.5),
+        (17.0, 37.8), (16.5, 37.7), (17.6, 41.8), (16.0, 42.6), (14.6, 43.4), (13.4, 44.5)]]
     for wx, wy in weather:
         if min(wx, wy, WIDTH - 1 - wx, HEIGHT - 1 - wy) < 10:
             raise SystemExit(f"weather centre ({wx}, {wy}) is within 10 tiles of the edge")
     world = dict(
         schemaVersion=1, id=WORLD_ID, name="Italy, 500 BC", width=WIDTH, height=HEIGHT,
         terrain=dict(encoding="base64", runs=None, data=None, dataFile=f"{WORLD_ID}.terrain.b64"),
-        tileTypes=classical["tileTypes"] + [HILLS_TILE], nations=nations, cities=cities, startingArmies=armies,
+        tileTypes=classical["tileTypes"], nations=nations, cities=cities, startingArmies=armies,
         startingFleets=fleets, turnOrder=ids,
         startingRelations=dict(nationIds=ids, matrix=matrix),
         weatherCentres=[dict(x=x, y=y) for x, y in weather],
         _provenance={
             "terrain": GEOGRAPHY + " Built by tools/Italy/build_italy.py into tools/Italy/italy-500bc.png and imported with tools/TerrainImport.",
-            "width": "designed: 12.5 degrees of longitude (6.5 E to 19 E) at 12 tiles per degree.",
-            "height": "designed: 10.5 degrees of latitude (36.5 N to 47 N) at 16 tiles per degree, so tiles are about 6.9 km square.",
-            "tileTypes": "designed: the twelve terrain types of the classical world, reused unchanged so the ruleset's costs apply, plus hills (code 12).",
+            "width": "designed: 11.6 degrees of longitude (7 E to 18.6 E) at 12 tiles per degree; the Balkan shore beyond is drawn as sea.",
+            "height": "designed: 9.7 degrees of latitude (36.6 N to 46.3 N, the Alpine crest) at 16 tiles per degree, so tiles are about 6.9 km square; Africa is drawn as sea.",
+            "tileTypes": "designed: the twelve terrain types of the classical world, reused unchanged so the ruleset's costs apply. Forest stands for wooded hill country, as in the original.",
             "lakes": "historical: Benacus, Larius, Verbanus, Sebinus, Trasumennus, Volsiniensis, Sabatinus and Fucinus (Pliny, Natural History 2.224, 3.131; Livy 22.4 on Trasumennus). Fucinus was drained in the 1870s. designed: their simplified outlines.",
             "turnOrder": "designed: the nations in the order of NATIONS in tools/Italy/build_italy.py.",
             "startingRelations": "designed: peace everywhere except these wars. " + " ".join(f"{a}-{b}: {s}" for a, b, s in WARS),
@@ -841,15 +828,12 @@ def build_ruleset():
     ruleset["calendar"]["startYearBc"] = 500
     ruleset["calendar"]["_provenance"]["startYearBc"] = (
         "designed (owner decision D3, 2026-10-21): 500 BC, the Etruscans at their greatest extent and the Roman Republic newly founded.")
-    ruleset["terrain"]["moveCosts"].append({"tileTypeId": "hills", "moveCost": 2})
-    ruleset["terrain"]["_provenance"]["hills"] = (
-        "designed: hills cost 2 moves, like forest: harder than plain, easier than mountains (4). The original has no hills.")
     ruleset["victory"]["hardEndYearBc"] = 460
     ruleset["victory"]["_provenance"]["hardEndYearBc"] = (
         "designed (owner decision D3, 2026-10-21): a 40-year reign, twice the classical game's 20, at the same two weeks per turn.")
     ruleset.setdefault("_provenance", {})["_group"] = (
         "designed: a copy of data/rulesets/classical-faithful.json (rulesets have no inheritance), made by tools/Italy/build_italy.py; "
-        "only id, name, description, calendar.startYearBc, victory.hardEndYearBc and the hills move cost differ.")
+        "only id, name, description, calendar.startYearBc and victory.hardEndYearBc differ.")
     return ruleset
 
 def build_scenario():

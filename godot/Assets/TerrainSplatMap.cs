@@ -430,7 +430,7 @@ public sealed class TerrainSplatMap
 
                 var weight = MathF.Exp(-distanceSquared / TwoSigmaSquared);
                 total += weight;
-                AddClassWeight(fields, cells, width, height, cx, cy, weight);
+                fields[(int)ClassOf(cells, width, height, cx, cy)] += weight;
             }
         }
 
@@ -449,7 +449,7 @@ public sealed class TerrainSplatMap
             var ccx = (cellX + 0.5f) - x;
             var ccy = (cellY + 0.5f) - y;
             var centreDistance = MathF.Sqrt((ccx * ccx) + (ccy * ccy));
-            AddClassWeight(fields, cells, width, height, cellX, cellY, CentrePin(centreDistance));
+            fields[(int)ClassOf(cells, width, height, cellX, cellY)] += CentrePin(centreDistance);
         }
 
         return Softmax(fields);
@@ -514,25 +514,6 @@ public sealed class TerrainSplatMap
             exponentials[5] / total);
     }
 
-    /// <summary>T202: the hills code, drawn as a blend of plain and mountain (there is no hills surface art).</summary>
-    public const int HillsCode = 12;
-
-    /// <summary>How much of a hills cell's weight goes to the mountain surface; the rest is plain.</summary>
-    public const float HillsMountainShare = 0.3f;
-
-    /// <summary>Adds one cell's weight to its surface class, splitting a hills cell between plain and mountain.</summary>
-    private static void AddClassWeight(Span<float> fields, int[] cells, int width, int height, int x, int y, float weight)
-    {
-        if (cells[(y * width) + x] == HillsCode)
-        {
-            fields[(int)TerrainSurfaceClass.Mountain] += weight * HillsMountainShare;
-            fields[(int)TerrainSurfaceClass.Plain] += weight * (1f - HillsMountainShare);
-            return;
-        }
-
-        fields[(int)ClassOf(cells, width, height, x, y)] += weight;
-    }
-
     /// <summary>
     /// The class of one grid cell: plain/desert/forest/mountain by code, river 6–11 as plain, and sea
     /// (0–1) as shallow when a land cell is within one cell (Chebyshev), else deep.
@@ -592,7 +573,7 @@ public sealed class TerrainSplatMap
     }
 
     /// <summary>Whether a terrain code is land for the surface (plain/desert/forest/mountain/river).</summary>
-    public static bool IsLandCode(int code) => code is >= 2 and <= HillsCode;
+    public static bool IsLandCode(int code) => code is >= 2 and <= 11;
 
     /// <summary>A river connectivity code (6–11), whose cell draws a stroke, not a surface class.</summary>
     public static bool IsRiverCode(int code) => code is >= 6 and <= 11;
