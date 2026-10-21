@@ -133,6 +133,9 @@ public sealed class RecruitTownGateTests
             Armies = ValueList.Of(
                 MobilizationFixture.Army("army-0", Nation, 11, 10, new[] { MobilizationFixture.Unit("1st Foot Battalion") })),
         };
+        // #802 R47: Rome's real wealth, so the first order does not push mobilisation to the cap and
+        // refuse the second (the toy nation's own wealth is tiny).
+        state = RecruitmentTestbed.WithNation(state, state.NationById(Nation)! with { Wealth = 768_000, MobilizedPercent = 0 });
         var dispatcher = MobilizationFixture.DispatcherOn(world);
 
         // Two orders at 80% — the town is eligible then.

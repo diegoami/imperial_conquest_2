@@ -184,7 +184,8 @@ public sealed class RecruitStandingUnitCommandHandlerTests
         var initial = RecruitmentTestbed.InitialState();
         var cap = RecruitmentTestbed.Ruleset.Recruitment.MobilizationCapPercent;
 
-        var nation = initial.NationById("north")! with { Wealth = 768_000, MobilizedPercent = cap, Treasury = 1_000_000 };
+        // One below the cap: the order is taken and the rise (1 + 19) is clamped at the cap.
+        var nation = initial.NationById("north")! with { Wealth = 768_000, MobilizedPercent = cap - 1, Treasury = 1_000_000 };
         var before = RecruitmentTestbed.WithNation(initial, nation);
 
         var result = dispatcher.Dispatch(
@@ -192,5 +193,23 @@ public sealed class RecruitStandingUnitCommandHandlerTests
 
         Assert.True(result.IsAccepted);
         Assert.Equal(cap, result.State.NationById(nation.Id)!.MobilizedPercent);
+    }
+
+    /// <summary>#802 R47 (play RC02): at the cap the order is refused, under every ruleset.</summary>
+    [Fact]
+    public void An_order_at_the_mobilization_cap_is_refused()
+    {
+        var dispatcher = RecruitmentTestbed.Dispatcher();
+        var initial = RecruitmentTestbed.InitialState();
+        var cap = RecruitmentTestbed.Ruleset.Recruitment.MobilizationCapPercent;
+        var nation = initial.NationById("north")! with { Wealth = 768_000, MobilizedPercent = cap, Treasury = 1_000_000 };
+        var before = RecruitmentTestbed.WithNation(initial, nation);
+
+        var result = dispatcher.Dispatch(
+            before, new RecruitStandingUnitCommand(nation.Id, "arx", "light_infantry", 15_000));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(RecruitStandingUnitRejections.MobilizationAtCap, result.Code);
+        Assert.Contains($"Your mobilisation rate is already {cap}%.", result.ToString(), StringComparison.Ordinal);
     }
 }

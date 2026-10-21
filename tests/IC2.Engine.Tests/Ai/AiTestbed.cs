@@ -113,7 +113,7 @@ public static class AiTestbed
                 PopulationThousands = population,
                 MaxPopulationThousands = population * 2,
                 FortificationCode = SiegeTownFortification,
-                Loyalty = Math.Min(city.Loyalty, 70),
+                Loyalty = Math.Min(city.Loyalty, SiegeTownLoyaltyCap),
             };
         }
 
@@ -125,6 +125,13 @@ public static class AiTestbed
 
     /// <summary>The siege world's fortification word, for every town. <c>[designed]</c>.</summary>
     private const int SiegeTownFortification = 20;
+
+    /// <summary>
+    /// The siege world's loyalty ceiling. <c>[designed]</c>: #802 R47 (recruiting refused at 100%
+    /// mobilisation) holds the toy economy to about 3% of its small wealth a quarter in new troops, so its
+    /// towns are held loosely enough for the armies it starts with to take them.
+    /// </summary>
+    private const int SiegeTownLoyaltyCap = 43;
 
     /// <summary>T204: the siege soak's seeds (<c>1 … SiegeSeedCount</c>) and turn cap.</summary>
     public const int SiegeSeedCount = 20;

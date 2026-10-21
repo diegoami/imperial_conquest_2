@@ -3,7 +3,7 @@ naval.move-fleet accepted.
 
 > end
 Northern League (north) ends its turn.
-Southern League (south) takes its turn: 4 orders issued.
+Southern League (south) takes its turn: 3 orders issued.
 Now: Week 3, Spring 270 BC. Active seat: Northern League (north).
 News:
   A fleet belonging to Northern League is damaged in a storm.
@@ -22,7 +22,7 @@ Week 3, Spring 270 BC (turn 1). Active seat: Northern League (north).
 
 Nations:
   Northern League (north, human): treasury 500, unity 596, tax 15%
-  Southern League (south, ai): treasury 314, unity 524, tax 20%
+  Southern League (south, ai): treasury 382, unity 524, tax 20%
 
 Armies:
   north-army-1 (Northern League) @ (3,2): 18500 troops in 2 units, supply 148t (80%), morale 69, moves 10
