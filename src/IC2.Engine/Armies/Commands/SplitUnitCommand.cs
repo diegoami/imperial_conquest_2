@@ -91,4 +91,7 @@ public static class SplitUnitRejections
 
     /// <summary>The army already holds <see cref="Model.ArmyManagementRules.MaxUnitsPerArmy"/> units.</summary>
     public static readonly RejectionCode TooManyUnits = new("armies.split-unit-units-too-large");
+
+    /// <summary>#802 R39: the unit is a mercenary; the original splits only regular units.</summary>
+    public static readonly RejectionCode NotRegular = new("armies.split-unit-not-regular");
 }

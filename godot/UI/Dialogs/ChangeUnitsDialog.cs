@@ -182,6 +182,11 @@ public partial class ChangeUnitsDialog : Control
 
     private void ShowRenamePanel()
     {
+        if (RefuseMoreThanOne(ChangeUnitsModel.RenameOneAtATime))
+        {
+            return;
+        }
+
         if (FirstSelected() is not { } index)
         {
             return;
@@ -196,6 +201,11 @@ public partial class ChangeUnitsDialog : Control
 
     private void ShowSplitPanel()
     {
+        if (RefuseMoreThanOne(ChangeUnitsModel.SplitOneAtATime))
+        {
+            return;
+        }
+
         _splitPanel.Visible = true;
         _renamePanel.Visible = false;
     }
@@ -244,6 +254,20 @@ public partial class ChangeUnitsDialog : Control
     }
 
     private static void DismissPrompt(ConfirmPrompt prompt) => prompt.QueueFree();
+
+    /// <summary>The original acts on one unit only for Rename and Split; with more selected it says so and does nothing.</summary>
+    private bool RefuseMoreThanOne(string refusal)
+    {
+        if (_unitList.GetSelectedItems().Length <= 1)
+        {
+            return false;
+        }
+
+        _replyLabel.Text = refusal;
+        _renamePanel.Visible = false;
+        _splitPanel.Visible = false;
+        return true;
+    }
 
     private int? FirstSelected()
     {

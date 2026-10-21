@@ -67,4 +67,7 @@ public static class RenameUnitRejections
 
     /// <summary>The name is empty, has leading or trailing whitespace, is longer than 23 characters, or has a byte outside <c>0x20..0x7e</c>.</summary>
     public static readonly RejectionCode InvalidName = new("armies.rename-unit-invalid-name");
+
+    /// <summary>#721 R37: the unit is a mercenary; the original renames only regular units.</summary>
+    public static readonly RejectionCode NotRegular = new("armies.rename-unit-not-regular");
 }

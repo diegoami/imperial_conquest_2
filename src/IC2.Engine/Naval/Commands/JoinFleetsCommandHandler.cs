@@ -81,12 +81,7 @@ public sealed class JoinFleetsCommandHandler : ICommandHandler<JoinFleetsCommand
                 $"Fleets '{survivor.Id}' and '{absorbed.Id}' must be exactly one tile apart.");
         }
 
-        if (survivor.IsCarryingArmy || absorbed.IsCarryingArmy)
-        {
-            return CommandOutcome.Reject(
-                JoinFleetsRejections.CarryingArmy, "You cannot join fleets if one is carrying an army.");
-        }
-
+        // #802: the original tests the 100-ship cap before the carried army (R15 before R16, play UF05c).
         var rules = context.Ruleset.Naval;
         var combinedShips = survivor.Ships + absorbed.Ships;
         if (combinedShips > rules.JoinMaxShips)
@@ -94,6 +89,12 @@ public sealed class JoinFleetsCommandHandler : ICommandHandler<JoinFleetsCommand
             return CommandOutcome.Reject(
                 JoinFleetsRejections.CombinedShipsTooLarge,
                 $"There are more than {rules.JoinMaxShips} ships in these fleets combined.");
+        }
+
+        if (survivor.IsCarryingArmy || absorbed.IsCarryingArmy)
+        {
+            return CommandOutcome.Reject(
+                JoinFleetsRejections.CarryingArmy, "You cannot join fleets if one is carrying an army.");
         }
 
         // T72 (bug #315): the join's pooled purse is an UNCAPPED add, the naval twin of

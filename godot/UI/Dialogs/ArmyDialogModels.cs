@@ -438,18 +438,18 @@ public sealed class ArmyTransferModel
 public sealed class SplitArmyModel
 {
     private readonly Ruleset _ruleset;
-    private readonly int _nationArmyCount;
+    private readonly int _armiesInPlay;
     private ArmyState _army;
     private readonly List<int> _staged = new();
     private int _supply;
     private int _money;
 
-    private SplitArmyModel(ArmyState army, Ruleset ruleset, string newArmyId, int nationArmyCount)
+    private SplitArmyModel(ArmyState army, Ruleset ruleset, string newArmyId, int armiesInPlay)
     {
         _army = army;
         _ruleset = ruleset;
         NewArmyId = newArmyId;
-        _nationArmyCount = nationArmyCount;
+        _armiesInPlay = armiesInPlay;
     }
 
     /// <summary>Builds the model for <paramref name="army"/>, the new army's id and the nation's live count.</summary>
@@ -458,8 +458,9 @@ public sealed class SplitArmyModel
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(army);
         ArgumentNullException.ThrowIfNull(ruleset);
-        var count = state.Armies.Count(a => string.Equals(a.Nation, army.Nation, StringComparison.Ordinal));
-        return new SplitArmyModel(army, ruleset, newArmyId, count);
+        // #802: the cap counts every army in play (DAT_004a0324 < 0xc6), as SplitArmyCommandHandler does,
+        // not only the nation's own.
+        return new SplitArmyModel(army, ruleset, newArmyId, state.Armies.Count);
     }
 
     /// <summary>The army being split (A).</summary>
@@ -475,11 +476,11 @@ public sealed class SplitArmyModel
     public int UnitCount => _army.Units.Count;
 
     /// <summary>
-    /// Whether the split can be offered: at least <see cref="MinUnits"/> units and the nation below its
-    /// <see cref="ArmyManagementRules.MaxArmies"/> cap.
+    /// Whether the split can be offered: at least <see cref="MinUnits"/> units and the armies in play below
+    /// the <see cref="ArmyManagementRules.MaxArmies"/> cap.
     /// </summary>
     public bool CanSplit =>
-        _army.Units.Count >= MinUnits && _nationArmyCount < _ruleset.ArmyManagement.MaxArmies;
+        _army.Units.Count >= MinUnits && _armiesInPlay < _ruleset.ArmyManagement.MaxArmies;
 
     /// <summary>The refusal the dialog shows when <see cref="CanSplit"/> is false, or <see langword="null"/>.</summary>
     public string? RefusalMessage =>
@@ -634,6 +635,12 @@ public sealed class ChangeUnitsModel
 
     /// <summary>The army's units, in the engine's own order.</summary>
     public IReadOnlyList<UnitSlot> Units => _army.Units;
+
+    /// <summary>#721 R36: Rename unit with more than one unit selected.</summary>
+    public const string RenameOneAtATime = "You can only rename 1 unit at a time.";
+
+    /// <summary>#802 R38 (play CU03): Split unit with more than one unit selected.</summary>
+    public const string SplitOneAtATime = "You can only split 1 unit at a time.";
 
     /// <summary>Rename unit composes <c>rename-unit</c>.</summary>
     public string RenameLine(int unitIndex, string name) => $"rename-unit {ArmyId} {unitIndex} {name}";

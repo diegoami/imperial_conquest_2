@@ -36,18 +36,19 @@ public sealed class SplitFleetCommandHandler : ICommandHandler<SplitFleetCommand
                 SplitFleetRejections.UnderConstruction, $"Fleet '{fleet.Id}' is still under construction.");
         }
 
-        if (fleet.IsCarryingArmy)
-        {
-            return CommandOutcome.Reject(
-                SplitFleetRejections.CarryingArmy, "You can not split a fleet carrying an army.");
-        }
-
+        // #802: the original tests the ship count before the carried army (R17 before R18).
         var rules = context.Ruleset.Naval;
         if (fleet.Ships < rules.SplitMinShips)
         {
             return CommandOutcome.Reject(
                 SplitFleetRejections.TooFewShipsToSplit,
                 $"You can not split a fleet containing less than {rules.SplitMinShips} ships.");
+        }
+
+        if (fleet.IsCarryingArmy)
+        {
+            return CommandOutcome.Reject(
+                SplitFleetRejections.CarryingArmy, "You can not split a fleet carrying an army.");
         }
 
         if (command.ShipsToNewFleet < 1 || command.ShipsToNewFleet >= fleet.Ships)

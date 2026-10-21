@@ -40,12 +40,6 @@ public sealed class RepairFleetCommandHandler : ICommandHandler<RepairFleetComma
                 RepairFleetRejections.UnderConstruction, $"Fleet '{fleet.Id}' is still under construction.");
         }
 
-        if (fleet.IsCarryingArmy)
-        {
-            return CommandOutcome.Reject(
-                RepairFleetRejections.CarryingArmy, "A fleet cannot be repaired while it is carrying an army.");
-        }
-
         if (command.Points <= 0)
         {
             return CommandOutcome.Reject(
@@ -75,6 +69,13 @@ public sealed class RepairFleetCommandHandler : ICommandHandler<RepairFleetComma
             return CommandOutcome.Reject(
                 RepairFleetRejections.NotAtOwnedCity,
                 "The fleet can only be repaired at one of your cities.");
+        }
+
+        // #802: the original tests for an own city near before the carried army (R13 before R14).
+        if (fleet.IsCarryingArmy)
+        {
+            return CommandOutcome.Reject(
+                RepairFleetRejections.CarryingArmy, "A fleet cannot be repaired while it is carrying an army.");
         }
 
         var rules = context.Ruleset.Naval;

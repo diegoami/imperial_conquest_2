@@ -270,6 +270,24 @@ public sealed class ArmyDialogModelsTests
         Assert.Null(session.State.ArmyById(NewArmyId));
     }
 
+    /// <summary>#802: the 198 cap counts every army in play, not only the splitting nation's.</summary>
+    [Fact]
+    public void Split_army_cap_counts_every_army_in_play()
+    {
+        var session = Session();
+        var army = session.State.ArmyById(ThreeUnitArmyId)!;
+        var cap = session.Ruleset.ArmyManagement.MaxArmies;
+        var foreign = session.State.Armies.First(a => !string.Equals(a.Nation, army.Nation, StringComparison.Ordinal));
+        var filler = Enumerable.Range(0, cap - session.State.Armies.Count).Select(i => foreign with { Id = $"filler-{i}" });
+        var full = session.State with { Armies = ValueList.From(session.State.Armies.Concat(filler)) };
+
+        var model = SplitArmyModel.ForArmy(full, army, session.Ruleset, ThreeUnitNewArmyId);
+
+        Assert.Equal(cap, full.Armies.Count);
+        Assert.False(model.CanSplit);
+        Assert.Equal("You have reached your limit of armies.", model.RefusalMessage);
+    }
+
     [Fact]
     public void Split_army_moving_two_units_with_supply_and_money_composes_exactly_one_split_army()
     {
