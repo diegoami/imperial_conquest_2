@@ -33,3 +33,4 @@ __determinism-guard-scratch__/
 # our own artifacts are tracked (docs/artifacts.md)
 !/artifacts/
 !/artifacts/**
+__pycache__/
