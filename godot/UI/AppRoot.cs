@@ -32,6 +32,9 @@ public partial class AppRoot : Control
         // hosts an AppRoot keeps the defaults and never writes the player's file.
         if (GetTree().CurrentScene == this)
         {
+            // The rename to "Open Imperial Conquest" moved user://; bring the old folder's saves and settings.
+            var userData = OS.GetUserDataDir();
+            UserDataMigration.Run(UserDataMigration.FormerDirectoryBeside(userData), userData);
             SettingsScreen.LoadAndApply(ProjectSettings.GlobalizePath("user://settings.json"), this);
         }
 

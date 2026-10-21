@@ -130,8 +130,11 @@ The Godot project's main scene is the game (above). The research inspector is it
 
 The game keeps engine logs under `user://logs/` and a structured journal under
 `user://logs/diagnostics/`. On Windows the usual expansion is
-`%APPDATA%/Godot/app_userdata/Imperial Conquest 2 Map Viewer/logs/`; engine user-data
-overrides can change the actual location. Saves keep their existing location.
+`%APPDATA%/Godot/app_userdata/Open Imperial Conquest/logs/`; engine user-data
+overrides can change the actual location. Saves (`saves/`) and settings (`settings.json`) live in
+the same folder. Builds before the rename to *Open Imperial Conquest* used
+`app_userdata/Imperial Conquest 2 Map Viewer/`; the first launch copies that folder's saves and
+settings across and leaves the old folder untouched.
 Startup run ID, UTC time and build label link the engine log to its journal.
 After a hang or crash, copy this entire logs folder before any further launch of
 this project on the same machine: game, editor and headless checks can rotate the

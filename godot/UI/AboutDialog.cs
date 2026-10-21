@@ -41,7 +41,7 @@ public partial class AboutDialog : Control
         column.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         panel.AddChild(column);
 
-        column.AddChild(UiKit.MakeLabel("Imperial Conquest 2", AppTheme.Header, UiKit.AccentColor));
+        column.AddChild(UiKit.MakeLabel("Open Imperial Conquest", AppTheme.Header, UiKit.AccentColor));
 
         VersionText = $"Version {AppVersion.Describe(ProjectSettings.GetSetting("application/config/version").AsString(), typeof(AboutDialog).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion)}";
         column.AddChild(UiKit.MakeLabel(VersionText, AppTheme.Body, UiKit.MutedTextColor));
