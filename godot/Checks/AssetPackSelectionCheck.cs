@@ -184,7 +184,8 @@ public partial class AssetPackSelectionCheck : Node
     {
         foreach (var child in root.GetChildren())
         {
-            if (child is OptionButton option)
+            // #1293: the Settings screen has several pickers; the pack picker is the named one.
+            if (child is OptionButton option && option.Name == SettingsScreen.PackPickerName)
             {
                 return option;
             }

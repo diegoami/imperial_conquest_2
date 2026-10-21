@@ -1,4 +1,7 @@
 Cinzel/Cinzel-wght.ttf: https://github.com/google/fonts/tree/main/ofl/cinzel
 SourceSans3/SourceSans3-wght.ttf: https://github.com/google/fonts/tree/main/ofl/sourcesans3
-Unmodified variable fonts, SIL Open Font License 1.1; see each family OFL.txt.
+AtkinsonHyperlegible/AtkinsonHyperlegible-Regular.ttf: https://github.com/google/fonts/tree/main/ofl/atkinsonhyperlegible (Google Fonts static Regular, v1.006)
+EBGaramond/EBGaramond-Regular.ttf: https://github.com/google/fonts/tree/main/ofl/ebgaramond (Google Fonts static Regular, v1.003)
+Unmodified fonts, SIL Open Font License 1.1; see each family OFL.txt.
 Display: Cinzel wght 500. Body: Source Sans 3 wght 400 (tabular figures by default).
+#1293: Atkinson Hyperlegible and EB Garamond are the Settings screen's alternative body fonts.

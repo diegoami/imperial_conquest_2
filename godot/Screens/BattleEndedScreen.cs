@@ -94,6 +94,19 @@ public partial class BattleEndedScreen : Control
     /// <summary>Dismisses the window: what OK does, exposed so a headless check can call it directly.</summary>
     public void Close() => Closed?.Invoke();
 
+    /// <summary>
+    /// #1280 F9: Esc and Enter dismiss the report, as the OK button does and as the other dialogs'
+    /// Esc does. The key is marked handled first: the owner removes this screen on <see cref="Closed"/>.
+    /// </summary>
+    public override void _UnhandledInput(InputEvent @event)
+    {
+        if (@event is InputEventKey { Pressed: true, Echo: false } key && key.Keycode is Key.Escape or Key.Enter or Key.KpEnter)
+        {
+            GetViewport().SetInputAsHandled();
+            Close();
+        }
+    }
+
     private static void AddCell(GridContainer table, List<string> texts, string text, Color color, bool left)
     {
         var label = UiKit.MakeLabel(text, AppTheme.Body, color);

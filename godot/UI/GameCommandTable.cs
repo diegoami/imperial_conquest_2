@@ -168,6 +168,7 @@ public sealed class GameCommandTable
 
             // ---- Game (audit §1.2); the three seat commands are out (T100 Scope) ----
             new("game.end_turn", "Game", null, "End turn", "ui.command.end_turn.icon", null, Wired: true),
+            new("game.settings", "Game", null, "Settings", null, null, Wired: true), // #1293
 
             // ---- Strategy (audit §1.3); all six are wired here ----
             new("strategy.news", "Strategy", null, "News", "ui.command.news.icon", null, Wired: true),

@@ -103,7 +103,7 @@ public partial class TacticalBattleCheck : Node
             {
                 var settings = new SettingsScreen();
                 AddChild(settings);
-                var picker = Descendants(settings).OfType<OptionButton>().First();
+                var picker = Descendants(settings).OfType<OptionButton>().First(o => o.Name == SettingsScreen.PackPickerName);
                 var index = Enumerable.Range(0, picker.ItemCount).First(i => picker.GetItemText(i) == pack);
                 picker.Select(index);
                 picker.EmitSignal(OptionButton.SignalName.ItemSelected, index);
@@ -526,7 +526,7 @@ public partial class TacticalBattleCheck : Node
 
     private void CheckPauseSliders(Node root, double shot, double attack, string context)
     {
-        var sliders = Descendants(root).OfType<HSlider>().ToArray();
+        var sliders = Descendants(root).OfType<HSlider>().Where(s => s.Name != SettingsScreen.VolumeSliderName).ToArray();
         Check(sliders.Length == 2, context + " has both pause controls");
         if (sliders.Length != 2) return;
         Check(sliders[0].Value == shot && sliders[1].Value == attack, context + " shows selected pauses");

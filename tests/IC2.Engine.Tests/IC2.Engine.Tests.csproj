@@ -71,6 +71,8 @@
     <Compile Include="../../godot/UI/LoadGameModel.cs" Link="Ui/LoadGameModel.cs" />
     <!-- Bug #1283: the About box and diagnostics version text, Godot-free. -->
     <Compile Include="../../godot/UI/AppVersion.cs" Link="Ui/AppVersion.cs" />
+    <!-- #1293: the remembered display settings, Godot-free. -->
+    <Compile Include="../../godot/UI/UserSettings.cs" Link="Ui/UserSettings.cs" />
 
     <!--
       T25 (tests/IC2.Engine.Tests/Ui/Screens/**): the same seam, one file further. BattleResultViewModel.cs,

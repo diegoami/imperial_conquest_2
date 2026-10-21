@@ -97,7 +97,7 @@ public partial class MainGameScreen : Control
         CommandTable.Bind(id, () =>
         {
             if (id == "unit_map.cancel_selection") { SkipTravelAndClearSelection(); return; }
-            if (id == "file.close" || id.StartsWith("help.", StringComparison.Ordinal)
+            if (id is "file.close" or "game.settings" || id.StartsWith("help.", StringComparison.Ordinal)
                 || id is "file.save" or "file.save_as" || AllowStrategicInput()) handler();
         });
     }
@@ -445,6 +445,7 @@ public partial class MainGameScreen : Control
         // prompt, and the answer goes back to the map — Yes submits the order, No drops the
         // selection. The engine composes the declaration of war itself, so nothing here submits one.
         _mapView.AttackConfirmationRequested += ShowAttackPrompt;
+        _mapView.HintRequested += ShowScreenMessage;
 
         BindCommands();
         WireNationSwatches();
@@ -519,6 +520,12 @@ public partial class MainGameScreen : Control
         _saveConfirmationLabel.HorizontalAlignment = HorizontalAlignment.Right;
         row.AddChild(_saveConfirmationLabel);
 
+        // #1293: the general Settings button (also Game -> Settings), opening the same screen as the
+        // main menu's over the game.
+        var settings = new Button { Text = "Settings", TooltipText = "Colours, font, size, battle speed, sound", FocusMode = FocusModeEnum.None };
+        settings.Pressed += () => CommandTable.TryInvoke("game.settings");
+        row.AddChild(settings);
+
         return bar;
     }
 
@@ -583,6 +590,7 @@ public partial class MainGameScreen : Control
         BindStrategicCommand("help.topics", ShowHelpPage);
         BindStrategicCommand("help.show_hints", ToggleHints);
         BindStrategicCommand("help.about", ShowAbout);
+        BindStrategicCommand("game.settings", ShowSettings);
 
         // T110: the Nations menu and its toolbar swatches set the viewed nation. None of these submits a
         // command (Done-when 7) — only the panel and the highlight scope change.
@@ -1592,7 +1600,9 @@ public partial class MainGameScreen : Control
         if (!AllowStrategicInput()) return Array.Empty<string>();
         var lines = AppDiagnostics.Submit(Session, line, "dialog").Lines;
         OnCommandIssued(lines);
-        return lines;
+
+        // #1280 F3: the dialog shows its reply in plain words, as the screen's message line does.
+        return lines.Select(CommandOutcomeWording.ReadableLine).ToList();
     }
 
     /// <summary>Shows a screen-level message without issuing a command — see <see cref="LastMessageForCheck"/>.</summary>
@@ -1608,6 +1618,14 @@ public partial class MainGameScreen : Control
         var page = new HelpPage();
         page.Closed += () => CloseOverlay(page);
         ShowOverlay(page);
+    }
+
+    /// <summary>#1293: the Settings screen over the game; Close (or Esc) returns to it.</summary>
+    private void ShowSettings()
+    {
+        var settings = new SettingsScreen { InGame = true };
+        settings.BackRequested += () => CloseOverlay(settings);
+        ShowOverlay(settings);
     }
 
     private void ShowAbout()
@@ -2003,6 +2021,7 @@ public partial class MainGameScreen : Control
         var foughtOnBoard = commandBattles
             .Where(b => _boardBattleArmies.Contains((b.AttackerId, b.DefenderId)))
             .ToList();
+        _battleReportRouter.ShowOtherNationsBattles = SettingsScreen.Current.ShowOtherBattleReports;
         var battlesToShowNow = _battleReportRouter.Route(
             commandBattles, humanSeatIds, Session.State.ActiveNationId, foughtOnBoard);
         foreach (var battle in battlesToShowNow)

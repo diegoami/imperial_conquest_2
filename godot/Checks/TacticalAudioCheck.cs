@@ -65,7 +65,7 @@ public partial class TacticalAudioCheck : Node
             SettingsScreen.SetSoundEnabledForCheck(sound);
             SettingsScreen.SetBattlePauses(shot, attack);
             // Restore the exact nullable selection; no production settings API is added for a check.
-            typeof(SettingsScreen).GetProperty(nameof(SettingsScreen.SelectedPackId))!.SetValue(null, pack);
+            SettingsScreen.SetPackForCheck(pack);
             foreach (var node in _owned.Where(GodotObject.IsInstanceValid))
             {
                 Stop(node);
@@ -369,7 +369,7 @@ public partial class TacticalAudioCheck : Node
     private void SetPack(string pack)
     {
         var settings = new SettingsScreen(); AddChild(settings);
-        var picker = Descendants(settings).OfType<OptionButton>().First();
+        var picker = Descendants(settings).OfType<OptionButton>().First(o => o.Name == SettingsScreen.PackPickerName);
         var index = Enumerable.Range(0, picker.ItemCount).Single(i => picker.GetItemText(i) == pack);
         picker.Select(index); picker.EmitSignal(OptionButton.SignalName.ItemSelected, index);
         RemoveChild(settings); settings.QueueFree();

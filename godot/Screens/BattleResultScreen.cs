@@ -108,6 +108,19 @@ public partial class BattleResultScreen : Control
     /// and <c>ScenarioSeatScreen.ConfirmSeatAndStart</c> already use rather than simulating a click.</summary>
     public void Close() => Closed?.Invoke();
 
+    /// <summary>
+    /// #1280 F9: Esc and Enter dismiss the report, as the Close button does and as the other dialogs'
+    /// Esc does. The key is marked handled first: the owner removes this screen on <see cref="Closed"/>.
+    /// </summary>
+    public override void _UnhandledInput(InputEvent @event)
+    {
+        if (@event is InputEventKey { Pressed: true, Echo: false } key && key.Keycode is Key.Escape or Key.Enter or Key.KpEnter)
+        {
+            GetViewport().SetInputAsHandled();
+            Close();
+        }
+    }
+
     private string DisplayNation(string nationId) => Session.State.NationById(nationId)?.Name ?? nationId;
 
     /// <summary>

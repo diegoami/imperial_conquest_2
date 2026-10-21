@@ -1,4 +1,4 @@
-[gd_resource type="Theme" load_steps=9 format=3]
+[gd_resource type="Theme" load_steps=10 format=3]
 
 [ext_resource type="FontFile" path="res://Assets/Fonts/Cinzel/Cinzel-wght.ttf" id="1"]
 [ext_resource type="FontFile" path="res://Assets/Fonts/SourceSans3/SourceSans3-wght.ttf" id="2"]
@@ -55,6 +55,9 @@ corner_radius_bottom_right = 3
 corner_radius_bottom_left = 3
 shadow_color = Color(0.0, 0.0, 0.0, 0.6)
 shadow_size = 4
+
+[sub_resource type="StyleBoxFlat" id="PanelContainer"]
+bg_color = Color(0.117647, 0.098039, 0.070588, 0.6)
 
 [resource]
 App/colors/background = Color(0.078431, 0.066667, 0.05098, 1.0)
@@ -211,3 +214,4 @@ TooltipLabel/fonts/font = SubResource("Body")
 TooltipLabel/font_sizes/font_size = 15
 TooltipLabel/colors/font_color = Color(0.929412, 0.890196, 0.8, 1.0)
 TooltipLabel/colors/font_shadow_color = Color(0.0, 0.0, 0.0, 0.0)
+PanelContainer/styles/panel = SubResource("PanelContainer")

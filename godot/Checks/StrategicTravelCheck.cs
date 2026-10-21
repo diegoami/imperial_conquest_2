@@ -44,7 +44,7 @@ public partial class StrategicTravelCheck : Node
             foreach (var selected in new[] { "authored", "placeholder" })
             {
                 _pack = selected;
-                typeof(SettingsScreen).GetProperty(nameof(SettingsScreen.SelectedPackId))!.SetValue(null, selected);
+                SettingsScreen.SetPackForCheck(selected);
                 if (_selectionMode is not null)
                 {
                     await CheckSelectionFeedback();
@@ -70,7 +70,7 @@ public partial class StrategicTravelCheck : Node
         finally
         {
             DisposeMain();
-            typeof(SettingsScreen).GetProperty(nameof(SettingsScreen.SelectedPackId))!.SetValue(null, pack);
+            SettingsScreen.SetPackForCheck(pack);
             SettingsScreen.SetSoundEnabledForCheck(sound);
             SettingsScreen.SetBattlePauses(shot, attack);
             WriteGallery();

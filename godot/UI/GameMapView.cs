@@ -157,6 +157,18 @@ public partial class GameMapView : Control
     /// </summary>
     public event Action<MapClickOutcome>? AttackConfirmationRequested;
 
+    /// <summary>#1280 F2: a one-line hint for the screen's message line (a marked move destination).</summary>
+    public event Action<string>? HintRequested;
+
+    /// <summary>
+    /// #1280 F2 / #1293: with the "Confirm moves with a second click" setting on, the move a first click
+    /// marked — its order line and destination tile — or <see langword="null"/>. A second click on the
+    /// same tile submits it; any other outcome, or a selection change, drops it.
+    /// </summary>
+    public (string OrderLine, int X, int Y)? PendingMoveForCheck => _pendingMove;
+
+    private (string OrderLine, int X, int Y)? _pendingMove;
+
     /// <summary>
     /// T102: fired whenever this view's visible tile rectangle changes — a wheel zoom, a drag, a re-fit,
     /// <see cref="CentreOnTile"/>, or a resize. The overview mini-map (<see cref="AreaMapView"/>) listens
@@ -550,6 +562,7 @@ public partial class GameMapView : Control
     private void ClearCompletedSelection()
     {
         _clearSelectionOnArrival = false;
+        _pendingMove = null;
         _selectedCityId = null;
         _selectedArmyId = null;
         _selectedFleetId = null;
@@ -836,6 +849,36 @@ public partial class GameMapView : Control
             scaledSize.Y >= Size.Y ? Mathf.Clamp(_pan.Y, Size.Y - scaledSize.Y, 0f) : (Size.Y - scaledSize.Y) / 2f);
     }
 
+    /// <summary>
+    /// #1284 (F1 of #1280): hovering a marker names it — an army or fleet by owner and size, a city by
+    /// name and owner — through the theme's tooltip style. Only what the information panel already shows
+    /// any player (owner, total troops, ships) is named.
+    /// </summary>
+    public override string _GetTooltip(Vector2 atPosition) => HoverText(atPosition) ?? string.Empty;
+
+    /// <summary>The hover text at a control-local position, or <see langword="null"/>; see <see cref="_GetTooltip"/>.</summary>
+    public string? HoverText(Vector2 atPosition)
+    {
+        if (_session is null || !new Rect2(Vector2.Zero, Size).HasPoint(atPosition)) return null;
+        var state = DisplayState;
+        string Owner(string nationId) => state.NationById(nationId)?.Name ?? nationId;
+        var tileSize = _zoom * BaseTileSize;
+        if (StrategicMarkerGeometry.Pick(VisibleStrategicMarkers().ToArray(), atPosition.X, atPosition.Y, tileSize, _pan.X, _pan.Y) is { } marker)
+        {
+            if (marker.Kind == StrategicMarkerKind.Army && state.ArmyById(marker.Id) is { } army)
+                return $"Army of {Owner(army.Nation)} · {army.TotalTroops.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} troops";
+            if (marker.Kind == StrategicMarkerKind.Fleet && state.FleetById(marker.Id) is { } fleet)
+                return $"Fleet of {Owner(fleet.Nation)} · {fleet.Ships} ships";
+        }
+
+        var tile = (atPosition - _pan) / tileSize;
+        var x = Mathf.FloorToInt(tile.X);
+        var y = Mathf.FloorToInt(tile.Y);
+        return state.Cities.FirstOrDefault(c => c.X == x && c.Y == y) is { } city
+            ? $"{city.Name} ({Owner(city.Owner)})"
+            : null;
+    }
+
     public override void _GuiInput(InputEvent @event)
     {
         // Promotion uses the same footprint winner as both buttons. In dense groups the marker the
@@ -1050,6 +1093,23 @@ public partial class GameMapView : Control
 
     private void ApplyOutcome(MapClickOutcome outcome)
     {
+        if (outcome.Kind is MapClickOutcomeKind.MoveArmy or MapClickOutcomeKind.MoveFleet
+            && SettingsScreen.Current.ConfirmMoves
+            && _pendingMove?.OrderLine != outcome.OrderLine
+            && TryDestination(outcome.OrderLine, out var x, out var y))
+        {
+            _pendingMove = (outcome.OrderLine!, x, y);
+            HintRequested?.Invoke("Destination marked: click it again to move there, or click elsewhere to cancel.");
+            QueueRedraw();
+            return;
+        }
+
+        if (_pendingMove is not null)
+        {
+            _pendingMove = null;
+            QueueRedraw();
+        }
+
         switch (outcome.Kind)
         {
             case MapClickOutcomeKind.Nothing:
@@ -1350,6 +1410,31 @@ public partial class GameMapView : Control
         // owner tints, pointer winner and picking order remain the existing T187 policy.
         // Use the selected marker (never hovered) and the same T195 fractional rectangle.
         DrawSelectedStrategicFeedback(markers, tileSize);
+        DrawPendingMove(tileSize);
+    }
+
+    /// <summary>#1280 F2: the marked destination, a white ring with a dark edge, readable on any terrain.</summary>
+    private void DrawPendingMove(float tileSize)
+    {
+        if (_pendingMove is not { } pending)
+        {
+            return;
+        }
+
+        var center = TileCenter(pending.X, pending.Y, tileSize);
+        var radius = Mathf.Max(4f, tileSize * 0.45f);
+        DrawArc(center, radius, 0, Mathf.Tau, 32, new Color(0, 0, 0, 0.8f), Mathf.Max(2f, tileSize * 0.16f));
+        DrawArc(center, radius, 0, Mathf.Tau, 32, Colors.White, Mathf.Max(1f, tileSize * 0.08f));
+    }
+
+    /// <summary>The destination tile of a <c>move</c> / <c>move-fleet</c> order line (its last two tokens).</summary>
+    private static bool TryDestination(string? orderLine, out int x, out int y)
+    {
+        x = y = 0;
+        var tokens = orderLine?.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return tokens is { Length: >= 3 }
+            && int.TryParse(tokens[^2], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out x)
+            && int.TryParse(tokens[^1], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out y);
     }
 
     private bool IsSelectedStrategicMarker(StrategicMarker marker) => marker.Kind == StrategicMarkerKind.Army

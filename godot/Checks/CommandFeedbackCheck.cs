@@ -241,7 +241,9 @@ public partial class CommandFeedbackCheck : Control
         var visible = VisibleLines();
         Check(
             visible.Length == 1
-            && visible[0].StartsWith("battle.besiege-city rejected (battle.siege-not-adjacent): ", StringComparison.Ordinal)
+            // #1280 F3: the refusal reads as the engine's plain message, without the command kind and code.
+            && !visible[0].Contains(" rejected (", StringComparison.Ordinal)
+            && char.IsUpper(visible[0].First(char.IsLetter))
             && visible[0].Contains("is not adjacent to 'misurata'", StringComparison.Ordinal),
             $"a rejected order's visible line is its refusal alone (got '{string.Join("|", visible)}')");
         CheckVisibleGeometry("a rejected order");

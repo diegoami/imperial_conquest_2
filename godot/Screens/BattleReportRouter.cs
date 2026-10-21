@@ -54,6 +54,13 @@ public sealed class BattleReportRouter
     private readonly Dictionary<string, List<BattleResult>> _held = new(StringComparer.Ordinal);
 
     /// <summary>
+    /// #1280 F7 / #1293: whether a battle with no human seat on either side is shown (T25's behaviour,
+    /// the default) or skipped; the player's Settings choice. A skipped battle's decisive outcome
+    /// (an army destroyed, a fleet sunk) still reaches the News log, which the engine writes.
+    /// </summary>
+    public bool ShowOtherNationsBattles { get; set; } = true;
+
+    /// <summary>
     /// Routes one <c>Submit</c> call's own battles and returns the windows to show now, in order.
     /// </summary>
     /// <param name="battles">
@@ -116,8 +123,9 @@ public sealed class BattleReportRouter
             var humanSides = HumanSidesOf(battle, humans);
             if (humanSides.Count == 0)
             {
-                // No human seat on either side (AI versus AI): T25's behaviour, unchanged -- shown now.
-                showNow.Add(battle);
+                // No human seat on either side (AI versus AI): T25's behaviour -- shown now, unless the
+                // player turned such reports off (#1280 F7).
+                if (ShowOtherNationsBattles) showNow.Add(battle);
                 continue;
             }
 

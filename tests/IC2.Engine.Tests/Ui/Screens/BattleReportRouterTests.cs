@@ -69,6 +69,18 @@ public sealed class BattleReportRouterTests
         Assert.Equal(new[] { aiBattle }, shown);
     }
 
+    [Fact]
+    public void With_other_nations_reports_off_an_AI_versus_AI_battle_is_skipped_but_the_players_own_are_not()
+    {
+        var router = new IC2.Slice.Screens.BattleReportRouter { ShowOtherNationsBattles = false };
+        var aiBattle = Battle("carthage", "gaul", attackerId: "carthage-army-1", defenderId: "gaul-army-1");
+        var romeBattle = Battle("carthage", "rome", attackerId: "carthage-army-2", defenderId: "rome-army-1");
+
+        var shown = router.Route(new[] { aiBattle, romeBattle }, new[] { "rome" }, "rome");
+
+        Assert.Equal(new[] { romeBattle }, shown);
+    }
+
     /// <summary>A held battle whose seat is no longer human (it fell, or was handed to the AI) is dropped.</summary>
     [Fact]
     public void A_held_battle_whose_seat_is_no_longer_human_is_dropped()

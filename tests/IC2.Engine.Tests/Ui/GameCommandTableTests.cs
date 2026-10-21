@@ -34,6 +34,7 @@ public sealed class GameCommandTableTests
         ("File", null, "Close"),
         // Game (§1.2), minus New player / New nation / Abdicate
         ("Game", null, "End turn"),
+        ("Game", null, "Settings"),
         // Strategy (§1.3)
         ("Strategy", null, "News"),
         ("Strategy", null, "International relations"),
