@@ -124,8 +124,8 @@ public partial class FindCityDialog : Control
     {
         if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape })
         {
-            Closed?.Invoke();
             GetViewport().SetInputAsHandled();
+            Closed?.Invoke();
         }
     }
 

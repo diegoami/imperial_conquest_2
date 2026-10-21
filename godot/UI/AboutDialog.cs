@@ -58,8 +58,8 @@ public partial class AboutDialog : Control
     {
         if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape })
         {
-            Close();
             GetViewport().SetInputAsHandled();
+            Close();
         }
     }
 
