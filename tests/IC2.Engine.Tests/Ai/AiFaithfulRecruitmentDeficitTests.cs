@@ -100,7 +100,7 @@ public sealed class AiFaithfulRecruitmentDeficitTests
     }
 
     [Fact]
-    public void Mixed_slots_pin_per_slot_truncation_and_shared_foreign_helper_with_deferred_boundaries()
+    public void Mixed_slots_pin_per_slot_truncation_and_shared_foreign_helper_with_strict_boundaries()
     {
         var mixed = Army(0, 7) with { Units = ValueList.Of(F.Unit("heavy_infantry", 39), F.Unit("light_infantry", 199), F.Unit("archers", 7)) };
         // 39+39+2=80 ->1*7. Aggregating before slot truncation would incorrectly reach81 here;
@@ -118,15 +118,15 @@ public sealed class AiFaithfulRecruitmentDeficitTests
             Morale = 90
         };
         var state = State() with { Armies = ValueList.Of(foreign) };
-        Assert.Equal(15000 + 6750 + 1687 + 3375, AiFaithfulEconomy.Threat(state, Rules, Me)); // inclusive distance10 retained
+        Assert.Equal(15000 + 6750 + 3375, AiFaithfulEconomy.Threat(state, Rules, Me)); // #1245: distance 10 is outside the strict < 10
         state = state with { Relations = state.Relations.WithRelation(Me, Foe, Rules.Diplomacy.StateCodes.Alliance) };
         Assert.Equal(6000 + 3375, AiFaithfulEconomy.Own(state, Rules, Me));
-        Assert.Equal(1687, AiFaithfulEconomy.Threat(state, Rules, Me));
-        // Retain aggregate, not per-army, truncation while adapting the helper (issue1245 deferred).
-        var odd = foreign with { Units = ValueList.Of(F.Unit("heavy_infantry", 80)), Morale = 7 };
+        Assert.Equal(0, AiFaithfulEconomy.Threat(state, Rules, Me));
+        // #1245: per-army truncation, one tile inside the radius: 7/2 + 7/2 = 6 (not 14/2 = 7) and 7/4 + 7/4 = 2 (not 3).
+        var odd = foreign with { X = 14, Units = ValueList.Of(F.Unit("heavy_infantry", 80)), Morale = 7 };
         state = state with { Armies = ValueList.Of(odd, odd with { Id = "foreign2" }) };
-        Assert.Equal(6000 + 7, AiFaithfulEconomy.Own(state, Rules, Me));
-        Assert.Equal(3, AiFaithfulEconomy.Threat(state, Rules, Me));
+        Assert.Equal(6000 + 6, AiFaithfulEconomy.Own(state, Rules, Me));
+        Assert.Equal(2, AiFaithfulEconomy.Threat(state, Rules, Me));
     }
 
     [Theory]

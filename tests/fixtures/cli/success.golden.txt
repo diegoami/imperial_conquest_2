@@ -506,7 +506,7 @@ News:
 Macedonia (macedonia) ends its turn.
 Numidia (numidia) takes its turn: 0 orders issued.
 Gaul (gaul) takes its turn: 7 orders issued.
-Greece (greece) takes its turn: 7 orders issued.
+Greece (greece) takes its turn: 6 orders issued.
 Celtiberia (celtiberia) takes its turn: 4 orders issued.
 Illyria (illyria) takes its turn: 4 orders issued.
 Dacia (dacia) takes its turn: 0 orders issued.
@@ -515,10 +515,11 @@ Galatia (galatia) takes its turn: 1 order issued.
 Armenia (armenia) takes its turn: 1 order issued.
 Media (media) takes its turn: 1 order issued.
 Thracia (thracia) takes its turn: 1 order issued.
-Rome (rome) takes its turn: 9 orders issued.
-Carthage (carthage) takes its turn: 3 orders issued.
+  Weather: rough-sea-painted (week 3).
+Rome (rome) takes its turn: 7 orders issued.
+Carthage (carthage) takes its turn: 4 orders issued.
 Seleucid (seleucid) takes its turn: 8 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 7 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 6 orders issued.
 Now: Week 5, Autumn 270 BC. Active seat: Macedonia (macedonia).
 News:
    
@@ -538,7 +539,7 @@ Armenia (armenia) takes its turn: 1 order issued.
 Media (media) takes its turn: 1 order issued.
 Thracia (thracia) takes its turn: 1 order issued.
   Weather: rough-sea-painted (week 5).
-Rome (rome) takes its turn: 4 orders issued.
+Rome (rome) takes its turn: 3 orders issued.
 Carthage (carthage) takes its turn: 7 orders issued.
 Seleucid (seleucid) takes its turn: 4 orders issued.
 Ptolemaic (ptolemaic) takes its turn: 3 orders issued.
@@ -554,14 +555,14 @@ mac-merc moved from (141,48) to (139,43), spending 9 of 9 moves.
 Week 7, Autumn 270 BC (turn 15). Active seat: Macedonia (macedonia).
 
 Nations:
-  Rome (rome, ai): treasury 1550, unity 889, tax 5%
-  Carthage (carthage, ai): treasury 10969, unity 690, tax 5%
+  Rome (rome, ai): treasury 1583, unity 889, tax 5%
+  Carthage (carthage, ai): treasury 10986, unity 690, tax 5%
   Seleucid (seleucid, ai): treasury 881, unity 787, tax 36%
-  Ptolemaic (ptolemaic, ai): treasury 624, unity 640, tax 7%
+  Ptolemaic (ptolemaic, ai): treasury 1012, unity 640, tax 7%
   Macedonia (macedonia, human): treasury 745, unity 817, tax 15%
   Numidia (numidia, ai): treasury 1857, unity 665, tax 5%
   Gaul (gaul, ai): treasury -5574, unity 534, tax 17%
-  Greece (greece, ai): treasury -286, unity 556, tax 17%
+  Greece (greece, ai): treasury -241, unity 556, tax 17%
   Celtiberia (celtiberia, ai): treasury -2381, unity 760, tax 33%
   Illyria (illyria, ai): treasury -1079, unity 690, tax 23%
   Dacia (dacia, ai): treasury -1191, unity 629, tax 14%
@@ -591,7 +592,7 @@ Armies:
   army-15 (Illyria) @ (133,45): 48900 troops in 9 units, supply 465t (95%), morale 62, moves 8
   army-16 (Galatia) @ (196,35): 3100 troops in 1 units, supply 30t (96%), morale 62, moves 10
   army-17 (Armenia) @ (262,33): 16500 troops in 4 units, supply 157t (95%), morale 62, moves 10
-  army-5 (Ptolemaic) @ (240,107): 20501 troops in 3 units, supply 195t (95%), morale 61, moves 0
+  army-5 (Ptolemaic) @ (239,106): 20501 troops in 3 units, supply 205t (99%), morale 61, moves 0
   army-18 (Greece) @ (154,62): 17100 troops in 4 units, supply 163t (95%), morale 61, moves 10
   army-19 (Gaul) @ (69,33): 22600 troops in 3 units, supply 69t (30%), morale 60, moves 9
   army-21 (Carthage) @ (47,62): 8400 troops in 1 units, supply 43t (51%), morale 59, moves 0
@@ -716,7 +717,7 @@ Cities:
   locri "Locri" @ (118,63), owner Rome: supply 220t, loyalty 67, fortification 30%
   vindobona "Vindobona" @ (119,8), owner Rome: supply 12t, loyalty 49, fortification 8%
   sala-2 "Sala" @ (120,17), owner Gaul: supply 120t, loyalty 79, fortification 20%
-  thurii "Thurii" @ (120,56), owner Rome: supply 256t, loyalty 64, fortification 51%
+  thurii "Thurii" @ (120,56), owner Rome: supply 255t, loyalty 64, fortification 51%
   heraclea "Heraclea" @ (121,53), owner Rome: supply 340t, loyalty 53, fortification 46%
   narona "Narona" @ (122,36), owner Illyria: supply 170t, loyalty 86, fortification 52%
   croton "Croton" @ (122,60), owner Rome: supply 330t, loyalty 70, fortification 45%
@@ -868,7 +869,7 @@ Cities:
   hemesa "Hemesa" @ (224,66), owner Seleucid: supply 720t, loyalty 59, fortification 70%
   aila "Aila" @ (224,100), owner Ptolemaic: supply 560t, loyalty 81, fortification 22%
   cotyora "Cotyora" @ (225,30), owner Bithynia: supply 290t, loyalty 72, fortification 30%
-  petra "Petra" @ (226,94), owner Ptolemaic: supply 870t, loyalty 71, fortification 55%
+  petra "Petra" @ (226,94), owner Ptolemaic: supply 860t, loyalty 71, fortification 55%
   damascus "Damascus" @ (227,71), owner Ptolemaic: supply 1350t, loyalty 52, fortification 54%
   arsamosata "Arsamosata" @ (229,42), owner Seleucid: supply 460t, loyalty 82, fortification 40%
   berenice "Berenice" @ (230,136), owner Ptolemaic: supply 500t, loyalty 79, fortification 41%
@@ -995,7 +996,7 @@ Macedonia (macedonia) ends its turn.
 Numidia (numidia) takes its turn: 0 orders issued.
 Gaul (gaul) takes its turn: 4 orders issued.
 Greece (greece) takes its turn: 4 orders issued.
-Celtiberia (celtiberia) takes its turn: 5 orders issued.
+Celtiberia (celtiberia) takes its turn: 4 orders issued.
 Illyria (illyria) takes its turn: 1 order issued.
 Dacia (dacia) takes its turn: 0 orders issued.
 Bithynia (bithynia) takes its turn: 0 orders issued.
@@ -1004,18 +1005,17 @@ Armenia (armenia) takes its turn: 1 order issued.
 Media (media) takes its turn: 1 order issued.
 Thracia (thracia) takes its turn: 1 order issued.
   Weather: rough-sea-painted (week 7).
-  Weather: rough-sea-painted (week 7).
-Rome (rome) takes its turn: 2 orders issued.
+Rome (rome) takes its turn: 3 orders issued.
 Carthage (carthage) takes its turn: 1 order issued.
 Seleucid (seleucid) takes its turn: 4 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 3 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 5 orders issued.
 Now: Week 9, Autumn 270 BC. Active seat: Macedonia (macedonia).
 News:
   Celtiberia destroys army of Carthage.
+  Celtiberia and Carthage have agreed to end their war.
   Thracia destroys army of Macedonia.
    
   Week  9      Autumn      270BC
   Seleucid destroys army of Ptolemaic.
   Ptolemaic destroys army of Seleucid.
-  Ptolemaic and Seleucid have agreed to end their war.
 

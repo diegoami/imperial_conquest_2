@@ -21,7 +21,7 @@ Otherwise to continue the war click NO.
 Type 'peace-yes' to accept or 'peace-no' to decline.
 Rome (rome) takes its turn: 4 orders issued.
 Carthage (carthage) takes its turn: 1 order issued.
-Seleucid (seleucid) takes its turn: 16 orders issued.
+Seleucid (seleucid) takes its turn: 13 orders issued.
 Ptolemaic (ptolemaic) takes its turn: 10 orders issued.
 Now: Week 9, Autumn 270 BC. Active seat: Macedonia (macedonia).
 News:
@@ -69,7 +69,7 @@ Thracia (thracia) takes its turn: 2 orders issued.
   Weather: rough-sea-painted (week 9).
 Rome (rome) takes its turn: 5 orders issued.
 Carthage (carthage) takes its turn: 1 order issued.
-Seleucid (seleucid) takes its turn: 13 orders issued.
+Seleucid (seleucid) takes its turn: 16 orders issued.
 Ptolemaic (ptolemaic) takes its turn: 10 orders issued.
 Now: Week 11, Autumn 270 BC. Active seat: Macedonia (macedonia).
 News:

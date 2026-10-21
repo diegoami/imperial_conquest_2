@@ -468,6 +468,80 @@ public sealed class AiResupplyPassTests
         Assert.Equal(0, again.FleetTransfers);
         Assert.True(AiSubstantiveState.AreEquivalent(result.State, again.State));
     }
+
+    private static Ruleset Faithful => Ruleset with { Flags = Ruleset.Flags with { AiEconomy = AiEconomyModel.Original } };
+
+    /// <summary>The own city and a foreign city both beside the units, each with its own stock.</summary>
+    private static GameState TwoProviders(int ownStock, int foreignStock, int purse, bool fleetOnly = false)
+    {
+        var state = SupplyState(ownCityX: 1, ownCityY: 0, foreignCityX: 2, foreignCityY: 0, armyMoney: purse, fleetMoney: purse);
+        state = state with
+        {
+            Cities = ValueList.From(state.Cities.Select(c => c with
+            {
+                SupplyTons = string.Equals(c.Owner, ArmyNation, StringComparison.Ordinal) ? ownStock : foreignStock,
+            })),
+        };
+
+        return fleetOnly
+            ? state with { Armies = ValueList<ArmyState>.Empty }
+            : state with { Fleets = ValueList<FleetState>.Empty };
+    }
+
+    /// <summary>#1180: under the original economy an army's own city with no stock is skipped, so it grants no money.</summary>
+    [Fact]
+    public void Faithful_army_skips_an_own_city_with_no_stock()
+    {
+        var state = TwoProviders(ownStock: 0, foreignStock: 0, purse: 0);
+
+        var result = AiResupplyPass.Run(state, Faithful, ArmyNation);
+
+        Assert.Equal(0, result.ArmyTransfers);
+        Assert.Equal(0, result.State.ArmyById("supply-army")!.Money);
+        Assert.Equal(5000, result.State.NationById(ArmyNation)!.Treasury);
+
+        // With one ton in stock the same city serves.
+        Assert.Equal(1, AiResupplyPass.Run(TwoProviders(1, 0, 0), Faithful, ArmyNation).ArmyTransfers);
+    }
+
+    /// <summary>
+    /// #1181: a foreign city serves only when the purse was positive at the start of the visit. The own city's
+    /// grant earlier in the same loop does not make the later foreign city eligible.
+    /// </summary>
+    [Fact]
+    public void Faithful_army_skips_a_foreign_city_when_its_entry_purse_was_empty()
+    {
+        var result = AiResupplyPass.Run(TwoProviders(ownStock: 1, foreignStock: 100, purse: 0), Faithful, ArmyNation);
+
+        Assert.True(result.State.ArmyById("supply-army")!.Money > 0, "the own city still grants money");
+        Assert.Equal(100, result.State.CityById("foreign-city")!.SupplyTons);
+        Assert.Equal(0, result.TalentsPaid);
+
+        // With money at the start, the foreign city sells.
+        var paying = AiResupplyPass.Run(TwoProviders(ownStock: 1, foreignStock: 100, purse: 500), Faithful, ArmyNation);
+        Assert.True(paying.TalentsPaid > 0);
+        Assert.True(paying.State.CityById("foreign-city")!.SupplyTons < 100);
+    }
+
+    /// <summary>#1181, fleet half: the same entry-purse gate; an empty own city still serves a fleet.</summary>
+    [Fact]
+    public void Faithful_fleet_skips_a_foreign_city_when_its_entry_purse_was_empty_but_uses_an_empty_own_city()
+    {
+        var result = AiResupplyPass.Run(TwoProviders(ownStock: 0, foreignStock: 100, purse: 0, fleetOnly: true), Faithful, ArmyNation);
+
+        Assert.Equal(100, result.State.CityById("foreign-city")!.SupplyTons);
+        Assert.Equal(0, result.TalentsPaid);
+        Assert.True(result.State.FleetById("supply-fleet")!.Money > 0, "the empty own city still grants the fleet money");
+    }
+
+    /// <summary>The designed economy keeps its own behaviour: no stock or entry-purse gate.</summary>
+    [Fact]
+    public void Designed_economy_keeps_buying_at_the_foreign_city_after_an_own_grant()
+    {
+        var result = AiResupplyPass.Run(TwoProviders(ownStock: 1, foreignStock: 100, purse: 0), Ruleset, ArmyNation);
+
+        Assert.True(result.State.CityById("foreign-city")!.SupplyTons < 100);
+    }
 }
 
 /// <summary>Small readability helper for the giveback assertion above.</summary>
@@ -475,4 +549,5 @@ internal static class AiResupplyResultExtensions
 {
     /// <summary>The pass's net admitted tons, which is negative when supply flowed back to the city.</summary>
     public static int ArmyGivebackTons(this AiResupplyPass.Result result) => result.TonsMoved;
+
 }
