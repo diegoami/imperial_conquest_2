@@ -27,8 +27,11 @@ check that needs the machine's one Godot process is the only serialisation left)
 
 ## Milestone review (the one mandatory review)
 
-Per release milestone, one big review, run **directly from a CLI** and not through the harness:
-`scripts/review-milestone.sh v0.7.0`. See [milestone-review.md](milestone-review.md).
+Per release milestone, one big review, **by another model, which the owner runs**. A session
+prepares it and stops: the claims in the plan, the `review/vX.Y.Z` and `review-base/vX.Y.Z`
+branches, and the review PR whose description is the brief and the draft release notes. It never
+runs the review itself, starts a reviewer CLI or `scripts/review-milestone.sh`, or posts a
+verdict. See [milestone-review.md](milestone-review.md).
 
 ## Artifacts
 
