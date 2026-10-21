@@ -17,20 +17,11 @@ namespace IC2.Engine.Victory;
 /// is the fix.
 /// </para>
 /// <para>
-/// <strong>No live <see cref="Scenario"/> reaches a running system.</strong> <see cref="SystemContext"/>
-/// carries <see cref="SystemContext.Ruleset"/> and <see cref="SystemContext.World"/>, never a
-/// <see cref="Scenario"/> — <see cref="GameState"/> itself stores only <see cref="GameState.ScenarioId"/>,
-/// a string reference, not the resolved scenario object <see cref="VictoryEvaluator.Evaluate"/>'s
-/// <c>scenario</c> parameter exists to read a custom goal or a scenario turn-limit override from.
-/// Threading a live <see cref="Scenario"/> through <see cref="SystemContext"/> would be a
-/// <c>Core/Pipeline/**</c> change, outside this task's Owns list (<c>docs/task-catalogue.md</c> T43),
-/// so this system calls <see cref="VictoryEvaluator.Evaluate"/> with <c>scenario: null</c> — evaluating
-/// exactly <see cref="VictoryRules.DefaultCondition"/>/<see cref="VictoryRules.DefaultTurnLimit"/> off
-/// the loaded <see cref="Ruleset"/>, per <c>docs/design-audit.md</c> Q5. A caller that needs a scenario's
-/// own override live (T23's CLI, most plausibly) still has the same evaluator available to call directly
-/// with its resolved <see cref="Scenario"/>, exactly as this task's own dispatch tests already do;
-/// widening this seam so a registered system can do the same is future work for whichever task next
-/// touches <c>Core/Pipeline/**</c>, not a gap silently patched here.
+/// <strong>The scenario's own condition (T199, #121).</strong> Until T199, <see cref="SystemContext"/> carried no
+/// <see cref="Scenario"/>, so this system evaluated <c>scenario: null</c> and every game played its ruleset's
+/// default. It now evaluates <see cref="SystemContext.Scenario"/>: the scenario's <see cref="Scenario.Victory"/> and
+/// <see cref="Scenario.TurnLimit"/>, falling back to <see cref="VictoryRules.DefaultCondition"/> and
+/// <see cref="VictoryRules.DefaultTurnLimit"/> only when the coordinator was built without a scenario.
 /// </para>
 /// <para>
 /// <strong>Runs last in <see cref="TurnPhase.RoundEnd"/>, after T42's news writer</strong>
@@ -63,7 +54,7 @@ public sealed class VictoryCheckSystem : IGameSystem
             }
         }
 
-        var outcome = VictoryEvaluator.Evaluate(context.State, context.Ruleset, scenario: null);
+        var outcome = VictoryEvaluator.Evaluate(context.State, context.Ruleset, context.Scenario);
 
         switch (outcome.Status)
         {

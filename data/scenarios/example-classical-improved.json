@@ -147,7 +147,7 @@
     }
   ],
   "victory": {
-    "type": "totalConquest",
+    "type": "domination",
     "goal": null
   },
   "turnLimit": 100,
@@ -155,6 +155,7 @@
   "randomSeed": 20250920,
   "_provenance": {
     "worldId": "designed: references the shipped classical-mediterranean world",
+    "victory": "designed (owner decision D1, 2026-10-21, T199): domination, the improved ruleset's own default and what its New Game card promises. Until T199 the live pipeline ignored the scenario's condition, so domination is also what this scenario always played.",
     "rulesetId": "designed: uses the improved ruleset, which selects friendlier/designed alternatives where the design audit found a faithful-vs-improved fork",
     "seats": "designed: demonstrates mixed human and AI seating on the classical world, with Rome as human player and all other nations as AI opponents with varying personalities",
     "seats[carthage].personality": "designed: example/[designed] aggressive, expansionist trader profile — the original's own AI, now decompiled (research 2026-10-07-strategic-ai-turn.md), carries no per-nation personality at all, so this is not a claim about the original game",

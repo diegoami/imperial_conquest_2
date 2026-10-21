@@ -144,7 +144,7 @@ public static class AiGameRunner
 
         var registry = SystemRegistry.FromEngineAssembly();
         var dispatcher = new CommandDispatcher(registry, ruleset, world, NullEventSink.Instance);
-        var coordinator = new TurnCoordinator(registry, ruleset, world, NullEventSink.Instance, dispatcher);
+        var coordinator = new TurnCoordinator(registry, ruleset, world, NullEventSink.Instance, dispatcher, scenario);
 
         var state = GameStateFactory.CreateInitial(world, ruleset, scenario) with { RandomSeed = seed };
 

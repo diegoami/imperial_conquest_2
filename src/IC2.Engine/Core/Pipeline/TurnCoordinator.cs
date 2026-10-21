@@ -47,6 +47,7 @@ public sealed class TurnCoordinator
     private readonly World _world;
     private readonly IEventSink _sink;
     private readonly ICommandDispatch _commands;
+    private readonly Scenario? _scenario;
     internal IC2.Engine.Movement.IStrategicObservationRecorder? StrategicObserver { get; set; }
 
     /// <summary>Creates a coordinator over a scanned registry.</summary>
@@ -63,12 +64,17 @@ public sealed class TurnCoordinator
     /// absent, a system that tries anyway is refused with
     /// <see cref="CoreRejections.NoDispatcher"/> rather than throwing.
     /// </param>
+    /// <param name="scenario">
+    /// T199 (#121): the scenario the game was started from, handed to every system as
+    /// <see cref="SystemContext.Scenario"/>. Optional: without one, victory falls back to the ruleset's default.
+    /// </param>
     public TurnCoordinator(
         SystemRegistry registry,
         Ruleset ruleset,
         World world,
         IEventSink sink,
-        ICommandDispatch? commands = null)
+        ICommandDispatch? commands = null,
+        Scenario? scenario = null)
     {
         ArgumentNullException.ThrowIfNull(registry);
         ArgumentNullException.ThrowIfNull(ruleset);
@@ -80,6 +86,7 @@ public sealed class TurnCoordinator
         _world = world;
         _sink = sink;
         _commands = commands ?? UnavailableCommandDispatch.Instance;
+        _scenario = scenario;
     }
 
     /// <summary>
@@ -240,7 +247,8 @@ public sealed class TurnCoordinator
                     new QuarterBoundaryHook(this, turnSeed, taggedEvents),
                     boundCommands,
                     signals,
-                    publishedSoFar);
+                    publishedSoFar,
+                    _scenario);
 
                 GameState? produced = system.Instance.Execute(context);
                 if (produced is null)

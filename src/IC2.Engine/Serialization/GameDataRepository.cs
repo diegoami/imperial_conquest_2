@@ -82,6 +82,10 @@ public sealed class GameDataRepository
     /// <exception cref="UnresolvedReferenceException">
     /// The scenario, or a world/ruleset it names, is not present in this data set.
     /// </exception>
+    /// <exception cref="MalformedGameDataException">
+    /// T199: the three documents do not fit together: a custom goal names a nation or city the world does not
+    /// have, or the ruleset draws from more mercenary templates than the world carries.
+    /// </exception>
     public ResolvedScenario Resolve(string scenarioId)
     {
         var scenario = ScenarioById(scenarioId)
@@ -90,6 +94,7 @@ public sealed class GameDataRepository
                     ?? throw new UnresolvedReferenceException(scenario.Id, "world", scenario.WorldId);
         var ruleset = RulesetById(scenario.RulesetId)
                       ?? throw new UnresolvedReferenceException(scenario.Id, "ruleset", scenario.RulesetId);
+        GameDataValidation.ValidateResolved(scenario, world, ruleset);
         return new ResolvedScenario(scenario, world, ruleset);
     }
 

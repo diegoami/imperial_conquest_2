@@ -1053,6 +1053,55 @@ public static class GameDataValidation
         }
     }
 
+    /// <summary>
+    /// T199 (#106, #1028): the checks that need the scenario, its world and its ruleset together, run where
+    /// the three first meet (<see cref="GameDataRepository.Resolve"/>). A custom goal must name a nation and
+    /// cities of the world; the ruleset's mercenary template draw count must fit the world's template table.
+    /// </summary>
+    public static void ValidateResolved(Scenario scenario, World world, Ruleset ruleset)
+    {
+        ArgumentNullException.ThrowIfNull(scenario);
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(ruleset);
+
+        if (scenario.Victory.Type == VictoryConditionType.Custom && !string.IsNullOrWhiteSpace(scenario.Victory.Goal))
+        {
+            (string Nation, IReadOnlyList<string> HoldCities) goal;
+            try
+            {
+                goal = IC2.Engine.Victory.CustomVictoryGoal.References(scenario.Victory.Goal);
+            }
+            catch (FormatException ex)
+            {
+                throw new MalformedGameDataException(scenario.Id, $"'victory.goal': {ex.Message}", ex);
+            }
+
+            if (world.NationById(goal.Nation) is null)
+            {
+                throw new MalformedGameDataException(
+                    scenario.Id, $"'victory.goal.nation' names nation '{goal.Nation}', which world '{world.Id}' does not have.");
+            }
+
+            foreach (var cityId in goal.HoldCities)
+            {
+                if (world.CityById(cityId) is null)
+                {
+                    throw new MalformedGameDataException(
+                        scenario.Id, $"'victory.goal.holdCities' names city '{cityId}', which world '{world.Id}' does not have.");
+                }
+            }
+        }
+
+        var drawCount = ruleset.Recruitment.MercenaryRestockTemplateDrawCount;
+        if (world.MercenaryTemplates is { Count: > 0 } templates && drawCount > templates.Count)
+        {
+            throw new MalformedGameDataException(
+                scenario.Id,
+                $"ruleset '{ruleset.Id}' sets 'recruitment.mercenaryRestockTemplateDrawCount' to {drawCount}, but world "
+                + $"'{world.Id}' carries only {templates.Count} mercenary templates; the restock would draw past the table.");
+        }
+    }
+
     private static void RequireNation(string documentPath, World world, string nationId)
     {
         if (world.NationById(nationId) is null)

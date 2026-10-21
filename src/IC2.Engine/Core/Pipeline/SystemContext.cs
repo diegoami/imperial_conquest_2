@@ -26,7 +26,8 @@ public sealed class SystemContext
         IQuarterBoundaryHook quarterBoundary,
         ICommandDispatch commands,
         TurnSignals signals,
-        ValueList<PublishedEvent> publishedEvents)
+        ValueList<PublishedEvent> publishedEvents,
+        Scenario? scenario = null)
     {
         State = state;
         Ruleset = ruleset;
@@ -39,6 +40,7 @@ public sealed class SystemContext
         Commands = commands;
         Signals = signals;
         PublishedEvents = publishedEvents;
+        Scenario = scenario;
     }
 
     /// <summary>The state as the previous system in the pipeline left it.</summary>
@@ -49,6 +51,13 @@ public sealed class SystemContext
 
     /// <summary>The loaded world: terrain, and the static definitions behind the live state.</summary>
     public World World { get; }
+
+    /// <summary>
+    /// T199 (#121): the scenario this game was started from, so a round-end system can read its own victory
+    /// condition and turn limit. <see langword="null"/> when the coordinator was built without one (most
+    /// tests), which keeps the ruleset's defaults.
+    /// </summary>
+    public Scenario? Scenario { get; }
 
     /// <summary>The phase currently running.</summary>
     public TurnPhase Phase { get; }

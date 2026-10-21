@@ -29,6 +29,19 @@ public enum SeatFallReason
     /// <summary>Conquered outright — its last city taken by another nation, named by
     /// <see cref="ConquerorNationId"/>.</summary>
     Conquered,
+
+    /// <summary>
+    /// T199 (the owner's decision of 2026-10-21): this seat won by the scenario's own condition other than
+    /// total conquest (domination, a custom goal, the best score at the turn limit). The game ends for every
+    /// seat. <strong>[designed]</strong>: the original has no such condition.
+    /// </summary>
+    ScenarioWon,
+
+    /// <summary>
+    /// T199: another nation, named by <see cref="ConquerorNationId"/>, won by the scenario's own condition; the
+    /// game ends for this seat too. <strong>[designed]</strong>.
+    /// </summary>
+    ScenarioLost,
 }
 
 /// <summary>
