@@ -228,7 +228,7 @@ Two standing prohibitions, inherited from the project's evidence rules: **no num
 
 ### 4.3 Who reviews it — **the existing reviewer role, on the draft Release body**
 
-No new role. The release note is checked by [scripts/review-milestone.sh](../scripts/review-milestone.sh) ([milestone-review.md](milestone-review.md)), and the gates transfer to a release note almost unchanged:
+No new role. The release note is checked by the milestone reviewer, another model the owner runs on the review PR, where the draft note is part of the brief ([milestone-review.md](milestone-review.md)). The gates transfer to a release note almost unchanged:
 
 | Review gate | Applied to a release note |
 | --- | --- |
@@ -238,7 +238,7 @@ No new role. The release note is checked by [scripts/review-milestone.sh](../scr
 | 4. Scope | The note describes only what merged in the range — no forward promises, nothing from `game-design.md`'s "left for later" list. |
 | 5. Correctness sweep | Not applicable; a release note has no code. |
 
-**Model for the seat**: the same rule the catalogue uses for fidelity-critical PRs — **Opus / Medium**, because the failure mode here (a wrong fidelity claim shipped to a player) is the one this project has already paid for. The reviewer approves by commenting on the draft Release or on the gate's issues; the main session publishes (or, for `v0.4.0`/`v1.0.0`, hands to the human). This is the same *judge separate from executor* separation [build-process.md §4.1](https://github.com/diegoami/imperial_conquest_2/blob/archive/desktop-2026-10-20/docs/build-process.md#41-the-path-a-task-takes) already argues for on merges, for the same audit-trail reason.
+**Model for the seat**: **another model, chosen and run by the owner**, never the session that built the release, because the failure mode here (a wrong fidelity claim shipped to a player) is the one this project has already paid for. The reviewer approves by commenting on the review PR; the main session publishes (or, for `v0.4.0`/`v1.0.0`, hands to the human). This is the same *judge separate from executor* separation [build-process.md §4.1](https://github.com/diegoami/imperial_conquest_2/blob/archive/desktop-2026-10-20/docs/build-process.md#41-the-path-a-task-takes) already argues for on merges, for the same audit-trail reason.
 
 ---
 

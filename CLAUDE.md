@@ -9,7 +9,7 @@ cross-family review) is frozen on the `local` branch and is **not** in force her
 
 1. **Work in the checkout you are given.** No git worktrees, no second clones. Branch, commit, push, open a PR.
 2. **Review is optional and belongs to the harness.** Use the default harness (`/code-review`, a subagent, or none) when it helps. No required reviewer family, fresh checkout, worktree, or posted verdict. Merge needs green CI; nothing else.
-3. **Milestones get one big review**, run directly from the CLI by `scripts/review-milestone.sh`, not by the harness ([docs/milestone-review.md](docs/milestone-review.md)).
+3. **Milestones get one big review, by another model.** The session's job ends at the freeze: claims in the plan, the `review/` and `review-base/` branches, and the review PR whose description is the brief. Never run the review yourself, start a reviewer CLI or `scripts/review-milestone.sh`, or post a verdict; the owner hands the PR to the other model ([docs/milestone-review.md](docs/milestone-review.md)).
 4. **Status lives on GitHub labels only.** No document carries a status snapshot.
 5. **Everything we produce stays reachable**: small files in the repo, big ones in a release or the Drive location ([docs/artifacts.md](docs/artifacts.md)). Original-game files, and anything derived from them, never enter the repo or a release (copyright).
 6. **A question is not a request to edit files.** Answer it; propose a fix and wait.

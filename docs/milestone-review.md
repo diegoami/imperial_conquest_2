@@ -1,6 +1,6 @@
 # Milestone review: a portable process
 
-**Run it with `scripts/review-milestone.sh <tag>`**, which builds the brief below and calls a CLI directly (default `claude -p`; `--cli` takes any command that reads stdin), in the current checkout. No harness, worktree or fresh clone is required; independence comes from the reviewer having only the brief. `--post` comments the result on the review PR.
+**In this project the review is run by another model, which the owner starts.** A session does steps 1–3 (claims, freeze, the review PR with the brief as its description) and stops there: it never runs the review itself, starts a reviewer CLI or `scripts/review-milestone.sh`, or posts a verdict. The script stays available for the owner, or for the other model, to build a brief from the milestone (`--dry-run` writes it without calling any CLI).
 
 How a milestone is defined, frozen, reviewed by someone independent, and certified. It is written
 to be adopted by any project; nothing below depends on this one. For this project, the release
@@ -65,7 +65,7 @@ declared done.
    - create `review/vX.Y.Z` at that commit;
    - create `review-base/vX.Y.Z` at the previous tag;
    - open the review PR. Its description is the brief (below).
-4. **Review.** The reviewer works in a checkout at the candidate commit (the script's current checkout is enough). It must:
+4. **Review.** The reviewer, another model started by the owner, works in its own checkout at the candidate commit. It must:
    - test every claim itself, since the builder's evidence is a convenience and never the proof;
    - try to *break* the strongest claims: delete or alter the behaviour, rebuild clean, and check
      that a test fails;
