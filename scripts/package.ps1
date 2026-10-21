@@ -315,6 +315,9 @@ try {
 
     if ($exportCode -ne 0) { Fail "the Godot export exited with code $exportCode; see $exportLog." }
     if (Select-String -LiteralPath $exportLog -Pattern '^\s*ERROR:' -Quiet) {
+        # Show the errors where CI can read them: the log itself stays on the runner.
+        Select-String -LiteralPath $exportLog -Pattern '^\s*ERROR:' -Context 2, 6 | Select-Object -First 10 |
+            ForEach-Object { Write-Host ($_.ToString()) }
         Fail "the Godot export reported an error; see $exportLog."
     }
     if (-not (Test-Path -LiteralPath $ExePath)) { Fail "the export did not produce $ExePath." }
