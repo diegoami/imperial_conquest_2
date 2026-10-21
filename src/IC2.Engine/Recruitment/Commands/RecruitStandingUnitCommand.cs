@@ -60,6 +60,9 @@ public static class RecruitStandingUnitRejections
     /// </summary>
     public static readonly RejectionCode RecruitmentTableFull = new("recruitment.table-full");
 
+    /// <summary>#802 R47: the nation's mobilisation rate is already at the cap.</summary>
+    public static readonly RejectionCode MobilizationAtCap = new("recruitment.mobilization-at-cap");
+
     /// <summary>
     /// T155 (#515, #904): the training town is neither its nation's capital nor at a raw
     /// <see cref="Model.CityState.FortificationCode"/> word of at least

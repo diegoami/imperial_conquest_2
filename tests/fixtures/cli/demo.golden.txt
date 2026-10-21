@@ -172,7 +172,7 @@ naval.scuttle-fleet rejected (naval.unknown-fleet): 'north-fleet-2' is not a kno
 
 > end
 Northern League (north) ends its turn.
-Southern League (south) takes its turn: 4 orders issued.
+Southern League (south) takes its turn: 3 orders issued.
 Now: Week 3, Spring 270 BC. Active seat: Northern League (north).
 News:
    
@@ -223,7 +223,7 @@ Week 1, Summer 270 BC (turn 6). Active seat: Northern League (north).
 
 Nations:
   Northern League (north, human): treasury -85, unity 615, tax 15%
-  Southern League (south, ai): treasury 187, unity 516, tax 20%
+  Southern League (south, ai): treasury 272, unity 516, tax 20%
 
 Armies:
   north-army-1 (Northern League) @ (4,3): 18500 troops in 2 units, supply 0t (0%), morale 66, moves 9
@@ -260,7 +260,7 @@ Week 1, Summer 270 BC (turn 6). Active seat: Northern League (north).
 
 Nations:
   Northern League (north, human): treasury -85, unity 615, tax 15%
-  Southern League (south, ai): treasury 197, unity 516, tax 20%
+  Southern League (south, ai): treasury 282, unity 516, tax 20%
 
 Armies:
   north-army-1 (Northern League) @ (4,3): 18500 troops in 2 units, supply 100t (54%), morale 66, moves 9

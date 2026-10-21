@@ -337,6 +337,13 @@ public static class AiEconomyPhase
             return;
         }
 
+        // #802 R47: the handler refuses a new order at the mobilisation cap, so it is pre-checked the same
+        // way (the original's AI gates on mobilized < 100 too).
+        if (view.Nation.MobilizedPercent >= view.Ruleset.Recruitment.MobilizationCapPercent)
+        {
+            return;
+        }
+
         var best = BestAffordableUnitType(view.Ruleset, budget, view.Nation.Treasury);
         if (best is not { } choice)
         {

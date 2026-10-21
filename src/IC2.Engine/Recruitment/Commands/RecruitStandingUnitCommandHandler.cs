@@ -24,9 +24,9 @@ namespace IC2.Engine.Recruitment.Commands;
 /// <strong>T55 Done-when 7 — placing an order is what raises the mobilization rate.</strong> See
 /// <see cref="MobilizationRate"/> for the formula and its provenance. The original also refuses a
 /// further order once the rate reaches its cap (<em>"Your mobilisation rate is already 100%."</em>, and
-/// the AI gates its own orders on <c>mobilized &lt; 100</c>); that refusal is <c>[open]</c> here — this
-/// handler applies the confirmed <c>min(cap, …)</c> clamp the report gives and adds no rejection T55's
-/// Done-when does not name.
+/// the AI gates its own orders on <c>mobilized &lt; 100</c>). Since #802 (R47, play RC02, a Wine
+/// candidate; applied to every ruleset by the owner's decision of 2026-10-21) this handler refuses it too,
+/// after the slot table; the <c>min(cap, …)</c> clamp still applies to the order that reaches the cap.
 /// </para>
 /// <para>
 /// Where the slot-table refusal sits: before the treasury is read, because the original refuses at the
@@ -101,6 +101,14 @@ public sealed class RecruitStandingUnitCommandHandler : ICommandHandler<RecruitS
             return CommandOutcome.Reject(
                 RecruitStandingUnitRejections.RecruitmentTableFull,
                 $"You have reached your limit of {context.Ruleset.Recruitment.MaxSlots} units.");
+        }
+
+        // #802 R47: a nation already at the mobilisation cap takes no new order.
+        if (nation.MobilizedPercent >= context.Ruleset.Recruitment.MobilizationCapPercent)
+        {
+            return CommandOutcome.Reject(
+                RecruitStandingUnitRejections.MobilizationAtCap,
+                $"Your mobilisation rate is already {context.Ruleset.Recruitment.MobilizationCapPercent}%.");
         }
 
         // T155 (#515, #904) — the capital-or-75% gate, the original's third refusal ("This city's
