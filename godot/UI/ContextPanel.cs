@@ -221,7 +221,7 @@ public partial class ContextPanel : Control
 
     /// <summary>
     /// Fix #491: an unwrapped <see cref="Label"/>'s minimum size is its full single-line text width, so
-    /// a long stats/Troops line (<c>"5000x heavy_infantry, ..."</c>) forced this panel's
+    /// a long stats/Troops line (<c>"5,000 Heavy infantry, ..."</c>) forced this panel's
     /// <see cref="VBoxContainer"/> — and with it <c>MainGameScreen</c>'s 340&#160;px
     /// <c>CustomMinimumSize</c> panel — wider than the viewport, pushing the panel (and its order
     /// buttons) off-screen. <see cref="Note"/> already wraps for exactly this reason; <c>Fact</c> now
@@ -322,7 +322,7 @@ public partial class ContextPanel : Control
         var owner = DisplayState.NationById(city.Owner);
         Fact($"Tax rate: {(owner?.TaxRatePercent.ToString() ?? "?")}%");
 
-        Fact($"Garrison: {(city.Garrison.Count == 0 ? "none" : string.Join(", ", city.Garrison.Select(u => $"{u.Troops}x {u.UnitTypeId}")))}");
+        Fact($"Garrison: {(city.Garrison.Count == 0 ? "none" : string.Join(", ", city.Garrison.Select(u => ArmyDialogModels.UnitLine(Session.Ruleset, u.Troops, u.UnitTypeId))))}");
 
         // Fix #513: the regiments this city is training (the clone keeps it below the original's
         // facts so the carry-over from T110 still applies).
@@ -371,7 +371,8 @@ public partial class ContextPanel : Control
             ? InformationPanelModel.OwnArmy(DisplayState, Session.World, Session.Ruleset, army)
             : InformationPanelModel.ForeignArmy(DisplayState, Session.World, Session.Ruleset, army);
 
-        Heading($"Army — {army.Id}");
+        // #1288 (F5 of #1280): the id ("army-1") is internal; the owner is the first line below.
+        Heading("Army");
         foreach (var line in lines)
         {
             if (line.Text.Length == 0)
@@ -404,7 +405,7 @@ public partial class ContextPanel : Control
             ? InformationPanelModel.OwnFleet(DisplayState, Session.World, Session.Ruleset, fleet)
             : InformationPanelModel.ForeignFleet(DisplayState, Session.World, Session.Ruleset, fleet);
 
-        Heading($"Fleet — {fleet.Id}");
+        Heading("Fleet");
         foreach (var line in lines)
         {
             if (line.Text.Length == 0)
@@ -520,8 +521,7 @@ public partial class ContextPanel : Control
         foreach (var slot in slots)
         {
             any = true;
-            Fact($"{slot.Troops}x {slot.UnitTypeId} ({ArmyDialogModels.QualityCaption(slot.Quality)})"
-                + (string.IsNullOrEmpty(slot.Name) ? string.Empty : $" — {slot.Name}"));
+            Fact(ArmyDialogModels.UnitLine(Session.Ruleset, slot.Troops, slot.UnitTypeId, slot.Quality, slot.Name));
         }
 
         if (!any)
@@ -534,11 +534,10 @@ public partial class ContextPanel : Control
     /// One army's units as the panel's Troops line shows them — troops, type, and T111's regiment quality
     /// caption next to both, folded in by the user's decision of 2026-10-02.
     /// </summary>
-    private static string FormatUnits(IReadOnlyList<UnitSlot> units) =>
+    private string FormatUnits(IReadOnlyList<UnitSlot> units) =>
         units.Count == 0
             ? "none"
-            : string.Join(", ", units.Select(u =>
-                $"{u.Troops}x {u.UnitTypeId} ({ArmyDialogModels.QualityCaption(u.Quality)})"));
+            : string.Join(", ", units.Select(u => ArmyDialogModels.UnitLine(Session.Ruleset, u.Troops, u.UnitTypeId, u.Quality)));
 
     private string DisplayNation(string nationId) => DisplayState.NationById(nationId)?.Name ?? nationId;
 

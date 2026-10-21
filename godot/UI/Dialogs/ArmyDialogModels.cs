@@ -72,6 +72,16 @@ public static class ArmyDialogModels
     public const string SplitNoFreeTileMessage = "There is no free land next to this army for a new army.";
 
     /// <summary>
+    /// #1288 (F5 of #1280): one unit as the player reads it — "2,000 Light infantry (poor)": the troops
+    /// with a thousands separator, the ruleset's own unit-type name (the id when the ruleset lacks it),
+    /// the regiment quality caption when given, and " — name" for a named unit.
+    /// </summary>
+    public static string UnitLine(Ruleset? ruleset, int troops, string unitTypeId, int? quality = null, string? name = null) =>
+        $"{troops.ToString("N0", CultureInfo.InvariantCulture)} {ruleset?.UnitTypeById(unitTypeId)?.Name ?? unitTypeId}"
+        + (quality is { } q ? $" ({QualityCaption(q)})" : string.Empty)
+        + (string.IsNullOrEmpty(name) ? string.Empty : $" — {name}");
+
+    /// <summary>
     /// The quality caption the army panel and the unit list print for a raw quality tier — the roster's
     /// own words for 5–9, and the tier's number below 5 (see this class's remarks).
     /// </summary>

@@ -211,7 +211,7 @@ public partial class InformationPanelCheck : Control
     private void AssertRomanArmyPanel()
     {
         var army = _mainGame.Session.State.ArmyById(RomanArmyId)!;
-        Check(PanelShowsHeading($"Army — {RomanArmyId}"), "Rome's army panel is shown");
+        Check(PanelShowsSubject("Army", RomanArmyId), "Rome's army panel is shown");
         Check(
             PanelHasLabel("Army of Rome"),
             "the panel reads 'Army of Rome'");
@@ -271,7 +271,7 @@ public partial class InformationPanelCheck : Control
     private void AssertForeignArmyPanel()
     {
         var army = _mainGame.Session.State.ArmyById("army-2")!;
-        Check(PanelShowsHeading("Army — army-2"), "the foreign-army panel is shown");
+        Check(PanelShowsSubject("Army", "army-2"), "the foreign-army panel is shown");
 
         Check(PanelHasLabel("Army of Carthage"), "the foreign panel reads 'Army of Carthage'");
         Check(PanelHasLabel("Moves: withheld"), "the foreign panel withholds moves");
@@ -321,7 +321,7 @@ public partial class InformationPanelCheck : Control
     private void AssertForeignFleetPanel()
     {
         var fleet = _mainGame.Session.State.FleetById(CarthaginianFleetId)!;
-        Check(PanelShowsHeading($"Fleet — {CarthaginianFleetId}"), "the foreign-fleet panel is shown");
+        Check(PanelShowsSubject("Fleet", CarthaginianFleetId), "the foreign-fleet panel is shown");
 
         Check(PanelHasLabel("Fleet of Carthage"), "the fleet header reads 'Fleet of Carthage'");
         Check(PanelHasLabel($"Ships: {fleet.Ships}"), "the fleet's Ships are shown");
@@ -358,7 +358,7 @@ public partial class InformationPanelCheck : Control
     {
         var fleet = _mainGame.Session.State.FleetById(PtolemyCarryFleetId)!;
         Check(
-            PanelShowsHeading($"Fleet — {PtolemyCarryFleetId}"),
+            PanelShowsSubject("Fleet", PtolemyCarryFleetId),
             "the foreign carrying fleet's panel is shown after a real map click");
 
         Check(PanelHasLabel("Fleet of Ptolemaic"), "the carrying-fleet header reads 'Fleet of Ptolemaic'");
@@ -659,6 +659,10 @@ public partial class InformationPanelCheck : Control
     /// <summary>Whether <paramref name="text"/> carries any digit. Used to confirm a blank-value
     /// row (e.g. a foreign Mobilized or Treasury caption) really withholds its number.</summary>
     private static bool ContainsDigit(string text) => text.Any(char.IsDigit);
+
+    /// <summary>#1288: the panel heads an army or fleet with its kind only; the subject names which one.</summary>
+    private bool PanelShowsSubject(string kind, string id) =>
+        PanelShowsHeading(kind) && _mainGame.ContextPanel.SubjectForCheck == $"{kind}:{id}";
 
     private bool PanelShowsHeading(string text) =>
         FindPanelLabel(label => label.Text == text) is { Visible: true };

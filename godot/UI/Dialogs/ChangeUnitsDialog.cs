@@ -315,9 +315,7 @@ public partial class ChangeUnitsDialog : Control
         _unitList.Clear();
         foreach (var unit in _model.Units)
         {
-            var name = string.IsNullOrEmpty(unit.Name) ? string.Empty : $" — {unit.Name}";
-            _unitList.AddItem(
-                $"{unit.Troops}x {unit.UnitTypeId} ({ArmyDialogModels.QualityCaption(unit.Quality)}){name}");
+            _unitList.AddItem(ArmyDialogModels.UnitLine(Session.Ruleset, unit.Troops, unit.UnitTypeId, unit.Quality, unit.Name));
         }
     }
 }

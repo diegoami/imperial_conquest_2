@@ -381,7 +381,6 @@ public partial class SplitArmyDialog : Control
         _moneyLabel.Text = $"Money: {_model.Money} to the new army  ·  max {_model.MaxMoney}";
     }
 
-    private static string FormatUnit(UnitSlot unit) =>
-        $"{unit.Troops}x {unit.UnitTypeId} ({ArmyDialogModels.QualityCaption(unit.Quality)})"
-        + (string.IsNullOrEmpty(unit.Name) ? string.Empty : $" — {unit.Name}");
+    private string FormatUnit(UnitSlot unit) =>
+        ArmyDialogModels.UnitLine(Session.Ruleset, unit.Troops, unit.UnitTypeId, unit.Quality, unit.Name);
 }

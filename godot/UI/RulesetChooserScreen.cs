@@ -128,10 +128,13 @@ public partial class RulesetChooserScreen : Control
         content.AddChild(name);
         CardTitleLabels[card.Preset] = name;
 
-        foreach (var line in card.Summary)
+        // #1288: the player's words on the card; the exact ruleset paths are each line's tooltip.
+        for (var i = 0; i < card.PlayerSummary.Count; i++)
         {
-            var label = UiKit.MakeLabel("• " + line, AppTheme.Body, UiKit.MutedTextColor);
+            var label = UiKit.MakeLabel("• " + card.PlayerSummary[i], AppTheme.Body, UiKit.MutedTextColor);
             label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            label.TooltipText = i < card.Summary.Count ? card.Summary[i] : string.Empty;
+            label.MouseFilter = Control.MouseFilterEnum.Pass;
             content.AddChild(label);
         }
 

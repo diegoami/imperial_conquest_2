@@ -36,7 +36,7 @@ public partial class MainMenu : Control
         title.HorizontalAlignment = HorizontalAlignment.Center;
         column.AddChild(title);
 
-        var subtitle = UiKit.MakeLabel("A reimplementation of the 1999 strategy game", AppTheme.Body, UiKit.MutedTextColor);
+        var subtitle = UiKit.MakeLabel("A reimplementation of the 1996 strategy game", AppTheme.Body, UiKit.MutedTextColor);
         subtitle.HorizontalAlignment = HorizontalAlignment.Center;
         column.AddChild(subtitle);
 
