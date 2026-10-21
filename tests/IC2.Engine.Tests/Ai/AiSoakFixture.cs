@@ -33,9 +33,20 @@ public sealed class AiSoakFixture
     /// <summary>The one soak run every fact in <see cref="AiSoakTests"/> reads.</summary>
     public SoakReport Report { get; }
 
+    /// <summary>#1290: the classical-mediterranean seeds 1–10, under the same rule.</summary>
+    public SoakReport Classical { get; }
+
     public AiSoakFixture()
     {
         Report = RunSoak();
+        var classical = new List<AiGameResult>(AiTestbed.ClassicalSeedCount);
+        var clock = Stopwatch.StartNew();
+        for (ulong seed = 1; seed <= AiTestbed.ClassicalSeedCount; seed++)
+        {
+            classical.Add(AiTestbed.RunClassicalSeed(seed));
+        }
+
+        Classical = new SoakReport(classical, clock.Elapsed, AiTestbed.ClassicalTurnCap);
     }
 
     /// <summary>The log file one seed writes — <c>seed-7.log</c> for seed 7, and nothing else.</summary>
@@ -67,7 +78,7 @@ public sealed class AiSoakFixture
 
     public sealed class SoakReport
     {
-        public SoakReport(List<AiGameResult> results, TimeSpan elapsed)
+        public SoakReport(List<AiGameResult> results, TimeSpan elapsed, int turnCap = AiTestbed.SoakTurnCap)
         {
             Results = results;
             Elapsed = elapsed;
@@ -83,6 +94,7 @@ public sealed class AiSoakFixture
                 CommandlessTurns += result.CommandlessTurns;
                 TurnsPlayed += result.TurnsPlayed;
                 WorstStallRun = Math.Max(WorstStallRun, result.LongestStallRun);
+                FullRoundStalls += result.FullRoundStalls;
                 switch (result.Ending)
                 {
                     case AiGameEnding.Won: won++; break;
@@ -95,10 +107,10 @@ public sealed class AiSoakFixture
                 CultureInfo.InvariantCulture,
                 "{0} seeds, cap {1}: {2} won, {3} expired at the hard end year, {4} reached the turn cap | "
                 + "{5} turns, {6} commands ({7} turns issued none), {8} rejected, {9} probe mismatches, "
-                + "worst stall run {10} | {11:F2}s of a {12:F0}s budget",
-                results.Count, AiTestbed.SoakTurnCap, won, expired, capped,
+                + "worst stall run {10} (reported), full-round stalls {13} | {11:F2}s of a {12:F0}s budget",
+                results.Count, turnCap, won, expired, capped,
                 TurnsPlayed, IssuedCommands, CommandlessTurns, RejectedCommands, ProjectionMismatches,
-                WorstStallRun, elapsed.TotalSeconds, Budget.TotalSeconds);
+                WorstStallRun, elapsed.TotalSeconds, Budget.TotalSeconds, FullRoundStalls);
         }
 
         public List<AiGameResult> Results { get; }
@@ -116,6 +128,9 @@ public sealed class AiSoakFixture
         public int TurnsPlayed { get; }
 
         public int WorstStallRun { get; }
+
+        /// <summary>#1290: full rounds of all-idle live seats, across every seed. Required to be zero.</summary>
+        public int FullRoundStalls { get; }
 
         public string Summary { get; }
 

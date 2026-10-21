@@ -59,10 +59,12 @@ public sealed class AiSoakTests : IClassFixture<AiSoakFixture>
             "an attack's advance probe and the state its own declaration produces must always agree; "
             + $"{report.ProjectionMismatches} disagreed. " + report.SeedsWith(r => r.ProjectionMismatches > 0));
 
+        // #1290 (the user's decision, closing #268): a stall is a full round of live seats all idle, not two
+        // idle seat-turns in a row. The longest run is reported above, not failed on.
         Assert.True(
-            report.WorstStallRun < 2,
-            "a turn that issues no command and changes no substantive state, twice in a row, is a stall; "
-            + $"the worst run was {report.WorstStallRun}. " + report.SeedsWith(r => r.LongestStallRun >= 2));
+            report.FullRoundStalls == 0,
+            "a complete round in which every live seat issues no command and changes no substantive state is "
+            + $"a stall; {report.FullRoundStalls} were found. " + report.SeedsWith(r => r.FullRoundStalls > 0));
 
         // Done-when 2, asserted rather than reported.
         Assert.True(
@@ -77,6 +79,29 @@ public sealed class AiSoakTests : IClassFixture<AiSoakFixture>
             Assert.True(File.Exists(path), $"seed {result.Seed} wrote no log at {path}");
             Assert.NotEmpty(File.ReadAllLines(path));
         }
+    }
+
+    /// <summary>
+    /// #1290: the shipped 16-nation <c>classical-mediterranean</c> scenario, seeds 1–10, under the same rule
+    /// and the same zero-rejection, zero-mismatch checks. Every seed reaches its end. Isolated idle seats
+    /// (#268's pattern) are reported per seat and pass.
+    /// </summary>
+    [Fact]
+    public void Classical_seeds_1_to_10_have_no_full_round_stall_rejection_or_mismatch()
+    {
+        var report = _fixture.Classical;
+        _output.WriteLine(report.Summary);
+        foreach (var result in report.Results)
+        {
+            _output.WriteLine("  " + result.Summary());
+            _output.WriteLine("    idle seat-turns: " + string.Join(", ", result.IdleBySeat.Select(r => $"{r.SeatId} {r.IdleTurns}")));
+        }
+
+        Assert.Equal(AiTestbed.ClassicalSeedCount, report.Results.Count);
+        Assert.True(report.RejectedCommands == 0, $"{report.RejectedCommands} commands refused. " + report.SeedsWith(r => r.CommandsRejected > 0));
+        Assert.True(report.ProjectionMismatches == 0, $"{report.ProjectionMismatches} probe mismatches. " + report.SeedsWith(r => r.ProjectionMismatches > 0));
+        Assert.True(report.FullRoundStalls == 0, $"{report.FullRoundStalls} full-round stalls. " + report.SeedsWith(r => r.FullRoundStalls > 0));
+        Assert.All(report.Results, r => Assert.True(r.TurnsPlayed > 0 && r.CommandsIssued > 0, $"seed {r.Seed} did nothing"));
     }
 
     /// <summary>
