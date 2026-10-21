@@ -32,6 +32,50 @@ public sealed class MapMarkerKeysTests
     /// The boundary (100) is a <strong>test fixture</strong>, not the shipped value (the shipped
     /// [25, 50, 100] is pinned by the T163 theory below); it shows the key follows the number.
     /// </remarks>
+    /// <summary>#1309: the size rank follows the same tiers as the icon, and a live capital ranks above them all.</summary>
+    [Theory]
+    [InlineData(5, 0)]
+    [InlineData(24, 0)]
+    [InlineData(25, 1)]
+    [InlineData(49, 1)]
+    [InlineData(50, 2)]
+    [InlineData(100, 3)]
+    [InlineData(400, 3)]
+    public void City_rank_follows_the_population_tiers(int population, int rank)
+    {
+        var resolved = Repository.Resolve("toy-3city");
+        var state = GameStateFactory.CreateInitial(resolved.World, resolved.Ruleset, resolved.Scenario);
+        var city = state.CityById("portus")! with { PopulationThousands = population };
+        var withCity = state with { Cities = ReplaceCity(state.Cities, city) };
+
+        Assert.Equal(rank, MapMarkerKeys.CityRank(withCity, city, resolved.Ruleset.MapMarkers));
+        Assert.Equal(MapMarkerKeys.CapitalRank, MapMarkerKeys.CityRank(withCity, withCity.CityById("meridia")!, resolved.Ruleset.MapMarkers));
+    }
+
+    /// <summary>#1309: each rank draws larger than the one below, so size reads at a glance.</summary>
+    [Fact]
+    public void City_marker_grows_with_rank()
+    {
+        for (var rank = 1; rank <= MapMarkerKeys.CapitalRank; rank++)
+        {
+            Assert.True(MapMarkerKeys.CityMarkerHalfSize(rank) > MapMarkerKeys.CityMarkerHalfSize(rank - 1), $"rank {rank} is not larger than {rank - 1}");
+        }
+
+        Assert.True(MapMarkerKeys.CityMarkerHalfSize(MapMarkerKeys.CapitalRank) < 1f, "a capital still fits its tile's neighbourhood");
+    }
+
+    /// <summary>#1309: the Italy campaign's thresholds spread its towns over all four tiers.</summary>
+    [Fact]
+    public void Italy_towns_use_every_tier()
+    {
+        var resolved = Repository.Resolve("italy-500bc");
+        var state = GameStateFactory.CreateInitial(resolved.World, resolved.Ruleset, resolved.Scenario);
+
+        var ranks = state.Cities.Select(c => MapMarkerKeys.CityRank(state, c, resolved.Ruleset.MapMarkers)).ToHashSet();
+
+        Assert.Equal(new[] { 0, 1, 2, 3, MapMarkerKeys.CapitalRank }, ranks.Order());
+    }
+
     [Fact]
     public void City_marker_key_follows_population_from_the_loaded_state_not_the_owner()
     {
@@ -132,12 +176,16 @@ public sealed class MapMarkerKeysTests
             MapMarkerKeys.CityIcon(capitalState, capitalState.CityById("meridia")!, rules.MapMarkers));
     }
 
-    /// <summary>T163 DoD 2: every shipped ruleset ships the report's [25, 50, 100].</summary>
+    /// <summary>
+    /// T163 DoD 2: every shipped ruleset on the classical scale ships the report's [25, 50, 100]. #1309: the
+    /// Italy campaign's ruleset is the one designed exception (its towns are 3–30 thousand), pinned in
+    /// <c>ItalyCampaignTests</c>.
+    /// </summary>
     [Fact]
     public void Every_shipped_ruleset_ships_the_confirmed_town_tier_thresholds()
     {
         Assert.NotEmpty(Repository.Rulesets);
-        foreach (var ruleset in Repository.Rulesets)
+        foreach (var ruleset in Repository.Rulesets.Where(r => r.Id != "italy-500bc"))
         {
             Assert.True(
                 ruleset.MapMarkers.CityPopulationTierThresholds.SequenceEqual(new[] { 25, 50, 100 }),

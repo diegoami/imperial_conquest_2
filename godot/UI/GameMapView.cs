@@ -1454,7 +1454,9 @@ public partial class GameMapView : Control
     {
         var center = TileCenter(city.X, city.Y, tileSize);
         var (background, foreground) = NationColors(city.Owner);
-        var radius = Mathf.Max(tileSize * 0.55f, 3f);
+        // #1309: the marker grows with the town's size rank, so a capital and a city stand out from a village.
+        var rank = MapMarkerKeys.CityRank(DisplayState, city, _session!.Ruleset.MapMarkers);
+        var radius = Mathf.Max(tileSize * MapMarkerKeys.CityMarkerHalfSize(rank), 3f);
         var selected = string.Equals(city.Id, _selectedCityId, StringComparison.Ordinal);
 
         // MapMarkerKeys selects the live capital marker or a population tier, shared with Slice.cs.
@@ -1486,6 +1488,14 @@ public partial class GameMapView : Control
 
     /// <summary>Evidence-only size replay: the real marker drawing uses its pre-T187 dimensions.
     /// Only StrategicMarkersCheck's before/after window tour sets this; normal application use is false.</summary>
+    /// <summary>#1309: the half-size, in pixels, <see cref="DrawCity"/> gives <paramref name="cityId"/>'s marker at the current zoom.</summary>
+    public float CityMarkerRadiusForCheck(string cityId)
+    {
+        var city = DisplayState.CityById(cityId) ?? throw new ArgumentException($"No city '{cityId}'.", nameof(cityId));
+        var rank = MapMarkerKeys.CityRank(DisplayState, city, _session!.Ruleset.MapMarkers);
+        return Mathf.Max(BaseTileSize * _zoom * MapMarkerKeys.CityMarkerHalfSize(rank), 3f);
+    }
+
     public bool PreT187MarkerSizeForCheck { get; set; }
 
     private Rect2 StrategicMarkerRect(StrategicMarker marker, float tileSize)

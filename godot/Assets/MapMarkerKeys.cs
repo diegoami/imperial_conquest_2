@@ -115,7 +115,42 @@ public static class MapMarkerKeys
     /// <c>&lt; threshold</c> comparisons use. Fewer thresholds than keys means the highest keys are
     /// simply never reached; more thresholds than keys is capped at the last key.
     /// </summary>
-    private static string TieredIcon(int value, IReadOnlyList<int> thresholds, params string[] tierKeys)
+    /// <summary>
+    /// #1309: a city's size rank for drawing, 0–3 for the population tiers (as <see cref="CityIcon"/> picks them)
+    /// and <see cref="CapitalRank"/> for a live capital.
+    /// </summary>
+    public static int CityRank(GameState state, CityState city, MapMarkerRules rules)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(city);
+        ArgumentNullException.ThrowIfNull(rules);
+        var nation = state.NationById(city.Owner);
+        if (nation is not null && string.Equals(nation.CapitalCityId, city.Id, StringComparison.Ordinal))
+        {
+            return CapitalRank;
+        }
+
+        return Math.Min(TierIndex(city.PopulationThousands, rules.CityPopulationTierThresholds), CapitalRank - 1);
+    }
+
+    /// <summary>#1309: <see cref="CityRank"/>'s value for a capital, above the four population tiers.</summary>
+    public const int CapitalRank = 4;
+
+    /// <summary>
+    /// #1309: a city marker's half-size, in tiles, by <see cref="CityRank"/>: small towns smaller, cities and the
+    /// capital larger, so size reads at a glance. <c>[designed]</c>, a recorded difference: the original draws every
+    /// town at one size and tells them apart only by its art.
+    /// </summary>
+    public static float CityMarkerHalfSize(int rank) => rank switch
+    {
+        <= 0 => 0.34f,
+        1 => 0.46f,
+        2 => 0.58f,
+        3 => 0.70f,
+        _ => 0.82f,
+    };
+
+    private static int TierIndex(int value, IReadOnlyList<int> thresholds)
     {
         var tierIndex = 0;
         foreach (var threshold in thresholds)
@@ -128,6 +163,11 @@ public static class MapMarkerKeys
             tierIndex++;
         }
 
-        return tierKeys[Math.Min(tierIndex, tierKeys.Length - 1)];
+        return tierIndex;
+    }
+
+    private static string TieredIcon(int value, IReadOnlyList<int> thresholds, params string[] tierKeys)
+    {
+        return tierKeys[Math.Min(TierIndex(value, thresholds), tierKeys.Length - 1)];
     }
 }

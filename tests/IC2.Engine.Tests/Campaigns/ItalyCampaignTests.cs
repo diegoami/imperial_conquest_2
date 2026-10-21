@@ -46,9 +46,15 @@ public sealed class ItalyCampaignTests
             Description = italy.Description,
             Calendar = classical.Calendar with { StartYearBc = 500, Provenance = italy.Calendar.Provenance },
             Victory = classical.Victory with { HardEndYearBc = 460, Provenance = italy.Victory.Provenance },
+            MapMarkers = classical.MapMarkers with
+            {
+                CityPopulationTierThresholds = italy.MapMarkers.CityPopulationTierThresholds,
+                Provenance = italy.MapMarkers.Provenance,
+            },
             Provenance = italy.Provenance,
         };
         Assert.Equal(expected, italy);
+        Assert.Equal(new[] { 6, 10, 18 }, italy.MapMarkers.CityPopulationTierThresholds);
     }
 
     [Theory]
