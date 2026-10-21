@@ -110,6 +110,8 @@
       anywhere; never a second, hand-maintained copy.
     -->
     <Compile Include="../../godot/Assets/MarkerTint.cs" Link="Ui/MarkerTint.cs" />
+    <!-- #1291: the army/fleet marker palette (Godot-free). -->
+    <Compile Include="../../godot/Assets/UnitMarkerPalette.cs" Link="Ui/UnitMarkerPalette.cs" />
 
     <!--
       T128 (tests/IC2.Engine.Tests/Ui/Assets/BattleAssetKeysTests.cs): the tactical battle screen's

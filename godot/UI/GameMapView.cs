@@ -60,6 +60,13 @@ namespace IC2.Slice.UI;
 /// background's luminance. The gold selection outline and the size tiers are unchanged, and the
 /// no-texture fallback shapes keep drawing in the owner's background colour.
 /// </para>
+/// <para>
+/// <strong>#1291: army and fleet markers carry the owner's three unit colours.</strong> Cities keep the
+/// T97 pair above; an army or fleet with a pack texture draws <see cref="UnitMarkerPalette"/> -- the
+/// world's <see cref="NationDefinition.BattleColorsHex"/> (the user's decision of 2026-10-09, #891) as a
+/// field shaded top to bottom, the silhouette and a thin inner frame -- so units stand out from the
+/// terrain and from cities.
+/// </para>
 /// </remarks>
 public partial class GameMapView : Control
 {
@@ -1462,7 +1469,7 @@ public partial class GameMapView : Control
             return;
         }
 
-        var (background, foreground) = NationColors(army.Nation);
+        var (background, _) = NationColors(army.Nation);
         var rect = StrategicMarkerRect(new(army.Id, StrategicMarkerKind.Army, army.X, army.Y), tileSize);
         StrategicDrawBoundsForCheck[army.Id] = rect;
         var selected = IsSelectedStrategicMarker(new(army.Id, StrategicMarkerKind.Army, army.X, army.Y));
@@ -1473,10 +1480,9 @@ public partial class GameMapView : Control
         if (MissingStrategicTexturesForCheck) texture = null;
         if (texture is not null)
         {
-            // T97: the original's marker -- the owner's background square with the silhouette tinted
-            // in the owner's foreground colour; only a selected marker is outlined (in gold).
-            DrawRect(rect, background);
-            DrawTextureRect(texture, rect, false, foreground);
+            // #1291: the owner's three unit colours on a shaded field (UnitMarkerPalette); only a
+            // selected marker is outlined (in gold).
+            DrawUnitMarker(texture, rect, army.Nation, background);
             if (selected)
             {
                 DrawStrategicOutline(army.Id, rect, true);
@@ -1492,7 +1498,7 @@ public partial class GameMapView : Control
 
     private void DrawFleet(FleetState fleet, float tileSize)
     {
-        var (background, foreground) = NationColors(fleet.Nation);
+        var (background, _) = NationColors(fleet.Nation);
         var rect = StrategicMarkerRect(new(fleet.Id, StrategicMarkerKind.Fleet, fleet.X, fleet.Y), tileSize);
         StrategicDrawBoundsForCheck[fleet.Id] = rect;
         var selected = IsSelectedStrategicMarker(new(fleet.Id, StrategicMarkerKind.Fleet, fleet.X, fleet.Y));
@@ -1503,10 +1509,9 @@ public partial class GameMapView : Control
         if (MissingStrategicTexturesForCheck) texture = null;
         if (texture is not null)
         {
-            // T97: the original's marker -- the owner's background square with the silhouette tinted
-            // in the owner's foreground colour; only a selected marker is outlined (in gold).
-            DrawRect(rect, background);
-            DrawTextureRect(texture, rect, false, foreground);
+            // #1291: the owner's three unit colours on a shaded field (UnitMarkerPalette); only a
+            // selected marker is outlined (in gold).
+            DrawUnitMarker(texture, rect, fleet.Nation, background);
             if (selected)
             {
                 DrawStrategicOutline(fleet.Id, rect, true);
@@ -1518,6 +1523,33 @@ public partial class GameMapView : Control
         StrategicFallbackMarkersForCheck.Add(fleet.Id);
         DrawRect(rect, background);
         DrawStrategicOutline(fleet.Id, rect, selected);
+    }
+
+    /// <summary>
+    /// #1291: an army or fleet marker in <see cref="UnitMarkerPalette"/>'s colours -- the owner's field
+    /// shaded light at the top to dark at the bottom, a darker one-pixel edge against the terrain, the
+    /// silhouette in the second unit colour and a thin inner frame in the third. A nation with no
+    /// palette keeps the flat <paramref name="background"/> and a luminance-chosen figure.
+    /// </summary>
+    private void DrawUnitMarker(Texture2D texture, Rect2 rect, string nationId, Color background)
+    {
+        if (UnitMarkerPalette.ForOwner(_session?.World, nationId) is not { } palette)
+        {
+            DrawRect(rect, background);
+            var unknown = new MarkerTint(background.R, background.G, background.B, background.A);
+            DrawTextureRect(texture, rect, false, ToColor(MarkerTint.FallbackForeground(unknown)));
+            return;
+        }
+
+        var top = ToColor(palette.Top);
+        var bottom = ToColor(palette.Bottom);
+        DrawPolygon(
+            new[] { rect.Position, new Vector2(rect.End.X, rect.Position.Y), rect.End, new Vector2(rect.Position.X, rect.End.Y) },
+            new[] { top, top, bottom, bottom });
+        var frame = Mathf.Max(1f, rect.Size.X / 14f);
+        DrawRect(rect.Grow(-frame * 1.5f), ToColor(palette.Accent), false, frame);
+        DrawTextureRect(texture, rect, false, ToColor(palette.Figure));
+        DrawRect(rect, ToColor(palette.Edge), false, 1f);
     }
 
     /// <summary>
