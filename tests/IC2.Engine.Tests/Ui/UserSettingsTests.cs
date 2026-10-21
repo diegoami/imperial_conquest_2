@@ -29,6 +29,7 @@ public sealed class UserSettingsTests : IDisposable
         Assert.False(settings.Fullscreen);
         Assert.True(settings.ShowOtherBattleReports);
         Assert.False(settings.ConfirmMoves);
+        Assert.Equal("tiles", settings.MapStyle);
     }
 
     [Fact]
@@ -38,6 +39,7 @@ public sealed class UserSettingsTests : IDisposable
         {
             PackId = "placeholder", SoundEnabled = false, VolumePercent = 40, ColorScheme = "parchment",
             BackgroundHex = "#102030", TextHex = "#fafafa", Font = "atkinson", TextScalePercent = 125, Fullscreen = true, ShowOtherBattleReports = false, ConfirmMoves = true,
+            MapStyle = "painted",
         }.WithBattleSpeed(BattleSpeeds.All.Single(s => s.Id == "fast"));
 
         Assert.True(saved.TrySave(PathFor("settings.json")));
@@ -72,6 +74,7 @@ public sealed class UserSettingsTests : IDisposable
         {
             VolumePercent = 250, TextScalePercent = 10, ColorScheme = "neon", Font = "comic",
             BackgroundHex = "red", TextHex = "#12345", BattleShotDelaySeconds = 9.87, BattleAttackDelaySeconds = 1.6, PackId = "  ",
+            MapStyle = "watercolour",
         }.Normalized();
 
         Assert.Equal(100, settings.VolumePercent);
@@ -84,6 +87,7 @@ public sealed class UserSettingsTests : IDisposable
         Assert.Equal(2.0, settings.BattleAttackDelaySeconds);
         Assert.Null(settings.PackId);
         Assert.Null(settings.BattleSpeedPreset);
+        Assert.Equal("tiles", settings.MapStyle);
     }
 
     [Fact]

@@ -179,6 +179,9 @@ public partial class GameMapView : Control
 
     private GameSession? _session;
     private AssetPackTextureLoader? _assetLoader;
+
+    /// <summary>Army, fleet and town templates recoloured per owner, by pack key and nation (null: not a template).</summary>
+    private readonly Dictionary<(string Key, string Nation), Texture2D?> _ownerTemplates = new();
     private float _zoom = 1f;
     private Vector2 _pan = Vector2.Zero;
     private Vector2 _pressPosition;
@@ -204,6 +207,14 @@ public partial class GameMapView : Control
     private ColorRect? _surfaceCanvas;
     private ShaderMaterial? _surfaceMaterial;
     private TerrainSurfaceState _drawnSurface;
+
+    // The "Classic tiles" map style (the owner's request of 2026-10-21): one tile per cell, drawn by
+    // TerrainTiles.gdshader on the same surface canvas. The cells' tile layers are one byte per cell;
+    // the tiles are a mipmapped texture array. Either missing falls back to the painted surface.
+    private Shader? _paintedShader;
+    private Shader? _tilesShader;
+    private ImageTexture? _tileLayersTexture;
+    private Texture2DArray? _tileArray;
 
     private string? _selectedCityId;
     private string? _selectedArmyId;
@@ -233,6 +244,8 @@ public partial class GameMapView : Control
     // (godot/Checks/SidePanelToggleCheck.cs) without stopping the re-fit on a real window resize.
     private Vector2 _lastParentSize;
 
+    public override void _ExitTree() => SettingsScreen.Committed -= QueueRedraw;
+
     public override void _Ready()
     {
         FocusMode = FocusModeEnum.All;
@@ -257,6 +270,7 @@ public partial class GameMapView : Control
         // Resized fires closes that gap without re-fitting (and so discarding the player's own zoom/pan)
         // on every later resize too.
         Resized += OnResized;
+        SettingsScreen.Committed += QueueRedraw;
         MouseExited += () => { _markerPointer = null; QueueRedraw(); };
     }
 
@@ -636,7 +650,65 @@ public partial class GameMapView : Control
         }
 
         EnsureSurfaceCanvas();
+        ResolveTileResources();
         BindSurfaceUniforms();
+    }
+
+    /// <summary>The cells' tile layers and the tile array for the "Classic tiles" style, or nulls.</summary>
+    private void ResolveTileResources()
+    {
+        if (_session is null || _terrainCells is null)
+        {
+            return;
+        }
+
+        var layers = TerrainSplatMap.BakeTileLayers(_terrainCells);
+        _tileLayersTexture = ImageTexture.CreateFromImage(
+            Image.CreateFromData(_session.World.Width, _session.World.Height, false, Image.Format.R8, layers));
+
+        var images = new Godot.Collections.Array<Image>();
+        foreach (var key in TerrainSplatMap.TileKeysByLayer)
+        {
+            if (_assetLoader?.TryGetTexture(key)?.GetImage() is not { } image
+                || (images.Count > 0 && image.GetSize() != images[0].GetSize()))
+            {
+                _tileArray = null;
+                return;
+            }
+
+            image.Convert(Image.Format.Rgba8);
+            image.GenerateMipmaps();
+            images.Add(image);
+        }
+
+        _tileArray = new Texture2DArray();
+        _tileArray.CreateFromImages(images);
+    }
+
+    /// <summary>Whether the "Classic tiles" style is chosen and everything it draws with resolved.</summary>
+    private bool TilesReady =>
+        SettingsScreen.MapStyleId == MapStyles.Tiles
+        && _surfaceCanvas is not null
+        && _surfaceMaterial is not null
+        && _tilesShader is not null
+        && _tileLayersTexture is not null
+        && _tileArray is not null;
+
+    private void BindTileUniforms()
+    {
+        if (_surfaceMaterial is null || _session is null)
+        {
+            return;
+        }
+
+        if (_surfaceMaterial.Shader != _tilesShader)
+        {
+            _surfaceMaterial.Shader = _tilesShader;
+        }
+
+        _surfaceMaterial.SetShaderParameter("cell_layers", _tileLayersTexture);
+        _surfaceMaterial.SetShaderParameter("tiles", _tileArray);
+        _surfaceMaterial.SetShaderParameter("world_size", new Vector2(_session.World.Width, _session.World.Height));
     }
 
     /// <summary>
@@ -673,6 +745,8 @@ public partial class GameMapView : Control
             return;
         }
 
+        _paintedShader = shader;
+        _tilesShader = GD.Load<Shader>("res://UI/TerrainTiles.gdshader");
         _surfaceMaterial = new ShaderMaterial { Shader = shader };
 
         // Wrapping and filtering of the texture uniforms come from the shader's own sampler hints
@@ -698,6 +772,11 @@ public partial class GameMapView : Control
         if (_surfaceMaterial is null || _session is null || _splatMap is null)
         {
             return;
+        }
+
+        if (_paintedShader is not null && _surfaceMaterial.Shader != _paintedShader)
+        {
+            _surfaceMaterial.Shader = _paintedShader;
         }
 
         _surfaceMaterial.SetShaderParameter("splat_a", _splatTextureA);
@@ -1352,7 +1431,15 @@ public partial class GameMapView : Control
         // T148: one shader pass over the whole terrain rectangle when every surface resource resolved;
         // otherwise the flat-colour texture is drawn exactly as before. The recorded state is what the
         // draw actually did, never a recomputation from the configured material.
-        if (SurfaceReady)
+        if (TilesReady)
+        {
+            BindTileUniforms();
+            _surfaceCanvas!.Position = mapRect.Position;
+            _surfaceCanvas.Size = mapRect.Size;
+            _surfaceCanvas.Visible = true;
+            _drawnSurface = new TerrainSurfaceState(TerrainSurfaceKind.Tiles, TerrainSplatMap.TileKeysByLayer);
+        }
+        else if (SurfaceReady)
         {
             BindSurfaceUniforms();
             _surfaceCanvas!.Position = mapRect.Position;
@@ -1465,7 +1552,22 @@ public partial class GameMapView : Control
         // MapMarkerKeys selects the live capital marker or a population tier, shared with Slice.cs.
         // T163: shipped rulesets use thresholds [25, 50, 100] (population in thousands), giving
         // four town tiers; a national capital uses its own marker at any population.
-        var texture = _assetLoader?.TryGetTexture(MapMarkerKeys.CityIcon(DisplayState, city, _session!.Ruleset.MapMarkers));
+        var key = MapMarkerKeys.CityIcon(DisplayState, city, _session!.Ruleset.MapMarkers);
+        var texture = _assetLoader?.TryGetTexture(key);
+        if (texture is not null && OwnerTemplate(key, texture, city.Owner) is { } tile)
+        {
+            // As DrawArmy: the original's idea of a town marker, a building on the owner's square, in the
+            // same three colours (asset-specification.md §3.3), still sized by the town's rank (#1309).
+            var tileRect = new Rect2(center - new Vector2(radius, radius), new Vector2(radius, radius) * 2f);
+            DrawTemplateTile(tile, tileRect, background);
+            if (selected)
+            {
+                DrawRect(tileRect, SelectedRingColor, false, 2.5f);
+            }
+
+            return;
+        }
+
         if (texture is not null)
         {
             // T97: the original's marker -- a square filled with the owner's background colour, the
@@ -1573,8 +1675,23 @@ public partial class GameMapView : Control
 
         // T94 (#454 item 3): the confirmed three-tier size marker -- MapMarkerKeys reads the ruleset's
         // own 25,000/50,000 boundaries, never T48's [designed] per-unit-type plurality.
-        var texture = _assetLoader?.TryGetTexture(MapMarkerKeys.ArmyIcon(army, _session!.Ruleset.MapMarkers));
+        var key = MapMarkerKeys.ArmyIcon(army, _session!.Ruleset.MapMarkers);
+        var texture = _assetLoader?.TryGetTexture(key);
         if (MissingStrategicTexturesForCheck) texture = null;
+        if (texture is not null && OwnerTemplate(key, texture, army.Nation) is { } tile)
+        {
+            // The owner's request of 2026-10-21: the original's idea of an army marker, a soldier on a
+            // square in the owner's three colours, larger and better armed with each size tier
+            // (scripts/generate-army-markers.py draws the templates).
+            DrawTemplateTile(tile, rect, background);
+            if (selected)
+            {
+                DrawStrategicOutline(army.Id, rect, true);
+            }
+
+            return;
+        }
+
         if (texture is not null)
         {
             // #1291: the owner's three unit colours on a shaded field (UnitMarkerPalette), as a round
@@ -1602,8 +1719,21 @@ public partial class GameMapView : Control
 
         // T94: the confirmed three-tier fleet marker (ruleset's own 25/50 ship boundaries) -- the
         // fleet equivalent of DrawArmy's tier icon.
-        var texture = _assetLoader?.TryGetTexture(MapMarkerKeys.FleetIcon(fleet, _session!.Ruleset.MapMarkers));
+        var key = MapMarkerKeys.FleetIcon(fleet, _session!.Ruleset.MapMarkers);
+        var texture = _assetLoader?.TryGetTexture(key);
         if (MissingStrategicTexturesForCheck) texture = null;
+        if (texture is not null && OwnerTemplate(key, texture, fleet.Nation) is { } tile)
+        {
+            // As DrawArmy: the original's idea of a fleet marker, a ship on the owner's square.
+            DrawTemplateTile(tile, rect, background);
+            if (selected)
+            {
+                DrawStrategicOutline(fleet.Id, rect, true);
+            }
+
+            return;
+        }
+
         if (texture is not null)
         {
             // #1291: the owner's three unit colours on a shaded field (UnitMarkerPalette), as a shield
@@ -1620,6 +1750,53 @@ public partial class GameMapView : Control
         StrategicFallbackMarkersForCheck.Add(fleet.Id);
         DrawRect(rect, background);
         DrawStrategicOutline(fleet.Id, rect, selected);
+    }
+
+    /// <summary>
+    /// <paramref name="texture"/> recoloured in <paramref name="nationId"/>'s three unit colours, the way
+    /// the original recolours its unit icons (<see cref="BattleIconTint"/>: the template's purple, white
+    /// and blue), or <see langword="null"/> when the texture is not such a template (its top-left pixel
+    /// is not the purple field; a pack with single-colour silhouettes keeps the tinted marker).
+    /// </summary>
+    private Texture2D? OwnerTemplate(string key, Texture2D texture, string nationId)
+    {
+        if (_ownerTemplates.TryGetValue((key, nationId), out var cached))
+        {
+            return cached;
+        }
+
+        Texture2D? result = null;
+        if (texture.GetImage() is { } image && BattleIconTint.ForNation(_session?.World, nationId) is { } colors)
+        {
+            image.Convert(Image.Format.Rgba8);
+            var corner = image.GetPixel(0, 0);
+            var purple = BattleIconTint.PurpleMarker;
+            if (Mathf.RoundToInt(corner.R * 255) == purple.R && Mathf.RoundToInt(corner.G * 255) == purple.G
+                && Mathf.RoundToInt(corner.B * 255) == purple.B)
+            {
+                var data = image.GetData();
+                BattleIconTint.Recolour(colors, data, 4);
+                result = ImageTexture.CreateFromImage(
+                    Image.CreateFromData(image.GetWidth(), image.GetHeight(), false, Image.Format.Rgba8, data));
+            }
+        }
+
+        _ownerTemplates[(key, nationId)] = result;
+        return result;
+    }
+
+    /// <summary>
+    /// A recoloured template drawn as the whole marker: a square tile over a drop shadow, with a dark
+    /// edge in the owner's field colour against the terrain. Everything stays inside <paramref name="rect"/>.
+    /// </summary>
+    private void DrawTemplateTile(Texture2D tile, Rect2 rect, Color background)
+    {
+        var shadow = ShadowOffset(rect);
+        var body = new Rect2(rect.Position, rect.Size - new Vector2(shadow, shadow));
+        DrawRect(new Rect2(body.Position + new Vector2(shadow, shadow), body.Size), ToColor(MarkerShading.Shadow));
+        DrawTextureRect(tile, body, false);
+        var field = new MarkerTint(background.R, background.G, background.B, 1f);
+        DrawRect(body, ToColor(MarkerShading.Edge(field)), false, 1f);
     }
 
     /// <summary>The outline a strategic marker is drawn in: towns are plates, armies tokens, fleets hulls.</summary>
@@ -1784,6 +1961,9 @@ public enum TerrainSurfaceKind
 
     /// <summary>The surface shader drew the whole terrain rectangle from the six seamless textures.</summary>
     Shader,
+
+    /// <summary>The tile shader drew one terrain tile per cell (the "Classic tiles" map style).</summary>
+    Tiles,
 
     /// <summary>The flat-colour texture drew instead (a shader or surface texture was missing).</summary>
     FlatFallback,

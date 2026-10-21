@@ -431,6 +431,8 @@ map-code variants, **0–3 are population tiers** (split at 25/50/100 thousand) 
 capital** — a separate subject, not a fifth size — with direct evidence (unchanged) that the original
 draws more than one distinct building shape. §3.3 has the full picture.
 
+**The authored pack's markers (the owner's request of 2026-10-21).** The authored pack draws its army, fleet and town markers as opaque 32 × 32 recolour templates, made by [`scripts/generate-strategic-markers.py`](../scripts/generate-strategic-markers.py) from shapes (not traced from the original). The field is purple `0x800080`, the outline and details white, and the body, sail or building blue `0x0000FF`; a fleet's hull is black. The map recolours them per owner with the battle icons' recolour (`BattleIconTint`, §2), so each marker is a soldier, ship or building on a square in the owner's three colours, as the original's are. Armies go from a slim spearman to a mace-bearer with a crested shield, fleets from a sailboat to galleys with three and four shields, towns from a house through a hall, a castle and a walled town with a keep, and a capital is a columned temple **[designed: the general idea of the original's markers, owner's request]**. The placeholder pack keeps its light silhouettes, drawn tinted as before. Numidia's town colours differ from its `battleColorsHex` in the original (above); the clone draws its towns in `battleColorsHex`.
+
 ### 3.1 Armies — three bands, thresholds confirmed
 
 `FUN_0044A80C` (`decompiled-unit-map-orders-and-record-fields.md`, part 3): with `t = troops / 1000`,
@@ -652,7 +654,7 @@ population tiers at 25/50/100 thousand plus the capital**, meaning settled 2026-
 current population whenever it is drawn, where the original sets it only when a town changes owner: a
 recorded deliberate difference (`[designed]`, the user's decision of 2026-10-11 on #818).
 
-### 4.5 Terrain tiles — complete; the game map paints the surfaces, the river gap closed by strokes
+### 4.5 Terrain tiles — complete; the game map tiles by default or paints the surfaces, the river gap closed by strokes
 
 | Key | Depicts | First needed by | Exists today |
 | --- | --- | --- | --- |
@@ -705,7 +707,7 @@ sprites, tagged `[designed]` (searched `game-design.md`, `design-audit.md` and `
 existing river-tile-variant convention and found none — the six-way connectivity split above is `[confirmed]` from the code and the world data; only *whether a sprite renderer needs six sprites* is
 new, and follows directly from that confirmed fact).
 
-**Resolved by [T148](https://github.com/diegoami/imperial_conquest_2/blob/archive/desktop-2026-10-20/docs/tasks/T148.md) (merged)**: the game map never draws terrain per cell — it blends the six `terrain.*.surface` textures (§6) through a splat map baked from the terrain grid — and rivers are drawn as smooth strokes whose chains follow exactly these six connectivity codes, so no river tile variants are needed. The seven `terrain.*.tile` keys remain, for the flat-colour fallback and the Area map.
+**Resolved by [T148](https://github.com/diegoami/imperial_conquest_2/blob/archive/desktop-2026-10-20/docs/tasks/T148.md) (merged)**: the game map never draws terrain per cell — it blends the six `terrain.*.surface` textures (§6) through a splat map baked from the terrain grid — and rivers are drawn as smooth strokes whose chains follow exactly these six connectivity codes, so no river tile variants are needed. The seven `terrain.*.tile` keys remain. **Since the owner's request of 2026-10-21 the map draws them by default**: Settings → Map style → "Classic tiles" (the default) lays one tile per cell, as the original does, through `godot/UI/TerrainTiles.gdshader` (cell code 0 calm sea, 1 rough sea, 2 plain, 3 desert, 4 forest, 5 mountain; a river cell is a plain under its stroke); "Painted" keeps T148's blended surface. The authored pack's tiles are drawn by [`scripts/generate-strategic-markers.py`](../scripts/generate-strategic-markers.py), seamless at the cell edges, in the general idea of the original's: plains with grass strokes, round trees, snow-capped peaks, sand with specks and dunes, waves on calm and rough sea **[designed]**.
 
 ### 4.6 Sound effects — ten keys, and the original's ten sounds
 

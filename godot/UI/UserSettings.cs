@@ -56,6 +56,9 @@ public sealed record UserSettings
     /// <summary>#1280 F2: a move click only marks its destination; a second click on it moves. Off by default (the original moves at once).</summary>
     public bool ConfirmMoves { get; init; }
 
+    /// <summary>One of <see cref="MapStyles.All"/>' ids: the map drawn as tiles (the default) or painted.</summary>
+    public string MapStyle { get; init; } = MapStyles.DefaultId;
+
     private static readonly JsonSerializerOptions Json = new()
     {
         WriteIndented = true,
@@ -111,6 +114,7 @@ public sealed record UserSettings
         TextHex = ColorSchemes.NormalizeHex(TextHex),
         Font = UiFonts.ById(Font).Id,
         TextScalePercent = Math.Clamp(TextScalePercent, MinTextScalePercent, MaxTextScalePercent),
+        MapStyle = MapStyles.ById(MapStyle).Id,
     };
 
     /// <summary>The <see cref="BattleSpeed"/> preset these pauses match, or <see langword="null"/> for custom values.</summary>
@@ -130,6 +134,29 @@ public sealed record UserSettings
             Text = ColorSchemes.NormalizeHex(TextHex) ?? scheme.Text,
         };
     }
+}
+
+/// <summary>How the strategic map draws its terrain.</summary>
+public sealed record MapStyle(string Id, string Name);
+
+/// <summary>
+/// The owner's request of 2026-10-21: "Classic tiles" lays one patterned 32-px tile per cell, as the
+/// original draws its map, and is the default; "Painted" is T148's blended surface. [designed]
+/// </summary>
+public static class MapStyles
+{
+    public const string Tiles = "tiles";
+    public const string Painted = "painted";
+    public const string DefaultId = Tiles;
+
+    public static readonly IReadOnlyList<MapStyle> All = new[]
+    {
+        new MapStyle(Tiles, "Classic tiles"),
+        new MapStyle(Painted, "Painted"),
+    };
+
+    /// <summary>The style with <paramref name="id"/>, or the default.</summary>
+    public static MapStyle ById(string? id) => All.FirstOrDefault(s => s.Id == id) ?? All[0];
 }
 
 /// <summary>A named battle-speed preset over T127's two pauses.</summary>

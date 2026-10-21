@@ -279,6 +279,40 @@ public sealed class TerrainSplatMap
         AssetKeys.TerrainSeaOpenSurface,
     };
 
+    /// <summary>
+    /// The "Classic tiles" map style (the owner's request of 2026-10-21): the tile key for each layer
+    /// <see cref="TileLayerOf"/> returns, in layer order.
+    /// </summary>
+    public static IReadOnlyList<string> TileKeysByLayer { get; } = new[]
+    {
+        AssetKeys.TerrainSeaCalmTile,
+        AssetKeys.TerrainSeaRoughTile,
+        AssetKeys.TerrainPlainTile,
+        AssetKeys.TerrainDesertTile,
+        AssetKeys.TerrainForestTile,
+        AssetKeys.TerrainMountainTile,
+    };
+
+    /// <summary>
+    /// The tile layer a cell code draws: sea 0 and 1 (the faster and the slower water), plain 2, desert
+    /// 3, forest 4, mountain 5. A river cell (6–11) is a plain under its drawn river, and an unknown code
+    /// is a plain, as <see cref="ClassOf"/> treats them.
+    /// </summary>
+    public static byte TileLayerOf(int code) => code is >= 0 and <= 5 ? (byte)code : (byte)2;
+
+    /// <summary>One <see cref="TileLayerOf"/> byte per cell, row by row.</summary>
+    public static byte[] BakeTileLayers(int[] cells)
+    {
+        ArgumentNullException.ThrowIfNull(cells);
+        var layers = new byte[cells.Length];
+        for (var i = 0; i < cells.Length; i++)
+        {
+            layers[i] = TileLayerOf(cells[i]);
+        }
+
+        return layers;
+    }
+
     /// <summary>Bakes the map's terrain grid.</summary>
     public static TerrainSplatMap Bake(World world)
     {

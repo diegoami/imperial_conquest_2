@@ -60,6 +60,9 @@ public partial class TerrainSurfaceCheck : Control
 
     public override void _Ready()
     {
+        // This check is T148's painted surface; "Classic tiles" (the default since 2026-10-21) has its
+        // own TerrainTilesCheck.
+        SettingsScreen.SetMapStyleForCheck(MapStyles.Painted);
         var resolved = GameDataContext.Repository.Resolve("classical-mediterranean");
         _session = new GameSession(resolved.World, resolved.Ruleset, resolved.Scenario);
         _repositoryRoot = GameDataContext.RepositoryRoot;

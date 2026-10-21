@@ -264,11 +264,10 @@ public sealed class AuthoredPackConformanceTests
         // a neutral light silhouette so the draw-time nation tint (the #173 decision) stays
         // visible. A ui.command icon is pictorial and full-colour and is never tinted, so it is
         // deliberately excluded here and checked by its own test below.
+        // The army.*, fleet.* and city.* markers are opaque three-colour recolour templates since the
+        // owner's request of 2026-10-21; StrategicMarkerTemplatesTests pins their colours instead.
         var markerKeys = AssetKeys.AllKeys
-            .Where(k => k.StartsWith("unit.", StringComparison.Ordinal)
-                     || k.StartsWith("army.", StringComparison.Ordinal)
-                     || k.StartsWith("fleet.", StringComparison.Ordinal)
-                     || k.StartsWith("city.", StringComparison.Ordinal))
+            .Where(k => k.StartsWith("unit.", StringComparison.Ordinal))
             .ToList();
 
         Assert.NotEmpty(markerKeys);

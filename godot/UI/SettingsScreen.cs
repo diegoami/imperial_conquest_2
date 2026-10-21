@@ -111,10 +111,23 @@ public partial class SettingsScreen : Control
         }
 
         AppDiagnostics.Detail(DiagnosticEvent.Settings, nameof(SettingsScreen));
+        Committed?.Invoke();
     }
+
+    /// <summary>Raised after every <see cref="Commit"/>, so an open map can redraw in a new style.</summary>
+    public static event Action? Committed;
 
     /// <summary>The asset-pack picker's node name, for the headless checks.</summary>
     public const string PackPickerName = "PackPicker";
+
+    /// <summary>The name of the map-style picker, for the checks.</summary>
+    public const string MapStylePickerName = "MapStylePicker";
+
+    /// <summary>The map's terrain style, one of <see cref="MapStyles"/>' ids.</summary>
+    public static string MapStyleId => MapStyles.ById(Current.MapStyle).Id;
+
+    /// <summary>Sets the map style without saving, for the checks.</summary>
+    public static void SetMapStyleForCheck(string style) => Current = Current with { MapStyle = style };
 
     /// <summary>The Sound checkbox's node name, for the headless checks.</summary>
     public const string SoundCheckName = "SoundCheck";
@@ -279,6 +292,13 @@ public partial class SettingsScreen : Control
     private void BuildMap(VBoxContainer column)
     {
         Section(column, "Map");
+
+        // The owner's request of 2026-10-21: the original's tiled look by default, T148's painting on request.
+        var styles = MapStyles.All;
+        var style = Row(column, "Map style");
+        Picker(style, styles, s => s.Name, IndexOf(styles, s => s.Id == MapStyles.ById(Current.MapStyle).Id),
+            s => Commit(Current with { MapStyle = s.Id })).Name = MapStylePickerName;
+        column.AddChild(UiKit.MakeLabel("Classic tiles: one patterned tile per map square, as the original. Painted: blended terrain.", AppTheme.Note, UiKit.MutedTextColor));
 
         // #1280 F2: a near-miss on a marker must not march an army away unasked.
         var confirm = new CheckBox { Text = "Confirm moves with a second click", ButtonPressed = Current.ConfirmMoves };
