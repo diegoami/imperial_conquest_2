@@ -42,8 +42,8 @@ namespace IC2.Engine.Ai;
 /// preserves two independent queue accumulators: visited existing entries count toward recruitment,
 /// while only successful mobilizations count toward the mobilization target. Existing entries store
 /// raw power as a signed WORD; successful new queues add raw int power without morale. Both passes
-/// use the initial deficit and allow one overshoot. Allied/proximity aggregate division and inclusive
-/// distance boundaries remain known differences deferred to issue 1245.
+/// use the initial deficit and allow one overshoot. The allied and capital-proximity terms divide each army's
+/// value before summing, and their distances are strict (#1245; FUN_0044ffbc :53505-53535).
 /// </para>
 /// </remarks>
 public static class AiFaithfulEconomy
@@ -236,22 +236,23 @@ public static class AiFaithfulEconomy
             if (capital is { } home)
             {
                 var distance = AiView.Distance(army.X, army.Y, home.X, home.Y);
-                if (distance <= weights.FaithfulForeignNearDistance)
+                // #1245: strict distances, and each army's share truncated on its own.
+                if (distance < weights.FaithfulForeignNearDistance)
                 {
-                    foreignNear += value;
+                    foreignNear += value / weights.FaithfulForeignNearDivisor;
                 }
 
-                if (atWar && distance <= weights.FaithfulWarNearDistance)
+                if (atWar && distance < weights.FaithfulWarNearDistance)
                 {
-                    warNear += value;
+                    warNear += value / weights.FaithfulWarNearDivisor;
                 }
             }
         }
 
         return ((long)weights.FaithfulThreatPerEnemyNation * wars)
                + enemyValue
-               + (foreignNear / weights.FaithfulForeignNearDivisor)
-               + (warNear / weights.FaithfulWarNearDivisor);
+               + foreignNear
+               + warNear;
     }
 
     /// <summary>§2.1's own strength: allies, own army values, and half of the allied armies' values.</summary>
@@ -280,11 +281,12 @@ public static class AiFaithfulEconomy
             }
             else if (Relation(state, nationId, army.Nation) == ruleset.Diplomacy.StateCodes.Alliance)
             {
-                allied += Value(army, ruleset);
+                // #1245: each allied army's half is truncated on its own.
+                allied += Value(army, ruleset) / weights.FaithfulAlliedArmyDivisor;
             }
         }
 
-        return ((long)weights.FaithfulOwnPerAlly * allies) + mine + (allied / weights.FaithfulAlliedArmyDivisor);
+        return ((long)weights.FaithfulOwnPerAlly * allies) + mine + allied;
     }
 
     /// <summary>

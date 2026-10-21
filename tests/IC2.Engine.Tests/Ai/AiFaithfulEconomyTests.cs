@@ -116,18 +116,20 @@ public sealed class AiFaithfulEconomyTests
     [Fact]
     public void Term_3_a_foreign_army_within_10_of_the_capital_adds_a_quarter_of_its_value()
     {
-        var inside = Build(new[] { Army("f", Friend, CapX + 10, CapY, "light_infantry", Army2000) });
+        // #1245: strictly within, so 9 counts and 10 does not.
+        var inside = Build(new[] { Army("f", Friend, CapX + 9, CapY, "light_infantry", Army2000) });
         Assert.Equal(500, AiFaithfulEconomy.Threat(inside, Rules(), Me));
-        var outside = Build(new[] { Army("f", Friend, CapX + 11, CapY, "light_infantry", Army2000) });
+        var outside = Build(new[] { Army("f", Friend, CapX + 10, CapY, "light_infantry", Army2000) });
         Assert.Equal(0, AiFaithfulEconomy.Threat(outside, Rules(), Me));
     }
 
     [Fact]
     public void Term_4_an_army_at_war_within_20_of_the_capital_adds_half_its_value()
     {
-        var inside = Build(new[] { Army("e", Foe, CapX, CapY - 20, "light_infantry", Army2000) }, foeRelation: War);
+        // #1245: strictly within, so 19 counts and 20 does not.
+        var inside = Build(new[] { Army("e", Foe, CapX, CapY - 19, "light_infantry", Army2000) }, foeRelation: War);
         Assert.Equal(15000 + 2000 + 1000, AiFaithfulEconomy.Threat(inside, Rules(), Me));
-        var outside = Build(new[] { Army("e", Foe, CapX, CapY - 21, "light_infantry", Army2000) }, foeRelation: War);
+        var outside = Build(new[] { Army("e", Foe, CapX, CapY - 20, "light_infantry", Army2000) }, foeRelation: War);
         Assert.Equal(15000 + 2000, AiFaithfulEconomy.Threat(outside, Rules(), Me));
     }
 
@@ -139,8 +141,7 @@ public sealed class AiFaithfulEconomyTests
         Assert.Equal(15000 + 2000 + 500 + 1000, AiFaithfulEconomy.Threat(state, Rules(), Me));
     }
 
-    // T192 adapts the helper only. Issue 1245 separately owns per-army division; keep the current
-    // aggregate division discriminating: two armies of power 80 give 160/3=53, not 26+26=52.
+    // #1245: each army's share is truncated on its own, so two armies of power 80 give 26+26=52, not 160/3=53.
     private static Ruleset RulesWithDivisor3()
     {
         var rules = Rules();
@@ -157,18 +158,18 @@ public sealed class AiFaithfulEconomyTests
 
     // 400 LI at morale 80: ((20*400/100)/80)*80 = 80 per army.
     [Fact]
-    public void The_foreign_near_sum_is_floored_once_not_per_army()
+    public void The_foreign_near_sum_is_floored_per_army()
     {
         var state = Build(new[]
         {
             Army("f1", Friend, CapX + 1, CapY, "light_infantry", 400),
             Army("f2", Friend, CapX + 2, CapY, "light_infantry", 400),
         });
-        Assert.Equal(53, AiFaithfulEconomy.Threat(state, RulesWithDivisor3(), Me));
+        Assert.Equal(26 + 26, AiFaithfulEconomy.Threat(state, RulesWithDivisor3(), Me));
     }
 
     [Fact]
-    public void The_at_war_within_20_sum_is_floored_once_not_per_army()
+    public void The_at_war_within_20_sum_is_floored_per_army()
     {
         // At distance 15: outside the 10-radius foreign sum, inside the 20-radius war sum.
         var state = Build(
@@ -178,11 +179,11 @@ public sealed class AiFaithfulEconomyTests
                 Army("e2", Foe, CapX + 15, CapY + 1, "light_infantry", 400),
             },
             foeRelation: War);
-        Assert.Equal(15000 + 160 + 53, AiFaithfulEconomy.Threat(state, RulesWithDivisor3(), Me));
+        Assert.Equal(15000 + 160 + 26 + 26, AiFaithfulEconomy.Threat(state, RulesWithDivisor3(), Me));
     }
 
     [Fact]
-    public void The_allied_sum_is_floored_once_not_per_army()
+    public void The_allied_sum_is_floored_per_army()
     {
         var state = Build(
             new[]
@@ -191,7 +192,7 @@ public sealed class AiFaithfulEconomyTests
                 Army("f2", Friend, 2, 2, "light_infantry", 400),
             },
             friendRelation: Alliance);
-        Assert.Equal(6000 + 53, AiFaithfulEconomy.Own(state, RulesWithDivisor3(), Me));
+        Assert.Equal(6000 + 26 + 26, AiFaithfulEconomy.Own(state, RulesWithDivisor3(), Me));
     }
 
     [Fact]

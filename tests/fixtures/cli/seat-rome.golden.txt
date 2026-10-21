@@ -110,10 +110,10 @@ News:
 
 > end
 Rome (rome) ends its turn.
-Celtiberia (celtiberia) takes its turn: 9 orders issued.
+Celtiberia (celtiberia) takes its turn: 6 orders issued.
 Seleucid (seleucid) takes its turn: 10 orders issued.
-Galatia (galatia) takes its turn: 2 orders issued.
-Gaul (gaul) takes its turn: 7 orders issued.
+Galatia (galatia) takes its turn: 3 orders issued.
+Gaul (gaul) takes its turn: 9 orders issued.
 Illyria (illyria) takes its turn: 0 orders issued.
 Greece (greece) takes its turn: 0 orders issued.
 Macedonia (macedonia) takes its turn: 1 order issued.

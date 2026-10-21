@@ -94,8 +94,11 @@ public static class AiResupplyPass
 
         // The ids are collected up front because each transfer rebuilds the lists; walking the live
         // ValueList while replacing entries in it would visit stale copies.
+        var faithful = ruleset.Flags.AiEconomy == AiEconomyModel.Original;
         foreach (var armyId in IdsOfOwnArmies(state, nationId))
         {
+            // #1181: the original snapshots the purse before its city loop (0044e41c).
+            var entryPurse = state.ArmyById(armyId)?.Money ?? 0;
             foreach (var cityId in CityIds(state))
             {
                 if (state.ArmyById(armyId) is not { } army || army.IsEmbarked)
@@ -109,6 +112,11 @@ public static class AiResupplyPass
                 }
 
                 if (!InRange(army.X, army.Y, city, radius) || !IsNonHostile(state, warCode, nationId, city))
+                {
+                    continue;
+                }
+
+                if (faithful && !FaithfulProviderEligible(city, army.Nation, entryPurse, ownCityNeedsStock: true))
                 {
                     continue;
                 }
@@ -136,6 +144,8 @@ public static class AiResupplyPass
 
         foreach (var fleetId in IdsOfOwnFleets(state, nationId))
         {
+            // #1181: the fleet caller (0044e5dc) snapshots the purse the same way.
+            var entryPurse = state.FleetById(fleetId)?.Money ?? 0;
             foreach (var cityId in CityIds(state))
             {
                 if (state.FleetById(fleetId) is not { } fleet || fleet.IsUnderConstruction)
@@ -153,6 +163,12 @@ public static class AiResupplyPass
                         < ruleset.Economy.FaithfulFleetResupplyDistanceBelow
                     : InRange(fleet.X, fleet.Y, city, radius);
                 if (!fleetInRange || !IsNonHostile(state, warCode, nationId, city))
+                {
+                    continue;
+                }
+
+                // The own-fleet visit has no stock requirement: an empty own city still grants and repairs.
+                if (faithful && !FaithfulProviderEligible(city, fleet.Nation, entryPurse, ownCityNeedsStock: false))
                 {
                     continue;
                 }
@@ -191,6 +207,18 @@ public static class AiResupplyPass
         ruleset.Flags.AiEconomy == AiEconomyModel.Original
             ? unchanged
             : admittedTons == 0 && talentsPaid == 0;
+
+    /// <summary>
+    /// The original callers' own eligibility, ahead of the helper (research
+    /// <c>2026-10-17-foreign-city-automatic-resupply.md</c>, [derived: code and staged Wine]). A foreign city
+    /// serves only with stock and a positive purse at the start of the unit's visit, so an earlier own grant
+    /// in the same loop does not make it eligible (#1181). An own city serves an army only with stock (#1180);
+    /// a fleet's own city serves regardless.
+    /// </summary>
+    private static bool FaithfulProviderEligible(CityState city, string unitNation, int entryPurse, bool ownCityNeedsStock) =>
+        string.Equals(city.Owner, unitNation, StringComparison.Ordinal)
+            ? !ownCityNeedsStock || city.SupplyTons > 0
+            : entryPurse > 0 && city.SupplyTons > 0;
 
     private static bool InRange(int x, int y, CityState city, int radius) =>
         LandingTile.ChebyshevDistance(new GridPoint(x, y), new GridPoint(city.X, city.Y)) <= radius;
