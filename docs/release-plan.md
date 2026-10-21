@@ -241,7 +241,7 @@ The concrete "done when" for cutting a release, in the task catalogue's style: *
 5. A **fresh clone** of `main`'s tip builds with zero warnings in the new projects and all tests pass: `dotnet build IC2.sln` then `dotnet test IC2.sln`. The working tree is not evidence; it has local state.
 6. The determinism guard (T03 DoD 4) and the fixtures-corpus tests (T04 DoD 1–4) are green in that run, named individually in the output.
 7. *(from v0.3.0)* The committed CLI golden transcript (T23 DoD) reproduces **byte-exactly** from the fresh clone.
-8. *(from v0.3.0)* The 50-seed AI soak (T22 DoD 1–2) completes inside its stated wall-clock budget with zero stalls, zero rejected commands, zero exceptions.
+8. *(from v0.3.0)* The 50-seed AI soak (T22 DoD 1–2) completes inside its stated wall-clock budget with zero full-round stalls, zero rejected commands, zero exceptions; since [#1290](https://github.com/diegoami/imperial_conquest_2/issues/1290) a stall is a complete round in which every live seat issues no command and the state does not change (isolated idle seats are reported, not failed), and the same rule covers `classical-mediterranean` seeds 1–10.
 9. *(from v0.3.0)* The original-save import (T21) was run **locally** against the 3–4 representative saves, or the note states it was skipped and why — a CI skip is not a pass.
 10. *(from v0.4.0)* The headless Godot script exits 0 and `scripts/check-godot-churn.ps1` reports a clean tree afterwards (T24 DoD 1, 3).
 11. *(v1.0.0 only)* The packaging script's export launches and loads a scenario from a shell with scrubbed `PATH`/`DOTNET_ROOT`, exit 0 (T27 DoD): `pwsh scripts/package.ps1 -Verify`.

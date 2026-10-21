@@ -50,6 +50,23 @@ public static class AiTestbed
     /// <summary>The fifty fixed seeds. Consecutive from 1 so a failing seed's number is also its index.</summary>
     public const int SoakSeedCount = 50;
 
+    /// <summary>The shipped 16-nation all-AI classical scenario, as committed.</summary>
+    public static ResolvedScenario Classical => LazyRepository.Value.Resolve("classical-mediterranean");
+
+    /// <summary>
+    /// #1290: the classical soak's seeds (<c>1 … ClassicalSeedCount</c>) and turn cap. 120 seat-turns is
+    /// 7.5 rounds of 16 nations, including one seasonal payout: the same window
+    /// <see cref="AiClassicalMediterraneanStallMeasurementTests"/> measures.
+    /// </summary>
+    public const int ClassicalSeedCount = 10;
+
+    /// <summary>See <see cref="ClassicalSeedCount"/>.</summary>
+    public const int ClassicalTurnCap = 120;
+
+    /// <summary>Runs one classical soak seed.</summary>
+    public static AiGameResult RunClassicalSeed(ulong seed) =>
+        AiGameRunner.Run(Classical.World, Classical.Ruleset, Classical.Scenario, seed, ClassicalTurnCap);
+
     /// <summary>The all-AI toy scenario: both seats AI, everything else as committed.</summary>
     public static Scenario AllAiScenario()
     {

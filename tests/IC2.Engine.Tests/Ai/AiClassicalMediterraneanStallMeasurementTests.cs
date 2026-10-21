@@ -21,11 +21,11 @@ namespace IC2.Engine.Tests.Ai;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>This is a measurement, not an assertion.</strong> Nothing here asserts on stall length or the
-/// worst stall run, so a stall this class finds can never fail this test -- only the PR body and the
-/// comment this reports on #268 say what was found. What <em>is</em> asserted (zero rejected commands,
-/// zero projection mismatches) is unrelated to stalling and would fail only on a genuine correctness
-/// defect, exactly as <see cref="AiSiegeDiagnosticsTests"/>'s sibling assertions already do.
+/// <strong>A measurement plus #1290's rule.</strong> Stall length and the per-seat idle record are
+/// reported, never failed on: #268 established that isolated idle seats are legal play, and the user's
+/// decision on #1290 closed it. What <em>is</em> asserted is #1290's full-round stall rule (no complete
+/// round of all live seats idle), plus zero rejected commands and zero projection mismatches, exactly as
+/// <see cref="AiSiegeDiagnosticsTests"/>'s sibling assertions already do.
 /// </para>
 /// <para>
 /// <strong>Why the cause can be measured at all.</strong> <c>AiGameRunner.Run</c>'s loop counts a turn
@@ -86,15 +86,20 @@ public sealed class AiClassicalMediterraneanStallMeasurementTests
 
         var totalRejected = 0;
         var totalMismatches = 0;
+        var fullRoundStalls = 0;
 
         for (ulong seed = 1; seed <= 10; seed++)
         {
             var result = AiGameRunner.Run(shipped.World, shipped.Ruleset, shipped.Scenario, seed, TurnCap);
             totalRejected += result.CommandsRejected;
             totalMismatches += result.ProjectionMismatches;
+            fullRoundStalls += result.FullRoundStalls;
 
             report.AppendLine(CultureInfo.InvariantCulture, $"-- seed {seed} --");
             report.AppendLine(CultureInfo.InvariantCulture, $"  {result.Summary()}");
+            report.AppendLine(
+                "  idle seat-turns by seat: "
+                + string.Join(", ", result.IdleBySeat.Select(r => r.SeatId + " " + r.IdleTurns.ToString(CultureInfo.InvariantCulture))));
 
             var stalls = FindStalls(result.Transcript);
             if (stalls.Count == 0)
@@ -120,6 +125,10 @@ public sealed class AiClassicalMediterraneanStallMeasurementTests
         // asserts for this same scenario's committed siege test.
         Assert.Equal(0, totalRejected);
         Assert.Equal(0, totalMismatches);
+
+        // #1290: the stall rule now asserted here too. Isolated idle seats (this measurement's per-seat
+        // report) are legal; a full round of all live seats idle is not.
+        Assert.Equal(0, fullRoundStalls);
     }
 
     /// <summary>Parses every <c>AiGameRunner</c> stall line out of one seed's transcript.</summary>

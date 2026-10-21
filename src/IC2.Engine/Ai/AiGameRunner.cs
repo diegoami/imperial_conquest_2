@@ -36,8 +36,14 @@ public enum AiGameEnding
 /// <param name="CommandlessTurns">AI turns that issued nothing at all.</param>
 /// <param name="LongestStallRun">
 /// The longest run of consecutive turns that both issued no command and left
-/// <see cref="AiSubstantiveState"/> unchanged. Two or more is the Done-when 1 stall failure.
+/// <see cref="AiSubstantiveState"/> unchanged. Reported only (#1290): two idle neighbours in turn order are
+/// legal play.
 /// </param>
+/// <param name="FullRoundStalls">
+/// #1290: how many complete rounds every live seat spent idle (<see cref="AiStallTracker"/>). This is the
+/// soak's stall failure; required to be zero.
+/// </param>
+/// <param name="IdleBySeat">#1290: each seat's idle seat-turns, reported and never failed on.</param>
 /// <param name="FinalState">The state the game ended in.</param>
 /// <param name="Transcript">The per-seed log — the Done-when 4 artifact.</param>
 public sealed record AiGameResult(
@@ -51,6 +57,8 @@ public sealed record AiGameResult(
     int TurnsHittingActionCap,
     int CommandlessTurns,
     int LongestStallRun,
+    int FullRoundStalls,
+    IReadOnlyList<AiSeatIdleRecord> IdleBySeat,
     GameState FinalState,
     IReadOnlyList<string> Transcript)
 {
@@ -58,7 +66,7 @@ public sealed record AiGameResult(
     public string Summary() => string.Format(
         CultureInfo.InvariantCulture,
         "seed {0}: {1}{2} after {3} turns, {4} commands, {5} rejected, {6} mismatches, "
-        + "{7} commandless turns, longest stall run {8}",
+        + "{7} commandless turns, longest stall run {8}, full-round stalls {9}",
         Seed,
         Ending,
         WinningNationId is null ? string.Empty : " by " + WinningNationId,
@@ -67,7 +75,8 @@ public sealed record AiGameResult(
         CommandsRejected,
         ProjectionMismatches,
         CommandlessTurns,
-        LongestStallRun);
+        LongestStallRun,
+        FullRoundStalls);
 }
 
 /// <summary>
@@ -90,10 +99,11 @@ public sealed record AiGameResult(
 /// who won is a second rule.
 /// </para>
 /// <para>
-/// <strong>The stall rule, exactly as the Done-when line states it.</strong> A turn counts toward a stall
-/// when it both issues no command <em>and</em> leaves <see cref="AiSubstantiveState"/> unchanged;
-/// <see cref="AiGameResult.LongestStallRun"/> is the longest consecutive run of such turns, and the soak
-/// fails at two. Bookkeeping that moves whether or not anything happened — the seat index, the calendar,
+/// <strong>The stall rule (#1290, replacing T22 Done-when 1's "two in a row").</strong> A turn is idle
+/// when it both issues no command <em>and</em> leaves <see cref="AiSubstantiveState"/> unchanged. The soak
+/// fails only on a <em>full-round</em> stall, a complete round of live seats all idle
+/// (<see cref="AiGameResult.FullRoundStalls"/>, counted by <see cref="AiStallTracker"/>).
+/// <see cref="AiGameResult.LongestStallRun"/> and the per-seat idle record are reported only. Bookkeeping that moves whether or not anything happened — the seat index, the calendar,
 /// the persisted random value, the news log's round header — is excluded by construction, for the reason
 /// <see cref="AiSubstantiveState"/> gives: a comparison that included them could never report a stall at
 /// all.
@@ -168,8 +178,7 @@ public static class AiGameRunner
         var mismatches = 0;
         var cappedTurns = 0;
         var commandless = 0;
-        var stallRun = 0;
-        var longestStallRun = 0;
+        var stalls = new AiStallTracker();
 
         while (turnsPlayed < turnCap)
         {
@@ -216,22 +225,30 @@ public static class AiGameRunner
             if (turnCommands == 0)
             {
                 commandless++;
-                if (AiSubstantiveState.AreEquivalent(before, state))
+            }
+
+            var idle = turnCommands == 0 && AiSubstantiveState.AreEquivalent(before, state);
+            var liveSeats = 0;
+            foreach (var nation in state.Nations)
+            {
+                if (!nation.Eliminated)
                 {
-                    stallRun++;
-                    longestStallRun = Math.Max(longestStallRun, stallRun);
-                    transcript.Add(Inv(
-                        "turn {0} -- {1}: no command issued and no substantive change (stall run {2})",
-                        turnsPlayed, seatId, stallRun));
-                }
-                else
-                {
-                    stallRun = 0;
+                    liveSeats++;
                 }
             }
-            else
+
+            var fullRoundsBefore = stalls.FullRoundStalls;
+            var stallRun = stalls.Record(seatId, idle, liveSeats);
+            if (idle)
             {
-                stallRun = 0;
+                transcript.Add(Inv(
+                    "turn {0} -- {1}: no command issued and no substantive change (stall run {2})",
+                    turnsPlayed, seatId, stallRun));
+                if (stalls.FullRoundStalls > fullRoundsBefore)
+                {
+                    transcript.Add(Inv(
+                        "turn {0}: FULL-ROUND STALL -- all {1} live seats idle in a row", turnsPlayed, liveSeats));
+                }
             }
 
             if (ending != AiGameEnding.TurnCapReached)
@@ -259,7 +276,9 @@ public static class AiGameRunner
             mismatches,
             cappedTurns,
             commandless,
-            longestStallRun,
+            stalls.LongestRun,
+            stalls.FullRoundStalls,
+            stalls.IdleBySeat,
             state,
             transcript);
 
