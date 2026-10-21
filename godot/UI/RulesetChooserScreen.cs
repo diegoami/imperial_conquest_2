@@ -19,7 +19,7 @@ namespace IC2.Slice.UI;
 public partial class RulesetChooserScreen : Control
 {
     /// <summary>Raised once the player confirms a card and presses Continue.</summary>
-    public event Action<RulesetPreset>? Continued;
+    public event Action<RulesetCard>? Continued;
 
     /// <summary>Raised by the "Back" button — returns to the main menu.</summary>
     public event Action? BackRequested;
@@ -32,7 +32,15 @@ public partial class RulesetChooserScreen : Control
     /// scene unchanged.</summary>
     public Dictionary<RulesetPreset, Label> CardTitleLabels { get; } = new();
 
-    public RulesetPreset SelectedPreset { get; private set; } = RulesetPresets.Default;
+    public RulesetPreset SelectedPreset => SelectedCard.Preset;
+
+    /// <summary>T200: the highlighted card, a preset or a listed scenario.</summary>
+    public RulesetCard SelectedCard { get; private set; } = RulesetPresets.CardFor(RulesetPresets.Default);
+
+    /// <summary>T200: the cards of the listed scenarios, by scenario id (the presets are in <see cref="CardButtons"/>).</summary>
+    public Dictionary<string, Button> ScenarioCardButtons { get; } = new(StringComparer.Ordinal);
+
+    private readonly List<(RulesetCard Card, Button Button)> _cards = new();
 
     private Button _continueButton = null!;
 
@@ -73,7 +81,7 @@ public partial class RulesetChooserScreen : Control
         cards.SizeFlagsVertical = SizeFlags.ExpandFill;
         column.AddChild(cards);
 
-        foreach (var card in RulesetPresets.Cards)
+        foreach (var card in RulesetPresets.CardsFor(GameDataContext.Repository))
         {
             cards.AddChild(BuildCard(card));
         }
@@ -104,8 +112,16 @@ public partial class RulesetChooserScreen : Control
             ClipText = false,
         };
         button.AddThemeConstantOverride("h_separation", AppTheme.DialogGap);
-        button.Pressed += () => SelectPreset(card.Preset);
-        CardButtons[card.Preset] = button;
+        button.Pressed += () => SelectCard(card);
+        _cards.Add((card, button));
+        if (card.Preset == RulesetPreset.Listed)
+        {
+            ScenarioCardButtons[card.ScenarioId] = button;
+        }
+        else
+        {
+            CardButtons[card.Preset] = button;
+        }
 
         // A MarginContainer, not a bare FullRect anchor, so the card's own text keeps a real inset from
         // the button's edges: a Control added straight to a Button and FullRect-anchored ignores that
@@ -126,7 +142,10 @@ public partial class RulesetChooserScreen : Control
         var name = UiKit.MakeLabel(card.DisplayName, AppTheme.Header, UiKit.TextColor);
         name.HorizontalAlignment = HorizontalAlignment.Center;
         content.AddChild(name);
-        CardTitleLabels[card.Preset] = name;
+        if (card.Preset != RulesetPreset.Listed)
+        {
+            CardTitleLabels[card.Preset] = name;
+        }
 
         // #1288: the player's words on the card; the exact ruleset paths are each line's tooltip.
         for (var i = 0; i < card.PlayerSummary.Count; i++)
@@ -148,17 +167,20 @@ public partial class RulesetChooserScreen : Control
     /// <see cref="OnContinuePressed"/> fires, keeping "before any scenario/seat control is reachable"
     /// true for as long as this screen is the only one in the tree.
     /// </summary>
-    public void SelectPreset(RulesetPreset preset)
+    public void SelectPreset(RulesetPreset preset) => SelectCard(RulesetPresets.CardFor(preset));
+
+    /// <summary>T200: highlights <paramref name="card"/>; a check calls it for a listed scenario's card.</summary>
+    public void SelectCard(RulesetCard card)
     {
-        SelectedPreset = preset;
+        SelectedCard = card;
         HighlightSelectedCard();
     }
 
     private void HighlightSelectedCard()
     {
-        foreach (var (preset, button) in CardButtons)
+        foreach (var (card, button) in _cards)
         {
-            var selected = preset == SelectedPreset;
+            var selected = string.Equals(card.ScenarioId, SelectedCard.ScenarioId, StringComparison.Ordinal);
             button.ButtonPressed = selected;
             var style = new StyleBoxFlat
             {
@@ -187,5 +209,5 @@ public partial class RulesetChooserScreen : Control
 
     /// <summary>Confirms <see cref="SelectedPreset"/> and raises <see cref="Continued"/> — public so the
     /// DoD 4 headless check and any test can advance the flow without simulating a mouse click.</summary>
-    public void ConfirmSelection() => Continued?.Invoke(SelectedPreset);
+    public void ConfirmSelection() => Continued?.Invoke(SelectedCard);
 }

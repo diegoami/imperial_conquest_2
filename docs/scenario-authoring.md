@@ -1106,6 +1106,7 @@ A scenario file is stored under `data/scenarios/` as a JSON file. It specifies v
 | `turnLimit` | integer or null | No | Maximum number of turns before the game ends (null for unlimited). |
 | `blindHotseat` | boolean | Yes | If true, hotseat mode does not show the map between seats (for hidden movement). |
 | `randomSeed` | integer | Yes | RNG seed for reproducible games — an **unsigned 64-bit integer** (`ulong`), not a plain `int`; set to a fixed value for testing. |
+| `listed` | boolean | No | Default `false`. When `true`, New Game offers the scenario as its own card (name, map, rules, goal and nation count); the two classical presets keep their own cards. Leave test and example scenarios unlisted. |
 | `_provenance` | object | No | Provenance map. |
 
 ### Seats

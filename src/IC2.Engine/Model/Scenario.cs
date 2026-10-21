@@ -7,6 +7,10 @@ namespace IC2.Engine.Model;
 /// assignments — the actual moddable, shareable unit
 /// (<c>docs/game-design.md</c> §"The scenario system").
 /// </summary>
+/// <param name="Listed">
+/// T200 (the owner's decision D2, 2026-10-21): whether New Game offers this scenario as a card of its own.
+/// Optional and false by default, so test and example scenarios stay out of the list.
+/// </param>
 public sealed record Scenario(
     int SchemaVersion,
     string Id,
@@ -18,7 +22,8 @@ public sealed record Scenario(
     int? TurnLimit,
     bool BlindHotseat,
     ulong RandomSeed,
-    [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null) : IVersionedDocument
+    [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null,
+    bool Listed = false) : IVersionedDocument
 {
     /// <summary>Finds the seat assigned to a nation id, or <see langword="null"/>.</summary>
     public Seat? SeatFor(string nationId) => Seats.FindById(s => s.Nation, nationId);

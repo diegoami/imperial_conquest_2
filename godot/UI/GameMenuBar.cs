@@ -79,7 +79,7 @@ public partial class GameMenuBar : HBoxContainer
             AddChild(button);
 
             var popup = button.GetPopup();
-            BuildMenu(popup, GameCommandTable.Rows.Where(row => string.Equals(row.Menu, menuTitle, StringComparison.Ordinal)));
+            BuildMenu(popup, Table.MenuRows.Where(row => string.Equals(row.Menu, menuTitle, StringComparison.Ordinal)));
         }
 
         ApplyHints();

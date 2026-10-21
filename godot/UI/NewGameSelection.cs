@@ -21,7 +21,11 @@ public sealed record SeatOption(string NationId, string DisplayName);
 public sealed class NewGameSelection
 {
     /// <summary><c>docs/tasks/T24.md</c> Scope: "Classical Faithful is the default highlight."</summary>
-    public RulesetPreset RulesetPreset { get; set; } = RulesetPresets.Default;
+    public RulesetPreset RulesetPreset
+    {
+        get => SelectedCard.Preset;
+        set => SelectedCard = RulesetPresets.CardFor(value);
+    }
 
     /// <summary>
     /// The human seat's nation id, or <see langword="null"/> before the seat step has ever set one — a
@@ -41,7 +45,8 @@ public sealed class NewGameSelection
     /// </summary>
     public AiPersonality? AiPersonalityOverride { get; set; }
 
-    public RulesetCard SelectedCard => RulesetPresets.CardFor(RulesetPreset);
+    /// <summary>T200: the chosen card; a preset's, or a listed scenario's (<see cref="RulesetPresets.CardsFor"/>).</summary>
+    public RulesetCard SelectedCard { get; set; } = RulesetPresets.CardFor(RulesetPresets.Default);
 }
 
 /// <summary>

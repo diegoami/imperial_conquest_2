@@ -152,6 +152,7 @@
   },
   "turnLimit": 100,
   "blindHotseat": false,
+  "listed": true,
   "randomSeed": 20250920,
   "_provenance": {
     "worldId": "designed: references the shipped classical-mediterranean world",
