@@ -84,10 +84,9 @@ public static class RulesetPresets
     /// ruleset to differ by today. The previous wording stated the intended difference as though it were
     /// live behaviour; both lines now say the flag is recorded but not yet wired to anything.</description></item>
     /// <item><description><strong>The Improved card's victory line.</strong> The live turn pipeline
-    /// (<see cref="IC2.Engine.Victory.VictoryCheckSystem.Execute"/>) always calls
-    /// <see cref="IC2.Engine.Victory.VictoryEvaluator.Evaluate"/> with <c>scenario: null</c>, which
-    /// evaluates exactly <c>ruleset.Victory.DefaultCondition</c> — for <c>improved.json</c> that is a
-    /// single fixed <c>domination</c>, never <c>scoreAtTurnLimit</c>. <c>victory.defaultTurnLimit</c>
+    /// (<see cref="IC2.Engine.Victory.VictoryCheckSystem.Execute"/>) evaluates the scenario's own condition
+    /// since T199; <c>example-classical-improved.json</c> states <c>domination</c> (the owner's decision D1,
+    /// 2026-10-21), the same as <c>improved.json</c>'s default, and never <c>scoreAtTurnLimit</c>. <c>victory.defaultTurnLimit</c>
     /// (150) is read only inside <see cref="IC2.Engine.Victory.VictoryEvaluator.EvaluateScoreAtTurnLimit"/>,
     /// which that fixed <c>domination</c> default never reaches — so the previous "domination or score at
     /// a 150-turn limit, your choice" was false: there is no victory-condition picker anywhere in this

@@ -9,6 +9,7 @@ using IC2.Engine.Economy.Commands;
 using IC2.Engine.Model;
 using IC2.Engine.Movement.Commands;
 using IC2.Engine.News;
+using IC2.Engine.Victory;
 
 namespace IC2.Engine.Presentation;
 
@@ -389,8 +390,65 @@ public sealed partial class GameSession
         for (var i = 0; i < events.Count; i++)
         {
             _eventsThisCall.Add(events[i]);
+
+            // T199: the first scenario win other than total conquest, for AnnounceScenarioWinIfDecided. Total
+            // conquest (and the hard end year) keep the original's own path, the human turn-start fall check.
+            if (_scenarioWin is null && events[i] is GameWon { ConditionType: not VictoryConditionType.TotalConquest } won)
+            {
+                _scenarioWin = won;
+            }
         }
     }
+
+    /// <summary>
+    /// T199: the round tick's <see cref="GameWon"/> for a condition other than total conquest, until the game
+    /// ends on it. Not saved: a resumed game decides it again at its next round end.
+    /// </summary>
+    private GameWon? _scenarioWin;
+
+    /// <summary>
+    /// T199 (the owner's decision of 2026-10-21): once the scenario's own condition has a winner, the game ends
+    /// for every seat. Each human seat gets its End of Game window (<see cref="SeatFallReason.ScenarioWon"/> or
+    /// <see cref="SeatFallReason.ScenarioLost"/>), keeps its control (nothing is handed to the AI), and the
+    /// session is over. Returns whether it ended the game.
+    /// </summary>
+    private bool AnnounceScenarioWinIfDecided(List<string> lines)
+    {
+        if (_scenarioWin is not { } won)
+        {
+            return false;
+        }
+
+        foreach (var nation in State.Nations)
+        {
+            if (nation.Control != SeatControl.Human || nation.Eliminated)
+            {
+                continue;
+            }
+
+            var mine = string.Equals(nation.Id, won.WinningNationId, StringComparison.Ordinal);
+            var classified = mine
+                ? (SeatFallReason.ScenarioWon, (string?)null)
+                : (SeatFallReason.ScenarioLost, won.WinningNationId);
+            if (RecordSeatFall(nation, classified))
+            {
+                lines.Add($"{NationDisplay(nation.Id)}: {FallMessageFor(classified.Item1, classified.Item2)}");
+            }
+        }
+
+        _gameOver = true;
+        lines.Add($"The game is over: {NationName(won.WinningNationId)} has won by {ScenarioWinPhrase()}.");
+        return true;
+    }
+
+    /// <summary>T199: how the scenario's winner won, for the fall text and the game-over line.</summary>
+    private string ScenarioWinPhrase() => _scenarioWin?.ConditionType switch
+    {
+        VictoryConditionType.Domination => "holding every city of every nation still at war with it",
+        VictoryConditionType.ScoreAtTurnLimit => "the highest score at the turn limit",
+        VictoryConditionType.Custom => "meeting the scenario's goal",
+        _ => "the scenario's victory condition",
+    };
 
     /// <summary>
     /// T149: drains <see cref="_eventsThisCall"/> into a fresh array and raises
@@ -427,7 +485,7 @@ public sealed partial class GameSession
     /// (a <c>--seat</c> seat caught by both <see cref="AppendFallMessagesForNewlyLostHumanSeats"/> and
     /// <see cref="AnnounceAndAdoptWatchModeIfSeatIsLost"/>) yields one <see cref="SeatFall"/>.
     /// </summary>
-    private bool RecordSeatFall(NationState fallen)
+    private bool RecordSeatFall(NationState fallen, (SeatFallReason Reason, string? ConquerorNationId)? classified = null)
     {
         foreach (var already in _pendingSeatFalls)
         {
@@ -445,7 +503,7 @@ public sealed partial class GameSession
             : fallen.Treasury;
         _pendingFallTreasuries.Remove(fallen.Id);
 
-        var (reason, conqueror) = FallReasonOf(fallen);
+        var (reason, conqueror) = classified ?? FallReasonOf(fallen);
         var endCityCount = State.Cities.Count(
             c => string.Equals(c.Owner, fallen.Id, StringComparison.Ordinal));
         _pendingSeatFalls.Add(new SeatFall(
@@ -734,7 +792,7 @@ public sealed partial class GameSession
 
         _registry = SystemRegistry.FromEngineAssembly();
         _dispatcher = new CommandDispatcher(_registry, ruleset, world, NullEventSink.Instance) { StrategicObserver = _strategicTimeline };
-        _coordinator = new TurnCoordinator(_registry, ruleset, world, NullEventSink.Instance, _dispatcher) { StrategicObserver = _strategicTimeline };
+        _coordinator = new TurnCoordinator(_registry, ruleset, world, NullEventSink.Instance, _dispatcher, scenario) { StrategicObserver = _strategicTimeline };
 
         var initial = GameStateFactory.CreateInitial(world, ruleset, scenario);
         State = seedOverride.HasValue ? initial with { RandomSeed = seedOverride.Value } : initial;
@@ -812,7 +870,7 @@ public sealed partial class GameSession
 
         _registry = SystemRegistry.FromEngineAssembly();
         _dispatcher = new CommandDispatcher(_registry, ruleset, world, NullEventSink.Instance) { StrategicObserver = _strategicTimeline };
-        _coordinator = new TurnCoordinator(_registry, ruleset, world, NullEventSink.Instance, _dispatcher) { StrategicObserver = _strategicTimeline };
+        _coordinator = new TurnCoordinator(_registry, ruleset, world, NullEventSink.Instance, _dispatcher, scenario) { StrategicObserver = _strategicTimeline };
 
         ResumeFrom(save);
     }
@@ -941,6 +999,7 @@ public sealed partial class GameSession
         _isWatchMode = humanNationIds.Count == 0;
         _seatLost = false;
         _gameOver = false;
+        _scenarioWin = null;
         _pendingPrelude = null;
         // T137: rebuilt from the loaded log by count (the save cannot carry references): the log without its
         // newest FirstEndNewsOwed entries, so the first end lists those and its own round's. Null otherwise.
@@ -1136,6 +1195,8 @@ public sealed partial class GameSession
         SeatFallReason.Unpopularity => "Your unpopularity has forced the army to overthrow you.",
         SeatFallReason.Unpaid => "Your army have deposed you because they have not been paid.",
         SeatFallReason.Conquered => $"Your nation has been conquerred by {NationName(conqueror!)}.",
+        SeatFallReason.ScenarioWon => $"You have won the game by {ScenarioWinPhrase()}.",
+        SeatFallReason.ScenarioLost => $"{NationName(conqueror!)} has won the game by {ScenarioWinPhrase()}.",
         _ => throw new ArgumentOutOfRangeException(nameof(reason), reason, "Unknown seat fall reason."),
     };
 
@@ -1209,6 +1270,11 @@ public sealed partial class GameSession
     private bool AnnounceGameOverIfNoHumanSeatRemains(List<string> lines)
     {
         if (_gameOver)
+        {
+            return true;
+        }
+
+        if (AnnounceScenarioWinIfDecided(lines))
         {
             return true;
         }
@@ -1945,7 +2011,7 @@ public sealed partial class GameSession
         if (UsesAiPhaseBattleGate())
         {
             var gate = new AiPhaseBattleGate(_dispatcher, Ruleset, lap, _strategicTimeline);
-            var gated = new TurnCoordinator(_registry, Ruleset, World, NullEventSink.Instance, gate) { StrategicObserver = _strategicTimeline };
+            var gated = new TurnCoordinator(_registry, Ruleset, World, NullEventSink.Instance, gate, Scenario) { StrategicObserver = _strategicTimeline };
             try
             {
                 result = gated.RunTurn(State);

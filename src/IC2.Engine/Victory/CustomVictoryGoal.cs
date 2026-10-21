@@ -95,6 +95,18 @@ public static class CustomVictoryGoal
         return VictoryOutcome.Won(VictoryConditionType.Custom, spec.Nation);
     }
 
+    /// <summary>
+    /// T199 (#106): the nation and cities <paramref name="goal"/> names, for the load-time check that they
+    /// exist in the scenario's world.
+    /// </summary>
+    /// <exception cref="FormatException">The goal is not the JSON shape <see cref="Evaluate"/> understands.</exception>
+    public static (string Nation, IReadOnlyList<string> HoldCities) References(string goal)
+    {
+        ArgumentNullException.ThrowIfNull(goal);
+        var spec = Parse(goal);
+        return (spec.Nation, spec.HoldCities);
+    }
+
     private static CustomVictoryGoalSpec Parse(string goal)
     {
         RawCustomVictoryGoal? raw;
