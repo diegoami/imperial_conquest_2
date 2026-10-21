@@ -87,14 +87,14 @@ public partial class MapClipCheck : Control
                     var ok = RunChecks();
                     var exitCode = ok ? 0 : 1;
                     GD.Print($"MapClipCheck: exiting with code {exitCode}.");
-                    GetTree().Quit(exitCode);
+                    CheckExit.Quit(this, exitCode);
                     break;
             }
         }
         catch (Exception ex)
         {
             GD.PrintErr($"MapClipCheck: unhandled exception: {ex}");
-            GetTree().Quit(1);
+            CheckExit.Quit(this, 1);
         }
     }
 

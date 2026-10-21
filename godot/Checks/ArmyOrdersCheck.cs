@@ -111,7 +111,7 @@ public partial class ArmyOrdersCheck : Control
         catch (Exception ex)
         {
             GD.PrintErr($"ArmyOrdersCheck: unhandled exception: {ex}");
-            GetTree().Quit(1);
+            CheckExit.Quit(this, 1);
         }
     }
 
@@ -660,7 +660,7 @@ public partial class ArmyOrdersCheck : Control
     private void Finish()
     {
         GD.Print($"ArmyOrdersCheck: exiting with code {(_ok ? 0 : 1)}.");
-        GetTree().Quit(_ok ? 0 : 1);
+        CheckExit.Quit(this, _ok ? 0 : 1);
     }
 
     private void PressPromptAnswer(string answer)

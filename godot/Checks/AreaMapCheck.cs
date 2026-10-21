@@ -453,6 +453,6 @@ public partial class AreaMapCheck : Control
     {
         var exitCode = _ok ? 0 : 1;
         GD.Print($"AreaMapCheck: exiting with code {exitCode}.");
-        GetTree().Quit(exitCode);
+        CheckExit.Quit(this, exitCode);
     }
 }

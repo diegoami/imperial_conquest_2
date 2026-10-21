@@ -173,7 +173,7 @@ public partial class MapClickCheck : Control
         {
             GD.PrintErr($"MapClickCheck: unhandled exception: {ex}");
             GD.Print("MapClickCheck: exiting with code 1.");
-            GetTree().Quit(1);
+            CheckExit.Quit(this, 1);
         }
     }
 
@@ -874,7 +874,7 @@ public partial class MapClickCheck : Control
     {
         var exitCode = _ok ? 0 : 1;
         GD.Print($"MapClickCheck: exiting with code {exitCode}.");
-        GetTree().Quit(exitCode);
+        CheckExit.Quit(this, exitCode);
     }
 
     private bool Check(bool condition, string what)

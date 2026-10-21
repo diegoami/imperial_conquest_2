@@ -95,7 +95,7 @@ public partial class FleetCityOrdersCheck : Control
         catch (Exception ex)
         {
             GD.PrintErr($"FleetCityOrdersCheck: unhandled exception: {ex}");
-            GetTree().Quit(1);
+            CheckExit.Quit(this, 1);
         }
     }
 
@@ -471,7 +471,7 @@ public partial class FleetCityOrdersCheck : Control
     private void Finish()
     {
         GD.Print($"FleetCityOrdersCheck: exiting with code {(_ok ? 0 : 1)}.");
-        GetTree().Quit(_ok ? 0 : 1);
+        CheckExit.Quit(this, _ok ? 0 : 1);
     }
 
     private void PressPromptAnswer(string answer)

@@ -48,7 +48,7 @@ public partial class GameEndCheck : Node
 
         var exitCode = _ok ? 0 : 1;
         GD.Print($"GameEndCheck: exiting with code {exitCode}.");
-        GetTree().Quit(exitCode);
+        CheckExit.Quit(this, exitCode);
     }
 
     /// <summary>

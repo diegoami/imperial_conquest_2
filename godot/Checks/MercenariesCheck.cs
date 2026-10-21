@@ -142,7 +142,7 @@ public partial class MercenariesCheck : Control
         {
             GD.PrintErr($"MercenariesCheck: unhandled exception: {ex}");
             GD.Print("MercenariesCheck: exiting with code 1.");
-            GetTree().Quit(1);
+            CheckExit.Quit(this, 1);
         }
     }
 
@@ -592,7 +592,7 @@ public partial class MercenariesCheck : Control
     {
         var exitCode = _ok ? 0 : 1;
         GD.Print($"MercenariesCheck: exiting with code {exitCode}.");
-        GetTree().Quit(exitCode);
+        CheckExit.Quit(this, exitCode);
     }
 
     private const string RomeId = "rome";

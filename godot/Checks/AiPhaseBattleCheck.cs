@@ -69,7 +69,7 @@ public partial class AiPhaseBattleCheck : Node
 
         var exitCode = _ok ? 0 : 1;
         GD.Print($"AiPhaseBattleCheck: exiting with code {exitCode}.");
-        GetTree().Quit(exitCode);
+        CheckExit.Quit(this, exitCode);
     }
 
     /// <summary>

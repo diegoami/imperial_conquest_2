@@ -336,7 +336,7 @@ public partial class SoundCuesCheck : Control
             StopAllPlayers(this);
             GD.PrintErr($"SoundCuesCheck: unhandled exception: {ex}");
             GD.Print("SoundCuesCheck: exiting with code 1.");
-            GetTree().Quit(1);
+            CheckExit.Quit(this, 1);
         }
     }
 
@@ -648,7 +648,7 @@ public partial class SoundCuesCheck : Control
         SettingsScreen.SetSoundEnabledForCheck(_originalSound);
         var exitCode = _ok ? 0 : 1;
         GD.Print($"SoundCuesCheck: exiting with code {exitCode}.");
-        GetTree().Quit(exitCode);
+        CheckExit.Quit(this, exitCode);
     }
 
     private static bool Check(bool condition, string description)

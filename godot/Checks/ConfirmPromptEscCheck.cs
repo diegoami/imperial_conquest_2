@@ -44,7 +44,7 @@ public partial class ConfirmPromptEscCheck : Node
         }
 
         GD.Print($"ConfirmPromptEscCheck: exiting with code {(_ok ? 0 : 1)}.");
-        GetTree().Quit(_ok ? 0 : 1);
+        CheckExit.Quit(this, _ok ? 0 : 1);
     }
 
     private void Run()

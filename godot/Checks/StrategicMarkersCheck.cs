@@ -92,13 +92,13 @@ public partial class StrategicMarkersCheck : Control
             if (_steps.TryDequeue(out var step)) step();
             if (_steps.Count > 0) return;
             GD.Print($"StrategicMarkersCheck: exiting with code {(_ok ? 0 : 1)}.");
-            GetTree().Quit(_ok ? 0 : 1);
+            CheckExit.Quit(this, _ok ? 0 : 1);
         }
         catch (Exception ex)
         {
             GD.PrintErr($"StrategicMarkersCheck: FAIL {ex}");
             GD.Print("StrategicMarkersCheck: exiting with code 1.");
-            GetTree().Quit(1);
+            CheckExit.Quit(this, 1);
         }
     }
 

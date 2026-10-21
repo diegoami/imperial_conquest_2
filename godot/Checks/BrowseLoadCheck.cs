@@ -42,7 +42,7 @@ public partial class BrowseLoadCheck : Node
 
         var exitCode = _ok ? 0 : 1;
         GD.Print($"BrowseLoadCheck: exiting with code {exitCode}.");
-        GetTree().Quit(exitCode);
+        CheckExit.Quit(this, exitCode);
     }
 
     // Set IC2_LOAD_LIST_CAPTURE_DIR and IC2_CAPTURE_HEAD for the optional windowed capture route.

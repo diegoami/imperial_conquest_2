@@ -95,7 +95,7 @@ public partial class ScreenshotTour : Control
             case 4 when _frame >= SettleFrames:
                 Capture("04-main-game-screen.png");
                 GD.Print("ScreenshotTour: done.");
-                GetTree().Quit(0);
+                CheckExit.Quit(this, 0);
                 break;
         }
     }

@@ -91,7 +91,7 @@ public partial class ScreensScreenshotTour : Control
             case 5 when _frame >= SettleFrames:
                 Capture("05-hotseat-handoff-blind.png");
                 GD.Print("ScreensScreenshotTour: done.");
-                GetTree().Quit(0);
+                IC2.Slice.Checks.CheckExit.Quit(this, 0);
                 break;
         }
     }

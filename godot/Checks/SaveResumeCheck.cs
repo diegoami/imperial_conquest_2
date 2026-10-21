@@ -59,7 +59,7 @@ public partial class SaveResumeCheck : Node
 
         var exitCode = _ok ? 0 : 1;
         GD.Print($"SaveResumeCheck: exiting with code {exitCode}.");
-        GetTree().Quit(exitCode);
+        CheckExit.Quit(this, exitCode);
     }
 
     /// <summary>

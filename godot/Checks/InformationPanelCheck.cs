@@ -704,7 +704,7 @@ public partial class InformationPanelCheck : Control
     {
         var exitCode = _ok ? 0 : 1;
         GD.Print($"InformationPanelCheck: exiting with code {exitCode}.");
-        GetTree().Quit(exitCode);
+        CheckExit.Quit(this, exitCode);
     }
 
     // ---- the fixture: the shipped classical pair with Rome as the human seat, plus a foreign

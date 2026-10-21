@@ -77,7 +77,7 @@ public partial class ScreensCheck : Node
 
         var exitCode = _ok ? 0 : 1;
         GD.Print($"ScreensCheck: exiting with code {exitCode}.");
-        GetTree().Quit(exitCode);
+        IC2.Slice.Checks.CheckExit.Quit(this, exitCode);
     }
 
     // ---- original Done-when: each screen opens from a scripted state ----

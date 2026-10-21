@@ -108,7 +108,7 @@ public partial class ScreenLayoutCheck : Control
         catch (Exception ex)
         {
             GD.PrintErr($"ScreenLayoutCheck: unhandled exception: {ex}");
-            GetTree().Quit(1);
+            CheckExit.Quit(this, 1);
         }
     }
 
@@ -389,7 +389,7 @@ public partial class ScreenLayoutCheck : Control
     private void Finish()
     {
         GD.Print($"ScreenLayoutCheck: exiting with code {(_ok ? 0 : 1)}.");
-        GetTree().Quit(_ok ? 0 : 1);
+        CheckExit.Quit(this, _ok ? 0 : 1);
     }
 
     private sealed record OverlayCase(

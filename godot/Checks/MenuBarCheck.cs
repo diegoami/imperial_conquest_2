@@ -862,7 +862,7 @@ public partial class MenuBarCheck : Control
         CleanUpSavedFile();
         var exitCode = _ok ? 0 : 1;
         GD.Print($"MenuBarCheck: exiting with code {exitCode}.");
-        GetTree().Quit(exitCode);
+        CheckExit.Quit(this, exitCode);
     }
 
     private void CleanUpSavedFile()
