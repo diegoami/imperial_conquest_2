@@ -775,6 +775,17 @@ public partial class TacticalBattleScreen : Control
             }
         }
 
+        // #1292: hovering a unit on the board names it; the theme's TooltipPanel/TooltipLabel style it.
+        public override string _GetTooltip(Vector2 atPosition)
+        {
+            if (Mini || Host.Model is not { } model) return string.Empty;
+            var x = (int)(atPosition.X / CellPixels);
+            var y = (int)(atPosition.Y / CellPixels);
+            return x >= 0 && y >= 0 && x < model.BoardWidth && y < model.BoardHeight
+                ? model.HoverText(x, Host.EngineYForBoardY(y)) ?? string.Empty
+                : string.Empty;
+        }
+
         public override void _Draw()
         {
             if (Host.Model is not { } model)
