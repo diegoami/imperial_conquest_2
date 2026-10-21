@@ -366,6 +366,15 @@ try {
         Fail "the headless launch did not draw from the asset pack; see $headlessLog."
     }
 
+    # 1b. T204: the Italy 500 BC campaign starts from New Game in the packaged build.
+    $italyLog = Join-Path $VerifyRoot 'italy-launch-check.log'
+    Set-OverrideMainScene -GameDirectory $VerifyGame -ScenePath 'res://Checks/ItalyLaunchCheck.tscn'
+    Write-Step 'launching the Italy campaign headless from New Game'
+    $code = Invoke-WithScrubbedEnvironment -Executable $VerifyExe -Arguments @('--headless') -LogPath $italyLog
+    if ($code -ne 0) { Fail "the Italy launch exited with code $code; see $italyLog." }
+    if (-not (Select-String -LiteralPath $italyLog -Pattern 'ItalyLaunchCheck: exiting with code 0' -Quiet)) {
+        Fail "the Italy launch did not report success; see $italyLog."
+    }
     # 2. Windowed: the screenshot tour loads the scenario and saves a frame to prove it rendered.
     if (Test-Path -LiteralPath $ScreenshotDir) { Remove-Item -LiteralPath $ScreenshotDir -Recurse -Force }
     New-Item -ItemType Directory -Force -Path $ScreenshotDir | Out-Null

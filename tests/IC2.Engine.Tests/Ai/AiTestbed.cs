@@ -93,6 +93,76 @@ public static class AiTestbed
     public static AiGameResult RunSeed(ulong seed) =>
         AiGameRunner.Run(Toy.World, Toy.Ruleset, AllAiScenario(), seed, SoakTurnCap);
 
+    /// <summary>
+    /// T204 (#267): the siege soak's world, a separately named variant of <see cref="Toy"/> whose towns an
+    /// army the toy economy can field is able to take. Only the three cities change: <c>[designed]</c> small,
+    /// lightly walled towns (12–20 thousand people, fortification 20) in place of the toy's 80–220 thousand,
+    /// which no army it can afford can besiege (#267's arithmetic). toy-3city itself, and every fixture and
+    /// golden built on it, are untouched.
+    /// </summary>
+    public static World SiegeWorld()
+    {
+        var world = Toy.World;
+        var cities = new CityDefinition[world.Cities.Count];
+        for (var i = 0; i < world.Cities.Count; i++)
+        {
+            var city = world.Cities[i];
+            var population = SiegeTownPopulations[i % SiegeTownPopulations.Length];
+            cities[i] = city with
+            {
+                PopulationThousands = population,
+                MaxPopulationThousands = population * 2,
+                FortificationCode = SiegeTownFortification,
+                Loyalty = Math.Min(city.Loyalty, 70),
+            };
+        }
+
+        return world with { Id = world.Id + "-siege", Cities = ValueList.From(cities) };
+    }
+
+    /// <summary>The siege world's town sizes, in the toy's city order. <c>[designed]</c>.</summary>
+    private static readonly int[] SiegeTownPopulations = { 20, 12, 14 };
+
+    /// <summary>The siege world's fortification word, for every town. <c>[designed]</c>.</summary>
+    private const int SiegeTownFortification = 20;
+
+    /// <summary>T204: the siege soak's seeds (<c>1 … SiegeSeedCount</c>) and turn cap.</summary>
+    public const int SiegeSeedCount = 20;
+
+    /// <summary>See <see cref="SiegeSeedCount"/>. <c>[designed]</c>: long enough for armies to recruit and march.</summary>
+    public const int SiegeTurnCap = 600;
+
+    /// <summary>Runs one siege soak seed: the all-AI toy scenario on <see cref="SiegeWorld"/>.</summary>
+    public static AiGameResult RunSiegeSeed(ulong seed) =>
+        AiGameRunner.Run(SiegeWorld(), Toy.Ruleset, AllAiScenario(), seed, SiegeTurnCap);
+
+    /// <summary>T204: the shipped Italy 500 BC campaign, as committed.</summary>
+    public static ResolvedScenario Italy => LazyRepository.Value.Resolve("italy-500bc");
+
+    /// <summary>T204: the Italy soak's seeds (<c>1 … ItalySeedCount</c>) and turn cap: 600 seat-turns is 50 rounds of 12 nations.</summary>
+    public const int ItalySeedCount = 5;
+
+    /// <summary>See <see cref="ItalySeedCount"/>.</summary>
+    public const int ItalyTurnCap = 600;
+
+    /// <summary>The Italy scenario with every seat AI; Rome, the human seat, gets <see cref="NorthPersonality"/>.</summary>
+    public static Scenario ItalyAllAiScenario()
+    {
+        var scenario = Italy.Scenario;
+        var seats = new Seat[scenario.Seats.Count];
+        for (var i = 0; i < scenario.Seats.Count; i++)
+        {
+            var seat = scenario.Seats[i];
+            seats[i] = seat.Control == SeatControl.Ai ? seat : seat with { Control = SeatControl.Ai, Personality = NorthPersonality };
+        }
+
+        return scenario with { Id = scenario.Id + "-all-ai", Seats = ValueList<Seat>.Of(seats) };
+    }
+
+    /// <summary>Runs one Italy soak seed.</summary>
+    public static AiGameResult RunItalySeed(ulong seed) =>
+        AiGameRunner.Run(Italy.World, Italy.Ruleset, ItalyAllAiScenario(), seed, ItalyTurnCap);
+
     /// <summary>The seeds the soak runs, in order: <c>1 … SoakSeedCount</c>.</summary>
     public static IReadOnlyList<ulong> SoakSeeds()
     {
