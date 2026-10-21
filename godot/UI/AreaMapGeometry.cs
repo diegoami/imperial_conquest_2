@@ -72,8 +72,10 @@ public sealed class AreaMapGeometry
 
     /// <summary>
     /// Builds the geometry for a world under a caller-chosen pixel budget. The scale is the largest
-    /// <em>integer</em> number of pixels per tile that still fits, and never below 1 (Scope: "one pixel
-    /// or more per tile") — a fractional scale would leave seams between tiles.
+    /// <em>integer</em> number of pixels per tile that still fits, so a world that fits keeps whole pixels per
+    /// tile (the classical 320 × 140 world stays at exactly 1). T201: a world larger than the budget on either
+    /// side gets the exact fractional scale below 1 that fits it (a 160 × 200 world draws at 0.9, 144 × 180 px),
+    /// rather than overflowing the column. The terrain is one stretched texture, so that leaves no seams.
     /// </summary>
     public static AreaMapGeometry ForWorld(int worldWidth, int worldHeight, int maxPixelWidth, int maxPixelHeight)
     {
@@ -88,7 +90,7 @@ public sealed class AreaMapGeometry
         }
 
         var fit = Math.Min(maxPixelWidth / (double)worldWidth, maxPixelHeight / (double)worldHeight);
-        var scale = (float)Math.Max(1d, Math.Floor(fit));
+        var scale = (float)(fit >= 1d ? Math.Floor(fit) : fit);
         return new AreaMapGeometry(worldWidth, worldHeight, scale);
     }
 

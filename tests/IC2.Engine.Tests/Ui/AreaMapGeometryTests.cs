@@ -158,6 +158,51 @@ public sealed class AreaMapGeometryTests
         Assert.Equal(fromCentre, fromRect);
     }
 
+    // ---- T201: a world larger than the budget scales down to fit, in either axis ----
+
+    [Theory]
+    [InlineData(160, 200, 0.9f, 144, 180)]
+    [InlineData(400, 120, 0.8f, 320, 96)]
+    [InlineData(640, 360, 0.5f, 320, 180)]
+    public void LargerWorld_ScalesDownToFitTheBudget(int width, int height, float scale, int pixelWidth, int pixelHeight)
+    {
+        var map = AreaMapGeometry.ForWorld(width, height);
+
+        Assert.Equal(scale, map.Scale, 4);
+        Assert.Equal(pixelWidth, map.PixelWidth);
+        Assert.Equal(pixelHeight, map.PixelHeight);
+        Assert.True(map.PixelWidth <= AreaMapGeometry.DefaultMaxPixelWidth);
+        Assert.True(map.PixelHeight <= AreaMapGeometry.DefaultMaxPixelHeight);
+    }
+
+    [Theory]
+    [InlineData(160, 200)]
+    [InlineData(400, 120)]
+    public void DownScaledWorld_MapsEveryTileToItselfAndEveryPixelToATile(int width, int height)
+    {
+        var map = AreaMapGeometry.ForWorld(width, height);
+
+        for (var x = 0; x < width; x++)
+        {
+            Assert.Equal(x, map.PixelToTileX(map.TileToPixelX(x) + 0.01f));
+        }
+
+        for (var y = 0; y < height; y++)
+        {
+            Assert.Equal(y, map.PixelToTileY(map.TileToPixelY(y) + 0.01f));
+        }
+
+        for (var px = 0; px < map.PixelWidth; px++)
+        {
+            Assert.InRange(map.PixelToTileX(px), 0, width - 1);
+        }
+
+        for (var py = 0; py < map.PixelHeight; py++)
+        {
+            Assert.InRange(map.PixelToTileY(py), 0, height - 1);
+        }
+    }
+
     [Fact]
     public void ZeroSizedWorld_IsRejected()
     {

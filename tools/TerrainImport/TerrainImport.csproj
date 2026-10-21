@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    T201 (docs/tasks/T201.md): the offline terrain importer. It turns a PNG painted in the documented
+    terrain palette into a world's .terrain.b64 sidecar, and back. How to run it:
+    docs/scenario-authoring.md, "Authoring terrain from a PNG".
+    In IC2.sln so CI builds it; its two logic files are also compiled into tests/IC2.Engine.Tests.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/IC2.Engine/IC2.Engine.csproj" />
+  </ItemGroup>
+
+</Project>
