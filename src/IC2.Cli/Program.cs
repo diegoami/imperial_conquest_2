@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Linq;
+using IC2.Engine.Import;
 using IC2.Engine.Model;
 using IC2.Engine.Persistence;
 using IC2.Engine.Presentation;
@@ -82,6 +83,11 @@ internal static class Program
         // (tests/fixtures/cli/demo.golden.txt) is byte-stable across machines.
         CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
         Console.Out.NewLine = "\n";
+
+        if (args.Contains("--export-sav"))
+        {
+            return ExportSav(args);
+        }
 
         string? scriptPath = null;
         ulong? seed = null;
@@ -312,6 +318,87 @@ internal static class Program
     /// any of the three refusals <c>docs/tasks/T95.md</c> Done-when 5 names: a missing file, a malformed
     /// save, or a save recorded against a world/ruleset/scenario this build does not have.
     /// </returns>
+    /// <summary>
+    /// T185: the offline converter, an exclusive mode —
+    /// <c>--export-sav &lt;native.json&gt; --output &lt;new.sav&gt; --template &lt;original.sav&gt;</c>. Loads the
+    /// native save through <see cref="SaveManager"/> (its migrations included), maps it with
+    /// <see cref="OriginalSaveExporter"/>, takes only the interface settings from the template, and writes a new
+    /// file without replacing anything. Every refusal is printed with its reason and nothing is written.
+    /// </summary>
+    private static int ExportSav(string[] args)
+    {
+        const string usage = "Usage: IC2.Cli --export-sav <native-save.json> --output <new.sav> --template <original.sav>";
+        var values = new Dictionary<string, string>(StringComparer.Ordinal);
+        for (var i = 0; i < args.Length; i++)
+        {
+            if (args[i] is not ("--export-sav" or "--output" or "--template"))
+            {
+                Console.Error.WriteLine($"--export-sav takes only --output and --template; '{args[i]}' is not allowed. {usage}");
+                return 1;
+            }
+
+            if (i + 1 >= args.Length || args[i + 1].StartsWith("--", StringComparison.Ordinal))
+            {
+                Console.Error.WriteLine($"{args[i]} requires a path. {usage}");
+                return 1;
+            }
+
+            if (!values.TryAdd(args[i], args[++i]))
+            {
+                Console.Error.WriteLine($"{args[i - 1]} is given twice. {usage}");
+                return 1;
+            }
+        }
+
+        if (!values.TryGetValue("--output", out var output) || !values.TryGetValue("--template", out var templatePath))
+        {
+            Console.Error.WriteLine($"--export-sav needs --output and --template. {usage}");
+            return 1;
+        }
+
+        var input = values["--export-sav"];
+        try
+        {
+            var repository = GameDataRepository.Load(Path.Combine(FindRepositoryRoot(), "data"));
+            var summary = SaveManager.PeekSummaryFile(input);
+            var world = repository.WorldById(summary.WorldId);
+            var ruleset = repository.RulesetById(summary.RulesetId);
+            if (world is null || ruleset is null)
+            {
+                Console.Error.WriteLine($"Save '{input}' names a world or ruleset this build does not have.");
+                return 1;
+            }
+
+            var inputHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(input)));
+            var save = SaveManager.LoadFile(input, world, ruleset);
+            var written = OriginalSaveExporter.ExportFile(save, world, ruleset, templatePath, output);
+            var result = written.Export;
+
+            Console.WriteLine($"Exported '{input}' (SHA-256 {inputHash}) to '{written.OutputPath}'.");
+            Console.WriteLine($"  output SHA-256 {written.OutputSha256}, {written.Length} bytes, profile {written.ProfileId}");
+            Console.WriteLine($"  template '{templatePath}' SHA-256 {written.TemplateSha256} (interface settings only)");
+            Console.WriteLine($"  {result.Document.Armies.Count} armies, {result.Document.Fleets.Count} fleets, {result.Document.News.Count} news lines, "
+                + $"{summary.Label}, {save.State.Calendar.YearBc} BC");
+            foreach (var alias in result.Report.Aliases)
+                Console.WriteLine($"  alias: {alias.ArmyId} slot {alias.Slot} '{alias.NativeName}' written as '{alias.ExportedName}'");
+            foreach (var omitted in result.Report.Omitted)
+                Console.WriteLine($"  not in the original format: {omitted}");
+            Console.WriteLine("  Opening the file in the original game is a separate check; this export does not claim it.");
+            return 0;
+        }
+        catch (OriginalSaveExportException ex)
+        {
+            foreach (var refusal in ex.Refusals)
+                Console.Error.WriteLine($"Refused: {refusal.Code} {refusal.Field}: {refusal.Detail}");
+            return 2;
+        }
+        catch (Exception ex) when (ex is GameDataException or IOException or UnauthorizedAccessException)
+        {
+            Console.Error.WriteLine($"Export failed, nothing written: {ex.Message}");
+            return 2;
+        }
+    }
+
     private static (GameSession? Session, string? Error) LoadSession(
         GameDataRepository repository, string loadPath, HumanBattleMode humanBattles)
     {

@@ -90,3 +90,19 @@ public sealed record OriginalMercenary(int X, int Y, int Label, int Type, int Tr
 public sealed record OriginalTrailer(
     IReadOnlyList<int> TurnOrder, int OfferFrom, int OfferType, int CurrentNation, int SeatIndex,
     int Week, int YearBc, int Season, int MainLeft, int MainTop, int MainClientHeight, int MainClientWidth);
+
+/// <summary>
+/// T185: the interface settings an export copies — each nation's <see cref="OriginalNationUi"/> and the main
+/// window's geometry. Presentation only (the player's preferences), never game state.
+/// </summary>
+public sealed record OriginalSaveUiProfile(
+    IReadOnlyList<OriginalNationUi> Nations, int MainLeft, int MainTop, int MainClientHeight, int MainClientWidth)
+{
+    /// <summary>The settings <paramref name="template"/> holds.</summary>
+    public static OriginalSaveUiProfile FromTemplate(OriginalSaveDocument template)
+    {
+        ArgumentNullException.ThrowIfNull(template);
+        var t = template.Trailer;
+        return new(template.Nations.Select(n => n.Ui).ToArray(), t.MainLeft, t.MainTop, t.MainClientHeight, t.MainClientWidth);
+    }
+}
