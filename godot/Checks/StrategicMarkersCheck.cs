@@ -351,12 +351,27 @@ public partial class StrategicMarkersCheck : Control
 
     private void SelectPack(string pack)
     {
+        // The placeholder is the loader's fallback and is never offered in Settings.
+        if (pack == IC2.Slice.Assets.AssetPackManifestLoader.FallbackPackId)
+        {
+            SettingsScreen.SetPackForCheck(pack);
+            return;
+        }
+
         var settings = new SettingsScreen();
         AddChild(settings);
-        var picker = settings.FindChildren("*", "OptionButton", true, false).OfType<OptionButton>().First(o => o.Name == SettingsScreen.PackPickerName);
-        var index = Enumerable.Range(0, picker.ItemCount).Single(i => picker.GetItemText(i) == pack);
-        picker.Select(index);
-        picker.EmitSignal(OptionButton.SignalName.ItemSelected, index);
+        var picker = settings.FindChildren("*", "OptionButton", true, false).OfType<OptionButton>().FirstOrDefault(o => o.Name == SettingsScreen.PackPickerName);
+        if (picker is null)
+        {
+            // Only one pack is offered, so the picker is hidden: that pack is the default.
+            SettingsScreen.SetPackForCheck(pack);
+        }
+        else
+        {
+            var index = Enumerable.Range(0, picker.ItemCount).Single(i => picker.GetItemText(i) == pack);
+            picker.Select(index);
+            picker.EmitSignal(OptionButton.SignalName.ItemSelected, index);
+        }
         RemoveChild(settings);
         settings.QueueFree();
     }

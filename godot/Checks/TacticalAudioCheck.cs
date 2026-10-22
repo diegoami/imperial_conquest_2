@@ -374,9 +374,14 @@ public partial class TacticalAudioCheck : Node
     private void SetPack(string pack)
     {
         var settings = new SettingsScreen(); AddChild(settings);
-        var picker = Descendants(settings).OfType<OptionButton>().First(o => o.Name == SettingsScreen.PackPickerName);
-        var index = Enumerable.Range(0, picker.ItemCount).Single(i => picker.GetItemText(i) == pack);
-        picker.Select(index); picker.EmitSignal(OptionButton.SignalName.ItemSelected, index);
+        // The placeholder is never offered, and with one pack left the picker is hidden.
+        var picker = Descendants(settings).OfType<OptionButton>().FirstOrDefault(o => o.Name == SettingsScreen.PackPickerName);
+        if (picker is null || pack == IC2.Slice.Assets.AssetPackManifestLoader.FallbackPackId) SettingsScreen.SetPackForCheck(pack);
+        else
+        {
+            var index = Enumerable.Range(0, picker.ItemCount).Single(i => picker.GetItemText(i) == pack);
+            picker.Select(index); picker.EmitSignal(OptionButton.SignalName.ItemSelected, index);
+        }
         RemoveChild(settings); settings.QueueFree();
     }
     private static IEnumerable<Node> Descendants(Node node) => node.GetChildren().SelectMany(n => new[] { n }.Concat(Descendants(n)));
