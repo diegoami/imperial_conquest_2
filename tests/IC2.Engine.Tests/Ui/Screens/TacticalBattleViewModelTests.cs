@@ -430,7 +430,8 @@ public sealed class TacticalBattleViewModelTests
             foreach (var id in new[] { frame.Actor, frame.Target }.OfType<TacticalUnitIdentity>())
             {
                 var lines = model.ParticipantLines(id.Slot, "role");
-                Assert.Contains(lines, line => line.Contains("#" + id.Slot));
+                // Before the battle a unit is named only; once it starts, by its side and slot.
+                Assert.Contains(lines, line => line.Contains(snapshot.View.Placed ? "#" + id.Slot : slots[id.Slot].Name));
                 Assert.Contains(lines, line => line.Contains(slots[id.Slot].Troops + " troops"));
                 if (id.Side == 1) Assert.DoesNotContain(lines, line => line.Contains("Morale:"));
             }

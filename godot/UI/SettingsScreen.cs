@@ -92,6 +92,12 @@ public partial class SettingsScreen : Control
     {
         SettingsPath = path;
         Current = UserSettings.Load(path);
+        // The placeholder pack is no longer offered; a selection of it saved earlier reverts to the default.
+        if (Current.PackId == Assets.AssetPackManifestLoader.FallbackPackId)
+        {
+            Current = Current with { PackId = null };
+        }
+
         Appearance.Apply(Current, root);
     }
 
@@ -315,13 +321,15 @@ public partial class SettingsScreen : Control
 
     private void BuildGame(VBoxContainer column)
     {
-        Section(column, "Asset pack");
+        // The placeholder pack is the loader's internal fallback, never offered; with one pack left there
+        // is nothing to choose, so the section is hidden.
         var packs = DiscoverPacks();
-        if (packs.Count == 0)
+        if (packs.Count <= 1)
         {
-            column.AddChild(UiKit.MakeLabel("No asset packs found under assets/packs/.", AppTheme.Body, UiKit.MutedTextColor));
             return;
         }
+
+        Section(column, "Asset pack");
 
         // No selection yet shows the loader's own default (authored when listed), so the picker
         // and the pack GameMapView will load agree from the first frame.
@@ -394,7 +402,8 @@ public partial class SettingsScreen : Control
 
         foreach (var directory in Directory.GetDirectories(packsRoot))
         {
-            if (File.Exists(Path.Combine(directory, "manifest.json")))
+            if (File.Exists(Path.Combine(directory, "manifest.json"))
+                && Path.GetFileName(directory) != Assets.AssetPackManifestLoader.FallbackPackId)
             {
                 found.Add(Path.GetFileName(directory));
             }

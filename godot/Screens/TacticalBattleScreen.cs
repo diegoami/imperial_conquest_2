@@ -267,7 +267,7 @@ public partial class TacticalBattleScreen : Control
         left.AddChild(footer);
         _minimap = new BoardView { Host = this, Mini = true, CustomMinimumSize = new Vector2(112, 96), MouseFilter = MouseFilterEnum.Ignore };
         footer.AddChild(_minimap);
-        footer.AddChild(UiKit.MakeLabel("○ Cyan: ACTOR\n◇ Orange: TARGET\n□ Gold: SELECTED\nAttacker / Defender: strategic roles", BattleNoteSize, UiKit.TextColor));
+        footer.AddChild(UiKit.MakeLabel("○ Cyan: acting unit\n◇ Orange: its target\n□ Gold: selected", BattleNoteSize, UiKit.TextColor));
 
         var right = new VBoxContainer { CustomMinimumSize = new Vector2(380, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         right.AddThemeConstantOverride("separation", AppTheme.DialogGap);
@@ -588,7 +588,7 @@ public partial class TacticalBattleScreen : Control
 
     private string FrameMessage(TacticalBattleFrame frame) => frame.Event switch
     {
-        TacticalMovedEvent move => $"ACTOR #{move.Slot} moves ({move.FromX},{move.FromY}) → ({move.ToX},{move.ToY})",
+        TacticalMovedEvent move => $"#{move.Slot} moves ({move.FromX},{move.FromY}) → ({move.ToX},{move.ToY})",
         TacticalRoutedEvent rout => $"#{rout.Slot} routed and removed",
         TacticalCascadeRemovedEvent cascade => $"#{cascade.Slot} removed in rout cascade",
         TacticalSurrenderedEvent surrender => $"{(surrender.Side == 0 ? "Attacker" : "Defender")} surrendered",

@@ -40,7 +40,10 @@ namespace IC2.Slice.Audio;
 /// </para>
 /// <para>T183's displayed tactical exchanges use a separate FIFO on these same players. Unlike
 /// strategic one-shots, identical tactical clips must all complete; Finished retires each head.
-/// Muting or opening another battlefield retires pending tactical audio rather than replaying it later.</para>
+/// Muting or opening another battlefield retires pending tactical audio rather than replaying it later.
+/// A cue that waited longer than <see cref="TacticalStaleMs"/> is dropped (cancelled, reason
+/// <c>stale</c>) rather than played, so fast battle pauses never leave a tail of shots behind the
+/// battle.</para>
 /// <para>
 /// <strong>Missing packs.</strong> A key the pack lacks is silent — never a Godot default beep, never
 /// a fallback to the placeholder. The constructor logs the missing key through Godot's
@@ -67,7 +70,10 @@ public sealed partial class SoundPlayer : Node
 
     /// <summary>One playback event: a key's player started a stream, or finished one.</summary>
     public readonly record struct PlaybackLogEntry(string Key, bool Started, ulong TickMs);
-    private readonly record struct QueuedTactical(long Sequence, TacticalAudioCue Cue);
+    private readonly record struct QueuedTactical(long Sequence, TacticalAudioCue Cue, ulong AcceptedMs);
+
+    /// <summary>How long a tactical cue may wait in the queue before it is dropped as stale.</summary>
+    public const ulong TacticalStaleMs = 1000;
     public readonly record struct TacticalAudioReceipt(long Sequence, TacticalAudioCue Cue, string Action,
         string Reason, bool WasActive, ulong TickMs)
     {
@@ -122,7 +128,7 @@ public sealed partial class SoundPlayer : Node
         var key = cue.Key;
         if (_muted || !_players.ContainsKey(key)) return;
         var sequence = ++_tacticalSequence;
-        var queued = new QueuedTactical(sequence, cue);
+        var queued = new QueuedTactical(sequence, cue, Time.GetTicksMsec());
         _tacticalQueue.Enqueue(queued);
         RecordTactical(queued, "accepted");
         lock (_queuedForCheck) _queuedForCheck.Add(key);
@@ -144,7 +150,14 @@ public sealed partial class SoundPlayer : Node
         // Playing can still read false in the same frame as Play(). Finished owns retirement,
         // so another displayed exchange can never restart that not-yet-rendering clip.
         if (_activeTactical is not null) return;
-        if (!_tacticalQueue.TryDequeue(out var cue)) return;
+        QueuedTactical cue;
+        while (true)
+        {
+            if (!_tacticalQueue.TryDequeue(out cue)) return;
+            if (Time.GetTicksMsec() - cue.AcceptedMs <= TacticalStaleMs) break;
+            RecordTactical(cue, "cancelled", "stale");
+        }
+
         var key = cue.Cue.Key;
         var player = _players[key];
         _activeTactical = cue;

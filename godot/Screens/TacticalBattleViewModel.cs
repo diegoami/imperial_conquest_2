@@ -286,8 +286,8 @@ public sealed class TacticalBattleViewModel
           + (_view.ComputerControlled[_view.SideToMove] ? "Computer nation" : _view.ComputerGeneral[_view.SideToMove] ? "Computer general" : "Human")
           + (_view.Placed ? " · movement / combat" : " · placement");
 
-    public IReadOnlyList<string> ActorLines => ParticipantLines(ActorSlot, "ACTOR ○");
-    public IReadOnlyList<string> TargetLines => ParticipantLines(TargetSlot, "TARGET ◇");
+    public IReadOnlyList<string> ActorLines => ParticipantLines(ActorSlot, "○");
+    public IReadOnlyList<string> TargetLines => ParticipantLines(TargetSlot, "◇");
     public IReadOnlyList<string> CurrentExchangeLines => CurrentExchangePresentation.PlainLines;
     public BattleExchangePresentation CurrentExchangePresentation
     {
@@ -403,8 +403,9 @@ public sealed class TacticalBattleViewModel
             && _view.Grid[gridIndex] != TacticalIcon.Empty;
         var lines = new List<string>
         {
-            $"{role} · #{slot} · {(side == 0 ? "Attacker" : "Defender")} · {NationName(side)}",
-            $"{unit.Name} · {TypeName(unit.Type)} · {unit.Troops} troops" + (Pose?.Glyph.Slot == slot || unit.IsLive ? $" · {PositionText(slot)}" : removalPending ? " · removal pending" : " · removed"),
+            // Before the battle a unit is named only; once it starts, by its side's strategic role.
+            _view.Placed ? $"{role} {(side == 0 ? "Attacker" : "Defender")} · {NationName(side)} · #{slot}" : $"{role} {unit.Name}",
+            (_view.Placed ? $"{unit.Name} · " : "") + $"{TypeName(unit.Type)} · {unit.Troops} troops" + (Pose?.Glyph.Slot == slot || unit.IsLive ? $" · {PositionText(slot)}" : removalPending ? " · removal pending" : " · removed"),
         };
         if (side == _perspective)
             lines.Add($"Morale: {unit.Morale} ({MoraleTier(unit.Morale)}) · moves {unit.Moves} · shots {unit.Shots}");
@@ -432,7 +433,7 @@ public sealed class TacticalBattleViewModel
         ? new[] { departing.Glyph.Slot } : Array.Empty<int>()).Distinct().Select(slot =>
     {
         var unit = _view.Slots[slot];
-        var roles = (Pose is { Departing: true } departure && departure.Glyph.Slot == slot ? "ROUTED / DEPARTING " : "") + (slot == ActorSlot ? "○ ACTOR " : "") + (slot == TargetSlot ? "◇ TARGET " : "") + (slot == SelectedSlot ? "□ SELECTED " : "");
+        var roles = (Pose is { Departing: true } departure && departure.Glyph.Slot == slot ? "ROUTED / DEPARTING " : "") + (slot == ActorSlot ? "○ " : "") + (slot == TargetSlot ? "◇ " : "") + (slot == SelectedSlot ? "□ SELECTED " : "");
         var cells = new List<string> { $"{roles}#{slot} {unit.Name}", TypeName(unit.Type), unit.Troops.ToString(CultureInfo.InvariantCulture) };
         if (Pose?.Glyph.Slot == slot) cells.Add(PositionText(slot));
         if (side == _perspective) cells.Add($"{ArmyDialogModels.QualityCaption(unit.Quality)} / {unit.Morale} ({MoraleTier(unit.Morale)})");

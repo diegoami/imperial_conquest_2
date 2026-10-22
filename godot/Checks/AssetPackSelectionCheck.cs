@@ -8,9 +8,9 @@ namespace IC2.Slice.Checks;
 /// Bug <see href="https://github.com/diegoami/imperial_conquest_2/issues/517">#517</see>'s chain-level
 /// reproduction: the real <see cref="AppRoot"/> → <see cref="SettingsScreen"/> →
 /// <see cref="MainGameScreen"/> → <see cref="GameMapView"/> path. With the repository's real packs
-/// present it asserts that a game's map resolves the default <c>authored</c> pack; that choosing
-/// <c>placeholder</c> in the real Settings picker makes the <em>next</em> game's map resolve
-/// <c>placeholder</c>; and that a missing or malformed selected pack falls back to the placeholder
+/// present it asserts that a game's map resolves the default <c>authored</c> pack; that the Settings
+/// screen never offers <c>placeholder</c> (the loader's fallback); that a selected pack is what the next
+/// game's map loads; and that a missing or malformed selected pack falls back to the placeholder
 /// through the same loader, reported and never thrown. Run headless via:
 /// <code>
 /// Godot_..._console.exe --headless --path godot res://Checks/AssetPackSelectionCheck.tscn --quit-after 30
@@ -67,7 +67,8 @@ public partial class AssetPackSelectionCheck : Node
             firstGame.MapView.LoadedPackIdForCheck != "placeholder",
             "the map does not resolve the placeholder while the authored pack is present and valid");
 
-        // ---- Settings: choose placeholder through the real picker (bug #517's own flow) ----
+        // ---- Settings: the placeholder is the loader's fallback, never offered; with only the authored
+        // pack left the picker is hidden ----
         appRoot.ShowSettings();
         if (!Check(appRoot.CurrentScreen is SettingsScreen, "AppRoot shows the real Settings screen"))
         {
@@ -75,23 +76,11 @@ public partial class AssetPackSelectionCheck : Node
         }
 
         var picker = FindOptionButton((SettingsScreen)appRoot.CurrentScreen!);
-        if (!Check(picker is not null, "the Settings screen renders its pack picker"))
-        {
-            return;
-        }
+        var packItems = picker is null ? new List<string>() : Enumerable.Range(0, picker.ItemCount).Select(picker.GetItemText).ToList();
+        Check(!packItems.Contains("placeholder"), $"the picker never offers 'placeholder' (items: {string.Join(", ", packItems)})");
 
-        var packItems = Enumerable.Range(0, picker!.ItemCount).Select(picker.GetItemText).ToList();
-        Check(packItems.Contains("authored"), $"the picker lists 'authored' (items: {string.Join(", ", packItems)})");
-        Check(packItems.Contains("placeholder"), $"the picker lists 'placeholder' (items: {string.Join(", ", packItems)})");
-
-        var placeholderIndex = packItems.IndexOf("placeholder");
-        picker.Select(placeholderIndex);
-        picker.EmitSignal(OptionButton.SignalName.ItemSelected, placeholderIndex);
-        Check(
-            SettingsScreen.SelectedPackId == "placeholder",
-            $"choosing 'placeholder' in the picker records it as the selection (got '{SettingsScreen.SelectedPackId ?? "<none>"}')");
-
-        // ---- the next game's map picks the new selection up; the previous game is untouched ----
+        // ---- a selection the next game's map picks up (the check's own hook; the picker no longer offers it) ----
+        SettingsScreen.SetPackForCheck("placeholder");
         var secondGame = StartGameFromTheMainMenu(appRoot);
         if (secondGame is null)
         {
@@ -102,6 +91,7 @@ public partial class AssetPackSelectionCheck : Node
         Check(
             secondGame.MapView.LoadedPackIdForCheck == "placeholder",
             $"the next game's map resolves the selected 'placeholder' pack (got '{secondGame.MapView.LoadedPackIdForCheck ?? "<none>"}')");
+        SettingsScreen.SetPackForCheck(null);
 
         // ---- the Godot-side loader's own fallback: missing, then malformed, selected pack ----
         CheckLoaderFallbackOnAScratchRepository();

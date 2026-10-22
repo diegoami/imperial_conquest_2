@@ -154,13 +154,18 @@ public partial class TacticalAudioCheck : Node
             {
                 await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
                 log.AddRange(main.SoundPlayerForCheck.PlaybackLogForCheck);
-            } while (enabled && log.Count(e => !e.Started) < expected.Length && Time.GetTicksMsec() < deadline);
+            } while (enabled && (log.Count(e => !e.Started) < log.Count(e => e.Started) || main.SoundPlayerForCheck.TacticalOutstandingForCheck.Count > 0)
+                && Time.GetTicksMsec() < deadline);
             foreach (var entry in log) Receipt($"AUDIO {entry.Key} {(entry.Started ? "start" : "finish")} tick={entry.TickMs}");
             var queueReceipts = main.SoundPlayerForCheck.TacticalReceiptsForCheck;
             foreach (var entry in queueReceipts) Receipt($"QUEUE sequence={entry.Sequence} battle={entry.Cue.BattleId} frame={entry.Cue.FrameId} key={entry.Key} {entry.Action} active={entry.WasActive} reason={entry.Reason} tick={entry.TickMs}");
-            Require(log.Where(e => e.Started).Select(e => e.Key).SequenceEqual(enabled ? expected : Array.Empty<string>()), "windowed loaded WAV start order matches displayed exchange order");
-            Require(!enabled || log.Count(e => !e.Started) == expected.Length, "windowed loaded WAVs complete before retirement");
-            Require(queueReceipts.All(r => r.Action != "cancelled"), "single-battle hearing run cancels no accepted clips");
+            // A cue that waited past SoundPlayer.TacticalStaleMs is dropped, so the started keys are the
+            // displayed order less the stale drops.
+            var stale = queueReceipts.Where(r => r.Action == "cancelled" && r.Reason == "stale").Select(r => r.Sequence).ToHashSet();
+            var heard = queueReceipts.Where(r => r.Action == "accepted" && !stale.Contains(r.Sequence)).Select(r => r.Key);
+            Require(log.Where(e => e.Started).Select(e => e.Key).SequenceEqual(enabled ? heard : Array.Empty<string>()), "windowed loaded WAV start order matches displayed exchange order less stale drops");
+            Require(!enabled || log.Count(e => !e.Started) == log.Count(e => e.Started), "windowed loaded WAVs complete before retirement");
+            Require(queueReceipts.All(r => r.Action != "cancelled" || r.Reason == "stale"), "single-battle hearing run cancels only stale clips");
             CheckAccounting(queueReceipts, main.SoundPlayerForCheck.TacticalOutstandingForCheck, true, "windowed complete FIFO");
             await ToSignal(GetTree().CreateTimer(2), SceneTreeTimer.SignalName.Timeout);
         }
