@@ -93,7 +93,9 @@ public sealed class DisembarkArmyCommandHandler : ICommandHandler<DisembarkArmyC
             CoveredTileCode = landedTileCode,
             AboardFleetId = null,
         };
-        var updatedFleet = fleet with { CarriedArmyId = null };
+        // #595: the original's unload (FUN_0044B840) zeroes the fleet's moves too, at 0x44B877, before it
+        // clears the carrier link.
+        var updatedFleet = fleet with { CarriedArmyId = null, Moves = 0 };
 
         var updatedArmies = state.Armies.Select(a =>
             string.Equals(a.Id, army.Id, StringComparison.Ordinal) ? updatedArmy : a);

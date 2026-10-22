@@ -79,6 +79,7 @@ public sealed class DisembarkArmyCommandHandlerTests
 
         var fleet = result.State.FleetById(fleetId)!;
         Assert.Null(fleet.CarriedArmyId);
+        Assert.Equal(0, fleet.Moves); // #595: FUN_0044B840 zeroes the fleet's moves too (0x44B877).
     }
 
     [Fact]
