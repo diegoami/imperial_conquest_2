@@ -1816,7 +1816,15 @@ public sealed partial class GameSession
             return BuyFromFleet(tokens[1], tokens[3], fleetTons);
         }
 
-        return new[] { "Usage: buy <army> <city> <tons>" };
+        // A designed difference (both rulesets): another own land army within one tile supplies, free.
+        if (tokens.Length == 5
+            && string.Equals(tokens[2], "army", StringComparison.Ordinal)
+            && int.TryParse(tokens[4], NumberStyles.Integer, CultureInfo.InvariantCulture, out var armyTons))
+        {
+            return BuyFromArmy(tokens[1], tokens[3], armyTons);
+        }
+
+        return new[] { "Usage: buy <army> <city> <tons> | buy <army> fleet <fleet> <tons> | buy <army> army <army> <tons>" };
     }
 
     /// <summary>The 4-token <c>buy &lt;army&gt; &lt;city&gt; &lt;tons&gt;</c> form — unchanged since T41.</summary>
@@ -1867,6 +1875,28 @@ public sealed partial class GameSession
         return new[]
         {
             $"{armyId} bought {purchased.AdmittedTons} tons of supply from fleet {fleetId}, free.",
+        };
+    }
+
+    /// <summary>The 5-token <c>buy &lt;army&gt; army &lt;army&gt; &lt;tons&gt;</c> form: tons from another own army, free.</summary>
+    private IReadOnlyList<string> BuyFromArmy(string armyId, string providerArmyId, int tons)
+    {
+        var command = new BuySupplyCommand(State.ActiveNationId, armyId, CityId: null, tons, ProviderArmyId: providerArmyId);
+        var result = _dispatcher.Dispatch(State, command);
+
+        if (result.IsRejected)
+        {
+            return new[] { $"Purchase rejected ({result.Code}): {result.Rejection!.Message}" };
+        }
+
+        AccumulateEvents(result.Events);
+
+        State = NewsLogWriter.Append(result.State, result.Events, Ruleset.NewsLog);
+
+        var taken = result.Events.OfType<ArmySupplyTakenFromArmy>().First();
+        return new[]
+        {
+            $"{armyId} took {taken.AdmittedTons} tons of supply from army {providerArmyId}, free.",
         };
     }
 

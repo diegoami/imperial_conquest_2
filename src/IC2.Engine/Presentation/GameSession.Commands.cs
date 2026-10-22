@@ -1333,13 +1333,25 @@ public sealed partial class GameSession
 
     private IReadOnlyList<string> HandleBuyFleetSupply(string[] tokens)
     {
-        if (tokens.Length != 4
-            || !int.TryParse(tokens[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var tons))
+        const string usage = "Usage: buy-fleet-supply <fleet> <city> <tons> | buy-fleet-supply <fleet> fleet|army <id> <tons>";
+        if (tokens.Length == 4
+            && int.TryParse(tokens[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var tons))
         {
-            return new[] { "Usage: buy-fleet-supply <fleet> <city> <tons>" };
+            return IssueCommand(new BuyFleetSupplyCommand(State.ActiveNationId, tokens[1], tokens[2], null, tons));
         }
 
-        return IssueCommand(new BuyFleetSupplyCommand(State.ActiveNationId, tokens[1], tokens[2], null, tons));
+        if (tokens.Length == 5
+            && int.TryParse(tokens[4], NumberStyles.Integer, CultureInfo.InvariantCulture, out var providerTons))
+        {
+            return tokens[2] switch
+            {
+                "fleet" => IssueCommand(new BuyFleetSupplyCommand(State.ActiveNationId, tokens[1], null, tokens[3], providerTons)),
+                "army" => IssueCommand(new BuyFleetSupplyCommand(State.ActiveNationId, tokens[1], null, null, providerTons, tokens[3])),
+                _ => new[] { usage },
+            };
+        }
+
+        return new[] { usage };
     }
 
     private IReadOnlyList<string> HandleFleetTransfer(string[] tokens)

@@ -358,4 +358,51 @@ public sealed class BuyFleetSupplyCommandHandlerTests
         var both = dispatcher.Dispatch(state, new BuyFleetSupplyCommand(NationId, buyer.Id, city.Id, otherFleet.Id, Tons: 10));
         Assert.Equal(BuyFleetSupplyRejections.InvalidProvider, both.Code);
     }
+
+    private static ArmyState Army(string id, int x, int y, int supply, string nation = NationId, string? aboard = null) =>
+        new(id, nation, x, y, Moves: 4, Morale: 70, Money: 0, supply, CoveredTileCode: null, AboardFleetId: aboard,
+            Units: ValueList.Of(new UnitSlot(0, "heavy_infantry", 1_000, 6, "Provider Battalion")));
+
+    /// <summary>
+    /// A designed difference under both rulesets (owner decision, 2026-10-22): an own land army within
+    /// one tile supplies a fleet, free, clamped by the fleet's room; the original never offers an army.
+    /// </summary>
+    [Fact]
+    public void ArmyProvider_OwnLandArmy_MovesTonsOnly_ClampedByTheFleetsRoom()
+    {
+        var state = NavalTestbed.InitialState();
+        var buyer = Fleet("supply-buyer-army", 3, 3, ships: 10, supply: 70, money: 20); // cap = 80, room 10.
+        var provider = Army("supply-army-provider", 4, 3, supply: 50);
+        state = state with { Fleets = ValueList.Of(buyer), Armies = ValueList.Of(provider) };
+        var treasury = state.NationById(NationId)!.Treasury;
+
+        var result = NavalTestbed.RealEngineDispatcher().Dispatch(
+            state, new BuyFleetSupplyCommand(NationId, buyer.Id, null, null, Tons: 30, ProviderArmyId: provider.Id));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        Assert.Equal(80, result.State.FleetById(buyer.Id)!.SupplyTons);
+        Assert.Equal(40, result.State.ArmyById(provider.Id)!.SupplyTons);
+        Assert.Equal(20, result.State.FleetById(buyer.Id)!.Money);
+        Assert.Equal(treasury, result.State.NationById(NationId)!.Treasury);
+    }
+
+    [Fact]
+    public void ArmyProvider_Foreign_Embarked_FarOrUnknown_IsRefused()
+    {
+        var state = NavalTestbed.InitialState();
+        var buyer = Fleet("supply-buyer-army-gates", 3, 3, ships: 10);
+        var foreign = Army("supply-army-foreign", 3, 4, supply: 50, nation: OtherNationId);
+        var embarked = Army("supply-army-embarked", 3, 3, supply: 50, aboard: buyer.Id);
+        var far = Army("supply-army-far", 3, 3 + 1 + NavalTestbed.Ruleset.Economy.CommandAdjacencyRadiusTiles, supply: 50);
+        state = state with { Fleets = ValueList.Of(buyer), Armies = ValueList.Of(foreign, embarked, far) };
+        var dispatcher = NavalTestbed.RealEngineDispatcher();
+
+        CommandResult Buy(string id) =>
+            dispatcher.Dispatch(state, new BuyFleetSupplyCommand(NationId, buyer.Id, null, null, Tons: 10, ProviderArmyId: id));
+
+        Assert.Equal(BuyFleetSupplyRejections.ProviderArmyNotEligible, Buy(foreign.Id).Code);
+        Assert.Equal(BuyFleetSupplyRejections.ProviderArmyNotEligible, Buy(embarked.Id).Code);
+        Assert.Equal(BuyFleetSupplyRejections.ProviderArmyNotWithinRange, Buy(far.Id).Code);
+        Assert.Equal(BuyFleetSupplyRejections.UnknownProviderArmy, Buy("no-such-army").Code);
+    }
 }

@@ -10,7 +10,7 @@ namespace IC2.Slice.UI;
 /// One provider row as the Supply army dialog shows it — the entity's own id and the caption the
 /// original's window prints ("Supplies at Antium: 330"), its stock, and whether a purchase there is free.
 /// </summary>
-/// <param name="Kind">City or fleet, so the dialog knows which <c>buy</c> form to compose.</param>
+/// <param name="Kind">City, fleet or army, so the dialog knows which <c>buy</c> form to compose.</param>
 /// <param name="Id">The city or fleet id.</param>
 /// <param name="Label">The list row's caption, with the stock.</param>
 /// <param name="StockTons">The provider's supply stock, read from the live state.</param>
@@ -278,9 +278,12 @@ public sealed class SupplyDialogModel
         _providers.Clear();
         foreach (var provider in providers)
         {
-            var (label, stock) = provider.Kind == SupplyProviderKind.City
-                ? LabelForCity(state, provider.Id)
-                : LabelForFleet(state, provider.Id);
+            var (label, stock) = provider.Kind switch
+            {
+                SupplyProviderKind.City => LabelForCity(state, provider.Id),
+                SupplyProviderKind.Fleet => LabelForFleet(state, provider.Id),
+                _ => LabelForArmy(state, provider.Id),
+            };
             _providers.Add(new SupplyProviderChoice(provider.Kind, provider.Id, label, stock, provider.IsFree));
         }
 
@@ -318,18 +321,12 @@ public sealed class SupplyDialogModel
 
     /// <summary>
     /// Re-reads the figures for the <strong>fleet</strong> half — T112. The providers are the cities
-    /// within one tile whose owner is not at war with the fleet's nation; the <c>via</c> picker lists the
+    /// within one tile whose owner is not at war with the fleet's nation, then the nation's other fleets
+    /// within one tile (not under construction), then its land armies within one tile (a designed
+    /// difference under both rulesets: the original never offers an army). The <c>via</c> picker lists the
     /// treasury and every other own fleet within one tile (the fleet's own id is excluded: the engine
     /// refuses a <c>via</c> that names the moved unit itself).
     /// </summary>
-    /// <remarks>
-    /// <strong>No fleet provider is listed.</strong> The engine's <c>buy-fleet-supply</c> command and
-    /// handler support a provider fleet as well as a provider city, but
-    /// <c>GameSession</c>'s own <c>buy-fleet-supply &lt;fleet&gt; &lt;city&gt; &lt;tons&gt;</c> parser
-    /// builds only the city-provider form, so a provider fleet could not be committed from this screen.
-    /// Listing one would offer a purchase the game cannot carry out, so it is left out here and the gap
-    /// is reported on the task rather than invented around.
-    /// </remarks>
     public void Refresh(GameState state, FleetState fleet)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -358,6 +355,33 @@ public sealed class SupplyDialogModel
 
             var (label, stock) = LabelForCity(state, city.Id);
             _providers.Add(new SupplyProviderChoice(SupplyProviderKind.City, city.Id, label, stock, isOwnCity));
+        }
+
+        foreach (var other in state.Fleets)
+        {
+            if (string.Equals(other.Id, fleet.Id, StringComparison.Ordinal)
+                || !string.Equals(other.Nation, fleet.Nation, StringComparison.Ordinal)
+                || other.IsUnderConstruction
+                || LandingTile.ChebyshevDistance(fleetTile, new GridPoint(other.X, other.Y)) > radius)
+            {
+                continue;
+            }
+
+            var (label, stock) = LabelForFleet(state, other.Id);
+            _providers.Add(new SupplyProviderChoice(SupplyProviderKind.Fleet, other.Id, label, stock, true));
+        }
+
+        foreach (var army in state.Armies)
+        {
+            if (!string.Equals(army.Nation, fleet.Nation, StringComparison.Ordinal)
+                || army.IsEmbarked
+                || LandingTile.ChebyshevDistance(fleetTile, new GridPoint(army.X, army.Y)) > radius)
+            {
+                continue;
+            }
+
+            var (label, stock) = LabelForArmy(state, army.Id);
+            _providers.Add(new SupplyProviderChoice(SupplyProviderKind.Army, army.Id, label, stock, true));
         }
 
         if (_selectedProviderIndex >= _providers.Count)
@@ -393,15 +417,15 @@ public sealed class SupplyDialogModel
 
     private string BuyLine(SupplyProviderChoice provider, int tons)
     {
-        if (_fleetId is { } fleetId)
+        var providerToken = provider.Kind switch
         {
-            // The fleet half: buy-fleet-supply only reaches a city provider — see Refresh(GameState,
-            // FleetState)'s remarks.
-            return $"buy-fleet-supply {fleetId} {provider.Id} {tons}";
-        }
-
-        var providerToken = provider.Kind == SupplyProviderKind.Fleet ? $"fleet {provider.Id}" : provider.Id;
-        return $"buy {_armyId} {providerToken} {tons}";
+            SupplyProviderKind.Fleet => $"fleet {provider.Id}",
+            SupplyProviderKind.Army => $"army {provider.Id}",
+            _ => provider.Id,
+        };
+        return _fleetId is { } fleetId
+            ? $"buy-fleet-supply {fleetId} {providerToken} {tons}"
+            : $"buy {_armyId} {providerToken} {tons}";
     }
 
     private static (string Label, int Stock) LabelForCity(GameState state, string cityId)
@@ -418,5 +442,13 @@ public sealed class SupplyDialogModel
         return fleet is null
             ? ($"Supplies at {fleetId}: 0", 0)
             : ($"Supplies at {fleetId}: {fleet.SupplyTons}", fleet.SupplyTons);
+    }
+
+    private static (string Label, int Stock) LabelForArmy(GameState state, string armyId)
+    {
+        var army = state.ArmyById(armyId);
+        return army is null
+            ? ($"Supplies on army {armyId}: 0", 0)
+            : ($"Supplies on army {armyId}: {army.SupplyTons}", army.SupplyTons);
     }
 }

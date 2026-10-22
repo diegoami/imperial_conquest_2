@@ -44,7 +44,7 @@ namespace IC2.Engine.Economy.Commands;
 /// <see cref="CityId"/>. <c>null</c> by default, so every existing 4-argument call site is unaffected.
 /// </param>
 public sealed record BuySupplyCommand(
-    string IssuingNationId, string ArmyId, string? CityId, int Tons, string? ProviderFleetId = null) : ICommand
+    string IssuingNationId, string ArmyId, string? CityId, int Tons, string? ProviderFleetId = null, string? ProviderArmyId = null) : ICommand
 {
     /// <inheritdoc/>
     public string Kind => "economy.buy-supply";
@@ -96,6 +96,15 @@ public static class BuySupplyRejections
     /// <summary>The named provider fleet is more than one tile from the buying army.</summary>
     public static readonly RejectionCode ProviderFleetNotWithinRange = new("supply.provider-fleet-not-within-range");
 
+    /// <summary>The provider army named does not exist.</summary>
+    public static readonly RejectionCode UnknownProviderArmy = new("supply.unknown-provider-army");
+
+    /// <summary>The provider army belongs to another nation, is aboard a fleet, or is the buying army itself.</summary>
+    public static readonly RejectionCode ProviderArmyNotEligible = new("supply.provider-army-not-eligible");
+
+    /// <summary>The provider army is not within one tile of the buying army.</summary>
+    public static readonly RejectionCode ProviderArmyNotWithinRange = new("supply.provider-army-not-within-range");
+
     /// <summary>
     /// T50 Done-when 5 (issue #167): the provider city is more than one tile from the buying army.
     /// <c>TAFSupply_FindProviders</c> [confirmed: supply-capacity-rounding.md:33] offers "every city within
@@ -130,5 +139,23 @@ public sealed record ArmySupplyPurchasedFromFleet(
     string ArmyId,
     string NationId,
     string ProviderFleetId,
+    int RequestedTons,
+    int AdmittedTons) : DomainEvent;
+
+/// <summary>
+/// An army took supply from an adjacent own army (the owner's decision of 2026-10-22: an army is a supply
+/// provider under both rulesets, a recorded difference from the original, whose provider list has no army).
+/// No talents change hands.
+/// </summary>
+/// <param name="ArmyId">The buying army.</param>
+/// <param name="NationId">Its nation.</param>
+/// <param name="ProviderArmyId">The providing army.</param>
+/// <param name="RequestedTons">What the command asked for.</param>
+/// <param name="AdmittedTons">What was actually transferred.</param>
+[DomainEvent("economy.army-supply-taken-from-army")]
+public sealed record ArmySupplyTakenFromArmy(
+    string ArmyId,
+    string NationId,
+    string ProviderArmyId,
     int RequestedTons,
     int AdmittedTons) : DomainEvent;

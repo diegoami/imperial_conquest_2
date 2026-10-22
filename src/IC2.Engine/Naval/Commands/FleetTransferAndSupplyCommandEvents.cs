@@ -57,4 +57,5 @@ public sealed record FleetSupplyPurchased(
     int RequestedTons,
     int AdmittedTons,
     int TalentsPaid,
-    bool WasFreeOwnCity) : DomainEvent;
+    bool WasFreeOwnCity,
+    string? ProviderArmyId = null) : DomainEvent;

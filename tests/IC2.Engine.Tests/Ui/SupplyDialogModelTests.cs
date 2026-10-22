@@ -239,4 +239,38 @@ public sealed class SupplyDialogModelTests
         Assert.Null(model.MoneyViaChoices[0].FleetId);
         Assert.Equal(OwnFleetId, model.MoneyViaChoices[1].FleetId);
     }
+
+    /// <summary>
+    /// A designed difference under both rulesets (owner decision, 2026-10-22): another own land army within
+    /// one tile is listed after the fleets and composes the <c>army</c> form, for an army and for a fleet.
+    /// </summary>
+    [Fact]
+    public void Another_own_army_is_a_provider_for_an_army_and_for_a_fleet()
+    {
+        const string otherArmyId = "t134-other-army";
+        var state = Scripted();
+        var other = state.ArmyById(ArmyId)! with { Id = otherArmyId, X = 3, Y = 3, SupplyTons = 60 };
+        state = state with
+        {
+            Armies = ValueList.Of(new[] { state.ArmyById(ArmyId)!, other }),
+            Fleets = ValueList.Of(new[] { Fleet(OwnFleetId, X: 3, Y: 3, supplyTons: 200), Fleet("t134-second-fleet", X: 4, Y: 3, supplyTons: 50) }),
+        };
+
+        var armyModel = Model(state);
+        Assert.Equal(otherArmyId, armyModel.Providers[^1].Id);
+        Assert.Equal($"Supplies on army {otherArmyId}: 60", armyModel.Providers[^1].Label);
+        SelectById(armyModel, otherArmyId);
+        Assert.Equal($"buy {ArmyId} army {otherArmyId} 10", armyModel.PressSupply(SupplyDialogModel.SupplyStepTons));
+
+        var fleetModel = SupplyDialogModel.ForFleet(state, state.FleetById(OwnFleetId)!, ClassicalRuleset);
+        Assert.Equal(
+            new[] { OwnCityId, ForeignCityId, "t134-second-fleet", ArmyId, otherArmyId },
+            fleetModel.Providers.Select(p => p.Id).ToArray());
+        SelectById(fleetModel, "t134-second-fleet");
+        Assert.Equal($"buy-fleet-supply {OwnFleetId} fleet t134-second-fleet 10", fleetModel.PressSupply(SupplyDialogModel.SupplyStepTons));
+        SelectById(fleetModel, otherArmyId);
+        Assert.Equal($"buy-fleet-supply {OwnFleetId} army {otherArmyId} 10", fleetModel.PressSupply(SupplyDialogModel.SupplyStepTons));
+        SelectById(fleetModel, OwnCityId);
+        Assert.Equal($"buy-fleet-supply {OwnFleetId} {OwnCityId} 10", fleetModel.PressSupply(SupplyDialogModel.SupplyStepTons));
+    }
 }
