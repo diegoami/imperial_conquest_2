@@ -344,11 +344,27 @@ public partial class TacticalBattleCheck : Node
             .First();
         screen.SelectUnit(0);
         Check(screen.SelectedSlot == 0, "a click on an own unit selects it");
+        // Placed with the designed pauses, so the placement's glide is still playing back at the next click.
+        var (savedShot, savedAttack) = (SettingsScreen.BattleShotDelaySeconds, SettingsScreen.BattleAttackDelaySeconds);
+        SettingsScreen.SetBattlePauses(1, 2);
         screen.ClickBoardCell(target.X, screen.BoardYForEngineY(target.Y));
         var placed = mainGame.Session.OpenTacticalBattle!.Slots[0];
         Check(
             placed.X == target.X && placed.Y == target.Y,
             $"the placement click reached the engine (unit 0 at ({placed.X},{placed.Y}), wanted ({target.X},{target.Y}))");
+
+        // The next click on another own unit selects it at once, even while the placement still plays back.
+        if (mainGame.Session.OpenTacticalBattle!.Slots[1].IsLive)
+        {
+            var playingBefore = screen.IsPlayingBack;
+            screen.SelectUnit(1);
+            Check(
+                playingBefore && screen.SelectedSlot == 1 && !screen.IsPlayingBack,
+                $"the first click after a placement, during its playback, ends it and selects the next unit (selected {screen.SelectedSlot}, playback before the click {playingBefore})");
+        }
+
+        screen.SkipPlayback();
+        SettingsScreen.SetBattlePauses(savedShot, savedAttack);
 
         // End turn reaches the engine.
         var counterBefore = mainGame.Session.OpenTacticalBattle!.Counter;

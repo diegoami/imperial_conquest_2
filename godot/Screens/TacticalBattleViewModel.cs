@@ -597,9 +597,47 @@ public sealed class TacticalBattleViewModel
                 lines.Add($"Moves: {unit.Moves.ToString(CultureInfo.InvariantCulture)}");
                 lines.Add($"Shots: {unit.Shots.ToString(CultureInfo.InvariantCulture)}");
                 lines.Add($"Attacks: {(unit.Target >= 0 && unit.Target < _view.Slots.Count ? _view.Slots[unit.Target].Name : "nobody")}");
+                lines.AddRange(PlannedExchangeLines);
             }
 
             return lines;
+        }
+    }
+
+    /// <summary>
+    /// The live enemy the selected own unit has set as its melee target, or -1. The melee is resolved at End
+    /// turn (<c>FUN_00439C20</c>); the board marks this unit as the target while no exchange is being shown.
+    /// </summary>
+    public int PlannedTargetSlot
+    {
+        get
+        {
+            if (SelectedSlot < 0 || SelectedSlot >= _view.Slots.Count || SideOf(SelectedSlot) != _perspective) return -1;
+            var target = _view.Slots[SelectedSlot].Target;
+            return target >= 0 && target < _view.Slots.Count && _view.Slots[target].IsLive ? target : -1;
+        }
+    }
+
+    /// <summary>
+    /// The planned melee of the selected own unit: who attacks whom, with nation, type and troops, and how many
+    /// own units have set the same target (the exchange's focus). Empty when it has none.
+    /// </summary>
+    public IReadOnlyList<string> PlannedExchangeLines
+    {
+        get
+        {
+            var target = PlannedTargetSlot;
+            if (target < 0) return Array.Empty<string>();
+            var unit = _view.Slots[SelectedSlot];
+            var enemy = _view.Slots[target];
+            var focus = LiveOf(_perspective).Count(s => _view.Slots[s].Target == target);
+            return new[]
+            {
+                "Planned melee, at End turn:",
+                $"{unit.Name} ({TypeName(unit.Type)}, {unit.Troops.ToString(CultureInfo.InvariantCulture)} troops) attacks",
+                $"{enemy.Name} of {NationName(SideOf(target))} ({TypeName(enemy.Type)}, {enemy.Troops.ToString(CultureInfo.InvariantCulture)} troops)",
+                focus == 1 ? "No other unit attacks it." : $"{focus} of your units attack it.",
+            };
         }
     }
 
@@ -789,7 +827,7 @@ public sealed class TacticalBattleViewModel
                 var slot = SlotAt(x, y);
                 cells.Add(new BattleCellView(
                     x, y, code, slot, side, validIcon ? BattleAssetKeys.UnitIcon(typeId, size) : null, slot >= 0 && slot == SelectedSlot,
-                    slot >= 0 && slot == ActorSlot, slot >= 0 && slot == TargetSlot));
+                    slot >= 0 && slot == ActorSlot, slot >= 0 && (slot == TargetSlot || (TargetSlot < 0 && slot == PlannedTargetSlot))));
             }
         }
 

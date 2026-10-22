@@ -222,8 +222,37 @@ public sealed class TacticalBattleViewModelTests
 
         var model = TacticalBattleViewModel.From(changed, display, selectedSlot: 0);
 
-        Assert.Equal($"Attacks: {view.Slots[20].Name}", model.PanelLines[^1]);
+        Assert.Contains($"Attacks: {view.Slots[20].Name}", model.PanelLines);
         Assert.Equal(view.Slots[20].Name, model.UnitMovesRows.Single(r => r.Slot == 0).Cells[4]);
+    }
+
+    [Fact]
+    public void A_selected_unit_with_a_melee_target_shows_the_planned_exchange_and_marks_the_target()
+    {
+        var (_, view, display) = Opened();
+        var slots = view.Slots.ToList();
+        slots[0] = slots[0] with { Target = 20 };
+        var changed = view with { Slots = IC2.Engine.Model.ValueList.From(slots) };
+        var own = changed.Slots[0];
+        var enemy = changed.Slots[20];
+
+        var model = TacticalBattleViewModel.From(changed, display, selectedSlot: 0);
+
+        Assert.Equal(20, model.PlannedTargetSlot);
+        Assert.Equal(
+            new[]
+            {
+                "Planned melee, at End turn:",
+                $"{own.Name} ({display.UnitTypeNames[own.Type]}, {own.Troops} troops) attacks",
+                $"{enemy.Name} of {display.DefenderNationName} ({display.UnitTypeNames[enemy.Type]}, {enemy.Troops} troops)",
+                "No other unit attacks it.",
+            },
+            model.PlannedExchangeLines.ToArray());
+        Assert.True(model.Cells.Single(c => c.X == enemy.X && c.Y == enemy.Y).Target);
+
+        // Nothing is planned for an enemy unit, or for an own unit with no target.
+        Assert.Empty(TacticalBattleViewModel.From(changed, display, selectedSlot: 20).PlannedExchangeLines);
+        Assert.Empty(TacticalBattleViewModel.From(view, display, selectedSlot: 0).PlannedExchangeLines);
     }
 
     [Fact]

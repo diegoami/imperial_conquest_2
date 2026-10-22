@@ -2404,6 +2404,11 @@ public partial class MainGameScreen : Control
         };
         var audio = new Audio.TacticalPlaybackAudio(Session.Ruleset, () => SettingsScreen.SoundEnabled, _soundPlayer.PlayTactical);
         screen.ExchangeEntered += audio.ExchangeEntered;
+        screen.MeleeTargetSet += (unit, enemy) =>
+        {
+            if (SettingsScreen.SoundEnabled)
+                _soundPlayer.PlayTactical(new Audio.TacticalAudioCue($"melee-target {unit}->{enemy}", 0, IC2.Engine.Assets.AssetKeys.SfxBattleMelee));
+        };
         screen.BattleEnded += output => ShowBattleEndedOverlay(screen, output);
         screen.SaveRequested += () => CommandTable.TryInvoke("file.save");
         screen.SaveAsRequested += () => CommandTable.TryInvoke("file.save_as");
