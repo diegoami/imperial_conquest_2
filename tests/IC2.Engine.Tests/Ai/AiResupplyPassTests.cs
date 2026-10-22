@@ -180,26 +180,45 @@ public sealed class AiResupplyPassTests
         Assert.Equal(0, AiResupplyPass.Run(justBeyond, Ruleset, ArmyNation).ArmyTransfers);
     }
 
-    /// <summary>
-    /// An embarked army is off the map (the original's <c>-1</c> covered-tile sentinel) and is supplied
-    /// by the fleet carrying it, not by a city it has no position relative to.
-    /// </summary>
-    [Fact]
-    public void An_embarked_army_is_skipped()
+    private static GameState Embarked()
     {
         var state = SupplyState();
-        var embarked = state with
+        return state with
         {
             Armies = ValueList.Of(
                 state.ArmyById("supply-army")! with { AboardFleetId = "supply-fleet", CoveredTileCode = null }),
             Fleets = ValueList.Of(state.FleetById("supply-fleet")! with { CarriedArmyId = "supply-army" }),
         };
+    }
 
-        var result = AiResupplyPass.Run(embarked, Ruleset, ArmyNation);
+    /// <summary>
+    /// The designed (improved) pass skips an army aboard: it is supplied by the fleet carrying it.
+    /// </summary>
+    [Fact]
+    public void An_embarked_army_is_skipped_by_the_designed_pass()
+    {
+        var result = AiResupplyPass.Run(Embarked(), Ruleset, ArmyNation);
 
         Assert.Equal(0, result.ArmyTransfers);
         Assert.Equal(0, result.State.ArmyById("supply-army")!.SupplyTons);
         Assert.Equal(1, result.FleetTransfers);
+    }
+
+    /// <summary>
+    /// #759: the original's support pass (<c>FUN_0044f31c</c>) reaches every own army before checking moves,
+    /// embarked ones included, at the army record's coordinates
+    /// (<c>2026-10-16-strategic-ai-regions-resupply.md</c>, research <c>500e521</c>;
+    /// <c>2026-10-21-transported-army-coordinate-lifecycle.md</c>, research <c>3a349c2</c>).
+    /// </summary>
+    [Fact]
+    public void An_embarked_army_is_supplied_by_the_faithful_pass_like_an_army_on_land()
+    {
+        var onLand = AiResupplyPass.Run(SupplyState(), Faithful, ArmyNation);
+        var aboard = AiResupplyPass.Run(Embarked(), Faithful, ArmyNation);
+
+        Assert.Equal(1, aboard.ArmyTransfers);
+        Assert.True(aboard.State.ArmyById("supply-army")!.SupplyTons > 0);
+        Assert.Equal(onLand.State.ArmyById("supply-army")!.SupplyTons, aboard.State.ArmyById("supply-army")!.SupplyTons);
     }
 
     [Fact]
@@ -338,7 +357,7 @@ public sealed class AiResupplyPassTests
     /// <summary>
     /// The fleet half of the same guard (follow-up <see href="https://github.com/diegoami/imperial_conquest_2/issues/272">#272</see>
     /// N2): both existing zero-ton cases above (<see cref="A_hostile_city_supplies_nothing"/> and
-    /// <see cref="An_embarked_army_is_skipped"/>) leave <c>Fleets</c> empty, so nothing has ever pinned the
+    /// <see cref="An_embarked_army_is_skipped_by_the_designed_pass"/>) leave <c>Fleets</c> empty, so nothing has ever pinned the
     /// fleet loop's own <c>MovesNothing</c> check. A fleet already at its supply capacity, paired with a
     /// city, must not have T38's purse hygiene grant it a top-up for a visit that moved nothing.
     /// </summary>

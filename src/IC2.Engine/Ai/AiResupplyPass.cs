@@ -42,10 +42,10 @@ namespace IC2.Engine.Ai;
 /// model's own <see cref="ValueList{T}"/> orders, stable across a save/load round trip.
 /// </para>
 /// <para>
-/// <strong>What is skipped, and why.</strong> An embarked army (<see cref="ArmyState.IsEmbarked"/>) is
-/// off the map — its <see cref="ArmyState.CoveredTileCode"/> is the original's <c>-1</c> sentinel — so it
-/// has no position to measure a city against; it is supplied by the fleet carrying it, through that
-/// fleet's own pass. A fleet still under construction is likewise not on the map. A city whose owner does
+/// <strong>What is skipped, and why.</strong> Under the original economy an embarked army
+/// (<see cref="ArmyState.IsEmbarked"/>) is supplied like any other, at its own coordinates, its fleet's
+/// tile: the original's support pass reaches every own army (#759). The designed economy skips it; there
+/// it is supplied by the fleet carrying it, through that fleet's own pass. A fleet still under construction is likewise not on the map. A city whose owner does
 /// not resolve to a nation is skipped rather than crashing the turn:
 /// <see cref="AutomaticResupply.ForArmy"/> requires the owning <see cref="NationState"/> as an argument
 /// and throws without it. Designed economy also declines pairings that move no supply and cost
@@ -101,7 +101,10 @@ public static class AiResupplyPass
             var entryPurse = state.ArmyById(armyId)?.Money ?? 0;
             foreach (var cityId in CityIds(state))
             {
-                if (state.ArmyById(armyId) is not { } army || army.IsEmbarked)
+                // #759: the original's support pass (FUN_0044f31c) reaches every own army, embarked ones
+                // included, at the army record's own coordinates (its fleet's tile). The improved
+                // ruleset's designed pass keeps skipping armies aboard.
+                if (state.ArmyById(armyId) is not { } army || (army.IsEmbarked && !faithful))
                 {
                     break;
                 }
