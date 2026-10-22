@@ -2409,6 +2409,18 @@ public sealed record AiRecruitTypeBucket(string UnitTypeId, int UpperBoundExclus
 /// reconciling Total and found none, so it rests on the user's decision alone.
 /// No charge changes under either value; read only by <see cref="IC2.Engine.Economy.BalanceSheet"/>.
 /// </param>
+/// <param name="StrategicStep">
+/// #1012: how a strategic move's single step chooses its cell. <c>classical-faithful</c> (and the Italy
+/// ruleset built from it) is <see cref="StrategicStepPolicy.LateralAlternatives"/>: the original prices the
+/// line's cell and two lateral alternatives and leaves the line only for a strictly cheaper one, the first
+/// winning a tie, entering the destination without the comparison <strong>[confirmed, partial: source,
+/// bounded original-x86 controls and legacy Wine endpoints; 2026-10-21-strategic-lateral-steps-and-callers.md,
+/// research f698190]</strong>; <c>improved</c> and the toy ruleset are
+/// <see cref="StrategicStepPolicy.StraightLine"/>, the line's own cells <strong>[designed: the user's decision
+/// of 2026-10-12 on #1012]</strong>. Under both, a city, army or fleet on the line is stepped around when an
+/// alternative is open (the original's marker cost 10; the user's decision of 2026-10-21 extends it to
+/// <c>improved</c>). Read by <see cref="IC2.Engine.Movement.MovementWalker"/>'s army and fleet callers.
+/// </param>
 public sealed record RulesetFlags(
     DiplomacyModel DiplomacyModel,
     EconomyPurseModel EconomyPurses,
@@ -2422,6 +2434,7 @@ public sealed record RulesetFlags(
     EndTurnWarningScope EndTurnWarningScope,
     NewGameTurnOrderPolicy NewGameTurnOrder,
     BalanceSheetTotalsPolicy BalanceSheetTotals,
+    StrategicStepPolicy StrategicStep,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>How faithfully diplomacy follows the original (audit Q3).</summary>
@@ -2509,6 +2522,16 @@ public enum HumanMoveResupplyPolicy
     /// against the first such city in list order.
     /// </summary>
     AgainstNonHostileCity,
+}
+
+/// <summary>#1012: how a strategic move's single step chooses its cell (<see cref="RulesetFlags.StrategicStep"/>).</summary>
+public enum StrategicStepPolicy
+{
+    /// <summary>The line's own cell unless it is blocked; then a lateral alternative.</summary>
+    StraightLine,
+
+    /// <summary>The original's step: the line's cell or a strictly cheaper lateral alternative, first on a tie.</summary>
+    LateralAlternatives,
 }
 
 /// <summary>How the Balance sheet totals its Expenditure column and shows its Debt limit (T167).</summary>

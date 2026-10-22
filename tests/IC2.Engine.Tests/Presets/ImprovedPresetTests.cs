@@ -165,6 +165,7 @@ public class ImprovedPresetTests
             "flags.endTurnWarningScope",
             "flags.newGameTurnOrder",
             "flags.balanceSheetTotals",
+            "flags.strategicStep",
             "economy.rebirthPreservesInboundRelations",
             "victory.defaultCondition",
             "victory.defaultTurnLimit",

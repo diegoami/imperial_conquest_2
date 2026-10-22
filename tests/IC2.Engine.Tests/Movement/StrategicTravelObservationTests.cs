@@ -68,9 +68,13 @@ public sealed class StrategicTravelObservationTests
     [InlineData(true, 3)]
     public void Noop_first_blocked_zero_budget_and_refused_orders_emit_no_travel(bool fleet, int mode)
     {
+        // #1012: a blocker on the first cell is stepped around through its open lateral (1,1), so mode 1
+        // walls that off too.
         var session = Session(fleet, moves: mode == 2 ? 0 : 10, change: state => mode == 1
-            ? fleet ? state with { Fleets = ValueList.From(state.Fleets.Append(state.Fleets[0] with { Id = "block", X = 1 })) }
-                    : state with { Armies = ValueList.From(state.Armies.Append(state.Armies[0] with { Id = "block", X = 1 })) }
+            ? fleet ? state with { Fleets = ValueList.From(state.Fleets.Append(state.Fleets[0] with { Id = "block", X = 1 })
+                    .Append(state.Fleets[0] with { Id = "block-2", X = 1, Y = 1 })) }
+                    : state with { Armies = ValueList.From(state.Armies.Append(state.Armies[0] with { Id = "block", X = 1 })
+                    .Append(state.Armies[0] with { Id = "block-2", X = 1, Y = 1 })) }
             : state);
         var verb = fleet ? "move-fleet" : "move";
         var id = mode == 3 ? "missing" : fleet ? "f" : "a";
@@ -90,11 +94,16 @@ public sealed class StrategicTravelObservationTests
     {
         var toy = CoreTestbed.Toy;
         var blockedCode = toy.World.TileTypes.First(t => t.Id == (fleet ? "plain" : "sea_calm")).Code;
+        // #1012: the walker steps around a blocked cell through an open lateral, so the cell below it, (3,1),
+        // is blocked too (row 0 has no lateral above).
+        var openCode = toy.World.TileTypes.First(t => t.Id == (fleet ? "sea_calm" : "plain")).Code;
         var session = Session(fleet, change: state => terrain ? state
-            : fleet ? state with { Fleets = ValueList.From(state.Fleets.Append(state.Fleets[0] with { Id = "block", X = 3 })) }
-            : state with { Armies = ValueList.From(state.Armies.Append(state.Armies[0] with { Id = "block", X = 3 })) },
+            : fleet ? state with { Fleets = ValueList.From(state.Fleets.Append(state.Fleets[0] with { Id = "block", X = 3 })
+                .Append(state.Fleets[0] with { Id = "block-2", X = 3, Y = 1 })) }
+            : state with { Armies = ValueList.From(state.Armies.Append(state.Armies[0] with { Id = "block", X = 3 })
+                .Append(state.Armies[0] with { Id = "block-2", X = 3, Y = 1 })) },
             changeWorld: world => terrain ? world with { Terrain = new(TerrainEncoding.RunLength,
-                ValueList<TerrainRun>.Of(new(world.TileTypes.First(t => t.Id == (fleet ? "sea_calm" : "plain")).Code, 3), new(blockedCode, 1), new(world.TileTypes.First(t => t.Id == (fleet ? "sea_calm" : "plain")).Code, 44))) } : world);
+                ValueList<TerrainRun>.Of(new(openCode, 3), new(blockedCode, 1), new(openCode, 7), new(blockedCode, 1), new(openCode, 36))) } : world);
         var route = Route(session.Submit(fleet ? "move-fleet f 7 0" : "move a 7 0"));
         Assert.Equal(new[] { new GridPoint(1, 0), new GridPoint(2, 0) }, route.EnteredCells);
         Assert.Equal(new GridPoint(3, 0), route.BlockedAt);

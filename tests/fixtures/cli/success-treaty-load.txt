@@ -1,7 +1,10 @@
-end
+move mac-detached 155 26
+attack-army mac-detached army-14
 peace-yes
+move mac-marines 142 42
+end
 move mac-marines 148 40
-move-fleet mac-fleet-keep 148 41
+move-fleet mac-fleet-keep 149 41
 embark-army mac-marines mac-fleet-keep
 disembark-army mac-marines 148 40
 recruit-standing pella light_infantry 200

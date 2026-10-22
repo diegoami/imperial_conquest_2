@@ -132,22 +132,23 @@ public sealed class MoveArmyCommandHandlerTests
     }
 
     [Fact]
-    public void A_move_blocked_by_a_city_marker_stops_before_it_and_charges_nothing_for_it()
+    public void A_city_on_the_line_is_stepped_around_and_charged_only_for_the_cells_entered()
     {
-        // Row y=2, (3,2) toward (6,2), straight through Portus at (5,2) -- MovementWalkerTests documents
-        // the same path: only (4,2) (Plain, cost 1) is entered before the block.
+        // #1012: row y=2, (3,2) toward (6,2), straight through Portus at (5,2). The step enters (4,2) (Plain,
+        // 1); at the blocked cursor (5,2) it takes the first open lateral, (5,3) (Plain, 1) over (5,1)
+        // (Forest, 2); the destination (6,2) (Forest, 2) is then entered without the comparison.
         var dispatcher = Dispatcher();
         var before = CoreTestbed.InitialState();
         var army = before.ArmyById("north-army-1")!;
         var portus = before.CityById("portus")!;
         Assert.Equal((5, 2), (portus.X, portus.Y));
+        Assert.True(army.Moves >= 4);
 
         var result = dispatcher.Dispatch(before, new MoveArmyCommand(before.ActiveNationId, army.Id, 6, 2));
 
         Assert.True(result.IsAccepted);
         var updated = result.State.ArmyById(army.Id)!;
-        Assert.Equal(4, updated.X);
-        Assert.Equal(2, updated.Y);
-        Assert.Equal(army.Moves - 1, updated.Moves);
+        Assert.Equal((6, 2), (updated.X, updated.Y));
+        Assert.Equal(army.Moves - 4, updated.Moves);
     }
 }

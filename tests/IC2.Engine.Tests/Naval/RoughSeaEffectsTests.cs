@@ -81,7 +81,9 @@ public sealed class RoughSeaEffectsTests
     [Fact]
     public void Only_the_rough_cells_of_a_longer_walk_cost_three_and_leaving_rough_sea_restores_the_calm_code()
     {
-        var state = OpenSeaState(FleetAt(10, 10), new RoughSeaCell(12, 10));
+        // #1012: the original's fleet step leaves a rough cell for a strictly cheaper calm alternative, so
+        // the cells beside (12,10) are rough too; the line then wins the tie.
+        var state = OpenSeaState(FleetAt(10, 10), new RoughSeaCell(12, 9), new RoughSeaCell(12, 10), new RoughSeaCell(12, 11));
 
         // (10,10) -> (13,10): enters (11,10) calm 1, (12,10) rough 3, (13,10) calm 1 = 5 moves.
         var after = Move(state, 13, 10).FleetById("test-fleet")!;

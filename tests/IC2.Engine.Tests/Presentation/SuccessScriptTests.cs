@@ -15,9 +15,9 @@ namespace IC2.Engine.Tests.Presentation;
 /// <para>
 /// <strong>Four independent cases.</strong> T192 retains a corrected new-game Macedonia/seed3
 /// prefix in <c>success.txt</c>; B (<c>success-trade-offer.txt</c>) accepts its actual Numidia
-/// trade immediately after original end22 and replays every later command. The unchanged original
-/// A78–87 group lives in <c>success-treaty-load.txt</c>, resumed from one pinned native baseline
-/// port save before original78. That historical state is not supplied by corrected A. Fleet remains
+/// trade immediately after original end22 and replays every later command. The peace answer and the
+/// marine group live in <c>success-treaty-load.txt</c>, resumed from one native port save taken on the
+/// corrected A path (#1012; see below). Fleet remains
 /// a fresh <c>toy-3city</c> case. Every case has nonempty golden equality, fresh-session/load
 /// determinism and per-line own-verb acceptance; <see cref="CommandCoverageTests"/> aggregates all four.
 /// </para>
@@ -75,12 +75,24 @@ namespace IC2.Engine.Tests.Presentation;
 /// </para>
 /// <para>
 /// <strong>T192 boundaries and provenance.</strong> Command numbers refer to A at baseline
-/// <c>a3dbf161b3b40bb02717845e933754ef08623854</c>. Corrected A keeps original1–78 with only
-/// the three specified preparation moves and sacrificial attack relocation. The loaded group duplicates
-/// original78 and retains original79–87 unchanged, including the same peace answer and marine sequence.
-/// The native save was produced by ordinary baseline play/save after original77; it preserves the
-/// naturally reached root, human seat and fixed order. The adjacent provenance file records hashes,
-/// generation/validation and claim limits. No offer/state injection, reseeding or new search was used.
+/// <c>a3dbf161b3b40bb02717845e933754ef08623854</c>. Corrected A keeps original1–78 with the three
+/// specified preparation moves and, since #1012, one move that brings <c>mac-detached</c> beside
+/// <c>army-14</c> before its attack.
+/// </para>
+/// <para>
+/// <strong>#1012 re-tune (owner decision, 2026-10-22).</strong> The lateral step changed where Thracia's
+/// <c>army-14</c> marches. The sacrificial <c>mac-sac-1</c> attack could no longer reach it, so it was
+/// dropped. Without that attack, Thracia's recruits lift its army power above Macedonia's by original78,
+/// so Thracia's win there fails the offer gate (winner power below loser power). The baseline save no
+/// longer reached an offer. With the owner's approval, the treaty save was rebuilt by ordinary current-engine
+/// play and save on corrected A, with the <c>mac-detached</c> move and attack removed, through the
+/// <c>end</c> after <c>split-fleet mac-fleet-1 mac-fleet-keep 13</c>.
+/// The loaded case attacks <c>army-14</c> with <c>mac-detached</c> (the battle is lost and the
+/// resolver offers peace), answers <c>peace-yes</c>, then runs original79–87's marine group, with
+/// <c>move mac-marines 142 42</c> and its <c>end</c> before it. The fleet waits at <c>(149, 41)</c>,
+/// because <c>(148, 41)</c> is no longer reached in one turn. The boundary was found by trying each
+/// earlier player turn; the provenance file records it. No offer or state was injected and no reseeding
+/// was used.
 /// </para>
 /// <para>
 /// <strong>Random consumers.</strong> <see cref="Battle.BattleCasualties"/>'s casualty divisor
@@ -99,9 +111,10 @@ namespace IC2.Engine.Tests.Presentation;
 /// (<c>north-fleet-1</c>, <c>south-fleet-1</c>) close enough to close the distance in a couple of turns,
 /// owned by two nations that start at peace (<c>toy-3city</c>'s own world data carries no
 /// <c>startingRelations</c> at all, unlike <c>classical-mediterranean</c>'s permanently-warring fleet
-/// owners). <c>north-fleet-1</c>'s own straight-line move toward <c>south-fleet-1</c> is blocked
-/// immediately (the direct path crosses land the movement walker will not detour around); routing it via
-/// row <c>y=5</c>, the one all-sea row on this 8x6 map, is what actually closes the distance. The battle
+/// owners). <c>north-fleet-1</c> moves to <c>(0, 5)</c> on row <c>y=5</c>, the one all-sea row on this 8x6
+/// map, and waits there: since #1012 the AI's <c>south-fleet-1</c> steps around land and comes west along
+/// that row itself, ending the second turn beside <c>north-fleet-1</c> and away from its own city (a fleet
+/// docked at <c>meridia</c> cannot be attacked), so the attack follows two <c>end</c>s. The battle
 /// itself is lost (<c>"Southern League sinks fleet of Northern League"</c>) — irrelevant to Done-when 1,
 /// which asks only that the <em>command</em> is accepted, not that the battle is won.
 /// </para>
@@ -362,9 +375,9 @@ public sealed class SuccessScriptTests
         AssertEveryMutatingLineProducedAnAcceptedOutcome(File.ReadAllText(SuccessTradeOfferGoldenPath));
     }
 
-    // T192: historical native port snapshot; no field/seed/offer injection or new-game prelude.
+    // #1012: native port snapshot from ordinary current-engine play; no field/seed/offer injection.
     private static string CliFixture(string name) => Path.Combine(ModelTestPaths.RepositoryRoot, "tests", "fixtures", "cli", name);
-    private static string TreatySavePath => Path.Combine(ModelTestPaths.RepositoryRoot, "tests", "fixtures", "saves", "success-treaty-before-end78.json");
+    private static string TreatySavePath => Path.Combine(ModelTestPaths.RepositoryRoot, "tests", "fixtures", "saves", "success-treaty-before-attack.json");
     private static GameSession NewTreatySession() => new(Classical.World, Classical.Ruleset, Classical.Scenario,
         IC2.Engine.Persistence.SaveManager.LoadFile(TreatySavePath, Classical.World, Classical.Ruleset));
 
@@ -372,7 +385,7 @@ public sealed class SuccessScriptTests
     public void The_loaded_treaty_case_has_pinned_native_context_and_exact_roundtrip()
     {
         var file = System.Text.Encoding.UTF8.GetBytes(File.ReadAllText(TreatySavePath).Replace("\r\n", "\n", StringComparison.Ordinal));
-        Assert.Equal("7494a66e8a8488fe3a95d0d8b572cb09b2a825d2d59c95de0bb8ed4c178ae77e",
+        Assert.Equal("4803fc30a60dc67c56c6206942ac93bd08043494c70db5f433e57aeb340da357",
             Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(file)));
         var save = IC2.Engine.Persistence.SaveManager.LoadFile(TreatySavePath, Classical.World, Classical.Ruleset);
         var text = IC2.Engine.Persistence.SaveManager.Serialize(save);
@@ -381,9 +394,9 @@ public sealed class SuccessScriptTests
         Assert.Equal(text, IC2.Engine.Persistence.SaveManager.Serialize(copy));
         Assert.Equal(save, copy);
         Assert.Equal(save.State, copy.State);
-        Assert.Equal("a1fdb8d15ddcafeed384adc6712615e34e9a9054daf1eecf750a25068e2345c3", IC2.Engine.Core.GameStateHash.Compute(copy.State));
-        Assert.Equal(14811735145207618862UL, copy.State.RandomSeed);
-        Assert.Equal(15, copy.State.Calendar.TurnIndex);
+        Assert.Equal("4b17202ae07488627ab40a1bdd4b035bed4b32a4ede64dcbe37574c86d45cf91", IC2.Engine.Core.GameStateHash.Compute(copy.State));
+        Assert.Equal(17524961124136824322UL, copy.State.RandomSeed);
+        Assert.Equal(13, copy.State.Calendar.TurnIndex);
         Assert.Equal("macedonia", copy.State.ActiveNationId);
         Assert.Equal("macedonia", Assert.Single(copy.State.Nations, n => n.Control == IC2.Engine.Model.SeatControl.Human).Id);
         Assert.Equal("classical-mediterranean", copy.ScenarioId);
@@ -407,7 +420,7 @@ public sealed class SuccessScriptTests
         var transcript = RunTranscript(session, File.ReadAllLines(CliFixture("success-treaty-load.txt")));
         AssertEveryMutatingLineProducedAnAcceptedOutcome(transcript);
         Assert.Contains(offers, e => e.WinnerNationId == "thracia" && e.LoserNationId == "macedonia");
-        Assert.Contains(battles, e => e.Result.AttackerId == "army-14" && e.Result.DefenderId == "mac-merc" && e.Result.PeaceTreatyOffered);
+        Assert.Contains(battles, e => e.Result.AttackerId == "mac-detached" && e.Result.DefenderId == "army-14" && e.Result.PeaceTreatyOffered);
         Assert.Equal(File.ReadAllText(CliFixture("success-treaty-load.golden.txt")), transcript);
         AssertEveryMutatingLineProducedAnAcceptedOutcome(File.ReadAllText(CliFixture("success-treaty-load.golden.txt")));
     }
@@ -519,16 +532,23 @@ quit
         var prefix = new List<string>();
         for (var i = 1; i <= 78; i++)
         {
+            // #1012: army-14 marches elsewhere now, so mac-detached first steps beside it, and the
+            // sacrificial mac-sac-1 attack (original68), which can no longer reach it, is dropped.
+            if (i == 58) prefix.Add("move mac-detached 156 24");
             if (i == 60) prefix.Add("move mac-sac-1 148 40");
-            if (i == 67) { prefix.Add("move mac-sac-1 154 35"); prefix.Add(original[67]); }
             if (i != 68) prefix.Add(original[i - 1]);
             if (i == 70) prefix.Add("move mac-merc 139 43");
         }
         var trade = original.Take(67).Append("end").ToList();
         trade.Insert(22, "accept-offer");
+        trade.Insert(58, "move mac-detached 156 24");
+        // #1012: the loaded case resumes before the mac-detached attack (original58), whose lost battle
+        // is offered peace, then runs original79's answer and the marine group (original77, 78, 80-87).
+        var treaty = new[] { "move mac-detached 155 26", original[57], original[78], original[76], original[77] }
+            .Concat(original.Skip(79).Select(l => l.StartsWith("move-fleet mac-fleet-keep ", StringComparison.Ordinal) ? "move-fleet mac-fleet-keep 149 41" : l));
         Assert.Equal(prefix, File.ReadAllLines(SuccessScriptPath));
         Assert.Equal(trade, File.ReadAllLines(SuccessTradeOfferScriptPath));
-        Assert.Equal(original.Skip(77), File.ReadAllLines(CliFixture("success-treaty-load.txt")));
+        Assert.Equal(treaty, File.ReadAllLines(CliFixture("success-treaty-load.txt")));
     }
 
     // ---- success-fleet.txt ----

@@ -55,6 +55,7 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
             var exceptions = new List<string>();
             var exempted = new List<string>();
             var confirmedDestruction = new List<string>();
+            var redecided = new List<string>();
             var seatName = resolved.World.Nations.Single(n => string.Equals(n.Id, seat, StringComparison.Ordinal)).Name;
 
             for (var r = 1; r <= Rounds; r++)
@@ -106,6 +107,13 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
                             continue;
                         }
 
+                        if (turns.TryGetValue(decision.NationId, out var ownEvents)
+                            && IsRedecidedAndCarriedOut(roundDecisions, decisionIndex, ownEvents))
+                        {
+                            redecided.Add(Describe(r, decision));
+                            continue;
+                        }
+
                         exceptions.Add(Describe(r, decision));
                     }
                 }
@@ -116,7 +124,8 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
                 + $"{attackDecisions} attack decisions, {checkedDecisions} checked, {captures} AI captures, {carriedOut} carried out, "
                 + $"{allSkipped} candidates skipped by the reachability rule across all {allDecisions} logged decisions "
                 + $"({skipped} of them in attack decisions), "
-                + $"{exceptions.Count} exceptions, {exempted.Count} exempted (superseded, target unreachable), {confirmedDestruction.Count} superseded by confirmed destruction");
+                + $"{exceptions.Count} exceptions, {exempted.Count} exempted (superseded, target unreachable), {confirmedDestruction.Count} superseded by confirmed destruction, "
+                + $"{redecided.Count} re-decided from the same tile and carried out");
             foreach (var exemption in exempted.Take(12))
             {
                 output.WriteLine("  exempted: " + exemption);
@@ -399,6 +408,27 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
     /// <see cref="TurnBoundaryState"/>), with the army placed at the decision's recorded position (it has moved
     /// since). An army absent from the boundary state is never exempt.
     /// </summary>
+    /// <summary>
+    /// #1012: since the walker steps around towns on the line, a far target the old straight-line rule
+    /// skipped can be the tree's pick; the turn's later pass may then re-decide the same army from the same
+    /// tile with the state moved on (another kind, here the mercenary run) and march it. That army did not
+    /// stall: the later decision is carried out, so the earlier one is exempt. Narrow: same army, same tile,
+    /// a later decision of another kind, and the army actually moved off that tile this turn.
+    /// </summary>
+    internal static bool IsRedecidedAndCarriedOut(
+        IReadOnlyList<AiArmyTargetTree.DecisionRecord> decisions, int index, List<DomainEvent> turnEvents)
+    {
+        var decision = decisions[index];
+        var later = decisions.Skip(index + 1).Any(d =>
+            string.Equals(d.ArmyId, decision.ArmyId, StringComparison.Ordinal)
+            && d.ArmyX == decision.ArmyX && d.ArmyY == decision.ArmyY
+            && d.Kind != decision.Kind);
+        return later && turnEvents.OfType<ArmyMoved>().Any(m =>
+            string.Equals(m.ArmyId, decision.ArmyId, StringComparison.Ordinal)
+            && m.FromX == decision.ArmyX && m.FromY == decision.ArmyY
+            && (m.ToX != m.FromX || m.ToY != m.FromY));
+    }
+
     internal static bool IsSuperseded(
         List<AiArmyTargetTree.DecisionRecord> decisions,
         int decisionIndex,

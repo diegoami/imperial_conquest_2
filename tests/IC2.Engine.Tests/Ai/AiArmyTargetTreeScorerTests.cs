@@ -372,7 +372,7 @@ public sealed partial class AiArmyTargetTreeScorerTests
         return OpenPlain with { Terrain = new TerrainGrid(TerrainEncoding.RunLength, ValueList.From(runs)) };
     }
 
-    /// <summary>A city across a sea tile on the straight line is skipped, and the next-best city is chosen.</summary>
+    /// <summary>A city behind a sea wall across the line (#1012: the step goes around a single sea tile) is skipped, and the next-best city is chosen.</summary>
     [Fact]
     public void Reachability_skips_a_city_whose_straight_line_crosses_the_sea_and_takes_the_next_best()
     {
@@ -382,21 +382,25 @@ public sealed partial class AiArmyTargetTreeScorerTests
         var cities = new[] { City("us-capital", Us, 8, 10), blocked, open, City("them-capital", Them, 40, 40) };
 
         var control = AiArmyTargetTree.ScoreCityTarget(ViewOf(cities, [army]), army);
-        var sea = AiArmyTargetTree.ScoreCityTarget(ViewIn(WorldWithSea((12, 10)), cities, [army]), army);
+        var sea = AiArmyTargetTree.ScoreCityTarget(ViewIn(WorldWithSea((12, 9), (12, 10), (12, 11)), cities, [army]), army);
 
         Assert.Equal("blocked", control.City!.Id);
         Assert.Equal("open", sea.City!.Id);
         Assert.Equal(1, sea.Skipped);
     }
 
-    /// <summary>A city on the line, an army on the line and a fleet on the line each stop the walk; only the target's own tile is exempt.</summary>
+    /// <summary>A wall of cities across the line stops the walk (#1012: one city is stepped around); only the target's own tile is exempt.</summary>
     [Fact]
     public void Reachability_skips_a_target_whose_first_step_is_blocked_and_takes_the_next_best()
     {
         var army = Army("a", Us, 10, 10, 20_000);
         var blockedTarget = Army("blocked", Them, 14, 10, 400);
         var openTarget = Army("open", Them, 10, 16, 1_000);
-        var cities = new[] { City("us-capital", Us, 11, 10), City("them-capital", Them, 40, 40) };
+        var cities = new[]
+        {
+            City("us-capital", Us, 11, 10), City("wall-north", Us, 11, 9), City("wall-south", Us, 11, 11),
+            City("them-capital", Them, 40, 40),
+        };
 
         var viewBlocked = ViewOf(cities, [army, blockedTarget, openTarget]);
         var picked = AiArmyTargetTree.ScoreArmyTarget(viewBlocked, army);
@@ -412,6 +416,20 @@ public sealed partial class AiArmyTargetTreeScorerTests
         var adjacent = Army("adjacent", Them, 11, 10, 400);
         var adjacentView = ViewOf([City("us-capital", Us, 11, 12), City("them-capital", Them, 40, 40)], [army, adjacent]);
         Assert.Equal("adjacent", AiArmyTargetTree.ScoreArmyTarget(adjacentView, army).Army!.Id);
+    }
+
+    /// <summary>#1012: a single city on the line no longer hides the target behind it; the step goes around it.</summary>
+    [Fact]
+    public void Reachability_keeps_a_target_behind_a_single_city_on_the_line()
+    {
+        var army = Army("a", Us, 10, 10, 20_000);
+        var behind = Army("behind", Them, 14, 10, 400);
+        var cities = new[] { City("us-capital", Us, 11, 10), City("them-capital", Them, 40, 40) };
+
+        var picked = AiArmyTargetTree.ScoreArmyTarget(ViewOf(cities, [army, behind]), army);
+
+        Assert.Equal("behind", picked.Army!.Id);
+        Assert.Equal(0, picked.Skipped);
     }
 
     /// <summary>
@@ -435,8 +453,10 @@ public sealed partial class AiArmyTargetTreeScorerTests
             Id: "fleet-blocker", Nation: "east", X: 12, Y: 10, Moves: 9, Ships: 5,
             ConditionPercent: 100, Money: 0, SupplyTons: 0, ConstructionTicksRemaining: null,
             BuildCityId: null, CarriedArmyId: null, CoveredTileCode: null);
+        // #1012: the step goes around a single fleet, so two more fleets wall off its lateral cells.
+        var walls = new[] { liveFleet with { Id = "wall-north", Y = 9 }, liveFleet with { Id = "wall-south", Y = 11 } };
 
-        var viewBlocked = ViewWithFleet(cities, [army], [liveFleet]);
+        var viewBlocked = ViewWithFleet(cities, [army], [liveFleet, .. walls]);
         var picked = AiArmyTargetTree.ScoreCityTarget(viewBlocked, army);
         Assert.Equal("clear", picked.City!.Id);
         Assert.Equal(1, picked.Skipped);
@@ -445,11 +465,11 @@ public sealed partial class AiArmyTargetTreeScorerTests
         // does not count as an obstacle: ships under construction do not block the walker any more
         // than a sea tile would. The blocked city wins.
         var constructionFleet = liveFleet with { ConstructionTicksRemaining = 3 };
-        var clearView = ViewWithFleet(cities, [army], [constructionFleet]);
+        var clearView = ViewWithFleet(cities, [army], [constructionFleet, .. walls]);
         Assert.Equal("behind-fleet", AiArmyTargetTree.ScoreCityTarget(clearView, army).City!.Id);
     }
 
-    /// <summary>An army standing on an intervening tile stops the walk; the target's own tile being the only obstacle does not.</summary>
+    /// <summary>Armies walling an intervening tile stop the walk; the target's own tile being the only obstacle does not.</summary>
     [Fact]
     public void Reachability_skips_a_target_behind_an_intervening_army_but_not_one_whose_own_tile_is_the_only_obstacle()
     {
@@ -458,8 +478,11 @@ public sealed partial class AiArmyTargetTreeScorerTests
         var fallback = City("fallback", Them, 10, 25);
         var cities = new[] { City("us-capital", Us, 8, 10), target, fallback, City("them-capital", Them, 40, 40) };
         var bystander = Army("bystander", Third, 12, 10, 100);
+        // #1012: the step goes around a single army, so two more wall off its lateral cells.
+        var wallNorth = Army("wall-north", Third, 12, 9, 100);
+        var wallSouth = Army("wall-south", Third, 12, 11, 100);
 
-        var behind = AiArmyTargetTree.ScoreCityTarget(ViewOf(cities, [army, bystander]), army);
+        var behind = AiArmyTargetTree.ScoreCityTarget(ViewOf(cities, [army, bystander, wallNorth, wallSouth]), army);
         var clear = AiArmyTargetTree.ScoreCityTarget(ViewOf(cities, [army]), army);
 
         Assert.Equal("fallback", behind.City!.Id);
@@ -490,7 +513,7 @@ public sealed partial class AiArmyTargetTreeScorerTests
     {
         var army = Army("a", Us, 10, 10, 20_000) with { SupplyTons = 0 };
         var cities = new[] { City("us-capital", Us, 20, 20), City("them-capital", Them, 14, 10, loyalty: 10, fort: 10, pop: 10) };
-        var view = ViewIn(WorldWithSea((12, 10)), cities, [army]);
+        var view = ViewIn(WorldWithSea((12, 9), (12, 10), (12, 11)), cities, [army]);
 
         var decision = AiArmyTargetTree.Decide(view, army, atWar: true);
 

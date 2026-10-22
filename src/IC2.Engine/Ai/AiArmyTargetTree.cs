@@ -1025,7 +1025,7 @@ public static class AiArmyTargetTree
     /// the army's remaining moves, the ruleset's terrain costs and every city, army, fleet and impassable
     /// tile as a blocker; <see langword="null"/> for a destination off the map.
     /// </summary>
-    private static MovementWalkResult? WalkTowards(AiView view, ArmyState army, int x, int y, int[] terrainCells)
+    private static MovementWalkResult? WalkTowards(AiView view, ArmyState army, int x, int y, int[] terrainCells, int? moves = null)
     {
         var world = view.World;
         if ((uint)x >= (uint)world.Width || (uint)y >= (uint)world.Height)
@@ -1076,61 +1076,35 @@ public static class AiArmyTargetTree
         return MovementWalker.Walk(
             new GridPoint(army.X, army.Y),
             new GridPoint(x, y),
-            army.Moves,
+            moves ?? army.Moves,
             view.Ruleset.Terrain,
             TileTypeIdAt,
             IsBlocked,
-            NullEventSink.Instance);
+            NullEventSink.Instance,
+            step: view.Ruleset.Flags.StrategicStep,
+            worldSize: new GridPoint(world.Width, world.Height));
     }
 
     /// <summary>
     /// <c>[designed]</c> reachability rule (the user's decision of 2026-10-10 on #925, the same idea as
-    /// #907's fix): a target is reachable when the existing walker's straight-line path to it is not
-    /// stopped before the target. The walker (<c>MoveArmyCommandHandler</c>) follows
-    /// <see cref="BresenhamPath"/> and stops at a tile armies cannot stand on (sea) or that holds a city, an
-    /// army or a fleet; the target's own tile is exempt, since the walk ends beside it and the attack
-    /// command takes over. The original routes around such obstacles or ships the army; the clone does
-    /// neither (no new mover), so such a target is skipped and the tree takes its next-best.
+    /// #907's fix): a target is reachable when the real walker, given an unlimited budget, either reaches it
+    /// or stops right beside it (its tile holds the city or army the attack command then takes over). Since
+    /// #1012 the walker steps around a city, army or fleet on the line through a lateral alternative, as the
+    /// original does, so only a line with no open way past an obstacle (sea, or blockers on every side)
+    /// skips the target and the tree takes its next-best.
     /// </summary>
     public static bool IsReachable(AiView view, ArmyState army, int targetX, int targetY)
     {
-        var path = BresenhamPath.Trace(new GridPoint(army.X, army.Y), new GridPoint(targetX, targetY));
-        for (var i = 1; i < path.Count - 1; i++)
-        {
-            var step = path[i];
-            if (!view.IsArmyPassable(step))
-            {
-                return false;
-            }
-
-            foreach (var city in view.State.Cities)
-            {
-                if (city.X == step.X && city.Y == step.Y)
-                {
-                    return false;
-                }
-            }
-
-            foreach (var other in view.State.Armies)
-            {
-                if (!string.Equals(other.Id, army.Id, StringComparison.Ordinal)
-                    && other.X == step.X && other.Y == step.Y)
-                {
-                    return false;
-                }
-            }
-
-            foreach (var fleet in view.State.Fleets)
-            {
-                if (!fleet.IsUnderConstruction && fleet.X == step.X && fleet.Y == step.Y)
-                {
-                    return false;
-                }
-            }
-        }
-
-        return true;
+        var walk = WalkTowards(view, army, targetX, targetY, view.TerrainCells, UnlimitedMoves);
+        var target = new GridPoint(targetX, targetY);
+        return walk is not null
+            && (walk.StopReason == MovementStopReason.ReachedDestination
+                || (walk.StopReason == MovementStopReason.BlockedByMarker && walk.BlockedAt == target
+                    && AiView.Distance(walk.FinalPosition.X, walk.FinalPosition.Y, targetX, targetY) <= 1));
     }
+
+    /// <summary>A budget no walk across the map can spend: reachability ignores this turn's moves.</summary>
+    private const int UnlimitedMoves = 1_000_000;
 
     /// <summary>
     /// True when the army is "in" <paramref name="city"/> for the destination scorers. The original's
