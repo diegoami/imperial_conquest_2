@@ -173,15 +173,16 @@ public partial class MenuBarCheck : Control
             (BetweenStepsFrames, PressShiftXRealInput),
             (BetweenStepsFrames, AssertShiftXClearedExactlyOnce),
 
+            // Done-when 4, before the two turn ends below: since #1012, the third end turn on seed 1
+            // brings Gaul's peace offer to Rome, and the engine refuses to save while it is unanswered.
+            (BetweenStepsFrames, PressSaveMenu),
+            (BetweenStepsFrames, AssertSaveWritten),
+
             // Done-when 3: the menu item, then the toolbar button, through the one handler.
             (BetweenStepsFrames, PressEndTurnMenu),
             (BetweenStepsFrames, AssertEndTurnMenuAdvanced),
             (BetweenStepsFrames, PressEndTurnToolbar),
             (BetweenStepsFrames, AssertEndTurnToolbarAdvanced),
-
-            // Done-when 4.
-            (BetweenStepsFrames, PressSaveMenu),
-            (BetweenStepsFrames, AssertSaveWritten),
 
             // Done-when 6 (hints off, and the check mark).
             (BetweenStepsFrames, ToggleHintsOff),
