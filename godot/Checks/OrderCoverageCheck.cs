@@ -15,7 +15,7 @@ namespace IC2.Slice.Checks;
 /// <para>
 /// <strong>Reuses the four golden-tested cases.</strong> Corrected <c>success.txt</c> is the
 /// new-game Macedonia prefix; <c>success-trade-offer.txt</c> accepts its actual original-end22 trade.
-/// <c>success-treaty-load.txt</c> resumes the same validated native baseline save as the CLI/xUnit case,
+/// <c>success-treaty-load.txt</c> resumes the same validated native save as the CLI/xUnit case,
 /// then executes its real battle, immediate treaty answer and unchanged marine group.
 /// <c>success-fleet.txt</c> supplies <c>attack-fleet</c> from its own fresh toy session. All lines
 /// still use the existing judgment and aggregate reflection paths; no additional exclusions apply.
@@ -124,7 +124,7 @@ public partial class OrderCoverageCheck : Node
         GD.Print();
         GD.Print("== native baseline treaty/marine continuation (tests/fixtures/cli/success-treaty-load.txt) ==");
         var treatySave = SaveManager.LoadFile(
-            Path.Combine(repositoryRoot, "tests", "fixtures", "saves", "success-treaty-before-end78.json"),
+            Path.Combine(repositoryRoot, "tests", "fixtures", "saves", "success-treaty-before-attack.json"),
             classical.World, classical.Ruleset);
         var treatySession = new GameSession(classical.World, classical.Ruleset, classical.Scenario, treatySave);
         RunScriptFile(treatySession, Path.Combine(repositoryRoot, "tests", "fixtures", "cli", "success-treaty-load.txt"));

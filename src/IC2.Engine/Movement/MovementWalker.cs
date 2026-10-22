@@ -117,7 +117,9 @@ public static class MovementWalker
         Func<GridPoint, string?> tileTypeIdAt,
         Func<GridPoint, bool> isBlocked,
         IEventSink events,
-        Func<GridPoint, int?>? moveCostOverride = null)
+        Func<GridPoint, int?>? moveCostOverride = null,
+        StrategicStepPolicy step = StrategicStepPolicy.StraightLine,
+        GridPoint? worldSize = null)
     {
         ArgumentNullException.ThrowIfNull(terrain);
         ArgumentNullException.ThrowIfNull(tileTypeIdAt);
@@ -128,53 +130,125 @@ public static class MovementWalker
             throw new ArgumentOutOfRangeException(nameof(movesAvailable), movesAvailable, "Moves available may not be negative.");
         }
 
+        // #1012 (research f698190, 2026-10-21-strategic-lateral-steps-and-callers.md): the Bresenham cursor
+        // P advances along the line independently of the mover U; each step prices P and two lateral
+        // alternatives (FUN_0044D420), every candidate costing "blocked" unless it is open, unoccupied and
+        // within one cell of both P and U (FUN_0044D31C).
         var path = BresenhamPath.Trace(from, to);
         var entered = new List<GridPoint>();
         var movesLeft = movesAvailable;
+        var mover = from;
+        var signX = Math.Sign(to.X - from.X);
+        var signY = Math.Sign(to.Y - from.Y);
+        var yMajor = Math.Abs(to.Y - from.Y) > Math.Abs(to.X - from.X);
+        var lateral = step == StrategicStepPolicy.LateralAlternatives;
 
-        // path[0] == from: the mover already stands there, so pricing and blocking start at path[1].
-        for (var i = 1; i < path.Count; i++)
+        int TerrainCost(GridPoint cell)
         {
-            var cell = path[i];
-
-            if (isBlocked(cell))
+            if (moveCostOverride?.Invoke(cell) is { } price)
             {
-                return new MovementWalkResult(
-                    from, entered, movesAvailable - movesLeft, movesLeft, MovementStopReason.BlockedByMarker, cell);
+                return price;
             }
 
             var tileTypeId = tileTypeIdAt(cell)
                 ?? throw new InvalidOperationException(
                     $"No tile type resolves at {cell}; the walker cannot price a cell the world does not map.");
-
-            var overridden = moveCostOverride?.Invoke(cell);
-            int moveCost;
-            if (overridden is { } price)
+            var lookup = TerrainCostLookup.MoveCostFor(terrain, tileTypeId);
+            if (!lookup.WasPricedByRuleset)
             {
-                moveCost = price;
+                events.Publish(new UnpricedTerrainEncountered(tileTypeId, cell.X, cell.Y, lookup.MoveCost));
             }
-            else
+
+            return lookup.MoveCost;
+        }
+
+        bool Open(GridPoint cell, GridPoint cursor)
+        {
+            if (lateral && worldSize is { } size
+                && !(cell.X > 0 && cell.X < size.X && cell.Y > 0 && cell.Y < size.Y))
             {
-                var lookup = TerrainCostLookup.MoveCostFor(terrain, tileTypeId);
-                if (!lookup.WasPricedByRuleset)
+                return false;
+            }
+
+            return Chebyshev(cell, cursor) <= 1 && Chebyshev(cell, mover) <= 1 && !isBlocked(cell);
+        }
+
+        // path[0] == from: the mover already stands there, so pricing and blocking start at path[1].
+        for (var i = 1; i < path.Count; i++)
+        {
+            var cursor = path[i];
+            var chosen = cursor;
+            if (cursor != to)
+            {
+                var (first, second) = Alternatives(cursor, mover, signX, signY, yMajor);
+                var cursorOpen = Open(cursor, cursor);
+                // Straight line: the cursor is taken whenever it is open, so only a blocked cursor (cost 10
+                // in the original's terms) lets an alternative in. Lateral: strictly cheaper only.
+                var costCursor = cursorOpen ? (lateral ? TerrainCost(cursor) : 0) : BlockedCost;
+                var costFirst = Open(first, cursor) ? TerrainCost(first) : BlockedCost;
+                var costSecond = Open(second, cursor) ? TerrainCost(second) : BlockedCost;
+                if (costFirst < costCursor || costSecond < costCursor)
                 {
-                    events.Publish(new UnpricedTerrainEncountered(tileTypeId, cell.X, cell.Y, lookup.MoveCost));
+                    chosen = costSecond < costFirst ? second : first;
                 }
-
-                moveCost = lookup.MoveCost;
             }
 
+            // The original re-checks the chosen cell in this order (FUN_0044D420 after selection): a
+            // terrain/marker code it cannot enter, then the cost against the moves left (only this abort
+            // zeroes an AI seat's moves), then the helper's reach and bounds.
+            if (isBlocked(chosen))
+            {
+                return new MovementWalkResult(
+                    from, entered, movesAvailable - movesLeft, movesLeft, MovementStopReason.BlockedByMarker, chosen);
+            }
+
+            var moveCost = TerrainCost(chosen);
             if (moveCost > movesLeft)
             {
                 return new MovementWalkResult(
                     from, entered, movesAvailable - movesLeft, movesLeft, MovementStopReason.InsufficientMoves, null);
             }
 
+            if (!Open(chosen, cursor))
+            {
+                return new MovementWalkResult(
+                    from, entered, movesAvailable - movesLeft, movesLeft, MovementStopReason.BlockedByMarker, chosen);
+            }
+
             movesLeft -= moveCost;
-            entered.Add(cell);
+            entered.Add(chosen);
+            mover = chosen;
         }
 
         return new MovementWalkResult(
             from, entered, movesAvailable - movesLeft, movesLeft, MovementStopReason.ReachedDestination, null);
     }
+
+    /// <summary>The original step helper's "blocked" cost (<c>FUN_0044D31C</c> starts at 10).</summary>
+    private const int BlockedCost = 10;
+
+    /// <summary>
+    /// #1012: the two lateral alternatives <c>FUN_0044D420</c> prices against the cursor, in order, the
+    /// first winning a tie: beside the cursor when the line is axis-aligned, else the mover's own two
+    /// one-axis steps, the major axis first.
+    /// </summary>
+    internal static (GridPoint First, GridPoint Second) Alternatives(
+        GridPoint cursor, GridPoint mover, int signX, int signY, bool yMajor)
+    {
+        if (signX == 0)
+        {
+            return (new GridPoint(cursor.X + 1, cursor.Y), new GridPoint(cursor.X - 1, cursor.Y));
+        }
+
+        if (signY == 0)
+        {
+            return (new GridPoint(cursor.X, cursor.Y + 1), new GridPoint(cursor.X, cursor.Y - 1));
+        }
+
+        var alongX = new GridPoint(mover.X + signX, mover.Y);
+        var alongY = new GridPoint(mover.X, mover.Y + signY);
+        return yMajor ? (alongY, alongX) : (alongX, alongY);
+    }
+
+    private static int Chebyshev(GridPoint a, GridPoint b) => Math.Max(Math.Abs(a.X - b.X), Math.Abs(a.Y - b.Y));
 }

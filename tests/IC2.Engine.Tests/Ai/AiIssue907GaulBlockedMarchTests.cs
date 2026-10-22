@@ -29,6 +29,11 @@ namespace IC2.Engine.Tests.Ai;
 /// path[1]-occupancy grounds and the AI tries the next-best city; Caere (<c>(99,42)</c>) at
 /// Chebyshev distance 8 wins the score and the army moves one turn's moves closer to it.
 /// </para>
+/// <para>
+/// <strong>Since #1012</strong> the walker steps around Pisae through a lateral cell, as the original
+/// does, and the first-step rejection is gone; on this position the army now besieges Pisae itself.
+/// The assertion is the issue's own: the army does not park inert.
+/// </para>
 /// </remarks>
 public sealed class AiIssue907GaulBlockedMarchTests
 {
@@ -73,9 +78,14 @@ public sealed class AiIssue907GaulBlockedMarchTests
 
         var army9After = after.Armies.First(a => string.Equals(a.Id, "army-9", StringComparison.Ordinal));
 
-        Assert.False(
-            army9After.X == 92 && army9After.Y == 34,
-            $"army-9 should have moved out of (92,34); it stayed at ({army9After.X},{army9After.Y}).");
+        // #1012: the walker now steps around Pisae, so the blocked first step no longer forces the march
+        // elsewhere; the issue's own complaint is that the army "never besieges, attacks or moves on", and
+        // either acting on its own tile (a siege or battle) or moving off it answers that.
+        var acted = afterTurn.Events.OfType<IC2.Engine.Battle.BattleResolved>()
+            .Any(b => string.Equals(b.Result.AttackerId, "army-9", StringComparison.Ordinal));
+        Assert.True(
+            acted || !(army9After.X == 92 && army9After.Y == 34),
+            $"army-9 neither attacked nor moved out of (92,34); it stayed at ({army9After.X},{army9After.Y}).");
 
         // Sanity: the engine did not turn on the user. The fix changes AI behaviour only,
         // and a correction would be flagged by the soak's "0 rejected commands" assertion

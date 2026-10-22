@@ -55,6 +55,7 @@ move mac-merc 140 47
 move mac-merc 141 48
 hire-mercenary mac-merc 25
 end
+move mac-detached 156 24
 attack-army mac-detached army-14
 end
 move mac-sac-1 148 40
@@ -65,8 +66,6 @@ join-fleets mac-fleet-1 mac-fleet-2
 buy-fleet-supply mac-fleet-1 amphipolis 5
 repair-fleet mac-fleet-1 1
 split-fleet mac-fleet-1 mac-fleet-keep 13
-move mac-sac-1 154 35
-attack-army mac-sac-1 army-14
 end
 end
 end

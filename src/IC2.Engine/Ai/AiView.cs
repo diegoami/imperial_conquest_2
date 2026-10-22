@@ -30,6 +30,9 @@ public sealed class AiView
 {
     private readonly int[] _terrainCells;
 
+    /// <summary>The world's decoded terrain codes, row by row, decoded once per view (#1012's walker checks).</summary>
+    internal int[] TerrainCells => _terrainCells;
+
     /// <summary>Builds a view over one state.</summary>
     /// <param name="state">The state being decided against.</param>
     /// <param name="ruleset">The loaded ruleset.</param>

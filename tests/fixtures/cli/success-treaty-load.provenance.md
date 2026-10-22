@@ -1,83 +1,50 @@
-# Native baseline treaty continuation fixture
+# Native treaty continuation fixture
 
-This is an unedited native port JSON save, not an original-game SAV or evidence that the corrected campaign reaches this state. T192's reviewed contract permits only this fixed historical boundary and one current-engine feasibility trajectory. No seed, field, pending offer or event was injected.
+`tests/fixtures/saves/success-treaty-before-attack.json` is an unedited native port JSON save. It is not an original-game SAV and not evidence that the original campaign reaches this state. No seed, field, pending offer or event was injected.
+
+## Why it was rebuilt (#1012, owner decision 2026-10-22)
+
+T192 pinned a save taken by baseline `a3dbf161b3b40bb02717845e933754ef08623854` before original command 78. Its contract allowed one current-engine attempt and no other boundary. #1012 (the original's lateral step, with markers stepped around) changed where Thracia's `army-14` marches. Two things followed:
+
+- The sacrificial `mac-sac-1` attack in `success.txt` could no longer reach `army-14`, so it was dropped.
+- Without that attack, Thracia recruits past Macedonia's army power by original78. Its win there then fails the offer gate (the winner's army power must be below the loser's). The baseline save no longer reached an offer.
+
+The owner chose to rebuild the save on the current engine and search the earlier player turns for a boundary where a lost battle is offered peace. Before original70, Thracia's power is below Macedonia's and the gate passes; the chance roll then decides. The search moved `mac-detached` beside `army-14` and attacked on each earlier player turn. The turn after `split-fleet mac-fleet-1 mac-fleet-keep 13` gives an offer, and it is the first such turn on which the marine fleet already exists.
 
 ## Generation
 
-- Baseline commit: `a3dbf161b3b40bb02717845e933754ef08623854`, unchanged detached clone under the author's ignored `rendered/baseline-generator`.
-- Original complete `tests/fixtures/cli/success.txt` SHA256: `b8527838f23f052d7f4495dcb53a5a696e08fee2af9fc1f896a125350ca12d66` (exact generator checkout bytes).
-- Generator Engine DLL SHA256: `500cc99d80592cb4efe833d219038f754dafc8dd8daf319273063861df6b875a`.
-- Generator CLI DLL SHA256: `7c62295deaa712ab389476812395f7aa5bf041f1498c5c5bbc8498f74e290ce7`.
-- Raw Windows generator native file SHA256: `aed9d49b94e2c292e3ab391a73cf5e2cfcbf462423e3374f8e28a621a5ab822c`.
-- `GameStateHash`: `a1fdb8d15ddcafeed384adc6712615e34e9a9054daf1eecf750a25068e2345c3`.
-
-Build the baseline whole solution with .NET 10 (`dotnet build IC2.sln --nologo -v q -m:1 /nr:false --disable-build-servers`). Run its actual built CLI with `--scenario classical-mediterranean --seat macedonia --seed 3 --turn-order fixed --script <generation-prefix>`; the prefix is exactly nonblank/noncomment original commands 1–77 followed by ordinary `save <snapshot-path>`. Command 77 is `move mac-marines 142 42`; command 78 (`end`) has not run. Capture only at this normal player boundary, with no in-progress AI continuation or pending human treaty.
-
-The baseline source and input are identified by the commit above; do not regenerate from current source, reconstruct from diagnostic summaries, or adjust fields to obtain another outcome. Build hashes identify the actual generator assemblies used, not a promise that another checkout path emits identical debug binaries.
-
-## Saved context and validation
-
-- Save format 7; scenario/world `classical-mediterranean`; ruleset `classical-faithful`.
-- Calendar turn 15; active and sole human seat `macedonia`.
-- Persisted root `14811735145207618862`, naturally reached from initial seed 3; it was checked, never assigned.
-- Fixed saved order: `rome,carthage,seleucid,ptolemaic,macedonia,numidia,gaul,greece,celtiberia,illyria,dacia,bithynia,galatia,armenia,media,thracia`.
-- No open tactical battle. Native ordinary saving succeeded; it would refuse an in-progress AI lap or pending human treaty.
-
-An independent unchanged-baseline session replayed the same 77 commands, then ordinary save. Before/after full state equality and GameStateHash prove saving changed no state; the resulting native bytes exactly equal the actual CLI-generated fixture. Both baseline and current `SaveManager.LoadFile` validation passed. `SaveManager.Serialize`/`Load` preserve the entire save and state, exact serialized text and hash. The current proof used Engine SHA256 `e0201cdd310d714c42ccbe5c8ae920acd00231b84ffab4ebcdcafcdfa4f035f9`; both proof helpers' loaded Engine hashes matched their intended build.
-
-## Continuation contract
-
-`success-treaty-load.txt` is exactly original A commands 78–87, unchanged as a group. Original end78 is deliberately duplicated in the corrected new-game prefix and this case. Use the actual current built CLI:
+Build `IC2.sln` with .NET 10. Take the current `tests/fixtures/cli/success.txt` and remove its `move mac-detached 156 24` and `attack-army mac-detached army-14` lines. Keep the result through the `end` that follows `split-fleet mac-fleet-1 mac-fleet-keep 13` (67 commands). Append `save tests/fixtures/saves/success-treaty-before-attack.json` and run the built CLI:
 
 ```text
---load tests/fixtures/saves/success-treaty-before-end78.json --script tests/fixtures/cli/success-treaty-load.txt
+dotnet src/IC2.Cli/bin/Debug/net10.0/IC2.Cli.dll --scenario classical-mediterranean --seat macedonia --seed 3 --turn-order fixed --script <that prefix>
 ```
 
-The save supplies IDs, human seat, fixed order and persisted root. `--load` ignores new-game scenario/seat/seed overrides. The current AI lap may change the historical outcome. Require an actual resolver-generated Macedonia treaty offer, immediate same `peace-yes`, and every unchanged tail command accepted. A failed attempt stops fixture/golden work without another state, boundary, preparation or roll choice. No golden may be produced before all required fully accepted fresh CLI byte-pairs.
+## Saved context
 
-The single current-engine feasibility attempt at source checkpoint `5e699bc930609ae494dd753e6d6f62a6868daec7` succeeded (actual built CLI, native exit 0). The resolver announced Thracia's human treaty terms; `peace-yes` immediately accepted, and the unchanged fleet movement/embark/disembark/recruit/disband tail succeeded. This is not final source certification: fresh accepted CLI byte-pairs, full four-case tests/check, correctness regressions, mutations, independent review and CI remain required before completion. No golden was regenerated from this initial receipt.
+- Save SHA256 (LF): `4803fc30a60dc67c56c6206942ac93bd08043494c70db5f433e57aeb340da357`.
+- `GameStateHash`: `4b17202ae07488627ab40a1bdd4b035bed4b32a4ede64dcbe37574c86d45cf91`.
+- Scenario/world `classical-mediterranean`; ruleset `classical-faithful`.
+- Calendar turn 13; the active and only human seat is `macedonia`.
+- Persisted root `17524961124136824322`, reached naturally from seed 3.
+- Fixed order: `rome,carthage,seleucid,ptolemaic,macedonia,numidia,gaul,greece,celtiberia,illyria,dacia,bithynia,galatia,armenia,media,thracia`.
+- No open tactical battle.
 
+`The_loaded_treaty_case_has_pinned_native_context_and_exact_roundtrip` checks these values and the native Serialize→Load→Serialize equality. Any engine change that alters the prefix makes that test fail; the save must then be regenerated as above.
 
-## Repository line endings
+## Continuation
 
-Existing `.gitattributes` stores text with LF. The canonical committed snapshot SHA256 is `7494a66e8a8488fe3a95d0d8b572cb09b2a825d2d59c95de0bb8ed4c178ae77e`; it is exactly the original Windows native bytes with CRLF replaced by LF, with no other byte change. The raw generator receipt above remains retained in the author's ignored replay proof. Full loaded state/hash/context are identical. Tests allow only this structural CRLF-to-LF comparison against the stored file; native serializer-to-loader-to-serializer remains exact on each platform. No JSON fields, serializer policy or Git attributes were changed.
+`success-treaty-load.txt` runs:
 
-## Reproduce in a reviewer's own checkout
+1. `mac-detached` steps beside `army-14` and attacks. The battle is lost and the resolver offers an honourable peace.
+2. `peace-yes` accepts the offer.
+3. The marine group follows: `move mac-marines 142 42`, `end`, then original commands 80–87. The fleet target is `(149, 41)`, because `(148, 41)` is no longer reached in one turn.
 
-The following uses only the reviewer's repository and its own ignored `rendered` directory. It never reads an author's worktree or original-game files. Run from the review checkout root, with .NET 10; stop if any command fails or the source checkout is dirty. No alternative boundary or seed is permitted.
+Use the built CLI:
 
-```powershell
-$reviewRoot = (Get-Location).Path
-$generatorRoot = Join-Path $reviewRoot 'rendered/t192-baseline-generator'
-$generationInput = Join-Path $reviewRoot 'rendered/t192-save-prefix.txt'
-$regeneratedSave = Join-Path $reviewRoot 'rendered/t192-regenerated-save.json'
-git clone --shared --no-checkout . $generatorRoot
-git -C $generatorRoot checkout --detach a3dbf161b3b40bb02717845e933754ef08623854
-git -C $generatorRoot rev-parse HEAD
-git -C $generatorRoot status --short
-$originalInput = Join-Path $generatorRoot 'tests/fixtures/cli/success.txt'
-Get-FileHash -Algorithm SHA256 -LiteralPath $originalInput
-$commands = @(Get-Content -LiteralPath $originalInput | Where-Object { $_.Trim() -ne '' -and -not $_.TrimStart().StartsWith('#') })
-if ($commands.Count -ne 87 -or $commands[76] -ne 'move mac-marines 142 42') { throw 'Wrong baseline input/boundary' }
-[IO.File]::WriteAllLines($generationInput, @($commands[0..76]) + @('save ' + $regeneratedSave))
-Push-Location $generatorRoot
-try {
-    $env:DOTNET_PROCESSOR_COUNT = '2'
-    dotnet build IC2.sln --nologo -v q -m:1 /nr:false --disable-build-servers
-    if ($LASTEXITCODE -ne 0) { throw 'Baseline build failed' }
-    Get-FileHash -Algorithm SHA256 src/IC2.Engine/bin/Debug/net10.0/IC2.Engine.dll,src/IC2.Cli/bin/Debug/net10.0/IC2.Cli.dll
-    dotnet src/IC2.Cli/bin/Debug/net10.0/IC2.Cli.dll --scenario classical-mediterranean --seat macedonia --seed 3 --turn-order fixed --script $generationInput
-    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $regeneratedSave)) { throw 'Ordinary generation failed' }
-    git status --short
-} finally { Pop-Location }
-Get-FileHash -Algorithm SHA256 -LiteralPath $regeneratedSave
-$canonical = [IO.File]::ReadAllText($regeneratedSave).Replace("`r`n", "`n")
-$canonicalHash = [Convert]::ToHexStringLower([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($canonical)))
-if ($canonicalHash -ne '7494a66e8a8488fe3a95d0d8b572cb09b2a825d2d59c95de0bb8ed4c178ae77e') { throw 'Regenerated bytes differ beyond allowed CRLF transport' }
+```text
+--load tests/fixtures/saves/success-treaty-before-attack.json --script tests/fixtures/cli/success-treaty-load.txt
 ```
 
-Windows ordinary generation must match raw SHA256 `aed9d49b94e2c292e3ab391a73cf5e2cfcbf462423e3374f8e28a621a5ab822c`; an LF-native platform matches the canonical SHA256 directly. Only CRLF-to-LF transport is permitted; no deserialize/edit/reserialize step may be used to obtain the expected file hash. Assembly hashes may differ with build checkout paths; record them and verify the pinned clean source rather than substituting an old binary.
+`SuccessScriptTests` requires the real offer and an accepted outcome for every own command. `CliProcessTests` compares the actual CLI output to the golden.
 
-In the current review checkout, build `IC2.sln` before running `The_loaded_treaty_case_has_pinned_native_context_and_exact_roundtrip`: it loads the file through native schema/semantic validation, checks the entire roundtrip/context, exact canonical file hash and state hash above, and requires native Serialize→Load→Serialize equality. The fixed canonical-byte comparison binds the regenerated file to that same validated state. Then execute the ten-command actual current CLI case at its specified `--load` arguments and inspect each own verb; a resolver-generated offer and immediate accepted answer are mandatory. Reviewer reproduction is verification of the successful fixed case, not permission to search another seed/state/window.
-
-This tests native port JSON persistence and command coverage. It makes no original SAV import/export, original Windows-game compatibility, native-natural campaign equivalence or whole-fidelity claim.
+This fixture tests native port JSON persistence and command coverage. It makes no claim about original SAV import/export, compatibility with the original Windows game, or campaign fidelity.

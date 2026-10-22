@@ -168,6 +168,9 @@ public sealed class AiReachableFallbackTests
                 City("n-cap", Us, 10, 2, supply: 5_000),
                 City("c-own", Us, 15, 10, supply: 5_000),
                 City("x-block", Them, 13, 10),
+                // #1012: the step goes around one city, so two more wall off its lateral cells.
+                City("x-block-north", Them, 13, 9),
+                City("x-block-south", Them, 13, 11),
                 City("s-cap", Them, 30, 30),
             ],
             army);
@@ -232,7 +235,10 @@ public sealed class AiReachableFallbackTests
         {
             if (seaBlocksTheOwnCity)
             {
+                // #1012: a sea wall across the line; the step goes around a single sea tile.
+                cells[(9 * 32) + 13] = Sea;
                 cells[(10 * 32) + 13] = Sea;
+                cells[(11 * 32) + 13] = Sea;
             }
         });
         var army = Army(10, 10, moves: 9, troops: 40_000) with { SupplyTons = 1_000 };
@@ -303,6 +309,9 @@ public sealed class AiReachableFallbackTests
         if (blockNearest)
         {
             cities.Add(City("blocker", Them, 9, 10));
+            // #1012: the step goes around one city, so two more wall off its lateral cells.
+            cities.Add(City("blocker-north", Them, 9, 9));
+            cities.Add(City("blocker-south", Them, 9, 11));
         }
 
         var state = AiScriptedStates.WithActiveSeat(

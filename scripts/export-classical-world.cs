@@ -840,6 +840,12 @@ rulesetNode["flags"]!["balanceSheetTotals"] = "original";
 ((JsonObject)rulesetNode["flags"]!["_provenance"]!)["balanceSheetTotals"] =
     "T167 (#1043, bug #1038), the user's decision of 2026-10-12 (PR #1041, question 3), research 89c37ff, 2026-10-11-g1-original-checks.md G2 [confirmed: Wine + code], TBalanceSheet_PaintBalance: the original's Balance sheet totals its Expenditure column including the Mercenary units line (55516, 55534), counts every owned fleet, finished or under construction, in its Fleet line (55471-55480), and shows the Debt limit rounded down (55541-55556; economy.balanceSheetDebtLimit* keys). classical-faithful plays that sheet (original); the other shipped rulesets keep the Total that reconciles with the quarter's treasury change (reconciling). No charge changes: only the sheet's figures.";
 
+// ---- #1012: the toy ruleset keeps the straight line for terrain ("straightLine"); classical-faithful plays
+// the original's lateral step ("lateralAlternatives"), so the exporter owns this value and its note.
+rulesetNode["flags"]!["strategicStep"] = "lateralAlternatives";
+((JsonObject)rulesetNode["flags"]!["_provenance"]!)["strategicStep"] =
+    "#1012, confirmed, partial: source, bounded original-x86 controls and legacy Wine endpoints (2026-10-21-strategic-lateral-steps-and-callers.md, research f698190): each step prices the line's cell and two lateral alternatives (FUN_0044D420), leaves the line only for a strictly cheaper one, the first winning a tie, and enters the destination without the comparison; a city, army or fleet costs the blocked 10 (FUN_0044D31C), so the step goes around it. classical-faithful plays that step (lateralAlternatives); the other shipped rulesets keep the straight line for terrain but still step around a marker (straightLine), the user's decisions of 2026-10-12 and 2026-10-21.";
+
 // ---- T157 (#926): the toy ruleset keeps the designed AI economy ("designed"); classical-faithful plays the
 // original's ("original"), so the exporter owns this value and its note and never copies the toy's.
 rulesetNode["flags"]!["aiEconomy"] = "original";

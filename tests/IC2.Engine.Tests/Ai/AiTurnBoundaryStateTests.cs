@@ -25,9 +25,16 @@ public sealed class AiTurnBoundaryStateTests
     private static readonly World World = BattleCommandTestbed.ToyWorld;
     private static readonly Ruleset Ruleset = BattleCommandTestbed.ToyRuleset;
 
-    private static (int X, int Y) FindRun()
+    private static readonly Lazy<(int X, int Y)> Run = new(FindRunOnTerrain);
+
+    private static (int X, int Y) FindRun() => Run.Value;
+
+    private static (int X, int Y) FindRunOnTerrain()
     {
-        var probe = StateWith(Array.Empty<ArmyState>());
+        var probe = BattleCommandTestbed.StateWith(
+            new[] { CaptureFixtures.Nation(Me, capitalCityId: "home") },
+            new[] { CaptureFixtures.City("home", "Home", 0, 0, Me, Me, 80, 0, 10, 100, 10) },
+            Array.Empty<ArmyState>());
         var view = new AiView(probe, Ruleset, World, Me);
         for (var y = 1; y < World.Height; y++)
         {
@@ -50,10 +57,15 @@ public sealed class AiTurnBoundaryStateTests
             CaptureFixtures.Nation(Me, capitalCityId: "home"),
             CaptureFixtures.Nation(Foe, capitalCityId: "target"),
         };
+        // #1012: the walker steps around a marker on the line through a lateral cell, so the blocker on
+        // (x + 2, y) only cuts the path with both of its lateral cells walled off as well.
+        var (runX, runY) = Run.Value;
         var cities = new[]
         {
             CaptureFixtures.City("home", "Home", 0, 0, Me, Me, 80, 0, 10, 100, 10),
             CaptureFixtures.City("target", "Target", 7, 5, Foe, Foe, 80, 0, 10, 100, 10),
+            CaptureFixtures.City("wall-north", "Wall north", runX + 2, runY - 1, Foe, Foe, 80, 0, 10, 100, 10),
+            CaptureFixtures.City("wall-south", "Wall south", runX + 2, runY + 1, Foe, Foe, 80, 0, 10, 100, 10),
         };
         var state = BattleCommandTestbed.StateWith(nations, cities, armies);
         return state with { TurnOrder = ValueList.From(new[] { Me, Foe }), ActiveSeatIndex = 0 };

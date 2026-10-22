@@ -37,11 +37,15 @@ namespace IC2.Engine.Tests.Ai;
 /// </remarks>
 public sealed class AiBlockedMarchProposalsTests
 {
+    // #1012 (the owner's decision of 2026-10-21): the walker steps around a city, army or fleet on the line
+    // through a lateral cell, as the original does, so a march whose first cell is occupied is proposed
+    // whenever it can go around; only a first cell with both laterals held as well stops it.
+
     private const string Acting = AiScriptedStates.Attacker;
     private const string Other = AiScriptedStates.Defender;
 
     [Fact]
-    public void A_march_whose_first_step_holds_an_enemy_city_is_not_proposed()
+    public void A_march_whose_first_step_holds_an_enemy_city_is_proposed_since_the_step_goes_around_it()
     {
         // The march under test is to "target-city" at (6,2); Bresenham's first step is (2,2), which
         // is the enemy city "blocker-city". The rationale format is "march at {city.Id} ...", so
@@ -52,29 +56,29 @@ public sealed class AiBlockedMarchProposalsTests
         // this test fail when the blocker-city check is removed.
         var candidates = MarchCandidates(BlockerAtFirstStepCity());
 
-        Assert.DoesNotContain(
+        Assert.Contains(
             candidates,
             c => c.Kind == AiCandidate.ApproachKind
                  && MarchesAtTargetCity(c));
     }
 
     [Fact]
-    public void A_march_whose_first_step_holds_another_army_is_not_proposed()
+    public void A_march_whose_first_step_holds_another_army_is_proposed_since_the_step_goes_around_it()
     {
         var candidates = MarchCandidates(BlockerAtFirstStepArmy());
 
-        Assert.DoesNotContain(
+        Assert.Contains(
             candidates,
             c => c.Kind == AiCandidate.ApproachKind
                  && MarchesAtTargetCity(c));
     }
 
     [Fact]
-    public void A_march_whose_first_step_holds_a_fleet_is_not_proposed()
+    public void A_march_whose_first_step_holds_a_fleet_is_proposed_since_the_step_goes_around_it()
     {
         var candidates = MarchCandidates(BlockerAtFirstStepFleet());
 
-        Assert.DoesNotContain(
+        Assert.Contains(
             candidates,
             c => c.Kind == AiCandidate.ApproachKind
                  && MarchesAtTargetCity(c));
@@ -105,11 +109,11 @@ public sealed class AiBlockedMarchProposalsTests
     /// that lands one step past an own city must also be filtered.
     /// </summary>
     [Fact]
-    public void A_march_whose_first_step_holds_an_own_city_is_not_proposed()
+    public void A_march_whose_first_step_holds_an_own_city_is_proposed_since_the_step_goes_around_it()
     {
         var candidates = MarchCandidates(BlockerAtFirstStepOwnCity());
 
-        Assert.DoesNotContain(
+        Assert.Contains(
             candidates,
             c => c.Kind == AiCandidate.ApproachKind
                  && MarchesAtTargetCity(c));
@@ -123,7 +127,7 @@ public sealed class AiBlockedMarchProposalsTests
     /// the same way a march past an enemy army is.
     /// </summary>
     [Fact]
-    public void A_march_whose_first_step_holds_another_own_army_is_not_proposed()
+    public void A_march_whose_first_step_holds_another_own_army_is_proposed_since_the_step_goes_around_it()
     {
         // The fixture has two of Acting's armies, both iterated by view.OwnArmies(): "ours-army" at
         // (1,2) is the one whose march at "target-city" is under test (its Bresenham first step is
@@ -132,7 +136,7 @@ public sealed class AiBlockedMarchProposalsTests
         // carry so the second army's own proposal does not false-positive this assertion.
         var candidates = MarchCandidates(BlockerAtFirstStepOwnArmy());
 
-        Assert.DoesNotContain(
+        Assert.Contains(
             candidates,
             c => c.Kind == AiCandidate.ApproachKind
                  && c.SubjectId == "ours-army"
@@ -144,6 +148,23 @@ public sealed class AiBlockedMarchProposalsTests
     /// <c>(6,2)</c>. T156: the tree's march rationale names coordinates rather than the city id, so the
     /// destination is read off the candidate's own command.
     /// </summary>
+    [Fact]
+    public void A_march_whose_first_step_and_both_of_its_laterals_are_held_is_not_proposed()
+    {
+        var state = BlockerAtFirstStepCity();
+        var walls = new[]
+        {
+            CaptureFixtures.Army("wall-north", Other, 2, 1, morale: 60, CaptureFixtures.Unit("light_infantry", 1000)),
+            CaptureFixtures.Army("wall-south", Other, 2, 3, morale: 60, CaptureFixtures.Unit("light_infantry", 1000)),
+        };
+        var candidates = MarchCandidates(state with { Armies = ValueList.From(state.Armies.Concat(walls)) });
+
+        Assert.DoesNotContain(
+            candidates,
+            c => c.Kind == AiCandidate.ApproachKind
+                 && MarchesAtTargetCity(c));
+    }
+
     private static bool MarchesAtTargetCity(AiCandidate candidate) =>
         candidate.Commands.OfType<IC2.Engine.Movement.Commands.MoveArmyCommand>().Any(
             m => m.ArmyId == "ours-army" && m.X == 6 && m.Y == 2);

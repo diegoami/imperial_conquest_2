@@ -12,8 +12,9 @@ namespace IC2.Engine.Tests.Movement;
 public sealed class MovementWalkerTests
 {
     /// <summary>
-    /// Done When 3: "A city, army or fleet marker in the path blocks the walk entirely (the walk stops
-    /// before the marker; no move cost is charged for it)."
+    /// Done When 3, as corrected by #1012: a city, army or fleet marker in the path stops the walk before it
+    /// (no move cost is charged for it) when both of its lateral alternatives are blocked as well; with one
+    /// open, the step goes around it (<see cref="MovementWalkerLateralStepTests"/>).
     /// </summary>
     /// <remarks>
     /// Walks the toy grid's row y=2 from (1,2) to (6,2), straight through the Portus city at (5,2). Row
@@ -37,7 +38,7 @@ public sealed class MovementWalkerTests
             movesAvailable: 20,
             MovementTestbed.Ruleset.Terrain,
             MovementTestbed.TileTypeIdAt,
-            isBlocked: cell => cell == portus,
+            isBlocked: cell => cell == portus || cell == new GridPoint(5, 1) || cell == new GridPoint(5, 3),
             sink);
 
         Assert.Equal(MovementStopReason.BlockedByMarker, result.StopReason);
@@ -57,7 +58,10 @@ public sealed class MovementWalkerTests
         Assert.Equal(20 - 6, result.MovesRemaining);
     }
 
-    /// <summary>A marker occupying the very first step blocks the walk before anything is entered.</summary>
+    /// <summary>
+    /// A marker occupying the very first step, with both lateral alternatives blocked, stops the walk before
+    /// anything is entered.
+    /// </summary>
     [Fact]
     public void Walk_MarkerOnFirstStep_StopsImmediatelyWithNoCellsEntered()
     {
@@ -68,7 +72,9 @@ public sealed class MovementWalkerTests
 
         var result = MovementWalker.Walk(
             from, to, movesAvailable: 20, MovementTestbed.Ruleset.Terrain,
-            MovementTestbed.TileTypeIdAt, cell => cell == blockedCell, sink);
+            MovementTestbed.TileTypeIdAt,
+            cell => cell == blockedCell || cell == new GridPoint(2, 0) || cell == new GridPoint(2, 2),
+            sink);
 
         Assert.Equal(MovementStopReason.BlockedByMarker, result.StopReason);
         Assert.Equal(blockedCell, result.BlockedAt);

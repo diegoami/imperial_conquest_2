@@ -261,7 +261,7 @@ public sealed class CliProcessTests
         var cliDll = FindCliDll();
         Assert.True(cliDll is not null, "Build IC2.sln before testing: the real CLI DLL is required.");
         var context = fixture == "success-treaty-load"
-            ? "--load tests/fixtures/saves/success-treaty-before-end78.json"
+            ? "--load tests/fixtures/saves/success-treaty-before-attack.json"
             : "--scenario classical-mediterranean --seat macedonia --seed 3 --turn-order fixed";
         using var process = StartCli(cliDll!, $"{context} --script tests/fixtures/cli/{fixture}.txt");
         var stdoutTask = process.StandardOutput.ReadToEndAsync();

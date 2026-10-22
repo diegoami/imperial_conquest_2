@@ -118,7 +118,7 @@ public sealed class MoveFleetCommandHandler : ICommandHandler<MoveFleetCommand>
 
         var walk = MovementWalker.Walk(
             from, destination, fleet.Moves, context.Ruleset.Terrain, TileTypeIdAt, IsBlocked, context.Events,
-            RoughSeaPrice);
+            RoughSeaPrice, context.Ruleset.Flags.StrategicStep, new GridPoint(world.Width, world.Height));
 
         context.RecordTravel(StrategicMarkerKind.Fleet, fleet.Id, fleet.Nation, null, fleet.CarriedArmyId, walk);
 
