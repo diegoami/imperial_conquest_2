@@ -223,12 +223,7 @@ public partial class SettingsScreen : Control
 
         var schemes = ColorSchemes.All;
         Picker(Row(column, "Colours"), schemes, s => s.Name, IndexOf(schemes, s => s.Id == Current.ColorScheme),
-            scheme => Commit(Current with { ColorScheme = scheme.Id, BackgroundHex = null, TextHex = null }, GetTree().Root));
-
-        var custom = Row(column, "Custom colours");
-        custom.AddChild(ColorButton("Background", () => Current.ResolvedColors().Background, hex => Current with { BackgroundHex = hex }));
-        custom.AddChild(ColorButton("Text", () => Current.ResolvedColors().Text, hex => Current with { TextHex = hex }));
-        custom.AddChild(UiKit.MakeButton("Reset", () => Commit(Current with { BackgroundHex = null, TextHex = null }, GetTree().Root), AppTheme.Button));
+            scheme => Commit(Current with { ColorScheme = scheme.Id }, GetTree().Root));
 
         var fonts = UiFonts.All;
         Picker(Row(column, "Font"), fonts, f => f.Name, IndexOf(fonts, f => f.Id == Current.Font),
@@ -241,17 +236,6 @@ public partial class SettingsScreen : Control
         var fullscreen = new CheckBox { Text = "Full screen", ButtonPressed = Current.Fullscreen };
         fullscreen.Toggled += on => Commit(Current with { Fullscreen = on }, GetTree().Root);
         Row(column, "Window").AddChild(fullscreen);
-    }
-
-    private HBoxContainer ColorButton(string caption, Func<string> current, Func<string, UserSettings> with)
-    {
-        var box = new HBoxContainer();
-        box.AddThemeConstantOverride("separation", AppTheme.MenuGap);
-        box.AddChild(UiKit.MakeLabel(caption, AppTheme.Body, UiKit.MutedTextColor));
-        var button = new ColorPickerButton { Color = Color.FromHtml(current()), EditAlpha = false, CustomMinimumSize = new Vector2(48, 28) };
-        button.PopupClosed += () => Commit(with("#" + button.Color.ToHtml(false)), GetTree().Root);
-        box.AddChild(button);
-        return box;
     }
 
     private void BuildBattle(VBoxContainer column)

@@ -639,6 +639,26 @@ public sealed class RecruitUnitDialogModel
         return $"Max {bounds.Maximum.ToString(inv)} troops, in steps of {bounds.Step.ToString(inv)}";
     }
 
+    /// <summary>
+    /// The troop box's <em>Max</em> button ([designed], the owner's play session of 2026-10-22): the largest
+    /// amount, on the box's step and within its bounds, whose one-time cost the nation's treasury covers; the
+    /// minimum when even that is unaffordable (the engine then refuses the order with its own reason).
+    /// </summary>
+    public int AffordableMaximumFor(string unitTypeId)
+    {
+        var bounds = TroopBoundsFor(unitTypeId);
+        var step = Math.Max(1, bounds.Step);
+        for (var troops = bounds.Maximum - ((bounds.Maximum - bounds.Minimum) % step); troops > bounds.Minimum; troops -= step)
+        {
+            if (InitialCostFor(troops, unitTypeId) <= Nation.Treasury)
+            {
+                return troops;
+            }
+        }
+
+        return bounds.Minimum;
+    }
+
     /// <summary>The one-time cost for <paramref name="troops"/> troops of <paramref name="unitTypeId"/>.</summary>
     public int InitialCostFor(int troops, string unitTypeId) =>
         StandingRecruitmentCost.InitialCost(troops, unitTypeId, _ruleset);

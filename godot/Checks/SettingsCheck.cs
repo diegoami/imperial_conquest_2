@@ -62,11 +62,9 @@ public partial class SettingsCheck : Control
         });
         _steps.Enqueue(() =>
         {
-            SettingsScreen.Commit(SettingsScreen.Current with { ColorScheme = "dark", BackgroundHex = "#203040" }, GetTree().Root);
-            Check(Same(AppTheme.Color("background"), Color.FromHtml("#203040")), "a custom background overrides the scheme");
+            SettingsScreen.Commit(SettingsScreen.Current with { ColorScheme = "dark" }, GetTree().Root);
             Check(Same(AppTheme.Color("text"), _darkText), "back on Dark, the text colour is the shipped one");
-            SettingsScreen.Commit(SettingsScreen.Current with { BackgroundHex = null }, GetTree().Root);
-            Check(Same(AppTheme.Color("background"), _darkBackground), "Reset restores the shipped background");
+            Check(Same(AppTheme.Color("background"), _darkBackground), "back on Dark, the background is the shipped one");
         });
         _steps.Enqueue(() =>
         {
@@ -75,7 +73,7 @@ public partial class SettingsCheck : Control
             Check(body.BaseFont?.ResourcePath == UiFonts.ById("atkinson").ResourcePath, $"the body font is Atkinson Hyperlegible ({body.BaseFont?.ResourcePath})");
             Check(Mathf.IsEqualApprox(GetTree().Root.ContentScaleFactor, 1.3f), $"the interface size is 130% ({GetTree().Root.ContentScaleFactor})");
             SettingsScreen.Commit(SettingsScreen.Current with { Font = "source-sans", TextScalePercent = 100 }, GetTree().Root);
-            Check(body.BaseFont?.ResourcePath == UiFonts.ById("source-sans").ResourcePath, "the default font is restored");
+            Check(body.BaseFont?.ResourcePath == UiFonts.ById("source-sans").ResourcePath, "Source Sans 3 is restored");
         });
         _steps.Enqueue(() =>
         {

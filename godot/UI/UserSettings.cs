@@ -36,12 +36,6 @@ public sealed record UserSettings
     /// <summary>One of <see cref="ColorSchemes.All"/>' ids.</summary>
     public string ColorScheme { get; init; } = ColorSchemes.DefaultId;
 
-    /// <summary>A custom background colour (<c>#RRGGBB</c>) over the scheme's, or <see langword="null"/>.</summary>
-    public string? BackgroundHex { get; init; }
-
-    /// <summary>A custom text colour (<c>#RRGGBB</c>) over the scheme's, or <see langword="null"/>.</summary>
-    public string? TextHex { get; init; }
-
     /// <summary>One of <see cref="UiFonts.All"/>' ids.</summary>
     public string Font { get; init; } = UiFonts.DefaultId;
 
@@ -110,8 +104,6 @@ public sealed record UserSettings
         BattleShotDelaySeconds = BattlePauses.SnapShot(BattleShotDelaySeconds),
         BattleAttackDelaySeconds = BattlePauses.SnapAttack(BattleAttackDelaySeconds),
         ColorScheme = ColorSchemes.ById(ColorScheme).Id,
-        BackgroundHex = ColorSchemes.NormalizeHex(BackgroundHex),
-        TextHex = ColorSchemes.NormalizeHex(TextHex),
         Font = UiFonts.ById(Font).Id,
         TextScalePercent = Math.Clamp(TextScalePercent, MinTextScalePercent, MaxTextScalePercent),
         MapStyle = MapStyles.ById(MapStyle).Id,
@@ -124,16 +116,11 @@ public sealed record UserSettings
     public UserSettings WithBattleSpeed(BattleSpeed speed) =>
         this with { BattleShotDelaySeconds = speed.ShotSeconds, BattleAttackDelaySeconds = speed.AttackSeconds };
 
-    /// <summary>The colours the interface is drawn with: the scheme, with any custom background or text.</summary>
-    public ColorScheme ResolvedColors()
-    {
-        var scheme = ColorSchemes.ById(ColorScheme);
-        return scheme with
-        {
-            Background = ColorSchemes.NormalizeHex(BackgroundHex) ?? scheme.Background,
-            Text = ColorSchemes.NormalizeHex(TextHex) ?? scheme.Text,
-        };
-    }
+    /// <summary>
+    /// The colours the interface is drawn with: the chosen scheme's. The custom background and text colours were
+    /// removed (the owner's decision of 2026-10-22); an older settings file's values for them are ignored on load.
+    /// </summary>
+    public ColorScheme ResolvedColors() => ColorSchemes.ById(ColorScheme);
 }
 
 /// <summary>How the strategic map draws its terrain.</summary>
@@ -186,15 +173,21 @@ public static class BattleSpeeds
 /// </summary>
 public sealed record ColorScheme(string Id, string Name, string Background, string Panel, string Raised, string Text, string Muted, string Accent);
 
-/// <summary>#1293: the curated colour schemes. "Dark" is <c>AppTheme.tres</c>'s own palette. [designed]</summary>
+/// <summary>
+/// #1293: the curated colour schemes. "Dark" is <c>AppTheme.tres</c>'s own palette; Parchment is the default
+/// (the owner's decision of 2026-10-22). [designed]
+/// </summary>
 public static class ColorSchemes
 {
-    public const string DefaultId = "dark";
+    public const string DefaultId = "parchment";
+
+    /// <summary>The scheme whose colours <c>AppTheme.tres</c> itself carries.</summary>
+    public const string ThemePaletteId = "dark";
 
     public static readonly IReadOnlyList<ColorScheme> All = new[]
     {
-        new ColorScheme(DefaultId, "Dark (default)", "#14110D", "#1E1912", "#2C251B", "#EDE3CC", "#B8AB8E", "#D9A55B"),
-        new ColorScheme("parchment", "Parchment", "#E8DCC0", "#F3EAD3", "#DCCBA6", "#2A2016", "#5E4F3A", "#8A4B12"),
+        new ColorScheme(DefaultId, "Parchment (default)", "#E8DCC0", "#F3EAD3", "#DCCBA6", "#2A2016", "#5E4F3A", "#8A4B12"),
+        new ColorScheme("dark", "Dark", "#14110D", "#1E1912", "#2C251B", "#EDE3CC", "#B8AB8E", "#D9A55B"),
         new ColorScheme("contrast", "High contrast", "#000000", "#101010", "#262626", "#FFFFFF", "#E0E0E0", "#FFD23F"),
         new ColorScheme("slate", "Slate blue", "#11161F", "#1A2230", "#263247", "#E3E9F2", "#A5B2C6", "#6FB3E8"),
     };
@@ -213,15 +206,18 @@ public static class ColorSchemes
 /// <summary>A bundled interface font: its id, its caption and its file under <c>res://Assets/Fonts</c>.</summary>
 public sealed record UiFont(string Id, string Name, string ResourcePath);
 
-/// <summary>#1293: the curated body fonts, all bundled under the SIL Open Font License 1.1.</summary>
+/// <summary>
+/// #1293: the curated body fonts, all bundled under the SIL Open Font License 1.1. Atkinson Hyperlegible is the
+/// default (the owner's decision of 2026-10-22).
+/// </summary>
 public static class UiFonts
 {
-    public const string DefaultId = "source-sans";
+    public const string DefaultId = "atkinson";
 
     public static readonly IReadOnlyList<UiFont> All = new[]
     {
-        new UiFont(DefaultId, "Source Sans 3 (default)", "res://Assets/Fonts/SourceSans3/SourceSans3-wght.ttf"),
-        new UiFont("atkinson", "Atkinson Hyperlegible (easy reading)", "res://Assets/Fonts/AtkinsonHyperlegible/AtkinsonHyperlegible-Regular.ttf"),
+        new UiFont(DefaultId, "Atkinson Hyperlegible (default, easy reading)", "res://Assets/Fonts/AtkinsonHyperlegible/AtkinsonHyperlegible-Regular.ttf"),
+        new UiFont("source-sans", "Source Sans 3", "res://Assets/Fonts/SourceSans3/SourceSans3-wght.ttf"),
         new UiFont("garamond", "EB Garamond (classical serif)", "res://Assets/Fonts/EBGaramond/EBGaramond-Regular.ttf"),
     };
 

@@ -61,7 +61,7 @@ public sealed class MapMarkerKeysTests
             Assert.True(MapMarkerKeys.CityMarkerHalfSize(rank) > MapMarkerKeys.CityMarkerHalfSize(rank - 1), $"rank {rank} is not larger than {rank - 1}");
         }
 
-        Assert.True(MapMarkerKeys.CityMarkerHalfSize(MapMarkerKeys.CapitalRank) < 1f, "a capital still fits its tile's neighbourhood");
+        Assert.True(MapMarkerKeys.CityMarkerHalfSize(MapMarkerKeys.CapitalRank) <= 0.5f, "a capital fits inside its own tile");
     }
 
     /// <summary>#1309: the Italy campaign's thresholds spread its towns over all four tiers.</summary>

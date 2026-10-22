@@ -32,8 +32,11 @@ public static class Appearance
 
     private static readonly string[] StyleboxOverrideNames = { "panel", "normal", "hover", "pressed", "focus", "disabled", "hover_pressed" };
 
-    /// <summary>The scheme the interface is drawn in now; starts as <c>AppTheme.tres</c>'s own.</summary>
-    public static ColorScheme AppliedColors { get; private set; } = ColorSchemes.ById(ColorSchemes.DefaultId);
+    /// <summary>
+    /// The scheme the interface is drawn in now; starts as <c>AppTheme.tres</c>'s own palette (Dark), which is no
+    /// longer the default scheme, so the first <see cref="Apply"/> remaps it to the player's (Parchment by default).
+    /// </summary>
+    public static ColorScheme AppliedColors { get; private set; } = ColorSchemes.ById(ColorSchemes.ThemePaletteId);
 
     /// <summary>The settings last applied, or the defaults.</summary>
     public static UserSettings Applied { get; private set; } = new();

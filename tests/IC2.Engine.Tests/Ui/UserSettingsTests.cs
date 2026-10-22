@@ -19,8 +19,8 @@ public sealed class UserSettingsTests : IDisposable
     public void Defaults_match_the_shipped_look_and_T127s_pauses()
     {
         var settings = new UserSettings();
-        Assert.Equal("dark", settings.ColorScheme);
-        Assert.Equal("source-sans", settings.Font);
+        Assert.Equal("parchment", settings.ColorScheme);
+        Assert.Equal("atkinson", settings.Font);
         Assert.Equal(100, settings.TextScalePercent);
         Assert.Equal(1.0, settings.BattleShotDelaySeconds);
         Assert.Equal(2.0, settings.BattleAttackDelaySeconds);
@@ -37,15 +37,15 @@ public sealed class UserSettingsTests : IDisposable
     {
         var saved = new UserSettings
         {
-            PackId = "placeholder", SoundEnabled = false, VolumePercent = 40, ColorScheme = "parchment",
-            BackgroundHex = "#102030", TextHex = "#fafafa", Font = "atkinson", TextScalePercent = 125, Fullscreen = true, ShowOtherBattleReports = false, ConfirmMoves = true,
+            PackId = "placeholder", SoundEnabled = false, VolumePercent = 40, ColorScheme = "dark",
+            Font = "garamond", TextScalePercent = 125, Fullscreen = true, ShowOtherBattleReports = false, ConfirmMoves = true,
             MapStyle = "painted",
         }.WithBattleSpeed(BattleSpeeds.All.Single(s => s.Id == "fast"));
 
         Assert.True(saved.TrySave(PathFor("settings.json")));
         var loaded = UserSettings.Load(PathFor("settings.json"));
 
-        Assert.Equal(saved with { TextHex = "#FAFAFA" }, loaded);
+        Assert.Equal(saved, loaded);
         Assert.Equal("fast", loaded.BattleSpeedPreset?.Id);
     }
 
@@ -73,31 +73,30 @@ public sealed class UserSettingsTests : IDisposable
         var settings = new UserSettings
         {
             VolumePercent = 250, TextScalePercent = 10, ColorScheme = "neon", Font = "comic",
-            BackgroundHex = "red", TextHex = "#12345", BattleShotDelaySeconds = 9.87, BattleAttackDelaySeconds = 1.6, PackId = "  ",
+            BattleShotDelaySeconds = 9.87, BattleAttackDelaySeconds = 1.6, PackId = "  ",
             MapStyle = "watercolour",
         }.Normalized();
 
         Assert.Equal(100, settings.VolumePercent);
         Assert.Equal(UserSettings.MinTextScalePercent, settings.TextScalePercent);
-        Assert.Equal("dark", settings.ColorScheme);
-        Assert.Equal("source-sans", settings.Font);
-        Assert.Null(settings.BackgroundHex);
-        Assert.Null(settings.TextHex);
+        Assert.Equal("parchment", settings.ColorScheme);
+        Assert.Equal("atkinson", settings.Font);
         Assert.Equal(3.0, settings.BattleShotDelaySeconds);
-        Assert.Equal(2.0, settings.BattleAttackDelaySeconds);
+        Assert.Equal(1.6, settings.BattleAttackDelaySeconds);
         Assert.Null(settings.PackId);
         Assert.Null(settings.BattleSpeedPreset);
         Assert.Equal("tiles", settings.MapStyle);
     }
 
     [Fact]
-    public void Custom_colours_override_the_scheme()
+    public void The_colours_are_the_schemes_and_an_old_files_custom_colours_are_ignored()
     {
-        var colors = new UserSettings { ColorScheme = "contrast", BackgroundHex = "203040", TextHex = null }.ResolvedColors();
+        Assert.Equal(ColorSchemes.ById("contrast"), new UserSettings { ColorScheme = "contrast" }.ResolvedColors());
 
-        Assert.Equal("#203040", colors.Background);
-        Assert.Equal(ColorSchemes.ById("contrast").Text, colors.Text);
-        Assert.Equal(ColorSchemes.ById("contrast").Accent, colors.Accent);
+        Directory.CreateDirectory(_dir);
+        var path = PathFor("old-settings.json");
+        File.WriteAllText(path, """{ "ColorScheme": "contrast", "BackgroundHex": "#203040", "TextHex": "#fafafa" }""");
+        Assert.Equal(ColorSchemes.ById("contrast"), UserSettings.Load(path).ResolvedColors());
     }
 
     [Fact]

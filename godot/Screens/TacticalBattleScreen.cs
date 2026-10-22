@@ -109,6 +109,9 @@ public partial class TacticalBattleScreen : Control
     /// <summary>The caption label, for <c>godot/Checks/**</c>.</summary>
     public Label CaptionLabel { get; private set; } = null!;
 
+    /// <summary>The phase line under the caption: who is to place or move, or that the battle is over.</summary>
+    public Label PhaseLabel { get; private set; } = null!;
+
     /// <summary>The selected unit's panel, for <c>godot/Checks/**</c>.</summary>
     public Label PanelLabel { get; private set; } = null!;
 
@@ -213,6 +216,10 @@ public partial class TacticalBattleScreen : Control
         CaptionLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         CaptionLabel.CustomMinimumSize = new Vector2(CellPixels * 14, 0);
         left.AddChild(CaptionLabel);
+        PhaseLabel = UiKit.MakeLabel(string.Empty, BattleBodySize, UiKit.AccentColor);
+        PhaseLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        PhaseLabel.CustomMinimumSize = new Vector2(CellPixels * 14, 0);
+        left.AddChild(PhaseLabel);
         ControllerLabel = UiKit.MakeLabel(string.Empty, BattleBodySize, UiKit.AccentColor);
         ControllerLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         ControllerLabel.CustomMinimumSize = new Vector2(CellPixels * 14, 0);
@@ -603,9 +610,8 @@ public partial class TacticalBattleScreen : Control
             controlsEnabled: !IsPlayingBack, pose: _playback.Pose, stage: _playback.Stage);
         SelectedSlot = Model.SelectedSlot;
 
-        CaptionLabel.Text = _playback.ResolvingHalfRound
-            ? $"{_display.AttackerNationName}  v  {_display.DefenderNationName} — resolving combat"
-            : Model.Caption;
+        CaptionLabel.Text = Model.Caption;
+        PhaseLabel.Text = _playback.ResolvingHalfRound ? "Resolving combat…" : Model.CaptionPhase;
         ControllerLabel.Text = (_playback.Stage == TacticalPlaybackStage.Announcement ? "TURN BEGINS · " : "") + Model.ControllerText;
         PanelLabel.Text = string.Join("\n", Model.PanelLines);
         ExchangeLabel.Text = string.Join("\n", Model.CurrentExchangePresentation.RichLines);

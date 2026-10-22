@@ -104,7 +104,10 @@ public partial class GameMapView : Control
     private static readonly Color BackgroundColor = UiKit.Background;
     private static readonly Color GridColor = new(0f, 0f, 0f, 0.15f);
     private static readonly Color CityRingColor = new(1.0f, 0.97f, 0.86f);
-    private static readonly Color SelectedRingColor = new(0.95f, 0.78f, 0.35f);
+    // The owner's play session of 2026-10-22: a selection reads in white over black, as the original's
+    // black-and-white selection does, on any nation's colour and any terrain (it was gold).
+    private static readonly Color SelectedRingColor = new(1f, 1f, 1f);
+    private static readonly Color SelectedRingUnderColor = new(0f, 0f, 0f);
 
     /// <summary>The tile colour for a terrain name the map does not know (the tile-type list is open).</summary>
     private static readonly Color UnknownTerrainColor = new(0.24f, 0.24f, 0.24f);
@@ -1562,7 +1565,7 @@ public partial class GameMapView : Control
             DrawTemplateTile(tile, tileRect, background);
             if (selected)
             {
-                DrawRect(tileRect, SelectedRingColor, false, 2.5f);
+                DrawSelectionRect(tileRect, 2.5f);
             }
 
             return;
@@ -1577,7 +1580,7 @@ public partial class GameMapView : Control
             DrawTownPlate(texture, rect, background, foreground, rank == MapMarkerKeys.CapitalRank);
             if (selected)
             {
-                DrawRect(rect, SelectedRingColor, false, 2.5f);
+                DrawSelectionRect(rect, 2.5f);
             }
 
             return;
@@ -1587,7 +1590,8 @@ public partial class GameMapView : Control
         // behind the owner-background-coloured disc stays exactly as it was.
         DrawCircle(center, radius + 1.5f, new Color(0f, 0f, 0f, 0.55f));
         DrawCircle(center, radius, background);
-        DrawArc(center, radius, 0f, Mathf.Tau, 24, selected ? SelectedRingColor : CityRingColor, selected ? 2.5f : 1.2f);
+        if (selected) DrawArc(center, radius, 0f, Mathf.Tau, 24, SelectedRingUnderColor, 2.5f);
+        DrawArc(center, radius, 0f, Mathf.Tau, 24, selected ? SelectedRingColor : CityRingColor, selected ? 1.25f : 1.2f);
     }
 
     /// <summary>Evidence-only size replay: the real marker drawing uses its pre-T187 dimensions.
@@ -1624,15 +1628,25 @@ public partial class GameMapView : Control
     public Dictionary<string, Rect2> StrategicFeedbackBoundsForCheck { get; } = new();
     public HashSet<string> StrategicFallbackMarkersForCheck { get; } = new();
 
+    /// <summary>
+    /// A selection outline: a black stroke with a narrower white one centred on it, readable on any
+    /// background, and no wider than the old single stroke, so it stays inside the marker's tile.
+    /// </summary>
+    private void DrawSelectionRect(Rect2 rect, float width)
+    {
+        DrawRect(rect, SelectedRingUnderColor, false, width);
+        DrawRect(rect, SelectedRingColor, false, width * 0.5f);
+    }
+
     private void DrawStrategicOutline(string id, Rect2 rect, bool selected, StrategicMarkerKind? selectedKind = null)
     {
         var bounds = new StrategicMarkerBounds(rect.Position.X, rect.Position.Y, rect.Size.X);
         var outline = StrategicMarkerGeometry.Outline(bounds, selected);
         var stroke = StrategicMarkerGeometry.StrokeWidth(bounds.Size, selected);
         StrategicFeedbackBoundsForCheck[id] = new Rect2(outline.X, outline.Y, outline.Size, outline.Size).Grow(stroke / 2);
-        DrawRect(new Rect2(outline.X, outline.Y, outline.Size, outline.Size),
-            selected ? SelectedRingColor : CityRingColor, false,
-            stroke);
+        var outlineRect = new Rect2(outline.X, outline.Y, outline.Size, outline.Size);
+        if (selected) DrawSelectionRect(outlineRect, stroke);
+        else DrawRect(outlineRect, CityRingColor, false, stroke);
         if (selected && selectedKind is { } kind) DrawSelectedKindCue(rect, kind);
     }
 

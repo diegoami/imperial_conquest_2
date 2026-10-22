@@ -330,8 +330,8 @@ public partial class TacticalBattleCheck : Node
             $"the defender's placement is done and Rome is to place (placed {view.Placed}, side {view.SideToMove}, counter {view.Counter})");
         Check(rome == "rome", $"Rome attacks (attacker nation '{rome}')");
         Check(
-            screen!.CaptionLabel.Text == screen.Model.Caption && screen.CaptionLabel.Text.Contains("Rome to place units."),
-            $"the caption names the side to place ('{screen.CaptionLabel.Text}')");
+            screen!.CaptionLabel.Text == screen.Model.Caption && screen.PhaseLabel.Text == "Rome to place units.",
+            $"the phase line under the caption names the side to place ('{screen.CaptionLabel.Text}' / '{screen.PhaseLabel.Text}')");
         Check(
             screen.Model.Cells.Count(c => c.IconKey is not null) == view.Slots.Count(s => s.IsLive),
             "the board shows one icon per live unit");
@@ -651,7 +651,7 @@ public partial class TacticalBattleCheck : Node
                 foreach (var row in screen.Model.RosterRows(side))
                     Check(row.Cells[2] == displayed.View.Slots[row.Slot].Troops.ToString(), "roster troops equal displayed snapshot");
             if (frame.Kind == TacticalFrameKind.HalfRound)
-                Check(screen.ControllerLabel.Text.StartsWith("Finishing the previous half-round", StringComparison.Ordinal) && !screen.CaptionLabel.Text.Contains("to move units"), "pre-melee handoff does not announce next human turn");
+                Check(screen.ControllerLabel.Text.StartsWith("Finishing the previous half-round", StringComparison.Ordinal) && !screen.PhaseLabel.Text.Contains("to move units"), "pre-melee handoff does not announce next human turn");
             if (frame.Kind == TacticalFrameKind.Terminal) terminalSeen = true;
             if (terminalSeen && frame.Kind == TacticalFrameKind.Reconciliation) reconciled = true;
         };

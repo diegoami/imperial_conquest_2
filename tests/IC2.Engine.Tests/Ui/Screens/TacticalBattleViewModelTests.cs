@@ -123,14 +123,16 @@ public sealed class TacticalBattleViewModelTests
         var south = session.State.NationById("south")!.Name;
 
         Assert.False(view.Placed);
-        Assert.Equal($"{north}  v  {south}          {north} to place units.", TacticalBattleViewModel.From(view, display).Caption);
+        Assert.Equal($"{north}  v  {south}", TacticalBattleViewModel.From(view, display).Caption);
+        Assert.Equal($"{north} to place units.", TacticalBattleViewModel.From(view, display).CaptionPhase);
 
         // Placement ends with the human's End turn; the movement half-rounds then name the nation to move.
         var after = session.Submit("battle end").OpenBattleView;
         var movement = Assert.IsType<TacticalBattleView>(after);
         Assert.True(movement.Placed);
         var mover = movement.SideToMove == 0 ? north : south;
-        Assert.Equal($"{north}  v  {south}          {mover} to move units.", TacticalBattleViewModel.From(movement, display).Caption);
+        Assert.Equal($"{north}  v  {south}", TacticalBattleViewModel.From(movement, display).Caption);
+        Assert.Equal($"{mover} to move units.", TacticalBattleViewModel.From(movement, display).CaptionPhase);
     }
 
     [Fact]
@@ -386,11 +388,11 @@ public sealed class TacticalBattleViewModelTests
 
     [Theory]
     [InlineData(-2.0, 0.0)]
-    [InlineData(0.4, 0.0)]
-    [InlineData(1.4, 1.0)]
-    [InlineData(1.6, 2.0)]
+    [InlineData(0.04, 0.0)]
+    [InlineData(0.44, 0.4)]
+    [InlineData(1.46, 1.5)]
     [InlineData(7.0, 3.0)]
-    public void The_attack_pause_snaps_to_whole_seconds_between_0_and_3(double wanted, double expected)
+    public void The_attack_pause_snaps_to_tenths_of_a_second_between_0_and_3(double wanted, double expected)
     {
         Assert.Equal(expected, BattlePauses.SnapAttack(wanted));
     }

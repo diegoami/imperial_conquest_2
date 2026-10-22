@@ -199,8 +199,11 @@ public static class BattlePauses
     /// <summary>The shot delay's step, in seconds.</summary>
     public const double ShotStepSeconds = 0.1;
 
-    /// <summary>The attack delay's step, in seconds.</summary>
-    public const double AttackStepSeconds = 1.0;
+    /// <summary>
+    /// The attack delay's step, in seconds: tenths, like the shot delay ([designed], the owner's play session of
+    /// 2026-10-22; whole seconds left nothing between 0 and 1).
+    /// </summary>
+    public const double AttackStepSeconds = 0.1;
 
     /// <summary>The shot delay on a snapped, clamped value.</summary>
     /// <param name="seconds">The wanted delay.</param>
@@ -209,7 +212,7 @@ public static class BattlePauses
 
     /// <summary>The attack delay on a snapped, clamped value.</summary>
     /// <param name="seconds">The wanted delay.</param>
-    /// <returns>A value in 0 … 3.0 on the 1.0 s grid.</returns>
+    /// <returns>A value in 0 … 3.0 on the 0.1 s grid.</returns>
     public static double SnapAttack(double seconds) => Snap(seconds, AttackStepSeconds);
 
     private static double Snap(double seconds, double step)
@@ -220,7 +223,8 @@ public static class BattlePauses
         }
 
         var clamped = Math.Clamp(seconds, 0, MaxSeconds);
-        return Math.Round(Math.Round(clamped / step) * step, 1);
+        // Divide by ten last, so a tenth is the exact double (1.6, not 1.6000000000000001).
+        return Math.Round(Math.Round(clamped / step) * step * 10) / 10;
     }
 }
 
@@ -491,9 +495,14 @@ public sealed class TacticalBattleViewModel
     /// The window caption: <c>A  v  D          N to place units.</c> or <c>… to move units.</c>
     /// <strong>[Wine candidate: probe, item 1]</strong>.
     /// </summary>
-    public string Caption =>
-        $"{_display.AttackerNationName}  v  {_display.DefenderNationName}          "
-        + (_view.IsOver ? "The battle is over." : $"{SideToMoveName} to {(_view.Placed ? "move" : "place")} units.");
+    public string Caption => $"{_display.AttackerNationName}  v  {_display.DefenderNationName}";
+
+    /// <summary>
+    /// The phase line under <see cref="Caption"/>, shown smaller (the owner's play session of 2026-10-22; the
+    /// original puts both on one title bar, which wrapped badly here).
+    /// </summary>
+    public string CaptionPhase =>
+        _view.IsOver ? "The battle is over." : $"{SideToMoveName} to {(_view.Placed ? "move" : "place")} units.";
 
     /// <summary>
     /// Builds the model.
