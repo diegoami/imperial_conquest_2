@@ -123,14 +123,16 @@ public sealed class TacticalBattleViewModelTests
         var south = session.State.NationById("south")!.Name;
 
         Assert.False(view.Placed);
-        Assert.Equal($"{north}  v  {south}          {north} to place units.", TacticalBattleViewModel.From(view, display).Caption);
+        Assert.Equal($"{north}  v  {south}", TacticalBattleViewModel.From(view, display).Caption);
+        Assert.Equal($"{north} to place units.", TacticalBattleViewModel.From(view, display).CaptionPhase);
 
         // Placement ends with the human's End turn; the movement half-rounds then name the nation to move.
         var after = session.Submit("battle end").OpenBattleView;
         var movement = Assert.IsType<TacticalBattleView>(after);
         Assert.True(movement.Placed);
         var mover = movement.SideToMove == 0 ? north : south;
-        Assert.Equal($"{north}  v  {south}          {mover} to move units.", TacticalBattleViewModel.From(movement, display).Caption);
+        Assert.Equal($"{north}  v  {south}", TacticalBattleViewModel.From(movement, display).Caption);
+        Assert.Equal($"{mover} to move units.", TacticalBattleViewModel.From(movement, display).CaptionPhase);
     }
 
     [Fact]
@@ -222,8 +224,37 @@ public sealed class TacticalBattleViewModelTests
 
         var model = TacticalBattleViewModel.From(changed, display, selectedSlot: 0);
 
-        Assert.Equal($"Attacks: {view.Slots[20].Name}", model.PanelLines[^1]);
+        Assert.Contains($"Attacks: {view.Slots[20].Name}", model.PanelLines);
         Assert.Equal(view.Slots[20].Name, model.UnitMovesRows.Single(r => r.Slot == 0).Cells[4]);
+    }
+
+    [Fact]
+    public void A_selected_unit_with_a_melee_target_shows_the_planned_exchange_and_marks_the_target()
+    {
+        var (_, view, display) = Opened();
+        var slots = view.Slots.ToList();
+        slots[0] = slots[0] with { Target = 20 };
+        var changed = view with { Slots = IC2.Engine.Model.ValueList.From(slots) };
+        var own = changed.Slots[0];
+        var enemy = changed.Slots[20];
+
+        var model = TacticalBattleViewModel.From(changed, display, selectedSlot: 0);
+
+        Assert.Equal(20, model.PlannedTargetSlot);
+        Assert.Equal(
+            new[]
+            {
+                "Planned melee, at End turn:",
+                $"{own.Name} ({display.UnitTypeNames[own.Type]}, {own.Troops} troops) attacks",
+                $"{enemy.Name} of {display.DefenderNationName} ({display.UnitTypeNames[enemy.Type]}, {enemy.Troops} troops)",
+                "No other unit attacks it.",
+            },
+            model.PlannedExchangeLines.ToArray());
+        Assert.True(model.Cells.Single(c => c.X == enemy.X && c.Y == enemy.Y).Target);
+
+        // Nothing is planned for an enemy unit, or for an own unit with no target.
+        Assert.Empty(TacticalBattleViewModel.From(changed, display, selectedSlot: 20).PlannedExchangeLines);
+        Assert.Empty(TacticalBattleViewModel.From(view, display, selectedSlot: 0).PlannedExchangeLines);
     }
 
     [Fact]
@@ -357,11 +388,11 @@ public sealed class TacticalBattleViewModelTests
 
     [Theory]
     [InlineData(-2.0, 0.0)]
-    [InlineData(0.4, 0.0)]
-    [InlineData(1.4, 1.0)]
-    [InlineData(1.6, 2.0)]
+    [InlineData(0.04, 0.0)]
+    [InlineData(0.44, 0.4)]
+    [InlineData(1.46, 1.5)]
     [InlineData(7.0, 3.0)]
-    public void The_attack_pause_snaps_to_whole_seconds_between_0_and_3(double wanted, double expected)
+    public void The_attack_pause_snaps_to_tenths_of_a_second_between_0_and_3(double wanted, double expected)
     {
         Assert.Equal(expected, BattlePauses.SnapAttack(wanted));
     }
@@ -399,7 +430,8 @@ public sealed class TacticalBattleViewModelTests
             foreach (var id in new[] { frame.Actor, frame.Target }.OfType<TacticalUnitIdentity>())
             {
                 var lines = model.ParticipantLines(id.Slot, "role");
-                Assert.Contains(lines, line => line.Contains("#" + id.Slot));
+                // Before the battle a unit is named only; once it starts, by its side and slot.
+                Assert.Contains(lines, line => line.Contains(snapshot.View.Placed ? "#" + id.Slot : slots[id.Slot].Name));
                 Assert.Contains(lines, line => line.Contains(slots[id.Slot].Troops + " troops"));
                 if (id.Side == 1) Assert.DoesNotContain(lines, line => line.Contains("Morale:"));
             }

@@ -92,6 +92,12 @@ public partial class SettingsScreen : Control
     {
         SettingsPath = path;
         Current = UserSettings.Load(path);
+        // The placeholder pack is no longer offered; a selection of it saved earlier reverts to the default.
+        if (Current.PackId == Assets.AssetPackManifestLoader.FallbackPackId)
+        {
+            Current = Current with { PackId = null };
+        }
+
         Appearance.Apply(Current, root);
     }
 
@@ -223,12 +229,7 @@ public partial class SettingsScreen : Control
 
         var schemes = ColorSchemes.All;
         Picker(Row(column, "Colours"), schemes, s => s.Name, IndexOf(schemes, s => s.Id == Current.ColorScheme),
-            scheme => Commit(Current with { ColorScheme = scheme.Id, BackgroundHex = null, TextHex = null }, GetTree().Root));
-
-        var custom = Row(column, "Custom colours");
-        custom.AddChild(ColorButton("Background", () => Current.ResolvedColors().Background, hex => Current with { BackgroundHex = hex }));
-        custom.AddChild(ColorButton("Text", () => Current.ResolvedColors().Text, hex => Current with { TextHex = hex }));
-        custom.AddChild(UiKit.MakeButton("Reset", () => Commit(Current with { BackgroundHex = null, TextHex = null }, GetTree().Root), AppTheme.Button));
+            scheme => Commit(Current with { ColorScheme = scheme.Id }, GetTree().Root));
 
         var fonts = UiFonts.All;
         Picker(Row(column, "Font"), fonts, f => f.Name, IndexOf(fonts, f => f.Id == Current.Font),
@@ -241,17 +242,6 @@ public partial class SettingsScreen : Control
         var fullscreen = new CheckBox { Text = "Full screen", ButtonPressed = Current.Fullscreen };
         fullscreen.Toggled += on => Commit(Current with { Fullscreen = on }, GetTree().Root);
         Row(column, "Window").AddChild(fullscreen);
-    }
-
-    private HBoxContainer ColorButton(string caption, Func<string> current, Func<string, UserSettings> with)
-    {
-        var box = new HBoxContainer();
-        box.AddThemeConstantOverride("separation", AppTheme.MenuGap);
-        box.AddChild(UiKit.MakeLabel(caption, AppTheme.Body, UiKit.MutedTextColor));
-        var button = new ColorPickerButton { Color = Color.FromHtml(current()), EditAlpha = false, CustomMinimumSize = new Vector2(48, 28) };
-        button.PopupClosed += () => Commit(with("#" + button.Color.ToHtml(false)), GetTree().Root);
-        box.AddChild(button);
-        return box;
     }
 
     private void BuildBattle(VBoxContainer column)
@@ -331,13 +321,15 @@ public partial class SettingsScreen : Control
 
     private void BuildGame(VBoxContainer column)
     {
-        Section(column, "Asset pack");
+        // The placeholder pack is the loader's internal fallback, never offered; with one pack left there
+        // is nothing to choose, so the section is hidden.
         var packs = DiscoverPacks();
-        if (packs.Count == 0)
+        if (packs.Count <= 1)
         {
-            column.AddChild(UiKit.MakeLabel("No asset packs found under assets/packs/.", AppTheme.Body, UiKit.MutedTextColor));
             return;
         }
+
+        Section(column, "Asset pack");
 
         // No selection yet shows the loader's own default (authored when listed), so the picker
         // and the pack GameMapView will load agree from the first frame.
@@ -410,7 +402,8 @@ public partial class SettingsScreen : Control
 
         foreach (var directory in Directory.GetDirectories(packsRoot))
         {
-            if (File.Exists(Path.Combine(directory, "manifest.json")))
+            if (File.Exists(Path.Combine(directory, "manifest.json"))
+                && Path.GetFileName(directory) != Assets.AssetPackManifestLoader.FallbackPackId)
             {
                 found.Add(Path.GetFileName(directory));
             }

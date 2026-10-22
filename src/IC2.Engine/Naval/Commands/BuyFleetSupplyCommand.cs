@@ -57,7 +57,8 @@ public sealed record BuyFleetSupplyCommand(
     string FleetId,
     string? ProviderCityId,
     string? ProviderFleetId,
-    int Tons) : ICommand
+    int Tons,
+    string? ProviderArmyId = null) : ICommand
 {
     /// <inheritdoc/>
     public string Kind => "naval.buy-fleet-supply";
@@ -105,4 +106,10 @@ public static class BuyFleetSupplyRejections
 
     /// <summary>Done-when 4 (T14 round-2 review, B9): a fleet cannot buy supply from itself.</summary>
     public static readonly RejectionCode SelfSupply = new("naval.self-supply");
+
+    public static readonly RejectionCode UnknownProviderArmy = new("naval.unknown-provider-army");
+
+    public static readonly RejectionCode ProviderArmyNotEligible = new("naval.provider-army-not-eligible");
+
+    public static readonly RejectionCode ProviderArmyNotWithinRange = new("naval.provider-army-not-within-range");
 }

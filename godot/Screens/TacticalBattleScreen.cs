@@ -52,6 +52,12 @@ public partial class TacticalBattleScreen : Control
 
     /// <summary>Typed exactly-once exchange seam for T183; fired by the production queue at every delay.</summary>
     public event Action<TacticalBattleFrame>? ExchangeEntered;
+
+    /// <summary>
+    /// An accepted melee target order: the unit and the enemy it will attack at End turn. The main screen plays
+    /// the melee sound for it, the same cue the exchange itself plays.
+    /// </summary>
+    public event Action<int, int>? MeleeTargetSet;
     public event Action<TacticalBattleFrame>? FrameEntered;
     public TacticalBattleFrame? DisplayedFrame => _playback.CurrentFrame;
     public TacticalPresentationSnapshot DisplayedSnapshot => _snapshot;
@@ -102,6 +108,9 @@ public partial class TacticalBattleScreen : Control
 
     /// <summary>The caption label, for <c>godot/Checks/**</c>.</summary>
     public Label CaptionLabel { get; private set; } = null!;
+
+    /// <summary>The phase line under the caption: who is to place or move, or that the battle is over.</summary>
+    public Label PhaseLabel { get; private set; } = null!;
 
     /// <summary>The selected unit's panel, for <c>godot/Checks/**</c>.</summary>
     public Label PanelLabel { get; private set; } = null!;
@@ -207,6 +216,10 @@ public partial class TacticalBattleScreen : Control
         CaptionLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         CaptionLabel.CustomMinimumSize = new Vector2(CellPixels * 14, 0);
         left.AddChild(CaptionLabel);
+        PhaseLabel = UiKit.MakeLabel(string.Empty, BattleBodySize, UiKit.AccentColor);
+        PhaseLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        PhaseLabel.CustomMinimumSize = new Vector2(CellPixels * 14, 0);
+        left.AddChild(PhaseLabel);
         ControllerLabel = UiKit.MakeLabel(string.Empty, BattleBodySize, UiKit.AccentColor);
         ControllerLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         ControllerLabel.CustomMinimumSize = new Vector2(CellPixels * 14, 0);
@@ -254,7 +267,7 @@ public partial class TacticalBattleScreen : Control
         left.AddChild(footer);
         _minimap = new BoardView { Host = this, Mini = true, CustomMinimumSize = new Vector2(112, 96), MouseFilter = MouseFilterEnum.Ignore };
         footer.AddChild(_minimap);
-        footer.AddChild(UiKit.MakeLabel("○ Cyan: ACTOR\n◇ Orange: TARGET\n□ Gold: SELECTED\nAttacker / Defender: strategic roles", BattleNoteSize, UiKit.TextColor));
+        footer.AddChild(UiKit.MakeLabel("○ Cyan: acting unit\n◇ Orange: its target\n□ Gold: selected", BattleNoteSize, UiKit.TextColor));
 
         var right = new VBoxContainer { CustomMinimumSize = new Vector2(380, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         right.AddThemeConstantOverride("separation", AppTheme.DialogGap);
@@ -325,6 +338,14 @@ public partial class TacticalBattleScreen : Control
     /// <param name="right">Whether it is the right button.</param>
     public void ClickCell(int x, int y, bool right = false)
     {
+        // A board click during the playback of the player's own order (a placement, a walk) ends that
+        // playback and then acts, so the next unit can be picked at once instead of the click being lost.
+        // The computer's half-round replays still end only through the side panel.
+        if (IsPlayingBack && !_playback.ResolvingHalfRound)
+        {
+            SkipPlayback();
+        }
+
         if (IsPlayingBack || _dialogKind != DialogKind.None || Model is null)
         {
             return;
@@ -345,6 +366,11 @@ public partial class TacticalBattleScreen : Control
                 break;
             case BattleClickKind.Attack:
                 Send(s => s.BattleAttack(click.Unit, click.Enemy), $"battle attack {click.Unit} {click.Enemy}");
+                if (Session.OpenTacticalBattle?.Slots[click.Unit].Target == click.Enemy)
+                {
+                    MeleeTargetSet?.Invoke(click.Unit, click.Enemy);
+                }
+
                 break;
             case BattleClickKind.Shoot:
                 Send(s => s.BattleShoot(click.Unit, click.Enemy), $"battle shoot {click.Unit} {click.Enemy}");
@@ -562,7 +588,7 @@ public partial class TacticalBattleScreen : Control
 
     private string FrameMessage(TacticalBattleFrame frame) => frame.Event switch
     {
-        TacticalMovedEvent move => $"ACTOR #{move.Slot} moves ({move.FromX},{move.FromY}) → ({move.ToX},{move.ToY})",
+        TacticalMovedEvent move => $"#{move.Slot} moves ({move.FromX},{move.FromY}) → ({move.ToX},{move.ToY})",
         TacticalRoutedEvent rout => $"#{rout.Slot} routed and removed",
         TacticalCascadeRemovedEvent cascade => $"#{cascade.Slot} removed in rout cascade",
         TacticalSurrenderedEvent surrender => $"{(surrender.Side == 0 ? "Attacker" : "Defender")} surrendered",
@@ -584,9 +610,8 @@ public partial class TacticalBattleScreen : Control
             controlsEnabled: !IsPlayingBack, pose: _playback.Pose, stage: _playback.Stage);
         SelectedSlot = Model.SelectedSlot;
 
-        CaptionLabel.Text = _playback.ResolvingHalfRound
-            ? $"{_display.AttackerNationName}  v  {_display.DefenderNationName} — resolving combat"
-            : Model.Caption;
+        CaptionLabel.Text = Model.Caption;
+        PhaseLabel.Text = _playback.ResolvingHalfRound ? "Resolving combat…" : Model.CaptionPhase;
         ControllerLabel.Text = (_playback.Stage == TacticalPlaybackStage.Announcement ? "TURN BEGINS · " : "") + Model.ControllerText;
         PanelLabel.Text = string.Join("\n", Model.PanelLines);
         ExchangeLabel.Text = string.Join("\n", Model.CurrentExchangePresentation.RichLines);

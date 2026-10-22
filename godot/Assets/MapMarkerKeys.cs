@@ -139,15 +139,16 @@ public static class MapMarkerKeys
     /// <summary>
     /// #1309: a city marker's half-size, in tiles, by <see cref="CityRank"/>: small towns smaller, cities and the
     /// capital larger, so size reads at a glance. <c>[designed]</c>, a recorded difference: the original draws every
-    /// town at one size and tells them apart only by its art.
+    /// town at one size and tells them apart only by its art. Every rank stays inside its own tile (the owner's
+    /// play session of 2026-10-22: larger towns overlapped the neighbouring tiles); the capital fills it.
     /// </summary>
     public static float CityMarkerHalfSize(int rank) => rank switch
     {
-        <= 0 => 0.34f,
-        1 => 0.46f,
-        2 => 0.58f,
-        3 => 0.70f,
-        _ => 0.82f,
+        <= 0 => 0.30f,
+        1 => 0.36f,
+        2 => 0.42f,
+        3 => 0.46f,
+        _ => 0.50f,
     };
 
     private static int TierIndex(int value, IReadOnlyList<int> thresholds)

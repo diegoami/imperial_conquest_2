@@ -103,10 +103,15 @@ public partial class TacticalBattleCheck : Node
             {
                 var settings = new SettingsScreen();
                 AddChild(settings);
-                var picker = Descendants(settings).OfType<OptionButton>().First(o => o.Name == SettingsScreen.PackPickerName);
-                var index = Enumerable.Range(0, picker.ItemCount).First(i => picker.GetItemText(i) == pack);
-                picker.Select(index);
-                picker.EmitSignal(OptionButton.SignalName.ItemSelected, index);
+                // The placeholder is never offered, and with one pack left the picker is hidden.
+                var picker = Descendants(settings).OfType<OptionButton>().FirstOrDefault(o => o.Name == SettingsScreen.PackPickerName);
+                if (picker is null || pack == IC2.Slice.Assets.AssetPackManifestLoader.FallbackPackId) SettingsScreen.SetPackForCheck(pack);
+                else
+                {
+                    var index = Enumerable.Range(0, picker.ItemCount).First(i => picker.GetItemText(i) == pack);
+                    picker.Select(index);
+                    picker.EmitSignal(OptionButton.SignalName.ItemSelected, index);
+                }
                 RemoveChild(settings);
                 settings.QueueFree();
                 await CaptureReadability(pack);
@@ -330,8 +335,8 @@ public partial class TacticalBattleCheck : Node
             $"the defender's placement is done and Rome is to place (placed {view.Placed}, side {view.SideToMove}, counter {view.Counter})");
         Check(rome == "rome", $"Rome attacks (attacker nation '{rome}')");
         Check(
-            screen!.CaptionLabel.Text == screen.Model.Caption && screen.CaptionLabel.Text.Contains("Rome to place units."),
-            $"the caption names the side to place ('{screen.CaptionLabel.Text}')");
+            screen!.CaptionLabel.Text == screen.Model.Caption && screen.PhaseLabel.Text == "Rome to place units.",
+            $"the phase line under the caption names the side to place ('{screen.CaptionLabel.Text}' / '{screen.PhaseLabel.Text}')");
         Check(
             screen.Model.Cells.Count(c => c.IconKey is not null) == view.Slots.Count(s => s.IsLive),
             "the board shows one icon per live unit");
@@ -344,11 +349,27 @@ public partial class TacticalBattleCheck : Node
             .First();
         screen.SelectUnit(0);
         Check(screen.SelectedSlot == 0, "a click on an own unit selects it");
+        // Placed with the designed pauses, so the placement's glide is still playing back at the next click.
+        var (savedShot, savedAttack) = (SettingsScreen.BattleShotDelaySeconds, SettingsScreen.BattleAttackDelaySeconds);
+        SettingsScreen.SetBattlePauses(1, 2);
         screen.ClickBoardCell(target.X, screen.BoardYForEngineY(target.Y));
         var placed = mainGame.Session.OpenTacticalBattle!.Slots[0];
         Check(
             placed.X == target.X && placed.Y == target.Y,
             $"the placement click reached the engine (unit 0 at ({placed.X},{placed.Y}), wanted ({target.X},{target.Y}))");
+
+        // The next click on another own unit selects it at once, even while the placement still plays back.
+        if (mainGame.Session.OpenTacticalBattle!.Slots[1].IsLive)
+        {
+            var playingBefore = screen.IsPlayingBack;
+            screen.SelectUnit(1);
+            Check(
+                playingBefore && screen.SelectedSlot == 1 && !screen.IsPlayingBack,
+                $"the first click after a placement, during its playback, ends it and selects the next unit (selected {screen.SelectedSlot}, playback before the click {playingBefore})");
+        }
+
+        screen.SkipPlayback();
+        SettingsScreen.SetBattlePauses(savedShot, savedAttack);
 
         // End turn reaches the engine.
         var counterBefore = mainGame.Session.OpenTacticalBattle!.Counter;
@@ -531,7 +552,7 @@ public partial class TacticalBattleCheck : Node
         if (sliders.Length != 2) return;
         Check(sliders[0].Value == shot && sliders[1].Value == attack, context + " shows selected pauses");
         Check(sliders.All(s => s.MinValue == 0 && s.MaxValue == 3)
-            && sliders[0].Step == 0.1 && sliders[1].Step == 1, context + " retains ranges and grids");
+            && sliders[0].Step == BattlePauses.ShotStepSeconds && sliders[1].Step == BattlePauses.AttackStepSeconds, context + " retains ranges and grids");
     }
 
     // ---- Done-when 2: the pauses ----
@@ -635,7 +656,7 @@ public partial class TacticalBattleCheck : Node
                 foreach (var row in screen.Model.RosterRows(side))
                     Check(row.Cells[2] == displayed.View.Slots[row.Slot].Troops.ToString(), "roster troops equal displayed snapshot");
             if (frame.Kind == TacticalFrameKind.HalfRound)
-                Check(screen.ControllerLabel.Text.StartsWith("Finishing the previous half-round", StringComparison.Ordinal) && !screen.CaptionLabel.Text.Contains("to move units"), "pre-melee handoff does not announce next human turn");
+                Check(screen.ControllerLabel.Text.StartsWith("Finishing the previous half-round", StringComparison.Ordinal) && !screen.PhaseLabel.Text.Contains("to move units"), "pre-melee handoff does not announce next human turn");
             if (frame.Kind == TacticalFrameKind.Terminal) terminalSeen = true;
             if (terminalSeen && frame.Kind == TacticalFrameKind.Reconciliation) reconciled = true;
         };

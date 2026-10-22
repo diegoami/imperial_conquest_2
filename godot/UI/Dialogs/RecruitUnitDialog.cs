@@ -202,6 +202,18 @@ public partial class RecruitUnitDialog : Control
         _troops.ValueChanged += _ => Refresh();
         column.AddChild(_troops);
 
+        // The owner's play session of 2026-10-22: the box's arrows step by 100, so larger steps and Max sit
+        // beside it. The SpinBox clamps every step to the type's bounds.
+        var stepRow = new HBoxContainer();
+        stepRow.AddThemeConstantOverride("separation", 6);
+        column.AddChild(stepRow);
+        foreach (var delta in new[] { -1000, -100, 100, 1000 })
+        {
+            stepRow.AddChild(UiKit.MakeButton(delta > 0 ? $"+{delta}" : $"{delta}", () => _troops.Value += delta));
+        }
+
+        stepRow.AddChild(UiKit.MakeButton("Max", () => _troops.Value = _model.AffordableMaximumFor(_selectedUnitTypeId)));
+
         _troopBoundsLabel = UiKit.MakeLabel(string.Empty, color: UiKit.MutedTextColor);
         column.AddChild(_troopBoundsLabel);
 

@@ -37,7 +37,8 @@ public partial class AreaMapView : Control
 {
     public Func<GameState>? DisplayStateSource { get; set; }
     public GameState DisplayState => DisplayStateSource?.Invoke() ?? _session!.State;
-    private static readonly Color ViewRectColor = new(1f, 0.9f, 0.3f);
+    private static readonly Color ViewRectColor = new(1f, 1f, 1f);
+    private static readonly Color MarkUnderColor = new(0f, 0f, 0f);
     private static readonly Color BorderColor = AppTheme.Scrim;
 
     /// <summary>The tile colour for a terrain name the map does not know (the tile-type list is open).</summary>
@@ -62,8 +63,8 @@ public partial class AreaMapView : Control
     /// "Area map" highlight/marker colour and "TAreaMap_Show" pixels; empty. Amber over the terrain is
     /// this task's own choice.
     /// </summary>
-    private static readonly Color HighlightFillColor = new(1f, 0.85f, 0.2f, 0.45f);
-    private static readonly Color HighlightLineColor = new(1f, 0.85f, 0.2f, 0.95f);
+    private static readonly Color HighlightFillColor = new(1f, 1f, 1f, 0.45f);
+    private static readonly Color HighlightLineColor = new(1f, 1f, 1f, 0.95f);
 
     /// <summary>
     /// The Area-map strip's rows, in display order: the five Show entries, then the six Show
@@ -586,6 +587,7 @@ public partial class AreaMapView : Control
         foreach (var (x, y) in highlights)
         {
             var tile = new Rect2(_geometry.TileToPixelX(x), _geometry.TileToPixelY(y), _geometry.Scale, _geometry.Scale);
+            DrawRect(tile.Grow(1f), MarkUnderColor, false, 1f);
             DrawRect(tile, HighlightFillColor, true);
             DrawRect(tile, HighlightLineColor, false, 1f);
         }
@@ -600,6 +602,8 @@ public partial class AreaMapView : Control
         DrawMercenaryTypeIcons();
 
         var view = _viewRect;
+        // The owner's play session of 2026-10-22: white over black, as the original's selection, not gold.
+        DrawRect(new Rect2(view.X, view.Y, view.Width, view.Height).Grow(1.25f), MarkUnderColor, false, 1f);
         DrawRect(new Rect2(view.X, view.Y, view.Width, view.Height), ViewRectColor, false, 1.5f);
     }
 

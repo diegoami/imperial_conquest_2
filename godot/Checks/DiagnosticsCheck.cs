@@ -262,13 +262,14 @@ public partial class DiagnosticsCheck : Node
 
     private void CheckSettingsControls()
     {
-        var picker = Walk(_app!.CurrentScreen!).OfType<OptionButton>().Single(o => o.Name == SettingsScreen.PackPickerName);
-        int initialPack = picker.Selected;
+        // With only the authored pack offered, the Asset pack picker is hidden.
+        var picker = Walk(_app!.CurrentScreen!).OfType<OptionButton>().SingleOrDefault(o => o.Name == SettingsScreen.PackPickerName);
+        int initialPack = picker?.Selected ?? -1;
         var sound = Walk(_app.CurrentScreen!).OfType<CheckBox>().Single(c => c.Name == SettingsScreen.SoundCheckName);
         bool originalSound = SettingsScreen.SoundEnabled;
         try
         {
-            if (picker.ItemCount > 1)
+            if (picker is { ItemCount: > 1 })
             {
                 int other = (initialPack + 1) % picker.ItemCount;
                 picker.Select(other); picker.EmitSignal(OptionButton.SignalName.ItemSelected, (long)other);
@@ -282,7 +283,7 @@ public partial class DiagnosticsCheck : Node
         }
         finally
         {
-            picker.Select(initialPack); picker.EmitSignal(OptionButton.SignalName.ItemSelected, (long)initialPack);
+            if (picker is not null) { picker.Select(initialPack); picker.EmitSignal(OptionButton.SignalName.ItemSelected, (long)initialPack); }
             sound.SetPressedNoSignal(originalSound); sound.EmitSignal(BaseButton.SignalName.Toggled, originalSound);
         }
         Check(SettingsScreen.BattleShotDelaySeconds == 1 && SettingsScreen.BattleAttackDelaySeconds == 2 && SettingsScreen.SoundEnabled == originalSound,

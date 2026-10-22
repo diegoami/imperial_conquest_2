@@ -460,6 +460,31 @@ public sealed class TacticalPlaybackTests
     }
 
     [Fact]
+    public void A_computer_placement_appears_at_its_cell_and_a_human_placement_glides()
+    {
+        var (_, _, ending) = Battle();
+        var move = ending.TacticalTimeline.First(f => f.Event is TacticalMovedEvent);
+        var e = (TacticalMovedEvent)move.Event!;
+        var view = move.Before.View;
+        var side = e.Slot / Math.Max(1, view.Slots.Count / 2);
+        foreach (var computer in new[] { true, false })
+        {
+            var flags = ValueList.From(Enumerable.Range(0, 2).Select(i => i == side && computer));
+            var frame = move with
+            {
+                Kind = TacticalFrameKind.Placement,
+                Event = new TacticalPlacedEvent(e.Slot, e.FromX, e.FromY, e.ToX, e.ToY),
+                Before = move.Before with { View = view with { ComputerControlled = flags, ComputerGeneral = flags } },
+            };
+            var queue = new TacticalPlayback { ShotDelay = 1 };
+            queue.Begin(new[] { frame });
+            Assert.Equal(!computer, queue.Stage == TacticalPlaybackStage.Travel);
+            queue.Finish();
+            Assert.Same(frame.After, queue.Snapshot);
+        }
+    }
+
+    [Fact]
     public void Overkill_rout_fades_the_last_actually_displayed_glyph_despite_negative_current_icon()
     {
         var toy = TacticalSessionTestbed.Toy;

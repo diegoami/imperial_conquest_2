@@ -76,16 +76,17 @@ public sealed class BuySupplyCommandHandler : ICommandHandler<BuySupplyCommand>
 
         var hasCityProvider = command.CityId is not null;
         var hasFleetProvider = command.ProviderFleetId is not null;
-        if (hasCityProvider == hasFleetProvider)
+        var hasArmyProvider = command.ProviderArmyId is not null;
+        if ((hasCityProvider ? 1 : 0) + (hasFleetProvider ? 1 : 0) + (hasArmyProvider ? 1 : 0) != 1)
         {
             return CommandOutcome.Reject(
                 BuySupplyRejections.InvalidProvider,
-                "Exactly one of a provider city or a provider fleet must be named.");
+                "Exactly one of a provider city, a provider fleet or a provider army must be named.");
         }
 
-        return hasCityProvider
-            ? HandleCityProvider(command, context, state, army)
-            : HandleFleetProvider(command, context, state, army);
+        return hasCityProvider ? HandleCityProvider(command, context, state, army)
+            : hasFleetProvider ? HandleFleetProvider(command, context, state, army)
+            : HandleArmyProvider(command, context, state, army);
     }
 
     private static CommandOutcome HandleCityProvider(BuySupplyCommand command, CommandContext context, GameState state, ArmyState army)
@@ -213,5 +214,50 @@ public sealed class BuySupplyCommandHandler : ICommandHandler<BuySupplyCommand>
             Armies = ValueList.From(updatedArmies),
             Fleets = ValueList.From(updatedFleets),
         });
+    }
+
+    /// <summary>
+    /// The owner's decision of 2026-10-22: an army takes supply from an adjacent own army, free, up to its
+    /// dialog room and the provider's stock, under both rulesets. A recorded difference: the original's
+    /// <c>TAFSupply_FindProviders</c> offers no army (<c>2026-10-09-supply-providers-and-transfer-clamps.md</c>).
+    /// </summary>
+    private static CommandOutcome HandleArmyProvider(BuySupplyCommand command, CommandContext context, GameState state, ArmyState army)
+    {
+        var providerArmyId = command.ProviderArmyId!;
+        var provider = state.ArmyById(providerArmyId);
+        if (provider is null)
+        {
+            return CommandOutcome.Reject(
+                BuySupplyRejections.UnknownProviderArmy, $"'{providerArmyId}' is not a known army.");
+        }
+
+        if (!string.Equals(provider.Nation, army.Nation, StringComparison.Ordinal)
+            || provider.IsEmbarked
+            || string.Equals(provider.Id, army.Id, StringComparison.Ordinal))
+        {
+            return CommandOutcome.Reject(
+                BuySupplyRejections.ProviderArmyNotEligible,
+                $"Army '{provider.Id}' cannot supply army '{army.Id}': it must be another of your armies, on land.");
+        }
+
+        var distance = LandingTile.ChebyshevDistance(new GridPoint(army.X, army.Y), new GridPoint(provider.X, provider.Y));
+        if (distance > context.Ruleset.Economy.CommandAdjacencyRadiusTiles)
+        {
+            return CommandOutcome.Reject(
+                BuySupplyRejections.ProviderArmyNotWithinRange,
+                $"Army '{provider.Id}' is not within one tile of army '{army.Id}'.");
+        }
+
+        var capacity = SupplyCapacity.ArmyDialogCapacityTons(army.TotalTroops, context.Ruleset);
+        var admittedTons = Math.Max(0, Math.Min(command.Tons, Math.Min(provider.SupplyTons, capacity - army.SupplyTons)));
+
+        context.Events.Publish(new ArmySupplyTakenFromArmy(army.Id, army.Nation, provider.Id, command.Tons, admittedTons));
+
+        var updatedArmies = state.Armies.Select(a =>
+            string.Equals(a.Id, army.Id, StringComparison.Ordinal) ? army with { SupplyTons = army.SupplyTons + admittedTons }
+            : string.Equals(a.Id, provider.Id, StringComparison.Ordinal) ? provider with { SupplyTons = provider.SupplyTons - admittedTons }
+            : a);
+
+        return CommandOutcome.Accept(state with { Armies = ValueList.From(updatedArmies) });
     }
 }

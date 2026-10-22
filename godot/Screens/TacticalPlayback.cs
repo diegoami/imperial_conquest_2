@@ -281,6 +281,14 @@ public sealed class TacticalPlayback
             _ => ((int Slot, int X, int Y, int ToX, int ToY)?)null,
         };
         if (endpoint is not { } e || e.X == e.ToX && e.Y == e.ToY) return null;
+        // [designed] A computer-placed unit appears at its cell: the general's placement is not a walk
+        // before the battle. A human placement keeps its glide.
+        if (frame.Event is TacticalPlacedEvent)
+        {
+            var view = frame.Before.View;
+            var side = Math.Min(1, e.Slot / Math.Max(1, view.Slots.Count / 2));
+            if (view.ComputerControlled[side] || view.ComputerGeneral[side]) return null;
+        }
         bool OnBoard(int x, int y) => x >= 0 && y >= 0 && x < frame.Before.Width && y < frame.Before.Height;
         if (!OnBoard(e.X, e.Y) || !OnBoard(e.ToX, e.ToY)) return null;
         var before = frame.Before.View.Slots[e.Slot];

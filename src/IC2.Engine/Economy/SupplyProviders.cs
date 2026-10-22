@@ -17,13 +17,19 @@ public enum SupplyProviderKind
 
     /// <summary>One of the buying army's own fleets within one tile, not under construction.</summary>
     Fleet,
+
+    /// <summary>
+    /// Another of the buying nation's own land armies within one tile. A designed difference under both
+    /// rulesets (owner decision, 2026-10-22): the original's <c>TAFSupply_FindProviders</c> never offers an army.
+    /// </summary>
+    Army,
 }
 
 /// <summary>
 /// One provider <see cref="SupplyProviders.ForArmy"/> offers an army — exactly the entities
 /// <c>TAFSupply_FindProviders</c> hands the dialog.
 /// </summary>
-/// <param name="Kind">City or fleet, so the dialog knows which <c>buy</c> form to compose.</param>
+/// <param name="Kind">City, fleet or army, so the dialog knows which <c>buy</c> form to compose.</param>
 /// <param name="Id">The city or fleet id.</param>
 /// <param name="IsFree">
 /// Whether a purchase here is free. An own city and an own fleet are free; a foreign city at peace is
@@ -124,6 +130,24 @@ public static class SupplyProviders
             }
 
             providers.Add(new SupplyProvider(SupplyProviderKind.Fleet, fleet.Id, IsFree: true));
+        }
+
+        // Then the nation's other land armies within one tile (a designed difference, both rulesets).
+        foreach (var other in state.Armies)
+        {
+            if (string.Equals(other.Id, army.Id, StringComparison.Ordinal)
+                || !string.Equals(other.Nation, army.Nation, StringComparison.Ordinal)
+                || other.IsEmbarked)
+            {
+                continue;
+            }
+
+            if (LandingTile.ChebyshevDistance(armyTile, new GridPoint(other.X, other.Y)) > radius)
+            {
+                continue;
+            }
+
+            providers.Add(new SupplyProvider(SupplyProviderKind.Army, other.Id, IsFree: true));
         }
 
         return providers;

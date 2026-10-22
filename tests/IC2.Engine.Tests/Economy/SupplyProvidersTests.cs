@@ -36,6 +36,10 @@ public sealed class SupplyProvidersTests
     private const string OwnFleetId = "t134-own-fleet";
     private const string UnderConstructionFleetId = "t134-uc-fleet";
     private const string ForeignFleetId = "t134-foreign-fleet";
+    private const string OwnArmyId = "t134-own-army";
+    private const string FarOwnArmyId = "t134-far-own-army";
+    private const string ForeignArmyId = "t134-foreign-army";
+    private const string EmbarkedArmyId = "t134-embarked-army";
 
     private static readonly Lazy<ResolvedScenario> LazyClassical = new(
         () => GameDataRepository.Load(ModelTestPaths.DataRoot).Resolve("classical-mediterranean"));
@@ -71,7 +75,14 @@ public sealed class SupplyProvidersTests
 
         return initial with
         {
-            Armies = ValueList.Of(new[] { army }),
+            Armies = ValueList.Of(new[]
+            {
+                army,
+                Army(OwnArmyId, BuyerNationId, X: 99, Y: 101, aboard: null),           // distance 1, own -> free
+                Army(FarOwnArmyId, BuyerNationId, X: 98, Y: 100, aboard: null),        // distance 2, own -> out
+                Army(ForeignArmyId, PeaceNationId, X: 99, Y: 99, aboard: null),        // distance 1, foreign -> out
+                Army(EmbarkedArmyId, BuyerNationId, X: 99, Y: 100, aboard: OwnFleetId), // distance 1, embarked -> out
+            }),
             Cities = cities,
             Fleets = fleets,
             Relations = initial.Relations.WithRelation(BuyerNationId, WarNationId, Classical.Ruleset.Diplomacy.StateCodes.War),
@@ -81,6 +92,11 @@ public sealed class SupplyProvidersTests
     private static CityState City(string id, int X, int Y, string Owner) => new(
         id, id, X, Y, Owner, Owner, Loyalty: 90, SupplyTons: 100, FortificationCode: 0,
         PopulationThousands: 100, MaxPopulationThousands: 100, Tribute: 0,        Garrison: ValueList<UnitSlot>.Empty);
+
+    private static ArmyState Army(string id, string nation, int X, int Y, string? aboard) => new(
+        id, nation, X, Y, Moves: 4, Morale: 70, Money: 0, SupplyTons: 50,
+        CoveredTileCode: null, AboardFleetId: aboard,
+        Units: ValueList.Of(new UnitSlot(0, "heavy_infantry", 1_000, 6, "T134 Provider Battalion")));
 
     private static FleetState Fleet(string id, string nation, int X, int Y, bool underConstruction) => new(
         id, nation, X, Y, Moves: 4, Ships: 10, ConditionPercent: 100, Money: 0, SupplyTons: 100,
@@ -96,31 +112,40 @@ public sealed class SupplyProvidersTests
     private static bool Lists(IReadOnlyList<SupplyProvider> providers, string id) =>
         providers.Any(p => string.Equals(p.Id, id, StringComparison.Ordinal));
 
-    /// <summary>Dispatches one 10-ton purchase naming <paramref name="id"/> as a city or a fleet.</summary>
-    private static CommandResult Buy(GameState state, string id, bool asFleet) => Dispatcher().Dispatch(
+    /// <summary>Dispatches one 10-ton purchase naming <paramref name="id"/> as a city, a fleet or an army.</summary>
+    private static CommandResult Buy(GameState state, string id, SupplyProviderKind kind) => Dispatcher().Dispatch(
         state,
-        asFleet
-            ? new BuySupplyCommand(BuyerNationId, ArmyId, CityId: null, Tons: 10, ProviderFleetId: id)
-            : new BuySupplyCommand(BuyerNationId, ArmyId, id, Tons: 10));
+        kind switch
+        {
+            SupplyProviderKind.Fleet => new BuySupplyCommand(BuyerNationId, ArmyId, CityId: null, Tons: 10, ProviderFleetId: id),
+            SupplyProviderKind.Army => new BuySupplyCommand(BuyerNationId, ArmyId, CityId: null, Tons: 10, ProviderArmyId: id),
+            _ => new BuySupplyCommand(BuyerNationId, ArmyId, id, Tons: 10),
+        });
 
-    /// <summary>Every candidate, its id and whether the dialog's own fleet form names it.</summary>
+    /// <summary>Every candidate, its id and the provider form the dialog names it with.</summary>
     public static IEnumerable<object[]> Candidates()
     {
-        yield return new object[] { OwnCityId, false };
-        yield return new object[] { PeaceCityId, false };
-        yield return new object[] { WarCityId, false };
-        yield return new object[] { FarOwnCityId, false };
-        yield return new object[] { OwnFleetId, true };
-        yield return new object[] { UnderConstructionFleetId, true };
-        yield return new object[] { ForeignFleetId, true };
+        yield return new object[] { OwnCityId, SupplyProviderKind.City };
+        yield return new object[] { PeaceCityId, SupplyProviderKind.City };
+        yield return new object[] { WarCityId, SupplyProviderKind.City };
+        yield return new object[] { FarOwnCityId, SupplyProviderKind.City };
+        yield return new object[] { OwnFleetId, SupplyProviderKind.Fleet };
+        yield return new object[] { UnderConstructionFleetId, SupplyProviderKind.Fleet };
+        yield return new object[] { ForeignFleetId, SupplyProviderKind.Fleet };
+        yield return new object[] { OwnArmyId, SupplyProviderKind.Army };
+        yield return new object[] { FarOwnArmyId, SupplyProviderKind.Army };
+        yield return new object[] { ForeignArmyId, SupplyProviderKind.Army };
+        yield return new object[] { EmbarkedArmyId, SupplyProviderKind.Army };
+        yield return new object[] { ArmyId, SupplyProviderKind.Army };
     }
 
     /// <summary>
     /// Done-when 1: the query returns exactly the own city, the peaceful foreign city and the own fleet,
-    /// in that order, marked free, paid and free.
+    /// in that order, marked free, paid and free; then the own land army within one tile, free (a designed
+    /// difference under both rulesets: the original never offers an army).
     /// </summary>
     [Fact]
-    public void The_query_lists_the_own_city_the_peaceful_foreign_city_and_the_own_fleet_in_that_order()
+    public void The_query_lists_the_own_city_the_peaceful_foreign_city_the_own_fleet_and_the_own_army_in_that_order()
     {
         var providers = Query(ScriptedState());
 
@@ -130,6 +155,7 @@ public sealed class SupplyProvidersTests
                 new SupplyProvider(SupplyProviderKind.City, OwnCityId, IsFree: true),
                 new SupplyProvider(SupplyProviderKind.City, PeaceCityId, IsFree: false),
                 new SupplyProvider(SupplyProviderKind.Fleet, OwnFleetId, IsFree: true),
+                new SupplyProvider(SupplyProviderKind.Army, OwnArmyId, IsFree: true),
             },
             providers);
     }
@@ -140,11 +166,11 @@ public sealed class SupplyProvidersTests
     /// </summary>
     [Theory]
     [MemberData(nameof(Candidates))]
-    public void The_query_agrees_with_the_handler_entity_by_entity(string id, bool asFleet)
+    public void The_query_agrees_with_the_handler_entity_by_entity(string id, SupplyProviderKind kind)
     {
         var state = ScriptedState();
 
-        Assert.Equal(Lists(Query(state), id), Buy(state, id, asFleet).IsAccepted);
+        Assert.Equal(Lists(Query(state), id), Buy(state, id, kind).IsAccepted);
     }
 
     /// <summary>
@@ -156,10 +182,14 @@ public sealed class SupplyProvidersTests
     {
         var state = ScriptedState();
 
-        Assert.Equal(BuySupplyRejections.CityOwnerAtWar, Buy(state, WarCityId, asFleet: false).Code);
-        Assert.Equal(BuySupplyRejections.CityNotWithinRange, Buy(state, FarOwnCityId, asFleet: false).Code);
-        Assert.Equal(BuySupplyRejections.ProviderFleetUnderConstruction, Buy(state, UnderConstructionFleetId, asFleet: true).Code);
-        Assert.Equal(BuySupplyRejections.ProviderFleetNotYours, Buy(state, ForeignFleetId, asFleet: true).Code);
+        Assert.Equal(BuySupplyRejections.CityOwnerAtWar, Buy(state, WarCityId, SupplyProviderKind.City).Code);
+        Assert.Equal(BuySupplyRejections.CityNotWithinRange, Buy(state, FarOwnCityId, SupplyProviderKind.City).Code);
+        Assert.Equal(BuySupplyRejections.ProviderFleetUnderConstruction, Buy(state, UnderConstructionFleetId, SupplyProviderKind.Fleet).Code);
+        Assert.Equal(BuySupplyRejections.ProviderFleetNotYours, Buy(state, ForeignFleetId, SupplyProviderKind.Fleet).Code);
+        Assert.Equal(BuySupplyRejections.ProviderArmyNotWithinRange, Buy(state, FarOwnArmyId, SupplyProviderKind.Army).Code);
+        Assert.Equal(BuySupplyRejections.ProviderArmyNotEligible, Buy(state, ForeignArmyId, SupplyProviderKind.Army).Code);
+        Assert.Equal(BuySupplyRejections.ProviderArmyNotEligible, Buy(state, EmbarkedArmyId, SupplyProviderKind.Army).Code);
+        Assert.Equal(BuySupplyRejections.UnknownProviderArmy, Buy(state, "no-such-army", SupplyProviderKind.Army).Code);
     }
 
     [Fact]
@@ -178,5 +208,11 @@ public sealed class SupplyProvidersTests
 
         dispatcher.Dispatch(state, new BuySupplyCommand(BuyerNationId, ArmyId, CityId: null, Tons: 10, ProviderFleetId: OwnFleetId));
         Assert.True(Assert.IsType<ArmySupplyPurchasedFromFleet>(Assert.Single(sink.Drain())).AdmittedTons > 0);
+
+        var result = dispatcher.Dispatch(state, new BuySupplyCommand(BuyerNationId, ArmyId, CityId: null, Tons: 10, ProviderArmyId: OwnArmyId));
+        var taken = Assert.IsType<ArmySupplyTakenFromArmy>(Assert.Single(sink.Drain()));
+        Assert.Equal(10, taken.AdmittedTons);
+        Assert.Equal(10, result.State.ArmyById(ArmyId)!.SupplyTons);
+        Assert.Equal(40, result.State.ArmyById(OwnArmyId)!.SupplyTons);
     }
 }

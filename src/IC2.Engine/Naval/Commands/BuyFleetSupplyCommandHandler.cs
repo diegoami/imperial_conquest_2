@@ -44,16 +44,17 @@ public sealed class BuyFleetSupplyCommandHandler : ICommandHandler<BuyFleetSuppl
 
         var hasCityProvider = command.ProviderCityId is not null;
         var hasFleetProvider = command.ProviderFleetId is not null;
-        if (hasCityProvider == hasFleetProvider)
+        var hasArmyProvider = command.ProviderArmyId is not null;
+        if ((hasCityProvider ? 1 : 0) + (hasFleetProvider ? 1 : 0) + (hasArmyProvider ? 1 : 0) != 1)
         {
             return CommandOutcome.Reject(
                 BuyFleetSupplyRejections.InvalidProvider,
-                "Exactly one of a provider city or a provider fleet must be named.");
+                "Exactly one of a provider city, a provider fleet or a provider army must be named.");
         }
 
-        return hasCityProvider
-            ? HandleCityProvider(command, context, state, fleet)
-            : HandleFleetProvider(command, context, state, fleet);
+        return hasCityProvider ? HandleCityProvider(command, context, state, fleet)
+            : hasFleetProvider ? HandleFleetProvider(command, context, state, fleet)
+            : HandleArmyProvider(command, context, state, fleet);
     }
 
     private static CommandOutcome HandleCityProvider(
@@ -173,5 +174,48 @@ public sealed class BuyFleetSupplyCommandHandler : ICommandHandler<BuyFleetSuppl
             string.Equals(f.Id, transfer.Provider.Id, StringComparison.Ordinal) ? transfer.Provider : f);
 
         return CommandOutcome.Accept(state with { Fleets = ValueList.From(updatedFleets) });
+    }
+
+    /// <summary>
+    /// The owner's decision of 2026-10-22: a fleet takes supply from an adjacent own army on land, free, up to
+    /// its room and the army's stock, under both rulesets. A recorded difference: the original offers no army.
+    /// </summary>
+    private static CommandOutcome HandleArmyProvider(
+        BuyFleetSupplyCommand command, CommandContext context, GameState state, FleetState fleet)
+    {
+        var provider = state.ArmyById(command.ProviderArmyId!);
+        if (provider is null)
+        {
+            return CommandOutcome.Reject(
+                BuyFleetSupplyRejections.UnknownProviderArmy, $"'{command.ProviderArmyId}' is not a known army.");
+        }
+
+        if (!string.Equals(provider.Nation, fleet.Nation, StringComparison.Ordinal) || provider.IsEmbarked)
+        {
+            return CommandOutcome.Reject(
+                BuyFleetSupplyRejections.ProviderArmyNotEligible,
+                $"Army '{provider.Id}' cannot supply fleet '{fleet.Id}': it must be one of your armies, on land.");
+        }
+
+        if (LandingTile.ChebyshevDistance(new GridPoint(fleet.X, fleet.Y), new GridPoint(provider.X, provider.Y))
+            > context.Ruleset.Economy.CommandAdjacencyRadiusTiles)
+        {
+            return CommandOutcome.Reject(
+                BuyFleetSupplyRejections.ProviderArmyNotWithinRange,
+                $"Army '{provider.Id}' is not within one tile of fleet '{fleet.Id}'.");
+        }
+
+        var room = SupplyCapacity.FleetCapacityTons(fleet.Ships, context.Ruleset) - fleet.SupplyTons;
+        var admittedTons = Math.Max(0, Math.Min(command.Tons, Math.Min(provider.SupplyTons, room)));
+
+        context.Events.Publish(new FleetSupplyPurchased(
+            fleet.Id, fleet.Nation, null, null, command.Tons, admittedTons, TalentsPaid: 0, WasFreeOwnCity: true, ProviderArmyId: provider.Id));
+
+        var updatedFleets = state.Fleets.Select(f =>
+            string.Equals(f.Id, fleet.Id, StringComparison.Ordinal) ? fleet with { SupplyTons = fleet.SupplyTons + admittedTons } : f);
+        var updatedArmies = state.Armies.Select(a =>
+            string.Equals(a.Id, provider.Id, StringComparison.Ordinal) ? provider with { SupplyTons = provider.SupplyTons - admittedTons } : a);
+
+        return CommandOutcome.Accept(state with { Fleets = ValueList.From(updatedFleets), Armies = ValueList.From(updatedArmies) });
     }
 }
