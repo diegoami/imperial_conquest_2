@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!-- Open Imperial Conquest application icon: an original design (crossed swords behind a round
+       bronze shield on crimson). [designed] -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9C2A20"/>
+      <stop offset="1" stop-color="#5E1510"/>
+    </linearGradient>
+    <radialGradient id="bronze" cx="0.4" cy="0.35" r="0.75">
+      <stop offset="0" stop-color="#F2CF83"/>
+      <stop offset="0.6" stop-color="#C98E3E"/>
+      <stop offset="1" stop-color="#7E5420"/>
+    </radialGradient>
+    <linearGradient id="steel" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#F4F4F0"/>
+      <stop offset="1" stop-color="#9DA3A8"/>
+    </linearGradient>
+    <g id="sword">
+      <polygon points="128,22 138,40 138,170 118,170 118,40" fill="url(#steel)" stroke="#3A2A1A" stroke-width="3"/>
+      <rect x="98" y="168" width="60" height="12" rx="4" fill="#D9A55B" stroke="#3A2A1A" stroke-width="3"/>
+      <rect x="121" y="180" width="14" height="34" rx="3" fill="#6B3E1E" stroke="#3A2A1A" stroke-width="3"/>
+      <circle cx="128" cy="220" r="9" fill="#D9A55B" stroke="#3A2A1A" stroke-width="3"/>
+    </g>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="44" fill="url(#bg)" stroke="#D9A55B" stroke-width="8"/>
+  <!-- Two swords crossed behind the shield. -->
+  <use href="#sword" transform="rotate(-42 128 128)"/>
+  <use href="#sword" transform="rotate(42 128 128)"/>
+  <!-- The shield. -->
+  <circle cx="128" cy="132" r="62" fill="url(#bronze)" stroke="#3A2A1A" stroke-width="5"/>
+  <circle cx="128" cy="132" r="48" fill="none" stroke="#7E5420" stroke-width="5"/>
+  <circle cx="128" cy="132" r="18" fill="#F2CF83" stroke="#3A2A1A" stroke-width="4"/>
+  <circle cx="122" cy="126" r="6" fill="#FFF2CC" opacity="0.8"/>
+</svg>

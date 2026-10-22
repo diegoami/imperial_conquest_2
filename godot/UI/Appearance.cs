@@ -27,10 +27,10 @@ public static class Appearance
     private static readonly string[] ColorOverrideNames =
     {
         "font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_disabled_color",
-        "font_hover_pressed_color", "font_selected_color", "font_uneditable_color", "font_outline_color", "default_color",
+        "font_hover_pressed_color", "font_selected_color", "font_uneditable_color", "font_placeholder_color", "font_outline_color", "default_color",
     };
 
-    private static readonly string[] StyleboxOverrideNames = { "panel", "normal", "hover", "pressed", "focus", "disabled", "hover_pressed" };
+    private static readonly string[] StyleboxOverrideNames = { "panel", "normal", "hover", "pressed", "focus", "disabled", "hover_pressed", "read_only" };
 
     /// <summary>
     /// The scheme the interface is drawn in now; starts as <c>AppTheme.tres</c>'s own palette (Dark), which is no

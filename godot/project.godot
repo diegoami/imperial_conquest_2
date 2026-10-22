@@ -5,6 +5,8 @@ config_version=5
 boot_splash/show_image=false
 
 config/name="Open Imperial Conquest"
+config/icon="res://Assets/Icon/icon.png"
+config/windows_native_icon="res://Assets/Icon/icon.ico"
 run/main_scene="res://UI/AppRoot.tscn"
 run/flush_stdout_on_print=true
 config/features=PackedStringArray("4.7", "C#")
