@@ -547,7 +547,7 @@ public partial class TacticalBattleCheck : Node
         if (sliders.Length != 2) return;
         Check(sliders[0].Value == shot && sliders[1].Value == attack, context + " shows selected pauses");
         Check(sliders.All(s => s.MinValue == 0 && s.MaxValue == 3)
-            && sliders[0].Step == 0.1 && sliders[1].Step == 1, context + " retains ranges and grids");
+            && sliders[0].Step == BattlePauses.ShotStepSeconds && sliders[1].Step == BattlePauses.AttackStepSeconds, context + " retains ranges and grids");
     }
 
     // ---- Done-when 2: the pauses ----
