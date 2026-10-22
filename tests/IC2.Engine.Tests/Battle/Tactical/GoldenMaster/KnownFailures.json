@@ -1,25 +1,5 @@
 [
   {
-    "Case": "Stale_or_doubled_cells_are_not_repaired:CRAFT_c5_stale_grid",
-    "FirstDifference": "CRAFT_c5_stale_grid: crafted/b3_c5_stale_grid_BATTLE03.SAV (file 3 of 16), cell (4, 7), icon code: port 25, original 50",
-    "Issue": 1106
-  },
-  {
-    "Case": "Stale_or_doubled_cells_are_not_repaired:CRAFT_c6_same_cell",
-    "FirstDifference": "CRAFT_c6_same_cell: crafted/b3_c6_same_cell_BATTLE03.SAV (file 3 of 16), cell (4, 7), icon code: port 25, original 50",
-    "Issue": 1106
-  },
-  {
-    "Case": "Stale_or_doubled_cells_are_not_repaired:CRAFT_d5_stale_grid",
-    "FirstDifference": "CRAFT_d5_stale_grid: crafted/b3_d5_stale_grid_BATTLE02.SAV (file 2 of 13), cell (4, 7), icon code: port 25, original 50",
-    "Issue": 1106
-  },
-  {
-    "Case": "Stale_or_doubled_cells_are_not_repaired:CRAFT_d6_same_cell",
-    "FirstDifference": "CRAFT_d6_same_cell: crafted/b3_d6_same_cell_BATTLE01.SAV (file 1 of 11), slot 0, x: port 6, original 3",
-    "Issue": 1106
-  },
-  {
     "Case": "The_hooked_series_replays_exactly:mix-rg_s1_r5_hook",
     "FirstDifference": "mix-rg_s1_r5_hook: hook/mix-rg_s1_r5_hook_BATTLE07.SAV (file 7 of 15), slot 24, troops: port 3910, original 3822",
     "Issue": 1107

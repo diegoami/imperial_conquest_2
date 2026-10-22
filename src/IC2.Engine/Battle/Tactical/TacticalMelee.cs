@@ -138,8 +138,20 @@ public static class TacticalMelee
         board.Log.Add(new TacticalMeleeEvent(
             a, d, focus, powerA, powerD, boundA, boundD, lossA, lossD, att.Troops, def.Troops, att.Morale, def.Morale));
 
+        RoutThenRepaint(board, a, d);
+    }
+
+    /// <summary>
+    /// #1324: the original (<c>FUN_004393EC</c>) routs the actor, then the defender, and only then repaints
+    /// the actor if still live and the defender if still live, in that order. The paints before the event
+    /// only show the losses in the melee's frame; the cells' final codes are these.
+    /// </summary>
+    private static void RoutThenRepaint(TacticalBoard board, int a, int d)
+    {
         TacticalRout.Apply(board, a);
         TacticalRout.Apply(board, d);
+        board.PaintIconIfLive(a);
+        board.PaintIconIfLive(d);
     }
 
     /// <summary>The combat.tactical.wideArithmetic exchange; truncation points and draw order are unchanged.</summary>
@@ -179,8 +191,7 @@ public static class TacticalMelee
         board.PaintIcon(d);
         board.Log.Add(new TacticalMeleeEvent(a, d, focus, checked((int)powerA), checked((int)powerD), boundA, boundD,
             checked((int)lossA), checked((int)lossD), att.Troops, def.Troops, att.Morale, def.Morale));
-        TacticalRout.Apply(board, a);
-        TacticalRout.Apply(board, d);
+        RoutThenRepaint(board, a, d);
     }
 
 }

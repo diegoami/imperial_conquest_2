@@ -185,10 +185,9 @@ public static class TacticalMovement
 
             var unit = board.Slots[slot];
             var (oldX, oldY) = (unit.X, unit.Y);
-            board.Grid[board.CellIndex(oldX, oldY)] = TacticalIcon.Empty;
             unit = unit with { X = cx, Y = cy, Moves = unchecked(unit.Moves - 1) };
             board.Slots[slot] = unit;
-            board.PaintIcon(slot);
+            board.CarryIcon(oldX, oldY, cx, cy);
             board.Log.Add(new TacticalMovedEvent(slot, oldX, oldY, cx, cy, unit.Moves));
         }
 
@@ -251,8 +250,11 @@ public static class TacticalMovement
         var context = board.Context;
         while (true)
         {
-            var enemy = board.SlotAt(x, y);
-            if (enemy < 0 || board.SideOf(enemy) == board.SideOf(slot))
+            // #1324: the enemy is looked up only when the stored cell holds a unit code. The original
+            // (FUN_00438D24) captures it once per walk; replaying that here matches three #1107 battles
+            // but breaks two lc-ar-three trials, so the per-check lookup stays until research settles it.
+            var enemy = CaptureDestinationEnemy(board, slot, x, y);
+            if (enemy < 0)
             {
                 return false;
             }
@@ -279,6 +281,21 @@ public static class TacticalMovement
     }
 
     /// <summary>
+    /// The destination lookup: the live enemy slot at the destination when the stored cell there holds
+    /// a unit code (below <see cref="TacticalIcon.Empty"/>), else -1.
+    /// </summary>
+    private static int CaptureDestinationEnemy(TacticalBoard board, int slot, int x, int y)
+    {
+        if (!board.OnBoard(x, y) || board.Grid[board.CellIndex(x, y)] >= TacticalIcon.Empty)
+        {
+            return -1;
+        }
+
+        var enemy = board.SlotAt(x, y);
+        return enemy < 0 || board.SideOf(enemy) == board.SideOf(slot) ? -1 : enemy;
+    }
+
+    /// <summary>
     /// The last-move danger test: an enemy in the 3 × 3 around the next path cell whose
     /// <c>S = (troops × quality div 100) × morale × M[its type][my type]</c> is at least the unit's own
     /// <c>S</c> against it.
@@ -290,7 +307,8 @@ public static class TacticalMovement
         {
             for (var cy = py - 1; cy <= py + 1; cy++)
             {
-                if (!board.OnBoard(cx, cy))
+                // #1324: FUN_004389AC tests the stored cell before the slot lookup.
+                if (!board.OnBoard(cx, cy) || board.Grid[board.CellIndex(cx, cy)] >= TacticalIcon.Empty)
                 {
                     continue;
                 }

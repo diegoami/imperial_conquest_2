@@ -104,6 +104,9 @@ public static class TacticalShooting
         board.PaintIcon(target);
         board.Log.Add(new TacticalShotEvent(shooter, target, n, loss, moraleLoss, t.Troops, t.Morale));
 
+        // #1324: the original (FUN_0043910C) routs first and repaints the target only if it is still live.
+        // The paint above only shows the loss in the shot's frame; the cell's final code is this one.
         TacticalRout.Apply(board, target);
+        board.PaintIconIfLive(target);
     }
 }

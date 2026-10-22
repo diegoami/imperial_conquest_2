@@ -188,6 +188,29 @@ internal sealed class TacticalBoard
             TacticalIcon.Code(SideOf(slot), unit.Type, unit.Troops, Context.StandardOf(unit.Type));
     }
 
+    /// <summary>Repaints the slot's icon when it still has troops; a removed unit's cell stays as written.</summary>
+    public void PaintIconIfLive(int slot)
+    {
+        if (IsLive(slot))
+        {
+            PaintIcon(slot);
+        }
+    }
+
+    /// <summary>
+    /// #1106 B1: a move or a human placement (<c>FUN_00438A6C</c>, <c>FUN_004375EC</c>) copies the code
+    /// stored in the old cell to the new one, then writes empty into the old cell. The code is not
+    /// recomputed from the slot, so a stale or doubled code travels with the unit, and a cell left behind
+    /// reads empty even when another unit still stands on it.
+    /// </summary>
+    public void CarryIcon(int fromX, int fromY, int toX, int toY)
+    {
+        var from = CellIndex(fromX, fromY);
+        var code = Grid[from];
+        Grid[from] = TacticalIcon.Empty;
+        Grid[CellIndex(toX, toY)] = code;
+    }
+
     /// <summary>Takes a unit out of the battle: troops 0, its cell empty (report §6).</summary>
     public void Remove(int slot, bool routed = false)
     {

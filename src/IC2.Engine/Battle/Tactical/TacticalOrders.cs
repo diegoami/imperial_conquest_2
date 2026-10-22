@@ -87,9 +87,8 @@ public static class TacticalOrders
         }
 
         var unit = board.Slots[slot];
-        board.Grid[board.CellIndex(unit.X, unit.Y)] = TacticalIcon.Empty;
         board.Slots[slot] = unit with { X = x, Y = y };
-        board.PaintIcon(slot);
+        board.CarryIcon(unit.X, unit.Y, x, y);
         board.Log.Add(new TacticalPlacedEvent(slot, unit.X, unit.Y, x, y));
         return Accept(board);
     }
