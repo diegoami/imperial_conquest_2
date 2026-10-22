@@ -61,36 +61,13 @@ public sealed class DisbandArmyCommandHandler : ICommandHandler<DisbandArmyComma
     }
 
     /// <summary>
-    /// The nation's own city the army is <em>near</em> — adjoining tiles included (T54 Done-when 4; see
-    /// <see cref="DisbandArmyCommand"/>'s remarks for why this widened from exact co-location).
+    /// The nation's own city the army is <em>near</em>, adjoining tiles included (T54 Done-when 4; see
+    /// <see cref="DisbandArmyCommand"/>'s remarks for why this widened from exact co-location). With two
+    /// such cities, the last in the original's scan receives the supplies (<see cref="NearbyOwnCity"/>, #1343).
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// Scans <see cref="GameState.Cities"/> in list order and takes the first match, so two of the
-    /// nation's own cities adjoining the same tile resolve the same way every run — the supplies always
-    /// go to the same one. Order, not proximity: nothing in the evidence ranks two equally-near cities,
-    /// and inventing a tie-break would be inventing a rule.
-    /// </para>
-    /// <para>
-    /// <strong>Routed through <see cref="AttackLegality.AreAdjacent"/> — T23 follow-up
-    /// <see href="https://github.com/diegoami/imperial_conquest_2/issues/222">#222</see>.</strong> This
-    /// used to open-code the same Chebyshev-distance-one literal that <see cref="AttackLegality"/> also
-    /// defines, so the two adjacency rules could silently drift: widening one left the other, and the
-    /// tests that only dispatch through this handler, unaffected. There is one "near/adjacent" rule in
-    /// this engine now, defined once.
-    /// </para>
-    /// </remarks>
-    private static CityState? FindOwnCityNear(GameState state, string nationId, int x, int y)
-    {
-        foreach (var city in state.Cities)
-        {
-            if (AttackLegality.AreAdjacent(city.X, city.Y, x, y)
-                && string.Equals(city.Owner, nationId, StringComparison.Ordinal))
-            {
-                return city;
-            }
-        }
+    private static CityState? FindOwnCityNear(GameState state, string nationId, int x, int y) =>
+        NearbyOwnCity.Find(state, nationId, x, y, AdjacencyRadius);
 
-        return null;
-    }
+    /// <summary>The adjacency <see cref="AttackLegality.AreAdjacent"/> defines: Chebyshev distance one (#222).</summary>
+    private const int AdjacencyRadius = 1;
 }

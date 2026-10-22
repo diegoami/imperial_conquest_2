@@ -23,24 +23,73 @@ public sealed class QuarterlyThawSystemTests
 
     // ---- DoD 6 ----
 
-    /// <summary>Exact under a fixed seed: pins the +1 and the 1/3-chance +3 bonus together, not just sign.</summary>
-    [Fact]
-    public void DoD06_OneQuarter_ExactUnderAFixedSeed()
+    private static Ruleset WithColumnBug(bool faithful) => DiplomacyTestbed.Ruleset with
     {
-        var ruleset = DiplomacyTestbed.Ruleset;
-        var state = TwoNationStateWithCooldown(-18);
-        var rng = new SplitMix64Rng(0x600DUL);
+        Flags = DiplomacyTestbed.Ruleset.Flags with { FaithfulThawColumnBug = faithful },
+    };
 
-        var after = QuarterlyThawSystem.Apply(state, ruleset, rng);
+    /// <summary>
+    /// #1339: under the original's loop a pair of two nations both indexed below 8 is visited twice, from
+    /// each nation's row, the second visit reading the first's result; a plain visit adds 1.
+    /// </summary>
+    [Fact]
+    public void A_low_low_pair_is_visited_twice_a_quarter_under_the_original_loop()
+    {
+        var after = QuarterlyThawSystem.Apply(
+            TwoNationStateWithCooldown(-18), WithColumnBug(true), new Economy.ScriptedRng(nextChanceDraws: new[] { false, false }));
 
-        var expectedRng = new SplitMix64Rng(0x600DUL);
-        var expected = -18 + ruleset.Diplomacy.ThawPerQuarter;
-        if (expectedRng.NextChance(1, ruleset.Diplomacy.ThawBonusChanceDenominator))
+        Assert.Equal(-16, after.Relations.Get(A, B));
+        Assert.Equal(-16, after.Relations.Get(B, A));
+    }
+
+    /// <summary>
+    /// #1339: the bonus draw replaces the +1 with <c>min(0, v + 3)</c>, so one bonus and one plain visit take
+    /// -18 to -14 (the Rome-Gaul peace offer of <c>2026-10-05-battle-peace-offer.md</c>).
+    /// </summary>
+    [Fact]
+    public void The_bonus_replaces_the_plus_one_instead_of_adding_to_it()
+    {
+        var ruleset = WithColumnBug(true);
+        var odds = (1, ruleset.Diplomacy.ThawBonusChanceDenominator);
+        var after = QuarterlyThawSystem.Apply(
+            TwoNationStateWithCooldown(-18),
+            ruleset,
+            new Economy.ScriptedRng(nextChanceDraws: new[] { true, false }, expectedNextChanceOdds: new[] { odds, odds }));
+
+        Assert.Equal(-14, after.Relations.Get(A, B));
+
+        var fixedPolicy = QuarterlyThawSystem.Apply(
+            TwoNationStateWithCooldown(-18), WithColumnBug(false), new Economy.ScriptedRng(nextChanceDraws: new[] { true }));
+        Assert.Equal(-15, fixedPolicy.Relations.Get(A, B));
+    }
+
+    /// <summary>
+    /// #1339: a pair with one index below 8 is visited once, reading the directed cell <c>[high][low]</c> and
+    /// writing both sides. A one-sided cooldown in <c>[low][high]</c> is never read (atlas increment 11:
+    /// Seleucid (2) and Galatia (12) went from -8 to -7 on both sides).
+    /// </summary>
+    [Fact]
+    public void A_mixed_pair_thaws_from_the_high_rows_cell_only()
+    {
+        var state = TenNationStateWithAllPairsCooling();
+        var zeroed = state.Relations;
+        foreach (var x in TenNationIds)
         {
-            expected = Math.Min(0, expected + ruleset.Diplomacy.ThawBonus);
+            foreach (var y in TenNationIds.Where(y => y != x))
+            {
+                zeroed = zeroed.WithRelation(x, y, 0);
+            }
         }
 
-        Assert.Equal(expected, after.Relations.Get(A, B));
+        var highRow = state with { Relations = zeroed.WithDirectedRelation("n8", "n2", -8) };
+        var after = QuarterlyThawSystem.Apply(highRow, WithColumnBug(true), new Economy.ScriptedRng(nextChanceDraws: new[] { false }));
+        Assert.Equal(-7, after.Relations.Get("n8", "n2"));
+        Assert.Equal(-7, after.Relations.Get("n2", "n8"));
+
+        var lowRow = state with { Relations = zeroed.WithDirectedRelation("n2", "n8", -8) };
+        var untouched = QuarterlyThawSystem.Apply(lowRow, WithColumnBug(true), new Economy.ScriptedRng());
+        Assert.Equal(-8, untouched.Relations.Get("n2", "n8"));
+        Assert.Equal(0, untouched.Relations.Get("n8", "n2"));
     }
 
     /// <summary>Repeated quarters converge to exactly 0 and stop moving once there.</summary>

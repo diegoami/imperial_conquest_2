@@ -4,39 +4,29 @@ using IC2.Engine.Model;
 namespace IC2.Engine.Diplomacy;
 
 /// <summary>
-/// The quarterly diplomatic thaw (DoD 6, DoD 9) — <c>FUN_00451B40</c>'s relation loop
-/// <strong>[confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md]</strong>: every negative
-/// (cooldown) entry gains <c>+1</c>, and with probability <c>1/3</c> a further
-/// <c>v = min(0, v + 3)</c> — subscribed to T06's <c>OnQuarterBoundary</c> hook
-/// (<c>docs/task-catalogue.md</c> "The turn coordinator" note: "subscribed by T08's economy and T19's
-/// thaw").
+/// The quarterly diplomatic thaw (DoD 6, DoD 9), <c>FUN_00451B40</c>'s relation loop
+/// <strong>[confirmed: code, <c>decompiled-war-cascade-and-peace-paths.md</c> "Detail of row 8", research
+/// <c>df8b6a9</c>; seen in atlas increment 11]</strong>: every negative (cooldown) cell visited becomes
+/// <c>v + 1</c>, or, when the 1-in-3 draw succeeds, <c>min(0, v + 3)</c> instead (#1339), written to both
+/// sides of the pair. Subscribed to T06's <c>OnQuarterBoundary</c> hook.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>One draw per pair, not one per nation-row.</strong> The original stores each nation's own
-/// 16-entry row and its thaw loop walks rows independently, so a pair whose two physical copies both sit
-/// under the column cap could in principle roll <em>twice</em> (once from each nation's own row) and
-/// desynchronise the two copies of what this model treats as one symmetric cell. <see cref="DiplomaticRelations"/>
-/// has no such duplication — one cell, one value, kept symmetric by <see cref="DiplomaticRelations.WithRelation"/>
-/// — and DoD 1 requires the matrix to <em>stay</em> symmetric under every transition, so this system draws
-/// exactly once per unordered pair <c>(i, j)</c>, <c>i &lt; j</c>, in <see cref="DiplomaticRelations.NationIds"/>
-/// order (deterministic, and independent of how many nations the world has). <c>[derived]</c>: the source
-/// report states the per-entry rule and the column bug, not whether two rows' independent rolls on the
-/// same logical pair could ever disagree; searched the same report's quarterly-tick section and
-/// <c>decompiled-quarterly-billing-and-economy.md</c> for a joint-roll description and found none.
+/// <strong>The original's visits</strong> (<see cref="RulesetFlags.FaithfulThawColumnBug"/> <c>true</c>). The
+/// loop walks rows <c>a = 0..N−1</c> and only columns <c>b = 0..7</c>
+/// (<see cref="DiplomacyRules.FaithfulThawColumnLimit"/>), reads the directed cell <c>[a][b]</c>, and writes the
+/// result through the pairwise setter, which stores <c>[a][b]</c> and <c>[b][a]</c>. So a pair with exactly one
+/// index below 8 is visited once, from the high index's row; a pair with both below 8 is visited twice, the
+/// second visit reading the first's result; and a pair with both at 8 or above is never visited. A
+/// one-sided cooldown (after a rebirth) thaws only if its <c>[high][low]</c> cell is the negative one.
 /// </para>
 /// <para>
-/// <strong>DoD 9's column bug, restated as the report's own plain-English condition.</strong> The report:
-/// "a cooldown between two nations both indexed &#8805; 8 never decays". Read per unordered pair rather
-/// than per physical row (see above), that is exactly: skip the pair when <em>both</em> indices are at or
-/// past <see cref="DiplomacyRules.FaithfulThawColumnLimit"/>; process it when at least one is under the
-/// limit. <see cref="RulesetFlags.FaithfulThawColumnBug"/> selects it: <c>true</c> reproduces the bug,
-/// <c>false</c> thaws every pair regardless of index.
+/// <strong>The fixed policy</strong> (<c>false</c>, <c>improved</c>): every unordered pair is visited once, in
+/// <see cref="DiplomaticRelations.NationIds"/> order, regardless of index.
 /// </para>
 /// <para>
-/// Only negative entries draw at all — a pair already at or above zero is skipped entirely, drawing
-/// nothing, which is also what lets the cooldown converge to exactly <c>0</c> and stop (DoD 6): once a
-/// cell reaches <c>0</c> it is no longer negative and is never touched again.
+/// Only negative cells draw at all: a cell at or above zero is skipped, drawing nothing, which is also what
+/// lets the cooldown converge to exactly <c>0</c> and stop (DoD 6).
 /// </para>
 /// </remarks>
 [QuarterBoundaryHandler("diplomacy.quarterly-thaw")]
@@ -65,31 +55,47 @@ public sealed class QuarterlyThawSystem : IQuarterBoundaryHandler
         var limit = diplomacy.FaithfulThawColumnLimit;
         var faithfulBug = ruleset.Flags.FaithfulThawColumnBug;
 
-        for (var i = 0; i < ids.Count; i++)
+        if (faithfulBug)
         {
-            for (var j = i + 1; j < ids.Count; j++)
+            var columns = Math.Min(ids.Count, limit);
+            for (var a = 0; a < ids.Count; a++)
             {
-                if (faithfulBug && i >= limit && j >= limit)
+                for (var b = 0; b < columns; b++)
                 {
-                    continue;
+                    if (a != b)
+                    {
+                        relations = Visit(relations, ids[a], ids[b], diplomacy, rng);
+                    }
                 }
-
-                var current = relations.Get(ids[i], ids[j]);
-                if (current >= 0)
+            }
+        }
+        else
+        {
+            for (var i = 0; i < ids.Count; i++)
+            {
+                for (var j = i + 1; j < ids.Count; j++)
                 {
-                    continue;
+                    relations = Visit(relations, ids[i], ids[j], diplomacy, rng);
                 }
-
-                var thawed = current + diplomacy.ThawPerQuarter;
-                if (rng.NextChance(1, diplomacy.ThawBonusChanceDenominator))
-                {
-                    thawed = Math.Min(0, thawed + diplomacy.ThawBonus);
-                }
-
-                relations = relations.WithRelation(ids[i], ids[j], thawed);
             }
         }
 
         return state with { Relations = relations };
+    }
+
+    /// <summary>One visit: a negative <c>[a][b]</c> becomes <c>v + 1</c>, or <c>min(0, v + 3)</c> on the bonus draw.</summary>
+    private static DiplomaticRelations Visit(
+        DiplomaticRelations relations, string a, string b, DiplomacyRules diplomacy, IRng rng)
+    {
+        var current = relations.Get(a, b);
+        if (current >= 0)
+        {
+            return relations;
+        }
+
+        var thawed = rng.NextChance(1, diplomacy.ThawBonusChanceDenominator)
+            ? Math.Min(0, current + diplomacy.ThawBonus)
+            : current + diplomacy.ThawPerQuarter;
+        return relations.WithRelation(a, b, thawed);
     }
 }

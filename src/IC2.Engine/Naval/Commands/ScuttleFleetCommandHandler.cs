@@ -44,21 +44,9 @@ public sealed class ScuttleFleetCommandHandler : ICommandHandler<ScuttleFleetCom
                 ScuttleFleetRejections.CarryingArmy, "A fleet cannot be scuttled while it is carrying an army.");
         }
 
-        CityState? nearbyOwnedCity = null;
-        foreach (var city in state.Cities)
-        {
-            if (!string.Equals(city.Owner, fleet.Nation, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            var distance = LandingTile.ChebyshevDistance(new GridPoint(city.X, city.Y), new GridPoint(fleet.X, fleet.Y));
-            if (distance <= context.Ruleset.Economy.CommandAdjacencyRadiusTiles)
-            {
-                nearbyOwnedCity = city;
-                break;
-            }
-        }
+        // #1343: with two own cities in range, the last in the original's scan receives the supplies.
+        var nearbyOwnedCity = Armies.NearbyOwnCity.Find(
+            state, fleet.Nation, fleet.X, fleet.Y, context.Ruleset.Economy.CommandAdjacencyRadiusTiles);
 
         if (nearbyOwnedCity is null)
         {
