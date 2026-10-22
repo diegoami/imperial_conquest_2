@@ -31,6 +31,34 @@ public sealed class DisbandArmyCommandHandlerTests
         Assert.Equal(citySupplyBefore + 30, result.State.CityById("arx")!.SupplyTons);
     }
 
+    /// <summary>
+    /// #1343: with two own cities adjoining the army, the original's scan (FUN_004494e4: x offset outer,
+    /// y offset inner, last match kept) gives the supplies to the larger x offset, then the larger y offset,
+    /// whatever the cities' list order.
+    /// </summary>
+    [Theory]
+    [InlineData(3, 2)] // portus at dx = +1 beats arx at dx = 0.
+    [InlineData(2, 3)] // same dx = 0: portus at dy = +1 beats arx at dy = -1.
+    public void Disband_BetweenTwoOwnCities_SuppliesTheLastInTheOriginalsScan(int portusX, int portusY)
+    {
+        var state = InitialState();
+        state = state with
+        {
+            Cities = IC2.Engine.Model.ValueList.From(state.Cities.Select(c => c.Id == "portus" ? c with { X = portusX, Y = portusY } : c)),
+        };
+        var arx = state.CityById("arx")!; // (2, 1), first in list order.
+        Assert.Equal((2, 1), (arx.X, arx.Y));
+        var army = Army("disband-two", NorthNationId, 2, 2, new[] { RegularUnit("a") }, money: 0, supplyTons: 30);
+        state = WithArmies(state, army);
+        var portusBefore = state.CityById("portus")!.SupplyTons;
+
+        var result = Dispatcher().Dispatch(state, new DisbandArmyCommand(NorthNationId, "disband-two"));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        Assert.Equal(portusBefore + 30, result.State.CityById("portus")!.SupplyTons);
+        Assert.Equal(arx.SupplyTons, result.State.CityById("arx")!.SupplyTons);
+    }
+
     [Fact]
     public void Disband_AwayFromAnyCity_IsRejected()
     {
