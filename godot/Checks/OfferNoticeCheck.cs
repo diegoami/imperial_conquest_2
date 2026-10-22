@@ -8,17 +8,19 @@ namespace IC2.Slice.Checks;
 
 /// <summary>
 /// Fix #917: the original's OK-only box at the human's turn start when an AI nation offers trade or an
-/// alliance. Drives a seeded game (seat rome, seed 7) with the real <see cref="MainGameScreen"/> until the
+/// alliance. Drives a seeded game (seat rome, seed 4) with the real <see cref="MainGameScreen"/> until the
 /// engine holds a pending offer at the human's turn start, then checks the box shows the engine's exact
 /// text, OK closes it, Esc closes a second one, it is not shown again for the same offer, and a turn start
-/// with no offer shows none. Run headless via:
+/// with no offer shows none. Seed 4 since #1012: the new strategic step changed the AI's marches, and on
+/// seed 7 the second offer came only at turn 29; on seed 4 the two offers come at turns 3 and 4, after
+/// three quiet turn starts. Run headless via:
 /// <code>
 /// godot --headless --path godot res://Checks/OfferNoticeCheck.tscn
 /// </code>
 /// </summary>
 public partial class OfferNoticeCheck : Node
 {
-    private const ulong Seed = 7UL;
+    private const ulong Seed = 4UL;
     private const int MaxTurns = 150;
 
     private bool _ok = true;
