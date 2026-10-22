@@ -11,9 +11,11 @@ namespace IC2.Engine.Battle.Tactical.General;
 /// A line is clear when the same 8-connected Bresenham walk the movement makes (<c>err = 2 × minor −
 /// major</c>; while <c>err ≥ 0</c> a minor step and <c>err −= 2 × major</c>; then the major step and
 /// <c>err += 2 × minor</c>; <c>y</c> is the major axis when <c>|dy| &gt; |dx|</c>, as in
-/// <see cref="TacticalMovement"/>) finds every cell strictly between the two ends empty. Adjacent cells,
-/// and a cell and itself, have nothing between them, so their line is clear. "Empty" is the grid's
-/// empty code, the occupancy map the movement tests (report §1).
+/// <see cref="TacticalMovement"/>) finds every cell strictly between the two ends empty. Adjacent cells
+/// have nothing between them, so their line is clear. A cell and itself is <strong>not</strong> a clear
+/// line (#1106 B2: the original's test at <c>0x439F84</c>–<c>0x43A04E</c> refuses it,
+/// <c>2026-10-21-crafted-battle-grid-movement-and-line.md</c>). "Empty" is the grid's empty code, the
+/// occupancy map the movement tests (report §1).
 /// </para>
 /// <para>
 /// The box search scans the <c>(2r + 1)²</c> cells around the target, <c>dx</c> outer and <c>dy</c>
@@ -25,7 +27,10 @@ namespace IC2.Engine.Battle.Tactical.General;
 /// </remarks>
 public static class GeneralLine
 {
-    /// <summary>Whether every cell strictly between <c>(x1, y1)</c> and <c>(x2, y2)</c> is empty.</summary>
+    /// <summary>
+    /// Whether every cell strictly between <c>(x1, y1)</c> and <c>(x2, y2)</c> is empty; false when the two
+    /// ends are the same cell.
+    /// </summary>
     public static bool IsClear(TacticalBattleState state, int x1, int y1, int x2, int y2, TacticalContext context)
     {
         var board = TacticalBoard.Thaw(state, context, draws: null);
@@ -44,6 +49,11 @@ public static class GeneralLine
 
     internal static bool IsClear(TacticalBoard board, int x1, int y1, int x2, int y2)
     {
+        if (x1 == x2 && y1 == y2)
+        {
+            return false;
+        }
+
         var dx = x2 - x1;
         var dy = y2 - y1;
         var sx = Math.Sign(dx);

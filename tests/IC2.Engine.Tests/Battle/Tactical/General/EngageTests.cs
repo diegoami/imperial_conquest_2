@@ -216,8 +216,10 @@ public class EngageTests
         // (0,0) → (6,0): along the row, clear; the occupied ends do not count.
         Assert.True(GeneralLine.IsClear(state, 0, 0, 6, 0, Context));
 
-        // Adjacent, and a cell to itself: nothing between.
+        // Adjacent: nothing between, so clear.
         Assert.True(GeneralLine.IsClear(state, 3, 1, 4, 2, Context));
-        Assert.True(GeneralLine.IsClear(state, 3, 1, 3, 1, Context));
+
+        // #1106 B2: a cell to itself is not a clear line (0x439F84-0x43A04E).
+        Assert.False(GeneralLine.IsClear(state, 3, 1, 3, 1, Context));
     }
 }
