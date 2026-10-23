@@ -7,7 +7,7 @@ namespace IC2.Engine.Battle.Tactical.General;
 /// </summary>
 /// <remarks>
 /// <para>
-/// For each of the general's units, in its order, with moves above 0 and no target:
+/// For each of the general's units, in ascending slot order, with moves above 0 and no target:
 /// </para>
 /// <list type="number">
 /// <item><description>
@@ -75,7 +75,7 @@ public static class GeneralPassTwo
 
     internal static void Apply(TacticalBoard board, IList<GeneralDecision>? journal)
     {
-        foreach (var slot in GeneralOrders.InOrder(board))
+        foreach (var slot in GeneralOrders.InSlotOrder(board))
         {
             ApplyUnit(board, slot, journal);
         }

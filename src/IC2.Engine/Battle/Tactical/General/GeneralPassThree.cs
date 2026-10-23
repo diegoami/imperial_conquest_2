@@ -8,7 +8,7 @@ namespace IC2.Engine.Battle.Tactical.General;
 /// <remarks>
 /// <list type="number">
 /// <item><description>
-/// <strong>The threat move.</strong> For each unit, in the general's order, with moves above 0 and no
+/// <strong>The threat move.</strong> For each unit, in ascending slot order, with moves above 0 and no
 /// target: all 20 enemy entries, initially in slot order, are sorted ascending by threat, <c>troops × quality × morale
 /// × M[theirs][mine] div 10000</c>. When the acting unit is an archer with positive shots, every
 /// enemy instead has key <c>−shotBound(actor, enemy)</c> (<c>FUN_0043A718</c>, target/draw report §B).
@@ -52,7 +52,7 @@ public static class GeneralPassThree
         TacticalBattleState state, TacticalContext context, IBattleDraws draws, IList<GeneralDecision>? journal = null)
     {
         var board = TacticalBoard.Thaw(state, context, draws);
-        foreach (var slot in GeneralOrders.InOrder(board))
+        foreach (var slot in GeneralOrders.InSlotOrder(board))
         {
             FlankUnit(board, slot, journal);
         }
@@ -65,7 +65,7 @@ public static class GeneralPassThree
         TacticalBattleState state, TacticalContext context, IBattleDraws draws, IList<GeneralDecision>? journal = null)
     {
         var board = TacticalBoard.Thaw(state, context, draws);
-        foreach (var slot in GeneralOrders.InOrder(board))
+        foreach (var slot in GeneralOrders.InSlotOrder(board))
         {
             ThreatMoveUnit(board, slot, journal);
         }
@@ -89,14 +89,14 @@ public static class GeneralPassThree
 
     internal static void Apply(TacticalBoard board, IList<GeneralDecision>? journal)
     {
-        foreach (var slot in GeneralOrders.InOrder(board))
+        foreach (var slot in GeneralOrders.InSlotOrder(board))
         {
             ThreatMoveUnit(board, slot, journal);
         }
 
         GeneralPassTwo.Apply(board, journal);
 
-        foreach (var slot in GeneralOrders.InOrder(board))
+        foreach (var slot in GeneralOrders.InSlotOrder(board))
         {
             FlankUnit(board, slot, journal);
         }

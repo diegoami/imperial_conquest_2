@@ -1,17 +1,7 @@
 [
   {
-    "Case": "The_hooked_series_replays_exactly:mix-rg_s1_r5_hook",
-    "FirstDifference": "mix-rg_s1_r5_hook: hook/mix-rg_s1_r5_hook_BATTLE07.SAV (file 7 of 15), slot 24, troops: port 3910, original 3822",
-    "Issue": 1107
-  },
-  {
     "Case": "The_hooked_series_replays_exactly:mix-rg_s2_r5_hook",
     "FirstDifference": "mix-rg_s2_r5_hook: hook/mix-rg_s2_r5_hook_BATTLE07.SAV (file 7 of 18), slot 23, troops: port 10614, original 10785",
-    "Issue": 1107
-  },
-  {
-    "Case": "The_port_draws_the_peace_roll_when_the_original_did:mix-rg_s1_r5_hook",
-    "FirstDifference": "mix-rg_s1_r5_hook: the port's peace draw is Random(5) = 0, the log's is Random(5) = 4",
     "Issue": 1107
   },
   {
@@ -20,28 +10,13 @@
     "Issue": 1107
   },
   {
-    "Case": "The_port_draws_what_the_original_drew:mix-rg_s1_r5_hook",
-    "FirstDifference": "mix-rg_s1_r5_hook: draw 60: half-round counter 7 (port 7), original site 0x439188 Random(153) = 118, port Random(58) = 44",
-    "Issue": 1107
-  },
-  {
     "Case": "The_port_draws_what_the_original_drew:mix-rg_s2_r5_hook",
     "FirstDifference": "mix-rg_s2_r5_hook: draw 67: half-round counter 7 (port 7), original site 0x439188 Random(175) = 173, port Random(481) = 477",
     "Issue": 1107
   },
   {
-    "Case": "The_recorded_series_replays_exactly:gate2_a",
-    "FirstDifference": "gate2_a: probe/gate2_a_BATTLE07.SAV (file 7 of 15), slot 24, troops: port 3910, original 3822",
-    "Issue": 1107
-  },
-  {
     "Case": "The_recorded_series_replays_exactly:gate2_s2a",
     "FirstDifference": "gate2_s2a: probe/gate2_s2a_BATTLE07.SAV (file 7 of 18), slot 23, troops: port 10614, original 10785",
-    "Issue": 1107
-  },
-  {
-    "Case": "The_treaty_is_offered_where_the_reports_observed_it:gate2_a",
-    "FirstDifference": "gate2_a: peace offered: port True, original False",
     "Issue": 1107
   },
   {
