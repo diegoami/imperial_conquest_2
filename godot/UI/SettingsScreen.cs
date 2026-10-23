@@ -249,6 +249,14 @@ public partial class SettingsScreen : Control
             Value = Current.AutoFleetRepairTargetPercent, Suffix = "% condition" };
         repairTarget.ValueChanged += value => Commit(Current with { AutoFleetRepairTargetPercent = (int)value });
         Row(column, "Repair target").AddChild(repairTarget);
+
+        Section(column, "Recruitment");
+        column.AddChild(UiKit.MakeLabel(
+            "At confirmed End turn, mobilize ready units in queue order. This may create new armies.",
+            AppTheme.Note, UiKit.MutedTextColor));
+        var mobilize = new CheckBox { Text = "Auto mobilize ready units", ButtonPressed = Current.AutoMobilizeReady };
+        mobilize.Toggled += on => Commit(Current with { AutoMobilizeReady = on });
+        Row(column, "Mobilize").AddChild(mobilize);
     }
 
     public override void _UnhandledInput(InputEvent @event)

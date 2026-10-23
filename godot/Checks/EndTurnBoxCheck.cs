@@ -25,6 +25,9 @@ public partial class EndTurnBoxCheck : Control
             CheckAutoSupportHotseatSeparation();
             CheckAutoSupportFromFleet();
             CheckFleetAutoSupportFromTown();
+            CheckAutoMobilizeBeforeSupport();
+            CheckAutoMobilizeRefusalKeepsSlot();
+            CheckAutoMobilizeHotseatIsolation();
         }
         catch (Exception ex)
         {
@@ -258,6 +261,104 @@ public partial class EndTurnBoxCheck : Control
         }
     }
 
+    private void CheckAutoMobilizeBeforeSupport()
+    {
+        SettingsScreen.Commit(new UserSettings { AutoMobilizeReady = true, AutoSupplyArmies = true });
+        var mainGame = AddMainGame(BuildAutoMobilizeSession());
+        try
+        {
+            var before = mainGame.Session.State.NationById("north")!.RecruitmentSlots;
+            var commands = new List<string>();
+            mainGame.CommandIssued += lines => commands.Add(lines.FirstOrDefault() ?? string.Empty);
+            mainGame.MenuBar.PressItemForCheck("game.end_turn");
+            Check(mainGame.ActiveOverlay is EndTurnBox && commands.Count == 0,
+                "auto mobilize waits for End turn confirmation");
+            ((EndTurnBox)mainGame.ActiveOverlay!).MakeMoreMovesButton.EmitSignal(Button.SignalName.Pressed);
+            Check(commands.Count == 0
+                  && mainGame.Session.State.NationById("north")!.RecruitmentSlots.SequenceEqual(before),
+                "Make more moves leaves ready and unready slots alone");
+
+            mainGame.MenuBar.PressItemForCheck("game.end_turn");
+            ((EndTurnBox)mainGame.ActiveOverlay!).EndTurnButton.EmitSignal(Button.SignalName.Pressed);
+            Check(commands.Count >= 3 && commands[0].StartsWith("> mobilize ", StringComparison.Ordinal)
+                  && commands.Skip(1).Take(commands.Count - 2).Any(line => line.StartsWith("> buy ", StringComparison.Ordinal))
+                  && commands[^1].StartsWith("> end", StringComparison.Ordinal),
+                "mobilize runs before army support and one ordinary end");
+            var remaining = mainGame.Session.State.NationById("north")!.RecruitmentSlots;
+            Check(remaining.Count == 1 && remaining[0].StateCode < 24,
+                "the ready slot was mobilized and the unready slot remains");
+            Check(mainGame.LastMessageForCheck.Contains("Auto mobilize: 1", StringComparison.Ordinal),
+                "the End-turn summary reports the accepted mobilization");
+        }
+        finally
+        {
+            RemoveMainGame(mainGame);
+            SettingsScreen.Commit(new UserSettings());
+        }
+    }
+
+    private void CheckAutoMobilizeRefusalKeepsSlot()
+    {
+        SettingsScreen.Commit(new UserSettings { AutoMobilizeReady = true });
+        var mainGame = AddMainGame(BuildAutoMobilizeSession(refuse: true));
+        try
+        {
+            var commands = new List<string>();
+            mainGame.CommandIssued += lines => commands.Add(lines.FirstOrDefault() ?? string.Empty);
+            mainGame.MenuBar.PressItemForCheck("game.end_turn");
+            if (mainGame.ActiveOverlay is EndTurnBox box)
+                box.EndTurnButton.EmitSignal(Button.SignalName.Pressed);
+            Check(commands.Count == 2 && commands[0].StartsWith("> mobilize ", StringComparison.Ordinal)
+                  && commands[1].StartsWith("> end", StringComparison.Ordinal),
+                "a refused mobilization still allows one ordinary End turn");
+            Check(mainGame.Session.State.NationById("north")!.RecruitmentSlots.Count == 2,
+                "a refused ready slot remains in the training queue");
+            Check(mainGame.LastMessageForCheck.Contains("Skipped: slot", StringComparison.Ordinal)
+                  && mainGame.LastMessageForCheck.Contains("You cannot mobilise a unit at this time.", StringComparison.Ordinal),
+                "the actual typed refusal is visible in the auto-mobilize summary");
+        }
+        finally
+        {
+            RemoveMainGame(mainGame);
+            SettingsScreen.Commit(new UserSettings());
+        }
+    }
+
+    private void CheckAutoMobilizeHotseatIsolation()
+    {
+        SettingsScreen.Commit(new UserSettings { AutoMobilizeReady = true });
+        var original = BuildAutoSession(warning: false, hotseat: true);
+        var state = original.State;
+        var northCity = state.Cities.First(c => c.Owner == "north");
+        var southCity = state.Cities.First(c => c.Owner == "south");
+        state = state with { Nations = ValueList.From(state.Nations.Select(n => n.Id switch
+        {
+            "north" => n with { RecruitmentSlots = ValueList.Of(
+                new RecruitmentSlot(northCity.Id, "light_infantry", 3_000, 24)) },
+            "south" => n with { RecruitmentSlots = ValueList.Of(
+                new RecruitmentSlot(southCity.Id, "light_infantry", 3_000, 24)) },
+            _ => n,
+        })) };
+        var save = new SaveGame(state.SchemaVersion, "auto-mobilize-hotseat", "auto-mobilize-hotseat",
+            state.ScenarioId, state.WorldId, state.RulesetId, state);
+        var mainGame = AddMainGame(new GameSession(original.World, original.Ruleset, original.Scenario, save));
+        try
+        {
+            mainGame.MenuBar.PressItemForCheck("game.end_turn");
+            if (mainGame.ActiveOverlay is EndTurnBox box)
+                box.EndTurnButton.EmitSignal(Button.SignalName.Pressed);
+            Check(mainGame.Session.State.NationById("north")!.RecruitmentSlots.Count == 0,
+                "active human nation's ready slot is mobilized");
+            Check(mainGame.Session.State.NationById("south")!.RecruitmentSlots.Count == 1,
+                "next hotseat nation's ready slot is not mobilized early");
+        }
+        finally
+        {
+            RemoveMainGame(mainGame);
+            SettingsScreen.Commit(new UserSettings());
+        }
+    }
+
     private void CheckUnwarnedSeatEndsImmediately()
     {
         var control = BuildSession(warning: false);
@@ -449,6 +550,33 @@ public partial class EndTurnBoxCheck : Control
         var save = new SaveGame(state.SchemaVersion, "fleet-auto-check", "fleet-auto-check",
             state.ScenarioId, state.WorldId, state.RulesetId, state);
         return new GameSession(original.World, original.Ruleset, original.Scenario, save);
+    }
+
+    private static GameSession BuildAutoMobilizeSession(bool refuse = false)
+    {
+        var original = BuildSession(warning: true);
+        var state = original.State;
+        var city = state.Cities.First(c => c.Owner == "north");
+        state = state with
+        {
+            Cities = ValueList.From(state.Cities.Select(c => c.Id == city.Id
+                ? c with { SupplyTons = 600 } : c)),
+            Nations = ValueList.From(state.Nations.Select(n => n.Id == "north"
+                ? n with { RecruitmentSlots = ValueList.Of(
+                    new RecruitmentSlot(city.Id, "light_infantry", 2_000, 0),
+                    new RecruitmentSlot(city.Id, "light_infantry", 3_000, 24)) } : n)),
+        };
+        var ruleset = original.Ruleset;
+        if (refuse)
+        {
+            var full = state.Armies[0] with { Units = ValueList.From(Enumerable.Range(0, 20)
+                .Select(i => new UnitSlot(0, "light_infantry", 1_000, 6, $"Regulars {i}"))) };
+            state = state with { Armies = ValueList.Of(full) };
+            ruleset = ruleset with { ArmyManagement = ruleset.ArmyManagement with { MaxArmies = 1 } };
+        }
+        var save = new SaveGame(state.SchemaVersion, "auto-mobilize-check", "auto-mobilize-check",
+            state.ScenarioId, state.WorldId, state.RulesetId, state);
+        return new GameSession(original.World, ruleset, original.Scenario, save);
     }
 
     // One regular 50,000-troop unit: check 1's supply test and check 2's purse test are driven only by

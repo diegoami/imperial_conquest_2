@@ -33,6 +33,7 @@ public sealed class UserSettingsTests : IDisposable
         Assert.False(settings.AutoFundArmies);
         Assert.False(settings.AutoSupplyFleets);
         Assert.False(settings.AutoRepairFleets);
+        Assert.False(settings.AutoMobilizeReady);
         Assert.Equal(100, settings.AutoSupplyTargetPercent);
         Assert.Equal(1_000, settings.AutoPurseTargetTalents);
         Assert.Equal(1_000, settings.AutoTreasuryReserveTalents);
@@ -52,6 +53,7 @@ public sealed class UserSettingsTests : IDisposable
             AutoSupplyTargetPercent = 75, AutoPurseTargetTalents = 800, AutoTreasuryReserveTalents = 2_500,
             AutoSupplyFleets = true, AutoRepairFleets = true,
             AutoFleetSupplyTargetPercent = 65, AutoFleetRepairTargetPercent = 85,
+            AutoMobilizeReady = true,
         }.WithBattleSpeed(BattleSpeeds.All.Single(s => s.Id == "fast"));
 
         Assert.True(saved.TrySave(PathFor("settings.json")));
@@ -120,6 +122,7 @@ public sealed class UserSettingsTests : IDisposable
         Assert.False(UserSettings.Load(path).AutoFundArmies);
         Assert.False(UserSettings.Load(path).AutoSupplyFleets);
         Assert.False(UserSettings.Load(path).AutoRepairFleets);
+        Assert.False(UserSettings.Load(path).AutoMobilizeReady);
     }
 
     [Fact]

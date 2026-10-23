@@ -70,8 +70,14 @@ public partial class SettingsCheck : Control
             fleetRepair.EmitSignal(BaseButton.SignalName.Toggled, true);
             Check(SettingsScreen.Current.AutoRepairFleets && UserSettings.Load(_file).AutoRepairFleets,
                 "the fleet repair switch commits to the global settings file");
+            var mobilize = settings.FindChildren("*", "CheckBox", true, false).OfType<CheckBox>()
+                .Single(box => box.Text == "Auto mobilize ready units");
+            mobilize.EmitSignal(BaseButton.SignalName.Toggled, true);
+            Check(SettingsScreen.Current.AutoMobilizeReady && UserSettings.Load(_file).AutoMobilizeReady,
+                "the auto mobilize switch commits to the global settings file");
             SettingsScreen.Commit(SettingsScreen.Current with { AutoSupplyArmies = false });
             SettingsScreen.Commit(SettingsScreen.Current with { AutoRepairFleets = false });
+            SettingsScreen.Commit(SettingsScreen.Current with { AutoMobilizeReady = false });
             settings.Tabs.CurrentTab = 0;
         });
         _steps.Enqueue(() =>
