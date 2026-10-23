@@ -257,6 +257,12 @@ public partial class SettingsScreen : Control
         var mobilize = new CheckBox { Text = "Auto mobilize ready units", ButtonPressed = Current.AutoMobilizeReady };
         mobilize.Toggled += on => Commit(Current with { AutoMobilizeReady = on });
         Row(column, "Mobilize").AddChild(mobilize);
+        var recruit = new CheckBox { Text = "Auto recruit to city plans", ButtonPressed = Current.AutoRecruitEnabled };
+        recruit.Toggled += on => Commit(Current with { AutoRecruitEnabled = on });
+        Row(column, "Auto recruit").AddChild(recruit);
+        column.AddChild(UiKit.MakeLabel(
+            $"{Current.AutoRecruitPlans.Count} global city plans. Edit a city's plan in Recruit unit; plans apply to every campaign in that world. One order per city before End turn, subject to the treasury reserve.",
+            AppTheme.Note, UiKit.MutedTextColor));
     }
 
     public override void _UnhandledInput(InputEvent @event)
