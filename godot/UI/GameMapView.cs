@@ -163,6 +163,26 @@ public partial class GameMapView : Control
     /// <summary>#1280 F2: a one-line hint for the screen's message line (a marked move destination).</summary>
     public event Action<string>? HintRequested;
 
+    /// <summary>A fixed land cell or city picked for the selected army's campaign target.</summary>
+    public event Action<int, int, string?>? TravelTargetPicked;
+    public event Action? TravelTargetPickChanged;
+    public bool TravelTargetPickArmed { get; private set; }
+
+    public void ArmTravelTargetPick()
+    {
+        _pendingMove = null;
+        TravelTargetPickArmed = true;
+        TravelTargetPickChanged?.Invoke();
+        QueueRedraw();
+    }
+
+    public void CancelTravelTargetPick()
+    {
+        TravelTargetPickArmed = false;
+        TravelTargetPickChanged?.Invoke();
+        QueueRedraw();
+    }
+
     /// <summary>
     /// #1280 F2 / #1293: with the "Confirm moves with a second click" setting on, the move a first click
     /// marked — its order line and destination tile — or <see langword="null"/>. A second click on the
@@ -1059,6 +1079,12 @@ public partial class GameMapView : Control
 
         var context = BuildClickContext(button, x, y, screenPosition);
         LastClickContextForCheck = context;
+        if (TravelTargetPickArmed)
+        {
+            if (button == MapClickButton.Right) CancelTravelTargetPick();
+            else TryPickTravelTarget(context);
+            return;
+        }
         var outcome = MapClickRules.Resolve(context);
         ApplyOutcome(outcome);
         QueueRedraw();
@@ -1066,6 +1092,25 @@ public partial class GameMapView : Control
 
     /// <summary>The actual context passed to MapClickRules, for real-input checks.</summary>
     public MapClickContext? LastClickContextForCheck { get; private set; }
+
+    private void TryPickTravelTarget(MapClickContext context)
+    {
+        if (!TravelTargetPickArmed) return;
+        if (context.Target is { Kind: MapEntityKind.City } city)
+        {
+            CancelTravelTargetPick();
+            TravelTargetPicked?.Invoke(context.X, context.Y, city.Id);
+        }
+        else if (context.Target is null && context.TileIsLand)
+        {
+            CancelTravelTargetPick();
+            TravelTargetPicked?.Invoke(context.X, context.Y, null);
+        }
+        else HintRequested?.Invoke("Choose an open land cell or city for the army target; right-click to cancel.");
+    }
+
+    /// <summary>Exercises the same target-pick decision as a map click in a headless check.</summary>
+    public void PickTravelTargetForCheck(MapClickContext context) => TryPickTravelTarget(context);
 
     private MapClickContext BuildClickContext(MapClickButton button, int x, int y, Vector2 screenPosition)
     {

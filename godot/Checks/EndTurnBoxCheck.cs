@@ -1,5 +1,6 @@
 using Godot;
 using IC2.Engine.Model;
+using IC2.Engine.Persistence;
 using IC2.Engine.Presentation;
 using IC2.Slice.UI;
 
@@ -29,6 +30,9 @@ public partial class EndTurnBoxCheck : Control
             CheckAutoMobilizeRefusalKeepsSlot();
             CheckAutoMobilizeHotseatIsolation();
             CheckAutoRecruitAfterMobilize();
+            CheckArmyTravelTargetControls();
+            CheckArmyTravelContinuesAcrossTurns();
+            CheckArmyTravelHotseatIsolation();
         }
         catch (Exception ex)
         {
@@ -300,8 +304,12 @@ public partial class EndTurnBoxCheck : Control
 
     private void CheckAutoRecruitAfterMobilize()
     {
-        var session = BuildAutoMobilizeSession();
+        var session = BuildTravelAutoSession();
         var cityId = session.State.NationById("north")!.RecruitmentSlots[0].TargetCityId;
+        var army = session.State.ArmyById("north-land-warning")!;
+        var destination = FreeLandNeighbour(session, army);
+        session.SetArmyTravelTarget(new ArmyTravelTarget(army.Id, army.Nation,
+            destination.X, destination.Y));
         var bounds = RecruitTroopBounds.For(session.Ruleset, "light_infantry");
         SettingsScreen.Commit(new UserSettings
         {
@@ -327,18 +335,183 @@ public partial class EndTurnBoxCheck : Control
             var mobilize = commands.FindIndex(line => line.StartsWith("> mobilize ", StringComparison.Ordinal));
             var recruit = commands.FindIndex(line => line.StartsWith("> recruit-standing ", StringComparison.Ordinal));
             var support = commands.FindIndex(line => line.StartsWith("> buy ", StringComparison.Ordinal));
-            Check(mobilize == 0 && recruit == 1 && support > recruit
+            var travel = commands.FindIndex(line => line.StartsWith("> move ", StringComparison.Ordinal));
+            Check(mobilize == 0 && recruit == 1 && travel == 2 && support > travel
                   && commands[^1].StartsWith("> end", StringComparison.Ordinal)
                   && commands.Count(line => line.StartsWith("> recruit-standing ", StringComparison.Ordinal)) == 1,
-                "one auto recruit order runs after mobilize and before support and end");
+                $"one travel order runs after mobilize and recruit, before support and end ({string.Join(" | ", commands)})");
             Check(mainGame.LastMessageForCheck.Contains("Auto recruit: 1", StringComparison.Ordinal),
                 "the End-turn summary reports accepted auto recruitment");
+            Check(mainGame.LastMessageForCheck.Contains("Army targets: 1 moved, 1 arrived", StringComparison.Ordinal)
+                  && session.TravelTargetFor(army.Id) is null,
+                $"the target arrives through an ordinary move and clears visibly ({mainGame.LastMessageForCheck})");
         }
         finally
         {
             RemoveMainGame(mainGame);
             SettingsScreen.Commit(new UserSettings());
         }
+    }
+
+    private void CheckArmyTravelTargetControls()
+    {
+        var session = BuildSession(warning: true);
+        var army = session.State.ArmyById("north-land-warning")!;
+        var destination = FreeLandNeighbour(session, army);
+        var mainGame = AddMainGame(session);
+        try
+        {
+            var commands = 0;
+            mainGame.CommandIssued += _ => commands++;
+            mainGame.SelectArmyForCheck(army.Id);
+            mainGame.MenuBar.PressItemForCheck("unit_map.army_set_target");
+            Check(mainGame.MapView.TravelTargetPickArmed, "Set travel target arms a map click");
+            mainGame.MapView.PickTravelTargetForCheck(new MapClickContext(
+                MapClickButton.Left, destination.X, destination.Y, true, false,
+                new MapClickTarget(MapEntityKind.Army, "another-army", "south"),
+                new MapClickSelection(MapEntityKind.Army, army.Id, army.Moves), 1, 0, 0, "north"));
+            Check(mainGame.MapView.TravelTargetPickArmed && session.TravelTargetFor(army.Id) is null,
+                "an army marker cannot become a travel target");
+            mainGame.MapView.PickTravelTargetForCheck(new MapClickContext(
+                MapClickButton.Left, destination.X, destination.Y, true, false, null,
+                new MapClickSelection(MapEntityKind.Army, army.Id, army.Moves), 1, 0, 0, "north"));
+            Check(session.TravelTargetFor(army.Id) is { } target
+                  && target.X == destination.X && target.Y == destination.Y && commands == 0,
+                "an open land click saves a fixed target without a game command");
+            mainGame.MenuBar.PressItemForCheck("unit_map.army_cancel_target");
+            Check(session.TravelTargetFor(army.Id) is null && commands == 0,
+                "Cancel travel target clears the plan without a game command");
+            var city = session.State.Cities.First();
+            mainGame.MenuBar.PressItemForCheck("unit_map.army_set_target");
+            mainGame.MapView.PickTravelTargetForCheck(new MapClickContext(
+                MapClickButton.Left, city.X, city.Y, true, false,
+                new MapClickTarget(MapEntityKind.City, city.Id, city.Owner),
+                new MapClickSelection(MapEntityKind.Army, army.Id, army.Moves), 1, 0, 0, "north"));
+            Check(session.TravelTargetFor(army.Id)?.CityId == city.Id && commands == 0,
+                "a city click saves its fixed city ID without an attack or game command");
+            var path = Path.Combine(Path.GetTempPath(), $"ic2-army-travel-check-{Guid.NewGuid():N}.json");
+            try
+            {
+                mainGame.SaveAsForCheck(path);
+                var loaded = SaveManager.LoadFile(path, session.World, session.Ruleset);
+                var reopened = new GameSession(session.World, session.Ruleset, session.Scenario, loaded);
+                Check(reopened.TravelTargetFor(army.Id) == session.TravelTargetFor(army.Id),
+                    "the real Save As path persists a campaign target for reopening");
+                mainGame.SubmitForCheck($"move {army.Id} {destination.X} {destination.Y}");
+                Check(session.TravelTargetFor(army.Id) is null,
+                    "a manual move attempt cancels that army's target");
+            }
+            finally { if (File.Exists(path)) File.Delete(path); }
+        }
+        finally { RemoveMainGame(mainGame); }
+    }
+
+    private static (int X, int Y) FreeLandNeighbour(GameSession session, ArmyState army)
+    {
+        var world = session.World;
+        var cells = world.Terrain.Decode(world.Width, world.Height);
+        for (var y = Math.Max(0, army.Y - 1); y <= Math.Min(world.Height - 1, army.Y + 1); y++)
+        for (var x = Math.Max(0, army.X - 1); x <= Math.Min(world.Width - 1, army.X + 1); x++)
+        {
+            if (x == army.X && y == army.Y) continue;
+            if (world.TileTypeByCode(cells[y * world.Width + x])?.PassableByArmies != true) continue;
+            if (session.State.Cities.Any(city => city.X == x && city.Y == y)) continue;
+            if (session.State.Armies.Any(other => other.Id != army.Id && other.X == x && other.Y == y)) continue;
+            if (session.State.Fleets.Any(fleet => !fleet.IsUnderConstruction && fleet.X == x && fleet.Y == y)) continue;
+            return (x, y);
+        }
+        throw new InvalidOperationException("The army has no free neighbouring land for this check.");
+    }
+
+    private void CheckArmyTravelContinuesAcrossTurns()
+    {
+        var original = BuildSession(warning: false);
+        var state = original.State with { Armies = ValueList.From(original.State.Armies.Select(army =>
+            army.Id == "north-land-warning" ? army with { Moves = 1 } : army)) };
+        var save = new SaveGame(state.SchemaVersion, "travel-two-turns", "travel-two-turns",
+            state.ScenarioId, state.WorldId, state.RulesetId, state);
+        var session = new GameSession(original.World, original.Ruleset, original.Scenario, save);
+        var army = session.State.ArmyById("north-land-warning")!;
+        var destination = FreeLandRun(session, army);
+        session.SetArmyTravelTarget(new ArmyTravelTarget(army.Id, army.Nation,
+            destination.X, destination.Y));
+        var mainGame = AddMainGame(session);
+        try
+        {
+            var commands = new List<string>();
+            mainGame.CommandIssued += lines => commands.Add(lines.FirstOrDefault() ?? string.Empty);
+            mainGame.MenuBar.PressItemForCheck("game.end_turn");
+            if (mainGame.ActiveOverlay is EndTurnBox first) first.EndTurnButton.EmitSignal(Button.SignalName.Pressed);
+            DismissOfferNotices(mainGame);
+            var afterFirst = session.State.ArmyById(army.Id)!;
+            Check(afterFirst.X != army.X || afterFirst.Y != army.Y,
+                "the first confirmed turn makes partial progress toward a distant target");
+            Check(session.TravelTargetFor(army.Id) is not null,
+                "partial progress retains the campaign target");
+            mainGame.MenuBar.PressItemForCheck("game.end_turn");
+            if (mainGame.ActiveOverlay is EndTurnBox second) second.EndTurnButton.EmitSignal(Button.SignalName.Pressed);
+            DismissOfferNotices(mainGame);
+            Check(session.TravelTargetFor(army.Id) is null
+                  && session.State.ArmyById(army.Id) is { } arrived
+                  && arrived.X == destination.X && arrived.Y == destination.Y,
+                "the next confirmed turn resumes and reaches the same fixed target");
+            Check(commands.Count(line => line.StartsWith("> move ", StringComparison.Ordinal)) == 2,
+                "one ordinary army move is issued per confirmed turn");
+        }
+        finally { RemoveMainGame(mainGame); }
+    }
+
+    private void CheckArmyTravelHotseatIsolation()
+    {
+        var session = BuildAutoSession(warning: true, hotseat: true);
+        var south = session.State.ArmyById("south-auto")!;
+        var target = new ArmyTravelTarget(south.Id, south.Nation, south.X, south.Y);
+        session.SetArmyTravelTarget(target);
+        var mainGame = AddMainGame(session);
+        try
+        {
+            mainGame.MenuBar.PressItemForCheck("game.end_turn");
+            if (mainGame.ActiveOverlay is EndTurnBox box) box.EndTurnButton.EmitSignal(Button.SignalName.Pressed);
+            DismissOfferNotices(mainGame);
+            Check(session.TravelTargetFor(south.Id) == target,
+                "north's confirmed turn leaves the next hotseat nation's army target untouched");
+        }
+        finally { RemoveMainGame(mainGame); }
+    }
+
+    private static (int X, int Y) FreeLandRun(GameSession session, ArmyState army)
+    {
+        var world = session.World;
+        var cells = world.Terrain.Decode(world.Width, world.Height);
+        for (var dy = -1; dy <= 1; dy++)
+        for (var dx = -1; dx <= 1; dx++)
+        {
+            if (dx == 0 && dy == 0) continue;
+            var clear = true;
+            for (var step = 1; step <= 2; step++)
+            {
+                var x = army.X + dx * step;
+                var y = army.Y + dy * step;
+                if ((uint)x >= (uint)world.Width || (uint)y >= (uint)world.Height
+                    || world.TileTypeByCode(cells[y * world.Width + x])?.PassableByArmies != true
+                    || session.State.Cities.Any(city => city.X == x && city.Y == y)
+                    || session.State.Armies.Any(other => other.Id != army.Id && other.X == x && other.Y == y)
+                    || session.State.Fleets.Any(fleet => !fleet.IsUnderConstruction && fleet.X == x && fleet.Y == y))
+                    clear = false;
+            }
+            if (clear) return (army.X + 2 * dx, army.Y + 2 * dy);
+        }
+        throw new InvalidOperationException("The army has no free two-cell land run for this check.");
+    }
+
+    private static GameSession BuildTravelAutoSession()
+    {
+        var original = BuildAutoMobilizeSession();
+        var state = original.State with { Armies = ValueList.From(original.State.Armies.Select(army =>
+            army.Id == "north-land-warning" ? army with { Moves = 8 } : army)) };
+        var save = new SaveGame(state.SchemaVersion, "army-travel-check", "army-travel-check",
+            state.ScenarioId, state.WorldId, state.RulesetId, state);
+        return new GameSession(original.World, original.Ruleset, original.Scenario, save);
     }
 
     private void CheckAutoMobilizeRefusalKeepsSlot()

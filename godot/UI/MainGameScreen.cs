@@ -98,7 +98,15 @@ public partial class MainGameScreen : Control
         {
             if (id == "unit_map.cancel_selection") { SkipTravelAndClearSelection(); return; }
             if (id is "file.close" or "game.settings" || id.StartsWith("help.", StringComparison.Ordinal)
-                || id is "file.save" or "file.save_as" || AllowStrategicInput()) handler();
+                || id is "file.save" or "file.save_as" || AllowStrategicInput())
+            {
+                if (id != "unit_map.army_set_target" && _mapView.TravelTargetPickArmed)
+                {
+                    _mapView.CancelTravelTargetPick();
+                    UpdateCommandStrip();
+                }
+                handler();
+            }
         });
     }
 
@@ -106,6 +114,7 @@ public partial class MainGameScreen : Control
     {
         AppDiagnostics.Mark(DiagnosticEvent.Skip, "travel");
         StrategicTravel.Skip();
+        _mapView.CancelTravelTargetPick();
         _mapView.ClearSelection();
     }
 
@@ -242,6 +251,7 @@ public partial class MainGameScreen : Control
 
     // T112: the Unit map's context strip, placed below the main toolbar.
     private UnitCommandStrip _commandStrip = null!;
+    private Label _travelTargetLabel = null!;
 
     // T149: the cue player, built once in _Ready, parented to the root, and wired to one
     // subscription on Session.EventsPublished (below). The only Owns slice this screen carries
@@ -293,6 +303,12 @@ public partial class MainGameScreen : Control
         // toolbar. It is hidden while nothing (or a foreign unit) is selected.
         _commandStrip = new UnitCommandStrip { Table = CommandTable, AssetLoader = assetLoader };
         root.AddChild(_commandStrip);
+        _travelTargetLabel = UiKit.MakeLabel(string.Empty, AppTheme.Note, UiKit.MutedTextColor);
+        _travelTargetLabel.ClipText = true;
+        _travelTargetLabel.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+        var travelTargetRow = new HBoxContainer();
+        travelTargetRow.AddChild(_travelTargetLabel);
+        root.AddChild(travelTargetRow);
 
         root.AddChild(BuildTopBar());
 
@@ -453,6 +469,8 @@ public partial class MainGameScreen : Control
         // selection. The engine composes the declaration of war itself, so nothing here submits one.
         _mapView.AttackConfirmationRequested += ShowAttackPrompt;
         _mapView.HintRequested += ShowScreenMessage;
+        _mapView.TravelTargetPicked += SetPickedArmyTravelTarget;
+        _mapView.TravelTargetPickChanged += UpdateCommandStrip;
 
         BindCommands();
         WireNationSwatches();
@@ -565,7 +583,7 @@ public partial class MainGameScreen : Control
         BindStrategicCommand("strategy.build_fleet", OpenBuildFleetDialog);
 
         // Unit map: Cancel selection is T99's own handler (Shift+X already reaches it too).
-        BindStrategicCommand("unit_map.cancel_selection", () => _mapView.ClearSelection());
+        BindStrategicCommand("unit_map.cancel_selection", () => { _mapView.CancelTravelTargetPick(); _mapView.ClearSelection(); });
 
         // T134: Army -> Supply army opens the SupplyDialog for the selected army (or the army a selected
         // fleet carries), or shows one of the two messages and opens nothing.
@@ -577,6 +595,8 @@ public partial class MainGameScreen : Control
         BindStrategicCommand("unit_map.army_transfer_unit", OpenArmyTransferDialog);
         BindStrategicCommand("unit_map.army_split", OpenSplitArmyDialog);
         BindStrategicCommand("unit_map.army_split_two", () => OpenSplitArmyDialog(suggestBalanced: true));
+        BindStrategicCommand("unit_map.army_set_target", ArmArmyTravelTarget);
+        BindStrategicCommand("unit_map.army_cancel_target", CancelArmyTravelTarget);
         BindStrategicCommand("unit_map.army_join", JoinArmiesFromMenu);
         BindStrategicCommand("unit_map.army_change_units", OpenChangeUnitsDialog);
         BindStrategicCommand("unit_map.army_disband", ConfirmDisbandArmy);
@@ -1565,6 +1585,49 @@ public partial class MainGameScreen : Control
         }
 
         _commandStrip.SetSelection(selection);
+        if (_travelTargetLabel is null) return;
+        var target = _selectedArmyId is { } selected ? Session.TravelTargetFor(selected) : null;
+        var current = _selectedArmyId is { } selectedArmy ? Session.State.ArmyById(selectedArmy) : null;
+        var remaining = target is null || current is null ? 0
+            : Math.Max(0, Math.Max(Math.Abs(current.X - target.X), Math.Abs(current.Y - target.Y))
+                - (target.CityId is null ? 0 : 1));
+        _travelTargetLabel.Visible = target is not null || _mapView.TravelTargetPickArmed;
+        _travelTargetLabel.Text = _mapView.TravelTargetPickArmed
+            ? "Travel target: click an open land cell or city; right-click or Esc to cancel."
+            : target is null ? string.Empty
+            : $"Travel target for {target.ArmyId}: {(target.CityId is null ? $"cell ({target.X}, {target.Y})" : $"city {target.CityId}")} · {remaining} cells away. Use Army → Cancel travel target to stop.";
+    }
+
+    private void ArmArmyTravelTarget()
+    {
+        var army = OwnSelectedArmy();
+        if (army is null || army.IsEmbarked)
+        {
+            ShowScreenMessage("Select one of your unembarked armies first.");
+            return;
+        }
+        _mapView.ArmTravelTargetPick();
+        UpdateCommandStrip();
+        ShowScreenMessage("Click an open land cell or city to set this army's travel target.");
+    }
+
+    private void SetPickedArmyTravelTarget(int x, int y, string? cityId)
+    {
+        var army = OwnSelectedArmy();
+        if (army is null || army.IsEmbarked) return;
+        Session.SetArmyTravelTarget(new ArmyTravelTarget(army.Id, army.Nation, x, y, cityId));
+        UpdateCommandStrip();
+        ShowScreenMessage($"Travel target set for {army.Id}.");
+    }
+
+    private void CancelArmyTravelTarget()
+    {
+        _mapView.CancelTravelTargetPick();
+        var army = OwnSelectedArmy();
+        if (army is null) { ShowScreenMessage(SelectArmyMessage); return; }
+        ShowScreenMessage(Session.ClearArmyTravelTarget(army.Id)
+            ? $"Travel target cancelled for {army.Id}." : $"{army.Id} has no travel target.");
+        UpdateCommandStrip();
     }
 
     /// <summary>The selected army when it is the active seat's own, or <see langword="null"/> — a foreign
@@ -1713,7 +1776,8 @@ public partial class MainGameScreen : Control
 
     private void SubmitConfirmedEndTurn()
     {
-        var summaries = new[] { RunAutoMobilize(), RunAutoRecruit(), RunArmyAutoSupport(), RunFleetAutoSupport() }
+        var summaries = new[] { RunAutoMobilize(), RunAutoRecruit(), RunArmyTravelTargets(),
+                RunArmyAutoSupport(), RunFleetAutoSupport() }
             .Where(s => !string.IsNullOrEmpty(s)).ToArray();
         SubmitForCheck("end");
         if (summaries.Length > 0) ShowScreenMessage(string.Join("\n", summaries));
@@ -1786,6 +1850,70 @@ public partial class MainGameScreen : Control
             skipped.Add($"{plan.CityId}: city is not in this world");
         var line = $"Auto recruit: {recruited} units queued ({cost} talents).";
         return skipped.Count == 0 ? line : line + " Skipped: " + string.Join("; ", skipped);
+    }
+
+    private bool _runningArmyTravel;
+
+    private string? RunArmyTravelTargets()
+    {
+        if (Session.ArmyTravelTargets.Count == 0) return null;
+        var nationId = Session.State.ActiveNationId;
+        if (Session.State.NationById(nationId)?.Control != SeatControl.Human) return null;
+        var moved = 0;
+        var arrived = 0;
+        var waiting = 0;
+        var stopped = new List<string>();
+        var targets = Session.ArmyTravelTargets.ToArray();
+        var ordered = Session.State.Armies.Select(army => army.Id)
+            .Concat(targets.Select(target => target.ArmyId)).Distinct(StringComparer.Ordinal).ToArray();
+        foreach (var armyId in ordered)
+        {
+            var target = targets.FirstOrDefault(t => t.ArmyId == armyId);
+            if (target is null || target.NationId != nationId) continue;
+            var decision = ArmyTravelPlanner.ForTarget(Session.State, Session.World, Session.Ruleset, target);
+            if (decision.WaitForMoves) { waiting++; continue; }
+            if (decision.Arrived)
+            {
+                Session.ClearArmyTravelTarget(armyId);
+                arrived++;
+                continue;
+            }
+            if (decision.CommandLine is null)
+            {
+                Session.ClearArmyTravelTarget(armyId);
+                stopped.Add($"{armyId}: {decision.Reason}");
+                continue;
+            }
+
+            var before = Session.State.ArmyById(armyId)!;
+            IReadOnlyList<string> response;
+            _runningArmyTravel = true;
+            try
+            {
+                response = SubmitForCheck(decision.CommandLine);
+                if (StrategicTravel.IsActive) StrategicTravel.Skip();
+            }
+            finally { _runningArmyTravel = false; }
+            var after = Session.State.ArmyById(armyId);
+            if (after is null || after.X == before.X && after.Y == before.Y)
+            {
+                Session.ClearArmyTravelTarget(armyId);
+                var refusal = response.FirstOrDefault(line => line.StartsWith("Refused:", StringComparison.OrdinalIgnoreCase));
+                stopped.Add($"{armyId}: {refusal ?? "route blocked or no progress"}");
+                continue;
+            }
+            moved++;
+            var next = ArmyTravelPlanner.ForTarget(Session.State, Session.World, Session.Ruleset, target);
+            if (next.Arrived) { Session.ClearArmyTravelTarget(armyId); arrived++; }
+            else if (next.Reason is { } reason && !next.WaitForMoves)
+            {
+                Session.ClearArmyTravelTarget(armyId);
+                stopped.Add($"{armyId}: {reason}");
+            }
+        }
+        UpdateCommandStrip();
+        var line = $"Army targets: {moved} moved, {arrived} arrived, {waiting} waiting.";
+        return stopped.Count == 0 ? line : line + " Stopped: " + string.Join("; ", stopped);
     }
 
     private string? RunArmyAutoSupport()
@@ -2139,6 +2267,16 @@ public partial class MainGameScreen : Control
 
     private void OnCommandIssued(IReadOnlyList<string> lines)
     {
+        if (!_runningArmyTravel && lines.FirstOrDefault() is { } command)
+        {
+            var parts = command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 3 && parts[0] == ">"
+                && parts[1] is "move" or "attack-army" or "besiege-city" or "embark-army" or "disband-army")
+            {
+                Session.ClearArmyTravelTarget(parts[2]);
+                UpdateCommandStrip();
+            }
+        }
         var exact = _tacticalCompletionRouting ?? new SessionOutput(lines, false, Session.LastBattles, Session.LastSeatFalls)
         { TacticalTimeline = Session.LastTacticalTimeline, StrategicTimeline = Session.LastStrategicTimeline };
         _tacticalCompletionRouting = null;
@@ -2390,6 +2528,14 @@ public partial class MainGameScreen : Control
 
         if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape })
         {
+            if (_mapView.TravelTargetPickArmed)
+            {
+                _mapView.CancelTravelTargetPick();
+                UpdateCommandStrip();
+                ShowScreenMessage("Travel target selection cancelled.");
+                GetViewport().SetInputAsHandled();
+                return;
+            }
             SkipTravelAndClearSelection();
             GetViewport().SetInputAsHandled();
         }

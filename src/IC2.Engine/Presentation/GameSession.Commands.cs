@@ -1485,7 +1485,8 @@ public sealed partial class GameSession
         Battle: _battle?.ToSaved(),
         FirstEndNewsOwed: _pendingNewsBaseline is { } baseline
             ? CountNewsAppendedSince(baseline, State.NewsLog.Slots)
-            : null);
+            : null,
+        ArmyTravelTargets: ArmyTravelTargets.Count == 0 ? null : ArmyTravelTargets);
 
     /// <summary>
     /// Everything after <paramref name="trimmedLine"/>'s first space, or <see langword="null"/> if there
