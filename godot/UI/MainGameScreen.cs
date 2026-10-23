@@ -1697,7 +1697,7 @@ public partial class MainGameScreen : Control
             Session.State.ActiveNationId);
         if (!warnings.OpensBox)
         {
-            SubmitForCheck("end");
+            SubmitConfirmedEndTurn();
             return;
         }
 
@@ -1705,10 +1705,80 @@ public partial class MainGameScreen : Control
         box.EndTurnRequested += () =>
         {
             CloseOverlay(box);
-            SubmitForCheck("end");
+            SubmitConfirmedEndTurn();
         };
         box.MakeMoreMovesRequested += () => CloseOverlay(box);
         ShowOverlay(box);
+    }
+
+    private void SubmitConfirmedEndTurn()
+    {
+        var summary = RunArmyAutoSupport();
+        SubmitForCheck("end");
+        if (summary is not null) ShowScreenMessage(summary);
+    }
+
+    private string? RunArmyAutoSupport()
+    {
+        var settings = SettingsScreen.Current.Normalized();
+        if (!settings.AutoSupplyArmies && !settings.AutoFundArmies) return null;
+        var nationId = Session.State.ActiveNationId;
+        if (Session.State.NationById(nationId)?.Control != SeatControl.Human) return null;
+
+        var supplied = 0;
+        var suppliedTons = 0;
+        var funded = 0;
+        var fundedTalents = 0;
+        var skipped = new List<string>();
+        var armyIds = Session.State.Armies.Where(a => a.Nation == nationId).Select(a => a.Id).ToArray();
+        foreach (var armyId in armyIds)
+        {
+            if (settings.AutoSupplyArmies)
+            {
+                var attempted = new HashSet<string>(StringComparer.Ordinal);
+                while (Session.State.ArmyById(armyId) is { } army)
+                {
+                    var proposal = ArmyAutoSupportPlanner.NextSupply(
+                        Session.State, army, Session.Ruleset, settings, attempted);
+                    if (proposal is null) break;
+                    attempted.Add(proposal.ProviderKey!);
+                    var before = army.SupplyTons;
+                    var response = SubmitForCheck(proposal.CommandLine);
+                    var gained = Math.Max(0, (Session.State.ArmyById(armyId)?.SupplyTons ?? before) - before);
+                    if (gained > 0) { supplied++; suppliedTons += gained; }
+                    else skipped.Add($"{armyId}: {response.LastOrDefault() ?? "supply refused"}");
+                }
+
+                if (Session.State.ArmyById(armyId) is { } afterSupply)
+                {
+                    var capacity = Engine.Economy.SupplyCapacity.ArmyDialogCapacityTons(
+                        afterSupply.TotalTroops, Session.Ruleset);
+                    var target = (int)Math.Ceiling((double)capacity * settings.AutoSupplyTargetPercent / 100);
+                    if (afterSupply.SupplyTons < target)
+                        skipped.Add($"{armyId}: no eligible owned supply provider has enough stock");
+                }
+            }
+
+            if (settings.AutoFundArmies && Session.State.ArmyById(armyId) is { } moneyArmy)
+            {
+                var proposal = ArmyAutoSupportPlanner.Fund(Session.State, moneyArmy, Session.Ruleset, settings);
+                if (proposal is { })
+                {
+                    var before = moneyArmy.Money;
+                    var response = SubmitForCheck(proposal.CommandLine);
+                    var gained = Math.Max(0, (Session.State.ArmyById(armyId)?.Money ?? before) - before);
+                    if (gained > 0) { funded++; fundedTalents += gained; }
+                    else skipped.Add($"{armyId}: {response.LastOrDefault() ?? "funding refused"}");
+                }
+                else if (moneyArmy.Money < Math.Min(settings.AutoPurseTargetTalents,
+                             Session.Ruleset.Economy.PurseCapPerUnit))
+                    skipped.Add($"{armyId}: treasury reserve prevents funding");
+            }
+        }
+
+        var line = $"Auto support: {supplied} supply transfers ({suppliedTons} t), "
+            + $"{funded} purse transfers ({fundedTalents} talents).";
+        return skipped.Count == 0 ? line : line + " Skipped: " + string.Join("; ", skipped);
     }
 
     /// <summary>

@@ -21,6 +21,9 @@ public partial class EndTurnBoxCheck : Control
             CheckWarningBoxAndAnswers();
             CheckUnwarnedSeatEndsImmediately();
             CheckFiveLineCap();
+            CheckConfirmedAutoSupport();
+            CheckAutoSupportHotseatSeparation();
+            CheckAutoSupportFromFleet();
         }
         catch (Exception ex)
         {
@@ -92,8 +95,125 @@ public partial class EndTurnBoxCheck : Control
         }
     }
 
+    private void CheckConfirmedAutoSupport()
+    {
+        SettingsScreen.Commit(new UserSettings
+        {
+            AutoSupplyArmies = true, AutoFundArmies = true, AutoSupplyTargetPercent = 100,
+            AutoPurseTargetTalents = 900, AutoTreasuryReserveTalents = 2_000,
+        });
+        var mainGame = AddMainGame(BuildAutoSession(warning: true));
+        try
+        {
+            var initial = mainGame.Session.State.ArmyById("north-land-warning")!;
+            var snapshots = new List<(int Supply, int Money, int Turn)>();
+            mainGame.CommandIssued += _ =>
+            {
+                var army = mainGame.Session.State.ArmyById(initial.Id)!;
+                snapshots.Add((army.SupplyTons, army.Money, mainGame.Session.State.Calendar.TurnIndex));
+            };
+            mainGame.MenuBar.PressItemForCheck("game.end_turn");
+            Check(mainGame.ActiveOverlay is EndTurnBox && snapshots.Count == 0,
+                "auto support waits for warning confirmation");
+            ((EndTurnBox)mainGame.ActiveOverlay!).MakeMoreMovesButton.EmitSignal(Button.SignalName.Pressed);
+            Check(snapshots.Count == 0 && mainGame.Session.State.ArmyById(initial.Id) == initial,
+                "Make more moves does not auto supply or fund");
+
+            mainGame.MenuBar.PressItemForCheck("game.end_turn");
+            ((EndTurnBox)mainGame.ActiveOverlay!).EndTurnButton.EmitSignal(Button.SignalName.Pressed);
+            DismissOfferNotices(mainGame);
+            Check(snapshots.Count == 3, $"confirmed auto support submits buy, transfer-money, then end ({snapshots.Count})");
+            if (snapshots.Count >= 3)
+            {
+                Check(snapshots[0].Supply > initial.SupplyTons && snapshots[0].Money == 0,
+                    "own-city supply command is accepted before money");
+                Check(snapshots[1].Money == 500 && snapshots[1].Turn == snapshots[0].Turn,
+                    "treasury reserve limits the accepted purse transfer to 500");
+                Check(snapshots[2].Turn == snapshots[0].Turn + 1,
+                    "ordinary end command runs after auto support");
+            }
+            Check(mainGame.LastMessageForCheck.Contains("Auto support:", StringComparison.Ordinal),
+                "the confirmed turn shows a compact auto-support summary");
+        }
+        finally
+        {
+            RemoveMainGame(mainGame);
+            SettingsScreen.Commit(new UserSettings());
+        }
+
+        SettingsScreen.Commit(new UserSettings { AutoFundArmies = true,
+            AutoPurseTargetTalents = 900, AutoTreasuryReserveTalents = 2_000 });
+        var unwarned = AddMainGame(BuildAutoSession(warning: false));
+        try
+        {
+            var commands = 0;
+            unwarned.CommandIssued += _ => commands++;
+            unwarned.MenuBar.PressItemForCheck("game.end_turn");
+            DismissOfferNotices(unwarned);
+            Check(unwarned.ActiveOverlay is null && commands == 2,
+                "no-warning route funds once then ends once without a box");
+        }
+        finally
+        {
+            RemoveMainGame(unwarned);
+            SettingsScreen.Commit(new UserSettings());
+        }
+    }
+
+    private void CheckAutoSupportHotseatSeparation()
+    {
+        SettingsScreen.Commit(new UserSettings { AutoFundArmies = true,
+            AutoPurseTargetTalents = 900, AutoTreasuryReserveTalents = 2_000 });
+        var mainGame = AddMainGame(BuildAutoSession(warning: false, hotseat: true));
+        try
+        {
+            var otherBefore = mainGame.Session.State.ArmyById("south-auto")!.Money;
+            mainGame.MenuBar.PressItemForCheck("game.end_turn");
+            Check(mainGame.Session.State.ArmyById("north-land-warning")!.Money == 500,
+                "global auto funding acts for the active human nation");
+            Check(mainGame.Session.State.ArmyById("south-auto")!.Money == otherBefore,
+                "global auto funding does not pre-fund the next hotseat nation");
+        }
+        finally
+        {
+            RemoveMainGame(mainGame);
+            SettingsScreen.Commit(new UserSettings());
+        }
+    }
+
+    private void CheckAutoSupportFromFleet()
+    {
+        SettingsScreen.Commit(new UserSettings { AutoSupplyArmies = true });
+        var mainGame = AddMainGame(BuildAutoSession(warning: true, fleetProvider: true));
+        try
+        {
+            var fleetBefore = mainGame.Session.State.FleetById("north-fleet-1")!.SupplyTons;
+            var armyBefore = mainGame.Session.State.ArmyById("north-land-warning")!.SupplyTons;
+            var afterBuy = (Army: armyBefore, Fleet: fleetBefore);
+            var commands = 0;
+            mainGame.CommandIssued += _ =>
+            {
+                commands++;
+                if (commands == 1)
+                    afterBuy = (mainGame.Session.State.ArmyById("north-land-warning")!.SupplyTons,
+                        mainGame.Session.State.FleetById("north-fleet-1")!.SupplyTons);
+            };
+            mainGame.MenuBar.PressItemForCheck("game.end_turn");
+            ((EndTurnBox)mainGame.ActiveOverlay!).EndTurnButton.EmitSignal(Button.SignalName.Pressed);
+            Check(commands == 2 && afterBuy.Army > armyBefore && afterBuy.Fleet < fleetBefore,
+                "confirmed auto supply uses the existing fleet-provider buy command before end");
+        }
+        finally
+        {
+            RemoveMainGame(mainGame);
+            SettingsScreen.Commit(new UserSettings());
+        }
+    }
+
     private void CheckUnwarnedSeatEndsImmediately()
     {
+        var control = BuildSession(warning: false);
+        control.Submit("end");
         var mainGame = AddMainGame(BuildSession(warning: false));
         try
         {
@@ -106,6 +226,9 @@ public partial class EndTurnBoxCheck : Control
             Check(mainGame.ActiveOverlay is null, "a seat with no warning has no box");
             Check(commands == 1, "a seat with no warning submits end immediately");
             Check(mainGame.Session.State.Calendar.TurnIndex == beforeTurn + 1, "an unwarned seat advances immediately");
+            Check(mainGame.Session.State == control.State
+                  && mainGame.Session.State.RandomSeed == control.State.RandomSeed,
+                "automation-off End turn retains the exact state and RNG of one ordinary end");
         }
         finally
         {
@@ -215,6 +338,44 @@ public partial class EndTurnBoxCheck : Control
             state.RulesetId,
             state);
         return new GameSession(resolved.World, ruleset, resolved.Scenario, save);
+    }
+
+    private static GameSession BuildAutoSession(bool warning, bool hotseat = false, bool fleetProvider = false)
+    {
+        var original = BuildSession(warning);
+        var state = original.State;
+        state = state with
+        {
+            Armies = ValueList.From(state.Armies.Select(a => a with { Money = 0 })),
+            Cities = ValueList.From(state.Cities.Select(c => c.Owner == "north"
+                ? c with { SupplyTons = 600 } : c)),
+            Nations = ValueList.From(state.Nations.Select(n => n.Id == "north"
+                ? n with { Treasury = 2_500 } : n)),
+        };
+        if (hotseat)
+        {
+            var south = WarningArmy("south-auto", embarked: false, money: 0)
+                with { Nation = "south", SupplyTons = 1_000 };
+            state = state with
+            {
+                Armies = ValueList.From(state.Armies.Append(south)),
+                Nations = ValueList.From(state.Nations.Select(n => n.Id == "south"
+                    ? n with { Control = SeatControl.Human, Treasury = 2_500 } : n)),
+            };
+        }
+        if (fleetProvider)
+        {
+            state = state with
+            {
+                Cities = ValueList.From(state.Cities.Select(c => c.Owner == "north"
+                    ? c with { SupplyTons = 0 } : c)),
+                Fleets = ValueList.From(state.Fleets.Select(f => f.Id == "north-fleet-1"
+                    ? f with { SupplyTons = 600 } : f)),
+            };
+        }
+        var save = new SaveGame(state.SchemaVersion, "auto-support-check", "auto-support-check",
+            state.ScenarioId, state.WorldId, state.RulesetId, state);
+        return new GameSession(original.World, original.Ruleset, original.Scenario, save);
     }
 
     // One regular 50,000-troop unit: check 1's supply test and check 2's purse test are driven only by

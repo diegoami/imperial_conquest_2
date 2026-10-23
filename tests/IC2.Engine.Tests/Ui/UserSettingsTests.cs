@@ -29,6 +29,11 @@ public sealed class UserSettingsTests : IDisposable
         Assert.False(settings.Fullscreen);
         Assert.True(settings.ShowOtherBattleReports);
         Assert.False(settings.ConfirmMoves);
+        Assert.False(settings.AutoSupplyArmies);
+        Assert.False(settings.AutoFundArmies);
+        Assert.Equal(100, settings.AutoSupplyTargetPercent);
+        Assert.Equal(1_000, settings.AutoPurseTargetTalents);
+        Assert.Equal(1_000, settings.AutoTreasuryReserveTalents);
         Assert.Equal("tiles", settings.MapStyle);
     }
 
@@ -39,7 +44,8 @@ public sealed class UserSettingsTests : IDisposable
         {
             PackId = "placeholder", SoundEnabled = false, VolumePercent = 40, ColorScheme = "dark",
             Font = "garamond", TextScalePercent = 125, Fullscreen = true, ShowOtherBattleReports = false, ConfirmMoves = true,
-            MapStyle = "painted",
+            MapStyle = "painted", AutoSupplyArmies = true, AutoFundArmies = true,
+            AutoSupplyTargetPercent = 75, AutoPurseTargetTalents = 800, AutoTreasuryReserveTalents = 2_500,
         }.WithBattleSpeed(BattleSpeeds.All.Single(s => s.Id == "fast"));
 
         Assert.True(saved.TrySave(PathFor("settings.json")));
@@ -74,7 +80,8 @@ public sealed class UserSettingsTests : IDisposable
         {
             VolumePercent = 250, TextScalePercent = 10, ColorScheme = "neon", Font = "comic",
             BattleShotDelaySeconds = 9.87, BattleAttackDelaySeconds = 1.6, PackId = "  ",
-            MapStyle = "watercolour",
+            MapStyle = "watercolour", AutoSupplyTargetPercent = -10,
+            AutoPurseTargetTalents = int.MaxValue, AutoTreasuryReserveTalents = -7,
         }.Normalized();
 
         Assert.Equal(100, settings.VolumePercent);
@@ -86,6 +93,9 @@ public sealed class UserSettingsTests : IDisposable
         Assert.Null(settings.PackId);
         Assert.Null(settings.BattleSpeedPreset);
         Assert.Equal("tiles", settings.MapStyle);
+        Assert.Equal(0, settings.AutoSupplyTargetPercent);
+        Assert.Equal(UserSettings.MaxAutoPurseTargetTalents, settings.AutoPurseTargetTalents);
+        Assert.Equal(0, settings.AutoTreasuryReserveTalents);
     }
 
     [Fact]
@@ -97,6 +107,8 @@ public sealed class UserSettingsTests : IDisposable
         var path = PathFor("old-settings.json");
         File.WriteAllText(path, """{ "ColorScheme": "contrast", "BackgroundHex": "#203040", "TextHex": "#fafafa" }""");
         Assert.Equal(ColorSchemes.ById("contrast"), UserSettings.Load(path).ResolvedColors());
+        Assert.False(UserSettings.Load(path).AutoSupplyArmies);
+        Assert.False(UserSettings.Load(path).AutoFundArmies);
     }
 
     [Fact]

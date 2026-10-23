@@ -75,6 +75,7 @@
     <Compile Include="../../godot/UI/AppVersion.cs" Link="Ui/AppVersion.cs" />
     <!-- #1293: the remembered display settings, Godot-free. -->
     <Compile Include="../../godot/UI/UserSettings.cs" Link="Ui/UserSettings.cs" />
+    <Compile Include="../../godot/UI/Automation/ArmyAutoSupportPlanner.cs" Link="Ui/ArmyAutoSupportPlanner.cs" />
     <!-- The rename to "Open Imperial Conquest": user:// data migration, Godot-free. -->
     <Compile Include="../../godot/UI/UserDataMigration.cs" Link="Ui/UserDataMigration.cs" />
     <!-- #1289: the Help page's "How to play" text, Godot-free. -->
