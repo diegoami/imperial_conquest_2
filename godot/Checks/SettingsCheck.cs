@@ -75,9 +75,15 @@ public partial class SettingsCheck : Control
             mobilize.EmitSignal(BaseButton.SignalName.Toggled, true);
             Check(SettingsScreen.Current.AutoMobilizeReady && UserSettings.Load(_file).AutoMobilizeReady,
                 "the auto mobilize switch commits to the global settings file");
+            var recruit = settings.FindChildren("*", "CheckBox", true, false).OfType<CheckBox>()
+                .Single(box => box.Text == "Auto recruit to city plans");
+            recruit.EmitSignal(BaseButton.SignalName.Toggled, true);
+            Check(SettingsScreen.Current.AutoRecruitEnabled && UserSettings.Load(_file).AutoRecruitEnabled,
+                "the auto recruit switch commits to the global settings file");
             SettingsScreen.Commit(SettingsScreen.Current with { AutoSupplyArmies = false });
             SettingsScreen.Commit(SettingsScreen.Current with { AutoRepairFleets = false });
             SettingsScreen.Commit(SettingsScreen.Current with { AutoMobilizeReady = false });
+            SettingsScreen.Commit(SettingsScreen.Current with { AutoRecruitEnabled = false });
             settings.Tabs.CurrentTab = 0;
         });
         _steps.Enqueue(() =>

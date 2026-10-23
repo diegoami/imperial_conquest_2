@@ -1713,7 +1713,7 @@ public partial class MainGameScreen : Control
 
     private void SubmitConfirmedEndTurn()
     {
-        var summaries = new[] { RunAutoMobilize(), RunArmyAutoSupport(), RunFleetAutoSupport() }
+        var summaries = new[] { RunAutoMobilize(), RunAutoRecruit(), RunArmyAutoSupport(), RunFleetAutoSupport() }
             .Where(s => !string.IsNullOrEmpty(s)).ToArray();
         SubmitForCheck("end");
         if (summaries.Length > 0) ShowScreenMessage(string.Join("\n", summaries));
@@ -1750,6 +1750,41 @@ public partial class MainGameScreen : Control
         }
 
         var line = $"Auto mobilize: {mobilized} ready units mobilized.";
+        return skipped.Count == 0 ? line : line + " Skipped: " + string.Join("; ", skipped);
+    }
+
+    private string? RunAutoRecruit()
+    {
+        var settings = SettingsScreen.Current.Normalized();
+        if (!settings.AutoRecruitEnabled) return null;
+        var nationId = Session.State.ActiveNationId;
+        if (Session.State.NationById(nationId)?.Control != SeatControl.Human) return null;
+
+        var recruited = 0;
+        var cost = 0;
+        var skipped = new List<string>();
+        foreach (var city in Session.World.Cities)
+        {
+            var plan = settings.RecruitPlanFor(Session.World.Id, city.Id);
+            if (plan is null) continue;
+            var decision = AutoRecruitPlanner.ForCity(Session.State, Session.World, Session.Ruleset, settings, plan);
+            if (decision.CommandLine is null)
+            {
+                if (decision.Reason != "city queue target reached") skipped.Add($"{city.Name}: {decision.Reason}");
+                continue;
+            }
+
+            var before = Session.State.NationById(nationId)!.RecruitmentSlots.Count;
+            var response = SubmitForCheck(decision.CommandLine);
+            var after = Session.State.NationById(nationId)?.RecruitmentSlots.Count ?? before;
+            if (after > before) { recruited++; cost += decision.CostTalents; }
+            else skipped.Add($"{city.Name}: {AutoRefusalText(response, "recruitment refused")}");
+        }
+
+        foreach (var plan in settings.AutoRecruitPlans.Where(plan => plan.WorldId == Session.World.Id
+                     && Session.World.Cities.All(city => city.Id != plan.CityId)))
+            skipped.Add($"{plan.CityId}: city is not in this world");
+        var line = $"Auto recruit: {recruited} units queued ({cost} talents).";
         return skipped.Count == 0 ? line : line + " Skipped: " + string.Join("; ", skipped);
     }
 

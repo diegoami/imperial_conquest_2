@@ -68,6 +68,10 @@ public partial class RecruitUnitDialog : Control
     private Button _recruitButton = null!;
     private Button _mobilizeButton = null!;
     private Button _disbandButton = null!;
+    private SpinBox _autoPlanTarget = null!;
+    private Label _autoPlanLabel = null!;
+    private Button _saveAutoPlanButton = null!;
+    private Button _clearAutoPlanButton = null!;
     private Button _okButton = null!;
     private Label _replyLabel = null!;
     private Label _mobTargetLabel = null!;
@@ -169,6 +173,7 @@ public partial class RecruitUnitDialog : Control
         _cityDropdown.ItemSelected += _ =>
         {
             _selectedSlotIndex = null;
+            LoadAutoPlanTarget();
             Refresh();
         };
         column.AddChild(_cityDropdown);
@@ -242,6 +247,22 @@ public partial class RecruitUnitDialog : Control
         actionRow.AddChild(_mobilizeButton);
         _disbandButton = UiKit.MakeButton("Disband", SubmitDisband);
         actionRow.AddChild(_disbandButton);
+
+        var planRow = new HBoxContainer();
+        planRow.AddThemeConstantOverride("separation", AppTheme.DialogGap);
+        column.AddChild(planRow);
+        planRow.AddChild(UiKit.MakeLabel("Auto queue target", AppTheme.Note, UiKit.MutedTextColor));
+        _autoPlanTarget = new SpinBox { MinValue = 1, MaxValue = 40, Step = 1, Value = 1,
+            CustomMinimumSize = new Vector2(80, 0) };
+        planRow.AddChild(_autoPlanTarget);
+        _saveAutoPlanButton = UiKit.MakeButton("Save plan", SaveAutoPlan);
+        planRow.AddChild(_saveAutoPlanButton);
+        _clearAutoPlanButton = UiKit.MakeButton("Clear plan", ClearAutoPlan);
+        planRow.AddChild(_clearAutoPlanButton);
+        _autoPlanLabel = UiKit.MakeLabel(string.Empty, AppTheme.Note, UiKit.MutedTextColor);
+        _autoPlanLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        column.AddChild(_autoPlanLabel);
+        LoadAutoPlanTarget();
 
         _mobTargetLabel = UiKit.MakeLabel(string.Empty, AppTheme.Note, UiKit.MutedTextColor);
         _mobTargetLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -326,6 +347,51 @@ public partial class RecruitUnitDialog : Control
         var recruitRefusal = _model.RecruitRefusalReasonAt(SelectedCityIdForCheck);
         _recruitButton.Disabled = recruitRefusal is not null;
         _recruitButton.TooltipText = recruitRefusal ?? string.Empty;
+        RefreshAutoPlan();
+    }
+
+    private bool HasSpecificCitySelected =>
+        !string.IsNullOrEmpty(SelectedCityIdForCheck)
+        && !RecruitUnitDialogModel.IsAllCities(SelectedCityIdForCheck);
+
+    private void LoadAutoPlanTarget()
+    {
+        if (_autoPlanTarget is null) return;
+        var plan = HasSpecificCitySelected
+            ? SettingsScreen.Current.RecruitPlanFor(Session.World.Id, SelectedCityIdForCheck) : null;
+        _autoPlanTarget.Value = plan?.TargetQueued ?? 1;
+    }
+
+    private void RefreshAutoPlan()
+    {
+        if (_autoPlanLabel is null) return;
+        var plan = HasSpecificCitySelected
+            ? SettingsScreen.Current.RecruitPlanFor(Session.World.Id, SelectedCityIdForCheck) : null;
+        _autoPlanTarget.Editable = HasSpecificCitySelected;
+        _saveAutoPlanButton.Disabled = !HasSpecificCitySelected;
+        _clearAutoPlanButton.Disabled = plan is null;
+        _autoPlanLabel.Text = !HasSpecificCitySelected
+            ? "Choose one city to edit an auto recruit plan."
+            : plan is null
+                ? "No plan. Plans are global across campaigns in this world; enable Auto recruit in Settings."
+                : $"Saved: {plan.UnitTypeId}, {plan.Troops} troops, target {plan.TargetQueued} queued. Global across campaigns in this world.";
+    }
+
+    private void SaveAutoPlan()
+    {
+        if (!HasSpecificCitySelected) return;
+        var plan = new AutoRecruitCityPlan(Session.World.Id, SelectedCityIdForCheck,
+            _selectedUnitTypeId, (int)_troops.Value, (int)_autoPlanTarget.Value);
+        SettingsScreen.Commit(SettingsScreen.Current.WithRecruitPlan(plan));
+        RefreshAutoPlan();
+    }
+
+    private void ClearAutoPlan()
+    {
+        if (!HasSpecificCitySelected) return;
+        SettingsScreen.Commit(SettingsScreen.Current.WithoutRecruitPlan(Session.World.Id, SelectedCityIdForCheck));
+        LoadAutoPlanTarget();
+        RefreshAutoPlan();
     }
 
     /// <summary>Fills the dropdown: the listed towns, then All cities (T162). <see cref="_cityIds"/>
@@ -599,6 +665,13 @@ public partial class RecruitUnitDialog : Control
 
     /// <summary>The Recruit unit button, exactly as a click on it does — exposed for the headless check.</summary>
     public void RecruitForCheck() => SubmitRecruit();
+
+    public void SetAutoPlanTargetForCheck(int target) => _autoPlanTarget.Value = target;
+    public void SaveAutoPlanForCheck() => SaveAutoPlan();
+    public void ClearAutoPlanForCheck() => ClearAutoPlan();
+    public bool SaveAutoPlanEnabledForCheck => !_saveAutoPlanButton.Disabled;
+    public bool ClearAutoPlanEnabledForCheck => !_clearAutoPlanButton.Disabled;
+    public string AutoPlanLabelForCheck => _autoPlanLabel.Text;
 
     /// <summary>The Mobilize button, exactly as a click on it does — exposed for the headless check.</summary>
     public void MobilizeForCheck() => SubmitMobilize();

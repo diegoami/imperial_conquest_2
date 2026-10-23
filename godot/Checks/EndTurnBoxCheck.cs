@@ -28,6 +28,7 @@ public partial class EndTurnBoxCheck : Control
             CheckAutoMobilizeBeforeSupport();
             CheckAutoMobilizeRefusalKeepsSlot();
             CheckAutoMobilizeHotseatIsolation();
+            CheckAutoRecruitAfterMobilize();
         }
         catch (Exception ex)
         {
@@ -289,6 +290,49 @@ public partial class EndTurnBoxCheck : Control
                 "the ready slot was mobilized and the unready slot remains");
             Check(mainGame.LastMessageForCheck.Contains("Auto mobilize: 1", StringComparison.Ordinal),
                 "the End-turn summary reports the accepted mobilization");
+        }
+        finally
+        {
+            RemoveMainGame(mainGame);
+            SettingsScreen.Commit(new UserSettings());
+        }
+    }
+
+    private void CheckAutoRecruitAfterMobilize()
+    {
+        var session = BuildAutoMobilizeSession();
+        var cityId = session.State.NationById("north")!.RecruitmentSlots[0].TargetCityId;
+        var bounds = RecruitTroopBounds.For(session.Ruleset, "light_infantry");
+        SettingsScreen.Commit(new UserSettings
+        {
+            AutoMobilizeReady = true, AutoRecruitEnabled = true, AutoSupplyArmies = true,
+            AutoTreasuryReserveTalents = 0,
+            AutoRecruitPlans = ValueList.Of(new AutoRecruitCityPlan(session.World.Id, cityId,
+                "light_infantry", bounds.Minimum, 2)),
+        });
+        var mainGame = AddMainGame(session);
+        try
+        {
+            var commands = new List<string>();
+            mainGame.CommandIssued += lines => commands.Add(lines.FirstOrDefault() ?? string.Empty);
+            mainGame.MenuBar.PressItemForCheck("game.end_turn");
+            Check(mainGame.ActiveOverlay is EndTurnBox && commands.Count == 0,
+                "auto recruit waits for End turn confirmation");
+            ((EndTurnBox)mainGame.ActiveOverlay!).MakeMoreMovesButton.EmitSignal(Button.SignalName.Pressed);
+            Check(commands.Count == 0, "Make more moves issues no auto recruit order");
+
+            mainGame.MenuBar.PressItemForCheck("game.end_turn");
+            ((EndTurnBox)mainGame.ActiveOverlay!).EndTurnButton.EmitSignal(Button.SignalName.Pressed);
+            DismissOfferNotices(mainGame);
+            var mobilize = commands.FindIndex(line => line.StartsWith("> mobilize ", StringComparison.Ordinal));
+            var recruit = commands.FindIndex(line => line.StartsWith("> recruit-standing ", StringComparison.Ordinal));
+            var support = commands.FindIndex(line => line.StartsWith("> buy ", StringComparison.Ordinal));
+            Check(mobilize == 0 && recruit == 1 && support > recruit
+                  && commands[^1].StartsWith("> end", StringComparison.Ordinal)
+                  && commands.Count(line => line.StartsWith("> recruit-standing ", StringComparison.Ordinal)) == 1,
+                "one auto recruit order runs after mobilize and before support and end");
+            Check(mainGame.LastMessageForCheck.Contains("Auto recruit: 1", StringComparison.Ordinal),
+                "the End-turn summary reports accepted auto recruitment");
         }
         finally
         {

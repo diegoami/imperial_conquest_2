@@ -146,6 +146,7 @@ public partial class StrategyDialogsCheck : Control
             (BetweenStepsFrames, AssertRecruitUnitInitialState),
             (BetweenStepsFrames, AssertTroopBoxPageKeys),
             (BetweenStepsFrames, SwitchUnitTypeUpdatesBounds),
+            (BetweenStepsFrames, CheckAutoRecruitPlanControls),
             (BetweenStepsFrames, SubmitRecruitUnit),
             (BetweenStepsFrames, AssertRecruitUnitAddedSlot),
             (BetweenStepsFrames, OpenRecruitUnitFromToolbar),
@@ -445,6 +446,37 @@ public partial class StrategyDialogsCheck : Control
         var slotsAfter = _session.State.NationById(RomeId)!.RecruitmentSlots.Count;
         Check(slotsAfter == slotsBefore + 1, $"the Recruit unit button adds a slot ({slotsBefore} -> {slotsAfter})");
         Check(_mainGame.ActiveOverlay is not null, "the Recruit unit button keeps the dialog open for a second order");
+    }
+
+    private void CheckAutoRecruitPlanControls()
+    {
+        var dialog = (RecruitUnitDialog)_mainGame.ActiveOverlay!;
+        dialog.SelectCityForCheck(RomeCityId);
+        dialog.SetTroopsForCheck(T109RecruitTroops);
+        dialog.SetAutoPlanTargetForCheck(3);
+        var before = _mainGame.CommandTable.IssuedCount;
+        Check(dialog.SaveAutoPlanEnabledForCheck, "a specific city can save an auto recruit plan");
+        dialog.SaveAutoPlanForCheck();
+        var plan = SettingsScreen.Current.RecruitPlanFor(_session.World.Id, RomeCityId);
+        Check(plan is { TargetQueued: 3, Troops: T109RecruitTroops }
+              && plan.UnitTypeId == dialog.SelectedUnitTypeForCheck,
+            "Save plan records the selected unit, troops, and city queue target");
+        Check(dialog.AutoPlanLabelForCheck.Contains("Global across campaigns", StringComparison.Ordinal)
+              && dialog.ClearAutoPlanEnabledForCheck,
+            "the dialog shows global plan scope and a Clear plan control");
+        if (dialog.ModelForCheck.ShowsAllCities)
+        {
+            dialog.SelectCityForCheck(RecruitUnitDialogModel.AllCitiesId);
+            Check(!dialog.SaveAutoPlanEnabledForCheck && !dialog.ClearAutoPlanEnabledForCheck,
+                "All cities cannot save or clear a city plan");
+            dialog.SaveAutoPlanForCheck();
+            dialog.SelectCityForCheck(RomeCityId);
+        }
+        dialog.ClearAutoPlanForCheck();
+        Check(SettingsScreen.Current.RecruitPlanFor(_session.World.Id, RomeCityId) is null,
+            "Clear plan removes the selected city's global plan");
+        Check(_mainGame.CommandTable.IssuedCount == before,
+            "editing and clearing a plan issue no game command");
     }
 
     private void AssertRecruitUnitAddedSlot()
