@@ -515,8 +515,9 @@ public partial class TacticalBattleCheck : Node
         Check(!nodes.OfType<Label>().Any(label => label.Text == "Previous exchange" || label.Name == "PreviousExchangeLabel"), "previous exchange controls are absent from actual tree");
         Check(!screen.UnitListOpen && screen.UnitListTexts.Count == 0, "no persistent roster is visible");
         Check(!nodes.OfType<Button>().Any(button => button.Text == "Close unit list"), "closed deliberate list has no row controls in actual tree");
-        Check(nodes.OfType<RichTextLabel>().Contains(screen.ExchangeLabel) && screen.ExchangeLabel.Visible,
-            "current exchange rich control exists and is visible");
+        Check(nodes.OfType<RichTextLabel>().Contains(screen.ExchangeLabel)
+              && screen.ExchangeLabel.Visible == (screen.ExchangePlainText.Length > 0),
+            "current exchange control is visible only when it has content");
     }
 
     private void CheckPauseControlsAndPreservation()
@@ -667,6 +668,8 @@ public partial class TacticalBattleCheck : Node
             Check(screen.ExchangeLabel.GetParsedText() == screen.ExchangePlainText, "rich exchange parses to exact accessible plain text including arbitrary brackets");
             Check(screen.ExchangeLabel.Text.Count(c => c == '[') >= 4, "current exchange has independent owner colour spans");
             Check(screen.ActorLabel.Text.Contains("#" + frame.Actor!.Slot) && screen.TargetLabel.Text.Contains("#" + frame.Target!.Slot), "participant panels use stable actor/target slots");
+            Check(!screen.PanelLabel.Visible && !screen.ActorLabel.Visible && !screen.TargetLabel.Visible && !screen.MessageLabel.Visible,
+                "one compact exchange replaces repeated selected, participant and message text during combat");
         };
         SettingsScreen.SetBattlePauses(0.2, 1);
         screen.SelectUnit(0);

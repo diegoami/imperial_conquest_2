@@ -151,6 +151,8 @@ public partial class TacticalBattleScreen : Control
     private BoardView _board = null!;
     private VBoxContainer _listBox = null!;
     private Label _listTitle = null!;
+    private Label _selectedTitle = null!;
+    private Label _exchangeTitle = null!;
     private ListKind? _listKind;
     private readonly TacticalPlayback _playback = new();
     private Control? _dialog;
@@ -287,7 +289,8 @@ public partial class TacticalBattleScreen : Control
         var panelColumn = new VBoxContainer();
         panelColumn.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         panelBox.AddChild(panelColumn);
-        panelColumn.AddChild(UiKit.MakeLabel("Selected unit", BattleBodySize, UiKit.MutedTextColor));
+        _selectedTitle = UiKit.MakeLabel("Selected unit", BattleBodySize, UiKit.MutedTextColor);
+        panelColumn.AddChild(_selectedTitle);
         PanelLabel = UiKit.MakeLabel(string.Empty, BattleBodySize, UiKit.TextColor);
         PanelLabel.CustomMinimumSize = new Vector2(0, 48);
         PanelLabel.MouseFilter = MouseFilterEnum.Ignore;
@@ -296,7 +299,8 @@ public partial class TacticalBattleScreen : Control
         TargetLabel = UiKit.MakeLabel(string.Empty, BattleNoteSize, new Color(1f, 0.58f, 0.18f));
         panelColumn.AddChild(ActorLabel);
         panelColumn.AddChild(TargetLabel);
-        panelColumn.AddChild(UiKit.MakeLabel("Current exchange", BattleNoteSize, UiKit.MutedTextColor));
+        _exchangeTitle = UiKit.MakeLabel("Current exchange", BattleNoteSize, UiKit.MutedTextColor);
+        panelColumn.AddChild(_exchangeTitle);
         ExchangeLabel = new RichTextLabel { Name = "CurrentExchange", BbcodeEnabled = true, FitContent = true,
             ScrollActive = false, AutowrapMode = TextServer.AutowrapMode.WordSmart };
         ExchangeLabel.AddThemeFontOverride("normal_font", AppTheme.BodyFont);
@@ -473,6 +477,7 @@ public partial class TacticalBattleScreen : Control
         {
             MessageLabel.Text = text;
             MessageLabel.TooltipText = text;
+            MessageLabel.Visible = !string.IsNullOrWhiteSpace(text);
         }
     }
 
@@ -592,7 +597,7 @@ public partial class TacticalBattleScreen : Control
         TacticalRoutedEvent rout => $"#{rout.Slot} routed and removed",
         TacticalCascadeRemovedEvent cascade => $"#{cascade.Slot} removed in rout cascade",
         TacticalSurrenderedEvent surrender => $"{(surrender.Side == 0 ? "Attacker" : "Defender")} surrendered",
-        TacticalShotEvent or TacticalMeleeEvent => string.Join("\n", TacticalBattleViewModel.PresentExchange(frame, _display).PlainLines),
+        TacticalShotEvent or TacticalMeleeEvent => string.Empty,
         _ => frame.Kind switch
         {
             TacticalFrameKind.HalfRound => "Finishing the previous half-round",
@@ -615,6 +620,11 @@ public partial class TacticalBattleScreen : Control
         ControllerLabel.Text = (_playback.Stage == TacticalPlaybackStage.Announcement ? "TURN BEGINS · " : "") + Model.ControllerText;
         PanelLabel.Text = string.Join("\n", Model.PanelLines);
         ExchangeLabel.Text = string.Join("\n", Model.CurrentExchangePresentation.RichLines);
+        var exchangeVisible = Model.CurrentExchangePresentation.PlainLines.Count > 0;
+        _selectedTitle.Visible = PanelLabel.Visible = !exchangeVisible && Model.PanelLines.Count > 0;
+        ActorLabel.Visible = !exchangeVisible && Model.ActorLines.Count > 0;
+        TargetLabel.Visible = !exchangeVisible && Model.TargetLines.Count > 0;
+        _exchangeTitle.Visible = ExchangeLabel.Visible = exchangeVisible;
         ExchangeLabel.TooltipText = ExchangePlainText;
         ExchangeLabel.AddThemeColorOverride("default_color", Model.DepartureLines.Count > 0 ? new Color(1f, 0.7f, 0.25f) : UiKit.TextColor);
         ActorLabel.Text = string.Join("\n", Model.ActorLines);

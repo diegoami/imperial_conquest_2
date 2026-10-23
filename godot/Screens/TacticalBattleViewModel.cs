@@ -310,13 +310,26 @@ public sealed class TacticalBattleViewModel
         string Unit(TacticalUnitIdentity identity, bool rich)
         {
             var metadata = Allegiance(display, identity);
-            var text = $"{metadata.Caption} #{identity.Slot} {frame.After.View.Slots[identity.Slot].Name}";
+            var text = $"{frame.After.View.Slots[identity.Slot].Name} · {metadata.Caption}";
             return rich ? $"[color={metadata.ColorHex}]{EscapeRichText(text)}[/color]" : text;
         }
+        string Details(TacticalUnitIdentity identity)
+        {
+            var unit = frame.Before.View.Slots[identity.Slot];
+            var type = unit.Type >= 0 && unit.Type < display.UnitTypeNames.Count
+                ? display.UnitTypeNames[unit.Type] : $"type {unit.Type}";
+            return $"{type} · {unit.Troops.ToString("N0", CultureInfo.InvariantCulture)} troops";
+        }
         var action = frame.Event is TacticalShotEvent ? "SHOOTS AT" : "ATTACKS";
-        var losses = ExchangeLines(frame)[1];
-        return new(new[] { $"{Unit(frame.Actor!, false)} {action} {Unit(frame.Target!, false)}", losses },
-            new[] { $"{Unit(frame.Actor!, true)} {action} {Unit(frame.Target!, true)}", EscapeRichText(losses) });
+        var losses = frame.Event is TacticalShotEvent shot
+            ? new[] { $"TROOP LOSSES {shot.Loss.ToString("N0", CultureInfo.InvariantCulture)}" }
+            : frame.Event is TacticalMeleeEvent melee
+                ? new[] { "UNIT LOSSES", $"Attacker {melee.AttackerLoss.ToString("N0", CultureInfo.InvariantCulture)} · Defender {melee.DefenderLoss.ToString("N0", CultureInfo.InvariantCulture)}" }
+                : Array.Empty<string>();
+        return new(new[] { Unit(frame.Actor!, false), Details(frame.Actor!), action,
+                Unit(frame.Target!, false), Details(frame.Target!) }.Concat(losses).ToArray(),
+            new[] { Unit(frame.Actor!, true), EscapeRichText(Details(frame.Actor!)), action,
+                Unit(frame.Target!, true), EscapeRichText(Details(frame.Target!)) }.Concat(losses.Select(EscapeRichText)).ToArray());
     }
     private static BattleAllegiance Allegiance(BattleDisplay display, TacticalUnitIdentity identity) =>
         display.Allegiances.GetValueOrDefault(identity.NationId)
