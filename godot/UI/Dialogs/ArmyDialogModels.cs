@@ -1,8 +1,10 @@
 using System.Globalization;
+using System.Numerics;
 using IC2.Engine.Armies.Commands;
 using IC2.Engine.Core;
 using IC2.Engine.Economy;
 using IC2.Engine.Model;
+using IC2.Engine.Strength;
 
 namespace IC2.Slice.UI;
 
@@ -492,6 +494,89 @@ public sealed class SplitArmyModel
 
     /// <summary>Indexes into A's own list (as it stands now) staged for the new army, ascending.</summary>
     public IReadOnlyList<int> StagedUnits => _staged;
+
+    /// <summary>Projected field strength of A after the currently staged whole units move.</summary>
+    public int ParentPower => ArmyPower.Compute(
+        _army.Units.Where((_, i) => !_staged.Contains(i)), _army.Morale, _ruleset);
+
+    /// <summary>Projected field strength of B at the ruleset's new-army morale.</summary>
+    public int NewArmyPower => ArmyPower.Compute(
+        _staged.Select(i => _army.Units[i]), _ruleset.ArmyManagement.NewArmyMorale, _ruleset);
+
+    /// <summary>
+    /// Stages a legal whole-unit split with the smallest projected power difference. Equal power
+    /// differences use troop difference, then the earliest ascending source-slot list. The 20-unit
+    /// original cap keeps exhaustive subset search bounded; the weighted terms use precisely the two
+    /// truncations in <see cref="ArmyPower.Compute"/>.
+    /// </summary>
+    public bool SuggestBalancedSplit()
+    {
+        var count = _army.Units.Count;
+        if (!CanSplit || count is < 2 or > 20) return false;
+
+        var weights = new int[count];
+        var troops = new int[count];
+        for (var i = 0; i < count; i++)
+        {
+            var unit = _army.Units[i];
+            var type = _ruleset.UnitTypeById(unit.UnitTypeId)
+                ?? throw new ArgumentException($"Unit type '{unit.UnitTypeId}' is not defined in ruleset '{_ruleset.Id}'.");
+            weights[i] = (type.CombatPowerWeight * unit.Troops) / _ruleset.Combat.PowerTroopDivisor;
+            troops[i] = unit.Troops;
+        }
+
+        var limit = 1 << count;
+        var weightedByMask = new int[limit];
+        var troopsByMask = new int[limit];
+        for (var mask = 1; mask < limit; mask++)
+        {
+            var withoutLast = mask & (mask - 1);
+            var last = BitOperations.TrailingZeroCount((uint)(mask ^ withoutLast));
+            weightedByMask[mask] = weightedByMask[withoutLast] + weights[last];
+            troopsByMask[mask] = troopsByMask[withoutLast] + troops[last];
+        }
+
+        var all = limit - 1;
+        var bestMask = 0;
+        var bestPowerDifference = long.MaxValue;
+        var bestTroopDifference = long.MaxValue;
+        for (var mask = 1; mask < all; mask++)
+        {
+            var parentPower = (weightedByMask[all ^ mask] / _ruleset.Combat.PowerDivisor) * _army.Morale;
+            var newPower = (weightedByMask[mask] / _ruleset.Combat.PowerDivisor) * _ruleset.ArmyManagement.NewArmyMorale;
+            var powerDifference = Math.Abs((long)parentPower - newPower);
+            var troopDifference = Math.Abs((long)troopsByMask[all ^ mask] - troopsByMask[mask]);
+            if (powerDifference > bestPowerDifference
+                || powerDifference == bestPowerDifference && troopDifference > bestTroopDifference
+                || powerDifference == bestPowerDifference && troopDifference == bestTroopDifference
+                   && bestMask != 0 && !EarlierSlotList(mask, bestMask))
+                continue;
+
+            bestMask = mask;
+            bestPowerDifference = powerDifference;
+            bestTroopDifference = troopDifference;
+        }
+
+        _staged.Clear();
+        for (var i = 0; i < count; i++)
+            if ((bestMask & (1 << i)) != 0) _staged.Add(i);
+        Reclamp();
+        return true;
+    }
+
+    private static bool EarlierSlotList(int candidate, int current)
+    {
+        while (candidate != 0 && current != 0)
+        {
+            var a = BitOperations.TrailingZeroCount((uint)candidate);
+            var b = BitOperations.TrailingZeroCount((uint)current);
+            if (a != b) return a < b;
+            candidate &= candidate - 1;
+            current &= current - 1;
+        }
+
+        return current != 0;
+    }
 
     /// <summary>The supply staged toward the new army, in tons.</summary>
     public int Supply => _supply;

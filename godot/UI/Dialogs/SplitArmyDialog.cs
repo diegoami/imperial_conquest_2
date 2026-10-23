@@ -37,6 +37,9 @@ public partial class SplitArmyDialog : Control
     /// <summary>The new army's id, chosen by the screen.</summary>
     public required string NewArmyId { get; init; }
 
+    /// <summary>Open with a strength-balanced whole-unit proposal instead of empty staging.</summary>
+    public bool SuggestBalanced { get; init; }
+
     /// <summary>Submits one composed line through the screen's path and returns the session's lines.</summary>
     public required Func<string, IReadOnlyList<string>> Submit { get; init; }
 
@@ -50,6 +53,7 @@ public partial class SplitArmyDialog : Control
     private Label _replyLabel = null!;
     private Label _supplyLabel = null!;
     private Label _moneyLabel = null!;
+    private Label _strengthLabel = null!;
     private SpinBox _supplySpin = null!;
     private SpinBox _moneySpin = null!;
     private Button _okButton = null!;
@@ -66,6 +70,9 @@ public partial class SplitArmyDialog : Control
     /// <summary>The session's own reply line for the last command submitted from this dialog.</summary>
     public string ReplyForCheck => _replyLabel.Text;
 
+    /// <summary>The strength preview after the current whole-unit staging.</summary>
+    public string StrengthTextForCheck => _strengthLabel.Text;
+
     public override void _Ready()
     {
         var army = Session.State.ArmyById(ArmyId);
@@ -76,6 +83,7 @@ public partial class SplitArmyDialog : Control
         }
 
         _model = SplitArmyModel.ForArmy(Session.State, army, Session.Ruleset, NewArmyId);
+        if (SuggestBalanced) _model.SuggestBalancedSplit();
         BuildUi();
         Refresh();
     }
@@ -108,6 +116,9 @@ public partial class SplitArmyDialog : Control
         column.AddChild(lists);
         _armyList = BuildSide(lists, $"Army {ArmyId}", stagedSide: false);
         _newArmyList = BuildSide(lists, $"New army {NewArmyId}", stagedSide: true);
+
+        _strengthLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
+        column.AddChild(_strengthLabel);
 
         column.AddChild(new HSeparator());
         column.AddChild(BuildSupplyRow());
@@ -379,6 +390,7 @@ public partial class SplitArmyDialog : Control
 
         _supplyLabel.Text = $"Supply: {_model.Supply} t to the new army  ·  max {_model.MaxSupply}";
         _moneyLabel.Text = $"Money: {_model.Money} to the new army  ·  max {_model.MaxMoney}";
+        _strengthLabel.Text = $"Projected strength: army {_model.ParentPower:N0} · new army {_model.NewArmyPower:N0}";
     }
 
     private string FormatUnit(UnitSlot unit) =>

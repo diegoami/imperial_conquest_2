@@ -78,6 +78,7 @@ public sealed class GameCommandTableTests
         ("Unit map", "Army", "Recruit mercenaries"),
         ("Unit map", "Army", "Transfer unit"),
         ("Unit map", "Army", "Split army"),
+        ("Unit map", "Army", "Split in two"),
         ("Unit map", "Army", "Join armies"),
         ("Unit map", "Army", "Change units"),
         ("Unit map", "Army", "Disband army"),

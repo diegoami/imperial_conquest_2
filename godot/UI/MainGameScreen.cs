@@ -576,6 +576,7 @@ public partial class MainGameScreen : Control
         // asks first. Recruit mercenaries is T113 (now wired): opens the dialog for the chosen city.
         BindStrategicCommand("unit_map.army_transfer_unit", OpenArmyTransferDialog);
         BindStrategicCommand("unit_map.army_split", OpenSplitArmyDialog);
+        BindStrategicCommand("unit_map.army_split_two", () => OpenSplitArmyDialog(suggestBalanced: true));
         BindStrategicCommand("unit_map.army_join", JoinArmiesFromMenu);
         BindStrategicCommand("unit_map.army_change_units", OpenChangeUnitsDialog);
         BindStrategicCommand("unit_map.army_disband", ConfirmDisbandArmy);
@@ -1110,6 +1111,9 @@ public partial class MainGameScreen : Control
     /// splittable army has no free land cell for the new army the screen opens no dialog and says why.
     /// </summary>
     private void OpenSplitArmyDialog()
+        => OpenSplitArmyDialog(suggestBalanced: false);
+
+    private void OpenSplitArmyDialog(bool suggestBalanced)
     {
         var army = OwnSelectedArmy();
         if (army is null)
@@ -1139,6 +1143,7 @@ public partial class MainGameScreen : Control
             Session = Session,
             ArmyId = army.Id,
             NewArmyId = newArmyId,
+            SuggestBalanced = suggestBalanced,
             Submit = SubmitFromDialog,
         };
         dialog.Closed += () => CloseOverlay(dialog);

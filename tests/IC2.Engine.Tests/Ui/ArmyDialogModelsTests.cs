@@ -1,6 +1,7 @@
 using IC2.Engine.Model;
 using IC2.Engine.Presentation;
 using IC2.Engine.Serialization;
+using IC2.Engine.Strength;
 using IC2.Slice.UI;
 using Xunit;
 using ModelTestPaths = IC2.Engine.Tests.Model.TestPaths;
@@ -28,6 +29,84 @@ public sealed class ArmyDialogModelsTests
     private const string ThreeUnitArmyId = "t111-three";
     private const string JoinFourArmyId = "t164-join-four";
     private const string ThreeUnitNewArmyId = "t111-three-split";
+
+    [Theory]
+    [InlineData(50)]
+    [InlineData(70)]
+    [InlineData(90)]
+    public void Quick_split_matches_independent_strength_oracle_and_keeps_resources_unstaged(int morale)
+    {
+        var session = Session();
+        var source = session.State.ArmyById(ThreeUnitArmyId)!;
+        var army = source with { Morale = morale };
+        var model = SplitArmyModel.ForArmy(session.State, army, session.Ruleset, ThreeUnitNewArmyId);
+        var candidates = Enumerable.Range(1, (1 << army.Units.Count) - 2).Select(mask =>
+        {
+            var moved = Enumerable.Range(0, army.Units.Count).Where(i => (mask & (1 << i)) != 0).ToArray();
+            var kept = Enumerable.Range(0, army.Units.Count).Where(i => (mask & (1 << i)) == 0).ToArray();
+            var parentPower = ArmyPower.Compute(kept.Select(i => army.Units[i]), army.Morale, session.Ruleset);
+            var childPower = ArmyPower.Compute(moved.Select(i => army.Units[i]),
+                session.Ruleset.ArmyManagement.NewArmyMorale, session.Ruleset);
+            var troopDifference = Math.Abs(kept.Sum(i => army.Units[i].Troops) - moved.Sum(i => army.Units[i].Troops));
+            return new { moved, parentPower, childPower, troopDifference };
+        }).OrderBy(x => Math.Abs((long)x.parentPower - x.childPower))
+          .ThenBy(x => x.troopDifference)
+          .ThenBy(x => string.Join(',', x.moved.Select(i => i.ToString("D2"))), StringComparer.Ordinal).First();
+
+        Assert.True(model.SuggestBalancedSplit());
+        Assert.Equal(candidates.moved, model.StagedUnits);
+        Assert.Equal(candidates.parentPower, model.ParentPower);
+        Assert.Equal(candidates.childPower, model.NewArmyPower);
+        Assert.Equal(0, model.Money);
+        Assert.Equal(0, model.Supply);
+        Assert.Equal(source, session.State.ArmyById(ThreeUnitArmyId));
+        Assert.True(model.SuggestBalancedSplit());
+        Assert.Equal(candidates.moved, model.StagedUnits);
+    }
+
+    [Fact]
+    public void Quick_split_refuses_one_unit_and_handles_two_and_twenty_whole_units()
+    {
+        var session = Session();
+        var lonely = session.State.ArmyById(OneUnitArmyId)!;
+        Assert.False(SplitArmyModel.ForArmy(session.State, lonely, session.Ruleset, NewArmyId).SuggestBalancedSplit());
+
+        var two = session.State.ArmyById(ThreeUnitArmyId)! with
+        {
+            Units = ValueList.From(session.State.ArmyById(ThreeUnitArmyId)!.Units.Take(2)),
+        };
+        var twoModel = SplitArmyModel.ForArmy(session.State, two, session.Ruleset, NewArmyId);
+        Assert.True(twoModel.SuggestBalancedSplit());
+        Assert.Single(twoModel.StagedUnits);
+
+        var twenty = two with { Units = ValueList.From(Enumerable.Range(0, 20)
+            .Select(i => new UnitSlot(0, i % 2 == 0 ? "heavy_infantry" : "archers",
+                1_000 + i * 300, 6, $"Unit {i}"))) };
+        var fullModel = SplitArmyModel.ForArmy(session.State, twenty, session.Ruleset, NewArmyId);
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        Assert.True(fullModel.SuggestBalancedSplit());
+        clock.Stop();
+        Assert.InRange(fullModel.StagedUnits.Count, 1, 19);
+        Assert.True(clock.Elapsed < TimeSpan.FromSeconds(5), $"20-unit split took {clock.Elapsed}.");
+    }
+
+    [Fact]
+    public void Quick_split_equal_power_and_troops_choose_earliest_source_slots()
+    {
+        var session = Session();
+        var source = session.State.ArmyById(ThreeUnitArmyId)!;
+        var army = source with { Units = ValueList.From(Enumerable.Range(0, 4)
+            .Select(i => new UnitSlot(0, "heavy_infantry", 3_000, 6, $"Guard {i}"))) };
+        var ruleset = session.Ruleset with
+        {
+            ArmyManagement = session.Ruleset.ArmyManagement with { NewArmyMorale = army.Morale },
+        };
+        var model = SplitArmyModel.ForArmy(session.State, army, ruleset, ThreeUnitNewArmyId);
+
+        Assert.True(model.SuggestBalancedSplit());
+        Assert.Equal(new[] { 0, 1 }, model.StagedUnits);
+        Assert.Equal(model.ParentPower, model.NewArmyPower);
+    }
 
     private static readonly Lazy<ResolvedScenario> LazyClassical = new(
         () => GameDataRepository.Load(ModelTestPaths.DataRoot).Resolve("classical-mediterranean"));
@@ -286,6 +365,8 @@ public sealed class ArmyDialogModelsTests
         Assert.Equal(cap, full.Armies.Count);
         Assert.False(model.CanSplit);
         Assert.Equal("You have reached your limit of armies.", model.RefusalMessage);
+        Assert.False(model.SuggestBalancedSplit());
+        Assert.Empty(model.StagedUnits);
     }
 
     [Fact]
