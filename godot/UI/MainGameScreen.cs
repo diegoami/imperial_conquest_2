@@ -1713,10 +1713,44 @@ public partial class MainGameScreen : Control
 
     private void SubmitConfirmedEndTurn()
     {
-        var summaries = new[] { RunArmyAutoSupport(), RunFleetAutoSupport() }
+        var summaries = new[] { RunAutoMobilize(), RunArmyAutoSupport(), RunFleetAutoSupport() }
             .Where(s => !string.IsNullOrEmpty(s)).ToArray();
         SubmitForCheck("end");
         if (summaries.Length > 0) ShowScreenMessage(string.Join("\n", summaries));
+    }
+
+    private string? RunAutoMobilize()
+    {
+        if (!SettingsScreen.Current.AutoMobilizeReady) return null;
+        var nationId = Session.State.ActiveNationId;
+        if (Session.State.NationById(nationId)?.Control != SeatControl.Human) return null;
+
+        var initialCount = Session.State.NationById(nationId)!.RecruitmentSlots.Count;
+        var attempted = 0;
+        var index = 0;
+        var mobilized = 0;
+        var skipped = new List<string>();
+        while (attempted < initialCount && Session.State.NationById(nationId) is { } nation
+               && index < nation.RecruitmentSlots.Count)
+        {
+            var proposal = AutoMobilizePlanner.Next(Session.State, Session.Ruleset, index);
+            attempted++;
+            if (proposal is null) { index++; continue; }
+
+            var before = nation.RecruitmentSlots.Count;
+            var response = SubmitForCheck(proposal.CommandLine);
+            var after = Session.State.NationById(nationId)?.RecruitmentSlots.Count ?? before;
+            if (after < before)
+                mobilized++; // The queue compacted; inspect this index again.
+            else
+            {
+                skipped.Add($"slot {index} at {proposal.CityId}: {AutoRefusalText(response, "mobilization refused")}");
+                index++;
+            }
+        }
+
+        var line = $"Auto mobilize: {mobilized} ready units mobilized.";
+        return skipped.Count == 0 ? line : line + " Skipped: " + string.Join("; ", skipped);
     }
 
     private string? RunArmyAutoSupport()
@@ -1747,7 +1781,7 @@ public partial class MainGameScreen : Control
                     var response = SubmitForCheck(proposal.CommandLine);
                     var gained = Math.Max(0, (Session.State.ArmyById(armyId)?.SupplyTons ?? before) - before);
                     if (gained > 0) { supplied++; suppliedTons += gained; }
-                    else skipped.Add($"{armyId}: {response.LastOrDefault() ?? "supply refused"}");
+                    else skipped.Add($"{armyId}: {AutoRefusalText(response, "supply refused")}");
                 }
 
                 if (Session.State.ArmyById(armyId) is { } afterSupply)
@@ -1769,7 +1803,7 @@ public partial class MainGameScreen : Control
                     var response = SubmitForCheck(proposal.CommandLine);
                     var gained = Math.Max(0, (Session.State.ArmyById(armyId)?.Money ?? before) - before);
                     if (gained > 0) { funded++; fundedTalents += gained; }
-                    else skipped.Add($"{armyId}: {response.LastOrDefault() ?? "funding refused"}");
+                    else skipped.Add($"{armyId}: {AutoRefusalText(response, "funding refused")}");
                 }
                 else if (moneyArmy.Money < Math.Min(settings.AutoPurseTargetTalents,
                              Session.Ruleset.Economy.PurseCapPerUnit))
@@ -1811,7 +1845,7 @@ public partial class MainGameScreen : Control
                     var response = SubmitForCheck(proposal.CommandLine);
                     var gained = Math.Max(0, (Session.State.FleetById(fleetId)?.SupplyTons ?? before) - before);
                     if (gained > 0) { supplied++; suppliedTons += gained; }
-                    else skipped.Add($"{fleetId}: {response.LastOrDefault() ?? "supply refused"}");
+                    else skipped.Add($"{fleetId}: {AutoRefusalText(response, "supply refused")}");
                 }
 
                 if (Session.State.FleetById(fleetId) is { } afterSupply)
@@ -1844,7 +1878,7 @@ public partial class MainGameScreen : Control
                         repairedPoints += gained;
                         repairCost += Math.Max(0, beforeTreasury - (Session.State.NationById(nationId)?.Treasury ?? beforeTreasury));
                     }
-                    else skipped.Add($"{fleetId}: {response.LastOrDefault() ?? "repair refused"}");
+                    else skipped.Add($"{fleetId}: {AutoRefusalText(response, "repair refused")}");
                 }
                 else if (repairFleet.ConditionPercent < settings.AutoFleetRepairTargetPercent)
                 {
@@ -1860,6 +1894,11 @@ public partial class MainGameScreen : Control
             + $"{repaired} repairs ({repairedPoints} points, {repairCost} talents).";
         return skipped.Count == 0 ? line : line + " Skipped: " + string.Join("; ", skipped);
     }
+
+    private static string AutoRefusalText(IReadOnlyList<string> response, string fallback) =>
+        response.FirstOrDefault(line => line.StartsWith("Refused:", StringComparison.OrdinalIgnoreCase))
+        ?? response.LastOrDefault(line => !string.IsNullOrWhiteSpace(line))
+        ?? fallback;
 
     /// <summary>
     /// The Save command (File → Save, and the toolbar's Save button) — <c>docs/tasks/T95.md</c> (#467), Done-when 1: writes the current game to a

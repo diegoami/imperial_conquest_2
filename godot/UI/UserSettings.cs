@@ -66,6 +66,9 @@ public sealed record UserSettings
     /// <summary>T208: opt-in repair of eligible fleets beside owned towns.</summary>
     public bool AutoRepairFleets { get; init; }
 
+    /// <summary>T209: opt-in mobilization of every ready slot before confirmed End turn.</summary>
+    public bool AutoMobilizeReady { get; init; }
+
     /// <summary>The army's supply target as a percentage of its current ruleset capacity.</summary>
     public int AutoSupplyTargetPercent { get; init; } = 100;
 
