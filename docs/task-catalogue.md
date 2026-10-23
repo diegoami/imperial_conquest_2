@@ -37,3 +37,4 @@ Open and recent tasks only. Merged tasks (T01–T191 and others) are in their cl
 - [T208](tasks/T208.md) —  Global Automation tab: fleet supply and repair from owned towns
 - [T209](tasks/T209.md) —  Global Automation: mobilize ready training slots before End turn
 - [T210](tasks/T210.md) —  Global per-city auto recruit plans
+- [T211](tasks/T211.md) —  Campaign-saved multi-turn army targets
