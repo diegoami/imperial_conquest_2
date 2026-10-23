@@ -121,6 +121,33 @@ public sealed class OriginalSaveExportTests
         Assert.Contains(ex.Refusals, r => r.Code == OriginalSaveExportRefusal.Unrepresentable && r.Field == "army[0].unit[0].name");
     }
 
+    [Fact]
+    public void Very_poor_quality_four_survives_export_and_original_save_parse()
+    {
+        var state = Start();
+        var army = state.Armies[0];
+        var unit = army.Units[0] with { Quality = 4 };
+        var changed = state with { Armies = state.Armies.Replace(0, army with { Units = army.Units.Replace(0, unit) }) };
+
+        var bytes = OriginalSaveCodec.Encode(Export(changed));
+        Assert.Equal((ushort)4, SaveArmyTable.Parse(bytes).Armies[0].Units[0].QualityCode);
+    }
+
+    [Theory]
+    [InlineData(3)]
+    [InlineData(10)]
+    public void Unsupported_live_quality_is_refused_before_writing(int quality)
+    {
+        var state = Start();
+        var army = state.Armies[0];
+        var unit = army.Units[0] with { Quality = quality };
+        var changed = state with { Armies = state.Armies.Replace(0, army with { Units = army.Units.Replace(0, unit) }) };
+
+        var ex = Refused(changed);
+        Assert.Contains(ex.Refusals, r => r.Code == OriginalSaveExportRefusal.Unrepresentable
+            && r.Field == "army[0].unit[0].quality");
+    }
+
     [Theory]
     [InlineData(7, "Mercenary unit (label 7)", "Mercenary (label 7)")]
     [InlineData(12, "Mercenary unit (label 12)", "Mercenary (label 12)")]
