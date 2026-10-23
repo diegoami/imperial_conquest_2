@@ -5,11 +5,11 @@ namespace IC2.Slice.UI;
 
 /// <summary>
 /// The Unit map's <strong>command strip</strong> — the original's context toolbar, which shows only the
-/// selected unit's group: 7 army buttons, 6 fleet buttons or 1 city button, each the
+/// selected unit's group: the 7 original army buttons plus Quick Split, 6 fleet buttons or 1 city button, each the
 /// <c>ui.command.*</c> icon of its <see cref="GameCommandTable"/> row, plus Cancel selection
 /// <c>[derived: code, TUnitMap_AllButtonsOff / ArmyButtonsOn / FleetButtonsOn / CityButtonsOn;
 /// docs/investigations/original-ui-command-audit.md §3.3]</c>. A fleet carrying an army shows the 6
-/// fleet buttons then the 7 army buttons; a foreign unit, or no selection, shows nothing.
+/// fleet buttons then the 8 army buttons; a foreign unit, or no selection, shows nothing.
 /// </summary>
 /// <remarks>
 /// <para>

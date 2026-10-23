@@ -185,12 +185,27 @@ public partial class ArmyOrdersCheck : Control
         var movedUnits = new[] { parentBefore.Units[0], parentBefore.Units[2] };
         var supplyTotal = parentBefore.SupplyTons;
         var moneyTotal = parentBefore.Money;
+        Check(_mainGame.CommandStrip.PressForCheck("unit_map.army_split_two"), "Quick Split has its own army button");
+        Check(_mainGame.ActiveOverlay is SplitArmyDialog, "Quick Split opens the existing split dialog");
+        var suggested = (SplitArmyDialog)_mainGame.ActiveOverlay!;
+        Check(suggested.ModelForCheck.StagedUnits.Count is > 0 and < 3,
+            "Quick Split stages whole units before any command");
+        Check(suggested.ModelForCheck.Money == 0 && suggested.ModelForCheck.Supply == 0,
+            "Quick Split does not move money or supply on opening");
+        Check(suggested.StrengthTextForCheck.Contains($"{suggested.ModelForCheck.ParentPower:N0}")
+              && suggested.StrengthTextForCheck.Contains($"{suggested.ModelForCheck.NewArmyPower:N0}"),
+            "Quick Split shows both projected strengths");
+        Check(_commandsSeen == before, "Quick Split opening submits no command");
+        suggested.CancelForCheck();
+        Check(_commandsSeen == before && _session.State.ArmyById(SplitArmyId) == parentBefore,
+            "Quick Split Cancel leaves the army and command count unchanged");
         Check(_mainGame.MenuBar.PressItemForCheck("unit_map.army_split"), "Split army is wired from the menu");
         Check(_mainGame.ActiveOverlay is SplitArmyDialog, "Split army opens its dialog");
         Check(_commandsSeen == before, "opening Split army issues no command");
 
         var dialog = (SplitArmyDialog)_mainGame.ActiveOverlay!;
         Check(dialog.ModelForCheck.CanSplit, "the split dialog offers the split");
+        Check(dialog.ModelForCheck.StagedUnits.Count == 0, "manual Split army still opens with empty staging");
         dialog.StageUnitForCheck(0);
         dialog.StageUnitForCheck(2);
         dialog.PressSupplyForCheck(ArmyDialogModels.SupplyStepTons);
@@ -452,6 +467,15 @@ public partial class ArmyOrdersCheck : Control
         Check(expectedCell is not null, "the carrying fleet has a free land cell for the new army");
         var idsBefore = _session.State.Armies.Select(a => a.Id).ToHashSet(StringComparer.Ordinal);
 
+        Check(_mainGame.CommandStrip.PressForCheck("unit_map.army_split_two"),
+            "Quick Split button is available on a fleet carrying an army");
+        Check(_mainGame.ActiveOverlay is SplitArmyDialog, "Quick Split opens for the army aboard");
+        var proposed = (SplitArmyDialog)_mainGame.ActiveOverlay!;
+        Check(proposed.ArmyId == CarriedArmyId && proposed.ModelForCheck.StagedUnits.Count > 0,
+            "Quick Split targets the carried army with whole units staged");
+        proposed.CancelForCheck();
+        Check(_commandsSeen == before, "Quick Split aboard Cancel submits nothing");
+
         Check(
             _mainGame.MenuBar.PressItemForCheck("unit_map.army_split"),
             "Split army is pressed with the carrying fleet selected");
@@ -557,6 +581,10 @@ public partial class ArmyOrdersCheck : Control
             $"Split army says why ('{_mainGame.LastMessageForCheck}')");
         Check(_commandsSeen == before, $"Split army submits nothing ({_commandsSeen - before})");
         Check(_session.State.Armies.Count == armiesBefore, "no army was added");
+        Check(_mainGame.MenuBar.PressItemForCheck("unit_map.army_split_two"),
+            "Quick Split uses the same no-free-land preflight");
+        Check(_mainGame.ActiveOverlay is null && _commandsSeen == before,
+            "Quick Split opens nothing and submits nothing without free land");
     }
 
     /// <summary>
@@ -617,6 +645,13 @@ public partial class ArmyOrdersCheck : Control
             _commandsSeen == before,
             $"Split army submits nothing for the one-unit army ({_commandsSeen - before})");
         dialog.CancelForCheck();
+        Check(_mainGame.MenuBar.PressItemForCheck("unit_map.army_split_two"),
+            "Quick Split also opens the one-unit refusal dialog");
+        var quick = (SplitArmyDialog)_mainGame.ActiveOverlay!;
+        Check(quick.ModelForCheck.RefusalMessage == ArmyDialogModels.SplitOneUnitRefusal
+              && quick.ModelForCheck.StagedUnits.Count == 0,
+            "Quick Split preserves one-unit refusal and makes no proposal");
+        quick.CancelForCheck();
     }
 
     /// <summary>

@@ -10,7 +10,7 @@ public enum UnitStripSelection
     /// <summary>No selection, or a foreign unit — the strip shows nothing.</summary>
     None,
 
-    /// <summary>An own army: the 7 Army buttons plus Cancel selection.</summary>
+    /// <summary>An own army: the 7 original Army buttons, Quick Split, plus Cancel selection.</summary>
     OwnArmy,
 
     /// <summary>An own fleet: the 6 Fleet buttons plus Cancel selection.</summary>
@@ -19,7 +19,7 @@ public enum UnitStripSelection
     /// <summary>An own city: the 1 City button plus Cancel selection.</summary>
     OwnCity,
 
-    /// <summary>An own fleet carrying an army: the 6 Fleet buttons, then the 7 Army buttons, plus Cancel.</summary>
+    /// <summary>An own fleet carrying an army: the 6 Fleet buttons, then 8 Army buttons, plus Cancel.</summary>
     OwnFleetCarryingArmy,
 }
 
@@ -32,7 +32,8 @@ public enum UnitStripSelection
 /// <remarks>
 /// <para>
 /// The shape is <c>[derived: code, TUnitMap_AllButtonsOff, ArmyButtonsOn, FleetButtonsOn,
-/// CityButtonsOn]</c>: <strong>7 army buttons</strong>, <strong>6 fleet buttons</strong> and
+/// CityButtonsOn]</c>: <strong>7 original army buttons</strong>, plus one designed Quick Split,
+/// <strong>6 fleet buttons</strong> and
 /// <strong>1 city button</strong>, one per Unit-map submenu entry; only the selected unit's group is
 /// shown; and a fleet carrying an army shows both groups, the fleet buttons first. Nothing is shown for
 /// a foreign unit. The extra trailing button is <strong>Cancel selection</strong>
@@ -52,6 +53,7 @@ public static class UnitCommandStripLayout
         "unit_map.army_recruit_mercenaries",
         "unit_map.army_transfer_unit",
         "unit_map.army_split",
+        "unit_map.army_split_two",
         "unit_map.army_join",
         "unit_map.army_change_units",
         "unit_map.army_disband",
@@ -74,8 +76,8 @@ public static class UnitCommandStripLayout
         "unit_map.city_fortify",
     };
 
-    /// <summary>The trailing Cancel selection button, the strip's own 15th
-    /// <c>[designed: audit §3.3]</c>.</summary>
+    /// <summary>The trailing Cancel selection button, originally the strip's 15th and now its 16th
+    /// after the designed Quick Split button <c>[designed: audit §3.3]</c>.</summary>
     public const string CancelCommandId = "unit_map.cancel_selection";
 
     /// <summary>

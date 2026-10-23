@@ -11,12 +11,13 @@ namespace IC2.Engine.Tests.Ui;
 public sealed class UnitCommandStripTests
 {
     [Fact]
-    public void An_own_army_shows_the_seven_army_buttons_then_cancel()
+    public void An_own_army_shows_the_original_army_buttons_and_quick_split_then_cancel()
     {
         var commands = UnitCommandStripLayout.CommandsFor(UnitStripSelection.OwnArmy);
 
-        Assert.Equal(8, commands.Count);
-        Assert.Equal(UnitCommandStripLayout.ArmyCommands, commands.Take(7).ToArray());
+        Assert.Equal(9, commands.Count);
+        Assert.Equal(UnitCommandStripLayout.ArmyCommands, commands.Take(8).ToArray());
+        Assert.Equal("unit_map.army_split_two", commands[4]);
         Assert.Equal(UnitCommandStripLayout.CancelCommandId, commands[^1]);
     }
 
@@ -45,9 +46,9 @@ public sealed class UnitCommandStripTests
     {
         var commands = UnitCommandStripLayout.CommandsFor(UnitStripSelection.OwnFleetCarryingArmy);
 
-        Assert.Equal(14, commands.Count);
+        Assert.Equal(15, commands.Count);
         Assert.Equal(UnitCommandStripLayout.FleetCommands, commands.Take(6).ToArray());
-        Assert.Equal(UnitCommandStripLayout.ArmyCommands, commands.Skip(6).Take(7).ToArray());
+        Assert.Equal(UnitCommandStripLayout.ArmyCommands, commands.Skip(6).Take(8).ToArray());
         Assert.Equal(UnitCommandStripLayout.CancelCommandId, commands[^1]);
     }
 
@@ -58,7 +59,7 @@ public sealed class UnitCommandStripTests
     }
 
     [Fact]
-    public void Every_button_is_a_table_row_and_cancel_is_the_original_fifteenth()
+    public void Every_button_is_a_table_row_with_one_designed_quick_split()
     {
         Assert.All(
             UnitCommandStripLayout.ArmyCommands
@@ -67,9 +68,9 @@ public sealed class UnitCommandStripTests
             id => Assert.NotNull(GameCommandTable.RowById(id)));
         Assert.NotNull(GameCommandTable.RowById(UnitCommandStripLayout.CancelCommandId));
 
-        // 7 + 6 + 1 = 14, plus Cancel selection = the 15 buttons AllButtonsOff loops over.
+        // The original 15 controls plus the designed Quick Split button.
         Assert.Equal(
-            15,
+            16,
             UnitCommandStripLayout.ArmyCommands.Count + UnitCommandStripLayout.FleetCommands.Count
             + UnitCommandStripLayout.CityCommands.Count + 1);
     }
