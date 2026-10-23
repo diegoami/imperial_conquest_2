@@ -256,6 +256,47 @@ public class MovementTests
     }
 
     [Fact]
+    public void Computer_walk_keeps_its_captured_destination_enemy_after_a_shot_routes_it()
+    {
+        // #1377: the destination is captured once for this Walk. The first shot routes slot D0;
+        // with one move left the original retains that slot as target and stops beside its old cell.
+        var state = Arena(new[]
+        {
+            (0, Unit(LI, 5, 5, 3000, moves: 2)),
+            (D0, Unit(HI, 5, 6, 1)),
+            (D0 + 1, Unit(HI, 13, 11, 6000)),
+        }, attackerComputer: true);
+        var draws = new ScriptedDraws(0, 0, 0, 0);
+
+        var after = TacticalMovement.MoveUnit(state, 0, 5, 6, Context, draws);
+
+        Assert.Equal(0, after.Slots[D0].Troops);
+        Assert.Equal((5, 5, 1, D0),
+            (after.Slots[0].X, after.Slots[0].Y, after.Slots[0].Moves, after.Slots[0].Target));
+        Assert.Single(after.Log.OfType<TacticalShotEvent>());
+        Assert.Equal(new[] { 1, 1 }, draws.Bounds);
+    }
+
+    [Fact]
+    public void Computer_walk_never_shoots_a_dead_captured_destination_enemy_again()
+    {
+        // Capture-only is insufficient: after the first shot routs D0, the original's live guard
+        // prevents a second shot and its extra draws before the remaining move is resolved.
+        var state = Arena(new[]
+        {
+            (0, Unit(LI, 5, 5, 3000, moves: 3)),
+            (D0, Unit(HI, 5, 6, 1)),
+            (D0 + 1, Unit(HI, 13, 11, 6000)),
+        }, attackerComputer: true);
+        var draws = new ScriptedDraws(0, 0, 0, 0);
+
+        var after = TacticalMovement.MoveUnit(state, 0, 5, 6, Context, draws);
+
+        Assert.Single(after.Log.OfType<TacticalShotEvent>());
+        Assert.Equal(new[] { 1, 1 }, draws.Bounds);
+    }
+
+    [Fact]
     public void Computer_archers_with_shots_adjacent_keep_shooting_and_never_take_a_melee_target()
     {
         // Archers (range 2) adjacent with 4 moves: the adjacency branch needs no shots for archers, so the
