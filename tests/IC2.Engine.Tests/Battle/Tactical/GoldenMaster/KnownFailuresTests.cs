@@ -48,6 +48,21 @@ public sealed class KnownFailuresTests
     public void Invalid_JSON_syntax_and_field_types_are_fixture_errors(string json) =>
         Assert.Throws<InvalidDataException>(() => new KnownFailureRegistry(json));
 
+    [Fact]
+    public void Followup_1377_is_limited_to_the_three_owner_approved_residuals()
+    {
+        var expected = new[]
+        {
+            "The_hooked_series_replays_exactly:mix-rg_s2_r5_hook",
+            "The_port_draws_what_the_original_drew:mix-rg_s2_r5_hook",
+            "The_recorded_series_replays_exactly:gate2_s2a",
+        };
+        Assert.Equal(expected.OrderBy(x => x), KnownFailures.Loaded.Entries
+            .Where(entry => entry.Issue == 1377).Select(entry => entry.Case).OrderBy(x => x));
+        Assert.Throws<InvalidDataException>(() => new KnownFailureRegistry(
+            "[{\"Case\":\"other\",\"FirstDifference\":\"difference\",\"Issue\":1377}]"));
+    }
+
     [SkippableFact]
     public void Every_entry_names_a_current_comparison_case()
     {

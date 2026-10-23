@@ -11,6 +11,12 @@ namespace IC2.Engine.Tests.Battle.Tactical.GoldenMaster;
 internal sealed class KnownFailureRegistry
 {
     internal sealed record Entry(string Case, string FirstDifference, int Issue);
+    private static readonly HashSet<string> Followup1377Cases = new(StringComparer.Ordinal)
+    {
+        "The_hooked_series_replays_exactly:mix-rg_s2_r5_hook",
+        "The_port_draws_what_the_original_drew:mix-rg_s2_r5_hook",
+        "The_recorded_series_replays_exactly:gate2_s2a",
+    };
     private readonly IReadOnlyDictionary<string, Entry> _entries;
 
     public KnownFailureRegistry(string json)
@@ -33,8 +39,9 @@ internal sealed class KnownFailureRegistry
                 throw new InvalidDataException("KnownFailures requires string Case/FirstDifference and integer Issue.");
             var id = row.GetProperty("Case").GetString();
             var difference = row.GetProperty("FirstDifference").GetString();
-            if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(difference) || issue is < 1103 or > 1107)
-                throw new InvalidDataException("KnownFailures has an empty id/discrepancy or an issue outside bugs 1103–1107.");
+            if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(difference)
+                || !(issue is >= 1103 and <= 1107 || issue == 1377 && Followup1377Cases.Contains(id)))
+                throw new InvalidDataException("KnownFailures has an empty id/discrepancy or an unapproved issue/case pair.");
             if (!entries.TryAdd(id, new Entry(id, difference, issue)))
                 throw new InvalidDataException($"Duplicate known failure: {id}.");
         }
