@@ -584,15 +584,17 @@ public sealed class TacticalBattleViewModelTests
             {
                 var model = TacticalBattleViewModel.FromSnapshot(snapshot, display, frame: frames[^1], currentExchange: frame, perspectiveSide: perspective);
                 var presentation = model.CurrentExchangePresentation;
-                var expectedActor = $"{actorCaption} #{frame.Actor!.Slot} {unitName}";
-                var expectedTarget = $"{targetCaption} #{frame.Target!.Slot} {unitName}";
-                Assert.Contains(expectedActor, presentation.PlainLines[0]);
-                Assert.Contains(expectedTarget, presentation.PlainLines[0]);
+                var expectedActor = $"{unitName} · {actorCaption}";
+                var expectedTarget = $"{unitName} · {targetCaption}";
+                Assert.Equal(expectedActor, presentation.PlainLines[0]);
+                Assert.Equal(expectedTarget, presentation.PlainLines[3]);
                 Assert.Contains($"[color=#889098]{TacticalBattleViewModel.EscapeRichText(expectedActor)}[/color]", presentation.RichLines[0]);
-                Assert.Contains($"[color=#FFF0C0]{TacticalBattleViewModel.EscapeRichText(expectedTarget)}[/color]", presentation.RichLines[0]);
+                Assert.Contains($"[color=#FFF0C0]{TacticalBattleViewModel.EscapeRichText(expectedTarget)}[/color]", presentation.RichLines[3]);
                 Assert.DoesNotContain("[color=red]", presentation.RichLines[0]);
                 Assert.DoesNotContain("[B]", presentation.RichLines[0]);
-                Assert.Equal(TacticalBattleViewModel.ExchangeLines(frame)[1], presentation.PlainLines[1]);
+                Assert.Contains(frame.Before.View.Slots[frame.Actor.Slot].Troops.ToString("N0", System.Globalization.CultureInfo.InvariantCulture), presentation.PlainLines[1]);
+                Assert.Contains(frame.Before.View.Slots[frame.Target.Slot].Troops.ToString("N0", System.Globalization.CultureInfo.InvariantCulture), presentation.PlainLines[4]);
+                Assert.Contains(presentation.PlainLines, line => line.Contains("LOSSES", StringComparison.Ordinal));
                 Assert.Equal(frame.Actor.Slot, model.ActorSlot);
                 Assert.Equal(frame.Target.Slot, model.TargetSlot);
             }
