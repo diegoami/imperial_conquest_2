@@ -306,7 +306,9 @@ public partial class MainGameScreen : Control
         _travelTargetLabel = UiKit.MakeLabel(string.Empty, AppTheme.Note, UiKit.MutedTextColor);
         _travelTargetLabel.ClipText = true;
         _travelTargetLabel.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
-        root.AddChild(_travelTargetLabel);
+        var travelTargetRow = new HBoxContainer();
+        travelTargetRow.AddChild(_travelTargetLabel);
+        root.AddChild(travelTargetRow);
 
         root.AddChild(BuildTopBar());
 
