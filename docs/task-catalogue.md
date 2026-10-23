@@ -33,3 +33,5 @@ Open and recent tasks only. Merged tasks (T01–T191 and others) are in their cl
 - [T204](tasks/T204.md) —  Campaign acceptance: siege-capable soak, packaged launch and owner playthrough
 - [T205](tasks/T205.md) —  Quick Split in two: strength-balanced whole-unit proposal
 - [T206](tasks/T206.md) —  Faithful Computer general: later passes visit live slots in order
+- [T207](tasks/T207.md) —  Global Automation tab: army supply and purse top-up before End turn
+- [T208](tasks/T208.md) —  Global Automation tab: fleet supply and repair from owned towns
