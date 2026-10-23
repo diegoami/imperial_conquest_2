@@ -24,6 +24,34 @@ public static class OriginalSaveWriter
             if ((edit.OldTax & 255) != (edit.NewTax & 255)) changed.Add(offset);
             if ((edit.OldTax >> 8) != (edit.NewTax >> 8)) changed.Add(offset + 1);
         }
+        Publish(bytes, destination);
+        return new(destination, plan.TemplateSha256, hash, bytes.Length, plan.Layout,
+            plan.ProfileId, plan.IsIdentity, plan.TaxEdit, changed.AsReadOnly());
+    }
+
+    /// <summary>
+    /// T184/T185: writes <paramref name="document"/> in the canonical from-scratch form to a new file. The
+    /// gate-2 policy (<see cref="OriginalSaveExportPolicy"/>, from-scratch mode) and the checked encoding run
+    /// first; any violation refuses before a byte is written. The encoded bytes are then re-validated through
+    /// the complete framing and the production readers, and published exclusively without replacing anything.
+    /// </summary>
+    public static OriginalSaveDocumentWriteReport WriteDocument(OriginalSaveDocument document, string destinationPath)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationPath);
+        var violations = OriginalSaveExportPolicy.Check(document, fromScratch: true);
+        if (violations.Count > 0)
+            throw new OriginalSavePolicyException(violations);
+        var bytes = OriginalSaveCodec.Encode(document);
+        var layout = OriginalSaveLayout.Validate(bytes);
+        var destination = Path.GetFullPath(destinationPath);
+        if (Occupied(destination)) throw new IOException("Destination already exists.");
+        Publish(bytes, destination);
+        return new(destination, Convert.ToHexString(SHA256.HashData(bytes)), bytes.Length, layout);
+    }
+
+    private static void Publish(byte[] bytes, string destination)
+    {
         var directory = Path.GetDirectoryName(destination)!;
         // Deterministic, bounded names; a stale or concurrently owned name is never deleted.
         var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(destination)))[..16];
@@ -39,8 +67,7 @@ public static class OriginalSaveWriter
                 using (output) { output.Write(bytes); output.Flush(flushToDisk: true); }
                 PublishNoReplace(temporary, destination);
                 ownsTemporary = false;
-                return new(destination, plan.TemplateSha256, hash, bytes.Length, plan.Layout,
-                    plan.ProfileId, plan.IsIdentity, plan.TaxEdit, changed.AsReadOnly());
+                return;
             }
             finally
             {
@@ -49,6 +76,7 @@ public static class OriginalSaveWriter
                 if (ownsTemporary) File.Delete(temporary);
             }
         }
+
         throw new IOException("All 64 exclusive temporary names are occupied.");
     }
 

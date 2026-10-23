@@ -27,3 +27,28 @@ public sealed class OriginalSaveWriteReport
         Layout = layout; ProfileId = profile; IsIdentity = identity; TaxEdit = edit; ChangedOffsets = changed;
     }
 }
+
+/// <summary>T184/T185: what <see cref="OriginalSaveWriter.WriteDocument"/> wrote. Construction is not native
+/// compatibility proof: opening the file in the original game is a separate gate (T185 Done-when 5).</summary>
+public sealed class OriginalSaveDocumentWriteReport
+{
+    public const string ProfileId = "native-state-canonical-v1";
+    public string DestinationPath { get; }
+    public string OutputSha256 { get; }
+    public int Length { get; }
+    public OriginalSaveLayout Layout { get; }
+    public string PolicyResearchCommit => "f878614";
+
+    internal OriginalSaveDocumentWriteReport(string path, string outputHash, int length, OriginalSaveLayout layout)
+    {
+        DestinationPath = path; OutputSha256 = outputHash; Length = length; Layout = layout;
+    }
+}
+
+/// <summary>The document breaks the gate-2 policy; nothing was written.</summary>
+public sealed class OriginalSavePolicyException(IReadOnlyList<OriginalSavePolicyViolation> violations)
+    : Exception($"The state cannot be written as an original SAV: {string.Join("; ", violations.Take(8).Select(v => $"{v.Rule} at {v.Where}"))}"
+        + (violations.Count > 8 ? $" (and {violations.Count - 8} more)." : "."))
+{
+    public IReadOnlyList<OriginalSavePolicyViolation> Violations { get; } = violations;
+}
