@@ -1697,7 +1697,7 @@ public partial class MainGameScreen : Control
             Session.State.ActiveNationId);
         if (!warnings.OpensBox)
         {
-            SubmitForCheck("end");
+            SubmitConfirmedEndTurn();
             return;
         }
 
@@ -1705,10 +1705,160 @@ public partial class MainGameScreen : Control
         box.EndTurnRequested += () =>
         {
             CloseOverlay(box);
-            SubmitForCheck("end");
+            SubmitConfirmedEndTurn();
         };
         box.MakeMoreMovesRequested += () => CloseOverlay(box);
         ShowOverlay(box);
+    }
+
+    private void SubmitConfirmedEndTurn()
+    {
+        var summaries = new[] { RunArmyAutoSupport(), RunFleetAutoSupport() }
+            .Where(s => !string.IsNullOrEmpty(s)).ToArray();
+        SubmitForCheck("end");
+        if (summaries.Length > 0) ShowScreenMessage(string.Join("\n", summaries));
+    }
+
+    private string? RunArmyAutoSupport()
+    {
+        var settings = SettingsScreen.Current.Normalized();
+        if (!settings.AutoSupplyArmies && !settings.AutoFundArmies) return null;
+        var nationId = Session.State.ActiveNationId;
+        if (Session.State.NationById(nationId)?.Control != SeatControl.Human) return null;
+
+        var supplied = 0;
+        var suppliedTons = 0;
+        var funded = 0;
+        var fundedTalents = 0;
+        var skipped = new List<string>();
+        var armyIds = Session.State.Armies.Where(a => a.Nation == nationId).Select(a => a.Id).ToArray();
+        foreach (var armyId in armyIds)
+        {
+            if (settings.AutoSupplyArmies)
+            {
+                var attempted = new HashSet<string>(StringComparer.Ordinal);
+                while (Session.State.ArmyById(armyId) is { } army)
+                {
+                    var proposal = ArmyAutoSupportPlanner.NextSupply(
+                        Session.State, army, Session.Ruleset, settings, attempted);
+                    if (proposal is null) break;
+                    attempted.Add(proposal.ProviderKey!);
+                    var before = army.SupplyTons;
+                    var response = SubmitForCheck(proposal.CommandLine);
+                    var gained = Math.Max(0, (Session.State.ArmyById(armyId)?.SupplyTons ?? before) - before);
+                    if (gained > 0) { supplied++; suppliedTons += gained; }
+                    else skipped.Add($"{armyId}: {response.LastOrDefault() ?? "supply refused"}");
+                }
+
+                if (Session.State.ArmyById(armyId) is { } afterSupply)
+                {
+                    var capacity = Engine.Economy.SupplyCapacity.ArmyDialogCapacityTons(
+                        afterSupply.TotalTroops, Session.Ruleset);
+                    var target = (int)Math.Ceiling((double)capacity * settings.AutoSupplyTargetPercent / 100);
+                    if (afterSupply.SupplyTons < target)
+                        skipped.Add($"{armyId}: no eligible owned supply provider has enough stock");
+                }
+            }
+
+            if (settings.AutoFundArmies && Session.State.ArmyById(armyId) is { } moneyArmy)
+            {
+                var proposal = ArmyAutoSupportPlanner.Fund(Session.State, moneyArmy, Session.Ruleset, settings);
+                if (proposal is { })
+                {
+                    var before = moneyArmy.Money;
+                    var response = SubmitForCheck(proposal.CommandLine);
+                    var gained = Math.Max(0, (Session.State.ArmyById(armyId)?.Money ?? before) - before);
+                    if (gained > 0) { funded++; fundedTalents += gained; }
+                    else skipped.Add($"{armyId}: {response.LastOrDefault() ?? "funding refused"}");
+                }
+                else if (moneyArmy.Money < Math.Min(settings.AutoPurseTargetTalents,
+                             Session.Ruleset.Economy.PurseCapPerUnit))
+                    skipped.Add($"{armyId}: treasury reserve prevents funding");
+            }
+        }
+
+        var line = $"Auto support: {supplied} supply transfers ({suppliedTons} t), "
+            + $"{funded} purse transfers ({fundedTalents} talents).";
+        return skipped.Count == 0 ? line : line + " Skipped: " + string.Join("; ", skipped);
+    }
+
+    private string? RunFleetAutoSupport()
+    {
+        var settings = SettingsScreen.Current.Normalized();
+        if (!settings.AutoSupplyFleets && !settings.AutoRepairFleets) return null;
+        var nationId = Session.State.ActiveNationId;
+        if (Session.State.NationById(nationId)?.Control != SeatControl.Human) return null;
+
+        var supplied = 0;
+        var suppliedTons = 0;
+        var repaired = 0;
+        var repairedPoints = 0;
+        var repairCost = 0;
+        var skipped = new List<string>();
+        var fleetIds = Session.State.Fleets.Where(f => f.Nation == nationId).Select(f => f.Id).ToArray();
+        foreach (var fleetId in fleetIds)
+        {
+            if (settings.AutoSupplyFleets)
+            {
+                var attempted = new HashSet<string>(StringComparer.Ordinal);
+                while (Session.State.FleetById(fleetId) is { } fleet)
+                {
+                    var proposal = FleetAutoSupportPlanner.NextSupply(
+                        Session.State, fleet, Session.Ruleset, settings, attempted);
+                    if (proposal is null) break;
+                    attempted.Add(proposal.CityId!);
+                    var before = fleet.SupplyTons;
+                    var response = SubmitForCheck(proposal.CommandLine);
+                    var gained = Math.Max(0, (Session.State.FleetById(fleetId)?.SupplyTons ?? before) - before);
+                    if (gained > 0) { supplied++; suppliedTons += gained; }
+                    else skipped.Add($"{fleetId}: {response.LastOrDefault() ?? "supply refused"}");
+                }
+
+                if (Session.State.FleetById(fleetId) is { } afterSupply)
+                {
+                    if (afterSupply.IsUnderConstruction)
+                        skipped.Add($"{fleetId}: supply skipped (under construction)");
+                    else
+                    {
+                        var capacity = Engine.Economy.SupplyCapacity.FleetCapacityTons(afterSupply.Ships, Session.Ruleset);
+                        var target = (int)Math.Ceiling((double)capacity * settings.AutoFleetSupplyTargetPercent / 100);
+                        if (afterSupply.SupplyTons < target)
+                            skipped.Add($"{fleetId}: no owned town has eligible supply stock");
+                    }
+                }
+            }
+
+            if (settings.AutoRepairFleets && Session.State.FleetById(fleetId) is { } repairFleet)
+            {
+                var proposal = FleetAutoSupportPlanner.Repair(Session.State, repairFleet, Session.Ruleset, settings);
+                if (proposal is { })
+                {
+                    var beforeCondition = repairFleet.ConditionPercent;
+                    var beforeTreasury = Session.State.NationById(nationId)?.Treasury ?? 0;
+                    var response = SubmitForCheck(proposal.CommandLine);
+                    var gained = Math.Max(0, (Session.State.FleetById(fleetId)?.ConditionPercent ?? beforeCondition)
+                        - beforeCondition);
+                    if (gained > 0)
+                    {
+                        repaired++;
+                        repairedPoints += gained;
+                        repairCost += Math.Max(0, beforeTreasury - (Session.State.NationById(nationId)?.Treasury ?? beforeTreasury));
+                    }
+                    else skipped.Add($"{fleetId}: {response.LastOrDefault() ?? "repair refused"}");
+                }
+                else if (repairFleet.ConditionPercent < settings.AutoFleetRepairTargetPercent)
+                {
+                    var reason = repairFleet.IsUnderConstruction ? "under construction"
+                        : repairFleet.IsCarryingArmy ? "carrying an army"
+                        : "no eligible owned town or treasury above reserve";
+                    skipped.Add($"{fleetId}: repair skipped ({reason})");
+                }
+            }
+        }
+
+        var line = $"Auto fleets: {supplied} supply transfers ({suppliedTons} t), "
+            + $"{repaired} repairs ({repairedPoints} points, {repairCost} talents).";
+        return skipped.Count == 0 ? line : line + " Skipped: " + string.Join("; ", skipped);
     }
 
     /// <summary>

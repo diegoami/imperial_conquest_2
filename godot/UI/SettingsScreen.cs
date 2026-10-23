@@ -30,6 +30,9 @@ public partial class SettingsScreen : Control
 {
     public event Action? BackRequested;
 
+    /// <summary>The display and automation tabs, exposed to headless interaction checks.</summary>
+    public TabContainer Tabs { get; private set; } = null!;
+
     /// <summary>#1293: true when opened over a game (the Back button reads "Close").</summary>
     public bool InGame { get; init; }
 
@@ -170,17 +173,82 @@ public partial class SettingsScreen : Control
         header.AddChild(UiKit.MakeLabel("Settings", AppTheme.Header, UiKit.AccentColor));
         header.AddChild(UiKit.MakeLabel("Changes apply at once and are remembered.", AppTheme.Note, UiKit.MutedTextColor));
 
-        var scroll = new ScrollContainer { SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
-        outer.AddChild(scroll);
-        var column = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        column.AddThemeConstantOverride("separation", AppTheme.DialogGap);
-        scroll.AddChild(column);
+        Tabs = new TabContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
+        outer.AddChild(Tabs);
+        var column = TabColumn(Tabs, "Display & controls");
 
         BuildAppearance(column);
         BuildMap(column);
         BuildBattle(column);
         BuildSound(column);
         BuildGame(column);
+        BuildAutomation(TabColumn(Tabs, "Automation"));
+    }
+
+    private static VBoxContainer TabColumn(TabContainer tabs, string title)
+    {
+        var scroll = new ScrollContainer
+        {
+            Name = title,
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            SizeFlagsVertical = SizeFlags.ExpandFill,
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+        };
+        tabs.AddChild(scroll);
+        var column = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        column.AddThemeConstantOverride("separation", AppTheme.DialogGap);
+        scroll.AddChild(column);
+        return column;
+    }
+
+    private void BuildAutomation(VBoxContainer column)
+    {
+        Section(column, "Army support");
+        column.AddChild(UiKit.MakeLabel(
+            "Global for all campaigns. Runs after you confirm End turn; uses ordinary orders and can spend treasury.",
+            AppTheme.Note, UiKit.MutedTextColor));
+
+        var supply = new CheckBox { Text = "Auto supply armies", ButtonPressed = Current.AutoSupplyArmies };
+        supply.Toggled += on => Commit(Current with { AutoSupplyArmies = on });
+        Row(column, "Supply").AddChild(supply);
+
+        var supplyTarget = new SpinBox { MinValue = 0, MaxValue = 100, Step = 5,
+            Value = Current.AutoSupplyTargetPercent, Suffix = "% capacity" };
+        supplyTarget.ValueChanged += value => Commit(Current with { AutoSupplyTargetPercent = (int)value });
+        Row(column, "Supply target").AddChild(supplyTarget);
+
+        var funding = new CheckBox { Text = "Auto fund army purses", ButtonPressed = Current.AutoFundArmies };
+        funding.Toggled += on => Commit(Current with { AutoFundArmies = on });
+        Row(column, "Money").AddChild(funding);
+
+        var purseTarget = new SpinBox { MinValue = 0, MaxValue = UserSettings.MaxAutoPurseTargetTalents,
+            Step = 100, Value = Current.AutoPurseTargetTalents, Suffix = " talents" };
+        purseTarget.ValueChanged += value => Commit(Current with { AutoPurseTargetTalents = (int)value });
+        Row(column, "Purse target").AddChild(purseTarget);
+
+        var reserve = new SpinBox { MinValue = 0, MaxValue = UserSettings.MaxAutoTreasuryReserveTalents,
+            Step = 100, Value = Current.AutoTreasuryReserveTalents, Suffix = " talents" };
+        reserve.ValueChanged += value => Commit(Current with { AutoTreasuryReserveTalents = (int)value });
+        Row(column, "Treasury reserve").AddChild(reserve);
+
+        Section(column, "Fleet support");
+        column.AddChild(UiKit.MakeLabel(
+            "Only owned towns supply and repair fleets. Repairs spend treasury and use the fleet's remaining moves.",
+            AppTheme.Note, UiKit.MutedTextColor));
+        var fleetSupply = new CheckBox { Text = "Auto supply fleets", ButtonPressed = Current.AutoSupplyFleets };
+        fleetSupply.Toggled += on => Commit(Current with { AutoSupplyFleets = on });
+        Row(column, "Fleet supply").AddChild(fleetSupply);
+        var fleetSupplyTarget = new SpinBox { MinValue = 0, MaxValue = 100, Step = 5,
+            Value = Current.AutoFleetSupplyTargetPercent, Suffix = "% capacity" };
+        fleetSupplyTarget.ValueChanged += value => Commit(Current with { AutoFleetSupplyTargetPercent = (int)value });
+        Row(column, "Fleet supply target").AddChild(fleetSupplyTarget);
+        var fleetRepair = new CheckBox { Text = "Auto repair fleets", ButtonPressed = Current.AutoRepairFleets };
+        fleetRepair.Toggled += on => Commit(Current with { AutoRepairFleets = on });
+        Row(column, "Fleet repair").AddChild(fleetRepair);
+        var repairTarget = new SpinBox { MinValue = 0, MaxValue = 100, Step = 5,
+            Value = Current.AutoFleetRepairTargetPercent, Suffix = "% condition" };
+        repairTarget.ValueChanged += value => Commit(Current with { AutoFleetRepairTargetPercent = (int)value });
+        Row(column, "Repair target").AddChild(repairTarget);
     }
 
     public override void _UnhandledInput(InputEvent @event)

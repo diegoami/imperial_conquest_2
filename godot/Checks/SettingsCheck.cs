@@ -51,6 +51,31 @@ public partial class SettingsCheck : Control
         });
         _steps.Enqueue(() =>
         {
+            var settings = (SettingsScreen)_game.ActiveOverlay!;
+            Check(settings.Tabs.GetTabCount() == 2
+                  && settings.Tabs.GetTabTitle(0) == "Display & controls"
+                  && settings.Tabs.GetTabTitle(1) == "Automation",
+                "Settings has display and global Automation tabs");
+            settings.Tabs.CurrentTab = 1;
+            var supply = settings.FindChildren("*", "CheckBox", true, false).OfType<CheckBox>()
+                .Single(box => box.Text == "Auto supply armies");
+            supply.ButtonPressed = true;
+            supply.EmitSignal(BaseButton.SignalName.Toggled, true);
+            Check(SettingsScreen.Current.AutoSupplyArmies && UserSettings.Load(_file).AutoSupplyArmies,
+                "the Automation tab switch commits to the global settings file");
+            Check(settings.FindChildren("*", "SpinBox", true, false).OfType<SpinBox>().Count() == 5,
+                "Automation exposes army/fleet targets and treasury reserve");
+            var fleetRepair = settings.FindChildren("*", "CheckBox", true, false).OfType<CheckBox>()
+                .Single(box => box.Text == "Auto repair fleets");
+            fleetRepair.EmitSignal(BaseButton.SignalName.Toggled, true);
+            Check(SettingsScreen.Current.AutoRepairFleets && UserSettings.Load(_file).AutoRepairFleets,
+                "the fleet repair switch commits to the global settings file");
+            SettingsScreen.Commit(SettingsScreen.Current with { AutoSupplyArmies = false });
+            SettingsScreen.Commit(SettingsScreen.Current with { AutoRepairFleets = false });
+            settings.Tabs.CurrentTab = 0;
+        });
+        _steps.Enqueue(() =>
+        {
             var before = LabelsWithTextColour(_darkText);
             SettingsScreen.Commit(SettingsScreen.Current with { ColorScheme = "parchment" }, GetTree().Root);
             var parchment = ColorSchemes.ById("parchment");
