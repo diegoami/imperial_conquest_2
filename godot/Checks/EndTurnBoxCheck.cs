@@ -24,6 +24,7 @@ public partial class EndTurnBoxCheck : Control
             CheckConfirmedAutoSupport();
             CheckAutoSupportHotseatSeparation();
             CheckAutoSupportFromFleet();
+            CheckFleetAutoSupportFromTown();
         }
         catch (Exception ex)
         {
@@ -142,6 +143,7 @@ public partial class EndTurnBoxCheck : Control
         }
 
         SettingsScreen.Commit(new UserSettings { AutoFundArmies = true,
+            AutoSupplyFleets = true, AutoRepairFleets = true,
             AutoPurseTargetTalents = 900, AutoTreasuryReserveTalents = 2_000 });
         var unwarned = AddMainGame(BuildAutoSession(warning: false));
         try
@@ -168,11 +170,17 @@ public partial class EndTurnBoxCheck : Control
         try
         {
             var otherBefore = mainGame.Session.State.ArmyById("south-auto")!.Money;
+            var otherFleetBefore = mainGame.Session.State.FleetById("south-fleet-auto")!;
             mainGame.MenuBar.PressItemForCheck("game.end_turn");
+            if (mainGame.ActiveOverlay is EndTurnBox box)
+                box.EndTurnButton.EmitSignal(Button.SignalName.Pressed);
             Check(mainGame.Session.State.ArmyById("north-land-warning")!.Money == 500,
                 "global auto funding acts for the active human nation");
             Check(mainGame.Session.State.ArmyById("south-auto")!.Money == otherBefore,
                 "global auto funding does not pre-fund the next hotseat nation");
+            Check(mainGame.Session.State.FleetById("south-fleet-auto")!.SupplyTons == otherFleetBefore.SupplyTons
+                  && mainGame.Session.State.FleetById("south-fleet-auto")!.ConditionPercent == otherFleetBefore.ConditionPercent,
+                "global fleet support does not act for the next hotseat nation");
         }
         finally
         {
@@ -202,6 +210,46 @@ public partial class EndTurnBoxCheck : Control
             ((EndTurnBox)mainGame.ActiveOverlay!).EndTurnButton.EmitSignal(Button.SignalName.Pressed);
             Check(commands == 2 && afterBuy.Army > armyBefore && afterBuy.Fleet < fleetBefore,
                 "confirmed auto supply uses the existing fleet-provider buy command before end");
+        }
+        finally
+        {
+            RemoveMainGame(mainGame);
+            SettingsScreen.Commit(new UserSettings());
+        }
+    }
+
+    private void CheckFleetAutoSupportFromTown()
+    {
+        SettingsScreen.Commit(new UserSettings
+        {
+            AutoSupplyFleets = true, AutoRepairFleets = true,
+            AutoTreasuryReserveTalents = 4_900,
+        });
+        var mainGame = AddMainGame(BuildFleetAutoSession());
+        try
+        {
+            var fleetId = "north-fleet-1";
+            var fleetBefore = mainGame.Session.State.FleetById(fleetId)!;
+            var first = (Supply: fleetBefore.SupplyTons, Condition: fleetBefore.ConditionPercent, Moves: fleetBefore.Moves);
+            var second = first;
+            var commands = 0;
+            mainGame.CommandIssued += _ =>
+            {
+                commands++;
+                var fleet = mainGame.Session.State.FleetById(fleetId)!;
+                if (commands == 1) first = (fleet.SupplyTons, fleet.ConditionPercent, fleet.Moves);
+                if (commands == 2) second = (fleet.SupplyTons, fleet.ConditionPercent, fleet.Moves);
+            };
+            mainGame.MenuBar.PressItemForCheck("game.end_turn");
+            if (mainGame.ActiveOverlay is EndTurnBox box)
+                box.EndTurnButton.EmitSignal(Button.SignalName.Pressed);
+            Check(commands == 3, $"fleet support submits town supply, repair, then end ({commands})");
+            Check(first.Supply > fleetBefore.SupplyTons && first.Condition == fleetBefore.ConditionPercent,
+                "the town supplies the fleet before repair");
+            Check(second.Condition == 100 && second.Moves == 0,
+                "repair reaches the target and consumes remaining moves before End turn");
+            Check(mainGame.LastMessageForCheck.Contains("Auto fleets:", StringComparison.Ordinal),
+                "fleet support reports its supply and repair result");
         }
         finally
         {
@@ -356,9 +404,16 @@ public partial class EndTurnBoxCheck : Control
         {
             var south = WarningArmy("south-auto", embarked: false, money: 0)
                 with { Nation = "south", SupplyTons = 1_000 };
+            var southFleet = state.Fleets.Single(f => f.Id == "north-fleet-1") with
+            {
+                Id = "south-fleet-auto", Nation = "south", X = 0, Y = 3,
+                Ships = 10, SupplyTons = 0, ConditionPercent = 50,
+                ConstructionTicksRemaining = null, CarriedArmyId = null,
+            };
             state = state with
             {
                 Armies = ValueList.From(state.Armies.Append(south)),
+                Fleets = ValueList.From(state.Fleets.Append(southFleet)),
                 Nations = ValueList.From(state.Nations.Select(n => n.Id == "south"
                     ? n with { Control = SeatControl.Human, Treasury = 2_500 } : n)),
             };
@@ -374,6 +429,24 @@ public partial class EndTurnBoxCheck : Control
             };
         }
         var save = new SaveGame(state.SchemaVersion, "auto-support-check", "auto-support-check",
+            state.ScenarioId, state.WorldId, state.RulesetId, state);
+        return new GameSession(original.World, original.Ruleset, original.Scenario, save);
+    }
+
+    private static GameSession BuildFleetAutoSession()
+    {
+        var original = BuildSession(warning: false);
+        var state = original.State with
+        {
+            Cities = ValueList.From(original.State.Cities.Select(c => c.Owner == "north"
+                ? c with { SupplyTons = 500 } : c)),
+            Fleets = ValueList.From(original.State.Fleets.Select(f => f.Id == "north-fleet-1"
+                ? f with { SupplyTons = 0, ConditionPercent = 50, Ships = 10,
+                    ConstructionTicksRemaining = null, CarriedArmyId = null, Moves = 8 } : f)),
+            Nations = ValueList.From(original.State.Nations.Select(n => n.Id == "north"
+                ? n with { Treasury = 5_000 } : n)),
+        };
+        var save = new SaveGame(state.SchemaVersion, "fleet-auto-check", "fleet-auto-check",
             state.ScenarioId, state.WorldId, state.RulesetId, state);
         return new GameSession(original.World, original.Ruleset, original.Scenario, save);
     }

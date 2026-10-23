@@ -60,6 +60,12 @@ public sealed record UserSettings
     /// <summary>T207: opt-in treasury-to-army purse top-up before End turn.</summary>
     public bool AutoFundArmies { get; init; }
 
+    /// <summary>T208: opt-in town-to-fleet supply before confirmed End turn.</summary>
+    public bool AutoSupplyFleets { get; init; }
+
+    /// <summary>T208: opt-in repair of eligible fleets beside owned towns.</summary>
+    public bool AutoRepairFleets { get; init; }
+
     /// <summary>The army's supply target as a percentage of its current ruleset capacity.</summary>
     public int AutoSupplyTargetPercent { get; init; } = 100;
 
@@ -68,6 +74,10 @@ public sealed record UserSettings
 
     /// <summary>Automatic funding never deliberately lowers treasury below this many talents.</summary>
     public int AutoTreasuryReserveTalents { get; init; } = 1_000;
+
+    public int AutoFleetSupplyTargetPercent { get; init; } = 100;
+
+    public int AutoFleetRepairTargetPercent { get; init; } = 100;
 
     /// <summary>One of <see cref="MapStyles.All"/>' ids: the map drawn as tiles (the default) or painted.</summary>
     public string MapStyle { get; init; } = MapStyles.DefaultId;
@@ -129,6 +139,8 @@ public sealed record UserSettings
         AutoSupplyTargetPercent = Math.Clamp(AutoSupplyTargetPercent, 0, 100),
         AutoPurseTargetTalents = Math.Clamp(AutoPurseTargetTalents, 0, MaxAutoPurseTargetTalents),
         AutoTreasuryReserveTalents = Math.Clamp(AutoTreasuryReserveTalents, 0, MaxAutoTreasuryReserveTalents),
+        AutoFleetSupplyTargetPercent = Math.Clamp(AutoFleetSupplyTargetPercent, 0, 100),
+        AutoFleetRepairTargetPercent = Math.Clamp(AutoFleetRepairTargetPercent, 0, 100),
     };
 
     /// <summary>The <see cref="BattleSpeed"/> preset these pauses match, or <see langword="null"/> for custom values.</summary>

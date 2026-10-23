@@ -63,9 +63,15 @@ public partial class SettingsCheck : Control
             supply.EmitSignal(BaseButton.SignalName.Toggled, true);
             Check(SettingsScreen.Current.AutoSupplyArmies && UserSettings.Load(_file).AutoSupplyArmies,
                 "the Automation tab switch commits to the global settings file");
-            Check(settings.FindChildren("*", "SpinBox", true, false).OfType<SpinBox>().Count() == 3,
-                "Automation exposes supply target, purse target and treasury reserve");
+            Check(settings.FindChildren("*", "SpinBox", true, false).OfType<SpinBox>().Count() == 5,
+                "Automation exposes army/fleet targets and treasury reserve");
+            var fleetRepair = settings.FindChildren("*", "CheckBox", true, false).OfType<CheckBox>()
+                .Single(box => box.Text == "Auto repair fleets");
+            fleetRepair.EmitSignal(BaseButton.SignalName.Toggled, true);
+            Check(SettingsScreen.Current.AutoRepairFleets && UserSettings.Load(_file).AutoRepairFleets,
+                "the fleet repair switch commits to the global settings file");
             SettingsScreen.Commit(SettingsScreen.Current with { AutoSupplyArmies = false });
+            SettingsScreen.Commit(SettingsScreen.Current with { AutoRepairFleets = false });
             settings.Tabs.CurrentTab = 0;
         });
         _steps.Enqueue(() =>

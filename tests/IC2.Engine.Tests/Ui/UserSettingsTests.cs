@@ -31,9 +31,13 @@ public sealed class UserSettingsTests : IDisposable
         Assert.False(settings.ConfirmMoves);
         Assert.False(settings.AutoSupplyArmies);
         Assert.False(settings.AutoFundArmies);
+        Assert.False(settings.AutoSupplyFleets);
+        Assert.False(settings.AutoRepairFleets);
         Assert.Equal(100, settings.AutoSupplyTargetPercent);
         Assert.Equal(1_000, settings.AutoPurseTargetTalents);
         Assert.Equal(1_000, settings.AutoTreasuryReserveTalents);
+        Assert.Equal(100, settings.AutoFleetSupplyTargetPercent);
+        Assert.Equal(100, settings.AutoFleetRepairTargetPercent);
         Assert.Equal("tiles", settings.MapStyle);
     }
 
@@ -46,6 +50,8 @@ public sealed class UserSettingsTests : IDisposable
             Font = "garamond", TextScalePercent = 125, Fullscreen = true, ShowOtherBattleReports = false, ConfirmMoves = true,
             MapStyle = "painted", AutoSupplyArmies = true, AutoFundArmies = true,
             AutoSupplyTargetPercent = 75, AutoPurseTargetTalents = 800, AutoTreasuryReserveTalents = 2_500,
+            AutoSupplyFleets = true, AutoRepairFleets = true,
+            AutoFleetSupplyTargetPercent = 65, AutoFleetRepairTargetPercent = 85,
         }.WithBattleSpeed(BattleSpeeds.All.Single(s => s.Id == "fast"));
 
         Assert.True(saved.TrySave(PathFor("settings.json")));
@@ -82,6 +88,7 @@ public sealed class UserSettingsTests : IDisposable
             BattleShotDelaySeconds = 9.87, BattleAttackDelaySeconds = 1.6, PackId = "  ",
             MapStyle = "watercolour", AutoSupplyTargetPercent = -10,
             AutoPurseTargetTalents = int.MaxValue, AutoTreasuryReserveTalents = -7,
+            AutoFleetSupplyTargetPercent = -10, AutoFleetRepairTargetPercent = 150,
         }.Normalized();
 
         Assert.Equal(100, settings.VolumePercent);
@@ -96,6 +103,8 @@ public sealed class UserSettingsTests : IDisposable
         Assert.Equal(0, settings.AutoSupplyTargetPercent);
         Assert.Equal(UserSettings.MaxAutoPurseTargetTalents, settings.AutoPurseTargetTalents);
         Assert.Equal(0, settings.AutoTreasuryReserveTalents);
+        Assert.Equal(0, settings.AutoFleetSupplyTargetPercent);
+        Assert.Equal(100, settings.AutoFleetRepairTargetPercent);
     }
 
     [Fact]
@@ -109,6 +118,8 @@ public sealed class UserSettingsTests : IDisposable
         Assert.Equal(ColorSchemes.ById("contrast"), UserSettings.Load(path).ResolvedColors());
         Assert.False(UserSettings.Load(path).AutoSupplyArmies);
         Assert.False(UserSettings.Load(path).AutoFundArmies);
+        Assert.False(UserSettings.Load(path).AutoSupplyFleets);
+        Assert.False(UserSettings.Load(path).AutoRepairFleets);
     }
 
     [Fact]
