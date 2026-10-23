@@ -17,7 +17,7 @@ namespace IC2.Engine.Battle.Tactical.General;
 /// (<see cref="GeneralTargeting"/>, <c>FUN_00439E08</c>), which records a claim, then engage
 /// (<see cref="GeneralEngage"/>, <c>FUN_0043A160</c>). Then pass 2 (<see cref="GeneralPassTwo"/>,
 /// <c>FUN_0043A544</c>) and pass 3 (<see cref="GeneralPassThree"/>, <c>FUN_0043ABB4</c>: the threat move,
-/// pass 2, the flank, pass 2 again), each over all the units in the same order.
+/// pass 2, the flank, pass 2 again). These later passes visit live units in ascending slot order.
 /// </para>
 /// <para>
 /// It is a port, not a better general: the negative shots, the stacking, the wrapped <c>int</c> terms, the

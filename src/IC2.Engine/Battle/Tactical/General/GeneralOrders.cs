@@ -14,7 +14,7 @@ internal static class GeneralOrders
         board.Log.Add(new TacticalTargetSetEvent(slot, target));
     }
 
-    /// <summary>The general's units, in its iteration order: <c>typeOrder</c>, then slot order; each yielded only while it lives.</summary>
+    /// <summary>Pass one's units, in type order: <c>typeOrder</c>, then slot order; each yielded only while it lives.</summary>
     internal static IEnumerable<int> InOrder(TacticalBoard board)
     {
         var context = board.Context;
@@ -33,6 +33,24 @@ internal static class GeneralOrders
                 {
                     yield return s;
                 }
+            }
+        }
+    }
+
+    /// <summary>The later passes visit live units in ascending slot order (FUN_0043A544/FUN_0043ABB4).</summary>
+    internal static IEnumerable<int> InSlotOrder(TacticalBoard board)
+    {
+        var first = board.FirstSlotOf(board.SideToMove);
+        for (var slot = first; slot < first + board.SlotsPerSide; slot++)
+        {
+            if (board.IsOver)
+            {
+                yield break;
+            }
+
+            if (board.IsLive(slot))
+            {
+                yield return slot;
             }
         }
     }
