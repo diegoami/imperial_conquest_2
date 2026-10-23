@@ -103,7 +103,9 @@ public sealed class SaveArmyTable
                     throw new InvalidDataException($"Army {i}, unit slot {slot} is missing a nonempty unit name.");
                 if (type > 4)
                     throw new InvalidDataException($"Army {i}, unit slot {slot} has out-of-range type code {type}.");
-                if (quality is < 5 or > 9)
+                // Original human mobilization writes readiness 16..19 as quality 4 (very poor).
+                // See research #63; empty and tombstoned slots are handled above.
+                if (quality is < 4 or > 9)
                     throw new InvalidDataException($"Army {i}, unit slot {slot} has out-of-range quality code {quality}.");
                 for (var p = nameStart; p < nameEnd; p++)
                     if (data[p] < 0x20 || data[p] > 0x7e)

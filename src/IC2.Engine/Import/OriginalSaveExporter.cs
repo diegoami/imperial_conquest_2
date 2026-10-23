@@ -160,6 +160,9 @@ public static class OriginalSaveExporter
             for (var u = 0; u < units.Length; u++)
             {
                 var unit = s.Units[u];
+                if (unit.Quality is < 4 or > 9)
+                    Refuse(OriginalSaveExportRefusal.Unrepresentable, $"army[{a}].unit[{u}].quality",
+                        $"quality {unit.Quality} is outside the original live-unit range 4..9");
                 var name = ExportName(unit, s.Id, u, aliases);
                 units[u] = new OriginalUnitSlot(unit.MercenaryLabel, TypeCode(unit.UnitTypeId, $"army '{s.Id}'.unit[{u}].type"),
                     unit.Troops, unit.Quality, name);
