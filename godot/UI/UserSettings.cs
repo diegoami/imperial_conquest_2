@@ -5,14 +5,18 @@ using IC2.Slice.Screens;
 namespace IC2.Slice.UI;
 
 /// <summary>
-/// #1293: the player's own display settings, remembered across launches in <c>user://settings.json</c>.
-/// Display-only: nothing here is ever in a save game or a ruleset, and no value changes a rule's
-/// outcome. Godot-free so the tests can link it; <see cref="SettingsScreen"/> applies it.
+/// The player's global settings, remembered across launches in <c>user://settings.json</c>.
+/// Display settings never change rules; T207's opt-in automation issues ordinary player commands
+/// before a confirmed End turn and can therefore change outcomes. No value is in a native save or ruleset.
+/// Godot-free so the tests can link it; <see cref="SettingsScreen"/> applies it.
 /// </summary>
 public sealed record UserSettings
 {
     /// <summary>The settings file's schema; a file with another number is read as far as it matches.</summary>
-    public const int CurrentSchema = 1;
+    public const int CurrentSchema = 2;
+
+    public const int MaxAutoPurseTargetTalents = 100_000;
+    public const int MaxAutoTreasuryReserveTalents = 1_000_000_000;
 
     /// <summary>The smallest and largest text size, in percent.</summary>
     public const int MinTextScalePercent = 80, MaxTextScalePercent = 160;
@@ -49,6 +53,21 @@ public sealed record UserSettings
 
     /// <summary>#1280 F2: a move click only marks its destination; a second click on it moves. Off by default (the original moves at once).</summary>
     public bool ConfirmMoves { get; init; }
+
+    /// <summary>T207: opt-in supply top-up for the active human nation's armies before End turn.</summary>
+    public bool AutoSupplyArmies { get; init; }
+
+    /// <summary>T207: opt-in treasury-to-army purse top-up before End turn.</summary>
+    public bool AutoFundArmies { get; init; }
+
+    /// <summary>The army's supply target as a percentage of its current ruleset capacity.</summary>
+    public int AutoSupplyTargetPercent { get; init; } = 100;
+
+    /// <summary>Target purse in talents, further capped by the active ruleset.</summary>
+    public int AutoPurseTargetTalents { get; init; } = 1_000;
+
+    /// <summary>Automatic funding never deliberately lowers treasury below this many talents.</summary>
+    public int AutoTreasuryReserveTalents { get; init; } = 1_000;
 
     /// <summary>One of <see cref="MapStyles.All"/>' ids: the map drawn as tiles (the default) or painted.</summary>
     public string MapStyle { get; init; } = MapStyles.DefaultId;
@@ -107,6 +126,9 @@ public sealed record UserSettings
         Font = UiFonts.ById(Font).Id,
         TextScalePercent = Math.Clamp(TextScalePercent, MinTextScalePercent, MaxTextScalePercent),
         MapStyle = MapStyles.ById(MapStyle).Id,
+        AutoSupplyTargetPercent = Math.Clamp(AutoSupplyTargetPercent, 0, 100),
+        AutoPurseTargetTalents = Math.Clamp(AutoPurseTargetTalents, 0, MaxAutoPurseTargetTalents),
+        AutoTreasuryReserveTalents = Math.Clamp(AutoTreasuryReserveTalents, 0, MaxAutoTreasuryReserveTalents),
     };
 
     /// <summary>The <see cref="BattleSpeed"/> preset these pauses match, or <see langword="null"/> for custom values.</summary>
