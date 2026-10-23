@@ -237,6 +237,8 @@ public sealed class GameCommandTable
             new GameCommandRow("unit_map.army_transfer_unit", "Unit map", "Army", "Transfer unit", "ui.command.army_transfer_unit.icon", null, Wired: true),
             new GameCommandRow("unit_map.army_split", "Unit map", "Army", "Split army", "ui.command.army_split.icon", null, Wired: true),
             new GameCommandRow("unit_map.army_split_two", "Unit map", "Army", "Split in two", null, null, Wired: true),
+            new GameCommandRow("unit_map.army_set_target", "Unit map", "Army", "Set travel target", null, null, Wired: true),
+            new GameCommandRow("unit_map.army_cancel_target", "Unit map", "Army", "Cancel travel target", null, null, Wired: true),
             new GameCommandRow("unit_map.army_join", "Unit map", "Army", "Join armies", "ui.command.army_join.icon", null, Wired: true),
             new GameCommandRow("unit_map.army_change_units", "Unit map", "Army", "Change units", "ui.command.army_change_units.icon", null, Wired: true),
             new GameCommandRow("unit_map.army_disband", "Unit map", "Army", "Disband army", "ui.command.army_disband.icon", null, Wired: true),

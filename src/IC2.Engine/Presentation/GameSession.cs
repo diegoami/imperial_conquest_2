@@ -1018,6 +1018,7 @@ public sealed partial class GameSession
         _strategicTimeline.Reset();
         LastStrategicTimeline = StrategicTravelBatch.Empty;
         State = save.State;
+        ArmyTravelTargets = save.ArmyTravelTargets ?? ValueList<ArmyTravelTarget>.Empty;
 
         var humanNationIds = State.Nations
             .Where(n => n.Control == SeatControl.Human)
@@ -1331,6 +1332,25 @@ public sealed partial class GameSession
 
     /// <summary>The session's current state. Advances only through <see cref="Submit"/>.</summary>
     public GameState State { get; private set; }
+
+    /// <summary>Campaign-local army destinations, absent from older native saves and original SAV imports.</summary>
+    public ValueList<ArmyTravelTarget> ArmyTravelTargets { get; private set; } = ValueList<ArmyTravelTarget>.Empty;
+
+    public ArmyTravelTarget? TravelTargetFor(string armyId) =>
+        ArmyTravelTargets.FirstOrDefault(target => target.ArmyId == armyId);
+
+    public void SetArmyTravelTarget(ArmyTravelTarget target)
+    {
+        ArmyTravelTargets = ValueList.From(ArmyTravelTargets
+            .Where(existing => existing.ArmyId != target.ArmyId).Append(target));
+    }
+
+    public bool ClearArmyTravelTarget(string armyId)
+    {
+        if (TravelTargetFor(armyId) is null) return false;
+        ArmyTravelTargets = ValueList.From(ArmyTravelTargets.Where(target => target.ArmyId != armyId));
+        return true;
+    }
 
     /// <summary>
     /// T125: how a field battle with a human side is fought. <see cref="HumanBattleMode.Instant"/> (the default)

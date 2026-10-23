@@ -43,7 +43,11 @@ public sealed record SaveGame(
     GameState State,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SavedTacticalBattle? Battle = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? FirstEndNewsOwed = null) : IVersionedDocument;
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? FirstEndNewsOwed = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ValueList<ArmyTravelTarget>? ArmyTravelTargets = null) : IVersionedDocument;
+
+/// <summary>A fixed destination chosen for an army in this campaign's native JSON save.</summary>
+public sealed record ArmyTravelTarget(string ArmyId, string NationId, int X, int Y, string? CityId = null);
 
 /// <summary>
 /// An open tactical battle as a save holds it: the original's battle block (<c>2026-10-04-decompiled-tactical-battle-rules.md</c>
