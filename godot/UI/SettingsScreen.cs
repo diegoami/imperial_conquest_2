@@ -230,6 +230,25 @@ public partial class SettingsScreen : Control
             Step = 100, Value = Current.AutoTreasuryReserveTalents, Suffix = " talents" };
         reserve.ValueChanged += value => Commit(Current with { AutoTreasuryReserveTalents = (int)value });
         Row(column, "Treasury reserve").AddChild(reserve);
+
+        Section(column, "Fleet support");
+        column.AddChild(UiKit.MakeLabel(
+            "Only owned towns supply and repair fleets. Repairs spend treasury and use the fleet's remaining moves.",
+            AppTheme.Note, UiKit.MutedTextColor));
+        var fleetSupply = new CheckBox { Text = "Auto supply fleets", ButtonPressed = Current.AutoSupplyFleets };
+        fleetSupply.Toggled += on => Commit(Current with { AutoSupplyFleets = on });
+        Row(column, "Fleet supply").AddChild(fleetSupply);
+        var fleetSupplyTarget = new SpinBox { MinValue = 0, MaxValue = 100, Step = 5,
+            Value = Current.AutoFleetSupplyTargetPercent, Suffix = "% capacity" };
+        fleetSupplyTarget.ValueChanged += value => Commit(Current with { AutoFleetSupplyTargetPercent = (int)value });
+        Row(column, "Fleet supply target").AddChild(fleetSupplyTarget);
+        var fleetRepair = new CheckBox { Text = "Auto repair fleets", ButtonPressed = Current.AutoRepairFleets };
+        fleetRepair.Toggled += on => Commit(Current with { AutoRepairFleets = on });
+        Row(column, "Fleet repair").AddChild(fleetRepair);
+        var repairTarget = new SpinBox { MinValue = 0, MaxValue = 100, Step = 5,
+            Value = Current.AutoFleetRepairTargetPercent, Suffix = "% condition" };
+        repairTarget.ValueChanged += value => Commit(Current with { AutoFleetRepairTargetPercent = (int)value });
+        Row(column, "Repair target").AddChild(repairTarget);
     }
 
     public override void _UnhandledInput(InputEvent @event)
