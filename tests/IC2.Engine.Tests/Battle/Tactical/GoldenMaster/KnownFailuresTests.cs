@@ -49,16 +49,9 @@ public sealed class KnownFailuresTests
         Assert.Throws<InvalidDataException>(() => new KnownFailureRegistry(json));
 
     [Fact]
-    public void Followup_1377_is_limited_to_the_three_owner_approved_residuals()
+    public void Followup_1377_has_no_remaining_expected_failures()
     {
-        var expected = new[]
-        {
-            "The_hooked_series_replays_exactly:mix-rg_s2_r5_hook",
-            "The_port_draws_what_the_original_drew:mix-rg_s2_r5_hook",
-            "The_recorded_series_replays_exactly:gate2_s2a",
-        };
-        Assert.Equal(expected.OrderBy(x => x), KnownFailures.Loaded.Entries
-            .Where(entry => entry.Issue == 1377).Select(entry => entry.Case).OrderBy(x => x));
+        Assert.DoesNotContain(KnownFailures.Loaded.Entries, entry => entry.Issue == 1377);
         Assert.Throws<InvalidDataException>(() => new KnownFailureRegistry(
             "[{\"Case\":\"other\",\"FirstDifference\":\"difference\",\"Issue\":1377}]"));
     }
