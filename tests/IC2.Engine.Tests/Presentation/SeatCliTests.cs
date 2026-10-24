@@ -1260,11 +1260,13 @@ public sealed class SeatCliTests
         // in The_first_rounds_footer_includes_news_the_construction_time_prelude_itself_produced): round
         // 1's own genuine news used to include an alliance-formation line on this fixed seed, but that
         // line is now structurally impossible -- an AI never writes an alliance directly to a human seat
-        // (bug #357's own fix), and Rome is the human here. This checks a real, non-filler city-capture
-        // line the unpadded seat-rome golden also shows for round 1 on this same fixed seed instead (T156: the tree's new choices replaced the earlier city-capture line with a battle line); #386
+        // (bug #357's own fix), and Rome is the human here. T212's faithful
+        // navigation changes the first round again; Aradus falling is the real,
+        // non-filler capture shown by the unpadded fixed-order run. #386
         // requires the mechanism under test to still fail when removed, which the baseline-restoring fix
         // above (R1(b)) is what actually proves, mutation-tested below.
-        Assert.Contains(output.Lines, line => line.Contains("Seleucid destroys army of Ptolemaic.", StringComparison.Ordinal));
+        Assert.Contains(output.Lines, line => line.Contains("Aradus   (Seleucid)  falls to Ptolemaic.",
+            StringComparison.Ordinal));
 
         // Rework round 2, R1(b): restored. The buffer's own oldest slots -- 13 filler, appended after
         // the 27 real DAT-history entries -- must not survive into the footer once _pendingNewsBaseline

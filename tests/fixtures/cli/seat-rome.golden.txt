@@ -83,45 +83,38 @@ Cities (Carthage (carthage)):
 > end
 Rome (rome) ends its turn.
 Celtiberia (celtiberia) takes its turn: 13 orders issued.
-Seleucid (seleucid) takes its turn: 14 orders issued.
-Galatia (galatia) takes its turn: 13 orders issued.
-Gaul (gaul) takes its turn: 10 orders issued.
-Illyria (illyria) takes its turn: 3 orders issued.
-Greece (greece) takes its turn: 1 order issued.
-Macedonia (macedonia) takes its turn: 3 orders issued.
-Media (media) takes its turn: 2 orders issued.
+Seleucid (seleucid) takes its turn: 13 orders issued.
+Galatia (galatia) takes its turn: 12 orders issued.
+Gaul (gaul) takes its turn: 9 orders issued.
+Illyria (illyria) takes its turn: 0 orders issued.
+Greece (greece) takes its turn: 0 orders issued.
+Macedonia (macedonia) takes its turn: 2 orders issued.
+Media (media) takes its turn: 1 order issued.
 Armenia (armenia) takes its turn: 0 orders issued.
 Thracia (thracia) takes its turn: 2 orders issued.
 Carthage (carthage) takes its turn: 2 orders issued.
-Bithynia (bithynia) takes its turn: 10 orders issued.
+Bithynia (bithynia) takes its turn: 9 orders issued.
   Weather: rough-sea-painted (week 1).
   Weather: rough-sea-painted (week 1).
-Dacia (dacia) takes its turn: 1 order issued.
+  Weather: rough-sea-painted (week 1).
+  Weather: rough-sea-painted (week 1).
+Dacia (dacia) takes its turn: 0 orders issued.
 Ptolemaic (ptolemaic) takes its turn: 1 order issued.
 Numidia (numidia) takes its turn: 0 orders issued.
 Now: Week 3, Spring 270 BC. Active seat: Rome (rome).
 News:
   Aradus   (Seleucid)  falls to Ptolemaic.
   Seleucid destroys army of Ptolemaic.
-  Ptolemaic sues Seleucid for peace and;
-      Ptolemaic ends all current trading agreements.
-      Ptolemaic  ends all current alliances.
-      Ptolemaic pays reparations of 2,163 talents.
-  Astacus   (Bithynia)  falls to Seleucid.
-  Calpe defects from Bithynia to Seleucid.
-  Pontica defects from Bithynia to Seleucid.
-  Illyria forms an alliance with Gaul.
-  ILLYRIA DECLARES WAR ON ROME.
    
   Week  3      Spring      270BC
 
 > end
 Rome (rome) ends its turn.
 Celtiberia (celtiberia) takes its turn: 9 orders issued.
-Seleucid (seleucid) takes its turn: 3 orders issued.
+Seleucid (seleucid) takes its turn: 10 orders issued.
 Galatia (galatia) takes its turn: 2 orders issued.
-Gaul (gaul) takes its turn: 3 orders issued.
-Illyria (illyria) takes its turn: 8 orders issued.
+Gaul (gaul) takes its turn: 8 orders issued.
+Illyria (illyria) takes its turn: 0 orders issued.
 Greece (greece) takes its turn: 0 orders issued.
 Macedonia (macedonia) takes its turn: 1 order issued.
 Media (media) takes its turn: 1 order issued.
@@ -134,6 +127,7 @@ Ptolemaic (ptolemaic) takes its turn: 1 order issued.
 Numidia (numidia) takes its turn: 0 orders issued.
 Now: Week 5, Spring 270 BC. Active seat: Rome (rome).
 News:
+  Aradus   (Ptolemaic)  falls to Seleucid.
   Tarquinii   (Rome)  falls to Gaul.
    
   Week  5      Spring      270BC
@@ -175,6 +169,9 @@ Cities:
 
 > news
 News log:
+  272 BC
+  Tarrentum (Greece) falls to Rome.
+  Croton (Greece) falls to Rome.
   Locri defects from Greece to Rome.
   Rhegium defects from Greece to Rome.
   Panormus defects from Greece to Carthage.
@@ -201,17 +198,9 @@ News log:
   Week 1      Spring      270 BC
   Aradus   (Seleucid)  falls to Ptolemaic.
   Seleucid destroys army of Ptolemaic.
-  Ptolemaic sues Seleucid for peace and;
-      Ptolemaic ends all current trading agreements.
-      Ptolemaic  ends all current alliances.
-      Ptolemaic pays reparations of 2,163 talents.
-  Astacus   (Bithynia)  falls to Seleucid.
-  Calpe defects from Bithynia to Seleucid.
-  Pontica defects from Bithynia to Seleucid.
-  Illyria forms an alliance with Gaul.
-  ILLYRIA DECLARES WAR ON ROME.
    
   Week  3      Spring      270BC
+  Aradus   (Ptolemaic)  falls to Seleucid.
   Tarquinii   (Rome)  falls to Gaul.
    
   Week  5      Spring      270BC

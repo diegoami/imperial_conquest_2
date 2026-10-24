@@ -264,8 +264,8 @@ public static class AiArmyTargetTree
             var sameGeography = faithfulNavigation
                 && ClassicalArmyNavigation.Classify(army.X, army.Y)
                     == ClassicalArmyNavigation.Classify(target.X, target.Y);
-            if (faithfulNavigation && !ClassicalArmyNavigation.TargetEligible(view, army, target.X, target.Y)
-                || !sameGeography && !IsReachable(view, army, target.X, target.Y))
+            if ((faithfulNavigation && !ClassicalArmyNavigation.TargetEligible(view, army, target.X, target.Y))
+                || (!sameGeography && !IsReachable(view, army, target.X, target.Y)))
             {
                 skipped++;
                 continue;
