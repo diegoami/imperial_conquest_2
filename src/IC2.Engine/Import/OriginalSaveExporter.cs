@@ -74,7 +74,8 @@ public static class OriginalSaveExporter
         var state = session.State;
         return new SaveGame(GameDataSchema.CurrentVersion, "live-export", "Live export",
             state.ScenarioId, state.WorldId, state.RulesetId, state,
-            ArmyTravelTargets: session.ArmyTravelTargets.Count == 0 ? null : session.ArmyTravelTargets);
+            ArmyTravelTargets: session.ArmyTravelTargets.Count == 0 ? null : session.ArmyTravelTargets,
+            RetreatSupplyPlans: session.RetreatSupplyPlans.Count == 0 ? null : session.RetreatSupplyPlans);
     }
 
     /// <summary>Maps <paramref name="save"/> to a document, or throws <see cref="OriginalSaveExportException"/>
@@ -311,6 +312,8 @@ public static class OriginalSaveExporter
         var omitted = OriginalSaveExportReport.OmittedNativeMetadata.ToList();
         if (save.ArmyTravelTargets is { Count: > 0 })
             omitted.Add("ArmyTravelTargets: campaign route plans cannot be encoded in the original save");
+        if (save.RetreatSupplyPlans is { Count: > 0 })
+            omitted.Add("RetreatSupplyPlans: per-unit recovery modes cannot be encoded in the original save");
         return new OriginalSaveExportResult(document, new OriginalSaveExportReport(aliases, omitted));
     }
 

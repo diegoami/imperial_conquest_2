@@ -16,7 +16,7 @@ public sealed class HowToPlayTests
     {
         var titles = HowToPlay.Sections(null).Select(s => s.Title).ToArray();
         Assert.Equal(
-            new[] { "The goal", "A turn", "Moving", "Attacking and sieges", "Field battles", "Supply and money", "Diplomacy", "How a reign ends" },
+            new[] { "The goal", "A turn", "Moving", "Attacking and sieges", "Field battles", "Supply and money", "Retreat and supply", "Diplomacy", "How a reign ends" },
             titles);
         Assert.All(HowToPlay.Sections(null), s => Assert.NotEmpty(s.Lines));
     }

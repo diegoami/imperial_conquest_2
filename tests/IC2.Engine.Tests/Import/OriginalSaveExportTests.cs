@@ -42,6 +42,14 @@ public sealed class OriginalSaveExportTests
         Assert.Equal(OriginalSaveCodec.Encode(live.Document), OriginalSaveCodec.Encode(withPlan.Document));
         Assert.Contains(withPlan.Report.Omitted, item => item.StartsWith("ArmyTravelTargets", StringComparison.Ordinal));
         Assert.Single(session.ArmyTravelTargets);
+
+        session.ClearArmyTravelTarget(army.Id);
+        session.SetRetreatSupplyPlan(new RetreatSupplyPlan(army.Id, army.Nation, IsFleet: false));
+        var withRecovery = OriginalSaveExporter.ToDocument(session, Ui);
+        Assert.Equal(OriginalSaveCodec.Encode(live.Document), OriginalSaveCodec.Encode(withRecovery.Document));
+        Assert.Contains(withRecovery.Report.Omitted,
+            item => item.StartsWith("RetreatSupplyPlans", StringComparison.Ordinal));
+        Assert.Single(session.RetreatSupplyPlans);
     }
 
     [Fact]
