@@ -15,8 +15,8 @@ namespace IC2.Engine.Naval.Commands;
 /// <c>if (fleet.ships &lt; troops / 500) reject "The army is too large for this fleet ?" else embark</c>
 /// — <strong>this is the human UI path</strong>: a player selects an army, then clicks a friendly fleet,
 /// and the dialog simply refuses an over-capacity request. Embarking itself calls <c>FUN_0044B79C</c>,
-/// which the same report states "trims the army to <c>ships × 500</c> troops if it is over capacity" —
-/// but only <strong>"for an AI nation only"</strong>. The two are the same function's two branches, not
+/// whose AI-only over-capacity branch calls <c>FUN_0044F8FC</c> to land whole overflow slots
+/// (2026-10-24-strategic-economy-diplomacy-fleet-continuation.md, Research PR74). The two are the same function's two branches, not
 /// two competing readings: a human seat never reaches the trim because the UI check above refuses first;
 /// an AI nation's order presumably bypasses that dialog check and reaches <c>FUN_0044B79C</c> directly,
 /// where the trim applies.
@@ -27,7 +27,8 @@ namespace IC2.Engine.Naval.Commands;
 /// <item><description>
 /// <c>classical-faithful</c> (<see cref="Model.SeatAsymmetryModel.Faithful"/>): a <strong>human</strong>
 /// seat is refused with <see cref="EmbarkArmyRejections.ArmyTooLarge"/>; an <strong>AI</strong> seat
-/// embarks and is trimmed to <c>ships × 500</c> by <see cref="ArmyTransportTrim.TrimToCapacity"/>.
+/// lands every whole unit from the first slot that would exceed capacity.
+/// A receiver that cannot be made safely refuses atomically under T216's owner-approved interim policy.
 /// </description></item>
 /// <item><description>
 /// <c>improved</c> (<see cref="Model.SeatAsymmetryModel.Normalized"/>): every seat is refused with the
@@ -38,10 +39,9 @@ namespace IC2.Engine.Naval.Commands;
 /// merits, not by a blanket "improved always does X" rule.
 /// </description></item>
 /// </list>
-/// The trim <em>amount</em> (exactly <c>ships × 500</c>, no more and no less) is confirmed at the refusal
-/// check's own threshold; the trim's <em>distribution</em> across an army's several unit slots is
-/// <c>[derived]</c>, not <c>[confirmed]</c> — <c>FUN_0044F8FC</c> itself was never decompiled. See
-/// <see cref="ArmyTransportTrim"/> for what was searched and what this task chose instead.
+/// The original F8FC was unavailable to the earlier report; Research PR74 now confirms its
+/// whole-slot transfer on the measured free-receiver branch. It does not claim the original's
+/// unmeasured receiver-failure outcome, for which this remake deliberately refuses before mutation.
 /// </para>
 /// </remarks>
 public sealed record EmbarkArmyCommand(string IssuingNationId, string ArmyId, string FleetId) : ICommand
@@ -76,4 +76,7 @@ public static class EmbarkArmyRejections
 
     /// <summary><em>"The army is too large for this fleet."</em></summary>
     public static readonly RejectionCode ArmyTooLarge = new("naval.army-too-large");
+
+    /// <summary>An AI over-capacity embark cannot make a validated land receiver; refuse without troop loss.</summary>
+    public static readonly RejectionCode NoSafeOverflowReceiver = new("naval.no-safe-overflow-receiver");
 }

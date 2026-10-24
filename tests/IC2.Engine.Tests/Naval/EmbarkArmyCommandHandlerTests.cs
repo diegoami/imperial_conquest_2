@@ -1,14 +1,17 @@
 using IC2.Engine.Core;
 using IC2.Engine.Model;
+using IC2.Engine.Armies;
+using IC2.Engine.Movement;
 using IC2.Engine.Naval;
 using IC2.Engine.Naval.Commands;
+using IC2.Engine.Persistence;
 using Xunit;
 
 namespace IC2.Engine.Tests.Naval;
 
 /// <summary>
 /// <c>docs/task-catalogue.md</c> "T14 Naval", Done-when 3 (rewritten 2026-09-18, commit <c>87bec66</c>):
-/// exactly <c>ships × 500</c> troops is always accepted; above it, <c>classical-faithful</c> trims an AI
+/// exactly <c>ships × 500</c> troops is always accepted; above it, <c>classical-faithful</c> moves whole overflow slots ashore for an AI
 /// seat and refuses a human one, and <c>improved</c> refuses every seat. See
 /// <see cref="EmbarkArmyCommand"/>'s remarks for the full history and evidence.
 /// <c>docs/tasks/T93.md</c> (bug #453) adds the adjacency cases at the end of this file: the user's rule
@@ -78,13 +81,16 @@ public sealed class EmbarkArmyCommandHandlerTests
     /// <c>Economy.Commands.BuySupplyCommandHandlerTests</c> uses to prove a distance check reads the
     /// ruleset rather than a literal.
     /// </summary>
-    private static CommandDispatcher DispatcherFor(SeatAsymmetryModel seatAsymmetry, int? adjacencyRadius = null)
+    private static CommandDispatcher DispatcherFor(SeatAsymmetryModel seatAsymmetry,
+        int? adjacencyRadius = null, int? maxArmies = null)
     {
         var ruleset = NavalTestbed.Ruleset with { Flags = NavalTestbed.Ruleset.Flags with { SeatAsymmetry = seatAsymmetry } };
         if (adjacencyRadius is { } radius)
         {
             ruleset = ruleset with { Economy = ruleset.Economy with { CommandAdjacencyRadiusTiles = radius } };
         }
+        if (maxArmies is { } limit)
+            ruleset = ruleset with { ArmyManagement = ruleset.ArmyManagement with { MaxArmies = limit } };
 
         return new CommandDispatcher(SystemRegistry.FromEngineAssembly(), ruleset, NavalTestbed.Toy.World, NullEventSink.Instance);
     }
@@ -102,7 +108,7 @@ public sealed class EmbarkArmyCommandHandlerTests
     }
 
     [Fact]
-    public void Faithful_AiSeat_OverCapacity_EmbarksTrimmedToExactlyCapacity()
+    public void Faithful_AiSeat_OverCapacity_Embarks_only_whole_fitting_slots()
     {
         var state = BuildState(Capacity + 1234, SeatControl.Ai, out var armyId, out var fleetId, out var nationId);
         var result = DispatcherFor(SeatAsymmetryModel.Faithful).Dispatch(state, new EmbarkArmyCommand(nationId, armyId, fleetId));
@@ -110,12 +116,190 @@ public sealed class EmbarkArmyCommandHandlerTests
         Assert.True(result.IsAccepted, result.ToString());
         var army = result.State.ArmyById(armyId)!;
         Assert.Equal(fleetId, army.AboardFleetId);
-        Assert.Equal(Capacity, army.TotalTroops); // "trimmed to ships x 500" -- exactly, not merely at most.
+        Assert.True(army.TotalTroops <= Capacity);
+        Assert.Equal(Capacity + 1234, result.State.Armies.Sum(a => a.TotalTroops));
+        Assert.Equal(2, result.State.Armies.Count);
         Assert.Equal(0, army.Moves);
 
         var fleet = result.State.FleetById(fleetId)!;
         Assert.Equal(armyId, fleet.CarriedArmyId);
         Assert.Equal(0, fleet.Moves);
+    }
+
+    [Fact]
+    public void T216_faithful_AI_embark_lands_whole_overflow_slot_and_conserves_everything()
+    {
+        var state = BuildState(6_000, SeatControl.Ai, out var armyId, out var fleetId, out var nationId);
+        var source = state.ArmyById(armyId)! with
+        {
+            Money = 100, SupplyTons = 90,
+            Units = ValueList.Of(
+                new UnitSlot(0, "light_infantry", 4_000, 6, "Light"),
+                new UnitSlot(0, "heavy_infantry", 2_000, 7, "Heavy")),
+        };
+        state = state with { Armies = ValueList.Of(source) };
+        var expectedLand = SplitPlacement.ArmyCellFor(state, NavalTestbed.Toy.World, source);
+        Assert.NotNull(expectedLand);
+
+        var result = DispatcherFor(SeatAsymmetryModel.Faithful)
+            .Dispatch(state, new EmbarkArmyCommand(nationId, armyId, fleetId));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        var aboard = result.State.ArmyById(armyId)!;
+        var overflow = Assert.Single(result.State.Armies, a => a.Id != armyId);
+        Assert.Equal(4_000, Assert.Single(aboard.Units).Troops);
+        Assert.Equal("Light", aboard.Units[0].Name);
+        Assert.Equal(2_000, Assert.Single(overflow.Units).Troops);
+        Assert.Equal("Heavy", overflow.Units[0].Name);
+        Assert.Equal((100, 90, 6_000),
+            (aboard.Money + overflow.Money, aboard.SupplyTons + overflow.SupplyTons,
+                aboard.TotalTroops + overflow.TotalTroops));
+        Assert.Equal((67, 60), (aboard.Money, aboard.SupplyTons));
+        Assert.Equal((33, 30), (overflow.Money, overflow.SupplyTons));
+        Assert.Equal(59, overflow.Morale);
+        Assert.Equal(1, overflow.Moves);
+        Assert.Equal((expectedLand.Value.X, expectedLand.Value.Y), (overflow.X, overflow.Y));
+        Assert.Null(overflow.AboardFleetId);
+        Assert.NotNull(overflow.CoveredTileCode);
+        Assert.Equal(fleetId, aboard.AboardFleetId);
+        Assert.Equal(armyId, result.State.FleetById(fleetId)!.CarriedArmyId);
+
+        var repeated = DispatcherFor(SeatAsymmetryModel.Faithful)
+            .Dispatch(state, new EmbarkArmyCommand(nationId, armyId, fleetId));
+        Assert.Equal(GameStateHash.Compute(result.State), GameStateHash.Compute(repeated.State));
+        var atCapacity = source with
+        {
+            Units = ValueList.Of(source.Units[0] with { Troops = Capacity }),
+        };
+        var ordinary = DispatcherFor(SeatAsymmetryModel.Faithful).Dispatch(
+            state with { Armies = ValueList.Of(atCapacity) },
+            new EmbarkArmyCommand(nationId, armyId, fleetId));
+        Assert.Equal(ordinary.State.RandomSeed, result.State.RandomSeed);
+        var save = new SaveGame(result.State.SchemaVersion, "t216-overflow", "T216 overflow",
+            result.State.ScenarioId, result.State.WorldId, result.State.RulesetId, result.State);
+        var loaded = SaveManager.Load("t216-overflow.json", SaveManager.Serialize(save),
+            NavalTestbed.Toy.World, NavalTestbed.Ruleset);
+        Assert.Equal(result.State, loaded.State);
+    }
+
+    [Fact]
+    public void T216_single_oversized_slot_stays_whole_ashore_and_does_not_leave_a_carrier_link()
+    {
+        var state = BuildState(6_000, SeatControl.Ai, out var armyId, out var fleetId, out var nationId);
+        var source = state.ArmyById(armyId)! with
+        {
+            Money = 100, SupplyTons = 90,
+            Units = ValueList.Of(new UnitSlot(0, "light_infantry", 6_000, 6, "Whole slot")),
+        };
+        state = state with { Armies = ValueList.Of(source) };
+
+        var result = DispatcherFor(SeatAsymmetryModel.Faithful)
+            .Dispatch(state, new EmbarkArmyCommand(nationId, armyId, fleetId));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        Assert.Null(result.State.ArmyById(armyId));
+        var ashore = Assert.Single(result.State.Armies);
+        Assert.Equal((6_000, 100, 90), (ashore.TotalTroops, ashore.Money, ashore.SupplyTons));
+        Assert.Null(ashore.AboardFleetId);
+        Assert.NotNull(ashore.CoveredTileCode);
+        Assert.Null(result.State.FleetById(fleetId)!.CarriedArmyId);
+        Assert.Equal(0, result.State.FleetById(fleetId)!.Moves);
+    }
+
+    [Fact]
+    public void T216_resource_third_is_fixed_even_when_overflow_is_only_one_sixth_of_troops()
+    {
+        var state = BuildState(6_000, SeatControl.Ai, out var armyId, out var fleetId, out var nationId);
+        var source = state.ArmyById(armyId)! with
+        {
+            Money = 100, SupplyTons = 90,
+            Units = ValueList.Of(
+                new UnitSlot(0, "light_infantry", 2_000, 6, "A"),
+                new UnitSlot(0, "heavy_infantry", 3_000, 7, "B"),
+                new UnitSlot(0, "archers", 1_000, 8, "C")),
+        };
+        state = state with { Armies = ValueList.Of(source) };
+        var result = DispatcherFor(SeatAsymmetryModel.Faithful)
+            .Dispatch(state, new EmbarkArmyCommand(nationId, armyId, fleetId));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        var aboard = result.State.ArmyById(armyId)!;
+        var ashore = Assert.Single(result.State.Armies, a => a.Id != armyId);
+        Assert.Equal(new[] { 2_000, 3_000 }, aboard.Units.Select(u => u.Troops));
+        Assert.Equal(1_000, Assert.Single(ashore.Units).Troops);
+        Assert.Equal((67, 60, 33, 30),
+            (aboard.Money, aboard.SupplyTons, ashore.Money, ashore.SupplyTons));
+    }
+
+    [Fact]
+    public void T216_one_troop_whole_slot_overflow_is_not_dropped_or_scaled()
+    {
+        var state = BuildState(5_001, SeatControl.Ai, out var armyId, out var fleetId, out var nationId);
+        var source = state.ArmyById(armyId)! with
+        {
+            Money = 100, SupplyTons = 90,
+            Units = ValueList.Of(
+                new UnitSlot(0, "light_infantry", 5_000, 6, "Full"),
+                new UnitSlot(0, "heavy_infantry", 1, 7, "One")),
+        };
+        state = state with { Armies = ValueList.Of(source) };
+        var result = DispatcherFor(SeatAsymmetryModel.Faithful)
+            .Dispatch(state, new EmbarkArmyCommand(nationId, armyId, fleetId));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        Assert.Equal(5_000, result.State.ArmyById(armyId)!.TotalTroops);
+        var ashore = Assert.Single(result.State.Armies, a => a.Id != armyId);
+        Assert.Equal(1, Assert.Single(ashore.Units).Troops);
+        Assert.Equal((33, 30), (ashore.Money, ashore.SupplyTons));
+        Assert.Equal(5_001, result.State.Armies.Sum(a => a.TotalTroops));
+    }
+
+    [Fact]
+    public void T216_no_land_receiver_and_full_army_table_refuse_without_mutation()
+    {
+        var state = BuildState(6_000, SeatControl.Ai, out var armyId, out var fleetId, out var nationId);
+        var source = state.ArmyById(armyId)!;
+        var world = NavalTestbed.Toy.World;
+        var blockers = new List<ArmyState>();
+        for (var x = source.X - 1; x <= source.X + 1; x++)
+        for (var y = source.Y - 1; y <= source.Y + 1; y++)
+        {
+            var point = new GridPoint(x, y);
+            if (x == source.X && y == source.Y || !LandingTile.IsPassableForArmy(point, world)
+                || state.Cities.Any(c => c.X == x && c.Y == y)
+                || state.Fleets.Any(f => f.X == x && f.Y == y)) continue;
+            blockers.Add(source with { Id = $"blocker-{x}-{y}", X = x, Y = y });
+        }
+        var noLand = state with { Armies = ValueList.From(state.Armies.Concat(blockers)) };
+        Assert.Null(SplitPlacement.ArmyCellFor(noLand, world, source));
+        foreach (var (input, dispatcher) in new[]
+        {
+            (noLand, DispatcherFor(SeatAsymmetryModel.Faithful)),
+            (state, DispatcherFor(SeatAsymmetryModel.Faithful, maxArmies: state.Armies.Count)),
+        })
+        {
+            var before = GameStateHash.Compute(input);
+            var result = dispatcher.Dispatch(input, new EmbarkArmyCommand(nationId, armyId, fleetId));
+            Assert.True(result.IsRejected);
+            Assert.Equal(EmbarkArmyRejections.NoSafeOverflowReceiver, result.Code);
+            Assert.Equal(before, GameStateHash.Compute(result.State));
+            Assert.Equal(input.RandomSeed, result.State.RandomSeed);
+        }
+    }
+
+    [Fact]
+    public void T216_a_zero_capacity_fleet_refuses_without_throwing_or_losing_troops()
+    {
+        var state = BuildState(6_000, SeatControl.Ai, out var armyId, out var fleetId, out var nationId);
+        state = state with { Fleets = ValueList.Of(state.FleetById(fleetId)! with { Ships = 0 }) };
+        var before = GameStateHash.Compute(state);
+
+        var result = DispatcherFor(SeatAsymmetryModel.Faithful)
+            .Dispatch(state, new EmbarkArmyCommand(nationId, armyId, fleetId));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(EmbarkArmyRejections.ArmyTooLarge, result.Code);
+        Assert.Equal(before, GameStateHash.Compute(result.State));
     }
 
     [Fact]
@@ -283,19 +467,19 @@ public sealed class EmbarkArmyCommandHandlerTests
     }
 
     [Fact]
-    public void ArmyTransportTrim_DistributesTheShortfallDeterministically()
+    public void ArmyTransportTrim_PartitionsWholeSlots_without_scaling_troops()
     {
-        // Direct unit test of the [derived] trim helper itself, independent of the command handler.
+        // F8FC: the first slot that would exceed capacity and all later slots go ashore whole.
         var units = new[]
         {
             new UnitSlot(0, "light_infantry", 4000, 6, "A"),
             new UnitSlot(0, "archers", 3000, 7, "B"),
         };
 
-        var trimmed = ArmyTransportTrim.TrimToCapacity(units, totalTroopsBeforeTrim: 7000, capacity: 5000);
+        var partition = ArmyTransportTrim.PartitionWholeUnits(units, capacity: 5000);
 
-        var totalAfter = trimmed.Sum(u => u.Troops);
-        Assert.Equal(5000, totalAfter); // exact, never a few troops short from truncation.
-        Assert.All(trimmed, u => Assert.True(u.Troops > 0));
+        Assert.Equal(4000, Assert.Single(partition.Aboard).Troops);
+        Assert.Equal(3000, Assert.Single(partition.Ashore).Troops);
+        Assert.Equal(7000, partition.Aboard.Sum(u => u.Troops) + partition.Ashore.Sum(u => u.Troops));
     }
 }
