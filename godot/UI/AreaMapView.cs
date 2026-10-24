@@ -549,6 +549,16 @@ public partial class AreaMapView : Control
             return;
         }
 
+        if (@event is InputEventMouseButton { Pressed: true } wheel)
+        {
+            if (wheel.ButtonIndex is MouseButton.WheelUp or MouseButton.WheelDown)
+            {
+                _orderMap.ZoomFromOverview(wheel.ButtonIndex == MouseButton.WheelUp);
+                AcceptEvent();
+                return;
+            }
+        }
+
         // The click only re-centres the order map (the original's Area-map path); it never selects and
         // never submits a command. The left button's press is ignored so a press-drag-release cannot be
         // mistaken for anything else, and the release alone is the click.

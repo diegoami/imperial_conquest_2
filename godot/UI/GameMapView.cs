@@ -422,6 +422,9 @@ public partial class GameMapView : Control
     /// this view to <see cref="MaxZoom"/> and asserts the drawing stays inside its own rect.</summary>
     public float ZoomFactor => _zoom;
 
+    /// <summary>Zooms the order map around its visible centre when the wheel is over the overview map.</summary>
+    public void ZoomFromOverview(bool increase) => Zoom(Size / 2f, increase ? 1.15f : 1f / 1.15f);
+
     /// <summary>Zooms to <see cref="MaxZoom"/> through the same <see cref="Zoom"/> path the mouse wheel
     /// uses, so <c>godot/Checks/MapClipCheck.cs</c> reproduces the maximum-zoom case without simulating
     /// wheel events.</summary>

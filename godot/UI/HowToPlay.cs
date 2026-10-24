@@ -32,7 +32,7 @@ public static class HowToPlay
         }),
         new HowToPlaySection("Moving", new[]
         {
-            "Zoom with the mouse wheel and drag to pan; hovering a marker names it. Left-click one of your armies or fleets to select it.",
+            "Zoom the main map with the mouse wheel, including over the overview map. Drag to pan; hovering a marker names it. Ctrl+wheel over the details panel resizes its text.",
             "With a unit selected, left-click a tile to move there. Terrain costs moves: forest 2, mountains and rivers 4, rough sea 3, everything else 1. A unit stays selected while it has moves left.",
             "A click on empty ground always moves the selected unit. To avoid a mis-click marching an army away, turn on Settings → Map → \"Confirm moves with a second click\", or press Esc to drop the selection first.",
             "To carry an army by sea, move it onto your own fleet next to it; sail the fleet, then click a land tile beside it to land.",
