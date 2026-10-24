@@ -1,8 +1,10 @@
+using System.Diagnostics;
 using IC2.Engine.Model;
 using IC2.Engine.Persistence;
 using IC2.Engine.Presentation;
 using IC2.Engine.Tests.Import;
 using Xunit;
+using ModelTestPaths = IC2.Engine.Tests.Model.TestPaths;
 
 namespace IC2.Engine.Tests.Ui;
 
@@ -52,5 +54,54 @@ public sealed class RetreatSupplyPersistenceTests
         Assert.True(session.ClearArmyTravelTarget(army.Id));
         session.SetRetreatSupplyPlan(new RetreatSupplyPlan(army.Id, army.Nation, IsFleet: false));
         Assert.NotNull(session.RetreatSupplyPlanFor(army.Id, isFleet: false));
+    }
+
+    [Fact]
+    public async Task A_second_CLI_process_loads_and_resaves_the_campaign_mode()
+    {
+        var session = new GameSession(RealGameData.World, RealGameData.Ruleset,
+            RealGameData.Scenario, seedOverride: 23, humanSeatNationId: "rome");
+        var army = session.State.Armies.First(a => a.Nation == "rome" && !a.IsEmbarked);
+        var plan = new RetreatSupplyPlan(army.Id, army.Nation, IsFleet: false);
+        session.SetRetreatSupplyPlan(plan);
+        var directory = Path.Combine(Path.GetTempPath(), $"ic2-recovery-process-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        var input = Path.Combine(directory, "before.json");
+        var output = Path.Combine(directory, "after.json");
+        var script = Path.Combine(directory, "save-script.txt");
+        try
+        {
+            Assert.Contains(session.Submit($"save {input}").Lines,
+                line => line.StartsWith("Saved to", StringComparison.Ordinal));
+            File.WriteAllText(script, $"save {output}\nquit\n");
+            var cliDll = Path.Combine(ModelTestPaths.RepositoryRoot, "src", "IC2.Cli", "bin",
+                "Debug", "net10.0", "IC2.Cli.dll");
+            Assert.True(File.Exists(cliDll), "Build IC2.sln before the process check.");
+            var start = new ProcessStartInfo("dotnet")
+            {
+                RedirectStandardOutput = true, RedirectStandardError = true,
+                UseShellExecute = false, WorkingDirectory = ModelTestPaths.RepositoryRoot,
+            };
+            foreach (var argument in new[] { cliDll, "--load", input, "--script", script })
+                start.ArgumentList.Add(argument);
+            using var process = Process.Start(start);
+            Assert.NotNull(process);
+            var stdout = process.StandardOutput.ReadToEndAsync();
+            var stderr = process.StandardError.ReadToEndAsync();
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            await process.WaitForExitAsync(timeout.Token);
+            Assert.True(process.ExitCode == 0, await stderr);
+            Assert.Contains("Saved to", await stdout);
+            var saved = SaveManager.LoadFile(output, session.World, session.Ruleset);
+            Assert.Equal(plan, Assert.Single(saved.RetreatSupplyPlans!));
+            Assert.Equal(plan, new GameSession(session.World, session.Ruleset, session.Scenario,
+                saved).RetreatSupplyPlanFor(army.Id, isFleet: false));
+        }
+        finally
+        {
+            foreach (var file in new[] { input, output, script })
+                if (File.Exists(file)) File.Delete(file);
+            if (Directory.Exists(directory)) Directory.Delete(directory);
+        }
     }
 }

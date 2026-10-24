@@ -3,9 +3,11 @@ using IC2.Engine.Core;
 using IC2.Engine.Model;
 using IC2.Engine.Naval;
 using IC2.Engine.Presentation;
+using IC2.Engine.Serialization;
 using IC2.Engine.Tests.Import;
 using IC2.Slice.UI;
 using Xunit;
+using ModelTestPaths = IC2.Engine.Tests.Model.TestPaths;
 
 namespace IC2.Engine.Tests.Ui;
 
@@ -228,5 +230,29 @@ public sealed class RetreatSupplyPlannerTests
         var decision = Plan(state, army);
         Assert.True(decision.AtProvider);
         Assert.Null(decision.CommandLine);
+    }
+
+    [Fact]
+    public void Italy_uses_its_own_world_and_towns_without_classical_ids()
+    {
+        var resolved = GameDataRepository.Load(ModelTestPaths.DataRoot).Resolve("italy-500bc");
+        var initial = GameStateFactory.CreateInitial(resolved.World, resolved.Ruleset, resolved.Scenario);
+        var actor = initial.Armies.First(a => !a.IsEmbarked && a.TotalTroops > 0
+            && initial.Cities.Any(c => c.Owner == a.Nation)) with { SupplyTons = 0, Moves = 5 };
+        var state = initial with
+        {
+            ActiveSeatIndex = Array.IndexOf(initial.TurnOrder.ToArray(), actor.Nation),
+            Armies = ValueList.Of(actor),
+            Fleets = ValueList<FleetState>.Empty,
+            Cities = ValueList.From(initial.Cities.Select(c => c.Owner == actor.Nation
+                ? c with { SupplyTons = 1_000 } : c)),
+            Nations = ValueList.From(initial.Nations.Select(n => n.Id == actor.Nation
+                ? n with { Control = SeatControl.Human } : n)),
+        };
+        var decision = RetreatSupplyPlanner.Next(state, resolved.World, resolved.Ruleset,
+            new UserSettings(), new RetreatSupplyPlan(actor.Id, actor.Nation, IsFleet: false));
+        Assert.False(decision.Cancel, decision.Reason);
+        Assert.Contains(state.Cities, city => city.Id == decision.DestinationCityId
+            && city.Owner == actor.Nation);
     }
 }
