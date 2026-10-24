@@ -1019,6 +1019,7 @@ public sealed partial class GameSession
         LastStrategicTimeline = StrategicTravelBatch.Empty;
         State = save.State;
         ArmyTravelTargets = save.ArmyTravelTargets ?? ValueList<ArmyTravelTarget>.Empty;
+        RetreatSupplyPlans = save.RetreatSupplyPlans ?? ValueList<RetreatSupplyPlan>.Empty;
 
         var humanNationIds = State.Nations
             .Where(n => n.Control == SeatControl.Human)
@@ -1349,6 +1350,30 @@ public sealed partial class GameSession
     {
         if (TravelTargetFor(armyId) is null) return false;
         ArmyTravelTargets = ValueList.From(ArmyTravelTargets.Where(target => target.ArmyId != armyId));
+        return true;
+    }
+
+    /// <summary>Per-unit recovery modes saved with this campaign, never global settings.</summary>
+    public ValueList<RetreatSupplyPlan> RetreatSupplyPlans { get; private set; } = ValueList<RetreatSupplyPlan>.Empty;
+
+    public RetreatSupplyPlan? RetreatSupplyPlanFor(string unitId, bool isFleet) =>
+        RetreatSupplyPlans.FirstOrDefault(plan => plan.UnitId == unitId && plan.IsFleet == isFleet);
+
+    public void SetRetreatSupplyPlan(RetreatSupplyPlan plan)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        if (!plan.IsFleet && TravelTargetFor(plan.UnitId) is not null)
+            throw new InvalidOperationException("Confirm replacement of the army's fixed travel target first.");
+        RetreatSupplyPlans = ValueList.From(RetreatSupplyPlans
+            .Where(existing => existing.UnitId != plan.UnitId || existing.IsFleet != plan.IsFleet)
+            .Append(plan));
+    }
+
+    public bool ClearRetreatSupplyPlan(string unitId, bool isFleet)
+    {
+        if (RetreatSupplyPlanFor(unitId, isFleet) is null) return false;
+        RetreatSupplyPlans = ValueList.From(RetreatSupplyPlans
+            .Where(plan => plan.UnitId != unitId || plan.IsFleet != isFleet));
         return true;
     }
 
