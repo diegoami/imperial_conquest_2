@@ -33,6 +33,13 @@ public partial class EndTurnBoxCheck : Control
             CheckArmyTravelTargetControls();
             CheckArmyTravelContinuesAcrossTurns();
             CheckArmyTravelHotseatIsolation();
+            CheckRetreatSupplyControlsAndEndTurn();
+            CheckRetreatFleetSupplyAndRepair();
+            CheckRetreatDangerCancelsBeforeCommands();
+            CheckRetreatSplitSuggestionDoesNotAutoSplit();
+            CheckRetreatReplacesFixedTargetOnlyAfterConfirmation();
+            CheckRetreatHotseatIsolation();
+            CheckRetreatContinuesToAnotherTown();
         }
         catch (Exception ex)
         {
@@ -477,6 +484,265 @@ public partial class EndTurnBoxCheck : Control
                 "north's confirmed turn leaves the next hotseat nation's army target untouched");
         }
         finally { RemoveMainGame(mainGame); }
+    }
+
+    private void CheckRetreatSupplyControlsAndEndTurn()
+    {
+        SettingsScreen.Commit(new UserSettings());
+        var session = BuildAutoSession(warning: true);
+        var army = session.State.ArmyById("north-land-warning")!;
+        var mainGame = AddMainGame(session);
+        try
+        {
+            var commands = new List<string>();
+            mainGame.CommandIssued += lines => commands.Add(lines.FirstOrDefault() ?? string.Empty);
+            mainGame.SelectArmyForCheck(army.Id);
+            Check(mainGame.RetreatSupplyButtonForCheck.Visible,
+                "a selected owned army shows the Retreat and supply control");
+            mainGame.RetreatSupplyButtonForCheck.EmitSignal(Button.SignalName.Pressed);
+            Check(session.RetreatSupplyPlanFor(army.Id, isFleet: false) is not null
+                  && mainGame.RetreatSupplyStatusForCheck.Contains(army.Id, StringComparison.Ordinal)
+                  && commands.Count == 0,
+                "enabling per-army recovery stores a visible campaign plan without a command");
+            mainGame.MenuBar.PressItemForCheck("game.end_turn");
+            Check(mainGame.ActiveOverlay is EndTurnBox && commands.Count == 0,
+                "Retreat and supply waits for End turn confirmation");
+            ((EndTurnBox)mainGame.ActiveOverlay!).EndTurnButton.EmitSignal(Button.SignalName.Pressed);
+            DismissOfferNotices(mainGame);
+            var buy = commands.FindIndex(line => line.StartsWith("> buy ", StringComparison.Ordinal));
+            var money = commands.FindIndex(line => line.StartsWith("> transfer-money ", StringComparison.Ordinal));
+            Check(buy >= 0 && money > buy && commands[^1].StartsWith("> end", StringComparison.Ordinal)
+                  && session.RetreatSupplyPlanFor(army.Id, isFleet: false) is null,
+                $"recovery uses ordinary supply/funding before one end and clears at full supplies ({string.Join(" | ", commands)})");
+            Check(mainGame.LastMessageForCheck.Contains("Retreat and supply:", StringComparison.Ordinal),
+                "the confirmed turn reports recovery results");
+        }
+        finally
+        {
+            RemoveMainGame(mainGame);
+            SettingsScreen.Commit(new UserSettings());
+        }
+    }
+
+    private void CheckRetreatFleetSupplyAndRepair()
+    {
+        SettingsScreen.Commit(new UserSettings());
+        var session = BuildFleetAutoSession();
+        var fleetId = "north-fleet-1";
+        var mainGame = AddMainGame(session);
+        try
+        {
+            var commands = new List<string>();
+            mainGame.CommandIssued += lines => commands.Add(lines.FirstOrDefault() ?? string.Empty);
+            mainGame.SelectFleetForCheck(fleetId);
+            mainGame.RetreatSupplyButtonForCheck.EmitSignal(Button.SignalName.Pressed);
+            Check(session.RetreatSupplyPlanFor(fleetId, isFleet: true) is not null && commands.Count == 0,
+                "a launched fleet can enter recovery without issuing a command");
+            mainGame.MenuBar.PressItemForCheck("game.end_turn");
+            if (mainGame.ActiveOverlay is EndTurnBox box) box.EndTurnButton.EmitSignal(Button.SignalName.Pressed);
+            DismissOfferNotices(mainGame);
+            var supply = commands.FindIndex(line => line.StartsWith("> buy-fleet-supply ", StringComparison.Ordinal));
+            var repair = commands.FindIndex(line => line.StartsWith("> repair-fleet ", StringComparison.Ordinal));
+            Check(supply >= 0 && repair > supply && commands[^1].StartsWith("> end", StringComparison.Ordinal)
+                  && session.RetreatSupplyPlanFor(fleetId, isFleet: true) is null
+                  && session.State.FleetById(fleetId) is { } recovered
+                  && recovered.ConditionPercent == session.Ruleset.Naval.MaxConditionPercent,
+                $"fleet recovery supplies and repairs through ordinary commands before one end ({string.Join(" | ", commands)})");
+        }
+        finally
+        {
+            RemoveMainGame(mainGame);
+            SettingsScreen.Commit(new UserSettings());
+        }
+    }
+
+    private void CheckRetreatDangerCancelsBeforeCommands()
+    {
+        SettingsScreen.Commit(new UserSettings());
+        var source = BuildAutoSession(warning: true);
+        var state = source.State;
+        var enemy = state.Fleets.Single(f => f.Id == "north-fleet-1") with
+        {
+            Id = "south-threat", Nation = "south", X = 0, Y = 3,
+            ConstructionTicksRemaining = null, CarriedArmyId = null,
+        };
+        state = state with
+        {
+            Fleets = ValueList.From(state.Fleets.Append(enemy)),
+            Relations = state.Relations.WithRelation("north", "south", source.Ruleset.Diplomacy.StateCodes.War),
+        };
+        var save = new SaveGame(state.SchemaVersion, "recovery-danger", "recovery-danger",
+            state.ScenarioId, state.WorldId, state.RulesetId, state);
+        var session = new GameSession(source.World, source.Ruleset, source.Scenario, save);
+        session.SetRetreatSupplyPlan(new RetreatSupplyPlan("north-land-warning", "north", IsFleet: false));
+        var mainGame = AddMainGame(session);
+        try
+        {
+            var commands = new List<string>();
+            mainGame.CommandIssued += lines => commands.Add(lines.FirstOrDefault() ?? string.Empty);
+            mainGame.MenuBar.PressItemForCheck("game.end_turn");
+            if (mainGame.ActiveOverlay is EndTurnBox box) box.EndTurnButton.EmitSignal(Button.SignalName.Pressed);
+            DismissOfferNotices(mainGame);
+            Check(session.RetreatSupplyPlanFor("north-land-warning", isFleet: false) is null
+                  && commands.All(line => !line.StartsWith("> buy ", StringComparison.Ordinal))
+                  && mainGame.LastMessageForCheck.Contains("enemy fleet", StringComparison.Ordinal),
+                "a nearby enemy fleet cancels recovery before any supply command");
+        }
+        finally
+        {
+            RemoveMainGame(mainGame);
+            SettingsScreen.Commit(new UserSettings());
+        }
+    }
+
+    private void CheckRetreatSplitSuggestionDoesNotAutoSplit()
+    {
+        var source = BuildAutoSession(warning: true);
+        var army = source.State.ArmyById("north-land-warning")!;
+        var first = army.Units[0] with { Troops = 25_000, Name = "First" };
+        var second = army.Units[0] with { Troops = 25_000, Name = "Second" };
+        var state = source.State with
+        {
+            Armies = ValueList.From(source.State.Armies.Select(a => a.Id == army.Id
+                ? a with { Units = ValueList.Of(first, second) } : a)),
+        };
+        var save = new SaveGame(state.SchemaVersion, "recovery-split", "recovery-split",
+            state.ScenarioId, state.WorldId, state.RulesetId, state);
+        var session = new GameSession(source.World, source.Ruleset, source.Scenario, save);
+        session.SetRetreatSupplyPlan(new RetreatSupplyPlan(army.Id, army.Nation, IsFleet: false));
+        var mainGame = AddMainGame(session);
+        try
+        {
+            var commands = new List<string>();
+            mainGame.CommandIssued += lines => commands.Add(lines.FirstOrDefault() ?? string.Empty);
+            mainGame.SelectArmyForCheck(army.Id);
+            Check(mainGame.RetreatSplitButtonForCheck.Visible,
+                "a multi-unit recovery army shows the split suggestion control");
+            mainGame.RetreatSplitButtonForCheck.EmitSignal(Button.SignalName.Pressed);
+            Check(mainGame.ActiveOverlay is SplitArmyDialog split
+                  && split.NewArmyListForCheck.ItemCount > 0
+                  && !string.IsNullOrEmpty(split.StrengthTextForCheck),
+                "split suggestion opens an editable strength-balanced dialog");
+            if (mainGame.ActiveOverlay is SplitArmyDialog dialog) dialog.CancelForCheck();
+            Check(commands.Count == 0 && session.RetreatSupplyPlanFor(army.Id, isFleet: false) is not null,
+                "cancelling the suggested split issues no command and keeps recovery active");
+            var destination = FreeLandNeighbour(session, army);
+            mainGame.SubmitForCheck($"move {army.Id} {destination.X} {destination.Y}");
+            Check(session.RetreatSupplyPlanFor(army.Id, isFleet: false) is null,
+                "a manual move attempt cancels recovery for that army");
+        }
+        finally { RemoveMainGame(mainGame); }
+    }
+
+    private void CheckRetreatReplacesFixedTargetOnlyAfterConfirmation()
+    {
+        var session = BuildSession(warning: true);
+        var army = session.State.ArmyById("north-land-warning")!;
+        var destination = FreeLandNeighbour(session, army);
+        session.SetArmyTravelTarget(new ArmyTravelTarget(army.Id, army.Nation,
+            destination.X, destination.Y));
+        var mainGame = AddMainGame(session);
+        try
+        {
+            var commands = 0;
+            mainGame.CommandIssued += _ => commands++;
+            mainGame.SelectArmyForCheck(army.Id);
+            mainGame.RetreatSupplyButtonForCheck.EmitSignal(Button.SignalName.Pressed);
+            Check(mainGame.ActiveOverlay is ConfirmPrompt
+                  && session.TravelTargetFor(army.Id) is not null
+                  && session.RetreatSupplyPlanFor(army.Id, isFleet: false) is null,
+                "a fixed target triggers an explicit recovery replacement prompt");
+            if (mainGame.ActiveOverlay is ConfirmPrompt no) no.AnswerForCheck(yes: false);
+            Check(session.TravelTargetFor(army.Id) is not null && commands == 0,
+                "No keeps the original travel target without issuing a command");
+            mainGame.RetreatSupplyButtonForCheck.EmitSignal(Button.SignalName.Pressed);
+            if (mainGame.ActiveOverlay is ConfirmPrompt yes) yes.AnswerForCheck(yes: true);
+            Check(session.TravelTargetFor(army.Id) is null
+                  && session.RetreatSupplyPlanFor(army.Id, isFleet: false) is not null
+                  && commands == 0,
+                "Yes replaces the fixed target with the per-unit recovery mode without a command");
+        }
+        finally { RemoveMainGame(mainGame); }
+    }
+
+    private void CheckRetreatHotseatIsolation()
+    {
+        var session = BuildAutoSession(warning: true, hotseat: true);
+        var plan = new RetreatSupplyPlan("south-auto", "south", IsFleet: false);
+        session.SetRetreatSupplyPlan(plan);
+        var mainGame = AddMainGame(session);
+        try
+        {
+            var commands = new List<string>();
+            mainGame.CommandIssued += lines => commands.Add(lines.FirstOrDefault() ?? string.Empty);
+            mainGame.MenuBar.PressItemForCheck("game.end_turn");
+            if (mainGame.ActiveOverlay is EndTurnBox box) box.EndTurnButton.EmitSignal(Button.SignalName.Pressed);
+            DismissOfferNotices(mainGame);
+            Check(session.RetreatSupplyPlanFor(plan.UnitId, isFleet: false) == plan
+                  && commands.All(line => !line.Contains(plan.UnitId, StringComparison.Ordinal)),
+                "north's turn leaves the next human seat's recovery plan and unit untouched");
+        }
+        finally { RemoveMainGame(mainGame); }
+    }
+
+    private void CheckRetreatContinuesToAnotherTown()
+    {
+        SettingsScreen.Commit(new UserSettings());
+        var source = BuildAutoSession(warning: true);
+        var state = source.State with
+        {
+            Armies = ValueList.From(source.State.Armies.Select(a => a.Id == "north-land-warning"
+                ? a with { Moves = 1, SupplyTons = 0 } : a)),
+            Fleets = ValueList.From(source.State.Fleets.Select(f => f.Id == "north-fleet-1"
+                ? f with { SupplyTons = 0 } : f)),
+            Cities = ValueList.From(source.State.Cities.Select(c => c.Id == "arx"
+                ? c with { SupplyTons = 20 }
+                : c.Id == "portus" ? c with { SupplyTons = 5_000 } : c)),
+        };
+        var save = new SaveGame(state.SchemaVersion, "recovery-two-towns", "recovery-two-towns",
+            state.ScenarioId, state.WorldId, state.RulesetId, state);
+        var session = new GameSession(source.World, source.Ruleset, source.Scenario, save);
+        var armyId = "north-land-warning";
+        session.SetRetreatSupplyPlan(new RetreatSupplyPlan(armyId, "north", IsFleet: false));
+        var mainGame = AddMainGame(session);
+        try
+        {
+            var commands = new List<string>();
+            var maxSupplyAfterBuy = 0;
+            mainGame.CommandIssued += lines =>
+            {
+                var line = lines.FirstOrDefault() ?? string.Empty;
+                commands.Add(line);
+                if (line.StartsWith($"> buy {armyId} ", StringComparison.Ordinal))
+                    maxSupplyAfterBuy = Math.Max(maxSupplyAfterBuy,
+                        session.State.ArmyById(armyId)?.SupplyTons ?? 0);
+            };
+            for (var turn = 0; turn < 6 && session.RetreatSupplyPlanFor(armyId, isFleet: false) is not null; turn++)
+            {
+                var first = commands.Count;
+                mainGame.MenuBar.PressItemForCheck("game.end_turn");
+                if (mainGame.ActiveOverlay is EndTurnBox box) box.EndTurnButton.EmitSignal(Button.SignalName.Pressed);
+                DismissOfferNotices(mainGame);
+                var thisTurn = commands.Skip(first).ToArray();
+                Check(thisTurn.Count(line => line.StartsWith($"> move {armyId} ", StringComparison.Ordinal)) <= 1,
+                    $"recovery issues at most one army move on turn {turn + 1}");
+                if (turn == 0)
+                    Check(thisTurn.Any(line => line.StartsWith($"> buy {armyId} arx ", StringComparison.Ordinal))
+                          && session.RetreatSupplyPlanFor(armyId, isFleet: false)?.DestinationCityId == "portus",
+                        "the first turn consumes Arx's limited stock then targets Portus");
+            }
+            var capacity = IC2.Engine.Economy.SupplyCapacity.ArmyDialogCapacityTons(
+                session.State.ArmyById(armyId)!.TotalTroops, session.Ruleset);
+            Check(session.RetreatSupplyPlanFor(armyId, isFleet: false) is null
+                  && maxSupplyAfterBuy >= capacity,
+                $"the army reaches another owned town and fills before End turn's normal consumption "
+                + $"(saw {maxSupplyAfterBuy}/{capacity}; commands {string.Join(" | ", commands)})");
+        }
+        finally
+        {
+            RemoveMainGame(mainGame);
+            SettingsScreen.Commit(new UserSettings());
+        }
     }
 
     private static (int X, int Y) FreeLandRun(GameSession session, ArmyState army)

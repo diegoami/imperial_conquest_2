@@ -1,6 +1,7 @@
 using IC2.Engine.Economy;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
+using IC2.Engine.Naval;
 using IC2.Engine.Presentation;
 using IC2.Engine.Tests.Import;
 using IC2.Slice.UI;
@@ -120,12 +121,14 @@ public sealed class RetreatSupplyPlannerTests
     [Fact]
     public void Fleet_requires_full_condition_and_can_repair_without_moves_or_town_supply()
     {
-        var (state, army, capital, _, _) = ArmyStateAt();
+        var (state, army, _, _, _) = ArmyStateAt();
         var initial = GameStateFactory.CreateInitial(RealGameData.World, RealGameData.Ruleset,
             RealGameData.Scenario);
+        var coastal = initial.Cities.First(c => c.Owner == army.Nation
+            && CoastalCity.IsCoastal(c, RealGameData.World)) with { SupplyTons = 0 };
         var fleet = initial.Fleets[0] with
         {
-            Id = "recovery-fleet", Nation = army.Nation, X = capital.X + 1, Y = capital.Y,
+            Id = "recovery-fleet", Nation = army.Nation, X = coastal.X + 1, Y = coastal.Y,
             ConstructionTicksRemaining = null, CarriedArmyId = null, Moves = 0,
             ConditionPercent = 90,
         };
@@ -136,7 +139,7 @@ public sealed class RetreatSupplyPlannerTests
         state = state with
         {
             Fleets = ValueList.Of(fleet),
-            Cities = ValueList.Of(capital with { SupplyTons = 0 }),
+            Cities = ValueList.Of(coastal),
             Nations = ValueList.From(state.Nations.Select(n => n.Id == army.Nation
                 ? n with { Treasury = 10_000 } : n)),
         };
@@ -146,7 +149,7 @@ public sealed class RetreatSupplyPlannerTests
             RealGameData.Ruleset, new UserSettings(), plan);
         Assert.True(decision.AtProvider);
         Assert.False(decision.Completed);
-        Assert.Equal(capital.Id, decision.DestinationCityId);
+        Assert.Equal(coastal.Id, decision.DestinationCityId);
         Assert.Equal(before, GameStateHash.Compute(state));
 
         state = state with { Fleets = ValueList.Of(fleet with
@@ -164,6 +167,64 @@ public sealed class RetreatSupplyPlannerTests
         var decision = Plan(state, army);
         Assert.True(decision.Cancel);
         Assert.Contains("no owned town", decision.Reason);
+        Assert.Null(decision.CommandLine);
+    }
+
+    [Fact]
+    public void A_fleet_skips_an_inland_capital_for_a_usable_coastal_town()
+    {
+        var (state, army, _, _, _) = ArmyStateAt();
+        var world = RealGameData.World;
+        var inland = state.Cities.Concat(GameStateFactory.CreateInitial(world,
+                RealGameData.Ruleset, RealGameData.Scenario).Cities)
+            .First(city => !CoastalCity.IsCoastal(city, world)) with
+        {
+            Owner = army.Nation, SupplyTons = 1_000, PopulationThousands = 1_000,
+        };
+        var coast = GameStateFactory.CreateInitial(world, RealGameData.Ruleset,
+            RealGameData.Scenario).Cities.First(city => city.Id != inland.Id
+                && CoastalCity.IsCoastal(city, world)) with
+        {
+            Owner = army.Nation, SupplyTons = 1_000, PopulationThousands = 1,
+        };
+        var fleet = GameStateFactory.CreateInitial(world, RealGameData.Ruleset,
+            RealGameData.Scenario).Fleets[0] with
+        {
+            Id = "coastal-recovery", Nation = army.Nation,
+            ConstructionTicksRemaining = null, CarriedArmyId = null,
+            SupplyTons = 0, ConditionPercent = 100, Moves = 5,
+        };
+        state = state with
+        {
+            Cities = ValueList.Of(inland, coast),
+            Fleets = ValueList.Of(fleet),
+            Nations = ValueList.From(state.Nations.Select(n => n.Id == army.Nation
+                ? n with { CapitalCityId = inland.Id } : n)),
+        };
+        var decision = RetreatSupplyPlanner.Next(state, world, RealGameData.Ruleset,
+            new UserSettings(), new RetreatSupplyPlan(fleet.Id, fleet.Nation, IsFleet: true));
+        Assert.Equal(coast.Id, decision.DestinationCityId);
+    }
+
+    [Fact]
+    public void An_adjacent_owned_fleet_can_supply_an_army_before_it_seeks_another_town()
+    {
+        var (state, army, capital, large, near) = ArmyStateAt();
+        var template = GameStateFactory.CreateInitial(RealGameData.World, RealGameData.Ruleset,
+            RealGameData.Scenario).Fleets[0];
+        var provider = template with
+        {
+            Id = "provider", Nation = army.Nation, X = army.X + 1, Y = army.Y,
+            ConstructionTicksRemaining = null, CarriedArmyId = null, SupplyTons = 100,
+        };
+        state = state with
+        {
+            Fleets = ValueList.Of(provider),
+            Cities = ValueList.Of(capital with { SupplyTons = 0 },
+                large with { SupplyTons = 0 }, near with { SupplyTons = 0 }),
+        };
+        var decision = Plan(state, army);
+        Assert.True(decision.AtProvider);
         Assert.Null(decision.CommandLine);
     }
 }

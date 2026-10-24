@@ -146,6 +146,9 @@ public partial class MainGameScreen : Control
 
     /// <summary>T112: the Unit map's context strip. Exposed for <c>godot/Checks/FleetCityOrdersCheck.cs</c>.</summary>
     public UnitCommandStrip CommandStrip => _commandStrip;
+    public Button RetreatSupplyButtonForCheck => _retreatSupplyButton;
+    public Button RetreatSplitButtonForCheck => _retreatSplitButton;
+    public string RetreatSupplyStatusForCheck => _retreatSupplyLabel.Text;
 
     /// <summary>T110: the overview mini-map, with its highlight layer. Exposed so
     /// <c>godot/Checks/NationsAreaMapCheck.cs</c> can read the highlight set.</summary>
@@ -253,6 +256,10 @@ public partial class MainGameScreen : Control
     // T112: the Unit map's context strip, placed below the main toolbar.
     private UnitCommandStrip _commandStrip = null!;
     private Label _travelTargetLabel = null!;
+    private HBoxContainer _retreatSupplyRow = null!;
+    private Label _retreatSupplyLabel = null!;
+    private Button _retreatSupplyButton = null!;
+    private Button _retreatSplitButton = null!;
 
     // T149: the cue player, built once in _Ready, parented to the root, and wired to one
     // subscription on Session.EventsPublished (below). The only Owns slice this screen carries
@@ -310,6 +317,18 @@ public partial class MainGameScreen : Control
         var travelTargetRow = new HBoxContainer();
         travelTargetRow.AddChild(_travelTargetLabel);
         root.AddChild(travelTargetRow);
+
+        _retreatSupplyRow = new HBoxContainer();
+        _retreatSupplyLabel = UiKit.MakeLabel(string.Empty, AppTheme.Note, UiKit.MutedTextColor);
+        _retreatSupplyLabel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _retreatSupplyRow.AddChild(_retreatSupplyLabel);
+        _retreatSupplyButton = new Button { FocusMode = FocusModeEnum.None };
+        _retreatSupplyButton.Pressed += ToggleRetreatSupplyMode;
+        _retreatSupplyRow.AddChild(_retreatSupplyButton);
+        _retreatSplitButton = new Button { Text = "Suggest split", FocusMode = FocusModeEnum.None };
+        _retreatSplitButton.Pressed += () => OpenSplitArmyDialog(suggestBalanced: true);
+        _retreatSupplyRow.AddChild(_retreatSplitButton);
+        root.AddChild(_retreatSupplyRow);
 
         root.AddChild(BuildTopBar());
 
@@ -1686,7 +1705,7 @@ public partial class MainGameScreen : Control
         _commandStrip.SetSelection(selection);
         if (_travelTargetLabel is null) return;
         var target = _selectedArmyId is { } selected ? Session.TravelTargetFor(selected) : null;
-        var current = _selectedArmyId is { } selectedArmy ? Session.State.ArmyById(selectedArmy) : null;
+        var current = _selectedArmyId is { } selectedArmyId ? Session.State.ArmyById(selectedArmyId) : null;
         var remaining = target is null || current is null ? 0
             : Math.Max(0, Math.Max(Math.Abs(current.X - target.X), Math.Abs(current.Y - target.Y))
                 - (target.CityId is null ? 0 : 1));
@@ -1695,6 +1714,63 @@ public partial class MainGameScreen : Control
             ? "Travel target: click an open land cell or city; right-click or Esc to cancel."
             : target is null ? string.Empty
             : $"Travel target for {target.ArmyId}: {(target.CityId is null ? $"cell ({target.X}, {target.Y})" : $"city {target.CityId}")} · {remaining} cells away. Use Army → Cancel travel target to stop.";
+
+        var selectedArmy = OwnSelectedArmy();
+        var selectedFleet = selectedArmy is null || selectedArmy.IsEmbarked ? OwnSelectedFleet() : null;
+        var selectedUnit = selectedArmy is { IsEmbarked: false } ? selectedArmy.Id : selectedFleet?.Id;
+        var isFleet = selectedArmy is null || selectedArmy.IsEmbarked;
+        var recovery = selectedUnit is null ? null : Session.RetreatSupplyPlanFor(selectedUnit, isFleet);
+        _retreatSupplyRow.Visible = selectedUnit is not null;
+        _retreatSupplyButton.Text = recovery is null ? "Retreat and supply" : "Cancel recovery";
+        _retreatSupplyLabel.Text = recovery is null ? string.Empty
+            : $"Recovering {selectedUnit}" + (recovery.DestinationCityId is null
+                ? ": choosing an owned town." : $": heading to {recovery.DestinationCityId}.");
+        _retreatSplitButton.Visible = recovery is { IsFleet: false }
+            && selectedArmy is { IsEmbarked: false } && selectedArmy.Units.Count >= 2;
+    }
+
+    private void ToggleRetreatSupplyMode()
+    {
+        var army = OwnSelectedArmy();
+        var fleet = army is null || army.IsEmbarked ? OwnSelectedFleet() : null;
+        var unitId = army is { IsEmbarked: false } ? army.Id : fleet?.Id;
+        var isFleet = army is null || army.IsEmbarked;
+        if (unitId is null || fleet is { IsUnderConstruction: true })
+        {
+            ShowScreenMessage("Select one of your unembarked armies or launched fleets first.");
+            return;
+        }
+        if (Session.ClearRetreatSupplyPlan(unitId, isFleet))
+        {
+            UpdateCommandStrip();
+            ShowScreenMessage($"Retreat and supply cancelled for {unitId}.");
+            return;
+        }
+
+        void Enable()
+        {
+            Session.SetRetreatSupplyPlan(new RetreatSupplyPlan(unitId, Session.State.ActiveNationId, isFleet));
+            UpdateCommandStrip();
+            ShowScreenMessage($"Retreat and supply enabled for {unitId}; it will act before End turn.");
+        }
+
+        if (!isFleet && Session.TravelTargetFor(unitId) is not null)
+        {
+            var prompt = new ConfirmPrompt
+            {
+                Question = $"Replace {unitId}'s fixed travel target with Retreat and supply?",
+            };
+            prompt.Confirmed += () =>
+            {
+                CloseOverlay(prompt);
+                Session.ClearArmyTravelTarget(unitId);
+                Enable();
+            };
+            prompt.Refused += () => CloseOverlay(prompt);
+            ShowOverlay(prompt);
+            return;
+        }
+        Enable();
     }
 
     private void ArmArmyTravelTarget()
@@ -1714,9 +1790,29 @@ public partial class MainGameScreen : Control
     {
         var army = OwnSelectedArmy();
         if (army is null || army.IsEmbarked) return;
-        Session.SetArmyTravelTarget(new ArmyTravelTarget(army.Id, army.Nation, x, y, cityId));
-        UpdateCommandStrip();
-        ShowScreenMessage($"Travel target set for {army.Id}.");
+        void SetTarget()
+        {
+            Session.SetArmyTravelTarget(new ArmyTravelTarget(army.Id, army.Nation, x, y, cityId));
+            UpdateCommandStrip();
+            ShowScreenMessage($"Travel target set for {army.Id}.");
+        }
+        if (Session.RetreatSupplyPlanFor(army.Id, isFleet: false) is null)
+        {
+            SetTarget();
+            return;
+        }
+        var prompt = new ConfirmPrompt
+        {
+            Question = $"Replace {army.Id}'s Retreat and supply mode with a fixed travel target?",
+        };
+        prompt.Confirmed += () =>
+        {
+            CloseOverlay(prompt);
+            Session.ClearRetreatSupplyPlan(army.Id, isFleet: false);
+            SetTarget();
+        };
+        prompt.Refused += () => CloseOverlay(prompt);
+        ShowOverlay(prompt);
     }
 
     private void CancelArmyTravelTarget()
@@ -1876,7 +1972,7 @@ public partial class MainGameScreen : Control
     private void SubmitConfirmedEndTurn()
     {
         var summaries = new[] { RunAutoMobilize(), RunAutoRecruit(), RunArmyTravelTargets(),
-                RunArmyAutoSupport(), RunFleetAutoSupport() }
+                RunRetreatSupplyPlans(), RunArmyAutoSupport(), RunFleetAutoSupport() }
             .Where(s => !string.IsNullOrEmpty(s)).ToArray();
         SubmitForCheck("end");
         if (summaries.Length > 0) ShowScreenMessage(string.Join("\n", summaries));
@@ -1952,6 +2048,7 @@ public partial class MainGameScreen : Control
     }
 
     private bool _runningArmyTravel;
+    private bool _runningRetreatSupply;
 
     private string? RunArmyTravelTargets()
     {
@@ -1969,6 +2066,12 @@ public partial class MainGameScreen : Control
         {
             var target = targets.FirstOrDefault(t => t.ArmyId == armyId);
             if (target is null || target.NationId != nationId) continue;
+            if (Session.RetreatSupplyPlanFor(armyId, isFleet: false) is not null)
+            {
+                Session.ClearArmyTravelTarget(armyId);
+                stopped.Add($"{armyId}: conflicting fixed target cleared for Retreat and supply");
+                continue;
+            }
             var decision = ArmyTravelPlanner.ForTarget(Session.State, Session.World, Session.Ruleset, target);
             if (decision.WaitForMoves) { waiting++; continue; }
             if (decision.Arrived)
@@ -2013,6 +2116,175 @@ public partial class MainGameScreen : Control
         UpdateCommandStrip();
         var line = $"Army targets: {moved} moved, {arrived} arrived, {waiting} waiting.";
         return stopped.Count == 0 ? line : line + " Stopped: " + string.Join("; ", stopped);
+    }
+
+    private string? RunRetreatSupplyPlans()
+    {
+        if (Session.RetreatSupplyPlans.Count == 0) return null;
+        var nationId = Session.State.ActiveNationId;
+        if (Session.State.NationById(nationId)?.Control != SeatControl.Human) return null;
+        var settings = SettingsScreen.Current.Normalized();
+        var planned = Session.RetreatSupplyPlans.ToArray();
+        var ordered = Session.State.Armies.Select(a => (a.Id, IsFleet: false))
+            .Concat(Session.State.Fleets.Select(f => (f.Id, IsFleet: true)))
+            .Concat(planned.Select(p => (p.UnitId, p.IsFleet))).Distinct().ToArray();
+        var summaries = new List<string>();
+        _runningRetreatSupply = true;
+        try
+        {
+            foreach (var (unitId, isFleet) in ordered)
+            {
+                var plan = planned.FirstOrDefault(p => p.UnitId == unitId && p.IsFleet == isFleet);
+                if (plan is null || plan.NationId != nationId) continue;
+                var summary = new List<string>();
+                var decision = RetreatSupplyPlanner.Next(Session.State, Session.World,
+                    Session.Ruleset, settings, plan);
+                if (decision.Cancel || decision.Completed)
+                {
+                    Session.ClearRetreatSupplyPlan(unitId, isFleet);
+                    summaries.Add($"{unitId}: {(decision.Completed ? "fully recovered" : decision.Reason)}");
+                    continue;
+                }
+
+                if (decision.AtProvider)
+                {
+                    var gained = ApplyRecoverySupport(plan, decision.DestinationCityId, settings, summary);
+                    decision = RetreatSupplyPlanner.Next(Session.State, Session.World,
+                        Session.Ruleset, settings, plan);
+                    if (!gained && decision.AtProvider)
+                    {
+                        Session.ClearRetreatSupplyPlan(unitId, isFleet);
+                        summaries.Add($"{unitId}: provider could not improve recovery");
+                        continue;
+                    }
+                }
+
+                if (decision.CommandLine is { } line)
+                {
+                    var beforeX = isFleet ? Session.State.FleetById(unitId)?.X : Session.State.ArmyById(unitId)?.X;
+                    var beforeY = isFleet ? Session.State.FleetById(unitId)?.Y : Session.State.ArmyById(unitId)?.Y;
+                    var response = SubmitForCheck(line);
+                    if (StrategicTravel.IsActive) StrategicTravel.Skip();
+                    var afterX = isFleet ? Session.State.FleetById(unitId)?.X : Session.State.ArmyById(unitId)?.X;
+                    var afterY = isFleet ? Session.State.FleetById(unitId)?.Y : Session.State.ArmyById(unitId)?.Y;
+                    if (afterX is null || afterX == beforeX && afterY == beforeY)
+                    {
+                        Session.ClearRetreatSupplyPlan(unitId, isFleet);
+                        summary.Add(AutoRefusalText(response, "route blocked or no progress"));
+                    }
+                    else
+                    {
+                        summary.Add($"moved toward {decision.DestinationCityId} ({afterX},{afterY})");
+                        plan = plan with { DestinationCityId = decision.DestinationCityId };
+                        Session.SetRetreatSupplyPlan(plan);
+                        decision = RetreatSupplyPlanner.Next(Session.State, Session.World,
+                            Session.Ruleset, settings, plan);
+                        if (decision.AtProvider)
+                        {
+                            ApplyRecoverySupport(plan, decision.DestinationCityId, settings, summary);
+                            decision = RetreatSupplyPlanner.Next(Session.State, Session.World,
+                                Session.Ruleset, settings, plan);
+                        }
+                    }
+                }
+
+                if (Session.RetreatSupplyPlanFor(unitId, isFleet) is not null)
+                {
+                    if (decision.Cancel || decision.Completed)
+                    {
+                        Session.ClearRetreatSupplyPlan(unitId, isFleet);
+                        summary.Add(decision.Completed ? "fully recovered" : decision.Reason ?? "stopped");
+                    }
+                    else
+                    {
+                        Session.SetRetreatSupplyPlan(plan with
+                            { DestinationCityId = decision.DestinationCityId ?? plan.DestinationCityId });
+                        if (decision.Waiting) summary.Add("waiting for moves");
+                        else if (decision.CommandLine is not null) summary.Add($"next: {decision.DestinationCityId}");
+                    }
+                }
+                summaries.Add($"{unitId}: {string.Join("; ", summary)}");
+            }
+        }
+        finally { _runningRetreatSupply = false; }
+        UpdateCommandStrip();
+        return summaries.Count == 0 ? null : "Retreat and supply: " + string.Join(" | ", summaries);
+    }
+
+    private bool ApplyRecoverySupport(RetreatSupplyPlan plan, string? chosenCityId,
+        UserSettings settings, List<string> summary)
+    {
+        var nationId = plan.NationId;
+        var gainedAny = false;
+        if (!plan.IsFleet && Session.State.ArmyById(plan.UnitId) is { } army)
+        {
+            var local = settings with { AutoSupplyArmies = true, AutoSupplyTargetPercent = 100,
+                AutoFundArmies = true };
+            var attempted = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var city in Session.State.Cities)
+                if (city.Id != chosenCityId) attempted.Add($"City:{city.Id}");
+            while (Session.State.ArmyById(plan.UnitId) is { } current)
+            {
+                var proposal = ArmyAutoSupportPlanner.NextSupply(Session.State, current,
+                    Session.Ruleset, local, attempted);
+                if (proposal is null) break;
+                attempted.Add(proposal.ProviderKey!);
+                var before = current.SupplyTons;
+                var response = SubmitForCheck(proposal.CommandLine);
+                var gained = Math.Max(0, (Session.State.ArmyById(plan.UnitId)?.SupplyTons ?? before) - before);
+                if (gained > 0) { gainedAny = true; summary.Add($"+{gained} t supply (0 talents)"); }
+                else summary.Add(AutoRefusalText(response, "supply refused"));
+            }
+            if (Session.State.ArmyById(plan.UnitId) is { } funded
+                && ArmyAutoSupportPlanner.Fund(Session.State, funded, Session.Ruleset, local) is { } money)
+            {
+                var before = funded.Money;
+                var treasury = Session.State.NationById(nationId)?.Treasury ?? 0;
+                var response = SubmitForCheck(money.CommandLine);
+                var gained = Math.Max(0, (Session.State.ArmyById(plan.UnitId)?.Money ?? before) - before);
+                if (gained > 0)
+                {
+                    gainedAny = true;
+                    summary.Add($"+{gained} talents (treasury -{Math.Max(0, treasury - (Session.State.NationById(nationId)?.Treasury ?? treasury))})");
+                }
+                else summary.Add(AutoRefusalText(response, "funding refused"));
+            }
+        }
+        else if (plan.IsFleet && Session.State.FleetById(plan.UnitId) is { } fleet)
+        {
+            var local = settings with { AutoSupplyFleets = true, AutoFleetSupplyTargetPercent = 100,
+                AutoRepairFleets = true, AutoFleetRepairTargetPercent = Session.Ruleset.Naval.MaxConditionPercent };
+            var attempted = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var city in Session.State.Cities)
+                if (city.Id != chosenCityId) attempted.Add(city.Id);
+            while (Session.State.FleetById(plan.UnitId) is { } current)
+            {
+                var proposal = FleetAutoSupportPlanner.NextSupply(Session.State, current,
+                    Session.Ruleset, local, attempted);
+                if (proposal is null) break;
+                attempted.Add(proposal.CityId!);
+                var before = current.SupplyTons;
+                var response = SubmitForCheck(proposal.CommandLine);
+                var gained = Math.Max(0, (Session.State.FleetById(plan.UnitId)?.SupplyTons ?? before) - before);
+                if (gained > 0) { gainedAny = true; summary.Add($"+{gained} t supply (0 talents)"); }
+                else summary.Add(AutoRefusalText(response, "fleet supply refused"));
+            }
+            if (Session.State.FleetById(plan.UnitId) is { } repairing
+                && FleetAutoSupportPlanner.Repair(Session.State, repairing, Session.Ruleset, local) is { } repair)
+            {
+                var before = repairing.ConditionPercent;
+                var treasury = Session.State.NationById(nationId)?.Treasury ?? 0;
+                var response = SubmitForCheck(repair.CommandLine);
+                var gained = Math.Max(0, (Session.State.FleetById(plan.UnitId)?.ConditionPercent ?? before) - before);
+                if (gained > 0)
+                {
+                    gainedAny = true;
+                    summary.Add($"+{gained}% condition, {Math.Max(0, treasury - (Session.State.NationById(nationId)?.Treasury ?? treasury))} talents");
+                }
+                else summary.Add(AutoRefusalText(response, "repair refused"));
+            }
+        }
+        return gainedAny;
     }
 
     private string? RunArmyAutoSupport()
@@ -2366,13 +2638,20 @@ public partial class MainGameScreen : Control
 
     private void OnCommandIssued(IReadOnlyList<string> lines)
     {
-        if (!_runningArmyTravel && lines.FirstOrDefault() is { } command)
+        if (!_runningArmyTravel && !_runningRetreatSupply && lines.FirstOrDefault() is { } command)
         {
             var parts = command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length >= 3 && parts[0] == ">"
-                && parts[1] is "move" or "attack-army" or "besiege-city" or "embark-army" or "disband-army")
+                && parts[1] is "move" or "attack-army" or "besiege-city" or "embark-army" or "disband-army" or "split-army")
             {
                 Session.ClearArmyTravelTarget(parts[2]);
+                Session.ClearRetreatSupplyPlan(parts[2], isFleet: false);
+                UpdateCommandStrip();
+            }
+            else if (parts.Length >= 3 && parts[0] == ">"
+                     && parts[1] is "move-fleet" or "attack-fleet" or "scuttle-fleet" or "split-fleet")
+            {
+                Session.ClearRetreatSupplyPlan(parts[2], isFleet: true);
                 UpdateCommandStrip();
             }
         }

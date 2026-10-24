@@ -1,6 +1,7 @@
 using System.Globalization;
 using IC2.Engine.Economy;
 using IC2.Engine.Model;
+using IC2.Engine.Naval;
 
 namespace IC2.Slice.UI;
 
@@ -46,7 +47,25 @@ public static class RetreatSupplyPlanner
         var fullCondition = fleet is null || fleet.ConditionPercent >= ruleset.Naval.MaxConditionPercent;
         if (fullSupply && fullCondition)
             return new(plan.UnitId, plan.IsFleet, null, null, Completed: true);
+        if (army is not null && !fullSupply)
+        {
+            foreach (var provider in SupplyProviders.ForArmy(state, army.Id, ruleset))
+            {
+                // Nearby army/fleet support is free before choosing a town;
+                // owned towns still follow the owner's capital/population rank.
+                if (!provider.IsFree || provider.Kind == SupplyProviderKind.City) continue;
+                var stock = provider.Kind switch
+                {
+                    SupplyProviderKind.Army => state.ArmyById(provider.Id)?.SupplyTons ?? 0,
+                    SupplyProviderKind.Fleet => state.FleetById(provider.Id)?.SupplyTons ?? 0,
+                    _ => 0,
+                };
+                if (stock > 0)
+                    return new(plan.UnitId, false, null, null, AtProvider: true);
+            }
+        }
         var usable = state.Cities.Where(city => city.Owner == plan.NationId
+            && (fleet is null || CoastalCity.IsCoastal(city, world))
             && CanService(city, army, fleet, nation, ruleset, settings, fullSupply, fullCondition)).ToArray();
         var chosen = usable.FirstOrDefault(city => city.Id == plan.DestinationCityId)
             ?? usable.OrderByDescending(city => city.Id == nation.CapitalCityId)
