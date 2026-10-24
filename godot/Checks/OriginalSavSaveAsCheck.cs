@@ -12,12 +12,24 @@ namespace IC2.Slice.Checks;
 public partial class OriginalSavSaveAsCheck : Node
 {
     private bool _ok = true;
+    private const string PrivateInput = "IC2_SAV_ACCEPTANCE_INPUT";
+    private const string PrivateTemplate = "IC2_SAV_ACCEPTANCE_TEMPLATE";
+    private const string PrivateOutput = "IC2_SAV_ACCEPTANCE_OUTPUT";
 
     public override void _Ready()
     {
         var folder = Path.Combine(Path.GetTempPath(), "ic2-t186-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
-        try { Run(folder); }
+        try
+        {
+            var input = System.Environment.GetEnvironmentVariable(PrivateInput);
+            var template = System.Environment.GetEnvironmentVariable(PrivateTemplate);
+            var output = System.Environment.GetEnvironmentVariable(PrivateOutput);
+            if (input is null && template is null && output is null) Run(folder);
+            else if (input is not null && template is not null && output is not null)
+                RunPrivateAcceptance(input, template, output);
+            else throw new InvalidOperationException("Private acceptance requires all three IC2_SAV_ACCEPTANCE_* paths.");
+        }
         catch (Exception ex) { GD.PrintErr($"FAIL OriginalSavSaveAsCheck: {ex}"); _ok = false; }
         finally { Directory.Delete(folder, recursive: true); }
         var code = _ok ? 0 : 1;
@@ -126,6 +138,30 @@ public partial class OriginalSavSaveAsCheck : Node
         battleGame.SavTemplateForCheck(template);
         Check(!File.Exists(battleOutput) && battleGame.SaveMessageForCheck.Contains("OPEN_BATTLE", StringComparison.Ordinal),
             "the real screen reports the bridge's open-battle refusal");
+    }
+
+    /// <summary>Optional local-only path: the same screen handler exports one owner save to a new private file.</summary>
+    private void RunPrivateAcceptance(string input, string template, string output)
+    {
+        if (File.Exists(output)) throw new IOException("Private acceptance output already exists.");
+        var opened = LoadGameModel.Open(input, GameDataContext.Repository, HumanBattleMode.Tactical);
+        if (opened.Session is not { } session)
+            throw new InvalidDataException(opened.Message ?? "Could not load the private native input.");
+        var before = session.State;
+        var game = new MainGameScreen { Session = session, RepositoryRoot = GameDataContext.RepositoryRoot };
+        AddChild(game);
+        game.SaveAsForCheck(output);
+        if (!game.SavTemplatePendingForCheck)
+            throw new InvalidOperationException(game.SaveMessageForCheck);
+        game.SavTemplateDialog.Visible = false;
+        game.SavTemplateForCheck(template);
+        Check(File.Exists(output), "private UI-exported SAV was written to the new destination");
+        if (!File.Exists(output)) return;
+        OriginalSaveLayout.Validate(File.ReadAllBytes(output));
+        Check(game.LastSavedPath is null && ReferenceEquals(before, session.State),
+            "private UI export left the native session and save path unchanged");
+        Check(game.SaveMessageForCheck.StartsWith("Exported original-compatible SAV", StringComparison.Ordinal),
+            "private UI export reported success");
     }
 
     private void Check(bool condition, string description)
