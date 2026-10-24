@@ -100,6 +100,9 @@ public sealed class EmbarkArmyCommandHandler : ICommandHandler<EmbarkArmyCommand
 
         if (trims)
         {
+            if (capacity <= 0)
+                return CommandOutcome.Reject(EmbarkArmyRejections.ArmyTooLarge,
+                    $"Fleet '{fleet.Id}' has no capacity for army '{army.Id}'.");
             // T216: F8FC uses the same land receiver creator as splitting an
             // army. Check the receiver before any mutation; an unmeasured
             // allocation failure is an owner-approved atomic refusal here.

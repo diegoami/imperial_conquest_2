@@ -288,6 +288,21 @@ public sealed class EmbarkArmyCommandHandlerTests
     }
 
     [Fact]
+    public void T216_a_zero_capacity_fleet_refuses_without_throwing_or_losing_troops()
+    {
+        var state = BuildState(6_000, SeatControl.Ai, out var armyId, out var fleetId, out var nationId);
+        state = state with { Fleets = ValueList.Of(state.FleetById(fleetId)! with { Ships = 0 }) };
+        var before = GameStateHash.Compute(state);
+
+        var result = DispatcherFor(SeatAsymmetryModel.Faithful)
+            .Dispatch(state, new EmbarkArmyCommand(nationId, armyId, fleetId));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(EmbarkArmyRejections.ArmyTooLarge, result.Code);
+        Assert.Equal(before, GameStateHash.Compute(result.State));
+    }
+
+    [Fact]
     public void Normalized_HumanSeat_OverCapacity_IsRefused()
     {
         var state = BuildState(Capacity + 1, SeatControl.Human, out var armyId, out var fleetId, out var nationId);
