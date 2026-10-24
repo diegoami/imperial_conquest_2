@@ -38,3 +38,4 @@ Open and recent tasks only. Merged tasks (T01–T191 and others) are in their cl
 - [T209](tasks/T209.md) —  Global Automation: mobilize ready training slots before End turn
 - [T210](tasks/T210.md) —  Global per-city auto recruit plans
 - [T211](tasks/T211.md) —  Campaign-saved multi-turn army targets
+- [T212](tasks/T212.md) —  Faithful AI army target eligibility and intermediate routing
