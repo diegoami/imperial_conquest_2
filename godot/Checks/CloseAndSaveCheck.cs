@@ -163,7 +163,9 @@ public partial class CloseAndSaveCheck : Node
             var dialog = opened.SaveAsDialog;
             Check(dialog.Access == FileDialog.AccessEnum.Filesystem, "Save As dialog reads the whole file system");
             Check(dialog.FileMode == FileDialog.FileModeEnum.SaveFile, "Save As dialog is in save mode");
-            Check(dialog.Filters.Length == 1 && dialog.Filters[0].StartsWith("*.json"), "Save As dialog filters to the native format");
+            Check(dialog.Filters.Length == 2 && dialog.Filters[0].StartsWith("*.json")
+                && dialog.Filters[1].StartsWith("*.sav"),
+                "Save As offers native JSON and original-compatible SAV filters");
             dialog.Visible = false;
 
             // R3: a path without the native extension is rejected with a message; nothing is written.
