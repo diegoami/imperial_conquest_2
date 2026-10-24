@@ -67,6 +67,15 @@ public sealed class ClassicalArmyNavigationTests
     }
 
     [Fact]
+    public void Route_rows_favor_primary_links_then_the_hub_and_keep_first_ties()
+    {
+        Assert.Equal(26, ClassicalArmyNavigation.RouteEntry(1, [26, 33], 31).NodeId);
+        Assert.Equal(31, ClassicalArmyNavigation.RouteEntry(1, [31, 33], 32).NodeId);
+        Assert.Equal(39, ClassicalArmyNavigation.RouteEntry(1, [26, 39], 36).NodeId);
+        Assert.Throws<NotSupportedException>(() => ClassicalArmyNavigation.RouteEntry(3, [55], 56));
+    }
+
+    [Fact]
     public void A_sea_wall_without_nodes_or_local_land_ray_has_no_waypoint()
     {
         var patches = new List<(int X, int Y, int Code)>();

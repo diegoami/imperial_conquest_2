@@ -132,42 +132,47 @@ public static partial class ClassicalArmyNavigation
         if (closestCommon is { } common)
             return new(Points[common], "common-visible", common);
         if (visible.Count > 0 && closestTarget is { } targetId)
-        {
-            if (group == 3)
-                throw new NotSupportedException("The original island group has no route matrix or hub.");
-            int? primary = null;
-            int? secondary = null;
-            var primaryCost = 1000;
-            var secondaryCost = 1000;
-            foreach (var entry in visible)
-            {
-                foreach (var row in Routes[group])
-                {
-                    var entryAt = LastIndex(row, entry);
-                    if (entryAt < 0) continue;
-                    var targetAt = LastIndex(row, targetId);
-                    if (targetAt >= 0 && Math.Abs(entryAt - targetAt) < primaryCost)
-                    {
-                        primary = entry;
-                        primaryCost = Math.Abs(entryAt - targetAt);
-                    }
-                    var hubAt = LastIndex(row, Hub(group));
-                    if (hubAt >= 0 && Math.Abs(entryAt - hubAt) < secondaryCost)
-                    {
-                        secondary = entry;
-                        secondaryCost = Math.Abs(entryAt - hubAt);
-                    }
-                }
-            }
-            if (primary is { } p) return new(Points[p], "route-row", p);
-            if (secondary is { } h) return new(Points[h], "route-hub", h);
-            throw new NotSupportedException("Original route-row fallback has no initialized output.");
-        }
+            return RouteEntry(group, visible, targetId);
         if (visible.Count == 0) return new(LocalFallback(view, origin), "origin-local-fallback");
         var local = LocalFallback(view, target);
         if (local is { } next && !DirectLine(view, origin, next))
             return Intermediate(view, group, origin, next, depth + 1);
         return new(local, "target-local-fallback");
+    }
+
+    /// <summary>D010: route-row separation, where any primary link beats a hub fallback.</summary>
+    public static WaypointChoice RouteEntry(int group, IReadOnlyList<int> visible, int targetId)
+    {
+        if (group == 3)
+            throw new NotSupportedException("The original island group has no route matrix or hub.");
+        if (group is < 0 or > 2) throw new ArgumentOutOfRangeException(nameof(group));
+        int? primary = null;
+        int? secondary = null;
+        var primaryCost = 1000;
+        var secondaryCost = 1000;
+        foreach (var entry in visible)
+        {
+            foreach (var row in Routes[group])
+            {
+                var entryAt = LastIndex(row, entry);
+                if (entryAt < 0) continue;
+                var targetAt = LastIndex(row, targetId);
+                if (targetAt >= 0 && Math.Abs(entryAt - targetAt) < primaryCost)
+                {
+                    primary = entry;
+                    primaryCost = Math.Abs(entryAt - targetAt);
+                }
+                var hubAt = LastIndex(row, Hub(group));
+                if (hubAt >= 0 && Math.Abs(entryAt - hubAt) < secondaryCost)
+                {
+                    secondary = entry;
+                    secondaryCost = Math.Abs(entryAt - hubAt);
+                }
+            }
+        }
+        if (primary is { } p) return new(Points[p], "route-row", p);
+        if (secondary is { } h) return new(Points[h], "route-hub", h);
+        throw new NotSupportedException("Original route-row fallback has no initialized output.");
     }
 
     private static GridPoint? LocalFallback(AiView view, GridPoint origin)
