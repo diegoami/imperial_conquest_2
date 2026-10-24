@@ -623,6 +623,13 @@ public partial class EndTurnBoxCheck : Control
                   && split.NewArmyListForCheck.ItemCount > 0
                   && !string.IsNullOrEmpty(split.StrengthTextForCheck),
                 "split suggestion opens an editable strength-balanced dialog");
+            if (mainGame.ActiveOverlay is SplitArmyDialog editable)
+            {
+                var suggested = editable.NewArmyListForCheck.ItemCount;
+                editable.UnstageUnitForCheck(0);
+                Check(editable.NewArmyListForCheck.ItemCount < suggested,
+                    "the player can fine-tune suggested whole units before confirming");
+            }
             if (mainGame.ActiveOverlay is SplitArmyDialog dialog) dialog.CancelForCheck();
             Check(commands.Count == 0 && session.RetreatSupplyPlanFor(army.Id, isFleet: false) is not null,
                 "cancelling the suggested split issues no command and keeps recovery active");
