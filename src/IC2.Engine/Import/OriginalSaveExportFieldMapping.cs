@@ -25,7 +25,7 @@ public static class OriginalSaveExportFieldMapping
         typeof(CityState), typeof(ArmyState), typeof(UnitSlot), typeof(FleetState),
         typeof(RecruitmentSlot), typeof(MercenaryPoolSlot), typeof(PendingDiplomaticOffer),
         typeof(DiplomaticRelations), typeof(NationNeighbours), typeof(RoughSeaCell),
-        typeof(NewsLog), typeof(NewsEntry), typeof(ArmyTravelTarget),
+        typeof(NewsLog), typeof(NewsEntry), typeof(ArmyTravelTarget), typeof(NationRallyPoint),
     ];
 
     public static IReadOnlyList<Type> OriginalTypes { get; } =
@@ -104,8 +104,10 @@ public static class OriginalSaveExportFieldMapping
         new(typeof(NewsLog), "MostRecentSlot", Kind.Derived, "news index", "The original index follows the number of stored lines."),
         new(typeof(NewsLog), "Slots", Kind.Written, "OriginalSaveDocument.News", "News text is written in slot order."),
         new(typeof(NewsEntry), "Text", Kind.Written, "OriginalSaveDocument.News", "Original ASCII and slot-length rules are checked."),
-        new(typeof(ArmyTravelTarget), "ArmyId NationId X Y CityId", Kind.Omitted,
-            "none", "The entire optional campaign plan is reported as omitted from original-compatible export."));
+        new(typeof(ArmyTravelTarget), "ArmyId NationId X Y CityId FromRally", Kind.Omitted,
+            "none", "The entire optional campaign plan is reported as omitted from original-compatible export."),
+        new(typeof(NationRallyPoint), "NationId X Y CityId", Kind.Omitted,
+            "none", "The campaign rally setting is reported as omitted from original-compatible export."));
 
     /// <summary>Every typed original field, including template and canonical-only regions.</summary>
     public static IReadOnlyList<Rule> Original { get; } = Expand(

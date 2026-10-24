@@ -36,9 +36,6 @@ public static class HowToPlay
             "With a unit selected, left-click a tile to move there. Terrain costs moves: forest 2, mountains and rivers 4, rough sea 3, everything else 1. A unit stays selected while it has moves left.",
             "A click on empty ground always moves the selected unit. To avoid a mis-click marching an army away, turn on Settings → Map → \"Confirm moves with a second click\", or press Esc to drop the selection first.",
             "To carry an army by sea, move it onto your own fleet next to it; sail the fleet, then click a land tile beside it to land.",
-        }),
-        new HowToPlaySection("Rally point", new[]
-        {
             "Set one rally point for your nation from the game screen. Newly created armies from manual or automatic mobilization receive a saved travel target; a unit added to an existing army does not redirect it.",
             "The army follows its target on End turn when it has movement available. It stops if the route is blocked, hostile contact prevents travel, its target city changes owner, or you give it another order. It never attacks automatically.",
             "The rally point is saved with this campaign. Original-compatible SAV files cannot store it, so export reports that it was omitted.",
