@@ -137,7 +137,10 @@ public sealed class ResumedFirstEndNewsTests : IDisposable
     public void A_save_made_before_the_first_end_writes_the_owed_count()
     {
         var classical = LazyClassical.Value;
-        var seat = classical.Scenario.Seats.Select(s => s.Nation).First(n => n.Contains("ptolem", StringComparison.OrdinalIgnoreCase));
+        // T212's faithful city eligibility changes the Ptolemaic prelude to zero
+        // owed entries on this seed. Carthage still has a real construction-time
+        // prelude, so this remains a positive serialization control.
+        var seat = "carthage";
         var path = Save(Build(classical, seat), "owed.json");
 
         using var doc = JsonDocument.Parse(File.ReadAllText(path));

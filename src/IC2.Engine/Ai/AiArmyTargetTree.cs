@@ -105,11 +105,10 @@ public static class AiArmyTargetTree
     /// <see cref="AiWeightsRules.CityScoreThreshold"/>.
     /// </summary>
     /// <remarks>
-    /// Cities of nations the acting nation is at war with, reachable by land or because the nation owns
-    /// a fleet (the <c>FUN_0044cab4</c> test, which the rule above names). The shipped data does not
-    /// model naval reachability per tile, so a nation with no army aboard a fleet is effectively land-
-    /// only here; the tree's own "march at the city" command path issues a <c>MoveArmyCommand</c> that
-    /// the engine's own walker handles, exactly as the "Movement is unchanged" hazard requires.
+    /// Under the original policy, CAB4 admits a same-geographic city without a successful direct
+    /// walk and the static original-world geography controls score halving. Cross-geographic ferry
+    /// execution remains the deferred stored-route gap #1405, so that branch keeps the existing
+    /// reachable gate. Improved/design mode keeps its direct-walker and configured-city-region policy.
     /// </remarks>
     public static CityTarget ScoreCityTarget(
         AiView view,
@@ -125,6 +124,9 @@ public static class AiArmyTargetTree
         var capitalNum = rules.CityAttackCapitalDefenseRatioNumerator;
         var capitalDen = rules.CityAttackCapitalDefenseRatioDenominator;
 
+        var faithfulNavigation = ClassicalArmyNavigation.Applies(view);
+        var armyGeography = faithfulNavigation
+            ? ClassicalArmyNavigation.Classify(army.X, army.Y) : default;
         var strength = AssaultStrength(army, view.Ruleset, BattleCommandRuleset.ArcherUnitTypeIdIn(view.Ruleset)!);
         var armyRegion = RegionOf(view, army.X, army.Y);
 
@@ -153,7 +155,10 @@ public static class AiArmyTargetTree
                 continue;
             }
 
-            if (!IsReachable(view, army, city.X, city.Y))
+            var sameGeography = faithfulNavigation
+                && ClassicalArmyNavigation.Classify(city.X, city.Y) == armyGeography;
+            if ((faithfulNavigation && !ClassicalArmyNavigation.TargetEligible(view, army, city.X, city.Y))
+                || (!sameGeography && !IsReachable(view, army, city.X, city.Y)))
             {
                 skipped++;
                 continue;
@@ -176,7 +181,10 @@ public static class AiArmyTargetTree
             // then double (defense < strength and distance < threshold), then double (capital and
             // cityDefense × num / den < strength). All divisions truncate.
             var score = (numerator * strength) / cityDefense - distance;
-            if (RegionOf(view, city.X, city.Y) != armyRegion)
+            var anotherRegion = faithfulNavigation
+                ? ClassicalArmyNavigation.Classify(city.X, city.Y) != armyGeography
+                : RegionOf(view, city.X, city.Y) != armyRegion;
+            if (anotherRegion)
             {
                 score -= score / halving;
             }
@@ -255,7 +263,17 @@ public static class AiArmyTargetTree
                 continue;
             }
 
-            if (!IsReachable(view, army, target.X, target.Y))
+            // T212: F31C's original same-geography target test does not require the
+            // direct walker to reach the target. A different-geography target without
+            // an own fleet is refused by CAB4; the stored-ferry route is a separate
+            // unrepresented state gap (#1405), so retain the existing reachable gate
+            // for that branch until its route lifecycle is supported.
+            var faithfulNavigation = ClassicalArmyNavigation.Applies(view);
+            var sameGeography = faithfulNavigation
+                && ClassicalArmyNavigation.Classify(army.X, army.Y)
+                    == ClassicalArmyNavigation.Classify(target.X, target.Y);
+            if ((faithfulNavigation && !ClassicalArmyNavigation.TargetEligible(view, army, target.X, target.Y))
+                || (!sameGeography && !IsReachable(view, army, target.X, target.Y)))
             {
                 skipped++;
                 continue;
@@ -576,7 +594,9 @@ public static class AiArmyTargetTree
         long ArmyScore,
         int CityDistance,
         int ArmyDistance,
-        int Skipped);
+        int Skipped,
+        int? RouteX = null,
+        int? RouteY = null);
 
     /// <summary>
     /// Installs and returns a fresh decision log for the calling thread. A game runs on one thread, so a

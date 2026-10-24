@@ -359,7 +359,8 @@ public static class AiMilitaryPhase
             case AiArmyTargetTree.Kind.AttackArmy:
                 if (decision.TargetArmy is { } targetArmy)
                 {
-                    AddArmyTargetCandidate(view, army, targetArmy, progress, mayMarch, into);
+                    AddArmyTargetCandidate(view, army, targetArmy, progress, mayMarch, into,
+                        originalTargetTreeRoute: true);
                 }
 
                 break;
@@ -390,7 +391,8 @@ public static class AiMilitaryPhase
                     case AiArmyTargetTree.Continuation.ChaseArmy:
                         if (decision.TargetArmy is { } chaseArmy)
                         {
-                            AddArmyTargetCandidate(view, army, chaseArmy, progress, mayMarch, into);
+                            AddArmyTargetCandidate(view, army, chaseArmy, progress, mayMarch, into,
+                                originalTargetTreeRoute: false);
                         }
 
                         break;
@@ -444,6 +446,17 @@ public static class AiMilitaryPhase
         // rejected branches and boxed-in armies that offered no original action.
         if (originalActionOffered)
         {
+            // The original target may be reached through a first waypoint that
+            // initially increases geometric distance to the enemy. Carry the
+            // actual accepted march goal in diagnostic records so the strict
+            // decision/action test checks that route without relaxing attacks.
+            if (decision.Selected == AiArmyTargetTree.Kind.AttackArmy)
+            {
+                var route = into.Skip(candidatesBefore).SelectMany(candidate => candidate.Commands)
+                    .OfType<MoveArmyCommand>().FirstOrDefault(command => command.ArmyId == army.Id);
+                if (route is not null)
+                    decisionRecord = decisionRecord with { RouteX = route.X, RouteY = route.Y };
+            }
             AiArmyTargetTree.LogDecision(decisionRecord);
         }
     }
@@ -517,7 +530,8 @@ public static class AiMilitaryPhase
         ArmyState targetArmy,
         long progress,
         bool mayMarch,
-        List<AiCandidate> into)
+        List<AiCandidate> into,
+        bool originalTargetTreeRoute)
     {
         if (AttackLegality.AreAdjacent(army.X, army.Y, targetArmy.X, targetArmy.Y))
         {
@@ -538,13 +552,41 @@ public static class AiMilitaryPhase
 
         if (mayMarch)
         {
+            var x = targetArmy.X;
+            var y = targetArmy.Y;
+            var why = "approach target army";
+            if (originalTargetTreeRoute && ClassicalArmyNavigation.Applies(view)
+                && ClassicalArmyNavigation.Classify(army.X, army.Y)
+                    == ClassicalArmyNavigation.Classify(x, y))
+            {
+                var origin = new GridPoint(army.X, army.Y);
+                var target = new GridPoint(x, y);
+                try
+                {
+                    if (!ClassicalArmyNavigation.DirectLine(view, origin, target))
+                    {
+                        var route = ClassicalArmyNavigation.Intermediate(view, origin, target);
+                        if (route.Point is not { } waypoint) return;
+                        x = waypoint.X;
+                        y = waypoint.Y;
+                        why = "approach target army via waypoint";
+                    }
+                }
+                catch (NotSupportedException)
+                {
+                    // The promoted original contract explicitly leaves some island
+                    // graph/stack contexts undefined. Fall through to the existing
+                    // garrison fallback rather than invent a path or crash the turn.
+                    return;
+                }
+            }
             // T156 rework round 1 N2: the other marches pass `progress` so the WithVictoryAwareness
             // multiplier tracks the actor's own progress toward its victory condition. The
             // minimum-score floor in AddMarchCandidate still masks the difference (the chosen
             // score sits at or above the floor in every preset), so this matches pass-through
             // behaviour and is the do-not-change-the-rules correction.
-            AddMarchCandidate(view, army, targetArmy.X, targetArmy.Y, AiCandidate.ApproachKind,
-                "approach target army", view.Ruleset.Ai.ApproachCityBaseScore, progress, into);
+            AddMarchCandidate(view, army, x, y, AiCandidate.ApproachKind,
+                why, view.Ruleset.Ai.ApproachCityBaseScore, progress, into);
         }
     }
 
