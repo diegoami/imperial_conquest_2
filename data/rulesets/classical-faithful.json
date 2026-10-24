@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "classical-faithful",
   "name": "Classical, faithful",
-  "description": "The shipped, historically-faithful preset: task T29's export of the classical-mediterranean ruleset. Every confirmed constant is the same figure toy-ruleset.json already carries (the same game), transcribed from the reports in the research repository's docs/reports/ and cross-checked here against the T04 fixtures corpus (tests/fixtures/corpus.json) wherever the corpus gives that constant its own id. Its flags reproduce the original faithfully; the 'improved' preset (task T36) is this file with docs/game-design.md's 'improved' column applied.",
+  "description": "The shipped, historically-faithful preset: task T29's export of the classical-mediterranean ruleset. Most confirmed constants start from toy-ruleset.json; later evidence-backed faithful corrections are applied here, then checked against reports in the research repository and cross-checked here against the T04 fixtures corpus (tests/fixtures/corpus.json) wherever the corpus gives that constant its own id. Its flags reproduce the original faithfully; the 'improved' preset (task T36) keeps its explicit designed differences.",
   "calendar": {
     "weekStep": 2,
     "weekModulus": 12,
