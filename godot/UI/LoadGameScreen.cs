@@ -6,8 +6,9 @@ using IC2.Engine.Presentation;
 namespace IC2.Slice.UI;
 
 /// <summary>
-/// The main menu's "Load" screen (<c>docs/game-design.md</c> §"User interface" item 1). Lists native
-/// save files (<see cref="SaveManager.PeekSummaryFile"/>) under <c>user://saves</c>
+/// The main menu's "Load" screen (<c>docs/game-design.md</c> §"User interface" item 1). Lists
+/// native JSON and original SAV files from <c>user://saves</c> and the last folder chosen through Browse.
+/// Native JSON rows use <see cref="SaveManager.PeekSummaryFile"/>; original rows use their filename.
 /// <strong>[designed]</strong>: no earlier task established a save-file location convention for a
 /// Godot front end, so this picks Godot's own per-user data directory, the same place every other
 /// Godot project keeps its own saves, rather than writing into the repository checkout.
@@ -53,11 +54,13 @@ public partial class LoadGameScreen : Control
     public string? LastLoadedPath { get; private set; }
 
     private const string SavesDirectory = "user://saves";
+    private const string RecentFolderPreference = "user://last-save-folder.txt";
 
     private Label _messageLabel = null!;
 
     /// <summary>Check-only isolated save folder; production uses user://saves.</summary>
     public string? SavesDirectoryForCheck { private get; set; }
+    public string? RecentFolderForCheck { private get; set; }
 
     /// <summary>The real rows and Continue buttons, exposed for screen wiring checks.</summary>
     public VBoxContainer SaveListForCheck { get; private set; } = null!;
@@ -88,9 +91,16 @@ public partial class LoadGameScreen : Control
         header.AddChild(UiKit.MakeLabel("Load Game", AppTheme.Header, UiKit.AccentColor));
         header.AddChild(UiKit.MakeButton("Browse...", OnBrowsePressed, AppTheme.Button));
 
-        var list = SaveListForCheck = new VBoxContainer();
+        var scroll = new ScrollContainer
+        {
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+            SizeFlagsVertical = SizeFlags.ExpandFill,
+        };
+        column.AddChild(scroll);
+
+        var list = SaveListForCheck = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         list.AddThemeConstantOverride("separation", AppTheme.DialogGap);
-        column.AddChild(list);
+        scroll.AddChild(list);
 
         _messageLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.MutedTextColor);
         column.AddChild(_messageLabel);
@@ -100,7 +110,8 @@ public partial class LoadGameScreen : Control
 
     private void PopulateSaves(VBoxContainer list)
     {
-        var files = LoadGameModel.ListNativeSaves(SavesDirectoryForCheck ?? ProjectSettings.GlobalizePath(SavesDirectory));
+        var files = LoadGameModel.ListNativeSaves(
+            SavesDirectoryForCheck ?? ProjectSettings.GlobalizePath(SavesDirectory), RecentFolder());
         if (files.Count == 0)
         {
             _messageLabel.Text = "No saved games found.";
@@ -115,7 +126,11 @@ public partial class LoadGameScreen : Control
         var row = new HBoxContainer();
         row.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         list.AddChild(row);
-        row.AddChild(UiKit.MakeLabel(save.Text, AppTheme.Body, UiKit.TextColor));
+        var label = UiKit.MakeLabel(save.Text, AppTheme.Body, UiKit.TextColor);
+        label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        label.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        label.TooltipText = save.Path;
+        row.AddChild(label);
         row.AddChild(UiKit.MakeButton("Continue", () => OnContinuePressed(save.Path), AppTheme.Button));
     }
 
@@ -151,10 +166,14 @@ public partial class LoadGameScreen : Control
     }
 
     /// <summary>
-    /// T165 (#1021): the folder the last Browse chose a file from this session; the dialog starts there,
-    /// otherwise in the saves folder.
+    /// T165 (#1021): the last Browse folder in this process. Its path is also stored in user:// so a
+    /// later launch can list and browse that folder again; missing folders are ignored.
     /// </summary>
     private static string? _lastBrowsedFolder;
+
+    private string? RecentFolder() => SavesDirectoryForCheck is not null
+        ? RecentFolderForCheck
+        : _lastBrowsedFolder ?? LoadGameModel.ReadRecentFolder(ProjectSettings.GlobalizePath(RecentFolderPreference));
 
     private FileDialog? _browseDialog;
 
@@ -180,7 +199,7 @@ public partial class LoadGameScreen : Control
     private void OnBrowsePressed()
     {
         var dialog = BrowseDialog;
-        var folder = _lastBrowsedFolder is { } last && Directory.Exists(last)
+        var folder = RecentFolder() is { } last && Directory.Exists(last)
             ? last
             : ProjectSettings.GlobalizePath(SavesDirectory);
         if (!Directory.Exists(folder))
@@ -195,6 +214,8 @@ public partial class LoadGameScreen : Control
     private void OnBrowseFileSelected(string path)
     {
         _lastBrowsedFolder = Path.GetDirectoryName(path);
+        if (SavesDirectoryForCheck is null)
+            LoadGameModel.RememberRecentFolder(ProjectSettings.GlobalizePath(RecentFolderPreference), _lastBrowsedFolder);
         OnContinuePressed(path);
     }
 
