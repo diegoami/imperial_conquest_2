@@ -2244,7 +2244,6 @@ public partial class MainGameScreen : Control
                 var gained = Math.Max(0, (Session.State.ArmyById(plan.UnitId)?.Money ?? before) - before);
                 if (gained > 0)
                 {
-                    gainedAny = true;
                     summary.Add($"+{gained} talents (treasury -{Math.Max(0, treasury - (Session.State.NationById(nationId)?.Treasury ?? treasury))})");
                 }
                 else summary.Add(AutoRefusalText(response, "funding refused"));

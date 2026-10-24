@@ -66,7 +66,7 @@ public static class RetreatSupplyPlanner
         }
         var usable = state.Cities.Where(city => city.Owner == plan.NationId
             && (fleet is null || CoastalCity.IsCoastal(city, world))
-            && CanService(city, army, fleet, nation, ruleset, settings, fullSupply, fullCondition)).ToArray();
+            && CanService(city, fleet, nation, ruleset, settings, fullSupply, fullCondition)).ToArray();
         var chosen = usable.FirstOrDefault(city => city.Id == plan.DestinationCityId)
             ?? usable.OrderByDescending(city => city.Id == nation.CapitalCityId)
                 .ThenByDescending(city => city.PopulationThousands)
@@ -101,13 +101,13 @@ public static class RetreatSupplyPlanner
         return null;
     }
 
-    private static bool CanService(CityState city, ArmyState? army, FleetState? fleet,
+    private static bool CanService(CityState city, FleetState? fleet,
         NationState nation, Ruleset ruleset, UserSettings settings, bool fullSupply, bool fullCondition)
     {
         if (!fullSupply && city.SupplyTons > 0) return true;
         if (fleet is null || fullCondition || fleet.IsCarryingArmy) return false;
         var available = Math.Max(0, nation.Treasury - settings.AutoTreasuryReserveTalents);
-        return available > 0 || fleet.Ships / ruleset.Naval.RepairCostDivisor == 0;
+        return fleet.Ships / ruleset.Naval.RepairCostDivisor <= available;
     }
 
     private static int Distance(int x1, int y1, int x2, int y2) =>
