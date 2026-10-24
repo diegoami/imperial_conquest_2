@@ -40,3 +40,4 @@ Open and recent tasks only. Merged tasks (T01–T191 and others) are in their cl
 - [T211](tasks/T211.md) —  Campaign-saved multi-turn army targets
 - [T212](tasks/T212.md) —  Faithful AI army target eligibility and intermediate routing
 - [T213](tasks/T213.md) —  Faithful strategic AI resupply-city selection
+- [T214](tasks/T214.md) —  Faithful fleet budget after an unaffordable step
