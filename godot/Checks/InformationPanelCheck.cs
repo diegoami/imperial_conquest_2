@@ -139,6 +139,7 @@ public partial class InformationPanelCheck : Control
             (BetweenStepsFrames, AssertRomeCityPanel),
             (BetweenStepsFrames, ClickRomanArmy),
             (BetweenStepsFrames, AssertRomanArmyPanel),
+            (BetweenStepsFrames, AssertPanelTextZoom),
             (BetweenStepsFrames, ClickForeignArmy),
             (BetweenStepsFrames, AssertForeignArmyPanel),
             (BetweenStepsFrames, ClickForeignFleet),
@@ -213,8 +214,8 @@ public partial class InformationPanelCheck : Control
         var army = _mainGame.Session.State.ArmyById(RomanArmyId)!;
         Check(PanelShowsSubject("Army", RomanArmyId), "Rome's army panel is shown");
         Check(
-            PanelHasLabel("Army of Rome"),
-            "the panel reads 'Army of Rome'");
+            PanelHasLabel($"Army of Rome · {InformationWords.Grouped(army.TotalTroops)} troops"),
+            "the owner and total troops share the first army line");
 
         var pct = IC2.Engine.Economy.SupplyCapacity.PercentFull(
             army.SupplyTons, army.TotalTroops, _mainGame.Session.Ruleset);
@@ -227,9 +228,7 @@ public partial class InformationPanelCheck : Control
             PanelHasLabel($"Morale: {InformationWords.Morale(army.Morale)}"),
             "the panel shows the morale word");
         Check(PanelHasLabel($"Money: {InformationWords.Grouped(army.Money)} talents"), "the panel shows the army money");
-        Check(
-            PanelHasLabel($"Total troops: {InformationWords.Grouped(army.TotalTroops)}"),
-            "the panel shows Total troops");
+        Check(!PanelHasLabelStartingWith("Total troops:"), "the panel has no later duplicate total");
 
         if (army.CoveredTileCode is { } code)
         {
@@ -255,6 +254,41 @@ public partial class InformationPanelCheck : Control
         }
     }
 
+    private void AssertPanelTextZoom()
+    {
+        var panel = _mainGame.ContextPanel;
+        var total = FindPanelLabel(label => label.Text.StartsWith("Army of Rome ·", StringComparison.Ordinal))!;
+        Check(total is not null, "the army summary is visible before text zoom");
+        if (total is null) return;
+
+        var baseline = total.GetThemeFontSize("font_size");
+        var scroll = panel.ScrollForCheck;
+        void Wheel(MouseButton button, bool ctrl)
+        {
+            var global = scroll.GlobalPosition + (scroll.Size / 2f);
+            var viewport = GetViewport();
+            viewport.PushInput(new InputEventMouseMotion { Position = global, GlobalPosition = global }, true);
+            viewport.PushInput(new InputEventMouseButton
+            {
+                ButtonIndex = button, Pressed = true, CtrlPressed = ctrl,
+                Position = global, GlobalPosition = global,
+            }, true);
+        }
+
+        Wheel(MouseButton.WheelUp, ctrl: true);
+        Check(total.GetThemeFontSize("font_size") == baseline + 1,
+            "Ctrl+wheel up enlarges the rendered Total troops text");
+        Check(panel.TextZoomStepForCheck == 1, "the panel keeps its text zoom state");
+
+        Wheel(MouseButton.WheelUp, ctrl: false);
+        Check(total.GetThemeFontSize("font_size") == baseline + 1,
+            "plain wheel leaves the text size unchanged");
+
+        Wheel(MouseButton.WheelDown, ctrl: true);
+        Check(total.GetThemeFontSize("font_size") == baseline,
+            "Ctrl+wheel down restores the starting text size");
+    }
+
     // ---- Foreign army panel — still a direct ShowArmy call (the brief keeps T99's click-or-direct
     //      pattern: a foreign army beyond reach is the unit-list case, and a click would draw the
     //      unit list rather than the panel). MapClickCheck's case covers that.
@@ -273,7 +307,8 @@ public partial class InformationPanelCheck : Control
         var army = _mainGame.Session.State.ArmyById("army-2")!;
         Check(PanelShowsSubject("Army", "army-2"), "the foreign-army panel is shown");
 
-        Check(PanelHasLabel("Army of Carthage"), "the foreign panel reads 'Army of Carthage'");
+        Check(PanelHasLabel($"Army of Carthage · {InformationWords.Grouped(army.TotalTroops)} troops"),
+            "the foreign army owner and total share the first line");
         Check(PanelHasLabel("Moves: withheld"), "the foreign panel withholds moves");
         Check(PanelHasLabel("Supply: withheld"), "the foreign panel withholds supply");
         Check(PanelHasLabel("Morale: withheld"), "the foreign panel withholds morale");
@@ -303,9 +338,7 @@ public partial class InformationPanelCheck : Control
                 $"the foreign panel sums {displayName}");
         }
 
-        Check(
-            PanelHasLabel($"Total troops: {InformationWords.Grouped(army.TotalTroops)}"),
-            "the foreign panel shows Total troops");
+        Check(!PanelHasLabelStartingWith("Total troops:"), "the foreign panel has no later duplicate total");
 
         // The brief's "no upkeep on a foreign army" — the panel does not draw No. of units /
         // Regulars cost / Mercenary pay on a foreign panel.
@@ -400,7 +433,7 @@ public partial class InformationPanelCheck : Control
         Check(PanelHasLabel("Money: withheld"), "the carried army's panel withholds money (active-seat rule)");
 
         Check(
-            PanelHasLabel($"Total troops: {InformationWords.Grouped(_mainGame.Session.State.ArmyById(PtolemyCargoArmyId)!.TotalTroops)}"),
+            PanelHasLabel($"Army · {InformationWords.Grouped(_mainGame.Session.State.ArmyById(PtolemyCargoArmyId)!.TotalTroops)} troops"),
             "the carried army's panel still shows its own Total troops line");
 
         // F09 omits No. of units, Regulars cost and Mercenary pay on a foreign carried army.

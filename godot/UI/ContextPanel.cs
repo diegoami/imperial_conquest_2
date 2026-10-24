@@ -53,6 +53,13 @@ public partial class ContextPanel : Control
 #pragma warning restore CS0067
 
     private VBoxContainer _content = null!;
+    private ContextZoomScroll _scroll = null!;
+    private readonly List<(Label Label, int BaseSize)> _textLabels = new();
+    private int _textZoomStep;
+    public const int MinTextZoomStep = -4;
+    public const int MaxTextZoomStep = 8;
+    public int TextZoomStepForCheck => _textZoomStep;
+    public ScrollContainer ScrollForCheck => _scroll;
     private Selection _selection = Selection.None();
     private string? _viewedNationId;
     private bool _viewedNationSet;
@@ -68,13 +75,14 @@ public partial class ContextPanel : Control
         panel.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(panel);
 
-        var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
-        scroll.SetAnchorsPreset(LayoutPreset.FullRect);
-        panel.AddChild(scroll);
+        _scroll = new ContextZoomScroll { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        _scroll.SetAnchorsPreset(LayoutPreset.FullRect);
+        _scroll.TextZoomRequested += ZoomText;
+        panel.AddChild(_scroll);
 
         _content = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        _content.AddThemeConstantOverride("separation", AppTheme.PanelGap);
-        scroll.AddChild(_content);
+        _content.AddThemeConstantOverride("separation", 1);
+        _scroll.AddChild(_content);
 
         ShowNationOverview();
     }
@@ -176,6 +184,7 @@ public partial class ContextPanel : Control
 
     private void Rebuild()
     {
+        _textLabels.Clear();
         foreach (var child in _content.GetChildren())
         {
             _content.RemoveChild(child);
@@ -217,7 +226,29 @@ public partial class ContextPanel : Control
         }
     }
 
-    private void Heading(string text) => _content.AddChild(UiKit.MakeLabel(text, AppTheme.Header, UiKit.AccentColor));
+    private void Heading(string text) => _content.AddChild(PanelLabel(text, AppTheme.Header, UiKit.AccentColor));
+
+    private Label PanelLabel(string text, int baseSize, Color color)
+    {
+        var label = UiKit.MakeLabel(text, baseSize, color);
+        label.MouseFilter = MouseFilterEnum.Ignore;
+        if (baseSize != AppTheme.Spacer)
+        {
+            label.AddThemeFontSizeOverride("font_size", baseSize + _textZoomStep);
+            label.AddThemeConstantOverride("line_spacing", 0);
+            _textLabels.Add((label, baseSize));
+        }
+        return label;
+    }
+
+    private void ZoomText(bool increase)
+    {
+        var next = Math.Clamp(_textZoomStep + (increase ? 1 : -1), MinTextZoomStep, MaxTextZoomStep);
+        if (next == _textZoomStep) return;
+        _textZoomStep = next;
+        foreach (var (label, baseSize) in _textLabels)
+            label.AddThemeFontSizeOverride("font_size", baseSize + _textZoomStep);
+    }
 
     /// <summary>
     /// Fix #491: an unwrapped <see cref="Label"/>'s minimum size is its full single-line text width, so
@@ -233,20 +264,20 @@ public partial class ContextPanel : Control
 
     private void AddFactLabel(string text, Color color)
     {
-        var label = UiKit.MakeLabel(text, AppTheme.Body, color);
+        var label = PanelLabel(text, AppTheme.Body, color);
         label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _content.AddChild(label);
     }
 
     private void Note(string text)
     {
-        var label = UiKit.MakeLabel(text, AppTheme.Note, UiKit.MutedTextColor);
+        var label = PanelLabel(text, AppTheme.Note, UiKit.MutedTextColor);
         label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _content.AddChild(label);
     }
 
     /// <summary>An empty <see cref="Label"/> between two fact rows — the original's blank-line spacer.</summary>
-    private void Blank() => _content.AddChild(UiKit.MakeLabel(string.Empty, AppTheme.Spacer, UiKit.TextColor));
+    private void Blank() => _content.AddChild(PanelLabel(string.Empty, AppTheme.Spacer, UiKit.TextColor));
 
     /// <summary>
     /// T140 (bug #718): the viewed nation's status panel, populated from
@@ -286,7 +317,7 @@ public partial class ContextPanel : Control
             var color = line.IsRed ? ConqueredRowColor : UiKit.TextColor;
             if (string.Equals(line.Key, NationStatusModel.TrainingHeaderKey, StringComparison.Ordinal))
             {
-                _content.AddChild(UiKit.MakeLabel(line.Text, AppTheme.Body, color));
+                _content.AddChild(PanelLabel(line.Text, AppTheme.Body, color));
             }
             else
             {
@@ -327,7 +358,7 @@ public partial class ContextPanel : Control
         // Fix #513: the regiments this city is training (the clone keeps it below the original's
         // facts so the carry-over from T110 still applies).
         var inTraining = RecruitmentPanelViewModel.TrainingAtCity(DisplayState, Session.Ruleset, city.Owner, city.Id);
-        _content.AddChild(UiKit.MakeLabel("In training here", AppTheme.Body, UiKit.TextColor));
+        _content.AddChild(PanelLabel("In training here", AppTheme.Body, UiKit.TextColor));
         if (inTraining.Count == 0)
         {
             Note("No regiment is training here.");
@@ -371,10 +402,15 @@ public partial class ContextPanel : Control
             ? InformationPanelModel.OwnArmy(DisplayState, Session.World, Session.Ruleset, army)
             : InformationPanelModel.ForeignArmy(DisplayState, Session.World, Session.Ruleset, army);
 
-        // #1288 (F5 of #1280): the id ("army-1") is internal; the owner is the first line below.
+        // Keep the army's owner and total together at the top; the detailed model keeps its
+        // original field order for callers that compare against the original information window.
         Heading("Army");
+        var ownerLine = lines.First(line => line.Key == InformationPanelModel.ArmyOfKey);
+        Fact($"{ownerLine.Text} · {InformationWords.Grouped(army.TotalTroops)} troops");
         foreach (var line in lines)
         {
+            if (line.Key is InformationPanelModel.ArmyOfKey or InformationPanelModel.ArmyTotalTroopsKey)
+                continue;
             if (line.Text.Length == 0)
             {
                 Blank();
@@ -406,8 +442,16 @@ public partial class ContextPanel : Control
             : InformationPanelModel.ForeignFleet(DisplayState, Session.World, Session.Ruleset, fleet);
 
         Heading("Fleet");
+        var carriedArmy = fleet.CarriedArmyId is { } armyId ? DisplayState.ArmyById(armyId) : null;
         foreach (var line in lines)
         {
+            if (carriedArmy is not null && line.Key == InformationPanelModel.ArmyTotalTroopsKey)
+                continue;
+            if (carriedArmy is not null && line.Key == InformationPanelModel.FleetArmyHeaderKey)
+            {
+                Fact($"Army · {InformationWords.Grouped(carriedArmy.TotalTroops)} troops");
+                continue;
+            }
             if (line.Text.Length == 0)
             {
                 Blank();

@@ -322,6 +322,28 @@ public partial class AreaMapCheck : Control
     private void ZoomOrderMap()
     {
         _viewRectBeforeZoom = _miniMap.ViewRectForCheck;
+        var map = _mainGame.MapView;
+        var zoomBefore = map.ZoomFactor;
+        var global = _miniMap.GlobalPosition + (_miniMap.Size / 2f);
+        var viewport = GetViewport();
+        viewport.PushInput(new InputEventMouseMotion { Position = global, GlobalPosition = global }, true);
+        viewport.PushInput(new InputEventMouseButton
+        {
+            ButtonIndex = MouseButton.WheelUp, Pressed = true,
+            Position = global, GlobalPosition = global,
+        }, true);
+        Check(map.ZoomFactor > zoomBefore, "wheel over the mini-map zooms the order map in");
+        CheckViewRectangleFollows("after wheel zoom over the mini-map");
+        Check(_miniMap.ViewRectForCheck != _viewRectBeforeZoom,
+            "the overview rectangle follows wheel zoom over the mini-map");
+
+        viewport.PushInput(new InputEventMouseButton
+        {
+            ButtonIndex = MouseButton.WheelDown, Pressed = true,
+            Position = global, GlobalPosition = global,
+        }, true);
+        Check(Mathf.IsEqualApprox(map.ZoomFactor, zoomBefore),
+            "wheel down over the mini-map restores the order-map zoom");
         _mainGame.MapView.ZoomToMaxForCheck();
     }
 
