@@ -69,6 +69,22 @@ public sealed class OriginalSaveExportCliTests : IDisposable
     }
 
     [SkippableFact]
+    public void A_configured_original_template_exports_without_a_template_argument()
+    {
+        var template = Template();
+        File.WriteAllBytes(Path.Combine(_dir, "Imperial Conquest 2.dat"), [1]);
+        var config = Path.Combine(_dir, "assets.local.ini");
+        File.WriteAllText(config, $"[assets]\ndirectory = \"{_dir}\"\n[sav-export]\ntemplate = {Path.GetFileName(template)}\n");
+        var output = Path.Combine(_dir, "configured.sav");
+
+        var (exit, stdout, stderr) = Run($"--export-sav \"{Classical}\" --output \"{output}\" --config \"{config}\"");
+
+        Assert.True(exit == 0, stderr);
+        Assert.Contains($"template '{template}'", stdout);
+        OriginalSaveLayout.Validate(File.ReadAllBytes(output));
+    }
+
+    [SkippableFact]
     public void An_existing_output_is_never_replaced()
     {
         var template = Template();

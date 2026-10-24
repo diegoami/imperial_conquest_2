@@ -105,6 +105,18 @@ public partial class OriginalSavSaveAsCheck : Node
         Check(templateHash.SequenceEqual(SHA256.HashData(File.ReadAllBytes(template))),
             "the private template is unchanged");
 
+        File.WriteAllBytes(Path.Combine(folder, "Imperial Conquest 2.dat"), [1]);
+        var config = Path.Combine(folder, "assets.local.ini");
+        File.WriteAllText(config, $"[assets]\ndirectory = \"{folder}\"\n[sav-export]\ntemplate = {Path.GetFileName(template)}\n");
+        game.SavConfigPathForCheck = config;
+        var configuredOutput = Path.Combine(folder, "configured-export.sav");
+        game.SaveAsForCheck(configuredOutput);
+        Check(!game.SavTemplatePendingForCheck && File.Exists(configuredOutput),
+            "a configured private template exports without another dialog");
+        Check(File.ReadAllBytes(output).SequenceEqual(File.ReadAllBytes(configuredOutput)),
+            "configured and dialog-selected templates produce the same SAV");
+        game.SavConfigPathForCheck = null;
+
         var outputHash = SHA256.HashData(File.ReadAllBytes(output));
         game.SaveAsForCheck(output);
         Check(!game.SavTemplatePendingForCheck && game.SaveMessageForCheck.Contains("already exists", StringComparison.Ordinal)

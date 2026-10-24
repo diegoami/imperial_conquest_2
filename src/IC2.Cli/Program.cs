@@ -320,20 +320,20 @@ internal static class Program
     /// </returns>
     /// <summary>
     /// T185: the offline converter, an exclusive mode —
-    /// <c>--export-sav &lt;native.json&gt; --output &lt;new.sav&gt; --template &lt;original.sav&gt;</c>. Loads the
+    /// <c>--export-sav &lt;native.json&gt; --output &lt;new.sav&gt; [--template &lt;original.sav&gt;] [--config &lt;assets.ini&gt;]</c>. Loads the
     /// native save through <see cref="SaveManager"/> (its migrations included), maps it with
     /// <see cref="OriginalSaveExporter"/>, takes only the interface settings from the template, and writes a new
     /// file without replacing anything. Every refusal is printed with its reason and nothing is written.
     /// </summary>
     private static int ExportSav(string[] args)
     {
-        const string usage = "Usage: IC2.Cli --export-sav <native-save.json> --output <new.sav> --template <original.sav>";
+        const string usage = "Usage: IC2.Cli --export-sav <native-save.json> --output <new.sav> [--template <original.sav>] [--config <assets.ini>]";
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
         for (var i = 0; i < args.Length; i++)
         {
-            if (args[i] is not ("--export-sav" or "--output" or "--template"))
+            if (args[i] is not ("--export-sav" or "--output" or "--template" or "--config"))
             {
-                Console.Error.WriteLine($"--export-sav takes only --output and --template; '{args[i]}' is not allowed. {usage}");
+                Console.Error.WriteLine($"--export-sav takes only --output, --template and --config; '{args[i]}' is not allowed. {usage}");
                 return 1;
             }
 
@@ -350,16 +350,20 @@ internal static class Program
             }
         }
 
-        if (!values.TryGetValue("--output", out var output) || !values.TryGetValue("--template", out var templatePath))
+        if (!values.TryGetValue("--output", out var output))
         {
-            Console.Error.WriteLine($"--export-sav needs --output and --template. {usage}");
+            Console.Error.WriteLine($"--export-sav needs --output. {usage}");
             return 1;
         }
 
         var input = values["--export-sav"];
         try
         {
-            var repository = GameDataRepository.Load(Path.Combine(FindRepositoryRoot(), "data"));
+            var repositoryRoot = FindRepositoryRoot();
+            var templatePath = OriginalSaveExportTemplateResolver.Resolve(
+                values.GetValueOrDefault("--template"),
+                values.GetValueOrDefault("--config") ?? Path.Combine(repositoryRoot, "assets.local.ini"));
+            var repository = GameDataRepository.Load(Path.Combine(repositoryRoot, "data"));
             var summary = SaveManager.PeekSummaryFile(input);
             var world = repository.WorldById(summary.WorldId);
             var ruleset = repository.RulesetById(summary.RulesetId);
@@ -392,7 +396,8 @@ internal static class Program
                 Console.Error.WriteLine($"Refused: {refusal.Code} {refusal.Field}: {refusal.Detail}");
             return 2;
         }
-        catch (Exception ex) when (ex is GameDataException or IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is GameDataException or IOException or UnauthorizedAccessException
+            or ArgumentException or NotSupportedException)
         {
             Console.Error.WriteLine($"Export failed, nothing written: {ex.Message}");
             return 2;

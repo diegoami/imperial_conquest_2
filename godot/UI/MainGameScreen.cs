@@ -908,6 +908,8 @@ public partial class MainGameScreen : Control
     private static string? _lastSaveAsFolder;
     private static string? _lastSavTemplateFolder;
     private string? _pendingSavOutputPath;
+    /// <summary>Check-only override for the private SAV template config.</summary>
+    public string? SavConfigPathForCheck { private get; set; }
 
     private FileDialog? _saveAsDialog;
 
@@ -996,6 +998,23 @@ public partial class MainGameScreen : Control
             }
 
             _pendingSavOutputPath = path;
+            try
+            {
+                var config = SavConfigPathForCheck ?? Path.Combine(RepositoryRoot, "assets.local.ini");
+                if (OriginalSaveExportTemplateResolver.ConfiguredTemplate(config) is { } configured)
+                {
+                    ExportSavWithTemplate(configured);
+                    return;
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException
+                or ArgumentException or NotSupportedException)
+            {
+                _pendingSavOutputPath = null;
+                ShowSaveAsMessage($"Not exported: {ex.Message}");
+                return;
+            }
+
             var dialog = SavTemplateDialog;
             var folder = _lastSavTemplateFolder is { } last && Directory.Exists(last)
                 ? last : OS.GetSystemDir(OS.SystemDir.Documents);
