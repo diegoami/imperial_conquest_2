@@ -1,6 +1,7 @@
 using IC2.Slice.Diagnostics;
 using Godot;
 using IC2.Engine.Armies;
+using IC2.Engine.Import;
 using IC2.Engine.Model;
 using IC2.Engine.Presentation;
 using IC2.Slice.Assets;
@@ -905,11 +906,13 @@ public partial class MainGameScreen : Control
     /// <summary>Fix #1081: the folder the last Save As chose this session; the dialog starts there,
     /// otherwise in the saves folder.</summary>
     private static string? _lastSaveAsFolder;
+    private static string? _lastSavTemplateFolder;
+    private string? _pendingSavOutputPath;
 
     private FileDialog? _saveAsDialog;
 
     /// <summary>The Save As dialog, created on first use: a native-path file dialog over the whole file
-    /// system in save mode, filtered to <c>*.json</c>, as Load game's Browse is for opening.</summary>
+    /// system in save mode, offering native JSON and original-compatible SAV exports.</summary>
     public FileDialog SaveAsDialog => _saveAsDialog ??= CreateSaveAsDialog();
 
     private FileDialog CreateSaveAsDialog()
@@ -920,7 +923,7 @@ public partial class MainGameScreen : Control
             Access = FileDialog.AccessEnum.Filesystem,
             FileMode = FileDialog.FileModeEnum.SaveFile,
             Title = "Save the game as",
-            Filters = new[] { "*.json ; Saved games" },
+            Filters = new[] { "*.json ; Native saved game", "*.sav ; Original-compatible SAV" },
             Size = new Vector2I(760, 520),
         };
         dialog.FileSelected += SaveToChosenPath;
@@ -946,6 +949,34 @@ public partial class MainGameScreen : Control
     /// <summary>Check hook: Save As as if the dialog had chosen <paramref name="path"/>.</summary>
     public void SaveAsForCheck(string path) => SaveToChosenPath(path);
 
+    private FileDialog? _savTemplateDialog;
+
+    /// <summary>The separate original-save template picker used only after a .sav output is chosen.</summary>
+    public FileDialog SavTemplateDialog => _savTemplateDialog ??= CreateSavTemplateDialog();
+
+    private FileDialog CreateSavTemplateDialog()
+    {
+        var dialog = new FileDialog
+        {
+            Name = "SavTemplateDialog",
+            Access = FileDialog.AccessEnum.Filesystem,
+            FileMode = FileDialog.FileModeEnum.OpenFile,
+            Title = "Choose an original .sav for interface settings",
+            Filters = new[] { "*.sav ; Original saved game" },
+            Size = new Vector2I(760, 520),
+        };
+        dialog.FileSelected += ExportSavWithTemplate;
+        dialog.Canceled += () => _pendingSavOutputPath = null;
+        AddChild(dialog);
+        return dialog;
+    }
+
+    /// <summary>Check hook: completes a pending .sav export as the template dialog would.</summary>
+    public void SavTemplateForCheck(string path) => ExportSavWithTemplate(path);
+
+    /// <summary>Check hook: whether a chosen .sav output is waiting for its private template.</summary>
+    public bool SavTemplatePendingForCheck => _pendingSavOutputPath is not null;
+
     /// <summary>Check hook: the text of the save confirmation line.</summary>
     public string SaveMessageForCheck => _saveConfirmationLabel.Text;
 
@@ -956,9 +987,26 @@ public partial class MainGameScreen : Control
             return;
         }
 
+        if (path.EndsWith(".sav", StringComparison.OrdinalIgnoreCase))
+        {
+            if (File.Exists(path) || Directory.Exists(path))
+            {
+                ShowSaveAsMessage($"Not exported: '{path}' already exists. Choose a new name.");
+                return;
+            }
+
+            _pendingSavOutputPath = path;
+            var dialog = SavTemplateDialog;
+            var folder = _lastSavTemplateFolder is { } last && Directory.Exists(last)
+                ? last : OS.GetSystemDir(OS.SystemDir.Documents);
+            dialog.CurrentDir = folder;
+            dialog.PopupCentered();
+            return;
+        }
+
         if (!path.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
         {
-            ShowSaveAsMessage($"Not saved: '{path}' must end in .json.");
+            ShowSaveAsMessage($"Not saved: '{path}' must end in .json or .sav.");
             return;
         }
 
@@ -983,10 +1031,42 @@ public partial class MainGameScreen : Control
         }
     }
 
-    private void ShowSaveAsMessage(string message)
+    private void ExportSavWithTemplate(string templatePath)
+    {
+        var outputPath = _pendingSavOutputPath;
+        _pendingSavOutputPath = null;
+        if (outputPath is null) return;
+
+        try
+        {
+            var result = OriginalSaveExporter.ExportFile(Session, templatePath, outputPath);
+            _lastSavTemplateFolder = Path.GetDirectoryName(templatePath);
+            _lastSaveAsFolder = Path.GetDirectoryName(outputPath);
+            var aliases = result.Export.Report.Aliases;
+            var omitted = result.Export.Report.Omitted;
+            var details = $"Exported original-compatible SAV to '{result.OutputPath}'. "
+                + $"Template: '{templatePath}' (SHA-256 {result.TemplateSha256})."
+                + string.Concat(aliases.Select(a => $"\n{a.ArmyId} slot {a.Slot}: '{a.NativeName}' → '{a.ExportedName}'"))
+                + string.Concat(omitted.Select(item => $"\nNot in original format: {item}"));
+            ShowSaveAsMessage($"Exported original-compatible SAV to '{result.OutputPath}'. "
+                + $"{aliases.Count} name aliases; {omitted.Count} native metadata omissions.", details);
+        }
+        catch (OriginalSaveExportException ex)
+        {
+            var details = string.Join("\n", ex.Refusals.Select(r => $"{r.Code} {r.Field}: {r.Detail}"));
+            ShowSaveAsMessage($"Not exported: {ex.Refusals[0].Code} {ex.Refusals[0].Field}: {ex.Refusals[0].Detail}", details);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException
+            or ArgumentException or NotSupportedException)
+        {
+            ShowSaveAsMessage($"Not exported: {ex.Message}");
+        }
+    }
+
+    private void ShowSaveAsMessage(string message, string? details = null)
     {
         _saveConfirmationLabel.Text = message;
-        _saveConfirmationLabel.TooltipText = message;
+        _saveConfirmationLabel.TooltipText = details ?? message;
     }
 
     /// <summary>Show hints: flips the menu bar's and toolbar's tooltips and the menu check mark together
