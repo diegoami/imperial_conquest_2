@@ -617,8 +617,9 @@ public static class AiArmyTargetTree
     private static List<DecisionRecord>? _activeLog;
 
     /// <summary>
-    /// The decision tree, verbatim from <c>2026-10-07-strategic-ai-turn.md</c> §3.3, over the three
-    /// scorers' results. Records the decision in the calling thread's log when one is installed.
+    /// The decision tree over the three scorers' results, using Research PR75's corrected
+    /// inclusive weak-target boundary for original classical AI. Records the decision in the
+    /// calling thread's log when one is installed.
     /// </summary>
     public static Decision Decide(AiView view, ArmyState army, bool atWar)
     {
@@ -643,7 +644,8 @@ public static class AiArmyTargetTree
         var city = ScoreCityTarget(view, army);
         var armyScore = ScoreArmyTarget(view, army);
         var resupply = ScoreResupplyCity(view, army, atWar);
-        var decision = DecideFromScores(view.Ruleset.Ai, army, city, armyScore, resupply);
+        var decision = DecideFromScores(view.Ruleset.Ai, army, city, armyScore, resupply,
+            originalWeakBoundary: ClassicalArmyNavigation.Applies(view));
 
         // The destination of a resupply march (the MoveToResupplyCity branch, and the mercenary run's
         // "defend the resupply city" continuation) is the Hazards' step 1: the original's pick when the
@@ -681,15 +683,16 @@ public static class AiArmyTargetTree
 
     /// <summary>
     /// The decision over already-computed scorer results. Public so a table-driven test can walk every
-    /// branch and boundary without building a state for each. Every comparison is exactly as the report
-    /// writes it (<c>&lt; 100</c> and <c>&gt; 100</c> differ at 100).
+    /// branch and boundary without building a state for each. The optional original policy distinguishes
+    /// weak <c>&lt;= 100</c> from better-city <c>&gt; 100</c>; the default preserves designed strict weak checks.
     /// </summary>
     public static Decision DecideFromScores(
         AiWeightsRules rules,
         ArmyState army,
         CityTarget city,
         ArmyTarget armyScore,
-        ResupplyCity resupply)
+        ResupplyCity resupply,
+        bool originalWeakBoundary = false)
     {
         ArgumentNullException.ThrowIfNull(rules);
         ArgumentNullException.ThrowIfNull(army);
@@ -710,11 +713,20 @@ public static class AiArmyTargetTree
             cityScoreValue > rules.CityScoreThreshold
             && cityDist < moves
             && armyDist > 2 * moves;
+        // Research PR75: original F31C uses signed JLE 100 in these two weak
+        // branches. The better-city condition above remains strict > 100, and
+        // the designed/Improved policy keeps its prior strict weak boundaries.
+        var weakArmy = originalWeakBoundary
+            ? armyScoreValue <= rules.ArmyScoreThreshold
+            : armyScoreValue < rules.ArmyScoreThreshold;
+        var weakCity = originalWeakBoundary
+            ? cityScoreValue <= rules.CityScoreThreshold
+            : cityScoreValue < rules.CityScoreThreshold;
 
-        if (armyScoreValue < rules.ArmyScoreThreshold || demoralised || cityIsBetterBuy)
+        if (weakArmy || demoralised || cityIsBetterBuy)
         {
             var cityOutOfReach =
-                cityScoreValue < rules.CityScoreThreshold
+                weakCity
                 || (supplies < rules.DemoralisedSuppliesThreshold && cityDist > rules.MercenaryRunCityDistanceFar);
 
             if (cityOutOfReach)

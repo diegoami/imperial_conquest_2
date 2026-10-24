@@ -26,7 +26,8 @@ public sealed class AiArmyTargetTreeDecisionTests
 
     private static AiArmyTargetTree.Decision Decide(
         long armyScore, int armyDist, long cityScore, int cityDist, bool hasCity,
-        int supplies = 10, int morale = 70, int moves = Moves, int troops = 2_000)
+        int supplies = 10, int morale = 70, int moves = Moves, int troops = 2_000,
+        bool originalWeakBoundary = false)
     {
         var army = ArmyWith(moves, morale, supplies, troops);
         var enemyCity = CaptureFixtures.City("c", "c", 9, 9, "south", "south", 90, 100, 100, 100, 0);
@@ -37,7 +38,31 @@ public sealed class AiArmyTargetTreeDecisionTests
             army,
             new AiArmyTargetTree.CityTarget(hasCity ? enemyCity : null, cityScore, cityDist),
             new AiArmyTargetTree.ArmyTarget(enemyArmy, armyScore, armyDist),
-            resupply);
+            resupply, originalWeakBoundary);
+    }
+
+    [Theory]
+    [InlineData(99L, 99L, 28, Kind.MoveToResupplyCity)]
+    [InlineData(99L, 100L, 6, Kind.MoveToResupplyCity)]
+    [InlineData(100L, 99L, 28, Kind.MoveToResupplyCity)]
+    [InlineData(100L, 100L, 6, Kind.MoveToResupplyCity)]
+    [InlineData(100L, 101L, 6, Kind.AttackCity)]
+    [InlineData(101L, 99L, 28, Kind.AttackArmy)]
+    public void T217_original_weak_branches_include_exactly_100_but_better_city_stays_strict(
+        long armyScore, long cityScore, int cityDist, Kind expected)
+    {
+        var decision = Decide(armyScore, 28, cityScore, cityDist, hasCity: true,
+            supplies: 0, morale: 80, moves: 7, originalWeakBoundary: true);
+        Assert.Equal(expected, decision.Selected);
+    }
+
+    [Fact]
+    public void T217_designed_policy_retains_the_prior_strict_weak_boundaries()
+    {
+        Assert.Equal(Kind.AttackArmy, Decide(100, 28, 100, 6, hasCity: true,
+            supplies: 0, morale: 80, moves: 7).Selected);
+        Assert.Equal(Kind.AttackCity, Decide(99, 28, 100, 6, hasCity: true,
+            supplies: 0, morale: 80, moves: 7).Selected);
     }
 
     // ---------- attack the army, and the 100 boundary of armyScore < 100 ----------
