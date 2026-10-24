@@ -1020,6 +1020,7 @@ public sealed partial class GameSession
         State = save.State;
         ArmyTravelTargets = save.ArmyTravelTargets ?? ValueList<ArmyTravelTarget>.Empty;
         RetreatSupplyPlans = save.RetreatSupplyPlans ?? ValueList<RetreatSupplyPlan>.Empty;
+        NationRallyPoints = save.NationRallyPoints ?? ValueList<NationRallyPoint>.Empty;
 
         var humanNationIds = State.Nations
             .Where(n => n.Control == SeatControl.Human)
@@ -1374,6 +1375,27 @@ public sealed partial class GameSession
         if (RetreatSupplyPlanFor(unitId, isFleet) is null) return false;
         RetreatSupplyPlans = ValueList.From(RetreatSupplyPlans
             .Where(plan => plan.UnitId != unitId || plan.IsFleet != isFleet));
+        return true;
+    }
+
+    /// <summary>One optional fixed rally location for each nation in this campaign.</summary>
+    public ValueList<NationRallyPoint> NationRallyPoints { get; private set; } = ValueList<NationRallyPoint>.Empty;
+
+    public NationRallyPoint? RallyPointFor(string nationId) =>
+        NationRallyPoints.FirstOrDefault(point => point.NationId == nationId);
+
+    public void SetRallyPoint(NationRallyPoint rallyPoint)
+    {
+        ArgumentNullException.ThrowIfNull(rallyPoint);
+        NationRallyPoints = ValueList.From(NationRallyPoints
+            .Where(existing => existing.NationId != rallyPoint.NationId).Append(rallyPoint));
+    }
+
+    public bool ClearRallyPoint(string nationId)
+    {
+        if (RallyPointFor(nationId) is null) return false;
+        NationRallyPoints = ValueList.From(NationRallyPoints
+            .Where(point => point.NationId != nationId));
         return true;
     }
 

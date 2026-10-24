@@ -26,7 +26,10 @@ public static class ArmyTravelPlanner
         if (target.CityId is { } cityId)
         {
             var city = world.Cities.FirstOrDefault(candidate => candidate.Id == cityId);
-            if (city is null || state.CityById(cityId) is null) return Stop("target city is missing");
+            var liveCity = state.CityById(cityId);
+            if (city is null || liveCity is null) return Stop("target city is missing");
+            if (target.FromRally && liveCity.Owner != target.NationId)
+                return Stop("rally city changed owner");
             x = city.X;
             y = city.Y;
         }

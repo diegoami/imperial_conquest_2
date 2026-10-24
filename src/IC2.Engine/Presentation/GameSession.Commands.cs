@@ -1487,7 +1487,8 @@ public sealed partial class GameSession
             ? CountNewsAppendedSince(baseline, State.NewsLog.Slots)
             : null,
         ArmyTravelTargets: ArmyTravelTargets.Count == 0 ? null : ArmyTravelTargets,
-        RetreatSupplyPlans: RetreatSupplyPlans.Count == 0 ? null : RetreatSupplyPlans);
+        RetreatSupplyPlans: RetreatSupplyPlans.Count == 0 ? null : RetreatSupplyPlans,
+        NationRallyPoints: NationRallyPoints.Count == 0 ? null : NationRallyPoints);
 
     /// <summary>
     /// Everything after <paramref name="trimmedLine"/>'s first space, or <see langword="null"/> if there

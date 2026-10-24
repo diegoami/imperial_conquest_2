@@ -51,6 +51,7 @@ public static class OriginalSaveExportFieldMapping
         new(typeof(SaveGame), "Battle", Kind.Rejected, "battle block", "An open tactical battle refuses strategic SAV export."),
         new(typeof(SaveGame), "ArmyTravelTargets", Kind.Omitted, "none", "Campaign travel plans are reported but cannot be encoded by the original."),
         new(typeof(SaveGame), "RetreatSupplyPlans", Kind.Omitted, "none", "Per-unit recovery plans are reported but cannot be encoded by the original."),
+        new(typeof(SaveGame), "NationRallyPoints", Kind.Omitted, "none", "Campaign rally targets are reported but cannot be encoded by the original."),
 
         new(typeof(GameState), "SchemaVersion WorldId RulesetId ScenarioId", Kind.Validated,
             "original classical context", "Schema and context must match the supported original campaign."),
