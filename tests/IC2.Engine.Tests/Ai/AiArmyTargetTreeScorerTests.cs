@@ -2,8 +2,10 @@ using IC2.Engine.Ai;
 using IC2.Engine.Battle.Commands;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
+using IC2.Engine.Serialization;
 using IC2.Engine.Strength;
 using IC2.Engine.Tests.Battle.Commands;
+using IC2.Engine.Tests.Model;
 using Xunit;
 using CaptureFixtures = IC2.Engine.Tests.Cities.Capture.CaptureTestbed;
 
@@ -525,6 +527,121 @@ public sealed partial class AiArmyTargetTreeScorerTests
 
     private static ArmyState Supplicant() =>
         Army("a", Us, 10, 10, 10_000) with { Money = 1_000 };
+
+    private static AiView FaithfulResupplyView(IEnumerable<CityState> cities, ArmyState army)
+    {
+        var designed = ViewOf(cities, [army]);
+        var faithful = designed.Ruleset with
+        {
+            Flags = designed.Ruleset.Flags with { AiEconomy = AiEconomyModel.Original },
+            Ai = designed.Ruleset.Ai with { ResupplyStrengthTroopsDivisor = 1_000 },
+        };
+        return new AiView(designed.State, faithful, designed.World, Us);
+    }
+
+    [Fact]
+    public void Shipped_faithful_ruleset_uses_the_researched_city_choice_divisor()
+    {
+        var repository = GameDataRepository.Load(Path.Combine(TestPaths.RepositoryRoot, "data"));
+        var faithful = repository.RulesetById("classical-faithful")!;
+        var improved = repository.RulesetById("improved")!;
+
+        Assert.Equal(AiEconomyModel.Original, faithful.Flags.AiEconomy);
+        Assert.Equal(1_000, faithful.Ai.ResupplyStrengthTroopsDivisor);
+        Assert.Equal(AiEconomyModel.Designed, improved.Flags.AiEconomy);
+        Assert.Equal(100, improved.Ai.ResupplyStrengthTroopsDivisor);
+    }
+
+    [Fact]
+    public void Faithful_resupply_uses_stock_above_troops_per_thousand_and_favors_the_capital()
+    {
+        var army = Army("a", Us, 10, 10, 29_800) with { Money = 1_000 };
+        AiView View(int capitalStock, int regularStock) => FaithfulResupplyView(
+            [City("us-capital", Us, 12, 10, supply: capitalStock),
+             City("regular", Us, 10, 12, supply: regularStock),
+             City("them-capital", Them, 30, 30)], army);
+
+        var capital = AiArmyTargetTree.ScoreResupplyCity(View(30, 30), army, atWar: false);
+        Assert.Equal("us-capital", capital.City!.Id);
+        Assert.Equal(18, capital.Score); // -distance 2 + original capital preference 20.
+        Assert.Equal("regular", AiArmyTargetTree.ScoreResupplyCity(View(29, 30), army, atWar: false).City!.Id);
+        Assert.Equal("us-capital", AiArmyTargetTree.ScoreResupplyCity(View(30, 29), army, atWar: false).City!.Id);
+        Assert.Equal("us-capital", AiArmyTargetTree.ScoreResupplyCity(View(297, 298), army, atWar: false).City!.Id);
+    }
+
+    [Fact]
+    public void Faithful_resupply_capital_preference_follows_the_active_capital_id()
+    {
+        var army = Army("a", Us, 10, 10, 29_800) with { Money = 1_000 };
+        var view = FaithfulResupplyView(
+            [City("us-capital", Us, 12, 10, supply: 30), City("regular", Us, 10, 12, supply: 30),
+             City("them-capital", Them, 30, 30)], army);
+        var state = view.State with { Nations = ValueList.From(view.State.Nations.Select(n =>
+            n.Id == Us ? n with { CapitalCityId = "regular" } : n)) };
+        var swapped = new AiView(state, view.Ruleset, view.World, Us);
+
+        Assert.Equal("regular", AiArmyTargetTree.ScoreResupplyCity(swapped, army, atWar: false).City!.Id);
+    }
+
+    [Theory]
+    [InlineData(29, "us-capital")]
+    [InlineData(30, "regular")]
+    [InlineData(297, "regular")]
+    [InlineData(298, "regular")]
+    public void Faithful_resupply_keeps_the_original_stock_boundary_and_nearest_own_fallback(
+        int regularStock, string expectedCity)
+    {
+        var army = Army("a", Us, 10, 10, 29_800) with { Money = 1_000 };
+        var view = FaithfulResupplyView(
+            [City("us-capital", Us, 12, 10, supply: 0),
+             City("regular", Us, 13, 10, supply: regularStock),
+             City("them-capital", Them, 30, 30)], army);
+
+        Assert.Equal(expectedCity, AiArmyTargetTree.ScoreResupplyCity(view, army, atWar: false).City!.Id);
+    }
+
+    [Fact]
+    public void Faithful_resupply_treats_a_foreign_city_twenty_tiles_farther_not_closer()
+    {
+        var army = Army("a", Us, 10, 10, 29_800) with { Money = 1_000 };
+        var view = FaithfulResupplyView(
+            [City("us-capital", Us, 30, 10, supply: 100),
+             City("foreign", Third, 25, 10, supply: 1_000),
+             City("them-capital", Them, 30, 30)], army);
+
+        var scored = AiArmyTargetTree.ScoreResupplyCity(view, army, atWar: true);
+        Assert.Equal("us-capital", scored.City!.Id);
+        Assert.Equal(0, scored.Score); // Own capital: -20 + 20; foreign: -15 - 20.
+    }
+
+    [Fact]
+    public void Faithful_raw_resupply_selector_can_choose_an_adjacent_stocked_city()
+    {
+        var army = Army("a", Us, 10, 10, 29_800) with { Money = 1_000 };
+        var cities = new[]
+        {
+            City("us-capital", Us, 11, 10, supply: 30),
+            City("regular", Us, 20, 10, supply: 100),
+            City("them-capital", Them, 30, 30),
+        };
+
+        Assert.Equal("us-capital", AiArmyTargetTree.ScoreResupplyCity(
+            FaithfulResupplyView(cities, army), army, atWar: false).City!.Id);
+        Assert.Equal("regular", AiArmyTargetTree.ScoreResupplyCity(
+            ViewOf(cities, [army]), army, atWar: false).City!.Id);
+    }
+
+    [Fact]
+    public void Faithful_resupply_falls_back_when_the_foreign_adjusted_distance_exceeds_fifteen()
+    {
+        var army = Army("a", Us, 10, 10, 29_800) with { Money = 1_000 };
+        var view = FaithfulResupplyView(
+            [City("us-capital", Us, 50, 10, supply: 0),
+             City("foreign", Third, 22, 10, supply: 1_000),
+             City("them-capital", Them, 30, 30)], army);
+
+        Assert.Equal("us-capital", AiArmyTargetTree.ScoreResupplyCity(view, army, atWar: true).City!.Id);
+    }
 
     /// <summary>An own capital scores -20: the nearer capital loses to a farther ordinary city that needs stock too.</summary>
     [Fact]

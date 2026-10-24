@@ -293,20 +293,21 @@ public static class AiArmyTargetTree
 
     /// <summary>
     /// The original's <c>FUN_0044e670</c> — the resupply or defence city for this army. With
-    /// <c>strength = troops / 100</c> (the report's own definition in the same sentence), a city qualifies
-    /// when it is an own city whose supply stock is below <c>strength</c>, or — only while at war — a
+    /// <c>strength = floor(troops / 1000)</c> under the original policy, a city qualifies
+    /// when it is an own city whose supply stock is above <c>strength</c>, or — only while at war — a
     /// foreign city of a nation not at war with this one whose stock is above <c>strength + 80</c> while
-    /// the army holds more than <c>strength / 5</c> in money. An own capital scores −20 and a foreign city
-    /// +20 on top of a base of minus the distance. The report names the two adjustments and no base;
-    /// <em>minus the distance</em> is the reading under which the nearer city wins, and it is the one
-    /// [designed] term here. The best score wins; when nothing qualifies, or the winner is a foreign city
-    /// beyond <see cref="AiWeightsRules.ResupplyMaxForeignDistance"/>, the nearest own city is the answer.
+    /// the army holds more than <c>strength / 5</c> in money. The original minimizes distance minus 20
+    /// for an own capital and adds 20 for a foreign city. The maximized negative-distance score therefore
+    /// adds 20 for the capital and subtracts 20 for the foreign city. The improved/designed
+    /// policy keeps its earlier stock-below and capital-penalty choices. The best score wins; when nothing qualifies, or the winner is a foreign city
+    /// whose adjusted distance exceeds <see cref="AiWeightsRules.ResupplyMaxForeignDistance"/>, the nearest
+    /// own city is the answer. The designed policy retains its earlier geometric-distance gate.
     /// <see cref="ResupplyCity.City"/> is <see langword="null"/> only when the nation has no own city the
     /// army is not already beside.
     /// </summary>
     /// <remarks>
-    /// A city the army is already beside (<see cref="IsInsideCity"/>) is never a destination: it is
-    /// where the original's army would already stand.
+    /// The faithful raw selector skips only a city on the army's own tile; the designed reachability
+    /// policy treats an adjacent city as arrived and continues to skip it.
     /// </remarks>
     public static ResupplyCity ScoreResupplyCity(
         AiView view,
@@ -317,6 +318,7 @@ public static class AiArmyTargetTree
         ArgumentNullException.ThrowIfNull(army);
 
         var rules = view.Ruleset.Ai;
+        var faithful = view.Ruleset.Flags.AiEconomy == AiEconomyModel.Original;
         var strength = army.TotalTroops / rules.ResupplyStrengthTroopsDivisor;
 
         CityState? best = null;
@@ -328,12 +330,12 @@ public static class AiArmyTargetTree
 
         foreach (var city in view.State.Cities)
         {
-            if (IsInsideCity(army, city))
+            var distance = AiView.Distance(army.X, army.Y, city.X, city.Y);
+            if (faithful ? distance == 0 : distance <= 1)
             {
                 continue;
             }
 
-            var distance = AiView.Distance(army.X, army.Y, city.X, city.Y);
             var isOwn = string.Equals(city.Owner, army.Nation, StringComparison.Ordinal);
             long score;
             if (isOwn)
@@ -345,7 +347,7 @@ public static class AiArmyTargetTree
                     nearestOwnDistance = distance;
                 }
 
-                if (city.SupplyTons >= strength)
+                if (faithful ? city.SupplyTons <= strength : city.SupplyTons >= strength)
                 {
                     continue;
                 }
@@ -353,7 +355,7 @@ public static class AiArmyTargetTree
                 score = -distance;
                 if (CapitalOwnership.IsAnyNationsCapital(view.State, city.Id))
                 {
-                    score -= rules.ResupplyCapitalPenalty;
+                    score += faithful ? rules.ResupplyCapitalPenalty : -rules.ResupplyCapitalPenalty;
                 }
             }
             else
@@ -366,7 +368,7 @@ public static class AiArmyTargetTree
                     continue;
                 }
 
-                score = -distance + rules.ResupplyForeignBonus;
+                score = -distance + (faithful ? -rules.ResupplyForeignBonus : rules.ResupplyForeignBonus);
             }
 
             // Equal scores break by city id ascending, never by distance (the amended Hazards: "every
@@ -381,7 +383,8 @@ public static class AiArmyTargetTree
             }
         }
 
-        if (best is null || (bestIsForeign && bestDistance > rules.ResupplyMaxForeignDistance))
+        if (best is null || (bestIsForeign && (long)bestDistance
+                + (faithful ? rules.ResupplyForeignBonus : 0) > rules.ResupplyMaxForeignDistance))
         {
             return nearestOwn is null
                 ? new ResupplyCity(null, 0, 0)
