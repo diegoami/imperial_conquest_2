@@ -824,6 +824,10 @@ faithfulAiProvenance["cityScoreRegionHalvingDenominator"] =
     "confirmed: 2026-10-24-city-army-selection187.md, Research PR75 — original EB9C halves the city score when the actor and city have different geographic region/coordinate-side pairs; faithful classical AI reads the interpreted static navigation table, while designed mode retains cityRegionById.";
 faithfulAiProvenance["cityRegionById"] =
     "[designed]: empty for the shipped world. Faithful classical AI now uses the original static geographic boxes and coordinate-side splits for city-score halving; this list remains the designed/Improved scorer's configurable region map.";
+faithfulAiProvenance["armyScoreThreshold"] =
+    "confirmed: 2026-10-24-city-army-selection187.md, Research PR75 — original F31C treats an army score of exactly 100 as weak (signed JLE); faithful classical AI uses <= at this boundary while designed/Improved retains <. The numeric threshold remains 100.";
+faithfulAiProvenance["cityScoreThreshold"] =
+    "confirmed: 2026-10-24-city-army-selection187.md, Research PR75 — original F31C treats a city score of exactly 100 as out of reach (signed JLE), but its separate better-city predicate stays strictly >100. Faithful classical AI applies those distinct comparisons; designed/Improved retains its prior strict weak check.";
 
 // ---- Bug #549, T115: the one flag whose value differs between toy-ruleset.json and this file. The
 // toy ruleset is "refuse" (the CLI demo's orders must stay refused rather than put its only human seat
