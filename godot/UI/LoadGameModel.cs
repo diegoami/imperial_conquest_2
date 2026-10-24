@@ -52,38 +52,82 @@ public static class LoadGameModel
     /// <summary>A native save row, retaining its actual path for Continue.</summary>
     public sealed record NativeSaveRow(string Path, string Text, DateTime LastWriteTimeUtc);
 
-    /// <summary>Native save rows for the Load screen; Browse keeps its separate alphabetic list.</summary>
-    public static IReadOnlyList<NativeSaveRow> ListNativeSaves(string folder)
+    /// <summary>Rows from the game saves folder and the last browsed folder, without recursive scans.</summary>
+    public static IReadOnlyList<NativeSaveRow> ListNativeSaves(string folder, string? recentFolder = null)
     {
-        if (!Directory.Exists(folder)) return Array.Empty<NativeSaveRow>();
-        try
+        var rows = new List<NativeSaveRow>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        AddFolder(folder, external: false);
+        if (!string.IsNullOrWhiteSpace(recentFolder)) AddFolder(recentFolder, external: true);
+        return rows
+            .OrderByDescending(row => row.LastWriteTimeUtc)
+            .ThenBy(row => System.IO.Path.GetFileName(row.Path), StringComparer.OrdinalIgnoreCase)
+            .ThenBy(row => System.IO.Path.GetFileName(row.Path), StringComparer.Ordinal)
+            .ToList();
+
+        void AddFolder(string path, bool external)
         {
-            return Directory.GetFiles(folder, "*", SearchOption.TopDirectoryOnly)
-                .Where(path => string.Equals(Path.GetExtension(path), ".json", StringComparison.OrdinalIgnoreCase))
-                .Select(NativeRow)
-                .OrderByDescending(row => row.LastWriteTimeUtc)
-                .ThenBy(row => System.IO.Path.GetFileName(row.Path), StringComparer.OrdinalIgnoreCase)
-                .ThenBy(row => System.IO.Path.GetFileName(row.Path), StringComparer.Ordinal)
-                .ToList();
+            if (!Directory.Exists(path)) return;
+            try
+            {
+                foreach (var file in Directory.GetFiles(path, "*", SearchOption.TopDirectoryOnly).Where(IsOpenable))
+                    if (seen.Add(Path.GetFullPath(file))) rows.Add(NativeRow(file, external));
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+            catch (ArgumentException) { }
         }
-        catch (IOException) { return Array.Empty<NativeSaveRow>(); }
-        catch (UnauthorizedAccessException) { return Array.Empty<NativeSaveRow>(); }
     }
 
-    private static NativeSaveRow NativeRow(string path)
+    /// <summary>A missing or stale recent-folder preference does not affect the normal save list.</summary>
+    public static string? ReadRecentFolder(string preferencePath)
+    {
+        try
+        {
+            var folder = File.ReadAllText(preferencePath).Trim();
+            return Directory.Exists(folder) ? folder : null;
+        }
+        catch (IOException) { return null; }
+        catch (UnauthorizedAccessException) { return null; }
+        catch (ArgumentException) { return null; }
+    }
+
+    /// <summary>Remember only a folder path; a failed preference write never blocks opening a save.</summary>
+    public static void RememberRecentFolder(string preferencePath, string? folder)
+    {
+        if (folder is null || !Directory.Exists(folder)) return;
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(preferencePath)!);
+            File.WriteAllText(preferencePath, Path.GetFullPath(folder));
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+        catch (ArgumentException) { }
+    }
+
+    private static NativeSaveRow NativeRow(string path, bool external)
     {
         string text;
         var modified = DateTime.MinValue;
         try
         {
             modified = File.GetLastWriteTimeUtc(path);
-            var summary = SaveManager.PeekSummaryFile(path);
-            text = $"{Path.GetFileName(path)} — {summary.ScenarioId}, turn {summary.TurnIndex}";
+            if (string.Equals(Path.GetExtension(path), ".sav", StringComparison.OrdinalIgnoreCase))
+            {
+                text = $"{Path.GetFileName(path)} — original save";
+            }
+            else
+            {
+                var summary = SaveManager.PeekSummaryFile(path);
+                text = $"{Path.GetFileName(path)} — {summary.ScenarioId}, turn {summary.TurnIndex}";
+            }
         }
         catch (Exception ex)
         {
             text = $"{Path.GetFileName(path)} — could not be read ({ex.Message})";
         }
+        if (external) text += $" · {Path.GetFileName(Path.GetDirectoryName(path))}";
         return new NativeSaveRow(path, text, modified);
     }
 

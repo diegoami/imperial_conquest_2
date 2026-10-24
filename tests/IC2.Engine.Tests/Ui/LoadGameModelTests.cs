@@ -69,11 +69,14 @@ public class LoadGameModelTests : IDisposable
         File.SetLastWriteTimeUtc(old, time.AddDays(-1));
         File.SetLastWriteTimeUtc(newer, time);
         File.SetLastWriteTimeUtc(tied, time);
+        var original = Write("original.SAV", new byte[] { 1, 2, 3 });
+        File.SetLastWriteTimeUtc(original, time.AddHours(-12));
 
         var rows = LoadGameModel.ListNativeSaves(_dir);
 
-        Assert.Equal(new[] { tied, newer, old }, rows.Select(row => row.Path));
+        Assert.Equal(new[] { tied, newer, original, old }, rows.Select(row => row.Path));
         foreach (var row in rows) Assert.StartsWith(Path.GetFileName(row.Path) + " — ", row.Text);
+        Assert.Equal("original.SAV — original save", rows[2].Text);
         Assert.True(LoadGameModel.Open(rows[1].Path, Repo()).Succeeded);
     }
 
@@ -93,13 +96,45 @@ public class LoadGameModelTests : IDisposable
     public void Native_rows_keep_malformed_files_identifiable_and_disappearing_files_fail_safely()
     {
         var path = Write("broken.json", new byte[] { 1, 2, 3 });
-        Write("original.sav", new byte[] { 1 });
-        var row = Assert.Single(LoadGameModel.ListNativeSaves(_dir));
+        var original = Write("original.sav", new byte[] { 1 });
+        var rows = LoadGameModel.ListNativeSaves(_dir);
+        Assert.Equal(2, rows.Count);
+        var row = Assert.Single(rows, row => row.Path == path);
         Assert.Equal(path, row.Path);
         Assert.StartsWith("broken.json — could not be read", row.Text);
+        Assert.Equal("original.sav — original save", Assert.Single(rows, row => row.Path == original).Text);
         File.Delete(path);
         AssertRefused(LoadGameModel.Open(row.Path, Repo()), "broken.json");
+        AssertRefused(LoadGameModel.Open(original, Repo()), "original.sav");
         Assert.Empty(LoadGameModel.ListNativeSaves(Path.Combine(_dir, "missing")));
+    }
+
+    [Fact]
+    public void Last_browsed_folder_is_remembered_and_listed_without_scanning_subfolders()
+    {
+        var saves = Path.Combine(_dir, "saves");
+        var recent = Path.Combine(_dir, "recent");
+        Directory.CreateDirectory(saves);
+        Directory.CreateDirectory(recent);
+        var native = Path.Combine(saves, "native.json");
+        var original = Path.Combine(recent, "battle.SAV");
+        File.WriteAllBytes(native, new byte[] { 1 });
+        File.WriteAllBytes(original, new byte[] { 1 });
+        Directory.CreateDirectory(Path.Combine(recent, "nested"));
+        File.WriteAllBytes(Path.Combine(recent, "nested", "hidden.sav"), new byte[] { 1 });
+        var preference = Path.Combine(_dir, "last-folder.txt");
+
+        LoadGameModel.RememberRecentFolder(preference, recent);
+        Assert.Equal(recent, LoadGameModel.ReadRecentFolder(preference));
+        var rows = LoadGameModel.ListNativeSaves(saves, LoadGameModel.ReadRecentFolder(preference));
+        Assert.Equal(2, rows.Count);
+        Assert.Contains(rows, row => row.Path == native);
+        Assert.Contains(rows, row => row.Path == original && row.Text.Contains("original save · recent"));
+        Assert.Single(LoadGameModel.ListNativeSaves(recent, recent));
+
+        Directory.Delete(recent, recursive: true);
+        Assert.Null(LoadGameModel.ReadRecentFolder(preference));
+        Assert.Single(LoadGameModel.ListNativeSaves(saves, LoadGameModel.ReadRecentFolder(preference)));
     }
 
     [Theory]

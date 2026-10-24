@@ -185,28 +185,41 @@ public partial class BrowseLoadCheck : Node
         var broken = Path.Combine(folder, "broken.json");
         File.WriteAllText(broken, "bad json");
         File.SetLastWriteTimeUtc(broken, time.AddDays(-2));
+        var original = Path.Combine(folder, "original.SAV");
+        File.WriteAllBytes(original, new byte[] { 1, 2, 3 });
+        File.SetLastWriteTimeUtc(original, time.AddHours(-12));
+        var recent = Path.Combine(_tempDir!, "recent-folder");
+        Directory.CreateDirectory(recent);
+        var external = Path.Combine(recent, "external.sav");
+        File.WriteAllBytes(external, new byte[] { 1, 2, 3 });
+        File.SetLastWriteTimeUtc(external, time.AddHours(-6));
 
-        var screen = new LoadGameScreen { SavesDirectoryForCheck = folder };
+        var screen = new LoadGameScreen { SavesDirectoryForCheck = folder, RecentFolderForCheck = recent };
         AddChild(screen);
         var rows = screen.SaveListForCheck.GetChildren().OfType<HBoxContainer>().ToArray();
-        Check(rows.Length == 4, "native list retains malformed saves");
-        var expected = new[] { tie, newest, old, broken };
+        Check(rows.Length == 6, "default list includes local and recently browsed .SAV files");
+        var expected = new[] { tie, newest, external, original, old, broken };
         for (var i = 0; i < Math.Min(rows.Length, expected.Length); i++)
         {
             var text = rows[i].GetChildren().OfType<Label>().Single().Text;
             Check(text.StartsWith(Path.GetFileName(expected[i]) + " — ", StringComparison.Ordinal),
                 "native row shows actual filename in newest-first order with filename ties");
         }
-        if (rows.Length == 4)
+        if (rows.Length == 6)
         {
+            Check(rows[2].GetChildren().OfType<Label>().Single().Text.EndsWith(" — original save · recent-folder", StringComparison.Ordinal),
+                "the recently browsed .sav row identifies its source folder");
+            Check(rows[3].GetChildren().OfType<Label>().Single().Text.EndsWith(" — original save", StringComparison.Ordinal),
+                "the local .SAV row is identified without parsing it as native JSON");
             var resumed = 0;
             screen.GameResumed += _ => resumed++;
             rows[1].GetChildren().OfType<Button>().Single().EmitSignal(BaseButton.SignalName.Pressed);
             Check(resumed == 1 && screen.LastLoadedPath == newest, "real Continue button loads its corresponding actual path");
             File.Delete(tie);
             rows[0].GetChildren().OfType<Button>().Single().EmitSignal(BaseButton.SignalName.Pressed);
-            rows[3].GetChildren().OfType<Button>().Single().EmitSignal(BaseButton.SignalName.Pressed);
-            Check(resumed == 1, "disappearing and malformed native rows start no session");
+            rows[2].GetChildren().OfType<Button>().Single().EmitSignal(BaseButton.SignalName.Pressed);
+            rows[5].GetChildren().OfType<Button>().Single().EmitSignal(BaseButton.SignalName.Pressed);
+            Check(resumed == 1, "disappearing and malformed native/original rows start no session");
         }
         RemoveChild(screen);
         screen.QueueFree();
