@@ -56,7 +56,7 @@ move mac-merc 141 48
 hire-mercenary mac-merc 25
 end
 move mac-detached 156 24
-attack-army mac-detached army-14
+move mac-detached 158 24
 end
 move mac-sac-1 148 40
 end

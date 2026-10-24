@@ -532,16 +532,19 @@ quit
         var prefix = new List<string>();
         for (var i = 1; i <= 78; i++)
         {
-            // #1012: army-14 marches elsewhere now, so mac-detached first steps beside it, and the
-            // sacrificial mac-sac-1 attack (original68), which can no longer reach it, is dropped.
+            // #1012 first moved mac-detached beside army-14. T213 moves the target out of reach
+            // again, so the owner replaced original58's continuous-case attack with a legal move;
+            // the same original attack remains accepted in the pinned loaded treaty case below.
             if (i == 58) prefix.Add("move mac-detached 156 24");
             if (i == 60) prefix.Add("move mac-sac-1 148 40");
-            if (i != 68) prefix.Add(original[i - 1]);
+            if (i == 58) prefix.Add("move mac-detached 158 24");
+            else if (i != 68) prefix.Add(original[i - 1]);
             if (i == 70) prefix.Add("move mac-merc 139 43");
         }
         var trade = original.Take(67).Append("end").ToList();
         trade.Insert(22, "accept-offer");
         trade.Insert(58, "move mac-detached 156 24");
+        trade[59] = "move mac-detached 158 24";
         // #1012: the loaded case resumes before the mac-detached attack (original58), whose lost battle
         // is offered peace, then runs original79's answer and the marine group (original77, 78, 80-87).
         var treaty = new[] { "move mac-detached 155 26", original[57], original[78], original[76], original[77] }
