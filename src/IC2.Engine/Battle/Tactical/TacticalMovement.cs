@@ -106,6 +106,7 @@ public static class TacticalMovement
             return Arrived(board, slot, x, y);
         }
 
+        var capturedEnemy = computer ? CaptureDestinationEnemy(board, slot, x, y) : -1;
         var start = board.Slots[slot];
         var dx = x - start.X;
         var dy = y - start.Y;
@@ -125,7 +126,7 @@ public static class TacticalMovement
                 break;
             }
 
-            if (computer && ComputerChecks(board, slot, x, y))
+            if (computer && ComputerChecks(board, slot, capturedEnemy))
             {
                 return Arrived(board, slot, x, y);
             }
@@ -245,15 +246,11 @@ public static class TacticalMovement
     /// The computer unit's two checks before each step. Returns <see langword="true"/> when the unit took
     /// the enemy at its destination as its target and stops.
     /// </summary>
-    private static bool ComputerChecks(TacticalBoard board, int slot, int x, int y)
+    private static bool ComputerChecks(TacticalBoard board, int slot, int enemy)
     {
         var context = board.Context;
         while (true)
         {
-            // #1324: the enemy is looked up only when the stored cell holds a unit code. The original
-            // (FUN_00438D24) captures it once per walk; replaying that here matches three #1107 battles
-            // but breaks two lc-ar-three trials, so the per-check lookup stays until research settles it.
-            var enemy = CaptureDestinationEnemy(board, slot, x, y);
             if (enemy < 0)
             {
                 return false;
@@ -270,7 +267,10 @@ public static class TacticalMovement
                 return true;
             }
 
-            if (distance <= context.RangeOf(unit.Type) && unit.Moves > 0 && unit.Shots > 0 && unit.Target < 0)
+            // FUN_00438D24, 0x438ED1: keep the captured slot for the last-move target branch
+            // above, but only fire while that slot still has troops.
+            if (distance <= context.RangeOf(unit.Type) && unit.Moves > 0 && unit.Shots > 0
+                && unit.Target < 0 && board.IsLive(enemy))
             {
                 TacticalShooting.Apply(board, slot, enemy);
                 continue;
