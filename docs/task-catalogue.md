@@ -43,3 +43,4 @@ Open and recent tasks only. Merged tasks (T01–T191 and others) are in their cl
 - [T214](tasks/T214.md) —  Faithful fleet budget after an unaffordable step
 - [T215](tasks/T215.md) —  Per-unit Retreat and supply mode
 - [T216](tasks/T216.md) —  Faithful AI embarkation preserves whole overflow units
+- [T217](tasks/T217.md) —  Faithful target-tree weak boundary includes score 100
