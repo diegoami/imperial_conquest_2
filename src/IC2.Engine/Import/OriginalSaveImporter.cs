@@ -246,6 +246,14 @@ public static class OriginalSaveImporter
             string? capitalCityId = n.CapitalCityIndex == SaveNationTable.NoCapitalSentinel
                 ? null
                 : CityId(n.CapitalCityIndex);
+            var conquerorCode = n.ConquerorCode
+                ?? throw new InvalidDataException($"Nation record {code} has no SAV conqueror word.");
+            var conqueredBy = conquerorCode switch
+            {
+                -1 => null,
+                >= 0 and < NationCount => nationIds[conquerorCode],
+                _ => throw new InvalidDataException($"Nation record {code} has invalid conqueror code {conquerorCode}."),
+            };
 
             nations[code] = new NationState(
                 Id: nationId,
@@ -268,7 +276,8 @@ public static class OriginalSaveImporter
                 TreasuryAtStart: n.Treasury,
                 CityCountAtStart: cityCount,
                 RecruitmentSlots: ValueList.From(recruitmentByNation[code]),
-                Eliminated: cityCount == 0);
+                Eliminated: cityCount == 0,
+                ConqueredBy: conqueredBy);
         }
 
         // ---- Army/fleet embarkation cross-links, resolved before either table is mapped, so a dangling
