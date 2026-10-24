@@ -232,6 +232,29 @@ public sealed class EmbarkArmyCommandHandlerTests
     }
 
     [Fact]
+    public void T216_one_troop_whole_slot_overflow_is_not_dropped_or_scaled()
+    {
+        var state = BuildState(5_001, SeatControl.Ai, out var armyId, out var fleetId, out var nationId);
+        var source = state.ArmyById(armyId)! with
+        {
+            Money = 100, SupplyTons = 90,
+            Units = ValueList.Of(
+                new UnitSlot(0, "light_infantry", 5_000, 6, "Full"),
+                new UnitSlot(0, "heavy_infantry", 1, 7, "One")),
+        };
+        state = state with { Armies = ValueList.Of(source) };
+        var result = DispatcherFor(SeatAsymmetryModel.Faithful)
+            .Dispatch(state, new EmbarkArmyCommand(nationId, armyId, fleetId));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        Assert.Equal(5_000, result.State.ArmyById(armyId)!.TotalTroops);
+        var ashore = Assert.Single(result.State.Armies, a => a.Id != armyId);
+        Assert.Equal(1, Assert.Single(ashore.Units).Troops);
+        Assert.Equal((33, 30), (ashore.Money, ashore.SupplyTons));
+        Assert.Equal(5_001, result.State.Armies.Sum(a => a.TotalTroops));
+    }
+
+    [Fact]
     public void T216_no_land_receiver_and_full_army_table_refuse_without_mutation()
     {
         var state = BuildState(6_000, SeatControl.Ai, out var armyId, out var fleetId, out var nationId);
