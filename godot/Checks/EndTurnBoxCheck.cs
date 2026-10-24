@@ -548,6 +548,10 @@ public partial class EndTurnBoxCheck : Control
                   && session.State.FleetById(fleetId) is { } recovered
                   && recovered.ConditionPercent == session.Ruleset.Naval.MaxConditionPercent,
                 $"fleet recovery supplies and repairs through ordinary commands before one end ({string.Join(" | ", commands)})");
+            session.SetRetreatSupplyPlan(new RetreatSupplyPlan(fleetId, "north", IsFleet: true));
+            mainGame.SubmitForCheck($"move-fleet {fleetId} 0 3");
+            Check(session.RetreatSupplyPlanFor(fleetId, isFleet: true) is null,
+                "a manual fleet move attempt cancels that fleet's recovery mode");
         }
         finally
         {
