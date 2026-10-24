@@ -25,7 +25,7 @@ public static class OriginalSaveExportFieldMapping
         typeof(CityState), typeof(ArmyState), typeof(UnitSlot), typeof(FleetState),
         typeof(RecruitmentSlot), typeof(MercenaryPoolSlot), typeof(PendingDiplomaticOffer),
         typeof(DiplomaticRelations), typeof(NationNeighbours), typeof(RoughSeaCell),
-        typeof(NewsLog), typeof(NewsEntry), typeof(ArmyTravelTarget),
+        typeof(NewsLog), typeof(NewsEntry), typeof(ArmyTravelTarget), typeof(NationRallyPoint),
     ];
 
     public static IReadOnlyList<Type> OriginalTypes { get; } =
@@ -51,6 +51,7 @@ public static class OriginalSaveExportFieldMapping
         new(typeof(SaveGame), "Battle", Kind.Rejected, "battle block", "An open tactical battle refuses strategic SAV export."),
         new(typeof(SaveGame), "ArmyTravelTargets", Kind.Omitted, "none", "Campaign travel plans are reported but cannot be encoded by the original."),
         new(typeof(SaveGame), "RetreatSupplyPlans", Kind.Omitted, "none", "Per-unit recovery plans are reported but cannot be encoded by the original."),
+        new(typeof(SaveGame), "NationRallyPoints", Kind.Omitted, "none", "Campaign rally targets are reported but cannot be encoded by the original."),
 
         new(typeof(GameState), "SchemaVersion WorldId RulesetId ScenarioId", Kind.Validated,
             "original classical context", "Schema and context must match the supported original campaign."),
@@ -103,8 +104,10 @@ public static class OriginalSaveExportFieldMapping
         new(typeof(NewsLog), "MostRecentSlot", Kind.Derived, "news index", "The original index follows the number of stored lines."),
         new(typeof(NewsLog), "Slots", Kind.Written, "OriginalSaveDocument.News", "News text is written in slot order."),
         new(typeof(NewsEntry), "Text", Kind.Written, "OriginalSaveDocument.News", "Original ASCII and slot-length rules are checked."),
-        new(typeof(ArmyTravelTarget), "ArmyId NationId X Y CityId", Kind.Omitted,
-            "none", "The entire optional campaign plan is reported as omitted from original-compatible export."));
+        new(typeof(ArmyTravelTarget), "ArmyId NationId X Y CityId FromRally", Kind.Omitted,
+            "none", "The entire optional campaign plan is reported as omitted from original-compatible export."),
+        new(typeof(NationRallyPoint), "NationId X Y CityId", Kind.Omitted,
+            "none", "The campaign rally setting is reported as omitted from original-compatible export."));
 
     /// <summary>Every typed original field, including template and canonical-only regions.</summary>
     public static IReadOnlyList<Rule> Original { get; } = Expand(

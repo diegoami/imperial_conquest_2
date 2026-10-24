@@ -73,6 +73,13 @@ public partial class MainGameScreen : Control
 
     public override void _Input(InputEvent @event)
     {
+        if (_mapView is not null && _mapView.TravelTargetPickArmed
+            && @event is InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape })
+        {
+            _mapView.CancelTravelTargetPick();
+            GetViewport().SetInputAsHandled();
+            return;
+        }
         if (StrategicTravel.IsActive && @event is InputEventKey { Pressed: true, Echo: false } key
             && (key.Keycode == Key.Escape || (key.Keycode == Key.X && key.ShiftPressed)))
         {
@@ -260,6 +267,11 @@ public partial class MainGameScreen : Control
     private Label _retreatSupplyLabel = null!;
     private Button _retreatSupplyButton = null!;
     private Button _retreatSplitButton = null!;
+    private HBoxContainer _rallyPointRow = null!;
+    private Label _rallyPointLabel = null!;
+    private Button _rallyPointSetButton = null!;
+    private Button _rallyPointClearButton = null!;
+    private string? _rallyPointPickNationId;
 
     // T149: the cue player, built once in _Ready, parented to the root, and wired to one
     // subscription on Session.EventsPublished (below). The only Owns slice this screen carries
@@ -329,6 +341,18 @@ public partial class MainGameScreen : Control
         _retreatSplitButton.Pressed += () => OpenSplitArmyDialog(suggestBalanced: true);
         _retreatSupplyRow.AddChild(_retreatSplitButton);
         root.AddChild(_retreatSupplyRow);
+
+        _rallyPointRow = new HBoxContainer();
+        _rallyPointLabel = UiKit.MakeLabel(string.Empty, AppTheme.Note, UiKit.MutedTextColor);
+        _rallyPointLabel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _rallyPointRow.AddChild(_rallyPointLabel);
+        _rallyPointSetButton = new Button { Text = "Set rally point", FocusMode = FocusModeEnum.None };
+        _rallyPointSetButton.Pressed += ArmNationRallyPointPick;
+        _rallyPointRow.AddChild(_rallyPointSetButton);
+        _rallyPointClearButton = new Button { Text = "Clear rally point", FocusMode = FocusModeEnum.None };
+        _rallyPointClearButton.Pressed += ClearNationRallyPoint;
+        _rallyPointRow.AddChild(_rallyPointClearButton);
+        root.AddChild(_rallyPointRow);
 
         root.AddChild(BuildTopBar());
 
@@ -489,8 +513,13 @@ public partial class MainGameScreen : Control
         // selection. The engine composes the declaration of war itself, so nothing here submits one.
         _mapView.AttackConfirmationRequested += ShowAttackPrompt;
         _mapView.HintRequested += ShowScreenMessage;
-        _mapView.TravelTargetPicked += SetPickedArmyTravelTarget;
+        _mapView.TravelTargetPicked += HandlePickedMapTarget;
         _mapView.TravelTargetPickChanged += UpdateCommandStrip;
+        _mapView.TravelTargetPickCancelled += () =>
+        {
+            _rallyPointPickNationId = null;
+            UpdateCommandStrip();
+        };
 
         BindCommands();
         WireNationSwatches();
@@ -1727,6 +1756,91 @@ public partial class MainGameScreen : Control
                 ? ": choosing an owned town." : $": heading to {recovery.DestinationCityId}.");
         _retreatSplitButton.Visible = recovery is { IsFleet: false }
             && selectedArmy is { IsEmbarked: false } && selectedArmy.Units.Count >= 2;
+
+        var activeNation = Session.State.NationById(Session.State.ActiveNationId);
+        var rally = Session.RallyPointFor(Session.State.ActiveNationId);
+        _rallyPointRow.Visible = activeNation?.Control == SeatControl.Human;
+        _rallyPointLabel.Text = _rallyPointPickNationId is not null
+            ? "Rally point: click a land cell or owned city; right-click or Esc to cancel."
+            : rally is null ? "Rally point for new armies: none."
+            : $"Rally point for {rally.NationId}: {(rally.CityId is null ? $"cell ({rally.X}, {rally.Y})" : $"city {rally.CityId}")}.";
+        _rallyPointSetButton.Text = rally is null ? "Set rally point" : "Change rally point";
+        _rallyPointClearButton.Visible = rally is not null;
+    }
+
+    private void ArmNationRallyPointPick()
+    {
+        if (Session.State.NationById(Session.State.ActiveNationId)?.Control != SeatControl.Human)
+        {
+            ShowScreenMessage("Only the active human nation can set its rally point.");
+            return;
+        }
+        if (Session.RallyPointFor(Session.State.ActiveNationId) is { } existing)
+        {
+            var prompt = new ConfirmPrompt
+            {
+                Question = $"Replace {existing.NationId}'s rally point?"
+            };
+            prompt.Confirmed += () =>
+            {
+                CloseOverlay(prompt);
+                BeginNationRallyPointPick();
+            };
+            prompt.Refused += () => CloseOverlay(prompt);
+            ShowOverlay(prompt);
+            return;
+        }
+        BeginNationRallyPointPick();
+    }
+
+    private void BeginNationRallyPointPick()
+    {
+        _rallyPointPickNationId = Session.State.ActiveNationId;
+        _mapView.ArmTravelTargetPick();
+        UpdateCommandStrip();
+        ShowScreenMessage("Click an open land cell or your city for newly mobilized armies.");
+    }
+
+    private void ClearNationRallyPoint()
+    {
+        _mapView.CancelTravelTargetPick();
+        _rallyPointPickNationId = null;
+        var nationId = Session.State.ActiveNationId;
+        ShowScreenMessage(Session.ClearRallyPoint(nationId)
+            ? $"Rally point cleared for future {nationId} mobilizations."
+            : $"{nationId} has no rally point.");
+        UpdateCommandStrip();
+    }
+
+    private void HandlePickedMapTarget(int x, int y, string? cityId)
+    {
+        if (_rallyPointPickNationId is { } nationId)
+        {
+            _rallyPointPickNationId = null;
+            var city = cityId is null ? null : Session.State.CityById(cityId);
+            if (cityId is not null && (city is null || city.Owner != nationId))
+            {
+                UpdateCommandStrip();
+                ShowScreenMessage("A rally city must be owned by the active nation.");
+                return;
+            }
+            if (cityId is null)
+            {
+                var cells = Session.World.Terrain.Decode(Session.World.Width, Session.World.Height);
+                if ((uint)x >= (uint)Session.World.Width || (uint)y >= (uint)Session.World.Height
+                    || Session.World.TileTypeByCode(cells[y * Session.World.Width + x])?.PassableByArmies != true)
+                {
+                    UpdateCommandStrip();
+                    ShowScreenMessage("Choose a land cell or an owned city for the rally point.");
+                    return;
+                }
+            }
+            Session.SetRallyPoint(new NationRallyPoint(nationId, x, y, cityId));
+            UpdateCommandStrip();
+            ShowScreenMessage($"Rally point set for new {nationId} armies.");
+            return;
+        }
+        SetPickedArmyTravelTarget(x, y, cityId);
     }
 
     private void ToggleRetreatSupplyMode()
@@ -2623,6 +2737,11 @@ public partial class MainGameScreen : Control
             {
                 _pendingOfferNotices.Enqueue(announced.DialogText);
             }
+            else if (domainEvent is Engine.Recruitment.Commands.RecruitMobilized
+                     { ArmyWasCreated: true } mobilized)
+            {
+                AssignRallyPointToNewArmy(mobilized);
+            }
         }
 
         if (_soundPlayer is null)
@@ -2633,6 +2752,34 @@ public partial class MainGameScreen : Control
         _soundPlayer.Muted = !SettingsScreen.SoundEnabled;
         var cues = Audio.SoundCues.ForEvents(events, Session.State, Session.LastTacticalTimeline);
         _soundPlayer.Play(cues);
+    }
+
+    private void AssignRallyPointToNewArmy(Engine.Recruitment.Commands.RecruitMobilized mobilized)
+    {
+        var rally = Session.RallyPointFor(mobilized.NationId);
+        var army = Session.State.ArmyById(mobilized.ArmyId);
+        if (rally is null || army is null || army.Nation != mobilized.NationId) return;
+        if (rally.CityId is { } cityId)
+        {
+            if (Session.State.CityById(cityId) is not { } city || city.Owner != rally.NationId)
+            {
+                Session.ClearRallyPoint(rally.NationId);
+                ShowScreenMessage($"Rally point cleared: city {cityId} is no longer owned by {rally.NationId}.");
+                UpdateCommandStrip();
+                return;
+            }
+        }
+        else if ((uint)rally.X >= (uint)Session.World.Width || (uint)rally.Y >= (uint)Session.World.Height)
+        {
+            Session.ClearRallyPoint(rally.NationId);
+            ShowScreenMessage($"Rally point cleared: cell ({rally.X}, {rally.Y}) is outside this world.");
+            UpdateCommandStrip();
+            return;
+        }
+
+        Session.SetArmyTravelTarget(new ArmyTravelTarget(army.Id, army.Nation,
+            rally.X, rally.Y, rally.CityId, FromRally: true));
+        UpdateCommandStrip();
     }
 
     private void OnCommandIssued(IReadOnlyList<string> lines)

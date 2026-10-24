@@ -166,6 +166,7 @@ public partial class GameMapView : Control
     /// <summary>A fixed land cell or city picked for the selected army's campaign target.</summary>
     public event Action<int, int, string?>? TravelTargetPicked;
     public event Action? TravelTargetPickChanged;
+    public event Action? TravelTargetPickCancelled;
     public bool TravelTargetPickArmed { get; private set; }
 
     public void ArmTravelTargetPick()
@@ -177,6 +178,15 @@ public partial class GameMapView : Control
     }
 
     public void CancelTravelTargetPick()
+    {
+        var wasArmed = TravelTargetPickArmed;
+        TravelTargetPickArmed = false;
+        TravelTargetPickChanged?.Invoke();
+        if (wasArmed) TravelTargetPickCancelled?.Invoke();
+        QueueRedraw();
+    }
+
+    private void CompleteTravelTargetPick()
     {
         TravelTargetPickArmed = false;
         TravelTargetPickChanged?.Invoke();
@@ -1101,15 +1111,15 @@ public partial class GameMapView : Control
         if (!TravelTargetPickArmed) return;
         if (context.Target is { Kind: MapEntityKind.City } city)
         {
-            CancelTravelTargetPick();
+            CompleteTravelTargetPick();
             TravelTargetPicked?.Invoke(context.X, context.Y, city.Id);
         }
         else if (context.Target is null && context.TileIsLand)
         {
-            CancelTravelTargetPick();
+            CompleteTravelTargetPick();
             TravelTargetPicked?.Invoke(context.X, context.Y, null);
         }
-        else HintRequested?.Invoke("Choose an open land cell or city for the army target; right-click to cancel.");
+        else HintRequested?.Invoke("Choose an open land cell or city target; right-click to cancel.");
     }
 
     /// <summary>Exercises the same target-pick decision as a map click in a headless check.</summary>
