@@ -617,8 +617,9 @@ public static class AiArmyTargetTree
     private static List<DecisionRecord>? _activeLog;
 
     /// <summary>
-    /// The decision tree, verbatim from <c>2026-10-07-strategic-ai-turn.md</c> §3.3, over the three
-    /// scorers' results. Records the decision in the calling thread's log when one is installed.
+    /// The decision tree over the three scorers' results, using Research PR75's corrected
+    /// inclusive weak-target boundary for original classical AI. Records the decision in the
+    /// calling thread's log when one is installed.
     /// </summary>
     public static Decision Decide(AiView view, ArmyState army, bool atWar)
     {
@@ -682,8 +683,8 @@ public static class AiArmyTargetTree
 
     /// <summary>
     /// The decision over already-computed scorer results. Public so a table-driven test can walk every
-    /// branch and boundary without building a state for each. Every comparison is exactly as the report
-    /// writes it (<c>&lt; 100</c> and <c>&gt; 100</c> differ at 100).
+    /// branch and boundary without building a state for each. The optional original policy distinguishes
+    /// weak <c>&lt;= 100</c> from better-city <c>&gt; 100</c>; the default preserves designed strict weak checks.
     /// </summary>
     public static Decision DecideFromScores(
         AiWeightsRules rules,
