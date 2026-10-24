@@ -2,6 +2,7 @@ using IC2.Data;
 using IC2.Engine.Import;
 using IC2.Engine.Model;
 using IC2.Engine.Presentation;
+using IC2.Engine.Tests.Presentation;
 using Xunit;
 
 namespace IC2.Engine.Tests.Import;
@@ -22,6 +23,73 @@ public sealed class OriginalSaveExportTests
 
     private static OriginalSaveDocument Export(GameState state) =>
         OriginalSaveExporter.ToDocument(Save(state), RealGameData.World, RealGameData.Ruleset, Ui).Document;
+
+    [Fact]
+    public void Live_session_export_matches_the_saved_state_without_mutating_the_session()
+    {
+        var session = new GameSession(RealGameData.World, RealGameData.Ruleset, RealGameData.Scenario,
+            seedOverride: 7, humanSeatNationId: "rome");
+        var before = session.State;
+        var live = OriginalSaveExporter.ToDocument(session, Ui);
+
+        Assert.Equal(OriginalSaveCodec.Encode(Export(before)), OriginalSaveCodec.Encode(live.Document));
+        Assert.Same(before, session.State);
+        Assert.DoesNotContain(live.Report.Omitted, item => item.StartsWith("ArmyTravelTargets", StringComparison.Ordinal));
+
+        var army = session.State.Armies.First(a => a.Nation == "rome");
+        session.SetArmyTravelTarget(new ArmyTravelTarget(army.Id, army.Nation, army.X, army.Y));
+        var withPlan = OriginalSaveExporter.ToDocument(session, Ui);
+        Assert.Equal(OriginalSaveCodec.Encode(live.Document), OriginalSaveCodec.Encode(withPlan.Document));
+        Assert.Contains(withPlan.Report.Omitted, item => item.StartsWith("ArmyTravelTargets", StringComparison.Ordinal));
+        Assert.Single(session.ArmyTravelTargets);
+    }
+
+    [Fact]
+    public void Live_session_export_refuses_an_open_battle_and_an_unanswered_peace_offer()
+    {
+        var battle = TacticalSessionTestbed.ToySession(HumanBattleMode.Tactical,
+            armies: TacticalSessionTestbed.StrongAttacker());
+        battle.Submit("attack-army north-army-1 south-army-1");
+        Assert.NotNull(battle.OpenTacticalBattle);
+        var battleRefusal = Assert.Throws<OriginalSaveExportException>(() =>
+            OriginalSaveExporter.ToDocument(battle, Ui));
+        Assert.Contains(battleRefusal.Refusals, item => item.Code == OriginalSaveExportRefusal.OpenBattle);
+
+        var pending = TacticalSessionTestbed.PeaceSession();
+        TacticalSessionTestbed.PlayUntilEnded(pending, TacticalSessionTestbed.LostBattleScript);
+        Assert.True(pending.HasPendingPeaceOffers);
+        var offerRefusal = Assert.Throws<OriginalSaveExportException>(() =>
+            OriginalSaveExporter.ToDocument(pending, Ui));
+        Assert.Contains(offerRefusal.Refusals, item => item.Code == OriginalSaveExportRefusal.PendingPeaceOffer);
+    }
+
+    [Fact]
+    public void Live_session_file_export_uses_the_checked_writer_and_keeps_the_native_state()
+    {
+        var session = new GameSession(RealGameData.World, RealGameData.Ruleset, RealGameData.Scenario,
+            seedOverride: 11, humanSeatNationId: "rome");
+        var before = session.State;
+        var folder = Path.Combine(Path.GetTempPath(), "ic2-live-sav-export-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        try
+        {
+            var template = Path.Combine(folder, "template.sav");
+            var output = Path.Combine(folder, "export.sav");
+            File.WriteAllBytes(template, OriginalSaveCodec.Encode(Export(before)));
+
+            var result = OriginalSaveExporter.ExportFile(session, template, output);
+
+            Assert.Equal(output, result.OutputPath);
+            Assert.True(File.Exists(output));
+            Assert.Equal(OriginalSaveCodec.Encode(Export(before)), File.ReadAllBytes(output));
+            Assert.Same(before, session.State);
+            Assert.Throws<IOException>(() => OriginalSaveExporter.ExportFile(session, template, output));
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
 
     [Fact]
     public void A_game_played_for_24_turns_exports_every_turn_and_imports_back_unchanged()
