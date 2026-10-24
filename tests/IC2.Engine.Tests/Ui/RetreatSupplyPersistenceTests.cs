@@ -74,8 +74,11 @@ public sealed class RetreatSupplyPersistenceTests
             Assert.Contains(session.Submit($"save {input}").Lines,
                 line => line.StartsWith("Saved to", StringComparison.Ordinal));
             File.WriteAllText(script, $"save {output}\nquit\n");
+            var testOutput = new DirectoryInfo(AppContext.BaseDirectory.TrimEnd(
+                Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            var configuration = testOutput.Parent?.Name ?? "Debug";
             var cliDll = Path.Combine(ModelTestPaths.RepositoryRoot, "src", "IC2.Cli", "bin",
-                "Debug", "net10.0", "IC2.Cli.dll");
+                configuration, testOutput.Name, "IC2.Cli.dll");
             Assert.True(File.Exists(cliDll), "Build IC2.sln before the process check.");
             var start = new ProcessStartInfo("dotnet")
             {
