@@ -255,7 +255,17 @@ public static class AiArmyTargetTree
                 continue;
             }
 
-            if (!IsReachable(view, army, target.X, target.Y))
+            // T212: F31C's original same-geography target test does not require the
+            // direct walker to reach the target. A different-geography target without
+            // an own fleet is refused by CAB4; the stored-ferry route is a separate
+            // unrepresented state gap (#1405), so retain the existing reachable gate
+            // for that branch until its route lifecycle is supported.
+            var faithfulNavigation = ClassicalArmyNavigation.Applies(view);
+            var sameGeography = faithfulNavigation
+                && ClassicalArmyNavigation.Classify(army.X, army.Y)
+                    == ClassicalArmyNavigation.Classify(target.X, target.Y);
+            if (faithfulNavigation && !ClassicalArmyNavigation.TargetEligible(view, army, target.X, target.Y)
+                || !sameGeography && !IsReachable(view, army, target.X, target.Y))
             {
                 skipped++;
                 continue;
@@ -576,7 +586,9 @@ public static class AiArmyTargetTree
         long ArmyScore,
         int CityDistance,
         int ArmyDistance,
-        int Skipped);
+        int Skipped,
+        int? RouteX = null,
+        int? RouteY = null);
 
     /// <summary>
     /// Installs and returns a fresh decision log for the calling thread. A game runs on one thread, so a

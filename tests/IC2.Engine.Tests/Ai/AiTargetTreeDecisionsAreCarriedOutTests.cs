@@ -114,7 +114,12 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
                             continue;
                         }
 
-                        exceptions.Add(Describe(r, decision));
+                        var moves = turns.TryGetValue(decision.NationId, out var recorded)
+                            ? string.Join(", ", recorded.OfType<ArmyMoved>()
+                                .Where(m => m.ArmyId == decision.ArmyId)
+                                .Select(m => $"({m.FromX},{m.FromY})->({m.ToX},{m.ToY})"))
+                            : "no turn";
+                        exceptions.Add($"{Describe(r, decision)} route ({decision.RouteX},{decision.RouteY}); moves {moves}");
                     }
                 }
             }
@@ -173,8 +178,8 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
     {
         var attackCity = decision.Kind == AiArmyTargetTree.Kind.AttackCity;
         var targetId = attackCity ? decision.TargetCityId : decision.TargetArmyId;
-        var targetX = attackCity ? decision.TargetCityX : decision.TargetArmyX;
-        var targetY = attackCity ? decision.TargetCityY : decision.TargetArmyY;
+        var targetX = attackCity ? decision.TargetCityX : decision.RouteX ?? decision.TargetArmyX;
+        var targetY = attackCity ? decision.TargetCityY : decision.RouteY ?? decision.TargetArmyY;
 
         foreach (var domainEvent in turnEvents)
         {
@@ -187,12 +192,25 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
 
                 case ArmyMoved moved
                     when string.Equals(moved.ArmyId, decision.ArmyId, StringComparison.Ordinal)
-                        && Distance(moved.ToX, moved.ToY, targetX, targetY) < Distance(moved.FromX, moved.FromY, targetX, targetY):
+                        && IsCloserToRouteGoal(moved, targetX, targetY):
                     return true;
             }
         }
 
         return false;
+    }
+
+    private static bool IsCloserToRouteGoal(ArmyMoved moved, int targetX, int targetY)
+    {
+        var before = Distance(moved.FromX, moved.FromY, targetX, targetY);
+        var after = Distance(moved.ToX, moved.ToY, targetX, targetY);
+        if (after < before) return true;
+        // A legal step can reduce the shorter axis first while Chebyshev distance
+        // stays level. Require a strict Manhattan improvement on that tie, not
+        // merely any movement by the same army.
+        return after == before
+            && Math.Abs(moved.ToX - targetX) + Math.Abs(moved.ToY - targetY)
+                < Math.Abs(moved.FromX - targetX) + Math.Abs(moved.FromY - targetY);
     }
 
     /// <summary>

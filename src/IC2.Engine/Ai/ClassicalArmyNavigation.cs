@@ -42,6 +42,23 @@ public static partial class ClassicalArmyNavigation
         Classify(actor.X, actor.Y) == Classify(targetX, targetY)
         || view.State.Fleets.Any(f => f.Nation == actor.Nation);
 
+    /// <summary>D9A8's narrower ferry lookup, retained as a pure boundary control until route state exists.</summary>
+    public static FleetState? NearestUsableFerry(AiView view, ArmyState actor)
+    {
+        FleetState? closest = null;
+        var bestDistance = int.MaxValue;
+        foreach (var fleet in view.State.Fleets)
+        {
+            if (fleet.Nation != actor.Nation || fleet.IsUnderConstruction
+                || fleet.IsCarryingArmy || fleet.Moves <= 0) continue;
+            var distance = Distance(new GridPoint(actor.X, actor.Y), new GridPoint(fleet.X, fleet.Y));
+            if (distance >= bestDistance) continue; // First record wins a tie.
+            closest = fleet;
+            bestDistance = distance;
+        }
+        return closest;
+    }
+
     /// <summary>CB40: same land/sea medium along the integer line, excluding the final sample.</summary>
     public static bool DirectLine(AiView view, GridPoint origin, GridPoint target, bool coincidentAfterOriginTest = false)
     {
