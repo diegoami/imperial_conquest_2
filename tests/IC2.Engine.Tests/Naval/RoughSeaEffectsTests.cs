@@ -4,6 +4,8 @@ using IC2.Engine.Model;
 using IC2.Engine.Naval;
 using IC2.Engine.Naval.Commands;
 using IC2.Engine.Tests.Import;
+using IC2.Engine.Tests.Export;
+using IC2.Engine.Serialization;
 using Xunit;
 
 namespace IC2.Engine.Tests.Naval;
@@ -93,14 +95,126 @@ public sealed class RoughSeaEffectsTests
     }
 
     [Fact]
-    public void A_fleet_that_cannot_afford_a_rough_cell_stops_before_it()
+    public void An_ai_fleet_that_cannot_afford_a_rough_cell_stops_and_spends_its_remaining_moves()
     {
         var state = OpenSeaState(FleetAt(10, 10) with { Moves = 2 }, new RoughSeaCell(11, 10));
+        Assert.Equal(SeatControl.Ai, state.NationById(state.Fleets[0].Nation)!.Control);
 
         var after = Move(state, 11, 10).FleetById("test-fleet")!;
 
         Assert.Equal(10, after.X);
-        Assert.Equal(2, after.Moves);
+        Assert.Equal(0, after.Moves);
+    }
+
+    [Theory]
+    [InlineData(SeatControl.Ai, SeatAsymmetryModel.Faithful, 0)]
+    [InlineData(SeatControl.Human, SeatAsymmetryModel.Faithful, 1)]
+    [InlineData(SeatControl.Ai, SeatAsymmetryModel.Normalized, 0)]
+    [InlineData(SeatControl.Human, SeatAsymmetryModel.Normalized, 0)]
+    public void T214_an_unaffordable_rough_step_uses_the_fleet_controllers_abort_budget(
+        SeatControl control, SeatAsymmetryModel asymmetry, int expectedMoves)
+    {
+        var ruleset = asymmetry == SeatAsymmetryModel.Faithful
+            ? Classical
+            : GameDataLoader.LoadFile<Ruleset>(ExportedDataPaths.ImprovedRulesetFile);
+        Assert.Equal(asymmetry, ruleset.Flags.SeatAsymmetry);
+        var fleet = FleetAt(10, 10) with { Moves = 1 };
+        var state = OpenSeaState(fleet, new RoughSeaCell(11, 10));
+        var carried = state.Armies.First(a => a.Nation == fleet.Nation) with
+        {
+            X = fleet.X, Y = fleet.Y, CoveredTileCode = null, AboardFleetId = fleet.Id,
+        };
+        fleet = fleet with { CarriedArmyId = carried.Id };
+        state = state with
+        {
+            Fleets = ValueList.Of(fleet),
+            Armies = ValueList.From(state.Armies.Select(a => a.Id == carried.Id ? carried : a)),
+        };
+        state = state with { Nations = ValueList.From(state.Nations.Select(n =>
+            n.Id == fleet.Nation ? n with { Control = control } : n)) };
+        var sink = new RecordingEventSink();
+        var dispatcher = new CommandDispatcher(SystemRegistry.FromEngineAssembly(), ruleset, World, sink);
+
+        var result = dispatcher.Dispatch(state, new MoveFleetCommand(fleet.Nation, fleet.Id, 11, 10));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        var after = result.State.FleetById(fleet.Id)!;
+        Assert.Equal((10, 10, expectedMoves, fleet.CoveredTileCode),
+            (after.X, after.Y, after.Moves, after.CoveredTileCode));
+        Assert.Equal(carried, result.State.ArmyById(carried.Id));
+        Assert.Empty(sink.Events.OfType<FleetMoved>());
+    }
+
+    [Theory]
+    [InlineData(true, 3)]
+    [InlineData(false, 1)]
+    public void T214_an_affordable_ai_fleet_step_spends_its_real_rough_or_calm_cost(
+        bool rough, int initialMoves)
+    {
+        var fleet = FleetAt(10, 10) with { Moves = initialMoves };
+        var state = rough
+            ? OpenSeaState(fleet, new RoughSeaCell(11, 10))
+            : OpenSeaState(fleet);
+        state = state with { Nations = ValueList.From(state.Nations.Select(n =>
+            n.Id == fleet.Nation ? n with { Control = SeatControl.Ai } : n)) };
+        var sink = new RecordingEventSink();
+        var dispatcher = new CommandDispatcher(SystemRegistry.FromEngineAssembly(), Classical, World, sink);
+
+        var result = dispatcher.Dispatch(state, new MoveFleetCommand(fleet.Nation, fleet.Id, 11, 10));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        var after = result.State.FleetById(fleet.Id)!;
+        Assert.Equal((11, 10, 0), (after.X, after.Y, after.Moves));
+        Assert.Single(sink.Events.OfType<FleetMoved>());
+    }
+
+    [Fact]
+    public void T214_a_blocked_ai_fleet_step_keeps_its_budget_and_zero_moves_still_refuse()
+    {
+        var state = NavalTestbed.InitialState();
+        var fleet = state.Fleets[0] with { Moves = 1 };
+        var world = NavalTestbed.Toy.World;
+        var terrain = world.Terrain.Decode(world.Width, world.Height);
+        var neighbors = new[] { (X: 0, Y: 2), (X: 1, Y: 2), (X: 1, Y: 3),
+            (X: 1, Y: 4), (X: 0, Y: 4) }
+            .Where(p => state.Cities.Any(c => c.X == p.X && c.Y == p.Y)
+                || world.TileTypeByCode(terrain[p.Y * world.Width + p.X])?.PassableByFleets == true)
+            .ToArray();
+        Assert.Contains(neighbors, p => p == (0, 2));
+        var blockers = neighbors.Select((p, i) => fleet with
+        {
+            Id = $"blocker-{i}", X = p.X, Y = p.Y, Moves = 0, CarriedArmyId = null,
+        });
+        state = state with
+        {
+            Fleets = ValueList.From(new[] { fleet }.Concat(blockers)),
+            Nations = ValueList.From(state.Nations.Select(n =>
+                n.Id == fleet.Nation ? n with { Control = SeatControl.Ai } : n)),
+        };
+        var ruleset = NavalTestbed.Ruleset with
+        {
+            Flags = NavalTestbed.Ruleset.Flags with { SeatAsymmetry = SeatAsymmetryModel.Faithful },
+        };
+        var sink = new RecordingEventSink();
+        var dispatcher = new CommandDispatcher(SystemRegistry.FromEngineAssembly(), ruleset,
+            NavalTestbed.Toy.World, sink);
+
+        // Every legal first step is occupied by a launched fleet; land blocks the rest.
+        var blocked = dispatcher.Dispatch(state, new MoveFleetCommand(fleet.Nation, fleet.Id, 0, 2));
+        Assert.True(blocked.IsAccepted, blocked.ToString());
+        Assert.Equal((fleet.X, fleet.Y, 1),
+            (blocked.State.FleetById(fleet.Id)!.X, blocked.State.FleetById(fleet.Id)!.Y,
+                blocked.State.FleetById(fleet.Id)!.Moves));
+        Assert.Empty(sink.Events.OfType<FleetMoved>());
+
+        var exhausted = state with
+        {
+            Fleets = ValueList.From(state.Fleets.Select(f => f.Id == fleet.Id ? f with { Moves = 0 } : f)),
+        };
+        var refused = dispatcher.Dispatch(exhausted, new MoveFleetCommand(fleet.Nation, fleet.Id, 0, 2));
+        Assert.True(refused.IsRejected);
+        Assert.Equal(MoveFleetRejections.NoMovesLeft, refused.Code);
+        Assert.Equal(exhausted.Fleets, refused.State.Fleets);
     }
 
     // ------------------------------------------------------------------------------ the storm pass

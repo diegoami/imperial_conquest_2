@@ -122,6 +122,14 @@ public sealed class MoveFleetCommandHandler : ICommandHandler<MoveFleetCommand>
 
         context.RecordTravel(StrategicMarkerKind.Fleet, fleet.Id, fleet.Nation, null, fleet.CarriedArmyId, walk);
 
+        // T214: the original clears an AI fleet's remaining moves after an unaffordable step,
+        // while a human fleet retains them. Reuse the army command's loaded seat-asymmetry rule;
+        // a blocked marker or an affordable step keeps the walker's own budget.
+        var movesAfter = walk.StopReason == MovementStopReason.InsufficientMoves
+            ? MovementAbortRule.MovesAfterAbortedStep(
+                walk.MovesRemaining, context.IssuingNation.Control, context.Ruleset.Flags.SeatAsymmetry)
+            : walk.MovesRemaining;
+
         var finalPosition = walk.FinalPosition;
         var coveredTileCode = InBounds(finalPosition, world)
             ? state.IsRoughSea(finalPosition.X, finalPosition.Y)
@@ -133,7 +141,7 @@ public sealed class MoveFleetCommandHandler : ICommandHandler<MoveFleetCommand>
         {
             X = finalPosition.X,
             Y = finalPosition.Y,
-            Moves = walk.MovesRemaining,
+            Moves = movesAfter,
             CoveredTileCode = coveredTileCode,
         };
 
