@@ -318,7 +318,7 @@ public partial class MainGameScreen : Control
         travelTargetRow.AddChild(_travelTargetLabel);
         root.AddChild(travelTargetRow);
 
-        _retreatSupplyRow = new HBoxContainer();
+        _retreatSupplyRow = new HBoxContainer { Visible = false };
         _retreatSupplyLabel = UiKit.MakeLabel(string.Empty, AppTheme.Note, UiKit.MutedTextColor);
         _retreatSupplyLabel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _retreatSupplyRow.AddChild(_retreatSupplyLabel);

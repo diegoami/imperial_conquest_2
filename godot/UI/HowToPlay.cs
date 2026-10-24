@@ -55,6 +55,12 @@ public static class HowToPlay
             "Taxes fill the treasury once a season and pay your regular units and ships. High taxes cost unity, the people's loyalty to you; low unity or unpaid debts can cost you the throne.",
             "Recruit units and build fleets from the Strategy menu; Taxation and the Balance sheet show where the money goes.",
         }),
+        new HowToPlaySection("Retreat and supply", new[]
+        {
+            "Select one of your armies or fleets, then press Retreat and supply below the command strip. The unit seeks stocked owned towns before each End turn; fleets can also repair at an owned coastal town.",
+            "A nearby enemy army or fleet within ten tiles cancels the mode. It finishes when an army has full supplies, or a fleet has full supplies and condition, during the recovery pass before normal End-turn consumption.",
+            "Suggest split opens an editable whole-unit split for an army; only your confirmation makes the split. The mode is saved with this campaign, but original-compatible SAV export leaves it out and reports that omission.",
+        }),
         new HowToPlaySection("Diplomacy", new[]
         {
             "Strategy → International relations lists every nation. Declare War, Make Peace, Ally and Trade are there; a nation may refuse an offer, and a greyed button is not available now.",
