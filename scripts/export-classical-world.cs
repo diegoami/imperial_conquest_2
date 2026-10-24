@@ -804,11 +804,22 @@ rulesetNode["id"] = "classical-faithful";
 rulesetNode["name"] = "Classical, faithful";
 rulesetNode["description"] =
     "The shipped, historically-faithful preset: task T29's export of the classical-mediterranean " +
-    "ruleset. Every confirmed constant is the same figure toy-ruleset.json already carries (the " +
-    "same game), transcribed from the reports in the research repository's docs/reports/ and " +
+    "ruleset. Most confirmed constants start from toy-ruleset.json; later evidence-backed faithful " +
+    "corrections are applied here, then checked against reports in the research repository and " +
     "cross-checked here against the T04 fixtures corpus (tests/fixtures/corpus.json) wherever the " +
     "corpus gives that constant its own id. Its flags reproduce the original faithfully; the " +
-    "'improved' preset (task T36) is this file with docs/game-design.md's 'improved' column applied.";
+    "'improved' preset (task T36) keeps its explicit designed differences.";
+
+// T213: Research PR69 corrected the original's resupply-city choice, not the separate
+// automatic-transfer capacity. The toy/improved preset keeps its designed selector constants.
+rulesetNode["ai"]!["resupplyStrengthTroopsDivisor"] = 1000;
+var faithfulAiProvenance = (JsonObject)rulesetNode["ai"]!["_provenance"]!;
+faithfulAiProvenance["resupplyStrengthTroopsDivisor"] =
+    "confirmed: 2026-10-24-strategic-fidelity-pilot171.md, Research PR69 — FUN_0044e670 uses floor(troops / 1000) for city-choice stock eligibility; automatic transfer capacity separately uses /100.";
+faithfulAiProvenance["resupplyCapitalPenalty"] =
+    "confirmed: 2026-10-24-strategic-fidelity-pilot171.md, Research PR69 — original FUN_0044e670 minimizes adjusted distance after subtracting 20 for an own capital; the faithful maximized negative-distance scorer adds this value. The field name predates the correction.";
+faithfulAiProvenance["resupplyForeignBonus"] =
+    "confirmed: 2026-10-24-strategic-fidelity-pilot171.md, Research PR69 — original FUN_0044e670 adds 20 to a foreign city's distance cost; the faithful maximized negative-distance scorer subtracts this value. Foreign preference was source-backed but not independently isolated by the pilot's six own-city controls.";
 
 // ---- Bug #549, T115: the one flag whose value differs between toy-ruleset.json and this file. The
 // toy ruleset is "refuse" (the CLI demo's orders must stay refused rather than put its only human seat

@@ -46,7 +46,7 @@ public class ImprovedPresetTests
     {
         // DoD 2: A test diffs it against classical-faithful.json and asserts the difference
         // is exactly the improved column: each flag at its improved value, the victory default
-        // and default turn limit, and the scatter constants. Every other constant equals
+        // and default turn limit, the scatter constants, and the original-only AI resupply divisor. Every other constant equals
         // classical-faithful.json's.
 
         var improved = GameDataLoader.LoadFile<Ruleset>(ImprovedPath);
@@ -166,6 +166,7 @@ public class ImprovedPresetTests
             "flags.newGameTurnOrder",
             "flags.balanceSheetTotals",
             "flags.strategicStep",
+            "ai.resupplyStrengthTroopsDivisor",
             "economy.rebirthPreservesInboundRelations",
             "victory.defaultCondition",
             "victory.defaultTurnLimit",
