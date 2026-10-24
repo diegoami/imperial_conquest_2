@@ -1,6 +1,9 @@
 using IC2.Data;
+using IC2.Engine.Core;
 using IC2.Engine.Import;
 using IC2.Engine.Model;
+using IC2.Engine.Naval;
+using IC2.Engine.Naval.Commands;
 using IC2.Engine.Presentation;
 using IC2.Engine.Tests.Presentation;
 using Xunit;
@@ -23,6 +26,59 @@ public sealed class OriginalSaveExportTests
 
     private static OriginalSaveDocument Export(GameState state) =>
         OriginalSaveExporter.ToDocument(Save(state), RealGameData.World, RealGameData.Ruleset, Ui).Document;
+
+    [Fact]
+    public void T216_whole_slot_overflow_exports_with_land_receiver_and_carrier_link()
+    {
+        var world = RealGameData.World;
+        var ruleset = RealGameData.Ruleset;
+        var state = GameStateFactory.CreateInitial(world, ruleset, RealGameData.Scenario);
+        var source = state.Armies.First(a => a.Nation == "carthage");
+        var city = state.Cities.First(c => c.Owner == source.Nation
+            && CoastalCity.FirstAdjacentSeaTile(c, world) is not null);
+        var sea = CoastalCity.FirstAdjacentSeaTile(city, world)!.Value;
+        source = source with
+        {
+            X = city.X, Y = city.Y, Moves = 5, CoveredTileCode = 2,
+            Money = 100, SupplyTons = 90,
+            Units = ValueList.Of(
+                new UnitSlot(0, "light_infantry", 4_000, 6, "Light"),
+                new UnitSlot(0, "heavy_infantry", 2_000, 7, "Heavy")),
+        };
+        var fleet = state.Fleets[0] with
+        {
+            Id = "overflow-test-fleet", Nation = source.Nation, X = sea.X, Y = sea.Y,
+            Ships = 10, Moves = 4, ConditionPercent = 100, SupplyTons = 500,
+            ConstructionTicksRemaining = null, BuildCityId = null, CarriedArmyId = null,
+            CoveredTileCode = 0,
+        };
+        state = state with
+        {
+            Armies = ValueList.Of(source), Fleets = ValueList.Of(fleet),
+            ActiveSeatIndex = Array.IndexOf(state.TurnOrder.ToArray(), source.Nation),
+            Nations = ValueList.From(state.Nations.Select(n => n.Id == source.Nation
+                ? n with { Control = SeatControl.Ai } : n)),
+        };
+        var dispatcher = new CommandDispatcher(SystemRegistry.FromEngineAssembly(), ruleset,
+            world, NullEventSink.Instance);
+        var result = dispatcher.Dispatch(state, new EmbarkArmyCommand(source.Nation, source.Id, fleet.Id));
+        Assert.True(result.IsAccepted, result.ToString());
+
+        var document = Export(result.State);
+        Assert.Equal(2, document.Armies.Count);
+        Assert.Equal(6_000, result.State.Armies.Sum(a => a.TotalTroops));
+        Assert.Equal(0, Assert.Single(document.Fleets).Army);
+        Assert.Equal((-1, 4_000, 67, 60),
+            (document.Armies[0].Cell, Assert.Single(document.Armies[0].Units).Troops,
+                document.Armies[0].Money, document.Armies[0].Supplies));
+        Assert.Equal((2_000, 33, 30),
+            (Assert.Single(document.Armies[1].Units).Troops,
+                document.Armies[1].Money, document.Armies[1].Supplies));
+        Assert.True(document.Armies[1].Cell >= 0);
+        var decoded = OriginalSaveCodec.Decode(OriginalSaveCodec.Encode(document));
+        Assert.Equal(document.Fleets[0].Army, decoded.Fleets[0].Army);
+        Assert.Equal(document.Armies[1].Units[0].Troops, decoded.Armies[1].Units[0].Troops);
+    }
 
     [Fact]
     public void Live_session_export_matches_the_saved_state_without_mutating_the_session()
