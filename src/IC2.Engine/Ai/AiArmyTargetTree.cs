@@ -105,11 +105,10 @@ public static class AiArmyTargetTree
     /// <see cref="AiWeightsRules.CityScoreThreshold"/>.
     /// </summary>
     /// <remarks>
-    /// Cities of nations the acting nation is at war with, reachable by land or because the nation owns
-    /// a fleet (the <c>FUN_0044cab4</c> test, which the rule above names). The shipped data does not
-    /// model naval reachability per tile, so a nation with no army aboard a fleet is effectively land-
-    /// only here; the tree's own "march at the city" command path issues a <c>MoveArmyCommand</c> that
-    /// the engine's own walker handles, exactly as the "Movement is unchanged" hazard requires.
+    /// Under the original policy, CAB4 admits a same-geographic city without a successful direct
+    /// walk and the static original-world geography controls score halving. Cross-geographic ferry
+    /// execution remains the deferred stored-route gap #1405, so that branch keeps the existing
+    /// reachable gate. Improved/design mode keeps its direct-walker and configured-city-region policy.
     /// </remarks>
     public static CityTarget ScoreCityTarget(
         AiView view,

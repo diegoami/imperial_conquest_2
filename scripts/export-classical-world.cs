@@ -820,6 +820,10 @@ faithfulAiProvenance["resupplyCapitalPenalty"] =
     "confirmed: 2026-10-24-strategic-fidelity-pilot171.md, Research PR69 — original FUN_0044e670 minimizes adjusted distance after subtracting 20 for an own capital; the faithful maximized negative-distance scorer adds this value. The field name predates the correction.";
 faithfulAiProvenance["resupplyForeignBonus"] =
     "confirmed: 2026-10-24-strategic-fidelity-pilot171.md, Research PR69 — original FUN_0044e670 adds 20 to a foreign city's distance cost; the faithful maximized negative-distance scorer subtracts this value. Foreign preference was source-backed but not independently isolated by the pilot's six own-city controls.";
+faithfulAiProvenance["cityScoreRegionHalvingDenominator"] =
+    "confirmed: 2026-10-24-city-army-selection187.md, Research PR75 — original EB9C halves the city score when the actor and city have different geographic region/coordinate-side pairs; faithful classical AI reads the interpreted static navigation table, while designed mode retains cityRegionById.";
+faithfulAiProvenance["cityRegionById"] =
+    "[designed]: empty for the shipped world. Faithful classical AI now uses the original static geographic boxes and coordinate-side splits for city-score halving; this list remains the designed/Improved scorer's configurable region map.";
 
 // ---- Bug #549, T115: the one flag whose value differs between toy-ruleset.json and this file. The
 // toy ruleset is "refuse" (the CLI demo's orders must stay refused rather than put its only human seat
