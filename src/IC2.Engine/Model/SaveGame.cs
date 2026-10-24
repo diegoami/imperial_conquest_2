@@ -44,10 +44,14 @@ public sealed record SaveGame(
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SavedTacticalBattle? Battle = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? FirstEndNewsOwed = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ValueList<ArmyTravelTarget>? ArmyTravelTargets = null) : IVersionedDocument;
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ValueList<ArmyTravelTarget>? ArmyTravelTargets = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ValueList<RetreatSupplyPlan>? RetreatSupplyPlans = null) : IVersionedDocument;
 
 /// <summary>A fixed destination chosen for an army in this campaign's native JSON save.</summary>
 public sealed record ArmyTravelTarget(string ArmyId, string NationId, int X, int Y, string? CityId = null);
+
+/// <summary>One unit's optional campaign-local Retreat and supply mode, absent from older native saves.</summary>
+public sealed record RetreatSupplyPlan(string UnitId, string NationId, bool IsFleet, string? DestinationCityId = null);
 
 /// <summary>
 /// An open tactical battle as a save holds it: the original's battle block (<c>2026-10-04-decompiled-tactical-battle-rules.md</c>
