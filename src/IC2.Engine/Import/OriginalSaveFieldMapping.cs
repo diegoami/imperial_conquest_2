@@ -171,6 +171,8 @@ public static class OriginalSaveFieldMapping
         new FieldMapping(typeof(NationRecord), nameof(NationRecord.TaxRatePercent), FieldMappingKind.Mapped, "-> NationState.TaxRatePercent."),
         new FieldMapping(typeof(NationRecord), nameof(NationRecord.Wealth), FieldMappingKind.Mapped, "-> NationState.Wealth, read directly, never recomputed (Done-when 5)."),
         new FieldMapping(typeof(NationRecord), nameof(NationRecord.TaxBase), FieldMappingKind.Mapped, "-> NationState.TaxBase, read directly, never recomputed (Done-when 5)."),
+        new FieldMapping(typeof(NationRecord), nameof(NationRecord.ConquerorCode), FieldMappingKind.Mapped,
+            "SAV +0x44E -> NationState.ConqueredBy through the world's positional nation ids; -1 becomes null, invalid codes refuse."),
         new FieldMapping(typeof(NationRecord), nameof(NationRecord.HumanPlayer), FieldMappingKind.Mapped, "-> NationState.Control (Human/Ai)."),
         new FieldMapping(typeof(NationRecord), nameof(NationRecord.Source), FieldMappingKind.Derived,
             "Always SaveFileFormat.Sav for an import (SaveTurnState.Parse already rejects a DAT before " +

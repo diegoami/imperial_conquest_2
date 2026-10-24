@@ -1,6 +1,8 @@
+using IC2.Data;
 using IC2.Engine.Import;
 using IC2.Engine.Model;
 using IC2.Engine.Persistence;
+using IC2.Engine.Presentation;
 using Xunit;
 
 namespace IC2.Engine.Tests.Import;
@@ -13,6 +15,29 @@ namespace IC2.Engine.Tests.Import;
 /// </summary>
 public class OriginalSaveImportRejectionTests
 {
+    [Fact]
+    public void Conqueror_history_preserves_valid_codes_and_rejects_an_invalid_one()
+    {
+        var session = new GameSession(RealWorld, RealRuleset, RealScenario, seedOverride: 5);
+        var state = session.State;
+        var save = new SaveGame(GameDataSchema.CurrentVersion, "id", "label",
+            state.ScenarioId, state.WorldId, state.RulesetId, state);
+        var original = OriginalSaveExporter.ToDocument(save, RealWorld, RealRuleset, OriginalSaveExportTests.Ui).Document;
+        var nations = original.Nations.ToArray();
+        nations[2] = nations[2] with { Conqueror = 3 };
+        var bytes = OriginalSaveCodec.Encode(original with { Nations = nations });
+
+        var imported = OriginalSaveImporter.Import(bytes, "conqueror.sav", RealWorld, RealRuleset,
+            RealScenario, "id", "label").Save.State;
+        Assert.Equal(RealWorld.Nations[3].Id, imported.Nations[2].ConqueredBy);
+        Assert.Null(imported.Nations[1].ConqueredBy);
+
+        nations[2] = nations[2] with { Conqueror = 16 };
+        var invalid = OriginalSaveCodec.Encode(original with { Nations = nations });
+        var error = Assert.Throws<InvalidDataException>(() => OriginalSaveImporter.Import(invalid,
+            "invalid-conqueror.sav", RealWorld, RealRuleset, RealScenario, "id", "label"));
+        Assert.Contains("conqueror", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
     private static readonly World RealWorld = RealGameData.World;
     private static readonly Ruleset RealRuleset = RealGameData.Ruleset;
     private static readonly Scenario RealScenario = RealGameData.Scenario;

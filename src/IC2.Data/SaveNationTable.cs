@@ -79,6 +79,7 @@ public sealed class SaveNationTable
             // https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/nation-tax-base-and-city-economy-fields.md.
             var wealth = BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(offset + 0x430, 4));
             var taxBase = BinaryPrimitives.ReadInt16LittleEndian(data.AsSpan(offset + 0x44C, 2));
+            var conquerorCode = BinaryPrimitives.ReadInt16LittleEndian(data.AsSpan(offset + 0x44E, 2));
             // T122: the three 4-byte Delphi TColor battle-icon colours (0x00BBGGRR), at nation-record
             // +0x424 / +0x428 / +0x42C -- the offsets FUN_0044A6C8 substitutes for a battle icon's
             // purple / white / blue (2026-10-04-decompiled-tactical-battle-rules.md §10). They sit in
@@ -94,7 +95,7 @@ public sealed class SaveNationTable
             nations[i] = new NationRecord((ushort)i, name, leader,
                 BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(offset + 0x438, 4)),
                 ReadWord(data, offset + 0x440), ReadWord(data, offset + 0x442),
-                capitalCity, cities, ReadWord(data, offset + 0x44A), wealth, taxBase,
+                capitalCity, cities, ReadWord(data, offset + 0x44A), wealth, taxBase, conquerorCode,
                 battleColors, humanPlayer: human == 1, source: SaveFileFormat.Sav, relations: relations,
                 neighbourMask: neighbourMask);
         }
@@ -129,7 +130,7 @@ public sealed class SaveNationTable
                 BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(offset + DatLayout.NationTreasuryOffset, 4)),
                 ReadWord(data, offset + DatLayout.NationUnityOffset),
                 ReadWord(data, offset + DatLayout.NationMobilizedOffset),
-                capitalCity, cities, ReadWord(data, offset + DatLayout.NationTaxOffset), wealth, taxBase,
+                capitalCity, cities, ReadWord(data, offset + DatLayout.NationTaxOffset), wealth, taxBase, conquerorCode: null,
                 // T122: the DAT stores no battle-icon colours. Its 1,055-byte record has no 12-byte
                 // block: the recruitment queue (+0x2C9..+0x409) runs straight into wealth (+0x409),
                 // where the SAV interposes the three TColor words at +0x424/+0x428/+0x42C between its
@@ -221,7 +222,7 @@ public sealed class NationRecord
 
     internal NationRecord(ushort code, string name, string? leader, int treasury, ushort unityValue,
         ushort mobilizedPercent, ushort capitalCityIndex, ushort cityCount, ushort taxRatePercent,
-        int wealth, short taxBase, int[]? battleColors, bool? humanPlayer,
+        int wealth, short taxBase, short? conquerorCode, int[]? battleColors, bool? humanPlayer,
         SaveFileFormat source, short[] relations, ushort neighbourMask)
     {
         Code = code;
@@ -235,6 +236,7 @@ public sealed class NationRecord
         TaxRatePercent = taxRatePercent;
         Wealth = wealth;
         TaxBase = taxBase;
+        ConquerorCode = conquerorCode;
         // Array.AsReadOnly, for the same reason as Relations below: a caller that casts the interface
         // back to int[] must not be able to reach (and mutate) the backing array (T122 review N4).
         BattleColors = battleColors is null ? null : Array.AsReadOnly(battleColors);
@@ -257,6 +259,9 @@ public sealed class NationRecord
     /// docs/investigations/dat-file-layout.md. Modelled as an explicit absence rather than an empty
     /// string, precisely so a caller cannot mistake "not stored" for "stored and blank".</summary>
     public string? Leader { get; }
+
+    /// <summary>SAV nation +0x44E conqueror history: -1 or a nation code; absent from the DAT.</summary>
+    public short? ConquerorCode { get; }
 
     /// <summary>The nation's 16-entry signed relation row toward every nation, indexed by nation
     /// code (SAV <c>+0x26</c>; DAT <see cref="DatLayout.NationRelationOffset"/>, <c>+0x0B</c>):

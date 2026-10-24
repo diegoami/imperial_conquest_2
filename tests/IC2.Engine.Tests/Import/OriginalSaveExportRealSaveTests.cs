@@ -59,7 +59,6 @@ public sealed class OriginalSaveExportRealSaveTests(ITestOutputHelper output)
             "map army -> army",                                   // army band recomputed (the original's lags)
             "map city -> city same owner",                        // city tier recomputed (the original's refreshes only on capture)
             "mercenary empty slot",                               // empty-slot residue
-            "nation.conqueror",                                   // OriginalSaveImporter does not read +0x44E
             "nation.recruits all",                                // empty-entry residue and slot positions (live entries equal)
             "trailer.offerType",                                  // a stale offer type with no offer pending is not native state
         ];
