@@ -12,7 +12,7 @@ namespace IC2.Slice.Checks;
 public partial class DialogFitCheck : Control
 {
     private const int SettleFrames = 12;
-    // Measured by this check at pre-theme checkpoint d2643be, fixed 340px context panel, same fixture/23 labels.
+    // Measured by this check at pre-theme checkpoint d2643be, fixed 340px context panel, same fixture.
     // Baseline viewport was 1500x1500. Both runs retain the 340px panel floor;
     // any scrollbar narrows text width, making the height comparison conservative.
     private const float BeforeArmyHeight = 661;
@@ -45,9 +45,17 @@ public partial class DialogFitCheck : Control
             {
                 var content = Descendants(_game.ContextPanel).OfType<VBoxContainer>().Single();
                 var labels = Descendants(content).OfType<Label>().ToArray();
-                var expected = InformationPanelModel.OwnArmy(_game.Session.State, _game.Session.World, _game.Session.Ruleset, _game.Session.State.ArmyById("tour-a")!).Select(line => line.Text).ToArray();
-                Assert(labels.Skip(1).Take(expected.Length).Select(label => label.Text).SequenceEqual(expected), "army retains every T140 field in order");
-                Assert(labels.Length == 23 && labels.Length == expected.Length + 2, "army retains all 23 labels including heading and order note");
+                var army = _game.Session.State.ArmyById("tour-a")!;
+                var model = InformationPanelModel.OwnArmy(_game.Session.State, _game.Session.World, _game.Session.Ruleset, army);
+                var summary = $"{model.First(line => line.Key == InformationPanelModel.ArmyOfKey).Text} · {InformationWords.Grouped(army.TotalTroops)} troops";
+                var expected = new[] { summary }.Concat(model
+                    .Where(line => line.Key != InformationPanelModel.ArmyOfKey
+                        && line.Key != InformationPanelModel.ArmyTotalTroopsKey)
+                    .Select(line => line.Text)).ToArray();
+                Assert(labels.Skip(1).Take(expected.Length).Select(label => label.Text).SequenceEqual(expected),
+                    "army keeps every model fact while combining owner and total in the first line");
+                Assert(labels.Length == 22 && labels.Length == expected.Length + 2,
+                    "army keeps all facts with one fewer row, including heading and order note");
                 Assert(Mathf.Abs(_game.ContextPanel.Size.X - 340) < 1, "army comparison retains baseline 340px panel width");
                 var armyScroll = Descendants(_game.ContextPanel).OfType<ScrollContainer>().Single();
                 GD.Print($"DialogFitCheck: army panel={_game.ContextPanel.GetGlobalRect()}; scroll={armyScroll.GetGlobalRect()}; content={content.GetGlobalRect()}");
