@@ -39,9 +39,7 @@ News:
   A fleet belonging to Carthage is damaged in a storm.
    
   Week  5      Autumn      270BC
-  Seleucid fails to capture Damascus   (Ptolemaic).
   Ptolemaic destroys army of Seleucid.
-  Ptolemaic and Seleucid have agreed to end their war.
 
 > move mac-marines 148 40
 mac-marines moved from (142,42) to (148,40), spending 6 of 10 moves.
@@ -76,13 +74,14 @@ Media (media) takes its turn: 2 orders issued.
 Thracia (thracia) takes its turn: 1 order issued.
 Rome (rome) takes its turn: 1 order issued.
 Carthage (carthage) takes its turn: 2 orders issued.
-Seleucid (seleucid) takes its turn: 3 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 2 orders issued.
+Seleucid (seleucid) takes its turn: 6 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 3 orders issued.
 Now: Week 7, Autumn 270 BC. Active seat: Macedonia (macedonia).
 News:
   A fleet belonging to Carthage is lost at sea.
    
   Week  7      Autumn      270BC
+  Samaria   (Seleucid)  falls to Ptolemaic.
 
 > quit
 Goodbye.

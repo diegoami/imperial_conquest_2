@@ -167,4 +167,73 @@ public sealed class ClassicalArmyNavigationTests
         Assert.Equal((212, 96, 0), (result.State.ArmyById(actor.Id)!.X,
             result.State.ArmyById(actor.Id)!.Y, result.State.ArmyById(actor.Id)!.Moves));
     }
+
+    [Fact]
+    public void Faithful_city_eligibility_keeps_a_same_geographic_blocked_line_city_without_changing_designed_mode()
+    {
+        var world = RealGameData.World;
+        var ruleset = RealGameData.Ruleset;
+        var initial = GameStateFactory.CreateInitial(world, ruleset, RealGameData.Scenario);
+        var actor = initial.Armies.First(a => a.Nation == "seleucid") with { X = 219, Y = 93, Moves = 7 };
+        var city = initial.Cities.First(c => c.Owner == "ptolemaic") with
+        {
+            X = 191, Y = 95, SupplyTons = 100,
+        };
+        var state = initial with
+        {
+            Armies = ValueList.Of(actor), Cities = ValueList.Of(city),
+            Fleets = ValueList<FleetState>.Empty,
+            Relations = initial.Relations.WithRelation(actor.Nation, city.Owner,
+                ruleset.Diplomacy.StateCodes.War),
+        };
+        var faithful = new AiView(state, ruleset, world, actor.Nation);
+        Assert.Equal(ClassicalArmyNavigation.Classify(actor.X, actor.Y),
+            ClassicalArmyNavigation.Classify(city.X, city.Y));
+        Assert.False(AiArmyTargetTree.IsReachable(faithful, actor, city.X, city.Y));
+        Assert.Equal(city.Id, AiArmyTargetTree.ScoreCityTarget(faithful, actor).City?.Id);
+
+        var designedRuleset = ruleset with
+        {
+            Flags = ruleset.Flags with { AiEconomy = AiEconomyModel.Designed },
+        };
+        var designed = new AiView(state, designedRuleset, world, actor.Nation);
+        Assert.Null(AiArmyTargetTree.ScoreCityTarget(designed, actor).City);
+    }
+
+    [Fact]
+    public void Faithful_city_geography_halves_a_cross_pair_score_while_designed_mode_keeps_its_old_score()
+    {
+        var plain = View(2);
+        var initial = GameStateFactory.CreateInitial(RealGameData.World, RealGameData.Ruleset,
+            RealGameData.Scenario);
+        var actor = initial.Armies.First(a => a.Nation == "seleucid") with { X = 100, Y = 40 };
+        var capital = initial.NationById("ptolemaic")!.CapitalCityId;
+        var city = initial.Cities.First(c => c.Owner == "ptolemaic" && c.Id != capital) with
+        {
+            X = 230, Y = 90, Loyalty = 100, FortificationCode = 100,
+            PopulationThousands = 100,
+        };
+        var fleet = initial.Fleets[0] with { Nation = actor.Nation, ConstructionTicksRemaining = null };
+        var state = plain.State with
+        {
+            Armies = ValueList.Of(actor), Cities = ValueList.Of(city), Fleets = ValueList.Of(fleet),
+            Relations = initial.Relations.WithRelation(actor.Nation, city.Owner,
+                RealGameData.Ruleset.Diplomacy.StateCodes.War),
+        };
+        var faithful = new AiView(state, plain.Ruleset, plain.World, actor.Nation);
+        var designedRuleset = plain.Ruleset with
+        {
+            Flags = plain.Ruleset.Flags with { AiEconomy = AiEconomyModel.Designed },
+        };
+        var designed = new AiView(state, designedRuleset, plain.World, actor.Nation);
+        var originalScore = AiArmyTargetTree.ScoreCityTarget(faithful, actor);
+        var designedScore = AiArmyTargetTree.ScoreCityTarget(designed, actor);
+        Assert.Equal(city.Id, originalScore.City?.Id);
+        Assert.Equal(city.Id, designedScore.City?.Id);
+        Assert.NotEqual(ClassicalArmyNavigation.Classify(actor.X, actor.Y),
+            ClassicalArmyNavigation.Classify(city.X, city.Y));
+        var raw = designedScore.Score - designedScore.Distance;
+        Assert.Equal(raw - raw / plain.Ruleset.Ai.CityScoreRegionHalvingDenominator
+            + designedScore.Distance, originalScore.Score);
+    }
 }

@@ -110,10 +110,10 @@ News:
 
 > end
 Rome (rome) ends its turn.
-Celtiberia (celtiberia) takes its turn: 9 orders issued.
+Celtiberia (celtiberia) takes its turn: 6 orders issued.
 Seleucid (seleucid) takes its turn: 10 orders issued.
-Galatia (galatia) takes its turn: 2 orders issued.
-Gaul (gaul) takes its turn: 8 orders issued.
+Galatia (galatia) takes its turn: 3 orders issued.
+Gaul (gaul) takes its turn: 9 orders issued.
 Illyria (illyria) takes its turn: 0 orders issued.
 Greece (greece) takes its turn: 0 orders issued.
 Macedonia (macedonia) takes its turn: 1 order issued.
@@ -122,18 +122,19 @@ Armenia (armenia) takes its turn: 0 orders issued.
 Thracia (thracia) takes its turn: 1 order issued.
 Carthage (carthage) takes its turn: 2 orders issued.
 Bithynia (bithynia) takes its turn: 1 order issued.
+  Weather: rough-sea-painted (week 3).
 Dacia (dacia) takes its turn: 0 orders issued.
 Ptolemaic (ptolemaic) takes its turn: 1 order issued.
 Numidia (numidia) takes its turn: 0 orders issued.
 Now: Week 5, Spring 270 BC. Active seat: Rome (rome).
 News:
   Aradus   (Ptolemaic)  falls to Seleucid.
-  Tarquinii   (Rome)  falls to Gaul.
+  Carthage destroys army of Celtiberia.
    
   Week  5      Spring      270BC
 
 > status mine
-Nation: Rome (rome, human): treasury 2200, unity 806, tax 10%
+Nation: Rome (rome, human): treasury 2200, unity 821, tax 10%
 
 Armies:
   army-0 (Rome) @ (100,37): 23700 troops in 6 units, supply 76t (32%), morale 70, moves 9
@@ -142,7 +143,8 @@ Armies:
 Fleets:
 
 Cities:
-  pisae "Pisae" @ (93,35), owner Rome: supply 119t, loyalty 74, fortification 69%
+  pisae "Pisae" @ (93,35), owner Rome: supply 139t, loyalty 74, fortification 69%
+  tarquinii "Tarquinii" @ (98,39), owner Rome: supply 165t, loyalty 78, fortification 56%
   arretium "Arretium" @ (99,36), owner Rome: supply 208t, loyalty 95, fortification 72%
   caere "Caere" @ (99,42), owner Rome: supply 211t, loyalty 77, fortification 50%
   rome "Rome" @ (101,43), owner Rome: supply 1298t, loyalty 95, fortification 78%
@@ -201,7 +203,7 @@ News log:
    
   Week  3      Spring      270BC
   Aradus   (Ptolemaic)  falls to Seleucid.
-  Tarquinii   (Rome)  falls to Gaul.
+  Carthage destroys army of Celtiberia.
    
   Week  5      Spring      270BC
 

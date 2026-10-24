@@ -125,6 +125,9 @@ public static class AiArmyTargetTree
         var capitalNum = rules.CityAttackCapitalDefenseRatioNumerator;
         var capitalDen = rules.CityAttackCapitalDefenseRatioDenominator;
 
+        var faithfulNavigation = ClassicalArmyNavigation.Applies(view);
+        var armyGeography = faithfulNavigation
+            ? ClassicalArmyNavigation.Classify(army.X, army.Y) : default;
         var strength = AssaultStrength(army, view.Ruleset, BattleCommandRuleset.ArcherUnitTypeIdIn(view.Ruleset)!);
         var armyRegion = RegionOf(view, army.X, army.Y);
 
@@ -153,7 +156,10 @@ public static class AiArmyTargetTree
                 continue;
             }
 
-            if (!IsReachable(view, army, city.X, city.Y))
+            var sameGeography = faithfulNavigation
+                && ClassicalArmyNavigation.Classify(city.X, city.Y) == armyGeography;
+            if ((faithfulNavigation && !ClassicalArmyNavigation.TargetEligible(view, army, city.X, city.Y))
+                || (!sameGeography && !IsReachable(view, army, city.X, city.Y)))
             {
                 skipped++;
                 continue;
@@ -176,7 +182,10 @@ public static class AiArmyTargetTree
             // then double (defense < strength and distance < threshold), then double (capital and
             // cityDefense × num / den < strength). All divisions truncate.
             var score = (numerator * strength) / cityDefense - distance;
-            if (RegionOf(view, city.X, city.Y) != armyRegion)
+            var anotherRegion = faithfulNavigation
+                ? ClassicalArmyNavigation.Classify(city.X, city.Y) != armyGeography
+                : RegionOf(view, city.X, city.Y) != armyRegion;
+            if (anotherRegion)
             {
                 score -= score / halving;
             }
