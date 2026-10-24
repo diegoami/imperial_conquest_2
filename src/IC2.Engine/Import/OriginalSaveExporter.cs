@@ -1,6 +1,7 @@
 using System.Globalization;
 using IC2.Data;
 using IC2.Engine.Model;
+using IC2.Engine.Presentation;
 
 namespace IC2.Engine.Import;
 
@@ -45,6 +46,36 @@ public static class OriginalSaveExporter
 
     private const int NationCount = 16;
     private const string MercenaryAliasPrefix = "Mercenary unit (label ";
+
+    /// <summary>Exports a live session without saving JSON, advancing play or changing its native save path.</summary>
+    public static OriginalSaveExportResult ToDocument(GameSession session, OriginalSaveUiProfile ui)
+    {
+        var save = SnapshotForExport(session);
+        return ToDocument(save, session.World, session.Ruleset, ui);
+    }
+
+    /// <summary>Writes a live strategic session through the same checked converter as a saved JSON.</summary>
+    public static OriginalSaveExportFileResult ExportFile(GameSession session, string templatePath, string outputPath)
+    {
+        var save = SnapshotForExport(session);
+        return ExportFile(save, session.World, session.Ruleset, templatePath, outputPath);
+    }
+
+    private static SaveGame SnapshotForExport(GameSession session)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        var refusals = new List<OriginalSaveExportRefusal>();
+        if (session.OpenTacticalBattle is not null)
+            refusals.Add(new(OriginalSaveExportRefusal.OpenBattle, "battle", "finish the tactical battle before export"));
+        if (session.HasPendingPeaceOffers)
+            refusals.Add(new(OriginalSaveExportRefusal.PendingPeaceOffer, "peaceOffer", "answer the pending peace offer before export"));
+        if (refusals.Count > 0) throw new OriginalSaveExportException(refusals);
+
+        var state = session.State;
+        return new SaveGame(GameDataSchema.CurrentVersion, "live-export", "Live export",
+            state.ScenarioId, state.WorldId, state.RulesetId, state,
+            ArmyTravelTargets: session.ArmyTravelTargets.Count == 0 ? null : session.ArmyTravelTargets);
+    }
 
     /// <summary>Maps <paramref name="save"/> to a document, or throws <see cref="OriginalSaveExportException"/>
     /// listing every refusal found.</summary>
@@ -277,7 +308,10 @@ public static class OriginalSaveExporter
         if (violations.Count > 0)
             throw new OriginalSaveExportException(violations.Select(v => new OriginalSaveExportRefusal(OriginalSaveExportRefusal.PolicyViolation, v.Where, v.Rule)).ToList());
 
-        return new OriginalSaveExportResult(document, new OriginalSaveExportReport(aliases, OriginalSaveExportReport.OmittedNativeMetadata));
+        var omitted = OriginalSaveExportReport.OmittedNativeMetadata.ToList();
+        if (save.ArmyTravelTargets is { Count: > 0 })
+            omitted.Add("ArmyTravelTargets: campaign route plans cannot be encoded in the original save");
+        return new OriginalSaveExportResult(document, new OriginalSaveExportReport(aliases, omitted));
     }
 
     /// <summary>
@@ -357,6 +391,7 @@ public sealed record OriginalSaveExportRefusal(string Code, string Field, string
     public const string UnsupportedRuleset = "UNSUPPORTED_RULESET";
     public const string UnsupportedScenario = "UNSUPPORTED_SCENARIO";
     public const string OpenBattle = "OPEN_BATTLE";
+    public const string PendingPeaceOffer = "PENDING_PEACE_OFFER";
     public const string UnknownReference = "UNKNOWN_REFERENCE";
     public const string Unrepresentable = "UNREPRESENTABLE";
     public const string PolicyViolation = "POLICY_VIOLATION";
