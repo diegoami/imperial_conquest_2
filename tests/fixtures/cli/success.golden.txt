@@ -326,7 +326,7 @@ mac-marines moved from (144,42) to (137,42), spending 8 of 9 moves.
 > army-transfer mac-marines army-8 supply=2 money=20
 armies.army-transfer accepted.
 
-> split-unit mac-marines 0 1000
+> split-unit mac-marines 0 1200
 armies.split-unit accepted.
 
 > rename-unit mac-marines 0 LegioX
@@ -335,7 +335,7 @@ armies.rename-unit accepted.
 > disband-unit mac-marines 1
 armies.disband-unit accepted.
 
-> split-unit mac-marines 1 200
+> split-unit mac-marines 0 1200
 armies.split-unit accepted.
 
 > split-army mac-marines mac-merc 2 supply=45 money=80
@@ -574,9 +574,9 @@ Armies:
   army-13 (Media) @ (305,57): 51200 troops in 12 units, supply 487t (95%), morale 70, moves 8
   army-14 (Thracia) @ (165,25): 22000 troops in 6 units, supply 209t (95%), morale 70, moves 9
   mac-detached (Macedonia) @ (157,24): 7900 troops in 1 units, supply 0t (0%), morale 51, moves 9
-  mac-marines (Macedonia) @ (137,42): 5800 troops in 2 units, supply 47t (81%), morale 58, moves 10
+  mac-marines (Macedonia) @ (137,42): 4800 troops in 2 units, supply 37t (77%), morale 58, moves 10
   mac-sac-1 (Macedonia) @ (143,43): 4944 troops in 1 units, supply 0t (0%), morale 51, moves 9
-  mac-merc (Macedonia) @ (140,45): 5305 troops in 2 units, supply 0t (0%), morale 51, moves 3
+  mac-merc (Macedonia) @ (140,45): 6305 troops in 2 units, supply 0t (0%), morale 51, moves 3
   army-0 (Gaul) @ (84,31): 87300 troops in 15 units, supply 289t (33%), morale 66, moves 6
   army-6 (Seleucid) @ (208,53): 74886 troops in 12 units, supply 748t (99%), morale 62, moves 0
   army-9 (Ptolemaic) @ (227,90): 14025 troops in 5 units, supply 88t (62%), morale 62, moves 0

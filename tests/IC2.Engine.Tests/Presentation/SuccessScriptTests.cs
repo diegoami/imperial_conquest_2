@@ -432,8 +432,8 @@ public sealed class SuccessScriptTests
         Assert.Equal(RunTranscript(NewTreatySession(), lines), RunTranscript(NewTreatySession(), lines));
     }
 
-    // Immutable baseline input, not a regenerated current-state expectation. The mapping below
-    // pins every original command/argument and the only approved additions, relocations and split.
+    // Baseline command sequence, not a regenerated current-state expectation. The mapping below
+    // pins its retained commands and the explicit corrections/additions made for current rules.
     private const string OriginalA = """
 split-army army-8 mac-detached 0
 split-army army-8 mac-split 0
@@ -525,7 +525,7 @@ quit
 """;
 
     [Fact]
-    public void The_four_case_split_preserves_every_original_command_and_the_complete_marine_group()
+    public void The_four_case_split_scripts_adjust_unit_splits_to_the_original_type_limits()
     {
         var original = OriginalA.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => l.Trim()).ToArray();
         Assert.Equal(87, original.Length);
@@ -535,13 +535,17 @@ quit
             // #1012 first moved mac-detached beside army-14. T213 moves the target out of reach
             // again, so the owner replaced original58's continuous-case attack with a legal move;
             // the same original attack remains accepted in the pinned loaded treaty case below.
+            // #1358 replaces the two legacy split amounts/indexes with the measured HI 1,200-troop floor.
             if (i == 58) prefix.Add("move mac-detached 156 24");
             if (i == 60) prefix.Add("move mac-sac-1 148 40");
             if (i == 58) prefix.Add("move mac-detached 158 24");
+            else if (i is 48 or 51) prefix.Add("split-unit mac-marines 0 1200"); // #1358: obey the researched HI part floor.
             else if (i != 68) prefix.Add(original[i - 1]);
             if (i == 70) prefix.Add("move mac-merc 139 43");
         }
         var trade = original.Take(67).Append("end").ToList();
+        trade[47] = "split-unit mac-marines 0 1200";
+        trade[50] = "split-unit mac-marines 0 1200";
         trade.Insert(22, "accept-offer");
         trade.Insert(58, "move mac-detached 156 24");
         trade[59] = "move mac-detached 158 24";

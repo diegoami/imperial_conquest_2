@@ -47,14 +47,12 @@ namespace IC2.Engine.Armies.Commands;
 /// experiment.
 /// </para>
 /// <para>
-/// <strong>The minimum and maximum troop counts are <c>[designed]</c></strong>, resolved on
-/// <see href="https://github.com/diegoami/imperial_conquest_2/issues/565">issue #565</see> (user decision,
-/// 2026-10-03): each part keeps at least 1 troop — <c>0 &lt; <see cref="Troops"/> &lt;</c> the source
-/// unit's own troops. No other minimum. I searched
-/// <c>decompiled-unit-map-orders-and-record-fields.md</c>, <c>pending-offer-block-army-split-and-naupactus.md</c>
-/// and <c>army-records-and-roman-roster.md</c> for a per-part floor or a "can't leave an empty unit"
-/// message and found none, so the boundary is the arithmetic one: a unit with zero troops is not a unit,
-/// and moving all the troops is a move, not a split.
+/// <strong>Original split size limits</strong> <c>[confirmed: code, 2026-10-11-g2-original-checks.md, C5c]</c>:
+/// the source unit must contain at least two fifths of its type's standard battalion size to split; each
+/// resulting unit must retain at least one fifth. The standard size comes from
+/// <see cref="Model.UnitTypeRules.StandardBattalionSize"/>. For light infantry these limits are 6,000
+/// source troops and 3,000 per resulting unit; the other four types have their own corresponding sizes.
+/// Invalid inputs still return without changing state.
 /// </para>
 /// <para>
 /// <strong>The army unit cap is reused, not restated.</strong> The split adds one slot, so it is refused
@@ -66,7 +64,7 @@ namespace IC2.Engine.Armies.Commands;
 /// <param name="IssuingNationId">The nation issuing the order; the army must be its own.</param>
 /// <param name="ArmyId">The army holding the unit being split.</param>
 /// <param name="UnitIndex">Index into <see cref="Model.ArmyState.Units"/> of the unit being split.</param>
-/// <param name="Troops">Troops moved into the new unit; <c>0 &lt; Troops &lt; the unit's own troops</c>.</param>
+/// <param name="Troops">Troops moved into the new unit; both resulting units must meet the original type-specific one-fifth floor.</param>
 public sealed record SplitUnitCommand(
     string IssuingNationId, string ArmyId, int UnitIndex, int Troops) : ICommand
 {
@@ -86,8 +84,11 @@ public static class SplitUnitRejections
     /// <summary>The unit index is outside the army's own unit list.</summary>
     public static readonly RejectionCode InvalidUnitIndex = new("armies.invalid-unit-index");
 
-    /// <summary><see cref="SplitUnitCommand.Troops"/> is zero, negative, or all of the unit's troops.</summary>
+    /// <summary>The requested split leaves either resulting unit below its type-specific one-fifth floor.</summary>
     public static readonly RejectionCode InvalidTroops = new("armies.split-unit-invalid-troops");
+
+    /// <summary>The source unit is below two fifths of its type's standard battalion size.</summary>
+    public static readonly RejectionCode TooSmall = new("armies.split-unit-too-small");
 
     /// <summary>The army already holds <see cref="Model.ArmyManagementRules.MaxUnitsPerArmy"/> units.</summary>
     public static readonly RejectionCode TooManyUnits = new("armies.split-unit-units-too-large");

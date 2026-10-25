@@ -43,12 +43,31 @@ public sealed class SplitUnitCommandHandler : ICommandHandler<SplitUnitCommand>
             return CommandOutcome.Reject(SplitUnitRejections.NotRegular, "You can only split regular units.");
         }
 
-        // [designed] 0 < troops < the unit's own troops -- see SplitUnitCommand's remarks (issue #565).
-        if (command.Troops <= 0 || command.Troops >= source.Troops)
+        // TChangeArmyUnits_SplitUnit first requires 2/5 of the type's standard size to open a split,
+        // then keeps at least 1/5 of that size in each resulting unit (research g2 checks C5c and the
+        // 2026-10-11 g2-original-checks report; broad conversion cases F04/F51 are independent controls).
+        var type = context.Ruleset.UnitTypeById(source.UnitTypeId);
+        if (type is null)
+        {
+            return CommandOutcome.Reject(
+                SplitUnitRejections.InvalidTroops, $"'{source.UnitTypeId}' is not a declared unit type.");
+        }
+
+        var sizeLimit = type.StandardBattalionSize;
+        var minimumSource = (int)((long)sizeLimit * 2 / 5);
+        var minimumPart = sizeLimit / 5;
+        if (source.Troops < minimumSource)
+        {
+            return CommandOutcome.Reject(
+                SplitUnitRejections.TooSmall,
+                "This unit is too small to split.");
+        }
+
+        if (command.Troops < minimumPart || source.Troops - command.Troops < minimumPart)
         {
             return CommandOutcome.Reject(
                 SplitUnitRejections.InvalidTroops,
-                $"Must split between 1 and {source.Troops - 1} troops off a unit of {source.Troops}.");
+                $"Each resulting unit must have at least {minimumPart} troops.");
         }
 
         var rules = context.Ruleset.ArmyManagement;

@@ -45,10 +45,10 @@ buy mac-marines pella 5000
 transfer-money mac-marines 100
 move mac-marines 137 42
 army-transfer mac-marines army-8 supply=2 money=20
-split-unit mac-marines 0 1000
+split-unit mac-marines 0 1200
 rename-unit mac-marines 0 LegioX
 disband-unit mac-marines 1
-split-unit mac-marines 1 200
+split-unit mac-marines 0 1200
 split-army mac-marines mac-merc 2 supply=45 money=80
 end
 move mac-merc 140 47
