@@ -292,7 +292,7 @@ public static class AiMercenaryHirePass
             UnitTypeId: slot.UnitTypeId,
             Troops: slot.Troops,
             Quality: slot.Quality,
-            Name: $"Mercenary unit (label {slot.NameLabel})");
+            Name: Recruitment.MercenaryNameCatalog.ForLabel(slot.NameLabel));
 
         var updatedArmy = army with { Units = ValueList.From(army.Units.Append(hiredUnit)) };
 

@@ -440,6 +440,7 @@ public static class AiArmyTargetTree
         }
 
         var rules = view.Ruleset.Ai;
+        var faithful = view.Ruleset.Flags.AiEconomy == AiEconomyModel.Original;
         var strength = army.TotalTroops / rules.ResupplyStrengthTroopsDivisor;
         var candidates = new List<ResupplyCandidate>();
 
@@ -455,7 +456,7 @@ public static class AiArmyTargetTree
             long score;
             if (isOwn)
             {
-                if (city.SupplyTons >= strength)
+                if (faithful ? city.SupplyTons <= strength : city.SupplyTons >= strength)
                 {
                     continue;
                 }
@@ -463,7 +464,7 @@ public static class AiArmyTargetTree
                 score = -distance;
                 if (CapitalOwnership.IsAnyNationsCapital(view.State, city.Id))
                 {
-                    score -= rules.ResupplyCapitalPenalty;
+                    score += faithful ? rules.ResupplyCapitalPenalty : -rules.ResupplyCapitalPenalty;
                 }
             }
             else
@@ -476,7 +477,7 @@ public static class AiArmyTargetTree
                     continue;
                 }
 
-                score = -distance + rules.ResupplyForeignBonus;
+                score = -distance + (faithful ? -rules.ResupplyForeignBonus : rules.ResupplyForeignBonus);
             }
 
             candidates.Add(new ResupplyCandidate(city, score, distance, !isOwn));
@@ -497,7 +498,8 @@ public static class AiArmyTargetTree
 
         foreach (var candidate in candidates)
         {
-            if (candidate.IsForeign && candidate.Distance > rules.ResupplyMaxForeignDistance)
+            if (candidate.IsForeign && (long)candidate.Distance
+                    + (faithful ? rules.ResupplyForeignBonus : 0) > rules.ResupplyMaxForeignDistance)
             {
                 continue;
             }
