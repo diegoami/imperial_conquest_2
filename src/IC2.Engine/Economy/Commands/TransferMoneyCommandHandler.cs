@@ -26,8 +26,9 @@ namespace IC2.Engine.Economy.Commands;
 /// </para>
 /// <para>
 /// <strong>Clamping, not rejection, once inside the ceiling.</strong> A move that asks for more than the
-/// source holds, or that would push the receiving purse past its cap, is accepted at the amount actually
-/// applied — the same shape T38 gave every other purse credit (see <see cref="PurseAccounting.Credit"/>).
+/// purse source holds, or that would push the receiving purse past its cap, is accepted at the amount
+/// actually applied. T219's faithful manual treasury path may enter debt; it is not a purse source.
+/// Explicit via-fleet operations remain separate from ordinary Supply fleet provisions-provider selection.
 /// </para>
 /// </remarks>
 [CommandHandler]

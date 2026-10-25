@@ -49,8 +49,54 @@ public sealed class TransferMoneyCommandTests
     private static GameSession NewToySession() =>
         new(EconomyTestbed.Toy.World, EconomyTestbed.Toy.Ruleset, EconomyTestbed.Toy.Scenario, seedOverride: null);
 
+    [Theory]
+    [InlineData("north-army-1", -100, -200)]
+    [InlineData("north-army-1", 0, -100)]
+    [InlineData("north-army-1", 50, -50)]
+    [InlineData("north-fleet-1", -100, -200)]
+    [InlineData("north-fleet-1", 0, -100)]
+    [InlineData("north-fleet-1", 50, -50)]
+    public void Faithful_manual_funding_dispatches_full_amount_and_reports_debt(string unitId, int treasury, int expectedTreasury)
+    {
+        var toy = EconomyTestbed.Toy;
+        var world = toy.World;
+        var fresh = new GameSession(toy.World, toy.Ruleset, toy.Scenario);
+        // Keep the fixture below its turn-start deposition threshold while exercising debt funding.
+        var state = fresh.State with
+        {
+            Nations = ValueList.From(fresh.State.Nations.Select(n => n.Id == "north" ? n with { Treasury = treasury, Wealth = 100_000 } : n)),
+            Armies = ValueList.From(fresh.State.Armies.Select(a => a.Id == "north-army-1" ? a with { Money = 100 } : a)),
+            Fleets = ValueList.From(fresh.State.Fleets.Select(f => f.Id == "north-fleet-1" ? f with { Money = 100 } : f)),
+        };
+        var session = new GameSession(world, toy.Ruleset, toy.Scenario,
+            new SaveGame(state.SchemaVersion, "funding", "funding", state.ScenarioId, state.WorldId, state.RulesetId, state));
+        var before = session.State;
+        var output = session.Submit($"transfer-money {unitId} 100");
+        Assert.Contains($"{unitId} received 100 talents from the treasury.", output.Lines);
+        Assert.DoesNotContain(output.Lines, line => line.Contains("rejected", StringComparison.Ordinal));
+        Assert.Equal(expectedTreasury, session.State.NationById("north")!.Treasury);
+        Assert.Equal(200, session.State.ArmyById(unitId)?.Money ?? session.State.FleetById(unitId)!.Money);
+        Assert.Equal(RngStreams.Advance(before.RandomSeed), session.State.RandomSeed);
+        Assert.Equal(before.Calendar, session.State.Calendar);
+    }
+
     private static CommandDispatcher Dispatcher() =>
         new(SystemRegistry.FromEngineAssembly(), EconomyTestbed.Ruleset, EconomyTestbed.Toy.World, NullEventSink.Instance);
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-100)]
+    public void Automatic_funding_still_refuses_to_spend_a_nonpositive_treasury(int treasury)
+    {
+        var state = WithNorthTreasury(EconomyTestbed.InitialState(), treasury);
+        var army = state.ArmyById("north-army-1")! with { Money = 0 };
+        var settings = new IC2.Slice.UI.UserSettings
+        {
+            AutoFundArmies = true, AutoPurseTargetTalents = 500, AutoTreasuryReserveTalents = 0,
+        };
+        Assert.Null(IC2.Slice.UI.ArmyAutoSupportPlanner.Fund(state, army, EconomyTestbed.Ruleset, settings));
+        Assert.Equal(treasury, state.NationById("north")!.Treasury);
+    }
 
     private static ArmyState Army(string id, string nation, int x, int y, int money) =>
         new(id, nation, x, y, Moves: 5, Morale: 60, money, SupplyTons: 0, CoveredTileCode: null,
@@ -362,11 +408,10 @@ public sealed class TransferMoneyCommandTests
     }
 
     /// <summary>
-    /// A request for more than the source holds is clamped to the treasury's balance, exactly as
-    /// <see cref="TreasuryPurseTransfer"/> clamps it.
+    /// Faithful manual treasury funding is not reduced to the source balance (T219).
     /// </summary>
     [Fact]
-    public void RequestPastTheSource_ClampsExactlyAsTreasuryPurseTransfer()
+    public void Faithful_request_past_treasury_balance_matches_the_unlimited_treasury_source()
     {
         var army = Army("poor-source-army", "north", x: 3, y: 2, money: 0);
         var state = WithNorthTreasury(EconomyTestbed.InitialState() with
@@ -384,8 +429,8 @@ public sealed class TransferMoneyCommandTests
         Assert.True(result.IsAccepted, result.ToString());
         Assert.Equal(expected.Army.Money, result.State.ArmyById(army.Id)!.Money);
         Assert.Equal(expected.Nation.Treasury, result.State.NationById("north")!.Treasury);
-        Assert.Equal(50, result.State.ArmyById(army.Id)!.Money - army.Money);
-        Assert.Equal(0, result.State.NationById("north")!.Treasury);
+        Assert.Equal(200, result.State.ArmyById(army.Id)!.Money - army.Money);
+        Assert.Equal(-150, result.State.NationById("north")!.Treasury);
     }
 
     /// <summary>
