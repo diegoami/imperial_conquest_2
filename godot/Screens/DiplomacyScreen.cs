@@ -1,5 +1,6 @@
 using IC2.Slice.Diagnostics;
 using Godot;
+using IC2.Engine.Diplomacy;
 using IC2.Engine.Presentation;
 using IC2.Slice.UI;
 
@@ -29,6 +30,11 @@ public partial class DiplomacyScreen : Control
 
     /// <summary>Exposed for <c>godot/Screens/Checks/**</c> to assert on the rendered grid without re-deriving it.</summary>
     public GridContainer Grid { get; private set; } = null!;
+    public Label RelationshipSummary { get; private set; } = null!;
+    public Label FeedbackLabel { get; private set; } = null!;
+    public Label? PendingOfferLabel { get; private set; }
+    public Button? AcceptOfferButton { get; private set; }
+    private string _feedback = string.Empty;
 
     private VBoxContainer _content = null!;
 
@@ -47,8 +53,22 @@ public partial class DiplomacyScreen : Control
         _content = content;
 
         content.AddChild(UiKit.MakeLabel("International Relations", AppTheme.Header, UiKit.AccentColor));
+        var nation = Session.State.NationById(Session.State.ActiveNationId);
+        content.AddChild(UiKit.MakeLabel($"Your nation: {nation?.Name ?? Session.State.ActiveNationId}", AppTheme.Body, UiKit.TextColor));
+        var rows = DiplomacyGridViewModel.BuildRows(Session.State, Session.Ruleset, Session.State.ActiveNationId);
+        string Names(DiplomaticStatus status) => string.Join(", ", rows.Where(r => r.Status == status).Select(r => r.NationName)) is { Length: > 0 } names ? names : "none";
+        var partners = TradePartnerCap.CurrentPartners(Session.State, Session.Ruleset, Session.State.ActiveNationId, Session.State.ActiveNationId);
+        var partnerNames = partners.Count == 0 ? "none" : string.Join(", ", partners.Select(id => Session.State.NationById(id)?.Name ?? id));
+        RelationshipSummary = UiKit.MakeLabel($"At war with: {Names(DiplomaticStatus.War)}\nTrading ({partners.Count}/{Session.Ruleset.Diplomacy.MaxTradePartners}): {partnerNames}", AppTheme.Body, UiKit.TextColor);
+        RelationshipSummary.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        content.AddChild(RelationshipSummary);
 
         BuildPendingOfferRow();
+        FeedbackLabel = UiKit.MakeLabel(_feedback, AppTheme.Body, UiKit.TextColor);
+        FeedbackLabel.Name = "DiplomacyFeedback";
+        FeedbackLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        FeedbackLabel.Visible = _feedback.Length > 0;
+        content.AddChild(FeedbackLabel);
 
         Grid = new GridContainer { Columns = 6 };
         Grid.AddThemeConstantOverride("h_separation", AppTheme.DialogGap);
@@ -66,7 +86,7 @@ public partial class DiplomacyScreen : Control
         content.AddChild(scroll);
 
         AddHeaderRow();
-        foreach (var row in DiplomacyGridViewModel.BuildRows(Session.State, Session.Ruleset, Session.State.ActiveNationId))
+        foreach (var row in rows)
         {
             AddNationRow(row);
         }
@@ -80,7 +100,7 @@ public partial class DiplomacyScreen : Control
 
     /// <summary>Height the window keeps for everything but the grid: title, pending offer, separator, the
     /// Close button, the panel's margins and the gaps between them.</summary>
-    private const float ReservedHeight = 300f;
+    private const float ReservedHeight = 450f;
 
     private const float MinimumGridHeight = 120f;
 
@@ -101,34 +121,59 @@ public partial class DiplomacyScreen : Control
     private void AddHeaderRow()
     {
         Grid.AddChild(UiKit.MakeLabel("Nation", AppTheme.Body, UiKit.MutedTextColor));
-        Grid.AddChild(UiKit.MakeLabel("Relation", AppTheme.Body, UiKit.MutedTextColor));
+        Grid.AddChild(UiKit.MakeLabel("Current status", AppTheme.Body, UiKit.MutedTextColor));
         Grid.AddChild(UiKit.MakeLabel("War", AppTheme.Body, UiKit.MutedTextColor));
-        Grid.AddChild(UiKit.MakeLabel("Peace", AppTheme.Body, UiKit.MutedTextColor));
-        Grid.AddChild(UiKit.MakeLabel("Alliance", AppTheme.Body, UiKit.MutedTextColor));
-        Grid.AddChild(UiKit.MakeLabel("Trade", AppTheme.Body, UiKit.MutedTextColor));
+        Grid.AddChild(UiKit.MakeLabel("Peace / end pact", AppTheme.Body, UiKit.MutedTextColor));
+        Grid.AddChild(UiKit.MakeLabel("Offer alliance", AppTheme.Body, UiKit.MutedTextColor));
+        Grid.AddChild(UiKit.MakeLabel("Offer trade", AppTheme.Body, UiKit.MutedTextColor));
     }
 
     private void AddNationRow(DiplomacyRelationRow row)
     {
         Grid.AddChild(UiKit.MakeLabel(row.NationName, AppTheme.Body, UiKit.TextColor));
-        Grid.AddChild(UiKit.MakeLabel(row.RelationLabel, AppTheme.Body, UiKit.TextColor));
+        var light = UiKit.PanelColor.Luminance > 0.5f;
+        var color = row.Status switch
+        {
+            DiplomaticStatus.War => new Color(light ? "#7A243A" : "#FF9D9D"),
+            DiplomaticStatus.Trade => new Color(light ? "#1F4662" : "#7DDBD5"),
+            DiplomaticStatus.Alliance => new Color(light ? "#28502A" : "#A8DC9B"),
+            _ => UiKit.TextColor,
+        };
+        Grid.AddChild(UiKit.MakeLabel(row.StatusCaption, AppTheme.Body, color));
         Grid.AddChild(MakeActionButton("Declare War", row.CanDeclareWar, () => ConfirmDeclareWar(row.NationId)));
-        Grid.AddChild(MakeActionButton("Make Peace", row.CanMakePeace, () => Issue($"make-peace {row.NationId}")));
-        Grid.AddChild(MakeActionButton("Ally", row.CanProposeAlliance, () => Issue($"propose-alliance {row.NationId}")));
-        Grid.AddChild(MakeActionButton("Trade", row.CanProposeTrade, () => Issue($"propose-trade {row.NationId}")));
+        var peaceCaption = row.Status == DiplomaticStatus.Trade ? "End trade" : row.Status == DiplomaticStatus.Alliance ? "End alliance" : "Make Peace";
+        Grid.AddChild(MakeActionButton(peaceCaption, row.CanMakePeace, () => Issue($"make-peace {row.NationId}")));
+        Grid.AddChild(MakeActionButton("Offer alliance", row.CanProposeAlliance, () => Issue($"propose-alliance {row.NationId}")));
+        Grid.AddChild(MakeActionButton("Offer trade", row.CanProposeTrade, () => Issue($"propose-trade {row.NationId}")));
     }
 
     private void BuildPendingOfferRow()
     {
         var offer = Session.State.PendingOffer;
+        PendingOfferLabel = null;
+        AcceptOfferButton = null;
         if (offer is null)
         {
             return;
         }
 
         var proposer = Session.State.NationById(offer.ProposingNationId)?.Name ?? offer.ProposingNationId;
-        _content.AddChild(UiKit.MakeLabel($"Pending offer from {proposer}.", AppTheme.Body, UiKit.TextColor));
-        _content.AddChild(UiKit.MakeButton("Accept Offer", () => Issue("accept-offer")));
+        var trade = offer.ProposedRelationCode == Session.Ruleset.Diplomacy.StateCodes.Trade;
+        var kind = trade ? "trade" : "alliance";
+        var active = Session.State.ActiveNationId;
+        var valid = Session.State.NationById(offer.ProposingNationId) is { Eliminated: false }
+            && Session.State.Relations.IndexOf(offer.ProposingNationId) >= 0;
+        var alreadyActive = valid && Session.State.Relations.Get(active, offer.ProposingNationId) == offer.ProposedRelationCode;
+        PendingOfferLabel = UiKit.MakeLabel(!valid ? $"The offer from {proposer} is no longer available."
+            : alreadyActive ? $"{(trade ? "Trade" : "Alliance")} with {proposer} is already active."
+            : $"{proposer} offers {kind} to {Session.State.NationById(active)?.Name ?? active}.", AppTheme.Body, UiKit.TextColor);
+        PendingOfferLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _content.AddChild(PendingOfferLabel);
+        AcceptOfferButton = UiKit.MakeButton($"Accept {kind} offer", () => Issue("accept-offer"));
+        AcceptOfferButton.Disabled = alreadyActive || !valid;
+        AcceptOfferButton.TooltipText = !valid ? "The proposing nation is no longer available."
+            : alreadyActive ? "This agreement is already active." : $"Accept the {kind} offer from {proposer}.";
+        _content.AddChild(AcceptOfferButton);
     }
 
     private Control MakeActionButton(string label, bool enabled, Action onPressed)
@@ -167,6 +212,9 @@ public partial class DiplomacyScreen : Control
     private void Issue(string commandLine)
     {
         var output = AppDiagnostics.Submit(Session, commandLine, "diplomacy");
+        _feedback = CommandOutcomeWording.Apply(CommandOutcomeText.OutcomeBlock(output.Lines));
+        if (output.Lines.Any(line => line.Contains("rejected (diplomacy.trade-cap-reached)", StringComparison.Ordinal)))
+            _feedback += "\nUse End trade to end an existing agreement first.";
         CommandIssued?.Invoke(output.Lines);
 
         // Rebuilds so the grid reflects the relation the command just changed immediately, the same

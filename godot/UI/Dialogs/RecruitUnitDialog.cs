@@ -64,6 +64,7 @@ public partial class RecruitUnitDialog : Control
     private SpinBox _troops = null!;
     private Label _troopBoundsLabel = null!;
     private Label _costLabel = null!;
+    private Label _selectionLabel = null!;
     private ItemList _trainingList = null!;
     private Button _recruitButton = null!;
     private Button _mobilizeButton = null!;
@@ -182,12 +183,15 @@ public partial class RecruitUnitDialog : Control
         var typeRow = new HBoxContainer();
         typeRow.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(typeRow);
+        var typeGroup = new ButtonGroup { AllowUnpress = false };
         foreach (var type in _model.UnitTypes)
         {
             var button = new Button
             {
                 Text = type.Abbreviation.Length > 0 ? type.Abbreviation : type.Id,
                 ToggleMode = true,
+                ButtonGroup = typeGroup,
+                TooltipText = type.Name,
             };
             button.Pressed += () => SelectUnitType(type.Id);
             typeRow.AddChild(button);
@@ -217,12 +221,14 @@ public partial class RecruitUnitDialog : Control
             stepRow.AddChild(UiKit.MakeButton(delta > 0 ? $"+{delta}" : $"{delta}", () => _troops.Value += delta));
         }
 
-        stepRow.AddChild(UiKit.MakeButton("Max", () => _troops.Value = _model.AffordableMaximumFor(_selectedUnitTypeId)));
+        stepRow.AddChild(UiKit.MakeButton("Max", SelectMaximum));
 
         _troopBoundsLabel = UiKit.MakeLabel(string.Empty, color: UiKit.MutedTextColor);
         column.AddChild(_troopBoundsLabel);
 
         _costLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
+        _selectionLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
+        column.AddChild(_selectionLabel);
         column.AddChild(_costLabel);
 
         column.AddChild(new HSeparator());
@@ -303,6 +309,8 @@ public partial class RecruitUnitDialog : Control
     private void SelectUnitType(string unitTypeId)
     {
         _selectedUnitTypeId = unitTypeId;
+        for (var i = 0; i < _typeButtons.Count; i++)
+            _typeButtons[i].SetPressedNoSignal(_model.UnitTypes[i].Id == unitTypeId);
         var bounds = _model.TroopBoundsFor(unitTypeId);
         _troops.MinValue = bounds.Minimum;
         _troops.MaxValue = bounds.Maximum;
@@ -319,6 +327,7 @@ public partial class RecruitUnitDialog : Control
         }
 
         var troops = (int)_troops.Value;
+        _selectionLabel.Text = $"Recruit: {_model.UnitTypes.First(t => t.Id == _selectedUnitTypeId).Name} · {troops:N0} troops";
         _troopBoundsLabel.Text = _model.TroopBoundsText(_selectedUnitTypeId);
         _costLabel.Text =
             $"Cost: {_model.InitialCostFor(troops, _selectedUnitTypeId).ToString(System.Globalization.CultureInfo.InvariantCulture)}"
@@ -459,8 +468,21 @@ public partial class RecruitUnitDialog : Control
         // All cities trains at the capital (T166); a town trains at itself.
         var line = _model.RecruitStandingLine(_model.RecruitCityIdFor(cityId), _selectedUnitTypeId, (int)_troops.Value);
         var lines = Submit(line);
-        _replyLabel.Text = lines.Skip(1).FirstOrDefault(text => text.Length > 0) ?? string.Empty;
+        _replyLabel.Text = CommandOutcomeWording.Apply(CommandOutcomeText.OutcomeBlock(lines));
         RebuildModel();
+        Refresh();
+    }
+
+    private void SelectMaximum()
+    {
+        _troops.Value = _model.MaximumRecruitmentTroopsFor(_selectedUnitTypeId);
+        var type = _model.UnitTypes.First(t => t.Id == _selectedUnitTypeId);
+        var cost = _model.InitialCostFor((int)_troops.Value, _selectedUnitTypeId);
+        _replyLabel.Text = cost > _model.Nation.Treasury
+            ? Session.Ruleset.Flags.UnaffordableRecruitAndFortify == UnaffordableOrderPolicy.AllowDebt
+                ? $"Full {type.Name} battalion selected. Recruiting it will use debt."
+                : $"Not enough money for the minimum {type.Name} recruitment."
+            : $"Maximum {type.Name}: {(int)_troops.Value:N0} troops.";
         Refresh();
     }
 

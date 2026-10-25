@@ -42,6 +42,8 @@ public partial class NewsLogPanel : Control
             ScrollFollowing = false,
             BbcodeEnabled = false,
         };
+        _text.AddThemeColorOverride("default_color", UiKit.TextColor);
+        _text.AddThemeFontSizeOverride("normal_font_size", AppTheme.Body);
         column.AddChild(_text);
     }
 

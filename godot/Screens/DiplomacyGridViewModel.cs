@@ -15,6 +15,8 @@ namespace IC2.Slice.Screens;
 /// <param name="CanMakePeace">Whether "Make Peace" should be enabled — there is a trade, an alliance or a war to end (the engine's make-peace gate, <c>MakePeaceCommandHandler</c>); not at plain peace or in a cooldown.</param>
 /// <param name="CanProposeAlliance">Whether "Propose Alliance" should be enabled — at peace or trade, not already allied.</param>
 /// <param name="CanProposeTrade">Whether "Propose Trade" should be enabled — at peace, not already trading.</param>
+public enum DiplomaticStatus { Unknown, Peace, Trade, Alliance, War, Cooldown }
+
 public sealed record DiplomacyRelationRow(
     string NationId,
     string NationName,
@@ -22,7 +24,18 @@ public sealed record DiplomacyRelationRow(
     bool CanDeclareWar,
     bool CanMakePeace,
     bool CanProposeAlliance,
-    bool CanProposeTrade);
+    bool CanProposeTrade)
+{
+    public DiplomaticStatus Status { get; init; }
+    public string StatusCaption => Status switch
+    {
+        DiplomaticStatus.War => "AT WAR",
+        DiplomaticStatus.Trade => "TRADING",
+        DiplomaticStatus.Alliance => "ALLIED",
+        DiplomaticStatus.Peace => "AT PEACE",
+        _ => RelationLabel,
+    };
+}
 
 /// <summary>
 /// Builds <see cref="DiplomacyScreen"/>'s grid rows from the live <see cref="GameState"/> — Godot-free (no
@@ -72,7 +85,12 @@ public static class DiplomacyGridViewModel
                 CanDeclareWar: !isWar,
                 CanMakePeace: canMakePeace,
                 CanProposeAlliance: !isWar && !isAlliance,
-                CanProposeTrade: !isWar && !isTrade));
+                CanProposeTrade: !isWar && !isTrade)
+            {
+                Status = isWar ? DiplomaticStatus.War : isTrade ? DiplomaticStatus.Trade
+                    : isAlliance ? DiplomaticStatus.Alliance : value < 0 ? DiplomaticStatus.Cooldown
+                    : value == codes.Peace ? DiplomaticStatus.Peace : DiplomaticStatus.Unknown,
+            });
         }
 
         return rows;

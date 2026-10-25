@@ -642,7 +642,8 @@ public sealed class RecruitUnitDialogModel
     /// <summary>
     /// The troop box's <em>Max</em> button ([designed], the owner's play session of 2026-10-22): the largest
     /// amount, on the box's step and within its bounds, whose one-time cost the nation's treasury covers; the
-    /// minimum when even that is unaffordable (the engine then refuses the order with its own reason).
+    /// minimum when even that is unaffordable. The Max action's debt policy is selected by
+    /// <see cref="MaximumRecruitmentTroopsFor"/>; this helper is strictly an affordability calculation.
     /// </summary>
     public int AffordableMaximumFor(string unitTypeId)
     {
@@ -658,6 +659,11 @@ public sealed class RecruitUnitDialogModel
 
         return bounds.Minimum;
     }
+
+    /// <summary>The Max action follows the preset: a full battalion when debt is allowed, otherwise affordable troops.</summary>
+    public int MaximumRecruitmentTroopsFor(string unitTypeId) =>
+        _ruleset.Flags.UnaffordableRecruitAndFortify == UnaffordableOrderPolicy.AllowDebt
+            ? TroopBoundsFor(unitTypeId).Maximum : AffordableMaximumFor(unitTypeId);
 
     /// <summary>The one-time cost for <paramref name="troops"/> troops of <paramref name="unitTypeId"/>.</summary>
     public int InitialCostFor(int troops, string unitTypeId) =>

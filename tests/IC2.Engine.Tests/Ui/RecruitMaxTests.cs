@@ -10,9 +10,9 @@ namespace IC2.Engine.Tests.Ui;
 /// <summary>The Recruit unit dialog's <em>Max</em> button (the owner's play session of 2026-10-22).</summary>
 public sealed class RecruitMaxTests
 {
-    private static RecruitUnitDialogModel ModelWithTreasury(int treasury)
+    private static RecruitUnitDialogModel ModelWithTreasury(int treasury, bool improved = false)
     {
-        var classical = GameDataRepository.Load(ModelTestPaths.DataRoot).Resolve("classical-mediterranean");
+        var classical = GameDataRepository.Load(ModelTestPaths.DataRoot).Resolve(improved ? "example-classical-improved" : "classical-mediterranean");
         var session = new GameSession(classical.World, classical.Ruleset, classical.Scenario, seedOverride: 3, humanSeatNationId: "rome");
         var state = session.State with
         {
@@ -27,6 +27,22 @@ public sealed class RecruitMaxTests
         var model = ModelWithTreasury(1_000_000);
         const string type = "light_infantry";
         Assert.Equal(model.TroopBoundsFor(type).Maximum, model.AffordableMaximumFor(type));
+    }
+
+    [Fact]
+    public void Faithful_Max_selects_a_full_battalion_even_in_debt()
+    {
+        var model = ModelWithTreasury(-2149);
+        foreach (var type in model.UnitTypes)
+            Assert.Equal(model.TroopBoundsFor(type.Id).Maximum, model.MaximumRecruitmentTroopsFor(type.Id));
+    }
+
+    [Fact]
+    public void Improved_Max_keeps_the_affordable_amount()
+    {
+        var model = ModelWithTreasury(100, improved: true);
+        foreach (var type in model.UnitTypes)
+            Assert.Equal(model.AffordableMaximumFor(type.Id), model.MaximumRecruitmentTroopsFor(type.Id));
     }
 
     [Fact]
