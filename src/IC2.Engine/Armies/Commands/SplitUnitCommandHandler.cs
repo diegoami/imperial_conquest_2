@@ -79,9 +79,10 @@ public sealed class SplitUnitCommandHandler : ICommandHandler<SplitUnitCommand>
         }
 
         // Regulars are auto-named with the next free ordinal for their type across the nation's armies and
-        // city garrison. A mercenary split keeps the source name -- see SplitUnitCommand's remarks.
+        // city garrison, using the original split-specific spacing. A mercenary split keeps the source
+        // name -- see SplitUnitCommand's remarks.
         var newName = source.IsRegular
-            ? ArmyNaming.NextName(state, command.IssuingNationId, source.UnitTypeId)
+            ? ArmyNaming.NextSplitUnitName(state, command.IssuingNationId, source.UnitTypeId)
             : source.Name;
 
         var kept = source with { Troops = source.Troops - command.Troops };

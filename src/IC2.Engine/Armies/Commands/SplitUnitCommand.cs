@@ -27,24 +27,13 @@ namespace IC2.Engine.Armies.Commands;
 /// </para>
 /// <para>
 /// <strong>Which part gets the auto-generated name, and what a mercenary split is called.</strong> The
-/// report's naming sentence is about the <em>split-off</em> unit, so the new unit is the one
-/// <see cref="ArmyNaming.NextName"/> names (the source keeps its own name and its own identity). For a
-/// regular split that is the confirmed <c>"Nth &lt;label&gt; Battalion"</c> scheme. For a
-/// <em>mercenary</em> split <see cref="ArmyNaming"/> cannot help — its whole design is that a mercenary
-/// never takes a battalion number (see its remarks; the nation-wide scan skips every non-regular unit) —
-/// but the reports do give the naming rule: <c>decompiled-mobilization-and-mercenary-restock.md</c> records
-/// that <c>TRecruitMercs_RecruitMercUnit</c> "writes <c>*psVar1 = label</c> and then names the unit from
-/// <c>&amp;DAT_0049CC94 + label × 0x14</c> ("Gallic"), instead of numbering it." The split-off keeps the
-/// source's label, so carrying the source name follows that rule. The one open edge is a mercenary renamed
-/// before its split, where the label rule would give the table's name rather than the renamed one; this
-/// task's own <c>[designed]</c> choice is therefore the source name, derived from the cited sentence rather
-/// than from a user decision. The label table is now located in the original's DAT (<c>0x1F8C6</c>, the
-/// report's 2026-09-24 update; the strings are in
-/// <c>decompiled-mercenary-offer-list-and-position.md</c> §5), but this engine carries no label-name table:
-/// hire-mercenary itself names a hired unit <c>Mercenary unit (label N)</c>
-/// (<c>src/IC2.Engine/Recruitment/Commands/HireMercenaryCommandHandler.cs:86</c>), so a split-off keeps the
-/// source's name rather than reproducing a table the engine does not hold. This is pending the EXPLORE
-/// experiment.
+/// report's naming sentence is about the <em>split-off</em> unit, so the new regular unit is the one
+/// <see cref="ArmyNaming.NextSplitUnitName"/> names; the source keeps its own name. The split-only format
+/// has the two spaces before "Battalion" measured in F51, while mobilization retains its single-space
+/// format. A mercenary split keeps the source name and origin label. The original hire table at DAT
+/// 0x1F8C6 is represented by <c>MercenaryNameCatalog</c> for new hires, but a mercenary may have been
+/// renamed since hiring; a split copies that source name rather than resetting a player's name from its
+/// label [confirmed table: <c>decompiled-mercenary-offer-list-and-position.md</c> §5; F09].
 /// </para>
 /// <para>
 /// <strong>Original split size limits</strong> <c>[confirmed: code, 2026-10-11-g2-original-checks.md, C5c]</c>:
