@@ -215,7 +215,9 @@ public sealed class ArmyTransferCommandHandler : ICommandHandler<ArmyTransferCom
 
         var updatedArmies = BuildArmies(
             state, source, target, finalSourceUnits, finalTargetUnits,
-            supplySource, supplyTarget, moneySource, moneyTarget, sourceIsEmpty, targetIsEmpty);
+            supplySource, supplyTarget, moneySource, moneyTarget, sourceIsEmpty, targetIsEmpty,
+            sourceReceivedUnits: returning.Count > 0,
+            targetReceivedUnits: moving.Count > 0);
 
         return CommandOutcome.Accept(state with
         {
@@ -285,19 +287,23 @@ public sealed class ArmyTransferCommandHandler : ICommandHandler<ArmyTransferCom
         int moneySource,
         int moneyTarget,
         bool sourceIsEmpty,
-        bool targetIsEmpty)
+        bool targetIsEmpty,
+        bool sourceReceivedUnits,
+        bool targetReceivedUnits)
     {
         var updatedSource = source with
         {
             Units = finalSourceUnits,
             SupplyTons = supplySource,
             Money = moneySource,
+            Moves = sourceReceivedUnits ? 0 : source.Moves,
         };
         var updatedTarget = target with
         {
             Units = finalTargetUnits,
             SupplyTons = supplyTarget,
             Money = moneyTarget,
+            Moves = targetReceivedUnits ? 0 : target.Moves,
         };
 
         if (sourceIsEmpty)
