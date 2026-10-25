@@ -74,6 +74,7 @@ public partial class ArmyOrdersCheck : Control
         _mainGame.CommandIssued += _ => _commandsSeen++;
 
         _steps.Add(CheckFixture);
+        _steps.Add(SupplyArmyMoneySource);
         _steps.Add(OpenTransferOneWay);
         _steps.Add(OpenTransferTwoWay);
         _steps.Add(SplitArmy);
@@ -149,6 +150,25 @@ public partial class ArmyOrdersCheck : Control
             "the staged unit left the selected army");
     }
 
+    private void SupplyArmyMoneySource()
+    {
+        _mainGame.SelectArmyForCheck(TransferTwoWayA);
+        Check(_mainGame.MenuBar.PressItemForCheck("unit_map.army_supply"), "Supply opens for army money transfer");
+        var dialog = (SupplyDialog)_mainGame.ActiveOverlay!;
+        dialog.SelectProviderForCheck(TransferTwoWayB);
+        var before = _session.State;
+        Check(dialog.ModelForCheck.SelectedViaArmyId == TransferTwoWayB, "army provider also selects its purse");
+        dialog.FindChildren("*", "Button", true, false).OfType<Button>().Single(b => b.Text == "+10")
+            .EmitSignal(BaseButton.SignalName.Pressed);
+        Check(_session.State.ArmyById(TransferTwoWayA)!.Money == before.ArmyById(TransferTwoWayA)!.Money + 10
+              && _session.State.ArmyById(TransferTwoWayB)!.Money == before.ArmyById(TransferTwoWayB)!.Money - 10,
+            "money button debits the selected army, not the treasury");
+        Check(_session.State.Nations == before.Nations, "army money transfer leaves national balances untouched");
+        Check(dialog.ReplyForCheck.Contains("Money +10", StringComparison.Ordinal) && _mainGame.ActiveOverlay == dialog,
+            "actual money amount is visible while Supply remains open");
+        dialog.Close();
+    }
+
     private void OpenTransferTwoWay()
     {
         _mainGame.SelectArmyForCheck(TransferTwoWayA);
@@ -159,6 +179,12 @@ public partial class ArmyOrdersCheck : Control
         var fromB = _session.State.ArmyById(TransferTwoWayB)!.Units[0];
         Check(dialog.TransferBySourceForCheck(TransferTwoWayA, 0), "the dialog stages a unit A -> B");
         Check(dialog.TransferBySourceForCheck(TransferTwoWayB, 0), "the dialog stages a unit B -> A");
+        var moneyBefore = _session.State.ArmyById(TransferTwoWayA)!.Money;
+        dialog.PressMoneyForCheck(10);
+        Check(dialog.FindChildren("*", "Label", true, false).OfType<Label>()
+                .Any(label => label.Text == "10 talents → right")
+              && _session.State.ArmyById(TransferTwoWayA)!.Money == moneyBefore,
+            "pending money amount and direction are visible before OK without spending it");
 
         var before = _commandsSeen;
         dialog.OkForCheck();
@@ -190,8 +216,15 @@ public partial class ArmyOrdersCheck : Control
         var suggested = (SplitArmyDialog)_mainGame.ActiveOverlay!;
         Check(suggested.ModelForCheck.StagedUnits.Count is > 0 and < 3,
             "Quick Split stages whole units before any command");
-        Check(suggested.ModelForCheck.Money == 0 && suggested.ModelForCheck.Supply == 0,
-            "Quick Split does not move money or supply on opening");
+        var proposed = suggested.ModelForCheck;
+        Check(proposed.NewArmyId.StartsWith("army-", StringComparison.Ordinal)
+              && !proposed.NewArmyId.Contains("split", StringComparison.Ordinal)
+              && _session.State.ArmyById(proposed.NewArmyId) is null,
+            "Quick Split proposes an unused simple army name");
+        var newTroops = proposed.StagedUnits.Sum(i => parentBefore.Units[i].Troops);
+        Check(proposed.Money == Math.Min(proposed.MaxMoney, (int)((long)parentBefore.Money * newTroops / parentBefore.TotalTroops))
+              && proposed.Supply == Math.Min(proposed.MaxSupply, (int)((long)parentBefore.SupplyTons * newTroops / parentBefore.TotalTroops)),
+            "Quick Split proposes proportional money and supplies without issuing a command");
         Check(suggested.StrengthTextForCheck.Contains($"{suggested.ModelForCheck.ParentPower:N0}")
               && suggested.StrengthTextForCheck.Contains($"{suggested.ModelForCheck.NewArmyPower:N0}"),
             "Quick Split shows both projected strengths");
@@ -215,7 +248,7 @@ public partial class ArmyOrdersCheck : Control
         dialog.OkForCheck();
 
         Check(_commandsSeen == before + 1, $"Split army submits exactly one command ({_commandsSeen - before})");
-        var child = _session.State.ArmyById($"{SplitArmyId}-split");
+        var child = _session.State.ArmyById(dialog.ModelForCheck.NewArmyId);
         var parent = _session.State.ArmyById(SplitArmyId)!;
         Check(child is not null, "Split army adds an army");
         if (child is null)
@@ -312,7 +345,7 @@ public partial class ArmyOrdersCheck : Control
         Check(_commandsSeen == before, "Cancel submits nothing");
         Check(
             _session.State.ArmyById(SplitDisbandArmyId)!.Units.Count == original.Count - 2
-            && _session.State.ArmyById($"{SplitDisbandArmyId}-split") is null,
+            && _session.State.ArmyById(dialog.ModelForCheck.NewArmyId) is null,
             "Cancel leaves the disbands in place and adds no army");
     }
 

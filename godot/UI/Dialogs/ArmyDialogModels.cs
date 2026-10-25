@@ -38,6 +38,15 @@ namespace IC2.Slice.UI;
 /// </remarks>
 public static class ArmyDialogModels
 {
+    /// <summary>The first unused simple army name, shared by all split entry points.</summary>
+    public static string NextArmyId(GameState state)
+    {
+        var used = state.Armies.Select(a => a.Id).ToHashSet(StringComparer.Ordinal);
+        var number = 1;
+        while (used.Contains($"army-{number}")) number++;
+        return $"army-{number}";
+    }
+
     /// <summary>The 10s stepper's step, supply tons [confirmed: code,
     /// <c>2026-10-03-army-to-army-ok-supply-rebalancing.md</c> item 6].</summary>
     public const int SupplyStepTons = 10;
@@ -211,9 +220,10 @@ public sealed class ArmyTransferModel
     /// both armies' supply back, so the caption can never disagree with the rebalancing. Without a state, or
     /// when the engine would refuse, falls back to the staged net alone.
     /// </summary>
-    private (int Selected, int Partner) Preview()
+    private (int Selected, int Partner, int SelectedMoney, int PartnerMoney) Preview()
     {
-        var netOnly = (_selected.SupplyTons - _supplyNet, _partner.SupplyTons + _supplyNet);
+        var netOnly = (_selected.SupplyTons - _supplyNet, _partner.SupplyTons + _supplyNet,
+            _selected.Money - _moneyNet, _partner.Money + _moneyNet);
         if (_state is null || _world is null)
         {
             return netOnly;
@@ -222,7 +232,7 @@ public sealed class ArmyTransferModel
         var staged = _unitsToPartner.Count > 0 || _unitsBack.Count > 0 || _supplyNet != 0 || _moneyNet != 0;
         if (!staged)
         {
-            return (_selected.SupplyTons, _partner.SupplyTons);
+            return netOnly;
         }
 
         var command = new ArmyTransferCommand(
@@ -245,7 +255,9 @@ public sealed class ArmyTransferModel
 
         return (
             result.State.ArmyById(_selected.Id)?.SupplyTons ?? 0,
-            result.State.ArmyById(_partner.Id)?.SupplyTons ?? 0);
+            result.State.ArmyById(_partner.Id)?.SupplyTons ?? 0,
+            result.State.ArmyById(_selected.Id)?.Money ?? 0,
+            result.State.ArmyById(_partner.Id)?.Money ?? 0);
     }
 
     /// <summary>A's supply in tons as the dialog opened.</summary>
@@ -253,6 +265,19 @@ public sealed class ArmyTransferModel
 
     /// <summary>B's supply in tons as the dialog opened.</summary>
     public int PartnerSupplyNow => _partner.SupplyTons;
+
+    public int SelectedMoneyAfter => Preview().SelectedMoney;
+    public int PartnerMoneyAfter => Preview().PartnerMoney;
+
+    public string PendingSupplyText => PendingResource(_supplyNet, "t");
+    public string PendingMoneyText => PendingResource(_moneyNet, "talents");
+
+    private static string PendingResource(int net, string unit) => net switch
+    {
+        > 0 => $"{net:N0} {unit} → right",
+        < 0 => $"{-net:N0} {unit} → left",
+        _ => $"0 {unit}",
+    };
 
     /// <summary>
     /// The supply row's caption: which army sends to which and how much, then each side's stock now and
@@ -560,6 +585,11 @@ public sealed class SplitArmyModel
         _staged.Clear();
         for (var i = 0; i < count; i++)
             if ((bestMask & (1 << i)) != 0) _staged.Add(i);
+        // Propose a share by soldiers, leaving rounding remainders with the parent.
+        var totalTroops = troopsByMask[all];
+        var newTroops = troopsByMask[bestMask];
+        _supply = totalTroops > 0 ? (int)((long)Math.Max(0, _army.SupplyTons) * newTroops / totalTroops) : 0;
+        _money = totalTroops > 0 ? (int)((long)Math.Max(0, _army.Money) * newTroops / totalTroops) : 0;
         Reclamp();
         return true;
     }

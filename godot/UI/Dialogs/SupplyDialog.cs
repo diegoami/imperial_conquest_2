@@ -114,6 +114,7 @@ public partial class SupplyDialog : Control
 
             _model.SelectProvider((int)index);
             UpdateProviderDetails();
+            RefreshMoneyControls();
         };
         column.AddChild(_providerList);
 
@@ -138,6 +139,8 @@ public partial class SupplyDialog : Control
         column.AddChild(_moneyLabel);
 
         _viaPicker = new OptionButton { CustomMinimumSize = new Vector2(220, 0) };
+        _viaPicker.TooltipText = "Money source for +; destination for −. Selecting an army provider selects its purse. Treasury and fleet sources can also be chosen here.";
+        column.AddChild(UiKit.MakeLabel("Money source (+) / destination (−)", AppTheme.Body, UiKit.TextColor));
         column.AddChild(_viaPicker);
         _viaPicker.ItemSelected += index =>
         {
@@ -146,8 +149,7 @@ public partial class SupplyDialog : Control
                 return;
             }
 
-            var choice = _model.MoneyViaChoices[(int)index];
-            _model.SelectVia(choice.FleetId);
+            _model.SelectMoneySource((int)index);
         };
 
         var moneyButtons = new HBoxContainer();
@@ -243,8 +245,13 @@ public partial class SupplyDialog : Control
         SubmitIfAny(line);
     }
 
-    private void PressMoney(int signedTalents) =>
-        SubmitIfAny(_model.PressMoney(signedTalents, _model.SelectedViaFleetId));
+    private void PressMoney(int signedTalents)
+    {
+        var line = _model.PressSelectedMoney(signedTalents);
+        if (line is null)
+            _replyLabel.Text = "No money moved: source empty or receiving purse full.";
+        else SubmitIfAny(line);
+    }
 
     private void SubmitIfAny(string? line)
     {
@@ -253,12 +260,26 @@ public partial class SupplyDialog : Control
             return;
         }
 
+        var supplyBefore = _model.UnitSupplyTons;
+        var moneyBefore = _model.UnitMoney;
+        var source = line.StartsWith("army-transfer ", StringComparison.Ordinal)
+            ? _model.SelectedViaArmyId : _model.SelectedProvider?.Id;
         var lines = Submit(line);
 
         // The session echoes the submitted line first ("> buy ..."); the reply is the first non-empty
         // line after the echo.
         _replyLabel.Text = lines.Skip(1).FirstOrDefault(text => text.Length > 0) ?? string.Empty;
         RefreshFigures();
+        if (!lines.Any(text => text.Contains("rejected", StringComparison.OrdinalIgnoreCase))
+            && !line.StartsWith("transfer-money ", StringComparison.Ordinal)
+            && (_model.UnitSupplyTons != supplyBefore || _model.UnitMoney != moneyBefore))
+        {
+            var supplyDelta = _model.UnitSupplyTons - supplyBefore;
+            var moneyDelta = _model.UnitMoney - moneyBefore;
+            _replyLabel.Text = $"Supply {supplyDelta:+0;-0;0} t · Money {moneyDelta:+0;-0;0}";
+            if (source is not null && Session.State.ArmyById(source) is { } other)
+                _replyLabel.Text += $"\n{source}: {other.SupplyTons:N0} t · {other.Money:N0} money";
+        }
     }
 
     /// <summary>Closes the dialog — the Close button, Esc, and a check's own close seam all call this.</summary>
@@ -313,24 +334,35 @@ public partial class SupplyDialog : Control
 
         UpdateProviderDetails();
 
+        RefreshMoneyControls();
+    }
+
+    private void RefreshMoneyControls()
+    {
         _moneyLabel.Text =
             $"National balance {_model.NationalTreasury}  ·  {_model.UnitMoney} money";
 
         _viaPicker.Clear();
         foreach (var choice in _model.MoneyViaChoices)
         {
-            _viaPicker.AddItem(choice.Label);
+            _viaPicker.AddItem($"{choice.Label} — {choice.Balance} money");
         }
 
-        var viaIndex = 0;
+        var viaIndex = -1;
         for (var i = 0; i < _model.MoneyViaChoices.Count; i++)
         {
-            if (string.Equals(_model.MoneyViaChoices[i].FleetId, _model.SelectedViaFleetId, StringComparison.Ordinal))
+            if (string.Equals(_model.MoneyViaChoices[i].FleetId, _model.SelectedViaFleetId, StringComparison.Ordinal)
+                && string.Equals(_model.MoneyViaChoices[i].ArmyId, _model.SelectedViaArmyId, StringComparison.Ordinal))
             {
                 viaIndex = i;
             }
         }
 
+        if (viaIndex < 0)
+        {
+            _viaPicker.AddItem($"Unavailable source: {_model.SelectedViaArmyId ?? _model.SelectedViaFleetId}");
+            viaIndex = _viaPicker.ItemCount - 1;
+        }
         _viaPicker.Select(viaIndex);
     }
 
@@ -347,7 +379,7 @@ public partial class SupplyDialog : Control
         _providerKindLabel.Text = selected is null
             ? "No provider."
             : selected.IsFree
-                ? (IsFleet ? "Free at your own city." : "Free at your own city or fleet.")
+                ? "Free transfer"
                 : $"Paid — {_model.StagedCostTalents} talents for {_model.StagedTons} tons.";
 
         _stagedLabel.Text = selected is { IsFree: false }

@@ -192,8 +192,8 @@ public partial class SupplyArmyCheck : Control
         Check(after.ArmyMoney == before.ArmyMoney, "the army's money is unchanged");
         Check(after.Treasury == before.Treasury, "the treasury is unchanged");
         Check(
-            _dialog.ReplyForCheck.Contains("bought", StringComparison.Ordinal),
-            $"the session's own reply line is shown in the dialog ('{_dialog.ReplyForCheck}')");
+            _dialog.ReplyForCheck.Contains("Supply +10 t", StringComparison.Ordinal),
+            $"the actual transferred supply is shown while the dialog stays open ('{_dialog.ReplyForCheck}')");
     }
 
     private void PressFleet()
@@ -263,7 +263,8 @@ public partial class SupplyArmyCheck : Control
 
         Check(after.Commands == before.Commands + 1, "the past-room press issues exactly one command");
         Check(_lastCommandLine is not null, "the session answered the past-room press");
-        Check(_dialog.ReplyForCheck == _lastCommandLine, $"the dialog shows the session's own reply line ('{_dialog.ReplyForCheck}' vs '{_lastCommandLine}')");
+        Check(_dialog.ReplyForCheck.Contains($"Supply {after.ArmySupply - before.ArmySupply} t", StringComparison.Ordinal),
+            $"the dialog shows the actual returned supply ('{_dialog.ReplyForCheck}')");
         Check(after.ArmySupply < before.ArmySupply, $"the over-room army gives supply back ({before.ArmySupply} -> {after.ArmySupply})");
     }
 
