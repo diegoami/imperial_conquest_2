@@ -73,6 +73,23 @@ public sealed class HireMercenaryCommandHandlerTests
         Assert.Equal(FelsinaOffer.NameLabel, hiredUnit.MercenaryLabel);
         Assert.Equal(FelsinaOffer.UnitTypeId, hiredUnit.UnitTypeId);
         Assert.Equal(FelsinaOffer.Quality, hiredUnit.Quality);
+        Assert.Equal("Gallic", hiredUnit.Name);
+    }
+
+    [Fact]
+    public void Label_one_hire_uses_the_original_Numidian_name()
+    {
+        var dispatcher = RecruitmentTestbed.Dispatcher();
+        var initial = RecruitmentTestbed.InitialState();
+        var army = initial.ArmyById("north-army-1")!;
+        var offer = FelsinaOffer with { NameLabel = 1 };
+        var before = RecruitmentTestbed.WithMercenaryPool(initial, offer, OtherOffer);
+
+        var result = dispatcher.Dispatch(before, new HireMercenaryCommand(before.ActiveNationId, army.Id, offer.SlotIndex));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        var hired = Assert.Single(result.State.ArmyById(army.Id)!.Units, unit => unit.MercenaryLabel == 1);
+        Assert.Equal("Numidian", hired.Name);
     }
 
     /// <summary>
