@@ -38,6 +38,13 @@ namespace IC2.Engine.Armies.Commands;
 /// spinner room, <c>troops div 100 + 1</c>, is that dialog's own bound, not this command's.
 /// </para>
 /// <para>
+/// <strong>Receiving a unit clears that recipient's moves</strong> [confirmed: Research broad conversion
+/// case F02, `2026-10-23-broad-save-conversion-matrix.md`]. The donor keeps its moves. If both directions
+/// transfer units, both armies lose their moves; a supply/money-only transfer preserves both allowances.
+/// This is an immediate order effect, distinct from the weekly move maximum not being recomputed when an
+/// army's troop count changes.
+/// </para>
+/// <para>
 /// <strong>The 20-unit and 100,000-troop limits are the Join armies rules</strong> [confirmed:
 /// <c>decompiled-unit-map-orders-and-record-fields.md</c>]: at most
 /// <see cref="Model.ArmyManagementRules.MaxUnitsPerArmy"/> units and

@@ -75,6 +75,8 @@ public sealed class ArmyTransferCommandTests
         Assert.Contains(target.Units, u => string.Equals(u.Name, "rome-1st", StringComparison.Ordinal));
         Assert.DoesNotContain(source.Units, u => string.Equals(u.Name, "rome-1st", StringComparison.Ordinal));
         Assert.Equal(1500, target.Units.Single(u => u.Name == "rome-1st").Troops);
+        Assert.Equal(5, source.Moves); // The donor retains its allowance.
+        Assert.Equal(0, target.Moves); // F02: receiving a unit clears the recipient's current-turn moves.
         Assert.Equal(80, source.Money);
         Assert.Equal(50, target.Money);
 
@@ -105,8 +107,28 @@ public sealed class ArmyTransferCommandTests
             state, TwoWay("rome-c", "rome-d", ValueList.Of(0, 1, 3), 0, 0, ValueList.Of(0, 2), 0, 0));
 
         Assert.True(result.IsAccepted, result.ToString());
-        Assert.Equal(new[] { "u2", "v2", "v0" }, result.State.ArmyById("rome-c")!.Units.Select(u => u.Name));
-        Assert.Equal(new[] { "v1", "u3", "u1", "u0" }, result.State.ArmyById("rome-d")!.Units.Select(u => u.Name));
+        var source = result.State.ArmyById("rome-c")!;
+        var target = result.State.ArmyById("rome-d")!;
+        Assert.Equal(new[] { "u2", "v2", "v0" }, source.Units.Select(u => u.Name));
+        Assert.Equal(new[] { "v1", "u3", "u1", "u0" }, target.Units.Select(u => u.Name));
+        Assert.Equal(0, source.Moves); // Each army received units from the other.
+        Assert.Equal(0, target.Moves);
+    }
+
+    [Fact]
+    public void Transfer_BackUnitClearsOnlyTheReceivingArmyMoves()
+    {
+        var state = WithArmies(
+            InitialState(),
+            Army("reverse-a", NorthNationId, 5, 5, Units(2), moves: 7),
+            Army("reverse-b", NorthNationId, 6, 5, Units(2, prefix: "v"), moves: 6));
+
+        var result = Dispatcher().Dispatch(
+            state, TwoWay("reverse-a", "reverse-b", ValueList<int>.Empty, 0, 0, ValueList.Of(0), 0, 0));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        Assert.Equal(0, result.State.ArmyById("reverse-a")!.Moves);
+        Assert.Equal(6, result.State.ArmyById("reverse-b")!.Moves);
     }
 
     [Fact]
@@ -294,6 +316,8 @@ public sealed class ArmyTransferCommandTests
 
         Assert.True(result.IsAccepted, result.ToString());
         Assert.Equal(cap, result.State.ArmyById("pur-a")!.Money);
+        Assert.Equal(5, result.State.ArmyById("pur-a")!.Moves);
+        Assert.Equal(5, result.State.ArmyById("pur-b")!.Moves);
     }
 
     [Fact]
