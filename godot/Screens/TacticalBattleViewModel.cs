@@ -395,7 +395,7 @@ public sealed class TacticalBattleViewModel
             {
                 var g = pose.Glyph;
                 var cell = new BattleCellView(g.X, g.Y, g.Code, g.Slot, g.Side,
-                    BattleAssetKeys.UnitIcon(g.TypeId, g.Code % TacticalIcon.SizesPerType),
+                    BattleAssetKeys.UnitIcon(g.TypeId, (g.Code % TacticalIcon.DefenderOffset) % TacticalIcon.SizesPerType),
                     !pose.Departing && g.Slot == SelectedSlot, g.Slot == ActorSlot, g.Slot == TargetSlot);
                 units.Add(new BattleUnitView(cell, pose.X, pose.Y, pose.Opacity));
             }
@@ -870,7 +870,7 @@ public sealed class TacticalBattleViewModel
 
                 var side = code >= TacticalIcon.DefenderOffset ? 1 : 0;
                 var type = (code % TacticalIcon.DefenderOffset) / TacticalIcon.SizesPerType;
-                var size = code % TacticalIcon.SizesPerType;
+                var size = (code % TacticalIcon.DefenderOffset) % TacticalIcon.SizesPerType;
                 // Exchange frames can precede rout removal: raw icon arithmetic can be negative for an
                 // overkilled unit. Preserve the actual code/grid; only valid image-list entries have sprites.
                 var validIcon = type >= 0 && type < _view.UnitTypeIds.Count && size >= 0;
