@@ -48,6 +48,29 @@ public partial class SettingsCheck : Control
             Check(GameCommandTable.Rows.Any(r => r.Id == "game.settings" && r.Menu == "Game"), "the Game menu has a Settings row");
             _game.MenuBar.PressItemForCheck("game.settings");
             Check(_game.ActiveOverlay is SettingsScreen { InGame: true }, "Game → Settings opens the Settings screen over the game");
+            var settings = (SettingsScreen)_game.ActiveOverlay!;
+            var before = SettingsScreen.Current;
+            var beforeColors = Appearance.AppliedColors;
+            SettingsScreen.Commit(before with { SoundEnabled = false }, GetTree().Root);
+            settings.TestSoundButton.EmitSignal(Button.SignalName.Pressed);
+            Check(settings.TestSoundStatus.Text.Contains("Enable Sound") && settings.TestSoundPlayerForCheck is null,
+                "Test sound explains a disabled sound setting without playing");
+            SettingsScreen.Commit(before with { SoundEnabled = true, VolumePercent = 0 }, GetTree().Root);
+            settings.TestSoundButton.EmitSignal(Button.SignalName.Pressed);
+            Check(settings.TestSoundStatus.Text.Contains("0%") && settings.TestSoundPlayerForCheck is null,
+                "Test sound identifies zero volume instead of claiming playback");
+            SettingsScreen.Commit(before with { SoundEnabled = true, VolumePercent = 75 }, GetTree().Root);
+            settings.TestSoundButton.EmitSignal(Button.SignalName.Pressed);
+            Check(settings.TestSoundPlayerForCheck?.TacticalReceiptsForCheck.Any(r => r.Action == "started") == true
+                  && settings.TestSoundStatus.Text.Contains("75%") && settings.TestSoundStatus.Text.Contains(AudioServer.OutputDevice),
+                "Test sound loads a real selected-pack clip, starts it and identifies volume and output");
+            SettingsScreen.Commit(SettingsScreen.Current with { PackId = "missing-sound-test-pack" });
+            settings.TestSoundButton.EmitSignal(Button.SignalName.Pressed);
+            Check(settings.TestSoundStatus.Text.Contains("no playable test sound")
+                  && settings.TestSoundPlayerForCheck?.TacticalReceiptsForCheck.Count == 0,
+                "Test sound reports a missing clip without claiming playback");
+            SettingsScreen.Commit(before, GetTree().Root);
+            Appearance.ApplyColors(beforeColors, GetTree().Root);
         });
         _steps.Enqueue(() =>
         {

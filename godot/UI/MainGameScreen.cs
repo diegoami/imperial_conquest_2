@@ -293,7 +293,10 @@ public partial class MainGameScreen : Control
         // T100: the original's menu bar and main toolbar sit above everything else, the way the
         // original's form puts them. Every entry and button is one row of CommandTable.
         MenuBar = new GameMenuBar { Table = CommandTable };
-        root.AddChild(MenuBar);
+        var menuRow = new HBoxContainer { Name = "MenuAndCampaignStatus" };
+        menuRow.AddChild(MenuBar);
+        menuRow.AddChild(BuildTopBar());
+        root.AddChild(menuRow);
 
         // One pack loader for the main toolbar and T110's Area-map strip, so both draw the same keys and
         // a missing texture falls back the same way in each.
@@ -328,35 +331,39 @@ public partial class MainGameScreen : Control
         _travelTargetLabel = UiKit.MakeLabel(string.Empty, AppTheme.Note, UiKit.MutedTextColor);
         _travelTargetLabel.ClipText = true;
         _travelTargetLabel.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
-        var travelTargetRow = new HBoxContainer();
+        var travelTargetRow = new HBoxContainer { Visible = false };
         travelTargetRow.AddChild(_travelTargetLabel);
         root.AddChild(travelTargetRow);
 
         _retreatSupplyRow = new HBoxContainer { Visible = false };
         _retreatSupplyLabel = UiKit.MakeLabel(string.Empty, AppTheme.Note, UiKit.MutedTextColor);
+        _retreatSupplyLabel.Visible = false;
         _retreatSupplyLabel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _retreatSupplyRow.AddChild(_retreatSupplyLabel);
-        _retreatSupplyButton = new Button { FocusMode = FocusModeEnum.None };
+        _retreatSupplyButton = new Button { FocusMode = FocusModeEnum.None, ToggleMode = true };
+        QolCommandIcons.Apply(_retreatSupplyButton, "recover", "Retreat and supply");
         _retreatSupplyButton.Pressed += ToggleRetreatSupplyMode;
         _retreatSupplyRow.AddChild(_retreatSupplyButton);
         _retreatSplitButton = new Button { Text = "Suggest split", FocusMode = FocusModeEnum.None };
+        QolCommandIcons.Apply(_retreatSplitButton, "split", "Suggest a balanced split for supply");
         _retreatSplitButton.Pressed += () => OpenSplitArmyDialog(suggestBalanced: true);
         _retreatSupplyRow.AddChild(_retreatSplitButton);
-        root.AddChild(_retreatSupplyRow);
+        Toolbar.ExtraActions.AddChild(_retreatSupplyRow);
 
         _rallyPointRow = new HBoxContainer();
         _rallyPointLabel = UiKit.MakeLabel(string.Empty, AppTheme.Note, UiKit.MutedTextColor);
+        _rallyPointLabel.Visible = false;
         _rallyPointLabel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _rallyPointRow.AddChild(_rallyPointLabel);
         _rallyPointSetButton = new Button { Text = "Set rally point", FocusMode = FocusModeEnum.None };
+        QolCommandIcons.Apply(_rallyPointSetButton, "rally", "Set rally point");
         _rallyPointSetButton.Pressed += ArmNationRallyPointPick;
         _rallyPointRow.AddChild(_rallyPointSetButton);
         _rallyPointClearButton = new Button { Text = "Clear rally point", FocusMode = FocusModeEnum.None };
+        QolCommandIcons.Apply(_rallyPointClearButton, "rally_clear", "Clear rally point");
         _rallyPointClearButton.Pressed += ClearNationRallyPoint;
         _rallyPointRow.AddChild(_rallyPointClearButton);
-        root.AddChild(_rallyPointRow);
-
-        root.AddChild(BuildTopBar());
+        Toolbar.ExtraActions.AddChild(_rallyPointRow);
 
         // A plain HBoxContainer, not HSplitContainer: SplitContainer's own split_offset sign convention
         // left the context panel with no visible width at all (T24's first pass) -- simpler and
@@ -557,15 +564,14 @@ public partial class MainGameScreen : Control
 
     private Control BuildTopBar()
     {
-        var bar = UiKit.MakePanel(UiKit.PanelColorRaised, cornerRadius: 0);
-        var row = new HBoxContainer();
+        var row = new HBoxContainer { Name = "CampaignStatus", SizeFlagsHorizontal = SizeFlags.ExpandFill };
         row.AddThemeConstantOverride("separation", AppTheme.DialogGap);
-        bar.AddChild(row);
 
         _calendarLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
+        _calendarLabel.Name = "CampaignDate";
         row.AddChild(_calendarLabel);
 
-        _activeNationLabel = UiKit.MakeLabel(string.Empty, AppTheme.Header, UiKit.AccentColor);
+        _activeNationLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.AccentColor);
         row.AddChild(_activeNationLabel);
 
         _travelControls = new HBoxContainer { Visible = false };
@@ -596,13 +602,10 @@ public partial class MainGameScreen : Control
         _saveConfirmationLabel.HorizontalAlignment = HorizontalAlignment.Right;
         row.AddChild(_saveConfirmationLabel);
 
-        // #1293: the general Settings button (also Game -> Settings), opening the same screen as the
-        // main menu's over the game.
-        var settings = new Button { Text = "Settings", TooltipText = "Colours, font, size, battle speed, sound", FocusMode = FocusModeEnum.None };
-        settings.Pressed += () => CommandTable.TryInvoke("game.settings");
-        row.AddChild(settings);
-
-        return bar;
+        // Keep the date at the far right beside the menu instead of spending a separate map row.
+        // Settings remains available from Game -> Settings.
+        row.MoveChild(_calendarLabel, row.GetChildCount() - 1);
+        return row;
     }
 
     /// <summary>
@@ -1745,6 +1748,8 @@ public partial class MainGameScreen : Control
             ? "Travel target: click an open land cell or city; right-click or Esc to cancel."
             : target is null ? string.Empty
             : $"Travel target for {target.ArmyId}: {(target.CityId is null ? $"cell ({target.X}, {target.Y})" : $"city {target.CityId}")} · {remaining} cells away. Use Army → Cancel travel target to stop.";
+        if (_commandStrip.ButtonFor("unit_map.army_set_target") is { } travelButton)
+            travelButton.TooltipText = "Set travel target" + (string.IsNullOrEmpty(_travelTargetLabel.Text) ? "" : "\n" + _travelTargetLabel.Text);
 
         var selectedArmy = OwnSelectedArmy();
         var selectedFleet = selectedArmy is null || selectedArmy.IsEmbarked ? OwnSelectedFleet() : null;
@@ -1752,10 +1757,11 @@ public partial class MainGameScreen : Control
         var isFleet = selectedArmy is null || selectedArmy.IsEmbarked;
         var recovery = selectedUnit is null ? null : Session.RetreatSupplyPlanFor(selectedUnit, isFleet);
         _retreatSupplyRow.Visible = selectedUnit is not null;
-        _retreatSupplyButton.Text = recovery is null ? "Retreat and supply" : "Cancel recovery";
+        _retreatSupplyButton.SetPressedNoSignal(recovery is not null);
         _retreatSupplyLabel.Text = recovery is null ? string.Empty
             : $"Recovering {selectedUnit}" + (recovery.DestinationCityId is null
                 ? ": choosing an owned town." : $": heading to {recovery.DestinationCityId}.");
+        _retreatSupplyButton.TooltipText = recovery is null ? "Retreat and supply" : "Cancel recovery\n" + _retreatSupplyLabel.Text;
         _retreatSplitButton.Visible = recovery is { IsFleet: false }
             && selectedArmy is { IsEmbarked: false } && selectedArmy.Units.Count >= 2;
 
@@ -1766,7 +1772,7 @@ public partial class MainGameScreen : Control
             ? "Rally point: click a land cell or owned city; right-click or Esc to cancel."
             : rally is null ? "Rally point for new armies: none."
             : $"Rally point for {rally.NationId}: {(rally.CityId is null ? $"cell ({rally.X}, {rally.Y})" : $"city {rally.CityId}")}.";
-        _rallyPointSetButton.Text = rally is null ? "Set rally point" : "Change rally point";
+        _rallyPointSetButton.TooltipText = (rally is null ? "Set rally point" : "Change rally point") + "\n" + _rallyPointLabel.Text;
         _rallyPointClearButton.Visible = rally is not null;
     }
 

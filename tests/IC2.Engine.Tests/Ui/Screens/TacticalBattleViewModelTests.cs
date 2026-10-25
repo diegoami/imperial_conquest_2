@@ -244,10 +244,12 @@ public sealed class TacticalBattleViewModelTests
         Assert.Equal(
             new[]
             {
-                "Planned melee, at End turn:",
-                $"{own.Name} ({display.UnitTypeNames[own.Type]}, {own.Troops} troops) attacks",
-                $"{enemy.Name} of {display.DefenderNationName} ({display.UnitTypeNames[enemy.Type]}, {enemy.Troops} troops)",
-                "No other unit attacks it.",
+                $"{own.Name} · {display.AttackerNationName.ToUpperInvariant()}",
+                $"{display.UnitTypeNames[own.Type]} · {own.Troops:N0} troops",
+                "ATTACKS",
+                $"{enemy.Name} · {display.DefenderNationName.ToUpperInvariant()}",
+                $"{display.UnitTypeNames[enemy.Type]} · {enemy.Troops:N0} troops",
+                "At End turn · No other unit attacks it.",
             },
             model.PlannedExchangeLines.ToArray());
         Assert.True(model.Cells.Single(c => c.X == enemy.X && c.Y == enemy.Y).Target);
@@ -255,6 +257,47 @@ public sealed class TacticalBattleViewModelTests
         // Nothing is planned for an enemy unit, or for an own unit with no target.
         Assert.Empty(TacticalBattleViewModel.From(changed, display, selectedSlot: 20).PlannedExchangeLines);
         Assert.Empty(TacticalBattleViewModel.From(view, display, selectedSlot: 0).PlannedExchangeLines);
+    }
+
+    [Theory]
+    [InlineData("#F3EAD3")]
+    [InlineData("#1E1912")]
+    public void Planned_and_actual_attacks_share_participant_colors_details_and_literal_text(string panel)
+    {
+        var (session, _, display) = Opened();
+        display = display with { PanelColorHex = panel };
+        var frames = session.BattleGeneral(true).TacticalTimeline;
+        foreach (var frame in frames.Where(f => f.Event is TacticalMeleeEvent).GroupBy(f => f.Actor!.Side).Select(g => g.First()))
+        {
+            var slots = frame.Before.View.Slots.ToList();
+            slots[frame.Actor!.Slot] = slots[frame.Actor.Slot] with { Target = frame.Target!.Slot, Name = "Unit [color=red] Ω" };
+            slots[frame.Target!.Slot] = slots[frame.Target.Slot] with { Name = "Enemy [b]" };
+            var before = frame.Before.View with { Slots = IC2.Engine.Model.ValueList.From(slots), SideToMove = frame.Actor.Side };
+            var actual = frame with { Before = frame.Before with { View = before }, After = frame.After with { View = before } };
+            var preview = TacticalBattleViewModel.From(before, display, frame.Actor.Slot).PlannedExchangePresentation;
+            var exchange = TacticalBattleViewModel.PresentExchange(actual, display);
+            Assert.Equal(exchange.PlainLines.Take(5), preview.PlainLines.Take(5));
+            Assert.Equal(exchange.RichLines.Take(5), preview.RichLines.Take(5));
+            Assert.DoesNotContain("[color=red]", string.Join("\n", preview.RichLines));
+            Assert.DoesNotContain("Quality:", string.Join("\n", preview.PlainLines));
+            Assert.Contains("At End turn", preview.PlainLines.Last());
+        }
+        Assert.Contains(frames, f => f.Event is TacticalMeleeEvent);
+    }
+
+    [Theory]
+    [InlineData("#FFF0C0")]
+    [InlineData("#889098")]
+    [InlineData("#FFFFFF")]
+    public void Nation_text_darkens_on_parchment_and_keeps_its_original_dark_theme_color(string color)
+    {
+        var allegiance = new BattleAllegiance("owner", "OWNER", color);
+        Assert.Equal(color, allegiance.TextColorOn("#1E1912"));
+        var parchment = allegiance.TextColorOn("#F3EAD3");
+        Assert.NotEqual(color, parchment);
+        Assert.True(Convert.ToInt32(parchment[1..3], 16) < 160);
+        Assert.True(Convert.ToInt32(parchment[3..5], 16) < 160);
+        Assert.True(Convert.ToInt32(parchment[5..7], 16) < 160);
     }
 
     [Fact]

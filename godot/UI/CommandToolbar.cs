@@ -61,6 +61,7 @@ public partial class CommandToolbar : PanelContainer
     /// <summary>Every toolbar button, in display order — exposed for
     /// <c>godot/Checks/MenuBarCheck.cs</c> and <c>godot/Checks/MapClipCheck.cs</c>.</summary>
     public IReadOnlyList<Button> Buttons { get; private set; } = Array.Empty<Button>();
+    public HBoxContainer ExtraActions { get; } = new();
 
     private readonly Dictionary<string, Button> _buttonByCommand = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _captionByCommand = new(StringComparer.Ordinal);
@@ -84,6 +85,8 @@ public partial class CommandToolbar : PanelContainer
             row.AddChild(nationRow.Id == "nations.all" ? BuildAllNationsButton(nationRow) : BuildNationSwatch(nationRow));
         }
 
+        row.AddChild(new VSeparator());
+        row.AddChild(ExtraActions);
         Buttons = _buttonByCommand.Values.ToList();
         ApplyHints();
     }

@@ -125,7 +125,14 @@ public partial class UnitCommandStrip : PanelContainer
             TooltipText = row.Caption,
         };
 
-        if (row.IconKey is { } iconKey && AssetLoader?.TryGetTexture(iconKey) is { } texture)
+        if (QolCommandIcons.ForCommand(row.Id) is { } convenienceIcon)
+        {
+            button.Icon = convenienceIcon;
+            button.AddThemeColorOverride("icon_normal_color", UiKit.TextColor);
+            button.AddThemeColorOverride("icon_hover_color", UiKit.AccentColor);
+            button.AddThemeColorOverride("icon_pressed_color", UiKit.AccentColor);
+        }
+        else if (row.IconKey is { } iconKey && AssetLoader?.TryGetTexture(iconKey) is { } texture)
         {
             button.Icon = texture;
         }

@@ -55,6 +55,7 @@ public partial class TacticalBattleCheck : Node
             CheckThePausesAreDisplayOnly();
             CheckTypedFramePlayback();
             CheckAllegianceScreen();
+            CheckPlannedAttackPanel();
             CheckContinuousStages();
             CheckConsecutiveAiBattles();
             CheckSurrender();
@@ -716,7 +717,7 @@ public partial class TacticalBattleCheck : Node
                 "actual screen identifies both stable world owners despite renamed nation/unit text");
             Check(screen.ExchangeLabel.GetParsedText() == screen.ExchangePlainText, "actual rich text preserves literal bracket tags");
             var colors = new[] { frame.Actor!.NationId, frame.Target!.NationId }
-                .Select(id => BattleAllegiance.For(id, "ignored", main.Session.World).ColorHex).ToArray();
+                .Select(id => BattleAllegiance.For(id, "ignored", main.Session.World).TextColorOn("#" + UiKit.PanelColor.ToHtml(false))).ToArray();
             Check(colors.Distinct().Count() == 2 && colors.All(color => screen.ExchangeLabel.Text.Contains("[color=" + color + "]")),
                 "actor and target have independent own-palette spans");
             CheckNoPersistentListsOrHistory(screen);
@@ -725,6 +726,48 @@ public partial class TacticalBattleCheck : Node
         Check(exchanges > 0 && main.Session.OpenTacticalBattle is null && main.ActiveOverlay is BattleEndedScreen,
             "alias/escaped screen survives removed combatants and terminal null authoritative view");
         Free(main);
+    }
+
+    private void CheckPlannedAttackPanel()
+    {
+        var original = Appearance.AppliedColors;
+        try
+        {
+            foreach (var scheme in ColorSchemes.All)
+            {
+                Appearance.ApplyColors(scheme, this);
+                var session = ReadabilitySession();
+                var view = session.Submit("attack-army north-army-1 south-army-1").OpenBattleView!;
+                var slots = view.Slots.ToList();
+                slots[0] = slots[0] with { Target = 20 };
+                var screen = new TacticalBattleScreen
+                {
+                    Session = session, RepositoryRoot = GameDataContext.RepositoryRoot,
+                    InitialView = view with { Slots = ValueList.From(slots) },
+                    InitialTimeline = Array.Empty<TacticalBattleFrame>(),
+                };
+                AddChild(screen);
+                screen.SetProcess(false);
+                screen.SelectUnit(0);
+                Check(screen.PanelLabel.Visible && screen.PlannedExchangeLabel.Visible, $"{scheme.Id}: selected details and planned attack are both visible");
+                Check(screen.PanelLabel.GetIndex() < screen.PlannedExchangeTitle.GetIndex()
+                      && screen.PlannedExchangeTitle.GetIndex() < screen.PlannedExchangeLabel.GetIndex(),
+                    $"{scheme.Id}: selected-unit detail precedes the planned attack");
+                Check(screen.PlannedExchangeLabel.GetParsedText() == string.Join("\n", screen.Model.PlannedExchangeLines),
+                    $"{scheme.Id}: preview rich text preserves literal names and all accessible details");
+                Check(screen.PlannedExchangeLabel.Text.Contains("[color=") && screen.PlannedExchangeLabel.Text.Contains("ATTACKS")
+                      && screen.PlannedExchangeLabel.Text.Contains("At End turn"), $"{scheme.Id}: preview colors participants and identifies future resolution");
+                Check(!screen.PanelLabel.Text.Contains("At End turn") && !screen.ExchangeLabel.Visible,
+                    $"{scheme.Id}: preview does not duplicate selected details or invent a completed exchange");
+                if (scheme.Id == "parchment")
+                    Check(screen.ActorLabel.GetThemeColor("font_color").Luminance < 0.5f
+                          && screen.TargetLabel.GetThemeColor("font_color").Luminance < 0.5f,
+                        "parchment uses dark role cues instead of bright cyan and orange");
+                RemoveChild(screen);
+                screen.QueueFree();
+            }
+        }
+        finally { Appearance.ApplyColors(original, this); }
     }
 
     private void CheckContinuousStages()
