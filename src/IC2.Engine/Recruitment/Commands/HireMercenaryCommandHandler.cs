@@ -3,6 +3,7 @@ using IC2.Engine.Economy;
 using IC2.Engine.Model;
 using IC2.Engine.Movement;
 using IC2.Engine.Naval;
+using IC2.Engine.Recruitment;
 
 namespace IC2.Engine.Recruitment.Commands;
 
@@ -195,7 +196,7 @@ public sealed class HireMercenaryCommandHandler : ICommandHandler<HireMercenaryC
             UnitTypeId: slot.UnitTypeId,
             Troops: slot.Troops,
             Quality: slot.Quality,
-            Name: $"Mercenary unit (label {slot.NameLabel})");
+            Name: MercenaryNameCatalog.ForLabel(slot.NameLabel));
 
         // Bug #755/T143: the hire takes nothing from the purse or the treasury. The army changes only
         // by its new unit.
