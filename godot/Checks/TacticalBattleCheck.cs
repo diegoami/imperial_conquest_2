@@ -46,7 +46,7 @@ public partial class TacticalBattleCheck : Node
         var originalAttack = SettingsScreen.BattleAttackDelaySeconds;
         try
         {
-            Check(originalShot == 1 && originalAttack == 2, "fresh process starts with designed shot 1 / melee 2 defaults before any setter");
+            Check(originalShot == 0.1 && originalAttack == 0.2, "fresh process starts with fast shot 0.1 / melee 0.2 defaults before any setter");
             CheckPauseControlsAndPreservation();
             SettingsScreen.SetBattlePauses(0, 0);
             CheckTheBattleIsFoughtAndEnded();
@@ -525,7 +525,7 @@ public partial class TacticalBattleCheck : Node
     {
         foreach (var (shot, attack) in new[] { (1.0, 2.0), (0.0, 0.0), (0.3, 2.0), (3.0, 3.0) })
         {
-            if (shot != 1 || attack != 2) SettingsScreen.SetBattlePauses(shot, attack);
+            SettingsScreen.SetBattlePauses(shot, attack);
             for (var reopen = 0; reopen < 2; reopen++)
             {
                 var settings = new SettingsScreen();
@@ -633,14 +633,18 @@ public partial class TacticalBattleCheck : Node
         Check(opening is not null && screen.Model.View == opening.After.View, "opening batch reaches production screen via retained timeline");
         Check(screen.ControllerLabel.Text.Contains("Human") && screen.ControllerLabel.Text.Contains("placement"), "human placement controller is explicit");
         CheckNoPersistentListsOrHistory(screen);
-        foreach (var (button, side) in new[] { ("friendly_units", screen.Model.View.SideToMove), ("enemy_units", 1 - screen.Model.View.SideToMove) })
+        foreach (var (button, side) in new[] { ("unit_moves", screen.Model.View.SideToMove), ("friendly_units", screen.Model.View.SideToMove), ("enemy_units", 1 - screen.Model.View.SideToMove) })
         {
             screen.PressToolbarButton(button);
             Check(screen.UnitListOpen && screen.UnitListTexts.Count == screen.Model.RosterRows(side).Count + 1,
                 button + " deliberately opens only the displayed side's units");
             foreach (var row in screen.Model.RosterRows(side))
                 Check(screen.UnitListTexts.Any(text => text.Contains(string.Join(" · ", row.Cells))), button + " rows match displayed snapshot");
-            screen.CloseUnitList();
+            var list = screen.FindChild("DeliberateUnitList", true, false)!;
+            Check(!Descendants(list).OfType<Button>().Any(b => b.Text == "Close unit list"), "active list needs no separate Close button");
+            Check(Descendants(list).OfType<Button>().All(b => b.GetThemeFontSize("font_size") == AppTheme.Note), "roster rows use the compact note font");
+            Check(((VBoxContainer)list.FindChild("CompactUnitRows", true, false)!).GetThemeConstant("separation") == 0, "roster rows have no extra vertical gaps");
+            screen.PressToolbarButton(button);
             CheckNoPersistentListsOrHistory(screen);
         }
         var seen = new List<TacticalBattleFrame>();

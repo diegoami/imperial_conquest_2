@@ -66,6 +66,7 @@ public partial class RecruitUnitDialog : Control
     private Label _costLabel = null!;
     private Label _selectionLabel = null!;
     private ItemList _trainingList = null!;
+    private Label _trainingQualityLabel = null!;
     private Button _recruitButton = null!;
     private Button _mobilizeButton = null!;
     private Button _disbandButton = null!;
@@ -234,7 +235,8 @@ public partial class RecruitUnitDialog : Control
         column.AddChild(new HSeparator());
         column.AddChild(UiKit.MakeLabel("In training here", AppTheme.Body, UiKit.MutedTextColor));
 
-        _trainingList = new ItemList { CustomMinimumSize = new Vector2(0, 140) };
+        _trainingList = new ItemList { CustomMinimumSize = new Vector2(0, 140),
+            TooltipText = "Ready is the minimum readiness. Waiting can improve quality; mobilizing ends training." };
         _trainingList.ItemSelected += index =>
         {
             var row = index >= 0 && index < _trainingRows.Count ? _trainingRows[(int)index] : null;
@@ -242,6 +244,9 @@ public partial class RecruitUnitDialog : Control
             Refresh();
         };
         column.AddChild(_trainingList);
+        _trainingQualityLabel = UiKit.MakeLabel(string.Empty, AppTheme.Note, UiKit.TextColor);
+        _trainingQualityLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        column.AddChild(_trainingQualityLabel);
 
         // The action buttons: each reads the same training list selection.
         var actionRow = new HBoxContainer();
@@ -335,6 +340,8 @@ public partial class RecruitUnitDialog : Control
 
         RefreshTrainingList();
         var selectedRow = _trainingRows.FirstOrDefault(row => row.SlotIndex == _selectedSlotIndex);
+        _trainingQualityLabel.Visible = selectedRow is not null;
+        _trainingQualityLabel.Text = selectedRow is null ? string.Empty : TrainingQualityText(selectedRow);
         if (selectedRow is { } row)
         {
             var target = _model.MobilizationTargetFor(row.SlotIndex, RecruitUnitDialogModel.NextArmyId(Session.State));
@@ -445,16 +452,24 @@ public partial class RecruitUnitDialog : Control
         }
     }
 
-    private string FormatTrainingRow(TrainingRegimentView row, bool withCity) =>
-        withCity
-            ? $"{_model.CityName(row.TargetCityId)} — {row.UnitTypeId} — {row.Troops} troops — {row.ReadinessText}"
-            : $"{row.UnitTypeId} — {row.Troops} troops — {row.ReadinessText}";
+    private string TrainingQualityText(TrainingRegimentView row)
+    {
+        var stateCode = row.StateCode;
+        if (!row.IsReady && row.WeeksUntilReady is { } weeks)
+            for (var week = 0; week < weeks; week++)
+                stateCode = IC2.Engine.Calendar.CityUnitStateCode.Advance(stateCode, Session.Ruleset.Calendar);
+        var quality = ArmyDialogModels.QualityCaption(
+            IC2.Engine.Recruitment.MobilizationReadiness.QualityFor(stateCode, Session.Ruleset.Recruitment));
+        return row.IsReady ? $"quality if mobilized: {quality}"
+            : row.WeeksUntilReady is not null ? $"quality when first ready: {quality}" : "quality unavailable";
+    }
 
-    /// <summary>
-    /// The slot-table index the selected training row names, or <see langword="null"/>. This is the
-    /// index the engine's <c>mobilize</c> and <c>disband-slot</c> verbs take, which is the row's
-    /// <see cref="TrainingRegimentView.SlotIndex"/>, not its position in this city's list.
-    /// </summary>
+    private string FormatTrainingRow(TrainingRegimentView row, bool withCity)
+    {
+        var town = withCity ? _model.CityName(row.TargetCityId) + " — " : string.Empty;
+        return $"{town}{row.UnitTypeId} — {row.Troops} troops — {row.ReadinessText} — {TrainingQualityText(row)}";
+    }
+
     private int? SelectedSlotIndex() => _selectedSlotIndex;
 
     private void SubmitRecruit()

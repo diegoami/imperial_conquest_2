@@ -22,6 +22,40 @@ public sealed class TacticalBattleViewModelTests
         return (session, view, BattleDisplay.For(view, session.State, session.Ruleset));
     }
 
+    [Theory]
+    [InlineData(0, 0, "small")]
+    [InlineData(0, 1, "medium")]
+    [InlineData(0, 2, "large")]
+    [InlineData(1, 0, "small")]
+    [InlineData(1, 1, "medium")]
+    [InlineData(1, 2, "large")]
+    public void Stationary_and_moving_icons_decode_size_after_removing_the_side_offset(int side, int size, string expected)
+    {
+        var (_, view, display) = Opened();
+        var slot = side == 0 ? 0 : 20;
+        var unit = view.Slots[slot];
+        for (var type = 0; type < view.UnitTypeIds.Count; type++)
+        {
+            var code = type * TacticalIcon.SizesPerType + size + (side == 1 ? TacticalIcon.DefenderOffset : 0);
+            var grid = Enumerable.Repeat(TacticalIcon.Empty, display.BoardWidth * display.BoardHeight).ToList();
+            grid[unit.X * display.BoardHeight + unit.Y] = code;
+            var slots = view.Slots.ToList();
+            slots[slot] = unit with { Type = type };
+            var changed = view with { Grid = IC2.Engine.Model.ValueList.From(grid), Slots = IC2.Engine.Model.ValueList.From(slots) };
+            var model = TacticalBattleViewModel.From(changed, display);
+            var cell = model.Cells.Single(c => c.X == unit.X && c.Y == unit.Y);
+            Assert.Equal($"battle.unit.{view.UnitTypeIds[type]}.{expected}", cell.IconKey);
+            Assert.Equal(code, cell.Code);
+            var glyph = new TacticalGlyph(slot, unit.X, unit.Y, code, side, view.UnitTypeIds[type]);
+            var pose = new TacticalPose(glyph, unit.X + 0.5, unit.Y, 1, false);
+            var snapshot = new TacticalPresentationSnapshot(changed, display.BoardWidth, display.BoardHeight, false,
+                IC2.Engine.Model.ValueList<int>.Empty, IC2.Engine.Model.ValueList<int>.Empty);
+            var moving = TacticalBattleViewModel.FromSnapshot(snapshot, display, pose: pose, stage: TacticalPlaybackStage.Travel);
+            Assert.Equal(cell.IconKey, Assert.Single(moving.VisualUnits).Cell.IconKey);
+            Assert.Equal(unit.Troops, moving.View.Slots[slot].Troops);
+        }
+    }
+
     [Fact]
     public void Every_cell_carries_the_engines_icon_code_the_key_of_its_type_and_size_and_its_tint_side()
     {
@@ -44,7 +78,7 @@ public sealed class TacticalBattleViewModelTests
 
             var side = code >= TacticalIcon.DefenderOffset ? 1 : 0;
             var type = (code % TacticalIcon.DefenderOffset) / TacticalIcon.SizesPerType;
-            var size = code % TacticalIcon.SizesPerType;
+            var size = (code % TacticalIcon.DefenderOffset) % TacticalIcon.SizesPerType;
             Assert.Equal(BattleAssetKeys.UnitIcon(view.UnitTypeIds[type], size), cell.IconKey);
             Assert.Equal(side, cell.TintSide);
             Assert.Equal(side == 0 ? view.AttackerNationId : view.DefenderNationId, model.TintNationId(cell));
@@ -420,22 +454,23 @@ public sealed class TacticalBattleViewModelTests
 
     [Theory]
     [InlineData(-1.0, 0.0)]
-    [InlineData(0.04, 0.0)]
-    [InlineData(0.26, 0.3)]
-    [InlineData(2.96, 3.0)]
+    [InlineData(0.04, 0.04)]
+    [InlineData(0.26, 0.26)]
+    [InlineData(0.046, 0.05)]
+    [InlineData(2.96, 2.96)]
     [InlineData(9.0, 3.0)]
-    public void The_shot_pause_snaps_to_tenths_of_a_second_between_0_and_3(double wanted, double expected)
+    public void The_shot_pause_snaps_to_hundredths_of_a_second_between_0_and_3(double wanted, double expected)
     {
         Assert.Equal(expected, BattlePauses.SnapShot(wanted));
     }
 
     [Theory]
     [InlineData(-2.0, 0.0)]
-    [InlineData(0.04, 0.0)]
-    [InlineData(0.44, 0.4)]
-    [InlineData(1.46, 1.5)]
+    [InlineData(0.04, 0.04)]
+    [InlineData(0.44, 0.44)]
+    [InlineData(1.46, 1.46)]
     [InlineData(7.0, 3.0)]
-    public void The_attack_pause_snaps_to_tenths_of_a_second_between_0_and_3(double wanted, double expected)
+    public void The_attack_pause_snaps_to_hundredths_of_a_second_between_0_and_3(double wanted, double expected)
     {
         Assert.Equal(expected, BattlePauses.SnapAttack(wanted));
     }

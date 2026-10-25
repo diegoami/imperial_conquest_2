@@ -492,7 +492,7 @@ public partial class SettingsScreen : Control
         return 0;
     }
 
-    private static string Seconds(double value) => value.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+    private static string Seconds(double value) => value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
 
     private static HBoxContainer MakePauseRow(string caption, double step, double current, Action<double> onChanged,
         List<(HSlider Slider, Label Value)>? rows = null)
@@ -510,11 +510,11 @@ public partial class SettingsScreen : Control
             Value = current,
             CustomMinimumSize = new Vector2(220, 24),
         };
-        var value = UiKit.MakeLabel(current.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture), AppTheme.Body, UiKit.MutedTextColor);
+        var value = UiKit.MakeLabel(current.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture), AppTheme.Body, UiKit.MutedTextColor);
         slider.ValueChanged += v =>
         {
             onChanged(v);
-            value.Text = v.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+            value.Text = v.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
         };
         row.AddChild(slider);
         row.AddChild(value);

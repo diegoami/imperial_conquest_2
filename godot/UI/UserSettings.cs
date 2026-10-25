@@ -33,10 +33,10 @@ public sealed record UserSettings
     public int VolumePercent { get; init; } = 100;
 
     /// <summary>T127's pause after a shot, on <see cref="BattlePauses"/>'s grid.</summary>
-    public double BattleShotDelaySeconds { get; init; } = 1.0;
+    public double BattleShotDelaySeconds { get; init; } = 0.1;
 
     /// <summary>T127's pause after a melee attack, on <see cref="BattlePauses"/>'s grid.</summary>
-    public double BattleAttackDelaySeconds { get; init; } = 2.0;
+    public double BattleAttackDelaySeconds { get; init; } = 0.2;
 
     /// <summary>One of <see cref="ColorSchemes.All"/>' ids.</summary>
     public string ColorScheme { get; init; } = ColorSchemes.DefaultId;
@@ -240,15 +240,15 @@ public static class BattleSpeeds
 {
     public static readonly IReadOnlyList<BattleSpeed> All = new[]
     {
-        new BattleSpeed("slow", "Slow", 2.0, 3.0),
-        new BattleSpeed("normal", "Normal", 1.0, 2.0),
-        new BattleSpeed("fast", "Fast", 0.3, 1.0),
+        new BattleSpeed("slow", "Slow", 0.3, 0.5),
+        new BattleSpeed("normal", "Normal", 0.1, 0.2),
+        new BattleSpeed("fast", "Fast", 0.03, 0.05),
         new BattleSpeed("instant", "Instant", 0.0, 0.0),
     };
 
     /// <summary>The preset with exactly these pauses, or <see langword="null"/>.</summary>
     public static BattleSpeed? Match(double shotSeconds, double attackSeconds) =>
-        All.FirstOrDefault(s => Math.Abs(s.ShotSeconds - shotSeconds) < 0.01 && Math.Abs(s.AttackSeconds - attackSeconds) < 0.01);
+        All.FirstOrDefault(s => Math.Abs(s.ShotSeconds - shotSeconds) < 0.000001 && Math.Abs(s.AttackSeconds - attackSeconds) < 0.000001);
 }
 
 /// <summary>

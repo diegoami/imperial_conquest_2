@@ -16,14 +16,23 @@ public sealed class UserSettingsTests : IDisposable
     private string PathFor(string name) => Path.Combine(_dir, name);
 
     [Fact]
+    public void Hundredth_second_custom_pauses_survive_and_do_not_match_a_neighboring_preset()
+    {
+        var settings = new UserSettings { BattleShotDelaySeconds = 0.11, BattleAttackDelaySeconds = 0.21 }.Normalized();
+        Assert.Equal(0.11, settings.BattleShotDelaySeconds);
+        Assert.Equal(0.21, settings.BattleAttackDelaySeconds);
+        Assert.Null(settings.BattleSpeedPreset);
+    }
+
+    [Fact]
     public void Defaults_match_the_shipped_look_and_T127s_pauses()
     {
         var settings = new UserSettings();
         Assert.Equal("parchment", settings.ColorScheme);
         Assert.Equal("atkinson", settings.Font);
         Assert.Equal(100, settings.TextScalePercent);
-        Assert.Equal(1.0, settings.BattleShotDelaySeconds);
-        Assert.Equal(2.0, settings.BattleAttackDelaySeconds);
+        Assert.Equal(0.1, settings.BattleShotDelaySeconds);
+        Assert.Equal(0.2, settings.BattleAttackDelaySeconds);
         Assert.Equal("normal", settings.BattleSpeedPreset?.Id);
         Assert.True(settings.SoundEnabled);
         Assert.False(settings.Fullscreen);
