@@ -30,9 +30,10 @@ namespace IC2.Engine.Armies.Commands;
 /// report's naming sentence is about the <em>split-off</em> unit, so the new regular unit is the one
 /// <see cref="ArmyNaming.NextSplitUnitName"/> names; the source keeps its own name. The split-only format
 /// has the two spaces before "Battalion" measured in F51, while mobilization retains its single-space
-/// format. A mercenary split keeps the source name. The original hire table at DAT 0x1F8C6 is represented
-/// by <c>MercenaryNameCatalog</c> for new hires, but a mercenary may have been renamed since hiring; a
-/// split copies that source name and marker rather than resetting the player's name from its label.
+/// format. A mercenary split keeps the source name and origin label. The original hire table at DAT
+/// 0x1F8C6 is represented by <c>MercenaryNameCatalog</c> for new hires, but a mercenary may have been
+/// renamed since hiring; a split copies that source name rather than resetting a player's name from its
+/// label [confirmed table: <c>decompiled-mercenary-offer-list-and-position.md</c> §5; F09].
 /// </para>
 /// <para>
 /// <strong>Original split size limits</strong> <c>[confirmed: code, 2026-10-11-g2-original-checks.md, C5c]</c>:
