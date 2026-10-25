@@ -156,6 +156,8 @@ public partial class MainGameScreen : Control
     public Button RetreatSupplyButtonForCheck => _retreatSupplyButton;
     public Button RetreatSplitButtonForCheck => _retreatSplitButton;
     public string RetreatSupplyStatusForCheck => _retreatSupplyLabel.Text;
+    public Button RallyPointSetButtonForCheck => _rallyPointSetButton;
+    public Button RallyPointClearButtonForCheck => _rallyPointClearButton;
 
     /// <summary>T110: the overview mini-map, with its highlight layer. Exposed so
     /// <c>godot/Checks/NationsAreaMapCheck.cs</c> can read the highlight set.</summary>

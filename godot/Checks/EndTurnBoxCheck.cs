@@ -40,6 +40,14 @@ public partial class EndTurnBoxCheck : Control
             CheckRetreatReplacesFixedTargetOnlyAfterConfirmation();
             CheckRetreatHotseatIsolation();
             CheckRetreatContinuesToAnotherTown();
+            CheckRallyPointControls();
+            CheckRallyInvalidTargets();
+            foreach (var automatic in new[] { false, true })
+            foreach (var existingReceiver in new[] { false, true })
+                CheckRallyMobilization(automatic, existingReceiver);
+            foreach (var automatic in new[] { false, true })
+                CheckRallyMobilization(automatic, existingReceiver: false, newArmyMoves: 0);
+            CheckTravelSafetyStops();
         }
         catch (Exception ex)
         {
@@ -753,6 +761,198 @@ public partial class EndTurnBoxCheck : Control
         {
             RemoveMainGame(mainGame);
             SettingsScreen.Commit(new UserSettings());
+        }
+    }
+
+    private static GameSession BuildRallySession(bool existingReceiver, int newArmyMoves = 2)
+    {
+        var original = BuildAutoMobilizeSession();
+        var world = original.World with { Width = 16, Height = 16,
+            Terrain = new TerrainGrid(TerrainEncoding.RunLength, ValueList.Of(new TerrainRun(2, 256))) };
+        var city = original.State.Cities.First(c => c.Owner == "north");
+        var southCity = original.State.Cities.First(c => c.Owner == "south");
+        var army = original.State.Armies[0] with
+        {
+            X = existingReceiver ? city.X + 1 : 10,
+            Y = existingReceiver ? city.Y : 10,
+            Moves = 0,
+        };
+        var state = original.State with
+        {
+            Armies = ValueList.Of(army), Fleets = ValueList<FleetState>.Empty,
+            Nations = ValueList.From(original.State.Nations.Select(n => n.Id == "south"
+                ? n with { Control = SeatControl.Human, RecruitmentSlots = ValueList.Of(
+                    new RecruitmentSlot(southCity.Id, "light_infantry", 3_000, 24)) } : n)),
+        };
+        var save = new SaveGame(state.SchemaVersion, "rally-check", "rally-check",
+            state.ScenarioId, state.WorldId, state.RulesetId, state);
+        var rules = original.Ruleset with { ArmyManagement = original.Ruleset.ArmyManagement with
+            { NewArmyMovesHumanSeat = newArmyMoves, NewArmyMovesAiSeat = newArmyMoves } };
+        return new GameSession(world, rules, original.Scenario, save);
+    }
+
+    private void CheckRallyPointControls()
+    {
+        SettingsScreen.Commit(new UserSettings());
+        var session = BuildRallySession(false);
+        var main = AddMainGame(session);
+        try
+        {
+            var commands = 0;
+            main.CommandIssued += _ => commands++;
+            var before = session.State;
+            void Pick(int x, int y) => main.MapView.PickTravelTargetForCheck(new MapClickContext(
+                MapClickButton.Left, x, y, true, false, null, null, 1, 0, 0, "north"));
+            main.RallyPointSetButtonForCheck.EmitSignal(Button.SignalName.Pressed);
+            Check(main.MapView.TravelTargetPickArmed, "rally control arms the production map picker");
+            Pick(12, 8);
+            Check(session.RallyPointFor("north") == new NationRallyPoint("north", 12, 8)
+                  && commands == 0 && session.State == before,
+                "rally picker saves campaign metadata without issuing an order or changing RNG");
+            main.RallyPointSetButtonForCheck.EmitSignal(Button.SignalName.Pressed);
+            Check(main.ActiveOverlay is ConfirmPrompt, "rally replacement asks for confirmation");
+            if (main.ActiveOverlay is ConfirmPrompt cancel) cancel.AnswerForCheck(false);
+            Check(session.RallyPointFor("north") == new NationRallyPoint("north", 12, 8)
+                  && !main.MapView.TravelTargetPickArmed, "cancel preserves the old rally point");
+            main.RallyPointSetButtonForCheck.EmitSignal(Button.SignalName.Pressed);
+            if (main.ActiveOverlay is ConfirmPrompt replace) replace.AnswerForCheck(true);
+            Pick(13, 8);
+            Check(session.RallyPointFor("north") == new NationRallyPoint("north", 13, 8),
+                "confirmed rally replacement uses the next map selection");
+            session.SetRallyPoint(new NationRallyPoint("south", 14, 9));
+            var path = Path.Combine(Path.GetTempPath(), $"ic2-rally-ui-{Guid.NewGuid():N}.json");
+            try
+            {
+                main.SaveAsForCheck(path);
+                var save = SaveManager.LoadFile(path, session.World, session.Ruleset);
+                var resumed = new GameSession(session.World, session.Ruleset, session.Scenario, save);
+                Check(resumed.NationRallyPoints.SequenceEqual(session.NationRallyPoints),
+                    "production Save As preserves both nations' rally settings for reload");
+            }
+            finally { if (File.Exists(path)) File.Delete(path); }
+            var commandsBeforeClear = commands;
+            main.RallyPointClearButtonForCheck.EmitSignal(Button.SignalName.Pressed);
+            Check(session.RallyPointFor("north") is null && session.RallyPointFor("south") is not null
+                  && commands == commandsBeforeClear, "clear removes only the active nation's rally point without an order");
+        }
+        finally { RemoveMainGame(main); }
+    }
+
+    private void CheckRallyInvalidTargets()
+    {
+        foreach (var foreignCity in new[] { false, true })
+        {
+            var session = BuildRallySession(false);
+            var city = session.State.Cities.First(c => c.Owner == "south");
+            session.SetRallyPoint(foreignCity
+                ? new NationRallyPoint("north", city.X, city.Y, city.Id)
+                : new NationRallyPoint("north", 999, 999));
+            var main = AddMainGame(session);
+            try
+            {
+                main.SubmitForCheck("mobilize 1 invalid-rally-created");
+                Check(session.State.ArmyById("invalid-rally-created") is not null
+                      && session.RallyPointFor("north") is null
+                      && session.TravelTargetFor("invalid-rally-created") is null,
+                    "new-army assignment clears stale foreign-city/out-of-world rally data without a hidden order");
+            }
+            finally { RemoveMainGame(main); }
+        }
+    }
+
+    private void CheckRallyMobilization(bool automatic, bool existingReceiver, int newArmyMoves = 2)
+    {
+        SettingsScreen.Commit(new UserSettings { AutoMobilizeReady = automatic });
+        var session = BuildRallySession(existingReceiver, newArmyMoves);
+        var rally = new NationRallyPoint("north", 12, 8);
+        var southRally = new NationRallyPoint("south", 14, 9);
+        session.SetRallyPoint(rally);
+        session.SetRallyPoint(southRally);
+        var existingArmy = session.State.Armies[0];
+        var previousTarget = new ArmyTravelTarget(existingArmy.Id, "north", 14, 12);
+        if (existingReceiver) session.SetArmyTravelTarget(previousTarget);
+        var southSlots = session.State.NationById("south")!.RecruitmentSlots;
+        var mobilized = new List<IC2.Engine.Recruitment.Commands.RecruitMobilized>();
+        session.EventsPublished += events => mobilized.AddRange(
+            events.OfType<IC2.Engine.Recruitment.Commands.RecruitMobilized>());
+        var main = AddMainGame(session);
+        try
+        {
+            var commands = new List<string>();
+            main.CommandIssued += lines => commands.Add(lines.FirstOrDefault() ?? string.Empty);
+            if (!automatic)
+            {
+                main.SubmitForCheck("mobilize 1 rally-created");
+                Check(commands.Count == 1 && !commands.Any(line => line.StartsWith("> move ", StringComparison.Ordinal)),
+                    "manual mobilization assigns a rally target but does not move immediately");
+            }
+            main.MenuBar.PressItemForCheck("game.end_turn");
+            Check(main.ActiveOverlay is EndTurnBox, "rally travel waits for confirmed End turn");
+            if (main.ActiveOverlay is EndTurnBox cancel) cancel.MakeMoreMovesButton.EmitSignal(Button.SignalName.Pressed);
+            Check(commands.Count == (automatic ? 0 : 1), "Make more moves issues no rally or mobilize orders");
+            if (!automatic && !existingReceiver)
+                Check(session.TravelTargetFor("rally-created") is { FromRally: true, X: 12, Y: 8 },
+                    "real manual mobilization event wires the new army to its nation's rally target");
+
+            main.MenuBar.PressItemForCheck("game.end_turn");
+            if (main.ActiveOverlay is EndTurnBox confirm) confirm.EndTurnButton.EmitSignal(Button.SignalName.Pressed);
+            var eventRow = mobilized.Single();
+            Check(eventRow.ArmyWasCreated != existingReceiver, "rally check exercises the real new/existing receiver branch");
+            if (existingReceiver)
+                Check(session.TravelTargetFor(existingArmy.Id) == previousTarget
+                      && commands.All(line => !line.StartsWith($"> move {existingArmy.Id} ", StringComparison.Ordinal)),
+                    "a mobilized unit joining an existing army preserves its manual plan and waits for moves");
+            else
+            {
+                Check(session.TravelTargetFor(eventRow.ArmyId) is { FromRally: true, X: 12, Y: 8 },
+                    "new armies retain the rally-origin target through the confirmed-turn pass");
+                var moveIndex = commands.FindIndex(line => line.StartsWith($"> move {eventRow.ArmyId} ", StringComparison.Ordinal));
+                Check(newArmyMoves == 0 ? moveIndex == -1 :
+                    moveIndex > commands.FindIndex(line => line.StartsWith("> mobilize ", StringComparison.Ordinal))
+                      && moveIndex < commands.FindIndex(line => line.StartsWith("> end", StringComparison.Ordinal))
+                      && commands.Count(line => line.StartsWith($"> move {eventRow.ArmyId} ", StringComparison.Ordinal)) == 1,
+                    $"rally dispatch respects the actual starting move budget ({newArmyMoves}); commands: {string.Join(" | ", commands)}");
+            }
+            Check(session.RallyPointFor("north") == rally && session.RallyPointFor("south") == southRally
+                  && session.State.NationById("south")!.RecruitmentSlots.SequenceEqual(southSlots),
+                "north rally processing preserves both settings and the other hotseat nation's ready units");
+        }
+        finally { RemoveMainGame(main); SettingsScreen.Commit(new UserSettings()); }
+    }
+
+    private void CheckTravelSafetyStops()
+    {
+        foreach (var hostile in new[] { false, true })
+        {
+            SettingsScreen.Commit(new UserSettings());
+            var original = BuildRallySession(false);
+            var army = original.State.Armies[0];
+            var enemy = army with { Id = "hostile-contact", Nation = "south", X = army.X + 1 };
+            var state = original.State with
+            {
+                Armies = hostile ? ValueList.Of(army, enemy) : ValueList.Of(army),
+                Relations = original.State.Relations.WithRelation("north", "south", original.Ruleset.Diplomacy.StateCodes.War),
+                Nations = ValueList.From(original.State.Nations.Select(n => n with { RecruitmentSlots = ValueList<RecruitmentSlot>.Empty })),
+            };
+            var session = new GameSession(original.World, original.Ruleset, original.Scenario,
+                new SaveGame(state.SchemaVersion, "travel-stop", "travel-stop", state.ScenarioId, state.WorldId, state.RulesetId, state));
+            var target = new ArmyTravelTarget(army.Id, "north", 14, 12);
+            session.SetArmyTravelTarget(target);
+            var main = AddMainGame(session);
+            try
+            {
+                var commands = new List<string>();
+                main.CommandIssued += lines => commands.Add(lines.FirstOrDefault() ?? string.Empty);
+                main.MenuBar.PressItemForCheck("game.end_turn");
+                if (main.ActiveOverlay is EndTurnBox box) box.EndTurnButton.EmitSignal(Button.SignalName.Pressed);
+                Check(commands.All(line => !line.StartsWith("> move ", StringComparison.Ordinal)),
+                    "hostile contact and zero moves never issue an automatic travel command");
+                Check(hostile ? session.TravelTargetFor(army.Id) is null : session.TravelTargetFor(army.Id) == target,
+                    "hostile contact cancels the plan; zero moves retains it for the next turn");
+                Check(main.LastMessageForCheck.Contains(hostile ? "hostile contact" : "1 waiting", StringComparison.Ordinal),
+                    "travel safety stop or wait is visible in the End-turn summary");
+            }
+            finally { RemoveMainGame(main); }
         }
     }
 

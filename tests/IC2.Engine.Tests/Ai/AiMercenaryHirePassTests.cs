@@ -123,6 +123,25 @@ public sealed class AiMercenaryHirePassTests
     private static CityState OfferCity(int x, int y, string owner) =>
         CaptureTestbed.City("offer-city", "Offer City", x, y, owner, owner, 80, 0, 100, 200, 10);
 
+    [Theory]
+    [InlineData(1, "Numidian")]
+    [InlineData(11, "Gallic")]
+    [InlineData(51, "Cossaei")]
+    [InlineData(52, "Mercenary unit (label 52)")]
+    public void Ai_hires_use_the_shared_label_name_without_changing_unit_data(int label, string expected)
+    {
+        var offer = Offer(5, 14, 12, troops: 321) with { NameLabel = label, Quality = 8 };
+        var state = StateWithOffer(14, 12, pool: [offer]);
+        var result = AiMercenaryHirePass.Run(state, Ruleset, ArmyNation);
+
+        Assert.Equal(1, result.OffersHired);
+        var hired = result.State.ArmyById("ai-army")!.Units[^1];
+        Assert.Equal(new UnitSlot(label, offer.UnitTypeId, 321, 8, expected), hired);
+        Assert.Empty(result.State.MercenaryPool);
+        Assert.Equal(state.RandomSeed, result.State.RandomSeed);
+        Assert.Equal(state.ArmyById("ai-army")!.Money, result.State.ArmyById("ai-army")!.Money);
+    }
+
     [Fact]
     public void A_computer_army_hires_every_offer_on_a_city_within_radius()
     {
