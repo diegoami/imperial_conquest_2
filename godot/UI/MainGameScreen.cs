@@ -997,7 +997,7 @@ public partial class MainGameScreen : Control
             : ProjectSettings.GlobalizePath(SavesDirectory);
         Directory.CreateDirectory(folder);
         dialog.CurrentDir = folder;
-        dialog.CurrentFile = $"{Session.Scenario.Id}-save.json";
+        dialog.CurrentFile = SuggestedSaveFileName(folder);
         dialog.PopupCentered();
     }
 
@@ -2573,10 +2573,28 @@ public partial class MainGameScreen : Control
     /// </remarks>
     private void OnSavePressed() => OnSavePressed(checkUniqueSuffix: null);
 
+    /// <summary>A short player-nation/campaign-turn suggestion; existing writeback paths are unchanged.</summary>
+    private string SuggestedSaveFileName(string directory)
+    {
+        var humans = Session.State.Nations.Where(n => n.Control == SeatControl.Human).ToList();
+        var nation = humans.Count == 1 ? humans[0]
+            : Session.State.NationById(_displayViewer) ?? Session.State.NationById(Session.State.ActiveNationId);
+        var name = nation?.Id == "ptolemaic" ? "ptolemeans" : nation?.Name ?? "campaign";
+        var safe = new string(name.ToLowerInvariant().Select(c => char.IsLetterOrDigit(c) ? c : '_').ToArray());
+        var stem = string.Join("_", safe.Split('_', StringSplitOptions.RemoveEmptyEntries));
+        if (stem.Length > 24) stem = stem[..24].TrimEnd('_');
+        if (stem.Length == 0) stem = "campaign";
+        var basis = stem + "_" + Session.State.Calendar.TurnIndex.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var file = basis + ".json";
+        for (var suffix = 2; (File.Exists(Path.Combine(directory, file)) || Directory.Exists(Path.Combine(directory, file))); suffix++)
+            file = basis + "_" + suffix.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".json";
+        return file;
+    }
+
     /// <summary>
     /// <paramref name="checkUniqueSuffix"/> (rework round 1, N2, non-blocking): a real player's click
-    /// always calls the parameterless overload above, so their own save's file name is unchanged —
-    /// <c>&lt;scenario&gt;-turn-&lt;N&gt;.json</c>, exactly as before. <see cref="PressSaveForCheck"/>
+    /// calls the parameterless overload above, using a concise nation/turn suggestion for the first Save.
+    /// Existing files retain their explicit writeback path. <see cref="PressSaveForCheck"/>
     /// passes a fixed, check-specific suffix instead, so a Godot check's own save can never collide with,
     /// overwrite or (after cleanup) delete a real save of the same scenario and turn — see that method's
     /// own remarks.
@@ -2594,7 +2612,7 @@ public partial class MainGameScreen : Control
         }
 
         var fileName = suffix is null
-            ? $"{Session.Scenario.Id}-turn-{Session.State.Calendar.TurnIndex}.json"
+            ? SuggestedSaveFileName(directory)
             : $"{Session.Scenario.Id}-turn-{Session.State.Calendar.TurnIndex}-{suffix}.json";
         SaveToFile(Path.Combine(directory, fileName));
     }
