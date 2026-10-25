@@ -116,6 +116,9 @@ public partial class SettingsCheck : Control
             var parchment = ColorSchemes.ById("parchment");
             Check(Same(AppTheme.Color("background"), Color.FromHtml(parchment.Background)), "the theme's background is Parchment's");
             Check(Same(AppTheme.Color("text"), Color.FromHtml(parchment.Text)), "the theme's text colour is Parchment's");
+            Check(_game.NewsLog.FindChildren("*", "RichTextLabel", true, false).OfType<RichTextLabel>()
+                    .All(label => Same(label.GetThemeColor("default_color"), Color.FromHtml(parchment.Text))),
+                "news text uses parchment ink instead of the engine's default white");
             Check(before > 0 && LabelsWithTextColour(Color.FromHtml(parchment.Text)) >= before && LabelsWithTextColour(_darkText) == 0,
                 $"every label already on screen in the old text colour is retinted ({before} before)");
             Check(UserSettings.Load(_file).ColorScheme == "parchment", "the scheme is saved to the settings file");

@@ -34,6 +34,8 @@ public sealed class DiplomacyGridViewModelTests
             .Single(r => r.NationId == "south");
 
         Assert.Equal("Peace", row.RelationLabel);
+        Assert.Equal(DiplomaticStatus.Peace, row.Status);
+        Assert.Equal("AT PEACE", row.StatusCaption);
         Assert.True(row.CanDeclareWar);
         Assert.False(row.CanMakePeace);
         Assert.True(row.CanProposeAlliance);
@@ -51,6 +53,8 @@ public sealed class DiplomacyGridViewModelTests
             .Single(r => r.NationId == "south");
 
         Assert.Equal("War", row.RelationLabel);
+        Assert.Equal(DiplomaticStatus.War, row.Status);
+        Assert.Equal("AT WAR", row.StatusCaption);
         Assert.False(row.CanDeclareWar);
         Assert.True(row.CanMakePeace);
         Assert.False(row.CanProposeAlliance);
