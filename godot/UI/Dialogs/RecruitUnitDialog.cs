@@ -460,7 +460,7 @@ public partial class RecruitUnitDialog : Control
                 stateCode = IC2.Engine.Calendar.CityUnitStateCode.Advance(stateCode, Session.Ruleset.Calendar);
         var quality = ArmyDialogModels.QualityCaption(
             IC2.Engine.Recruitment.MobilizationReadiness.QualityFor(stateCode, Session.Ruleset.Recruitment));
-        return row.IsReady ? $"quality if mobilized: {quality}"
+        return row.IsReady ? quality
             : row.WeeksUntilReady is not null ? $"quality when first ready: {quality}" : "quality unavailable";
     }
 
