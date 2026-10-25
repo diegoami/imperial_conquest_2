@@ -54,6 +54,8 @@ public partial class SplitArmyDialog : Control
     private Label _supplyLabel = null!;
     private Label _moneyLabel = null!;
     private Label _strengthLabel = null!;
+    private Label _armyTitle = null!;
+    private Label _newArmyTitle = null!;
     private SpinBox _supplySpin = null!;
     private SpinBox _moneySpin = null!;
     private Button _okButton = null!;
@@ -103,7 +105,7 @@ public partial class SplitArmyDialog : Control
         center.AddChild(panel);
 
         var column = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        column.AddThemeConstantOverride("separation", AppTheme.DialogGap);
+        column.AddThemeConstantOverride("separation", 4);
         panel.AddChild(column);
 
         column.AddChild(UiKit.MakeLabel("Split army", AppTheme.Header, UiKit.AccentColor));
@@ -144,11 +146,16 @@ public partial class SplitArmyDialog : Control
     private ItemList BuildSide(Container parent, string title, bool stagedSide)
     {
         var box = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        box.AddThemeConstantOverride("separation", AppTheme.DialogGap);
+        box.AddThemeConstantOverride("separation", 4);
         parent.AddChild(box);
-        box.AddChild(UiKit.MakeLabel(title, AppTheme.Body, UiKit.TextColor));
+        var heading = UiKit.MakeLabel(title, AppTheme.Body, UiKit.TextColor);
+        box.AddChild(heading);
+        if (stagedSide) _newArmyTitle = heading;
+        else _armyTitle = heading;
 
         var list = new ItemList { CustomMinimumSize = new Vector2(320, 140), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        list.AddThemeFontSizeOverride("font_size", AppTheme.Note);
+        list.AddThemeConstantOverride("v_separation", 0);
         box.AddChild(list);
 
         var actions = new HBoxContainer();
@@ -335,7 +342,6 @@ public partial class SplitArmyDialog : Control
 
         var lines = Submit(line);
         _replyLabel.Text = lines.Skip(1).FirstOrDefault(text => text.Length > 0) ?? string.Empty;
-        Refresh();
         Closed?.Invoke();
     }
 
@@ -362,6 +368,17 @@ public partial class SplitArmyDialog : Control
         }
 
         var army = Session.State.ArmyById(ArmyId);
+        if (army is not null)
+        {
+            var preview = _model.PreviewBalances(Session.State, Session.World);
+            var childTroops = _model.StagedUnits.Sum(i => army.Units[i].Troops);
+            _armyTitle.Text = $"{ArmyId} · {army.TotalTroops - childTroops:N0} troops\n"
+                + $"Supply {army.SupplyTons:N0} → {preview.ParentSupply:N0} t\n"
+                + $"Money {army.Money:N0} → {preview.ParentMoney:N0}";
+            _newArmyTitle.Text = $"{NewArmyId} · {childTroops:N0} troops\n"
+                + $"Supply 0 → {preview.NewSupply:N0} t\n"
+                + $"Money 0 → {preview.NewMoney:N0}";
+        }
         _refusalLabel.Text = _model.RefusalMessage ?? string.Empty;
         _okButton.Disabled = !_model.CanSplit || _model.StagedUnits.Count == 0;
 
@@ -388,8 +405,8 @@ public partial class SplitArmyDialog : Control
         _moneySpin.Value = _model.Money;
         _updatingSpinners = false;
 
-        _supplyLabel.Text = $"Supply: {_model.Supply} t to the new army  ·  max {_model.MaxSupply}";
-        _moneyLabel.Text = $"Money: {_model.Money} to the new army  ·  max {_model.MaxMoney}";
+        _supplyLabel.Text = $"{_model.Supply:N0} t → right";
+        _moneyLabel.Text = $"{_model.Money:N0} talents → right";
         _strengthLabel.Text = $"Projected strength: army {_model.ParentPower:N0} · new army {_model.NewArmyPower:N0}";
     }
 

@@ -245,6 +245,13 @@ public partial class ArmyOrdersCheck : Control
         dialog.PressSupplyForCheck(ArmyDialogModels.SupplyStepTons);
         dialog.PressMoneyForCheck(ArmyDialogModels.MoneyLargeStepTalents);
         Check(dialog.ModelForCheck.Supply == 20 && dialog.ModelForCheck.Money == 100, "the spinners moved 20 t and 100 talents");
+        var liveBalances = dialog.ModelForCheck.PreviewBalances(_session.State, _session.World);
+        var captions = dialog.FindChildren("*", "Label", true, false).OfType<Label>().Select(label => label.Text).ToArray();
+        Check(captions.Any(text => text.Contains($"Supply {parentBefore.SupplyTons:N0} → {liveBalances.ParentSupply:N0} t", StringComparison.Ordinal)
+                && text.Contains($"Money {parentBefore.Money:N0} → {liveBalances.ParentMoney:N0}", StringComparison.Ordinal))
+              && captions.Any(text => text.Contains($"Supply 0 → {liveBalances.NewSupply:N0} t", StringComparison.Ordinal)
+                && text.Contains($"Money 0 → {liveBalances.NewMoney:N0}", StringComparison.Ordinal)),
+            "Split shows both armies' live supply and money balances while editing");
         dialog.OkForCheck();
 
         Check(_commandsSeen == before + 1, $"Split army submits exactly one command ({_commandsSeen - before})");

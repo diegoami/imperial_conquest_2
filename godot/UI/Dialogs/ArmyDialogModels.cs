@@ -614,6 +614,21 @@ public sealed class SplitArmyModel
     /// <summary>The money staged toward the new army, in talents.</summary>
     public int Money => _money;
 
+    /// <summary>Both armies' balances if OK were pressed now, including the engine's supply rebalance.</summary>
+    public (int ParentSupply, int NewSupply, int ParentMoney, int NewMoney) PreviewBalances(GameState state, World world)
+    {
+        var unchanged = (_army.SupplyTons, 0, _army.Money, 0);
+        if (!CanSplit || _staged.Count == 0) return unchanged;
+        var dispatcher = new CommandDispatcher(SystemRegistry.FromEngineAssembly(), _ruleset, world, NullEventSink.Instance);
+        var command = new SplitArmyCommand(_army.Nation, ArmyId, NewArmyId, ValueList.From(_staged),
+            MoneyToNewArmy: _money, SupplyTonsToNewArmy: _supply);
+        var result = dispatcher.Dispatch(state, command);
+        if (result.IsRejected) return unchanged;
+        var parent = result.State.ArmyById(ArmyId)!;
+        var child = result.State.ArmyById(NewArmyId)!;
+        return (parent.SupplyTons, child.SupplyTons, parent.Money, child.Money);
+    }
+
     /// <summary>The new army's room for supply: <c>troops div 100 + 1 − 0</c>, from the staged units.</summary>
     public int NewArmyRoom =>
         _staged.Count == 0

@@ -30,6 +30,36 @@ public sealed class ArmyDialogModelsTests
     private const string JoinFourArmyId = "t164-join-four";
     private const string ThreeUnitNewArmyId = "t111-three-split";
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(200)]
+    [InlineData(900)]
+    public void Split_live_balances_update_with_edits_and_match_committed_command(int supply)
+    {
+        var session = Session(aSupply: supply);
+        var before = session.State;
+        var source = before.ArmyById(ArmyAId)!;
+        var model = SplitArmyModel.ForArmy(before, source, session.Ruleset, NewArmyId);
+        Assert.Equal((supply, 0, source.Money, 0), model.PreviewBalances(before, session.World));
+        model.StageUnit(0);
+        model.AdjustSupply(10);
+        model.AdjustMoney(50);
+        var first = model.PreviewBalances(before, session.World);
+        Assert.Equal(source.Money - 50, first.ParentMoney);
+        Assert.Equal(50, first.NewMoney);
+        Assert.Equal(supply, first.ParentSupply + first.NewSupply);
+        model.AdjustMoney(10);
+        var updated = model.PreviewBalances(before, session.World);
+        Assert.Equal(first.ParentMoney - 10, updated.ParentMoney);
+        Assert.Equal(first.NewMoney + 10, updated.NewMoney);
+        Assert.Equal(before, session.State);
+        Assert.Null(model.Cancel());
+        session.Submit(model.ComposeOk()!);
+        var parent = session.State.ArmyById(ArmyAId)!;
+        var child = session.State.ArmyById(NewArmyId)!;
+        Assert.Equal((parent.SupplyTons, child.SupplyTons, parent.Money, child.Money), updated);
+    }
+
     [Fact]
     public void New_army_name_uses_first_free_number_and_never_parent_suffix()
     {
