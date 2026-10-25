@@ -421,6 +421,11 @@ public partial class TacticalBattleScreen : Control
     /// <param name="id">The button.</param>
     public void PressToolbarButton(string id)
     {
+        if (_dialogKind == DialogKind.None && Model is not null && IsActiveListButton(id))
+        {
+            CloseUnitList();
+            return;
+        }
         if (_dialogKind != DialogKind.None || Model is null || !Model.Buttons.Single(b => b.Id == id).Enabled)
         {
             return;
@@ -651,7 +656,7 @@ public partial class TacticalBattleScreen : Control
         TargetLabel.Text = string.Join("\n", Model.TargetLines);
         foreach (var button in Model.Buttons)
         {
-            _buttons[button.Id].Disabled = !button.Enabled;
+            _buttons[button.Id].Disabled = !button.Enabled && !IsActiveListButton(button.Id);
         }
 
         RebuildList();
@@ -724,6 +729,14 @@ public partial class TacticalBattleScreen : Control
         }
     }
 
+    private bool IsActiveListButton(string id) => _listKind switch
+    {
+        ListKind.UnitMoves => id == "unit_moves",
+        ListKind.Friendly => id == "friendly_units",
+        ListKind.Enemy => id == "enemy_units",
+        _ => false,
+    };
+
     private void ToggleUnitList(ListKind kind)
     {
         if (_listKind == kind) CloseUnitList();
@@ -737,6 +750,7 @@ public partial class TacticalBattleScreen : Control
         _rosterRowButtons.Clear();
         foreach (var child in _listBox.GetChildren()) { _listBox.RemoveChild(child); child.QueueFree(); }
         _listTitle.Visible = _listBox.Visible = false;
+        foreach (var button in Model.Buttons) _buttons[button.Id].Disabled = !button.Enabled;
     }
 
     private void OnPanelInput(InputEvent @event)
