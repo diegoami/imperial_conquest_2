@@ -342,7 +342,6 @@ public partial class SplitArmyDialog : Control
 
         var lines = Submit(line);
         _replyLabel.Text = lines.Skip(1).FirstOrDefault(text => text.Length > 0) ?? string.Empty;
-        Refresh();
         Closed?.Invoke();
     }
 
