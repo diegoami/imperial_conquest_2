@@ -2573,14 +2573,6 @@ public partial class MainGameScreen : Control
     /// </remarks>
     private void OnSavePressed() => OnSavePressed(checkUniqueSuffix: null);
 
-    /// <summary>
-    /// <paramref name="checkUniqueSuffix"/> (rework round 1, N2, non-blocking): a real player's click
-    /// calls the parameterless overload above, using a concise nation/turn suggestion for the first Save.
-    /// Existing files retain their explicit writeback path. <see cref="PressSaveForCheck"/>
-    /// passes a fixed, check-specific suffix instead, so a Godot check's own save can never collide with,
-    /// overwrite or (after cleanup) delete a real save of the same scenario and turn — see that method's
-    /// own remarks.
-    /// </summary>
     /// <summary>A short player-nation/campaign-turn suggestion; existing writeback paths are unchanged.</summary>
     private string SuggestedSaveFileName(string directory)
     {
@@ -2594,11 +2586,19 @@ public partial class MainGameScreen : Control
         if (stem.Length == 0) stem = "campaign";
         var basis = stem + "_" + Session.State.Calendar.TurnIndex.ToString(System.Globalization.CultureInfo.InvariantCulture);
         var file = basis + ".json";
-        for (var suffix = 2; File.Exists(Path.Combine(directory, file)); suffix++)
+        for (var suffix = 2; (File.Exists(Path.Combine(directory, file)) || Directory.Exists(Path.Combine(directory, file))); suffix++)
             file = basis + "_" + suffix.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".json";
         return file;
     }
 
+    /// <summary>
+    /// <paramref name="checkUniqueSuffix"/> (rework round 1, N2, non-blocking): a real player's click
+    /// calls the parameterless overload above, using a concise nation/turn suggestion for the first Save.
+    /// Existing files retain their explicit writeback path. <see cref="PressSaveForCheck"/>
+    /// passes a fixed, check-specific suffix instead, so a Godot check's own save can never collide with,
+    /// overwrite or (after cleanup) delete a real save of the same scenario and turn — see that method's
+    /// own remarks.
+    /// </summary>
     private void OnSavePressed(string? checkUniqueSuffix)
     {
         var directory = ProjectSettings.GlobalizePath(SavesDirectory);
