@@ -47,7 +47,7 @@ public sealed class TransferMoneyReplyTests
 
     /// <summary>The treasury side of the same clamp: a nation holding 0 moves nothing and says so.</summary>
     [Fact]
-    public void TreasuryHoldingNothing_ReplyNamesTheZeroMovedAndTheTreasury()
+    public void DesignedTreasuryHoldingNothing_ReplyNamesTheZeroMovedAndTheTreasury()
     {
         var toy = CoreTestbed.Toy;
         var world = toy.World with
@@ -57,7 +57,7 @@ public sealed class TransferMoneyReplyTests
                 nation => nation.Id == "north" ? nation with { Treasury = 0 } : nation),
         };
 
-        var session = new GameSession(world, toy.Ruleset, toy.Scenario);
+        var session = new GameSession(world, toy.Ruleset with { Flags = toy.Ruleset.Flags with { EconomyPurses = EconomyPurseModel.CentralTreasury } }, toy.Scenario);
         var armyMoneyBefore = session.State.ArmyById(ArmyId)!.Money;
 
         var output = session.Submit($"transfer-money {ArmyId} 10");

@@ -25,13 +25,12 @@ namespace IC2.Engine.Economy;
 /// applied nothing to a positive request into an over-cap purse — with the original's signed arrow.
 /// </para>
 /// <para>
-/// <strong>What neither report states, and this deliberately does not invent</strong>: whether the
-/// treasury itself may go negative as a result of this transfer. The task entry calls this out by name
-/// ("where the report is silent... escalate rather than decide") — but the same Done-when line already
-/// settles it operationally: the transfer "never takes more than the source holds", so when the treasury
-/// is the source it is clamped to its own balance and never driven negative by <em>this</em> method; when
-/// the purse is the source, the treasury only ever gains. No separate treasury floor is invented, and none
-/// is needed for that requirement to hold.
+/// T219 / Research PR77 (2026-10-25-manual-funding-in-debt1456.md, pinned at
+/// 865755e04f107afc38cdb496669d882e2551aca6): original Wine UI controls fund army and fleet
+/// purses from negative, zero and insufficient positive treasuries. Under the faithful per-unit-purse
+/// economy, manual treasury funding therefore has no source-balance clamp. A funding fleet purse
+/// remains balance-limited. The designed central-treasury policy retains its previous balance limit;
+/// automatic support's separate reserve is enforced by its planner, not changed here.
 /// </para>
 /// <para>
 /// <strong>The co-located fleet as the money's other side — implemented here (T105), not <c>[open]</c>.</strong>
@@ -44,8 +43,7 @@ namespace IC2.Engine.Economy;
 /// nation ↔ one unit's own purse direction and that the fleet variant "would be invention"; that was
 /// wrong, and is retracted with the code here. <see cref="TransferBetweenPurses"/> is that direction:
 /// with <c>via &lt;fleet&gt;</c> the other account is that fleet's own purse rather than the treasury, and
-/// both rules (<see cref="ClampFundingPurse"/> and <see cref="PurseAccounting.Credit"/>) are the same ones the
-/// treasury path already uses. "Co-located" is the dialog's own provider radius — the audit's §1.6
+/// the donor and receiving-purse limits remain account-specific. "Co-located" is the dialog's own provider radius — the audit's §1.6
 /// <c>TAFSupply_FindProviders</c> "within one tile" reading, mapped onto
 /// <see cref="EconomyRules.CommandAdjacencyRadiusTiles"/> by
 /// <see cref="Commands.TransferMoneyCommandHandler"/> — and the fleet carrying the named army always
@@ -70,8 +68,8 @@ public static class TreasuryPurseTransfer
     /// <param name="Army">The army, its purse moved by <see cref="AppliedTalents"/>.</param>
     /// <param name="AppliedTalents">
     /// The talents actually moved into the purse — positive (treasury to purse) or negative (purse to
-    /// treasury) — after both the source-balance clamp and the purse's 1,000 cap. May be smaller in
-    /// magnitude than <c>talentsIntoPurse</c> requested it.
+    /// treasury) — after the applicable account limits and the purse's cap. May be smaller in
+    /// magnitude than <c>talentsIntoPurse</c> requested it. Faithful treasury funding is not balance-limited.
     /// </param>
     public sealed record ArmyResult(NationState Nation, ArmyState Army, int AppliedTalents);
 
@@ -82,8 +80,8 @@ public static class TreasuryPurseTransfer
     /// <param name="nation">The army's own nation.</param>
     /// <param name="army">The army.</param>
     /// <param name="talentsIntoPurse">
-    /// The requested move. Positive moves talents from the treasury to the purse, clamped so the treasury
-    /// is never drained below zero (never more than it holds) — and, when the purse already sits above
+    /// The requested move. Positive moves talents from the treasury to the purse; faithful manual
+    /// funding may put the treasury into debt. When the purse already sits above
     /// <see cref="EconomyRules.PurseCapPerUnit"/>, the original's arrow is signed: the request turns into
     /// <c>PurseCapPerUnit − purse</c> (negative), the purse falls to exactly the cap and the excess is
     /// credited to the treasury. Negative moves talents from the purse to the treasury, clamped so the
@@ -99,7 +97,8 @@ public static class TreasuryPurseTransfer
         ArgumentNullException.ThrowIfNull(ruleset);
 
         var (updatedTreasury, updatedMoney, applied) =
-            ApplyTransfer(nation.Treasury, army.Money, talentsIntoPurse, ruleset);
+            ApplyTransfer(nation.Treasury, army.Money, talentsIntoPurse, ruleset,
+                limitSource: ruleset.Flags.EconomyPurses != EconomyPurseModel.PerUnitPurses);
 
         return new ArmyResult(nation with { Treasury = updatedTreasury }, army with { Money = updatedMoney }, applied);
     }
@@ -115,7 +114,8 @@ public static class TreasuryPurseTransfer
         ArgumentNullException.ThrowIfNull(ruleset);
 
         var (updatedTreasury, updatedMoney, applied) =
-            ApplyTransfer(nation.Treasury, fleet.Money, talentsIntoPurse, ruleset);
+            ApplyTransfer(nation.Treasury, fleet.Money, talentsIntoPurse, ruleset,
+                limitSource: ruleset.Flags.EconomyPurses != EconomyPurseModel.PerUnitPurses);
 
         return new FleetResult(nation with { Treasury = updatedTreasury }, fleet with { Money = updatedMoney }, applied);
     }
@@ -135,13 +135,12 @@ public static class TreasuryPurseTransfer
 
     /// <summary>
     /// Moves <paramref name="talentsIntoTo"/> talents from one purse into another (or, if negative, that
-    /// many back out of <paramref name="toMoney"/> into <paramref name="fromMoney"/>) — the same rules
-    /// <see cref="TransferWithArmy"/> and <see cref="TransferWithFleet"/> apply, with a purse standing in
-    /// for the treasury on the funding side.
+    /// many back out of <paramref name="toMoney"/> into <paramref name="fromMoney"/>). Unlike faithful
+    /// treasury funding, the funding purse is limited to its available balance.
     /// </summary>
     /// <param name="fromMoney">The purse the <c>via</c> fleet holds; funds a positive move.</param>
     /// <param name="toMoney">The named unit's own purse; funds a negative move.</param>
-    /// <param name="talentsIntoTo">The requested signed move, clamped exactly as the treasury paths clamp it.</param>
+    /// <param name="talentsIntoTo">The signed move, limited by the funding purse and receiving-purse cap.</param>
     /// <param name="ruleset">Supplies <see cref="EconomyRules.PurseCapPerUnit"/> — never a C# literal.</param>
     public static PursesResult TransferBetweenPurses(int fromMoney, int toMoney, int talentsIntoTo, Ruleset ruleset)
     {
@@ -175,7 +174,7 @@ public static class TreasuryPurseTransfer
     /// and calls this — the rule is not copied per direction.
     /// </summary>
     private static (int SourceMoney, int TargetMoney, int AppliedTalents) ApplyTransfer(
-        int sourceMoney, int targetMoney, int talentsIntoTarget, Ruleset ruleset)
+        int sourceMoney, int targetMoney, int talentsIntoTarget, Ruleset ruleset, bool limitSource = true)
     {
         // T72 (bug #757, folded in): this replaced the T105 round-1 N5 guard, which applied nothing when
         // a positive request met a purse already above PurseCapPerUnit. The original applies the SIGNED
@@ -186,11 +185,9 @@ public static class TreasuryPurseTransfer
             ? Math.Min(talentsIntoTarget, ruleset.Economy.PurseCapPerUnit - targetMoney)
             : ClampFundingPurse(talentsIntoTarget, targetMoney);
 
-        // Never drains a funding source below zero — but the clamp bites only when money leaves the
-        // source: a signed pull-back (a positive request into an over-cap purse turns the step negative)
-        // feeds the source, and the original checks no balance of it at all ("no check of the treasury's
-        // sign", row 1).
-        if (step > 0)
+        // Purse sources (and the designed treasury policy) remain balance-limited. Faithful manual
+        // treasury funding is not. Signed over-cap pullback feeds either source without this limit.
+        if (step > 0 && limitSource)
         {
             step = Math.Min(step, Math.Max(0, sourceMoney));
         }

@@ -8,7 +8,7 @@ namespace IC2.Engine.Tests.Economy;
 /// <c>docs/task-catalogue.md</c> "T38 Supply dialog follow-ups, treasury ↔ purse transfers, and
 /// automatic resupply" (issue #78), Done-when 6: <c>TAFSupply_ChangeMoney</c> moves talents between the
 /// national treasury and an army's or fleet's own purse, in either direction, never taking more than the
-/// source holds and never ending a purse above 1,000 through a positive request.
+/// purse source holds and never ending a purse above 1,000 through a positive request. T219 permits faithful manual treasury funding into debt.
 /// T72 (bug #757, folded in): the positive arrow is SIGNED like the original's — a request into a purse
 /// already above 1,000 moves <c>1000 − purse</c> (negative), the purse falls to exactly 1,000 and the
 /// treasury gains the excess (2026-10-05-army-purse-writes-and-the-1000-cap.md rows 1 and 2:
@@ -18,6 +18,9 @@ namespace IC2.Engine.Tests.Economy;
 /// </summary>
 public sealed class TreasuryPurseTransferTests
 {
+    private static Ruleset DesignedRules => EconomyTestbed.Ruleset with
+    { Flags = EconomyTestbed.Ruleset.Flags with { EconomyPurses = EconomyPurseModel.CentralTreasury } };
+
     private static NationState Nation(int treasury) =>
         new("north", "North", "#000", "Leader", null, SeatControl.Human, null, treasury, 600, 0, 0, 15, 0, 100, 100, 500, 1,
             ValueList<RecruitmentSlot>.Empty, false);
@@ -27,6 +30,66 @@ public sealed class TreasuryPurseTransferTests
 
     private static FleetState Fleet(int money) =>
         new("f1", "north", 0, 0, 4, 10, 100, money, 0, null, null, null, null);
+
+    [Theory]
+    [InlineData(false, -100, -200)]
+    [InlineData(false, 0, -100)]
+    [InlineData(false, 50, -50)]
+    [InlineData(true, -100, -200)]
+    [InlineData(true, 0, -100)]
+    [InlineData(true, 50, -50)]
+    public void Faithful_manual_treasury_funding_matches_the_measured_original_cases(bool fleet, int treasury, int expectedTreasury)
+    {
+        var nation = Nation(treasury);
+        var rules = EconomyTestbed.Ruleset;
+        var armyResult = fleet ? null : TreasuryPurseTransfer.TransferWithArmy(nation, Army(100), 100, rules);
+        var fleetResult = fleet ? TreasuryPurseTransfer.TransferWithFleet(nation, Fleet(100), 100, rules) : null;
+        Assert.Equal(expectedTreasury, armyResult?.Nation.Treasury ?? fleetResult!.Nation.Treasury);
+        Assert.Equal(200, armyResult?.Army.Money ?? fleetResult!.Fleet.Money);
+        Assert.Equal(100, armyResult?.AppliedTalents ?? fleetResult!.AppliedTalents);
+        Assert.Equal(treasury + 100, expectedTreasury + 200);
+        Assert.Equal(treasury, nation.Treasury);
+    }
+
+    [Theory]
+    [InlineData(false, -100, 0)]
+    [InlineData(false, 0, 0)]
+    [InlineData(false, 50, 50)]
+    [InlineData(true, -100, 0)]
+    [InlineData(true, 0, 0)]
+    [InlineData(true, 50, 50)]
+    public void Designed_treasury_funding_keeps_its_balance_limit(bool fleet, int treasury, int expectedMoved)
+    {
+        var nation = Nation(treasury);
+        if (fleet)
+        {
+            var result = TreasuryPurseTransfer.TransferWithFleet(nation, Fleet(100), 100, DesignedRules);
+            Assert.Equal(100 + expectedMoved, result.Fleet.Money);
+            Assert.Equal(treasury - expectedMoved, result.Nation.Treasury);
+        }
+        else
+        {
+            var result = TreasuryPurseTransfer.TransferWithArmy(nation, Army(100), 100, DesignedRules);
+            Assert.Equal(100 + expectedMoved, result.Army.Money);
+            Assert.Equal(treasury - expectedMoved, result.Nation.Treasury);
+        }
+    }
+
+    [Theory]
+    [InlineData(50, 100, 100, 0, 150, 50)]
+    [InlineData(0, 100, 100, 0, 100, 0)]
+    [InlineData(50, 1100, 100, 150, 1000, -100)]
+    [InlineData(50, 100, -100, 150, 0, -100)]
+    [InlineData(950, 100, -100, 1000, 50, -50)]
+    public void Faithful_fleet_purse_controls_keep_source_and_receiving_limits(int source, int target, int request,
+        int expectedSource, int expectedTarget, int expectedMoved)
+    {
+        var result = TreasuryPurseTransfer.TransferBetweenPurses(source, target, request, EconomyTestbed.Ruleset);
+        Assert.Equal(expectedSource, result.FromMoney);
+        Assert.Equal(expectedTarget, result.ToMoney);
+        Assert.Equal(expectedMoved, result.AppliedTalents);
+        Assert.Equal(source + target, result.FromMoney + result.ToMoney);
+    }
 
     [Fact]
     public void TransferWithArmy_TreasuryToPurse_MovesExactlyTheRequestedAmount()
@@ -58,12 +121,12 @@ public sealed class TreasuryPurseTransferTests
 
     /// <summary>Never takes more than the treasury (the source) holds.</summary>
     [Fact]
-    public void TransferWithArmy_RequestExceedsTreasury_ClampsToTheTreasurysBalance()
+    public void Designed_TransferWithArmy_RequestExceedsTreasury_ClampsToTheTreasurysBalance()
     {
         var nation = Nation(treasury: 50);
         var army = Army(money: 0);
 
-        var result = TreasuryPurseTransfer.TransferWithArmy(nation, army, talentsIntoPurse: 200, EconomyTestbed.Ruleset);
+        var result = TreasuryPurseTransfer.TransferWithArmy(nation, army, talentsIntoPurse: 200, DesignedRules);
 
         Assert.Equal(50, result.AppliedTalents);
         Assert.Equal(50, result.Army.Money);
@@ -160,18 +223,18 @@ public sealed class TreasuryPurseTransferTests
     /// Review round 1, B1: a negative treasury is not a hypothetical (<c>PurseAccounting</c>'s own
     /// remark cites <c>reparation.ptolemaicTreasuryAfter: -1,270</c>; <c>docs/design-audit.md</c> Q9
     /// quotes a -818 national balance in the Galatia frames; T39 bills the treasury with no balance
-    /// check). A treasury that holds nothing supplies nothing -- the request into the purse clamps to
+    /// check). Under the designed policy, a treasury that holds nothing supplies nothing -- the request into the purse clamps to
     /// zero, it does not reverse into a withdrawal from the purse. The pre-fix code returned
     /// <c>Math.Min(requested, treasury)</c> unclamped, which for a negative treasury returned the
     /// treasury itself: a request for +100 pulled the full -500 out of the purse instead.
     /// </summary>
     [Fact]
-    public void TransferWithArmy_NegativeTreasury_RequestIntoPurse_TakesNothing()
+    public void Designed_TransferWithArmy_NegativeTreasury_RequestIntoPurse_TakesNothing()
     {
         var nation = Nation(treasury: -500);
         var army = Army(money: 300);
 
-        var result = TreasuryPurseTransfer.TransferWithArmy(nation, army, talentsIntoPurse: 100, EconomyTestbed.Ruleset);
+        var result = TreasuryPurseTransfer.TransferWithArmy(nation, army, talentsIntoPurse: 100, DesignedRules);
 
         Assert.Equal(0, result.AppliedTalents); // not -500: an empty treasury supplies nothing, in either direction.
         Assert.Equal(300, result.Army.Money); // unchanged.
@@ -194,14 +257,14 @@ public sealed class TreasuryPurseTransferTests
         Assert.Equal(nation.Treasury + army.Money, result.Nation.Treasury + result.Army.Money); // conservation.
     }
 
-    /// <summary>The fleet twin of <see cref="TransferWithArmy_NegativeTreasury_RequestIntoPurse_TakesNothing"/> -- the shared clamp is fixed for both callers, not just the army path.</summary>
+    /// <summary>The fleet twin of <see cref="Designed_TransferWithArmy_NegativeTreasury_RequestIntoPurse_TakesNothing"/> -- the shared clamp is fixed for both callers, not just the army path.</summary>
     [Fact]
-    public void TransferWithFleet_NegativeTreasury_RequestIntoPurse_TakesNothing()
+    public void Designed_TransferWithFleet_NegativeTreasury_RequestIntoPurse_TakesNothing()
     {
         var nation = Nation(treasury: -500);
         var fleet = Fleet(money: 300);
 
-        var result = TreasuryPurseTransfer.TransferWithFleet(nation, fleet, talentsIntoPurse: 100, EconomyTestbed.Ruleset);
+        var result = TreasuryPurseTransfer.TransferWithFleet(nation, fleet, talentsIntoPurse: 100, DesignedRules);
 
         Assert.Equal(0, result.AppliedTalents);
         Assert.Equal(300, result.Fleet.Money);
