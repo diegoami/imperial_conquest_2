@@ -507,6 +507,17 @@ public partial class EndTurnBoxCheck : Control
             mainGame.SelectArmyForCheck(army.Id);
             Check(mainGame.RetreatSupplyButtonForCheck.Visible,
                 "a selected owned army shows the Retreat and supply control");
+            Check(mainGame.RetreatSupplyButtonForCheck.Icon is not null && mainGame.RetreatSupplyButtonForCheck.Text.Length == 0
+                  && mainGame.Toolbar.IsAncestorOf(mainGame.RetreatSupplyButtonForCheck),
+                "recovery is an icon in the toolbar instead of a full-width row");
+            Check(mainGame.RallyPointSetButtonForCheck.Icon is not null && mainGame.RallyPointSetButtonForCheck.Text.Length == 0
+                  && mainGame.Toolbar.IsAncestorOf(mainGame.RallyPointSetButtonForCheck),
+                "rally point is a compact toolbar icon");
+            Check(mainGame.MenuBar.GetParent().FindChild("CampaignDate", true, false) is Label,
+                "the campaign date shares the menu row");
+            Check(new[] { "unit_map.army_split_two", "unit_map.army_set_target" }.All(id =>
+                    mainGame.CommandStrip.ButtonFor(id) is { Icon: not null, Text.Length: 0 } button && button.TooltipText.Length > 0),
+                "quick split and travel target are icons with readable tooltips");
             mainGame.RetreatSupplyButtonForCheck.EmitSignal(Button.SignalName.Pressed);
             Check(session.RetreatSupplyPlanFor(army.Id, isFleet: false) is not null
                   && mainGame.RetreatSupplyStatusForCheck.Contains(army.Id, StringComparison.Ordinal)

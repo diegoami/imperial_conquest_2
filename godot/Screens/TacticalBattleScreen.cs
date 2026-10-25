@@ -117,6 +117,13 @@ public partial class TacticalBattleScreen : Control
 
     /// <summary>The last exchange's panel, for <c>godot/Checks/**</c>.</summary>
     public RichTextLabel ExchangeLabel { get; private set; } = null!;
+    public RichTextLabel PlannedExchangeLabel { get; private set; } = null!;
+    public Label PlannedExchangeTitle { get; private set; } = null!;
+
+    private bool LightPanel => UiKit.PanelColor.Luminance > 0.5f;
+    private Color ActingCueColor => LightPanel ? new Color("#1F4662") : new Color(0.2f, 0.9f, 1f);
+    private Color TargetCueColor => LightPanel ? new Color("#7A243A") : new Color(1f, 0.58f, 0.18f);
+    private Color SelectionCueColor => LightPanel ? new Color("#775016") : new Color(0.95f, 0.78f, 0.35f);
 
     /// <summary>The message line under the board: what the engine answered to the last order.</summary>
     public Label MessageLabel { get; private set; } = null!;
@@ -269,7 +276,7 @@ public partial class TacticalBattleScreen : Control
         left.AddChild(footer);
         _minimap = new BoardView { Host = this, Mini = true, CustomMinimumSize = new Vector2(112, 96), MouseFilter = MouseFilterEnum.Ignore };
         footer.AddChild(_minimap);
-        footer.AddChild(UiKit.MakeLabel("○ Cyan: acting unit\n◇ Orange: its target\n□ Gold: selected", BattleNoteSize, UiKit.TextColor));
+        footer.AddChild(UiKit.MakeLabel("○ Acting unit\n◇ Target\n□ Selected", BattleNoteSize, UiKit.TextColor));
 
         var right = new VBoxContainer { CustomMinimumSize = new Vector2(380, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         right.AddThemeConstantOverride("separation", AppTheme.DialogGap);
@@ -295,8 +302,16 @@ public partial class TacticalBattleScreen : Control
         PanelLabel.CustomMinimumSize = new Vector2(0, 48);
         PanelLabel.MouseFilter = MouseFilterEnum.Ignore;
         panelColumn.AddChild(PanelLabel);
-        ActorLabel = UiKit.MakeLabel(string.Empty, BattleNoteSize, new Color(0.2f, 0.9f, 1f));
-        TargetLabel = UiKit.MakeLabel(string.Empty, BattleNoteSize, new Color(1f, 0.58f, 0.18f));
+        PlannedExchangeTitle = UiKit.MakeLabel("Planned attack · at End turn", BattleNoteSize, UiKit.MutedTextColor);
+        panelColumn.AddChild(PlannedExchangeTitle);
+        PlannedExchangeLabel = new RichTextLabel { Name = "PlannedExchange", BbcodeEnabled = true, FitContent = true,
+            ScrollActive = false, AutowrapMode = TextServer.AutowrapMode.WordSmart, MouseFilter = MouseFilterEnum.Ignore };
+        PlannedExchangeLabel.AddThemeFontOverride("normal_font", AppTheme.BodyFont);
+        PlannedExchangeLabel.AddThemeFontSizeOverride("normal_font_size", BattleBodySize);
+        PlannedExchangeLabel.AddThemeColorOverride("default_color", UiKit.TextColor);
+        panelColumn.AddChild(PlannedExchangeLabel);
+        ActorLabel = UiKit.MakeLabel(string.Empty, BattleNoteSize, ActingCueColor);
+        TargetLabel = UiKit.MakeLabel(string.Empty, BattleNoteSize, TargetCueColor);
         panelColumn.AddChild(ActorLabel);
         panelColumn.AddChild(TargetLabel);
         _exchangeTitle = UiKit.MakeLabel("Current exchange", BattleNoteSize, UiKit.MutedTextColor);
@@ -307,7 +322,7 @@ public partial class TacticalBattleScreen : Control
         ExchangeLabel.AddThemeFontSizeOverride("normal_font_size", BattleBodySize);
         ExchangeLabel.AddThemeColorOverride("default_color", UiKit.TextColor);
         ExchangeLabel.AddThemeColorOverride("font_outline_color", new Color(0.04f, 0.04f, 0.04f));
-        ExchangeLabel.AddThemeConstantOverride("outline_size", 2);
+        ExchangeLabel.AddThemeConstantOverride("outline_size", LightPanel ? 0 : 2);
         ExchangeLabel.CustomMinimumSize = new Vector2(0, 40);
         ExchangeLabel.MouseFilter = MouseFilterEnum.Ignore;
         panelColumn.AddChild(ExchangeLabel);
@@ -610,6 +625,7 @@ public partial class TacticalBattleScreen : Control
 
     private void Refresh()
     {
+        _display = _display with { PanelColorHex = "#" + UiKit.PanelColor.ToHtml(false) };
         Model = TacticalBattleViewModel.FromSnapshot(_snapshot, _display, SelectedSlot, _playback.CurrentFrame,
             _playback.CurrentExchange, _playback.PreviousExchange, _perspective, _playback.ResolvingHalfRound,
             controlsEnabled: !IsPlayingBack, pose: _playback.Pose, stage: _playback.Stage);
@@ -621,12 +637,19 @@ public partial class TacticalBattleScreen : Control
         PanelLabel.Text = string.Join("\n", Model.PanelLines);
         ExchangeLabel.Text = string.Join("\n", Model.CurrentExchangePresentation.RichLines);
         var exchangeVisible = Model.CurrentExchangePresentation.PlainLines.Count > 0;
+        PlannedExchangeLabel.Text = string.Join("\n", Model.PlannedExchangePresentation.RichLines);
+        PlannedExchangeLabel.TooltipText = string.Join("\n", Model.PlannedExchangeLines);
+        PlannedExchangeTitle.Visible = PlannedExchangeLabel.Visible = !exchangeVisible && Model.PlannedTargetSlot >= 0;
+        PlannedExchangeLabel.AddThemeColorOverride("default_color", UiKit.TextColor);
+        ActorLabel.AddThemeColorOverride("font_color", ActingCueColor);
+        TargetLabel.AddThemeColorOverride("font_color", TargetCueColor);
+        ExchangeLabel.AddThemeConstantOverride("outline_size", LightPanel ? 0 : 2);
         _selectedTitle.Visible = PanelLabel.Visible = !exchangeVisible && Model.PanelLines.Count > 0;
         ActorLabel.Visible = !exchangeVisible && Model.ActorLines.Count > 0;
         TargetLabel.Visible = !exchangeVisible && Model.TargetLines.Count > 0;
         _exchangeTitle.Visible = ExchangeLabel.Visible = exchangeVisible;
         ExchangeLabel.TooltipText = ExchangePlainText;
-        ExchangeLabel.AddThemeColorOverride("default_color", Model.DepartureLines.Count > 0 ? new Color(1f, 0.7f, 0.25f) : UiKit.TextColor);
+        ExchangeLabel.AddThemeColorOverride("default_color", UiKit.TextColor);
         ActorLabel.Text = string.Join("\n", Model.ActorLines);
         TargetLabel.Text = string.Join("\n", Model.TargetLines);
         foreach (var button in Model.Buttons)
@@ -869,12 +892,12 @@ public partial class TacticalBattleScreen : Control
                 // Role flags require a live occupant in the actual displayed grid. Removed participants
                 // remain explicit in their panels/history without a ghost marker at their old coordinates.
                 if (cell.Actor)
-                    DrawArc(rect.GetCenter(), pixels * 0.42f, 0, Mathf.Tau, 24, new Color(0.2f, 0.9f, 1f, alpha.A), Mini ? 1 : 2);
+                    DrawArc(rect.GetCenter(), pixels * 0.42f, 0, Mathf.Tau, 24, Host.ActingCueColor with { A = alpha.A }, Mini ? 1 : 2);
                 if (cell.Target)
                 {
                     var c = rect.GetCenter();
                     var radius = pixels * 0.45f;
-                    DrawPolyline(new[] { c + new Vector2(0, -radius), c + new Vector2(radius, 0), c + new Vector2(0, radius), c + new Vector2(-radius, 0), c + new Vector2(0, -radius) }, new Color(1f, 0.58f, 0.18f, alpha.A), Mini ? 1 : 2);
+                    DrawPolyline(new[] { c + new Vector2(0, -radius), c + new Vector2(radius, 0), c + new Vector2(0, radius), c + new Vector2(-radius, 0), c + new Vector2(0, -radius) }, Host.TargetCueColor with { A = alpha.A }, Mini ? 1 : 2);
                 }
                 if (cell.Selected)
                 {
@@ -883,7 +906,7 @@ public partial class TacticalBattleScreen : Control
                         DrawTextureRect(cursor, rect, false);
                     }
                     // The selection square remains independent of nation tint and any pack cursor motif.
-                    DrawRect(rect.Grow(-1), new Color(0.95f, 0.78f, 0.35f), false, Mini ? 1 : 3f);
+                    DrawRect(rect.Grow(-1), Host.SelectionCueColor, false, Mini ? 1 : 3f);
                 }
             }
         }

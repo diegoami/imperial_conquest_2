@@ -22,6 +22,8 @@ public sealed record BattleDisplay(
     int BoardWidth,
     int BoardHeight)
 {
+    /// <summary>Panel background for readable participant text; independent of nation identity.</summary>
+    public string PanelColorHex { get; init; } = "#1E1912";
     /// <summary>Captured immutable nation metadata, never looked up in an advanced session state.</summary>
     public IReadOnlyDictionary<string, BattleAllegiance> Allegiances { get; init; } =
         FrozenDictionary<string, BattleAllegiance>.Empty;
@@ -59,6 +61,27 @@ public sealed record BattleDisplay(
 /// <summary>Immutable display metadata, keyed by world identity. Aliases and text contrast are designed (T197).</summary>
 public sealed record BattleAllegiance(string NationId, string Caption, string ColorHex)
 {
+    /// <summary>Keep the nation's hue, darkening or lifting only when the panel needs more contrast.</summary>
+    public string TextColorOn(string background)
+    {
+        var color = Rgb(ColorHex);
+        var panel = Rgb(background);
+        var toward = Contrast((0, 0, 0), panel) >= Contrast((255, 255, 255), panel) ? 0.0 : 255.0;
+        for (var step = 0; step < 64 && Contrast(color, panel) < 4.5; step++)
+            color = (color.R * 0.9 + toward * 0.1, color.G * 0.9 + toward * 0.1, color.B * 0.9 + toward * 0.1);
+        return $"#{(int)Math.Round(color.R):X2}{(int)Math.Round(color.G):X2}{(int)Math.Round(color.B):X2}";
+    }
+
+    private static (double R, double G, double B) Rgb(string hex) =>
+        (Convert.ToInt32(hex.Substring(1, 2), 16), Convert.ToInt32(hex.Substring(3, 2), 16), Convert.ToInt32(hex.Substring(5, 2), 16));
+    private static double Luminance((double R, double G, double B) c)
+    {
+        static double Linear(double v) => v / 255 <= 0.04045 ? v / 255 / 12.92 : Math.Pow((v / 255 + 0.055) / 1.055, 2.4);
+        return 0.2126 * Linear(c.R) + 0.7152 * Linear(c.G) + 0.0722 * Linear(c.B);
+    }
+    private static double Contrast((double R, double G, double B) a, (double R, double G, double B) b) =>
+        (Math.Max(Luminance(a), Luminance(b)) + 0.05) / (Math.Min(Luminance(a), Luminance(b)) + 0.05);
+
     public static BattleAllegiance For(string id, string name, World? world)
     {
         var caption = id switch { "seleucid" => "SELEUCID", "ptolemaic" => "PTOLEMEAN", _ => name.ToUpperInvariant() };
@@ -307,29 +330,28 @@ public sealed class TacticalBattleViewModel
     {
         if (frame?.Event is not (TacticalShotEvent or TacticalMeleeEvent))
             return new(Array.Empty<string>(), Array.Empty<string>());
-        string Unit(TacticalUnitIdentity identity, bool rich)
-        {
-            var metadata = Allegiance(display, identity);
-            var text = $"{frame.After.View.Slots[identity.Slot].Name} · {metadata.Caption}";
-            return rich ? $"[color={metadata.ColorHex}]{EscapeRichText(text)}[/color]" : text;
-        }
-        string Details(TacticalUnitIdentity identity)
-        {
-            var unit = frame.Before.View.Slots[identity.Slot];
-            var type = unit.Type >= 0 && unit.Type < display.UnitTypeNames.Count
-                ? display.UnitTypeNames[unit.Type] : $"type {unit.Type}";
-            return $"{type} · {unit.Troops.ToString("N0", CultureInfo.InvariantCulture)} troops";
-        }
+        var actor = PresentParticipant(display, frame.Actor!, frame.After.View.Slots[frame.Actor!.Slot], frame.Before.View.Slots[frame.Actor.Slot]);
+        var target = PresentParticipant(display, frame.Target!, frame.After.View.Slots[frame.Target!.Slot], frame.Before.View.Slots[frame.Target.Slot]);
         var action = frame.Event is TacticalShotEvent ? "SHOOTS AT" : "ATTACKS";
         var losses = frame.Event is TacticalShotEvent shot
             ? new[] { $"TROOP LOSSES {shot.Loss.ToString("N0", CultureInfo.InvariantCulture)}" }
             : frame.Event is TacticalMeleeEvent melee
                 ? new[] { "UNIT LOSSES", $"Attacker {melee.AttackerLoss.ToString("N0", CultureInfo.InvariantCulture)} · Defender {melee.DefenderLoss.ToString("N0", CultureInfo.InvariantCulture)}" }
                 : Array.Empty<string>();
-        return new(new[] { Unit(frame.Actor!, false), Details(frame.Actor!), action,
-                Unit(frame.Target!, false), Details(frame.Target!) }.Concat(losses).ToArray(),
-            new[] { Unit(frame.Actor!, true), EscapeRichText(Details(frame.Actor!)), action,
-                Unit(frame.Target!, true), EscapeRichText(Details(frame.Target!)) }.Concat(losses.Select(EscapeRichText)).ToArray());
+        return new(actor.PlainLines.Concat(new[] { action }).Concat(target.PlainLines).Concat(losses).ToArray(),
+            actor.RichLines.Concat(new[] { action }).Concat(target.RichLines).Concat(losses.Select(EscapeRichText)).ToArray());
+    }
+
+    private static BattleExchangePresentation PresentParticipant(BattleDisplay display, TacticalUnitIdentity identity,
+        TacticalSlot nameUnit, TacticalSlot detailsUnit)
+    {
+        var metadata = Allegiance(display, identity);
+        var name = $"{nameUnit.Name} · {metadata.Caption}";
+        var type = detailsUnit.Type >= 0 && detailsUnit.Type < display.UnitTypeNames.Count
+            ? display.UnitTypeNames[detailsUnit.Type] : $"type {detailsUnit.Type}";
+        var details = $"{type} · {detailsUnit.Troops.ToString("N0", CultureInfo.InvariantCulture)} troops";
+        return new(new[] { name, details }, new[] {
+            $"[color={metadata.TextColorOn(display.PanelColorHex)}]{EscapeRichText(name)}[/color]", EscapeRichText(details) });
     }
     private static BattleAllegiance Allegiance(BattleDisplay display, TacticalUnitIdentity identity) =>
         display.Allegiances.GetValueOrDefault(identity.NationId)
@@ -350,7 +372,7 @@ public sealed class TacticalBattleViewModel
             var role = identity.Side == 0 ? "Attacker" : "Defender";
             var status = Stage is TacticalPlaybackStage.RoutHold or TacticalPlaybackStage.RoutFade ? "departure pending" : "removed";
             return new(new[] { $"{prefix} · {unit} · {role} · {status}" },
-                new[] { $"[b]{prefix}[/b] · [color={metadata.ColorHex}]{EscapeRichText(unit)}[/color] · {role} · {status}" });
+                new[] { $"[b]{prefix}[/b] · [color={metadata.TextColorOn(_display.PanelColorHex)}]{EscapeRichText(unit)}[/color] · {role} · {status}" });
         }
     }
 
@@ -620,7 +642,6 @@ public sealed class TacticalBattleViewModel
                 lines.Add($"Moves: {unit.Moves.ToString(CultureInfo.InvariantCulture)}");
                 lines.Add($"Shots: {unit.Shots.ToString(CultureInfo.InvariantCulture)}");
                 lines.Add($"Attacks: {(unit.Target >= 0 && unit.Target < _view.Slots.Count ? _view.Slots[unit.Target].Name : "nobody")}");
-                lines.AddRange(PlannedExchangeLines);
             }
 
             return lines;
@@ -645,22 +666,29 @@ public sealed class TacticalBattleViewModel
     /// The planned melee of the selected own unit: who attacks whom, with nation, type and troops, and how many
     /// own units have set the same target (the exchange's focus). Empty when it has none.
     /// </summary>
-    public IReadOnlyList<string> PlannedExchangeLines
+    public IReadOnlyList<string> PlannedExchangeLines => PlannedExchangePresentation.PlainLines;
+
+    public BattleExchangePresentation PlannedExchangePresentation
     {
         get
         {
             var target = PlannedTargetSlot;
-            if (target < 0) return Array.Empty<string>();
-            var unit = _view.Slots[SelectedSlot];
-            var enemy = _view.Slots[target];
+            if (target < 0) return new(Array.Empty<string>(), Array.Empty<string>());
             var focus = LiveOf(_perspective).Count(s => _view.Slots[s].Target == target);
-            return new[]
+            BattleExchangePresentation Participant(int slot)
             {
-                "Planned melee, at End turn:",
-                $"{unit.Name} ({TypeName(unit.Type)}, {unit.Troops.ToString(CultureInfo.InvariantCulture)} troops) attacks",
-                $"{enemy.Name} of {NationName(SideOf(target))} ({TypeName(enemy.Type)}, {enemy.Troops.ToString(CultureInfo.InvariantCulture)} troops)",
-                focus == 1 ? "No other unit attacks it." : $"{focus} of your units attack it.",
-            };
+                var side = SideOf(slot);
+                var nation = side == 0 ? _view.AttackerNationId : _view.DefenderNationId;
+                var identity = new TacticalUnitIdentity(slot, side, side == 0 ? _view.AttackerArmyId : _view.DefenderArmyId,
+                    nation, string.Empty);
+                return PresentParticipant(_display, identity, _view.Slots[slot], _view.Slots[slot]);
+            }
+            var footer = focus == 1 ? "No other unit attacks it." : $"{focus} of your units attack it.";
+            var actor = Participant(SelectedSlot);
+            var receiver = Participant(target);
+            string[] Lines(bool rich) => (rich ? actor.RichLines : actor.PlainLines).Concat(new[] { "ATTACKS" })
+                .Concat(rich ? receiver.RichLines : receiver.PlainLines).Concat(new[] { "At End turn · " + footer }).ToArray();
+            return new(Lines(false), Lines(true));
         }
     }
 

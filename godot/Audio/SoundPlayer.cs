@@ -122,6 +122,9 @@ public sealed partial class SoundPlayer : Node
     /// <summary>Every displayed exchange queues, including identical adjacent keys. Never restarts a clip.</summary>
     public void PlayTactical(string key) => PlayTactical(new TacticalAudioCue("check", _tacticalSequence + 1, key));
 
+    /// <summary>Whether the configured pack supplied a playable clip for this cue.</summary>
+    public bool HasCue(string key) => _players.ContainsKey(key);
+
     public void PlayTactical(TacticalAudioCue cue)
     {
         if (SoundEnabled is not null) Muted = !SoundEnabled();

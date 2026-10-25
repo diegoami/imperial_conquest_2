@@ -32,6 +32,10 @@ public partial class SettingsScreen : Control
 
     /// <summary>The display and automation tabs, exposed to headless interaction checks.</summary>
     public TabContainer Tabs { get; private set; } = null!;
+    public Button TestSoundButton { get; private set; } = null!;
+    public Label TestSoundStatus { get; private set; } = null!;
+    public Audio.SoundPlayer? TestSoundPlayerForCheck => _testSoundPlayer;
+    private Audio.SoundPlayer? _testSoundPlayer;
 
     /// <summary>#1293: true when opened over a game (the Back button reads "Close").</summary>
     public bool InGame { get; init; }
@@ -399,6 +403,51 @@ public partial class SettingsScreen : Control
         };
         volume.AddChild(slider);
         volume.AddChild(value);
+        TestSoundButton = UiKit.MakeButton("Test sound", TestSound, AppTheme.Button);
+        TestSoundButton.TooltipText = "Play a battle cue using the selected pack and current volume.";
+        volume.AddChild(TestSoundButton);
+        TestSoundStatus = UiKit.MakeLabel(string.Empty, AppTheme.Note, UiKit.MutedTextColor);
+        TestSoundStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        column.AddChild(TestSoundStatus);
+    }
+
+    private void TestSound()
+    {
+        if (!SoundEnabled || Current.VolumePercent == 0)
+        {
+            TestSoundStatus.Text = !SoundEnabled ? "Enable Sound before testing." : "Volume is 0%. Raise it before testing.";
+            return;
+        }
+        if (_testSoundPlayer is { } previous)
+        {
+            RemoveChild(previous);
+            previous.QueueFree();
+            _testSoundPlayer = null;
+        }
+        try
+        {
+            var pack = SelectedPackId ?? Assets.AssetPackManifestLoader.DefaultPackId;
+            _testSoundPlayer = new Audio.SoundPlayer(Path.Combine(GameDataContext.RepositoryRoot, "assets", "packs", pack));
+            _testSoundPlayer.SoundEnabled = () => SoundEnabled;
+            AddChild(_testSoundPlayer);
+            const string cue = IC2.Engine.Assets.AssetKeys.SfxBattleArrows;
+            if (!_testSoundPlayer.HasCue(cue))
+            {
+                TestSoundStatus.Text = "The selected asset pack has no playable test sound.";
+                return;
+            }
+            // Apply the live slider and mute state even when Settings was opened before a campaign.
+            Appearance.Apply(Current, GetTree().Root);
+            _testSoundPlayer.PlayTactical(cue);
+            TestSoundStatus.Text = $"Test sound · {Current.VolumePercent}% · output: {AudioServer.OutputDevice}. "
+                + (AudioServer.GetDriverName() == "Dummy" ? "No audio device is available."
+                    : "If silent, check the game's output and mute state in the system volume mixer.");
+        }
+        catch (Exception ex)
+        {
+            GD.PushWarning($"Sound test failed: {ex.Message}");
+            TestSoundStatus.Text = "The test sound could not be loaded. Check the selected asset pack.";
+        }
     }
 
     private void BuildGame(VBoxContainer column)
