@@ -785,12 +785,22 @@ public partial class MenuBarCheck : Control
         Check(
             enabled.All(button => string.IsNullOrEmpty(button.TooltipText)),
             "no enabled toolbar button has a tooltip with hints off");
+        var ownArmy = _mainGame.Session.State.Armies.First(a => a.Nation == _mainGame.Session.State.ActiveNationId);
+        _mainGame.SelectArmyForCheck(ownArmy.Id);
+        var allCommands = _mainGame.Toolbar.FindChildren("*", "Button", true, false).OfType<Button>()
+            .Concat(_mainGame.CommandStrip.Buttons).ToArray();
+        Check(allCommands.All(button => string.IsNullOrEmpty(button.TooltipText)
+                && !string.IsNullOrEmpty(button.AccessibilityName)),
+            "hints off also covers extra actions and rebuilt unit icons while preserving accessible names");
 
         var helpPopup = _mainGame.MenuBar.MenuForCheck("Help");
         var showHints = helpPopup is null ? -1 : FindItemIndex(helpPopup, "Show hints");
         Check(
             showHints >= 0 && !helpPopup!.IsItemChecked(showHints),
             "the Show hints menu item is unchecked while hints are off");
+        _mainGame.MenuBar.PressItemForCheck("help.show_hints");
+        Check(allCommands.All(button => !string.IsNullOrEmpty(button.TooltipText)),
+            "hints on restores toolbar, extra-action and unit-icon descriptions");
     }
 
     // ---- helpers ----

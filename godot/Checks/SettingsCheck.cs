@@ -34,6 +34,22 @@ public partial class SettingsCheck : Control
 
     public override void _Ready()
     {
+        try
+        {
+            if (System.Environment.GetEnvironmentVariable("IC2_SETTINGS_CHECK_FAIL_SETUP") == "1")
+                throw new InvalidOperationException("forced setup failure");
+            Initialize();
+        }
+        catch (Exception ex)
+        {
+            GD.PrintErr($"SettingsCheck: setup failed: {ex}");
+            _ok = false;
+            Finish();
+        }
+    }
+
+    private void Initialize()
+    {
         Size = GetViewport().GetVisibleRect().Size;
         SettingsScreen.SettingsPath = _file;
         var data = GameDataContext.Repository.Resolve("classical-mediterranean");
@@ -219,9 +235,15 @@ public partial class SettingsCheck : Control
             _ok = false;
         }
 
+        Finish();
+    }
+
+    private void Finish()
+    {
         SetProcess(false);
         SettingsScreen.SettingsPath = null;
-        if (File.Exists(_file)) File.Delete(_file);
+        try { if (File.Exists(_file)) File.Delete(_file); }
+        catch (Exception ex) { GD.PrintErr($"SettingsCheck: cleanup failed: {ex}"); _ok = false; }
         GD.Print($"SettingsCheck: exiting with code {(_ok ? 0 : 1)}.");
         CheckExit.Quit(this, _ok ? 0 : 1);
     }

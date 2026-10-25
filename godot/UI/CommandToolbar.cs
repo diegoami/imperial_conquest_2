@@ -206,13 +206,14 @@ public partial class CommandToolbar : PanelContainer
     {
         _buttonByCommand[commandId] = button;
         _captionByCommand[commandId] = caption;
+        UiKit.SetHint(button, caption, _hintsEnabled);
     }
 
     private void ApplyHints()
     {
         foreach (var (commandId, button) in _buttonByCommand)
         {
-            button.TooltipText = _hintsEnabled ? _captionByCommand[commandId] : string.Empty;
+            UiKit.SetHint(button, _captionByCommand[commandId], _hintsEnabled);
         }
     }
 

@@ -39,6 +39,14 @@ public partial class UnitCommandStrip : PanelContainer
 
     private HBoxContainer _row = null!;
     private readonly Dictionary<string, Button> _buttonByCommand = new(StringComparer.Ordinal);
+    private bool _hintsEnabled = true;
+
+    public void SetHintsEnabled(bool enabled)
+    {
+        _hintsEnabled = enabled;
+        foreach (var button in Buttons)
+            UiKit.SetHint(button, button.AccessibilityDescription, enabled);
+    }
 
     public override void _Ready()
     {
@@ -124,6 +132,7 @@ public partial class UnitCommandStrip : PanelContainer
             CustomMinimumSize = new Vector2(30, 30),
             TooltipText = row.Caption,
         };
+        UiKit.SetHint(button, row.Caption, _hintsEnabled);
 
         if (QolCommandIcons.ForCommand(row.Id) is { } convenienceIcon)
         {
