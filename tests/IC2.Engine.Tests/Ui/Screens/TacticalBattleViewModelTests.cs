@@ -420,22 +420,23 @@ public sealed class TacticalBattleViewModelTests
 
     [Theory]
     [InlineData(-1.0, 0.0)]
-    [InlineData(0.04, 0.0)]
-    [InlineData(0.26, 0.3)]
-    [InlineData(2.96, 3.0)]
+    [InlineData(0.04, 0.04)]
+    [InlineData(0.26, 0.26)]
+    [InlineData(0.046, 0.05)]
+    [InlineData(2.96, 2.96)]
     [InlineData(9.0, 3.0)]
-    public void The_shot_pause_snaps_to_tenths_of_a_second_between_0_and_3(double wanted, double expected)
+    public void The_shot_pause_snaps_to_hundredths_of_a_second_between_0_and_3(double wanted, double expected)
     {
         Assert.Equal(expected, BattlePauses.SnapShot(wanted));
     }
 
     [Theory]
     [InlineData(-2.0, 0.0)]
-    [InlineData(0.04, 0.0)]
-    [InlineData(0.44, 0.4)]
-    [InlineData(1.46, 1.5)]
+    [InlineData(0.04, 0.04)]
+    [InlineData(0.44, 0.44)]
+    [InlineData(1.46, 1.46)]
     [InlineData(7.0, 3.0)]
-    public void The_attack_pause_snaps_to_tenths_of_a_second_between_0_and_3(double wanted, double expected)
+    public void The_attack_pause_snaps_to_hundredths_of_a_second_between_0_and_3(double wanted, double expected)
     {
         Assert.Equal(expected, BattlePauses.SnapAttack(wanted));
     }

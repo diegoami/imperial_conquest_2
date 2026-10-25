@@ -332,7 +332,7 @@ public partial class TacticalBattleScreen : Control
             label.MouseFilter = MouseFilterEnum.Ignore;
         }
 
-        _listTitle = UiKit.MakeLabel(string.Empty, BattleBodySize, UiKit.MutedTextColor);
+        _listTitle = UiKit.MakeLabel(string.Empty, AppTheme.Note, UiKit.MutedTextColor);
         right.AddChild(_listTitle);
         _listTitle.Visible = false;
         _listBox = new VBoxContainer { Name = "DeliberateUnitList", Visible = false, SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
@@ -429,16 +429,13 @@ public partial class TacticalBattleScreen : Control
         switch (id)
         {
             case "unit_moves":
-                _listKind = ListKind.UnitMoves;
-                Refresh();
+                ToggleUnitList(ListKind.UnitMoves);
                 break;
             case "friendly_units":
-                _listKind = ListKind.Friendly;
-                Refresh();
+                ToggleUnitList(ListKind.Friendly);
                 break;
             case "enemy_units":
-                _listKind = ListKind.Enemy;
-                Refresh();
+                ToggleUnitList(ListKind.Enemy);
                 break;
             case "cancel_selection":
                 SelectedSlot = -1;
@@ -701,10 +698,10 @@ public partial class TacticalBattleScreen : Control
         }
         _rosterTexts.Clear();
         _rosterTexts.Add(_listTitle.Text);
-        _listBox.AddChild(UiKit.MakeButton("Close unit list", CloseUnitList, BattleNoteSize));
         var scroll = new ScrollContainer { SizeFlagsVertical = SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 64) };
         _listBox.AddChild(scroll);
-        var rows = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        var rows = new VBoxContainer { Name = "CompactUnitRows", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        rows.AddThemeConstantOverride("separation", 0);
         scroll.AddChild(rows);
         foreach (var row in displayedRows)
         {
@@ -713,11 +710,24 @@ public partial class TacticalBattleScreen : Control
             var slot = row.Slot;
             var button = new Button { Text = text, Flat = true, Alignment = HorizontalAlignment.Left,
                 TooltipText = text, ClipText = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
-            button.AddThemeFontSizeOverride("font_size", BattleNoteSize);
+            button.AddThemeFontSizeOverride("font_size", AppTheme.Note);
+            foreach (var name in new[] { "normal", "hover", "pressed", "focus", "disabled" })
+            {
+                var style = (StyleBox)AppTheme.Current.GetStylebox(name, "Button").Duplicate();
+                style.ContentMarginTop = style.ContentMarginBottom = 0;
+                style.ContentMarginLeft = style.ContentMarginRight = 2;
+                button.AddThemeStyleboxOverride(name, style);
+            }
             button.Pressed += () => { if (IsPlayingBack) return; SelectedSlot = slot; Refresh(); };
             _rosterRowButtons[slot] = button;
             rows.AddChild(button);
         }
+    }
+
+    private void ToggleUnitList(ListKind kind)
+    {
+        if (_listKind == kind) CloseUnitList();
+        else { _listKind = kind; Refresh(); }
     }
 
     public void CloseUnitList()
@@ -780,11 +790,11 @@ public partial class TacticalBattleScreen : Control
             Value = current,
             CustomMinimumSize = new Vector2(160, 24),
         };
-        var value = UiKit.MakeLabel(current.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture), BattleBodySize, UiKit.MutedTextColor);
+        var value = UiKit.MakeLabel(current.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture), BattleBodySize, UiKit.MutedTextColor);
         slider.ValueChanged += v =>
         {
             onChanged(v);
-            value.Text = v.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+            value.Text = v.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
         };
         row.AddChild(slider);
         row.AddChild(value);

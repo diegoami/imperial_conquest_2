@@ -220,22 +220,22 @@ public static class BattlePauses
     public const double MaxSeconds = 3.0;
 
     /// <summary>The shot delay's step, in seconds.</summary>
-    public const double ShotStepSeconds = 0.1;
+    public const double ShotStepSeconds = 0.01;
 
     /// <summary>
-    /// The attack delay's step, in seconds: tenths, like the shot delay ([designed], the owner's play session of
+    /// The attack delay's step, in seconds: hundredths, like the shot delay ([designed], the owner's play session of
     /// 2026-10-22; whole seconds left nothing between 0 and 1).
     /// </summary>
-    public const double AttackStepSeconds = 0.1;
+    public const double AttackStepSeconds = 0.01;
 
     /// <summary>The shot delay on a snapped, clamped value.</summary>
     /// <param name="seconds">The wanted delay.</param>
-    /// <returns>A value in 0 … 3.0 on the 0.1 s grid.</returns>
+    /// <returns>A value in 0 … 3.0 on the 0.01 s grid.</returns>
     public static double SnapShot(double seconds) => Snap(seconds, ShotStepSeconds);
 
     /// <summary>The attack delay on a snapped, clamped value.</summary>
     /// <param name="seconds">The wanted delay.</param>
-    /// <returns>A value in 0 … 3.0 on the 0.1 s grid.</returns>
+    /// <returns>A value in 0 … 3.0 on the 0.01 s grid.</returns>
     public static double SnapAttack(double seconds) => Snap(seconds, AttackStepSeconds);
 
     private static double Snap(double seconds, double step)
@@ -246,8 +246,8 @@ public static class BattlePauses
         }
 
         var clamped = Math.Clamp(seconds, 0, MaxSeconds);
-        // Divide by ten last, so a tenth is the exact double (1.6, not 1.6000000000000001).
-        return Math.Round(Math.Round(clamped / step) * step * 10) / 10;
+        // Keep the stored/displayed value on the same hundredth-second grid.
+        return Math.Round(Math.Round(clamped / step) * step, 2);
     }
 }
 

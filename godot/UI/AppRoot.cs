@@ -55,6 +55,7 @@ public partial class AppRoot : Control
     /// only on Yes; on any other screen nothing is left to lose, so it quits at once.</summary>
     public void HandleCloseRequest()
     {
+        if (CurrentScreen is LoadGameScreen load) load.Cancel();
         if (CurrentScreen is MainGameScreen game)
         {
             game.ConfirmQuit(Quit);
@@ -110,8 +111,18 @@ public partial class AppRoot : Control
     /// </summary>
     public void ShowLoadGame()
     {
+        if (CurrentScreen is LoadGameScreen) return;
+        var previous = CurrentScreen;
+        var previousMode = previous?.ProcessMode ?? ProcessModeEnum.Inherit;
+        if (previous is not null) previous.ProcessMode = ProcessModeEnum.Disabled;
         var screen = new LoadGameScreen();
-        screen.BackRequested += ShowMainMenu;
+        screen.BackRequested += () =>
+        {
+            if (previous is not null) previous.ProcessMode = previousMode;
+            CurrentScreen = previous;
+            RemoveChild(screen);
+            screen.QueueFree();
+        };
         screen.GameResumed += session =>
         {
             var mainScreen = new MainGameScreen
@@ -122,7 +133,10 @@ public partial class AppRoot : Control
             };
             SwapTo(mainScreen);
         };
-        SwapTo(screen);
+        // Keep the caller alive while choosing a file; Cancel restores that exact screen/session.
+        screen.SetAnchorsPreset(LayoutPreset.FullRect);
+        CurrentScreen = screen;
+        AddChild(screen);
     }
 
     public void ShowSettings()

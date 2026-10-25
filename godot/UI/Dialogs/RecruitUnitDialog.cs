@@ -234,7 +234,8 @@ public partial class RecruitUnitDialog : Control
         column.AddChild(new HSeparator());
         column.AddChild(UiKit.MakeLabel("In training here", AppTheme.Body, UiKit.MutedTextColor));
 
-        _trainingList = new ItemList { CustomMinimumSize = new Vector2(0, 140) };
+        _trainingList = new ItemList { CustomMinimumSize = new Vector2(0, 140),
+            TooltipText = "Ready is the minimum readiness. Waiting can improve quality; mobilizing ends training." };
         _trainingList.ItemSelected += index =>
         {
             var row = index >= 0 && index < _trainingRows.Count ? _trainingRows[(int)index] : null;
@@ -445,10 +446,19 @@ public partial class RecruitUnitDialog : Control
         }
     }
 
-    private string FormatTrainingRow(TrainingRegimentView row, bool withCity) =>
-        withCity
-            ? $"{_model.CityName(row.TargetCityId)} — {row.UnitTypeId} — {row.Troops} troops — {row.ReadinessText}"
-            : $"{row.UnitTypeId} — {row.Troops} troops — {row.ReadinessText}";
+    private string FormatTrainingRow(TrainingRegimentView row, bool withCity)
+    {
+        var stateCode = row.StateCode;
+        if (!row.IsReady && row.WeeksUntilReady is { } weeks)
+            for (var week = 0; week < weeks; week++)
+                stateCode = IC2.Engine.Calendar.CityUnitStateCode.Advance(stateCode, Session.Ruleset.Calendar);
+        var quality = ArmyDialogModels.QualityCaption(
+            IC2.Engine.Recruitment.MobilizationReadiness.QualityFor(stateCode, Session.Ruleset.Recruitment));
+        var detail = row.IsReady ? $"quality if mobilized: {quality}"
+            : row.WeeksUntilReady is not null ? $"quality when first ready: {quality}" : "quality unavailable";
+        var town = withCity ? _model.CityName(row.TargetCityId) + " — " : string.Empty;
+        return $"{town}{row.UnitTypeId} — {row.Troops} troops — {row.ReadinessText} — {detail}";
+    }
 
     /// <summary>
     /// The slot-table index the selected training row names, or <see langword="null"/>. This is the
