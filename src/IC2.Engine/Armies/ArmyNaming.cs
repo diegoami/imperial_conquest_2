@@ -105,6 +105,19 @@ public static class ArmyNaming
     /// exactly these five, so a caller passing anything else has a bug, not an illegal player order.
     /// </exception>
     public static string NextName(GameState state, string nationId, string unitTypeId)
+        => NextName(state, nationId, unitTypeId, " Battalion");
+
+    /// <summary>
+    /// The original <c>TChangeArmyUnits_SplitUnit</c>'s new-unit format, which has two spaces before
+    /// "Battalion" in F51. The split routine uses the same suffix with each of the five type labels
+    /// [confirmed: the five labels and <c>" Battalion"</c> suffix in the original's split string table;
+    /// observed F51 in the broad save-conversion matrix]. Keep this separate from <see cref="NextName"/>:
+    /// original mobilization uses the single-space format.
+    /// </summary>
+    public static string NextSplitUnitName(GameState state, string nationId, string unitTypeId)
+        => NextName(state, nationId, unitTypeId, "  Battalion");
+
+    private static string NextName(GameState state, string nationId, string unitTypeId, string suffix)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(nationId);
@@ -118,7 +131,7 @@ public static class ArmyNaming
         }
 
         var ordinal = NextOrdinal(state, nationId, unitTypeId, label);
-        return $"{Ordinal(ordinal)} {label} Battalion";
+        return $"{Ordinal(ordinal)} {label}{suffix}";
     }
 
     /// <summary>

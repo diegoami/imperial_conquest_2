@@ -46,6 +46,16 @@ public sealed class ArmyNamingTests
         RegularUnit("2nd Foot Battalion", "light_infantry"),
     });
 
+    private static GameState EmptyNameState()
+    {
+        var state = InitialState();
+        return state with
+        {
+            Armies = ValueList<ArmyState>.Empty,
+            Cities = ValueList.From(state.Cities.Select(city => city with { Garrison = ValueList<UnitSlot>.Empty })),
+        };
+    }
+
     [Theory]
     [InlineData("light_infantry", "3rd Foot Battalion")] // highest used is 2nd -> 3rd.
     [InlineData("heavy_infantry", "9th Guards Battalion")] // highest used is 8th -> 9th.
@@ -65,6 +75,23 @@ public sealed class ArmyNamingTests
         var actual = ArmyNaming.NextName(state, NorthNationId, unitTypeId);
 
         Assert.Equal(expected, actual);
+    }
+
+    [Theory]
+    [InlineData("light_infantry", "1st Foot  Battalion")]
+    [InlineData("heavy_infantry", "1st Guards  Battalion")]
+    [InlineData("archers", "1st Bowmen  Battalion")]
+    [InlineData("light_cavalry", "1st Lancers  Battalion")]
+    [InlineData("heavy_cavalry", "1st Dragoons  Battalion")]
+    public void NextSplitUnitName_UsesTheOriginalTwoSpaceBattalionSuffix(string unitTypeId, string expected)
+    {
+        Assert.Equal(expected, ArmyNaming.NextSplitUnitName(EmptyNameState(), NorthNationId, unitTypeId));
+    }
+
+    [Fact]
+    public void NextName_ForMobilizationKeepsItsSingleSpaceFormat()
+    {
+        Assert.Equal("1st Guards Battalion", ArmyNaming.NextName(EmptyNameState(), NorthNationId, "heavy_infantry"));
     }
 
     [Fact]

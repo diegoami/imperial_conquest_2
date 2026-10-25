@@ -265,7 +265,7 @@ public sealed class ChangeUnitsCommandTests
         // North owns regular "3rd Foot" in one army and "7th Foot" in the arx garrison; a north mercenary
         // whose name looks like "9th Foot" is skipped (the scan is regular-only) and a south army's
         // "12th Foot" is out of nation. So the highest regular ordinal is 7 and the next is
-        // "8th Foot Battalion".
+        // "8th Foot  Battalion" on this Split unit path (mobilization retains its single-space form).
         var state = WithArmies(
             InitialState(),
             Army("names-a", NorthNationId, 5, 5, new[] { RegularUnit("split-me", troops: 10_000, quality: 6) }),
@@ -283,9 +283,36 @@ public sealed class ChangeUnitsCommandTests
 
         Assert.True(result.IsAccepted, result.ToString());
         var splitOff = result.State.ArmyById("names-a")!.Units[^1];
-        Assert.Equal("8th Foot Battalion", splitOff.Name);
+        Assert.Equal("8th Foot  Battalion", splitOff.Name);
         Assert.Equal(state.ArmyById("names-a")!.TotalTroops, result.State.ArmyById("names-a")!.TotalTroops);
     }
+
+    [Fact]
+    public void SplitUnit_HeavyInfantryMatchesTheOriginalF51Name()
+    {
+        var guards = Enumerable.Range(1, 6)
+            .Select(n => RegularUnit($"{n}{Suffix(n)} Guards Battalion", "heavy_infantry", troops: 1_000))
+            .Append(RegularUnit("source", "heavy_infantry", troops: 5_000));
+        var state = WithArmies(
+            InitialState(),
+            Army("f51-guards", NorthNationId, 5, 5, guards));
+
+        var result = Dispatcher().Dispatch(
+            state, new SplitUnitCommand(NorthNationId, "f51-guards", 6, 2_500));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        Assert.Equal("7th Guards  Battalion", result.State.ArmyById("f51-guards")!.Units[^1].Name);
+    }
+
+    private static string Suffix(int value) => value % 100 is >= 11 and <= 13
+        ? "th"
+        : (value % 10) switch
+        {
+            1 => "st",
+            2 => "nd",
+            3 => "rd",
+            _ => "th",
+        };
 
     // ---- rejections (Done-when 3) ----
 
