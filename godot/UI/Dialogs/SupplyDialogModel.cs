@@ -25,7 +25,7 @@ public sealed record SupplyProviderChoice(
 /// <summary>One row of the money panel's <c>via</c> picker: the treasury, or one own fleet within one tile.</summary>
 /// <param name="Label">What the picker shows.</param>
 /// <param name="FleetId">The fleet id, or <see langword="null"/> for the national treasury.</param>
-public sealed record MoneyViaChoice(string Label, string? FleetId);
+public sealed record MoneyViaChoice(string Label, string? FleetId, string? ArmyId = null, int Balance = 0);
 
 /// <summary>
 /// The Army menu's <strong>Supply army</strong> dialog, Godot-free — its provider list, the free and paid
@@ -74,12 +74,14 @@ public sealed class SupplyDialogModel
     private readonly List<MoneyViaChoice> _viaChoices = new();
     private int _selectedProviderIndex;
     private int _stagedTons;
+    private GameState _state = null!;
 
     private SupplyDialogModel(GameState state, ArmyState army, Ruleset ruleset)
     {
         _ruleset = ruleset;
         _armyId = army.Id;
         Refresh(state, army);
+        SelectProvider(_selectedProviderIndex);
     }
 
     private SupplyDialogModel(GameState state, FleetState fleet, Ruleset ruleset)
@@ -170,6 +172,10 @@ public sealed class SupplyDialogModel
 
         _selectedProviderIndex = index;
         _stagedTons = 0;
+        var provider = _providers[index];
+        var moneyIndex = provider.Kind == SupplyProviderKind.Army
+            ? _viaChoices.FindIndex(c => c.ArmyId == provider.Id) : -1;
+        if (moneyIndex >= 0) SelectMoneySource(moneyIndex);
     }
 
     /// <summary>Selects the <c>via</c> row by the fleet's id, or the treasury when <paramref name="fleetId"/> is null.</summary>
@@ -178,11 +184,34 @@ public sealed class SupplyDialogModel
         if (_viaChoices.Any(choice => string.Equals(choice.FleetId, fleetId, StringComparison.Ordinal)))
         {
             SelectedViaFleetId = fleetId;
+            SelectedViaArmyId = null;
         }
     }
 
     /// <summary>The selected <c>via</c> fleet, or <see langword="null"/> for the treasury.</summary>
     public string? SelectedViaFleetId { get; private set; }
+
+    public string? SelectedViaArmyId { get; private set; }
+
+    public void SelectMoneySource(int index)
+    {
+        if (index < 0 || index >= _viaChoices.Count) return;
+        SelectedViaFleetId = _viaChoices[index].FleetId;
+        SelectedViaArmyId = _viaChoices[index].ArmyId;
+    }
+
+    public string? PressSelectedMoney(int amount)
+    {
+        if (amount == 0) return null;
+        if (SelectedViaArmyId is not { } armyId) return PressMoney(amount, SelectedViaFleetId);
+        var receiver = _state.ArmyById(_armyId);
+        var donor = _state.ArmyById(armyId);
+        if (receiver is null || donor is null)
+            return $"army-transfer {_armyId} {armyId} {(amount > 0 ? "back-money" : "money")}={Math.Abs((long)amount)}";
+        var transfer = ArmyTransferModel.ForArmies(receiver, donor, _ruleset);
+        transfer.AdjustMoney(-amount);
+        return transfer.ComposeOk();
+    }
 
     /// <summary>
     /// One press of a supply arrow. A free provider composes the <c>buy</c> line the caller submits at
@@ -274,6 +303,7 @@ public sealed class SupplyDialogModel
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(army);
 
+        _state = state;
         var providers = SupplyProviders.ForArmy(state, army.Id, _ruleset);
         _providers.Clear();
         foreach (var provider in providers)
@@ -298,7 +328,7 @@ public sealed class SupplyDialogModel
         NationalTreasury = state.NationById(army.Nation)?.Treasury ?? 0;
 
         _viaChoices.Clear();
-        _viaChoices.Add(new MoneyViaChoice("Treasury", null));
+        _viaChoices.Add(new MoneyViaChoice("Treasury", null, Balance: NationalTreasury));
         foreach (var fleet in state.Fleets)
         {
             if (!string.Equals(fleet.Nation, army.Nation, StringComparison.Ordinal))
@@ -313,9 +343,10 @@ public sealed class SupplyDialogModel
                 continue;
             }
 
-            _viaChoices.Add(new MoneyViaChoice(fleet.Id, fleet.Id));
+            _viaChoices.Add(new MoneyViaChoice(fleet.Id, fleet.Id, Balance: fleet.Money));
         }
 
+        AddArmyMoneySources(state, army.Nation, army.X, army.Y);
         _stagedTons = 0;
     }
 
@@ -395,7 +426,7 @@ public sealed class SupplyDialogModel
         NationalTreasury = state.NationById(fleet.Nation)?.Treasury ?? 0;
 
         _viaChoices.Clear();
-        _viaChoices.Add(new MoneyViaChoice("Treasury", null));
+        _viaChoices.Add(new MoneyViaChoice("Treasury", null, Balance: NationalTreasury));
         foreach (var via in state.Fleets)
         {
             if (string.Equals(via.Id, fleet.Id, StringComparison.Ordinal)
@@ -409,10 +440,22 @@ public sealed class SupplyDialogModel
                 continue;
             }
 
-            _viaChoices.Add(new MoneyViaChoice(via.Id, via.Id));
+            _viaChoices.Add(new MoneyViaChoice(via.Id, via.Id, Balance: via.Money));
         }
 
         _stagedTons = 0;
+    }
+
+    private void AddArmyMoneySources(GameState state, string nation, int x, int y)
+    {
+        foreach (var other in state.Armies)
+            if (other.Id != _armyId && other.Nation == nation
+                && LandingTile.ChebyshevDistance(new GridPoint(x, y), new GridPoint(other.X, other.Y))
+                    == 1)
+                _viaChoices.Add(new MoneyViaChoice($"Army {other.Id}", null, other.Id, other.Money));
+
+        // A source that moved away must never silently fall back to spending treasury money.
+        // Retain its id: the command handler will refuse it until the player chooses another source.
     }
 
     private string BuyLine(SupplyProviderChoice provider, int tons)

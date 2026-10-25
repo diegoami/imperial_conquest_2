@@ -108,10 +108,10 @@ public partial class ArmyTransferDialog : Control
         center.AddChild(panel);
 
         var column = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        column.AddThemeConstantOverride("separation", AppTheme.DialogGap);
+        column.AddThemeConstantOverride("separation", 4);
         panel.AddChild(column);
 
-        column.AddChild(UiKit.MakeLabel("Army to army transfer", AppTheme.Header, UiKit.AccentColor));
+        column.AddChild(UiKit.MakeLabel("Army transfer", AppTheme.Header, UiKit.AccentColor));
         _figuresLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         _figuresLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         column.AddChild(_figuresLabel);
@@ -146,7 +146,7 @@ public partial class ArmyTransferDialog : Control
     private ItemList BuildSide(Container parent, string title, bool isSelectedSide)
     {
         var box = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        box.AddThemeConstantOverride("separation", AppTheme.DialogGap);
+        box.AddThemeConstantOverride("separation", 4);
         parent.AddChild(box);
         var heading = UiKit.MakeLabel(title, AppTheme.Body, UiKit.TextColor);
         box.AddChild(heading);
@@ -160,6 +160,8 @@ public partial class ArmyTransferDialog : Control
         }
 
         var list = new ItemList { CustomMinimumSize = new Vector2(320, 140), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        list.AddThemeFontSizeOverride("font_size", AppTheme.Note);
+        list.AddThemeConstantOverride("v_separation", 0);
         box.AddChild(list);
 
         var actions = new HBoxContainer();
@@ -174,7 +176,7 @@ public partial class ArmyTransferDialog : Control
     {
         var row = new HBoxContainer();
         row.AddThemeConstantOverride("separation", AppTheme.DialogGap);
-        row.AddChild(UiKit.MakeLabel($"Supply {ArmyId} → {PartnerId}", AppTheme.Body, UiKit.TextColor));
+        row.AddChild(UiKit.MakeLabel("Supply", AppTheme.Body, UiKit.TextColor));
         row.AddChild(UiKit.MakeButton("-100 t", () => PressSupply(-ArmyDialogModels.SupplyLargeStepTons)));
         _supplySpin = new SpinBox { Step = ArmyDialogModels.SupplyStepTons, CustomMinimumSize = new Vector2(120, 0) };
         _supplySpin.ValueChanged += _ => SpinSupply();
@@ -450,10 +452,13 @@ public partial class ArmyTransferDialog : Control
         var partner = Session.State.ArmyById(PartnerId);
         _figuresLabel.Text = selected is null || partner is null
             ? string.Empty
-            : $"{ArmyId}: {selected.SupplyTons} t · {selected.Money} talents"
-              + $"   |   {PartnerId}: {partner.SupplyTons} t · {partner.Money} talents";
-        _selectedTitle.Text = $"Army {ArmyId} — {_model.SelectedTroopTotal} troops";
-        _partnerTitle.Text = $"Army {PartnerId} — {_model.PartnerTroopTotal} troops";
+            : "Pending changes · OK applies · Cancel discards";
+        _selectedTitle.Text = $"{ArmyId} · {_model.SelectedTroopTotal:N0} troops\n"
+            + $"Supply {_model.SelectedSupplyNow:N0} → {_model.SelectedSupplyAfter:N0} t\n"
+            + $"Money {selected?.Money ?? 0:N0} → {_model.SelectedMoneyAfter:N0}";
+        _partnerTitle.Text = $"{PartnerId} · {_model.PartnerTroopTotal:N0} troops\n"
+            + $"Supply {_model.PartnerSupplyNow:N0} → {_model.PartnerSupplyAfter:N0} t\n"
+            + $"Money {partner?.Money ?? 0:N0} → {_model.PartnerMoneyAfter:N0}";
 
         Fill(_selectedList, Rows(isSelectedSide: true));
         Fill(_partnerList, Rows(isSelectedSide: false));
@@ -467,8 +472,8 @@ public partial class ArmyTransferDialog : Control
         _moneySpin.Value = _model.MoneyNet;
         _updatingSpinners = false;
 
-        _supplyLabel.Text = _model.SupplyCaption();
-        _moneyLabel.Text = NetLabel("Money", _model.MoneyNet, _model.MaxMoneyToPartner, _model.MaxMoneyBack);
+        _supplyLabel.Text = _model.PendingSupplyText;
+        _moneyLabel.Text = _model.PendingMoneyText;
     }
 
     private void Fill(ItemList list, IEnumerable<TransferRow> rows)
@@ -480,18 +485,4 @@ public partial class ArmyTransferDialog : Control
         }
     }
 
-    private static string NetLabel(string resource, int net, int maxToPartner, int maxBack)
-    {
-        if (net > 0)
-        {
-            return $"{resource}: +{net} (A → B)  ·  max +{maxToPartner}";
-        }
-
-        if (net < 0)
-        {
-            return $"{resource}: {net} (B → A)  ·  max -{maxBack}";
-        }
-
-        return $"{resource}: 0  ·  max +{maxToPartner} / -{maxBack}";
-    }
 }

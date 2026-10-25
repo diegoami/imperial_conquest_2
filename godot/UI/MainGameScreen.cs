@@ -1959,17 +1959,7 @@ public partial class MainGameScreen : Control
     }
 
     /// <summary>A new army id that does not collide with an existing one, for the split dialog.</summary>
-    private string NextSplitArmyId(string armyId)
-    {
-        var candidate = $"{armyId}-split";
-        var suffix = 2;
-        while (Session.State.ArmyById(candidate) is not null)
-        {
-            candidate = $"{armyId}-split-{suffix++}";
-        }
-
-        return candidate;
-    }
+    private string NextSplitArmyId(string armyId) => ArmyDialogModels.NextArmyId(Session.State);
 
     /// <summary>The selected army, or the army the selected fleet carries, or <see langword="null"/>.</summary>
     private ArmyState? SelectedArmyOrCarried()

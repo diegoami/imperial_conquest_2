@@ -260,6 +260,11 @@ public sealed class SupplyDialogModelTests
         Assert.Equal(otherArmyId, armyModel.Providers[^1].Id);
         Assert.Equal($"Supplies on army {otherArmyId}: 60", armyModel.Providers[^1].Label);
         SelectById(armyModel, otherArmyId);
+        Assert.Equal(otherArmyId, armyModel.SelectedViaArmyId);
+        Assert.Equal($"army-transfer {ArmyId} {otherArmyId} back-money=100", armyModel.PressSelectedMoney(100));
+        Assert.Equal(100, armyModel.MoneyViaChoices.Single(c => c.ArmyId == otherArmyId).Balance);
+        armyModel.SelectVia(null);
+        Assert.Equal($"transfer-money {ArmyId} 100", armyModel.PressSelectedMoney(100));
         Assert.Equal($"buy {ArmyId} army {otherArmyId} 10", armyModel.PressSupply(SupplyDialogModel.SupplyStepTons));
 
         var fleetModel = SupplyDialogModel.ForFleet(state, state.FleetById(OwnFleetId)!, ClassicalRuleset);

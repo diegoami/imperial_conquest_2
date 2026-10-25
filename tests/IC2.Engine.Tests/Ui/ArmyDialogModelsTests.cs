@@ -30,6 +30,85 @@ public sealed class ArmyDialogModelsTests
     private const string JoinFourArmyId = "t164-join-four";
     private const string ThreeUnitNewArmyId = "t111-three-split";
 
+    [Fact]
+    public void New_army_name_uses_first_free_number_and_never_parent_suffix()
+    {
+        var state = Session().State;
+        var source = state.Armies[0];
+        state = state with { Armies = ValueList.Of(source with { Id = "army-1" }, source with { Id = "army-3" }) };
+        Assert.Equal("army-2", ArmyDialogModels.NextArmyId(state));
+        state = state with { Armies = ValueList.From(state.Armies.Append(source with { Id = "army-2" })) };
+        Assert.Equal("army-4", ArmyDialogModels.NextArmyId(state));
+    }
+
+    [Fact]
+    public void Quick_split_resource_proposal_is_editable_and_only_commits_on_OK()
+    {
+        var session = Session();
+        var source = session.State.ArmyById(ThreeUnitArmyId)!;
+        var model = SplitArmyModel.ForArmy(session.State, source, session.Ruleset, ThreeUnitNewArmyId);
+        Assert.True(model.SuggestBalancedSplit());
+        Assert.True(model.Money > 0);
+        Assert.True(model.Supply > 0);
+        var proposedMoney = model.Money;
+        model.AdjustMoney(-1);
+        Assert.Equal(proposedMoney - 1, model.Money);
+        Assert.Null(model.Cancel());
+        Assert.Equal(source, session.State.ArmyById(source.Id));
+        Assert.Null(session.State.ArmyById(ThreeUnitNewArmyId));
+        session.Submit(model.ComposeOk()!);
+        var parent = session.State.ArmyById(source.Id)!;
+        var child = session.State.ArmyById(ThreeUnitNewArmyId)!;
+        Assert.Equal(model.Money, child.Money);
+        Assert.Equal(source.Money, parent.Money + child.Money);
+        Assert.Equal(source.SupplyTons, parent.SupplyTons + child.SupplyTons);
+        Assert.Equal(source.TotalTroops, parent.TotalTroops + child.TotalTroops);
+    }
+
+    [Theory]
+    [InlineData(100, 100, 300, 200, 200)]
+    [InlineData(100, 100, 30, 130, 0)]
+    [InlineData(100, 990, 300, 1000, 290)]
+    [InlineData(-50, 100, 300, 50, 350)]
+    public void Supply_money_from_selected_army_uses_its_purse_and_leaves_treasury(
+        int amount, int receiver, int donor, int expectedReceiver, int expectedDonor)
+    {
+        var session = Session(aMoney: receiver, bMoney: donor);
+        var before = session.State;
+        var model = SupplyDialogModel.ForArmy(before, before.ArmyById(ArmyAId)!, session.Ruleset);
+        var index = model.Providers.ToList().FindIndex(p => p.Id == ArmyBId);
+        Assert.True(index >= 0);
+        model.SelectProvider(index);
+        var command = model.PressSelectedMoney(amount);
+        Assert.NotNull(command);
+        session.Submit(command!);
+        Assert.Equal(expectedReceiver, session.State.ArmyById(ArmyAId)!.Money);
+        Assert.Equal(expectedDonor, session.State.ArmyById(ArmyBId)!.Money);
+        Assert.Equal(before.Nations, session.State.Nations);
+    }
+
+    [Fact]
+    public void Transfer_displays_pending_money_and_supply_before_confirmation()
+    {
+        var session = Session();
+        var before = session.State;
+        var model = ArmyTransferModel.ForArmies(before.ArmyById(ArmyAId)!, before.ArmyById(ArmyBId)!,
+            session.Ruleset, before, session.World);
+        model.AdjustMoney(50);
+        model.AdjustSupply(10);
+        Assert.Equal("50 talents → right", model.PendingMoneyText);
+        Assert.Equal("10 t → right", model.PendingSupplyText);
+        Assert.Equal(150, model.SelectedMoneyAfter);
+        Assert.Equal(150, model.PartnerMoneyAfter);
+        Assert.Equal(before, session.State);
+        Assert.Null(model.Cancel());
+        session.Submit(model.ComposeOk()!);
+        Assert.Equal(model.SelectedMoneyAfter, session.State.ArmyById(ArmyAId)!.Money);
+        Assert.Equal(model.PartnerMoneyAfter, session.State.ArmyById(ArmyBId)!.Money);
+        Assert.Equal(model.SelectedSupplyAfter, session.State.ArmyById(ArmyAId)!.SupplyTons);
+        Assert.Equal(model.PartnerSupplyAfter, session.State.ArmyById(ArmyBId)!.SupplyTons);
+    }
+
     [Theory]
     [InlineData(50)]
     [InlineData(70)]
@@ -57,8 +136,9 @@ public sealed class ArmyDialogModelsTests
         Assert.Equal(candidates.moved, model.StagedUnits);
         Assert.Equal(candidates.parentPower, model.ParentPower);
         Assert.Equal(candidates.childPower, model.NewArmyPower);
-        Assert.Equal(0, model.Money);
-        Assert.Equal(0, model.Supply);
+        var movedTroops = model.StagedUnits.Sum(i => source.Units[i].Troops);
+        Assert.Equal(Math.Min(model.MaxMoney, (int)((long)source.Money * movedTroops / source.TotalTroops)), model.Money);
+        Assert.Equal(Math.Min(model.MaxSupply, (int)((long)source.SupplyTons * movedTroops / source.TotalTroops)), model.Supply);
         Assert.Equal(source, session.State.ArmyById(ThreeUnitArmyId));
         Assert.True(model.SuggestBalancedSplit());
         Assert.Equal(candidates.moved, model.StagedUnits);
