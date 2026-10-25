@@ -30,9 +30,8 @@ namespace IC2.Engine.Tests.Armies;
 /// <para>
 /// <strong>Every acceptance asserts conservation.</strong> A split conserves the source army's troops
 /// exactly (the two parts sum to the original); a disband drops exactly the removed unit's troops and
-/// changes nothing else in the army. The designed defaults the user settled on issue #565 — the 1-troop
-/// split bounds, the 23-character name cap, the empty name and the last-unit refusal — each have their
-/// own test below, and each was proved to bite by mutation (see the task's PR body).
+/// changes nothing else in the army. Split boundaries follow the researched type-specific 2/5 source
+/// threshold and 1/5 resulting-unit floor. Other designed defaults from issue #565 retain their own tests.
 /// </para>
 /// </remarks>
 public sealed class ChangeUnitsCommandTests
@@ -54,17 +53,45 @@ public sealed class ChangeUnitsCommandTests
     private static ArmyState RomanArmy(GameState state) =>
         state.Armies.Single(a => string.Equals(a.Id, "army-0", StringComparison.Ordinal));
 
+    private static GameState WithRomanFirstUnitTroops(GameState state, int troops)
+    {
+        var army = RomanArmy(state);
+        var units = ValueList.From(army.Units.Select((unit, index) =>
+            index == 0 ? unit with { Troops = troops } : unit));
+        var updatedArmy = army with { Units = units };
+        return state with
+        {
+            Armies = ValueList.From(state.Armies.Select(candidate =>
+                candidate.Id == army.Id ? updatedArmy : candidate)),
+        };
+    }
+
+    [Fact]
+    public void SplitUnit_LightInfantryBelowTheOriginalMinimumIsRefusedOnTheClassicalScenario()
+    {
+        var state = WithRomanFirstUnitTroops(ClassicalInitial(), 4_800);
+        var army = RomanArmy(state);
+
+        var result = ClassicalDispatcher().Dispatch(
+            state, new SplitUnitCommand("rome", army.Id, 0, 2_400));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(SplitUnitRejections.TooSmall, result.Code);
+        Assert.Same(state, result.State);
+    }
+
     [Fact]
     public void SplitUnit_OnTheClassicalScenario_LeavesTwoUnitsOfTheSameTypeQualityAndMarkerAndConservesTroops()
     {
         var state = ClassicalInitial();
+        state = WithRomanFirstUnitTroops(state, 6_000);
         var army = RomanArmy(state);
         var source = army.Units[0];
         var sourceTroops = source.Troops;
         var before = army.TotalTroops;
 
         var result = ClassicalDispatcher().Dispatch(
-            state, new SplitUnitCommand("rome", army.Id, 0, 1_000));
+            state, new SplitUnitCommand("rome", army.Id, 0, 3_000));
 
         Assert.True(result.IsAccepted, result.ToString());
 
@@ -79,10 +106,10 @@ public sealed class ChangeUnitsCommandTests
         Assert.Equal(source.Quality, splitOff.Quality);
         Assert.Equal(source.MercenaryLabel, kept.MercenaryLabel);
         Assert.Equal(source.MercenaryLabel, splitOff.MercenaryLabel);
-        Assert.Equal(1_000, splitOff.Troops);
+        Assert.Equal(3_000, splitOff.Troops);
         Assert.Equal(before, updated.TotalTroops);
         Assert.Equal(sourceTroops, kept.Troops + splitOff.Troops);
-        Assert.Equal(sourceTroops - 1_000, kept.Troops);
+        Assert.Equal(sourceTroops - 3_000, kept.Troops);
     }
 
     [Fact]
@@ -152,9 +179,11 @@ public sealed class ChangeUnitsCommandTests
     {
         var state = WithArmies(
             InitialState(),
-            Army("cap-full", NorthNationId, 5, 5, RegularUnits(ArmiesTestbed.Ruleset.ArmyManagement.MaxUnitsPerArmy)));
+            Army("cap-full", NorthNationId, 5, 5,
+                Enumerable.Range(0, ArmiesTestbed.Ruleset.ArmyManagement.MaxUnitsPerArmy)
+                    .Select(i => RegularUnit($"u{i}", troops: 6_000))));
 
-        var result = Dispatcher().Dispatch(state, new SplitUnitCommand(NorthNationId, "cap-full", 0, 5));
+        var result = Dispatcher().Dispatch(state, new SplitUnitCommand(NorthNationId, "cap-full", 0, 3_000));
 
         Assert.True(result.IsRejected);
         Assert.Equal(SplitUnitRejections.TooManyUnits, result.Code);
@@ -166,9 +195,11 @@ public sealed class ChangeUnitsCommandTests
     {
         var state = WithArmies(
             InitialState(),
-            Army("cap-room", NorthNationId, 5, 5, RegularUnits(ArmiesTestbed.Ruleset.ArmyManagement.MaxUnitsPerArmy - 1)));
+            Army("cap-room", NorthNationId, 5, 5,
+                Enumerable.Range(0, ArmiesTestbed.Ruleset.ArmyManagement.MaxUnitsPerArmy - 1)
+                    .Select(i => RegularUnit($"u{i}", troops: 6_000))));
 
-        var result = Dispatcher().Dispatch(state, new SplitUnitCommand(NorthNationId, "cap-room", 0, 5));
+        var result = Dispatcher().Dispatch(state, new SplitUnitCommand(NorthNationId, "cap-room", 0, 3_000));
 
         Assert.True(result.IsAccepted, result.ToString());
         Assert.Equal(
@@ -184,9 +215,9 @@ public sealed class ChangeUnitsCommandTests
             InitialState(),
             Army(
                 "inherit-a", NorthNationId, 5, 5,
-                new[] { RegularUnit("source", unitTypeId: "light_infantry", troops: 5_000, quality: 6) }));
+                new[] { RegularUnit("source", unitTypeId: "light_infantry", troops: 10_000, quality: 6) }));
 
-        var result = Dispatcher().Dispatch(state, new SplitUnitCommand(NorthNationId, "inherit-a", 0, 2_000));
+        var result = Dispatcher().Dispatch(state, new SplitUnitCommand(NorthNationId, "inherit-a", 0, 3_000));
 
         Assert.True(result.IsAccepted, result.ToString());
         var splitOff = result.State.ArmyById("inherit-a")!.Units[^1];
@@ -237,7 +268,7 @@ public sealed class ChangeUnitsCommandTests
         // "8th Foot Battalion".
         var state = WithArmies(
             InitialState(),
-            Army("names-a", NorthNationId, 5, 5, new[] { RegularUnit("split-me", troops: 5_000, quality: 6) }),
+            Army("names-a", NorthNationId, 5, 5, new[] { RegularUnit("split-me", troops: 10_000, quality: 6) }),
             Army("names-b", NorthNationId, 6, 5, new[] { RegularUnit("3rd Foot  Battalion", troops: 1_000) }),
             Army("names-merc", NorthNationId, 7, 5, new[] { MercenaryUnit("9th Foot Battalion", troops: 1_000, label: 4) }),
             Army("names-south", SouthNationId, 5, 6, new[] { RegularUnit("12th Foot Battalion", troops: 1_000) }));
@@ -248,7 +279,7 @@ public sealed class ChangeUnitsCommandTests
                 Garrison = ValueList.Of(RegularUnit("7th Foot  Battalion", troops: 1_000)),
             });
 
-        var result = Dispatcher().Dispatch(state, new SplitUnitCommand(NorthNationId, "names-a", 0, 2_000));
+        var result = Dispatcher().Dispatch(state, new SplitUnitCommand(NorthNationId, "names-a", 0, 3_000));
 
         Assert.True(result.IsAccepted, result.ToString());
         var splitOff = result.State.ArmyById("names-a")!.Units[^1];
@@ -372,12 +403,12 @@ public sealed class ChangeUnitsCommandTests
         Assert.Same(state, result.State);
     }
 
-    // ---- the designed defaults of issue #565 ----
+    // ---- issue #565 arithmetic boundaries and researched type-specific split limits ----
 
     [Fact]
     public void SplitUnit_ZeroTroops_IsRejectedAndTheStateIsUntouched()
     {
-        var state = WithArmies(InitialState(), Army("bound-a", NorthNationId, 5, 5, new[] { RegularUnit("a", troops: 100) }));
+        var state = WithArmies(InitialState(), Army("bound-a", NorthNationId, 5, 5, new[] { RegularUnit("a", troops: 6_000) }));
 
         var result = Dispatcher().Dispatch(state, new SplitUnitCommand(NorthNationId, "bound-a", 0, 0));
 
@@ -389,7 +420,7 @@ public sealed class ChangeUnitsCommandTests
     [Fact]
     public void SplitUnit_AllTheTroops_IsRejectedAndTheStateIsUntouched()
     {
-        var state = WithArmies(InitialState(), Army("bound-b", NorthNationId, 5, 5, new[] { RegularUnit("a", troops: 100) }));
+        var state = WithArmies(InitialState(), Army("bound-b", NorthNationId, 5, 5, new[] { RegularUnit("a", troops: 6_000) }));
 
         var result = Dispatcher().Dispatch(state, new SplitUnitCommand(NorthNationId, "bound-b", 0, 100));
 
@@ -398,32 +429,86 @@ public sealed class ChangeUnitsCommandTests
         Assert.Same(state, result.State);
     }
 
-    [Fact]
-    public void SplitUnit_OneTroop_IsAcceptedAndConservesTroops()
+    [Theory]
+    [InlineData("light_infantry", 15_000)]
+    [InlineData("heavy_infantry", 6_000)]
+    [InlineData("archers", 3_500)]
+    [InlineData("light_cavalry", 7_000)]
+    [InlineData("heavy_cavalry", 2_500)]
+    public void SplitUnit_UsesEachTypesTwoFifthsSourceThreshold(string unitTypeId, int standardSize)
     {
-        var state = WithArmies(InitialState(), Army("bound-c", NorthNationId, 5, 5, new[] { RegularUnit("a", troops: 100) }));
+        var threshold = standardSize * 2 / 5;
+        var tooSmall = WithArmies(
+            InitialState(),
+            Army("type-threshold", NorthNationId, 5, 5,
+                new[] { RegularUnit("source", unitTypeId, threshold - 1) }));
 
-        var result = Dispatcher().Dispatch(state, new SplitUnitCommand(NorthNationId, "bound-c", 0, 1));
+        var rejected = Dispatcher().Dispatch(
+            tooSmall, new SplitUnitCommand(NorthNationId, "type-threshold", 0, threshold / 2));
 
-        Assert.True(result.IsAccepted, result.ToString());
-        var updated = result.State.ArmyById("bound-c")!;
-        Assert.Equal(100, updated.TotalTroops);
-        Assert.Equal(1, updated.Units[^1].Troops);
-        Assert.Equal(99, updated.Units[0].Troops);
+        Assert.True(rejected.IsRejected);
+        Assert.Equal(SplitUnitRejections.TooSmall, rejected.Code);
+        Assert.Same(tooSmall, rejected.State);
+
+        var exactThreshold = WithArmies(
+            InitialState(),
+            Army("type-threshold", NorthNationId, 5, 5,
+                new[] { RegularUnit("source", unitTypeId, threshold) }));
+        var minimumPart = standardSize / 5;
+        var accepted = Dispatcher().Dispatch(
+            exactThreshold, new SplitUnitCommand(NorthNationId, "type-threshold", 0, minimumPart));
+
+        Assert.True(accepted.IsAccepted, accepted.ToString());
+        var updated = accepted.State.ArmyById("type-threshold")!;
+        Assert.Equal(minimumPart, updated.Units[0].Troops);
+        Assert.Equal(minimumPart, updated.Units[^1].Troops);
+        Assert.Equal(threshold, updated.TotalTroops);
+    }
+
+    [Theory]
+    [InlineData(2_999)]
+    [InlineData(7_001)]
+    public void SplitUnit_RefusesWhenEitherResultWouldFallBelowOneFifth(int splitTroops)
+    {
+        var state = WithArmies(
+            InitialState(),
+            Army("part-floor", NorthNationId, 5, 5,
+                new[] { RegularUnit("source", "light_infantry", 10_000) }));
+
+        var result = Dispatcher().Dispatch(
+            state, new SplitUnitCommand(NorthNationId, "part-floor", 0, splitTroops));
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(SplitUnitRejections.InvalidTroops, result.Code);
+        Assert.Same(state, result.State);
     }
 
     [Fact]
-    public void SplitUnit_OneFewerThanAllTheTroops_IsAcceptedAndConservesTroops()
+    public void SplitUnit_AtTheMinimumPartFloor_IsAcceptedAndConservesTroops()
     {
-        var state = WithArmies(InitialState(), Army("bound-d", NorthNationId, 5, 5, new[] { RegularUnit("a", troops: 100) }));
+        var state = WithArmies(InitialState(), Army("bound-c", NorthNationId, 5, 5, new[] { RegularUnit("a", troops: 6_000) }));
 
-        var result = Dispatcher().Dispatch(state, new SplitUnitCommand(NorthNationId, "bound-d", 0, 99));
+        var result = Dispatcher().Dispatch(state, new SplitUnitCommand(NorthNationId, "bound-c", 0, 3_000));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        var updated = result.State.ArmyById("bound-c")!;
+        Assert.Equal(6_000, updated.TotalTroops);
+        Assert.Equal(3_000, updated.Units[^1].Troops);
+        Assert.Equal(3_000, updated.Units[0].Troops);
+    }
+
+    [Fact]
+    public void SplitUnit_AtTheMaximumPartBoundary_IsAcceptedAndConservesTroops()
+    {
+        var state = WithArmies(InitialState(), Army("bound-d", NorthNationId, 5, 5, new[] { RegularUnit("a", troops: 10_000) }));
+
+        var result = Dispatcher().Dispatch(state, new SplitUnitCommand(NorthNationId, "bound-d", 0, 7_000));
 
         Assert.True(result.IsAccepted, result.ToString());
         var updated = result.State.ArmyById("bound-d")!;
-        Assert.Equal(100, updated.TotalTroops);
-        Assert.Equal(99, updated.Units[^1].Troops);
-        Assert.Equal(1, updated.Units[0].Troops);
+        Assert.Equal(10_000, updated.TotalTroops);
+        Assert.Equal(7_000, updated.Units[^1].Troops);
+        Assert.Equal(3_000, updated.Units[0].Troops);
     }
 
     [Fact]
