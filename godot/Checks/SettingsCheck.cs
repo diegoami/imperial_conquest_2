@@ -141,7 +141,7 @@ public partial class SettingsCheck : Control
         _steps.Enqueue(() =>
         {
             SettingsScreen.Commit(SettingsScreen.Current.WithBattleSpeed(BattleSpeeds.All.Single(s => s.Id == "fast")));
-            Check(SettingsScreen.BattleShotDelaySeconds == 0.3 && SettingsScreen.BattleAttackDelaySeconds == 1.0, "Fast sets the battle pauses");
+            Check(SettingsScreen.BattleShotDelaySeconds == 0.03 && SettingsScreen.BattleAttackDelaySeconds == 0.05, "Fast sets the battle pauses");
             Check(UserSettings.Load(_file) == SettingsScreen.Current, "the settings file reads back equal to the settings in force");
         });
         _steps.Enqueue(() =>
