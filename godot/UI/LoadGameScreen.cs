@@ -93,7 +93,7 @@ public partial class LoadGameScreen : Control
         var outcome = AppDiagnostics.Operation(DiagnosticEvent.Load, "load",
             () => LoadGameModel.Open(path, GameDataContext.Repository, HumanBattleMode.Tactical),
             target: path, success: result => result.Session is not null);
-        LastLoadMessage = outcome.Message;
+        LastLoadMessage = outcome.Message ?? string.Empty;
         if (outcome.Session is not { } session)
         {
             _browseDialog?.Hide();

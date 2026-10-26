@@ -264,7 +264,7 @@ public partial class MainGameScreen : Control
 
     // T112: the Unit map's context strip, placed below the main toolbar.
     private UnitCommandStrip _commandStrip = null!;
-    private Label _travelTargetLabel = null!;
+    private string _travelTargetStatus = string.Empty;
     private HBoxContainer _retreatSupplyRow = null!;
     private Label _retreatSupplyLabel = null!;
     private Button _retreatSupplyButton = null!;
@@ -328,12 +328,6 @@ public partial class MainGameScreen : Control
         // toolbar. It is hidden while nothing (or a foreign unit) is selected.
         _commandStrip = new UnitCommandStrip { Table = CommandTable, AssetLoader = assetLoader };
         root.AddChild(_commandStrip);
-        _travelTargetLabel = UiKit.MakeLabel(string.Empty, AppTheme.Note, UiKit.MutedTextColor);
-        _travelTargetLabel.ClipText = true;
-        _travelTargetLabel.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
-        var travelTargetRow = new HBoxContainer { Visible = false };
-        travelTargetRow.AddChild(_travelTargetLabel);
-        root.AddChild(travelTargetRow);
 
         _retreatSupplyRow = new HBoxContainer { Visible = false };
         _retreatSupplyLabel = UiKit.MakeLabel(string.Empty, AppTheme.Note, UiKit.MutedTextColor);
@@ -1149,6 +1143,8 @@ public partial class MainGameScreen : Control
         MenuBar.SetHintsEnabled(_hintsEnabled);
         Toolbar.SetHintsEnabled(_hintsEnabled);
         _areaMapView.SetHintsEnabled(_hintsEnabled);
+        _commandStrip.SetHintsEnabled(_hintsEnabled);
+        UpdateCommandStrip();
     }
 
     /// <summary>
@@ -1737,19 +1733,17 @@ public partial class MainGameScreen : Control
         }
 
         _commandStrip.SetSelection(selection);
-        if (_travelTargetLabel is null) return;
         var target = _selectedArmyId is { } selected ? Session.TravelTargetFor(selected) : null;
         var current = _selectedArmyId is { } selectedArmyId ? Session.State.ArmyById(selectedArmyId) : null;
         var remaining = target is null || current is null ? 0
             : Math.Max(0, Math.Max(Math.Abs(current.X - target.X), Math.Abs(current.Y - target.Y))
                 - (target.CityId is null ? 0 : 1));
-        _travelTargetLabel.Visible = target is not null || _mapView.TravelTargetPickArmed;
-        _travelTargetLabel.Text = _mapView.TravelTargetPickArmed
+        _travelTargetStatus = _mapView.TravelTargetPickArmed
             ? "Travel target: click an open land cell or city; right-click or Esc to cancel."
             : target is null ? string.Empty
             : $"Travel target for {target.ArmyId}: {(target.CityId is null ? $"cell ({target.X}, {target.Y})" : $"city {target.CityId}")} · {remaining} cells away. Use Army → Cancel travel target to stop.";
         if (_commandStrip.ButtonFor("unit_map.army_set_target") is { } travelButton)
-            travelButton.TooltipText = "Set travel target" + (string.IsNullOrEmpty(_travelTargetLabel.Text) ? "" : "\n" + _travelTargetLabel.Text);
+            UiKit.SetHint(travelButton, "Set travel target" + (string.IsNullOrEmpty(_travelTargetStatus) ? "" : "\n" + _travelTargetStatus), _hintsEnabled);
 
         var selectedArmy = OwnSelectedArmy();
         var selectedFleet = selectedArmy is null || selectedArmy.IsEmbarked ? OwnSelectedFleet() : null;
@@ -1761,7 +1755,8 @@ public partial class MainGameScreen : Control
         _retreatSupplyLabel.Text = recovery is null ? string.Empty
             : $"Recovering {selectedUnit}" + (recovery.DestinationCityId is null
                 ? ": choosing an owned town." : $": heading to {recovery.DestinationCityId}.");
-        _retreatSupplyButton.TooltipText = recovery is null ? "Retreat and supply" : "Cancel recovery\n" + _retreatSupplyLabel.Text;
+        UiKit.SetHint(_retreatSupplyButton, recovery is null ? "Retreat and supply" : "Cancel recovery\n" + _retreatSupplyLabel.Text, _hintsEnabled);
+        UiKit.SetHint(_retreatSplitButton, "Suggest a balanced split for supply", _hintsEnabled);
         _retreatSplitButton.Visible = recovery is { IsFleet: false }
             && selectedArmy is { IsEmbarked: false } && selectedArmy.Units.Count >= 2;
 
@@ -1772,7 +1767,8 @@ public partial class MainGameScreen : Control
             ? "Rally point: click a land cell or owned city; right-click or Esc to cancel."
             : rally is null ? "Rally point for new armies: none."
             : $"Rally point for {rally.NationId}: {(rally.CityId is null ? $"cell ({rally.X}, {rally.Y})" : $"city {rally.CityId}")}.";
-        _rallyPointSetButton.TooltipText = (rally is null ? "Set rally point" : "Change rally point") + "\n" + _rallyPointLabel.Text;
+        UiKit.SetHint(_rallyPointSetButton, (rally is null ? "Set rally point" : "Change rally point") + "\n" + _rallyPointLabel.Text, _hintsEnabled);
+        UiKit.SetHint(_rallyPointClearButton, "Clear rally point", _hintsEnabled);
         _rallyPointClearButton.Visible = rally is not null;
     }
 

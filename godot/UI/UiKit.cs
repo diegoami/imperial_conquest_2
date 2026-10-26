@@ -5,6 +5,14 @@ namespace IC2.Slice.UI;
 /// <summary>Shared control builders reading the project-wide T169 theme.</summary>
 public static class UiKit
 {
+    /// <summary>Hide optional hover hints without removing the control's accessible identity or status.</summary>
+    public static void SetHint(Control control, string text, bool enabled)
+    {
+        control.AccessibilityName = text.Split('\n')[0];
+        control.AccessibilityDescription = text;
+        control.TooltipText = enabled ? text : string.Empty;
+    }
+
     public static Color Background => AppTheme.Color("background");
     public static Color PanelColor => AppTheme.Color("panel");
     public static Color PanelColorRaised => AppTheme.Color("raised");
