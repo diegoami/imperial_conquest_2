@@ -50,8 +50,10 @@ public sealed class GeneralIterationOrderTests
         Assert.False(order.MoveNext());
     }
 
-    [Fact]
-    public void Threat_pass_visits_light_infantry_slot_zero_before_heavy_infantry_slot_one()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Threat_pass_visits_light_infantry_slot_zero_before_heavy_infantry_slot_one(bool integrated)
     {
         var state = Arena(new[]
         {
@@ -61,9 +63,11 @@ public sealed class GeneralIterationOrderTests
         }, attackerGeneral: true);
         var journal = new List<GeneralDecision>();
 
-        GeneralPassThree.ThreatMove(state, Context, new DelphiBattleDraws(7), journal);
+        if (integrated) GeneralPassThree.Run(state, Context, new DelphiBattleDraws(7), journal);
+        else GeneralPassThree.ThreatMove(state, Context, new DelphiBattleDraws(7), journal);
 
-        Assert.Equal(new[] { 0, 1 }, journal.Select(decision => decision.Slot).Distinct());
+        Assert.Equal(new[] { 0, 1 }, journal.Where(decision => decision.Step is GeneralStep.ThreatLine or GeneralStep.ThreatBox)
+            .Select(decision => decision.Slot).Distinct());
     }
 
     [Fact]

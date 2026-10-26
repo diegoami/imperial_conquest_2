@@ -81,7 +81,7 @@ public static class OriginalSaveExportFieldMapping
         new(typeof(ArmyState), "CoveredTileCode", Kind.Derived, "OriginalArmy.Cell", "The map underlay is reconstructed rather than trusting native marker bookkeeping."),
         new(typeof(ArmyState), "TotalTroops IsEmbarked", Kind.Derived, "army marker and transport", "These are formulas over units and the carried-fleet link."),
         new(typeof(UnitSlot), "MercenaryLabel UnitTypeId Troops Quality Name", Kind.Written,
-            "OriginalUnitSlot", "The exporter checks original bounds, type codes and name encoding; only the reviewed mercenary alias may change text."),
+            "OriginalUnitSlot", "The exporter checks original bounds, type codes and name encoding; only reviewed generated-mercenary and two-digit Dragoons split aliases may change text."),
         new(typeof(UnitSlot), "IsMercenary IsRegular", Kind.Derived, "OriginalUnitSlot.Label", "Both flags derive from the stored mercenary label."),
 
         new(typeof(FleetState), "Id", Kind.Validated, "OriginalFleet table index", "Fleet order and army carrier links use the exported table index."),
@@ -119,7 +119,7 @@ public static class OriginalSaveExportFieldMapping
             "ArmyState", "Army records are written in state order with packed live units."),
         new(typeof(OriginalArmy), "Cell", Kind.Derived, "world map underlay", "Covered terrain or the embarked sentinel is recomputed."),
         new(typeof(OriginalUnitSlot), "Label Type Troops Quality Name", Kind.Written,
-            "UnitSlot", "Unit values and the reviewed generated-mercenary alias are validated before encoding."),
+            "UnitSlot", "Unit values and the reviewed generated-name aliases are validated before encoding."),
         new(typeof(OriginalFleet), "X Y Owner Countdown Moves Supplies Money Ships CityOrCondition Army", Kind.Written,
             "FleetState", "The construction/launch union and carrier index come from checked fleet state."),
         new(typeof(OriginalFleet), "RouteX RouteY", Kind.Canonical, "no native field", "No AI waypoint is saved; write the original's absent-route sentinel."),

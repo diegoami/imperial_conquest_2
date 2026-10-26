@@ -347,17 +347,36 @@ public static class OriginalSaveExporter
         x is >= 0 and < OriginalSaveDocument.MapWidth && y is >= 0 and < OriginalSaveDocument.MapHeight;
 
     /// <summary>
-    /// The unit's name as the original stores it. The one alias T185 allows: a generated mercenary placeholder
+    /// The unit's name as the original stores it. A generated mercenary placeholder
     /// <c>Mercenary unit (label N)</c>, N the unit's own nonzero label, too long for the original's 23 bytes,
-    /// is written <c>Mercenary (label N)</c>. Every other name is written as it is (and refused if it does not fit).
+    /// is written <c>Mercenary (label N)</c>. The owner-approved #1483 export-only policy also removes
+    /// one split separator space from exact
+    /// two-digit regular Dragoons names. Every other name is written unchanged (and refused if it does not fit).
     /// </summary>
     private static string ExportName(UnitSlot unit, string armyId, int slot, List<OriginalSaveExportAlias> aliases)
     {
         var name = unit.Name;
-        if (name.Length <= OriginalSaveCodec.UnitNameBytes - 1 || unit.MercenaryLabel == 0) return name;
-        var label = unit.MercenaryLabel.ToString(CultureInfo.InvariantCulture);
-        if (!string.Equals(name, $"{MercenaryAliasPrefix}{label})", StringComparison.Ordinal)) return name;
-        var alias = $"Mercenary (label {label})";
+        if (name.Length <= OriginalSaveCodec.UnitNameBytes - 1) return name;
+        string alias;
+        if (unit.MercenaryLabel == 0 && unit.UnitTypeId == "heavy_cavalry"
+            && name.Length == 24 && name[0] is >= '1' and <= '9' && name[1] is >= '0' and <= '9')
+        {
+            var ordinal = (name[0] - '0') * 10 + name[1] - '0';
+            var suffix = ordinal is >= 11 and <= 13 ? "th" : (ordinal % 10) switch
+            {
+                1 => "st", 2 => "nd", 3 => "rd", _ => "th",
+            };
+            if (!string.Equals(name, $"{ordinal.ToString(CultureInfo.InvariantCulture)}{suffix} Dragoons  Battalion",
+                StringComparison.Ordinal)) return name;
+            alias = name.Replace("  Battalion", " Battalion", StringComparison.Ordinal);
+        }
+        else
+        {
+            if (unit.MercenaryLabel == 0) return name;
+            var label = unit.MercenaryLabel.ToString(CultureInfo.InvariantCulture);
+            if (!string.Equals(name, $"{MercenaryAliasPrefix}{label})", StringComparison.Ordinal)) return name;
+            alias = $"Mercenary (label {label})";
+        }
         aliases.Add(new OriginalSaveExportAlias(armyId, slot, name, alias));
         return alias;
     }
@@ -412,7 +431,7 @@ public sealed class OriginalSaveExportException(IReadOnlyList<OriginalSaveExport
     public IReadOnlyList<OriginalSaveExportRefusal> Refusals { get; } = refusals;
 }
 
-/// <summary>One unit name written under the mercenary alias, with its army and slot.</summary>
+/// <summary>One generated unit name written under an export-only alias, with its army and slot.</summary>
 public sealed record OriginalSaveExportAlias(string ArmyId, int Slot, string NativeName, string ExportedName);
 
 /// <summary>What <see cref="OriginalSaveExporter.ExportFile"/> wrote.</summary>
