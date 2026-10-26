@@ -85,6 +85,51 @@ refusal. Disband inside Army transfer has another contract: final OK deletes
 empty cargo and pools stores into its partner, rather than treasury/city refunds.
 Neither result implies a later End turn or full lifecycle equivalence.
 
+## AI overflow receiver context and raw lineage
+
+[Research89](https://github.com/diegoami/imperial-conquest-2-research/pull/89),
+report revision `da01d29eb7d8c01eb507d173174a13c76d0760f3`, promotes
+[conditional original-instruction and native-command evidence](https://github.com/diegoami/imperial-conquest-2-research/blob/dc851f5267f7d8c4a887f066204c1355480844aa/docs/reports/2026-10-26-fleet-overflow-receiver174.md).
+Unlike the stock-Wine GUI controls above, this evidence uses retained original
+instruction traces and diagnostic RAM-to-SAV projections, not original Save As
+outputs or a newly played original session. Research independently audited the
+retained artifacts and freshly replayed the unchanged native command probe.
+
+Original B79C vacates the source land cell, snaps the army to the fleet, zeros
+moves, then calls F8FC. Receiver search uses that post-board context. Transfer
+also zeros the receiver's initial AI move. The remake instead queries placement
+on the pre-board land army and leaves the receiver with one move. With source
+(39,34), fleet (40,33), ten ships and units4000/2000, the observed original
+receiver is (40,34)/moves0; accepted native receiver is (40,35)/moves1.
+Diagnostic post-board native queries match every successful original receiver
+coordinate. This supports the narrow follow-up [#1495](https://github.com/diegoami/imperial_conquest_2/issues/1495),
+not a change to unrelated split placement or a tested production fix.
+
+The16 labels represent13 distinct inputs. Seven position/moves-only discrepancy
+rows cover four inputs; an all-overflow row makes eight discrepancies over five
+inputs and has an additional resource-policy difference. Occupied own/enemy
+armies remain untouched; the original creates a new receiver. A wrong accepted
+receiver is demonstrated, but the separate false-no-receiver-refusal control
+was not run and must not be inferred.
+
+The original raw198 branch deletes overflow and writes resource words through
+receiver index-1 into a city name. Keep T216's owner-approved atomic refusal.
+In all-overflow, AB90 tombstones source0 and unlinks its carrier; ABE0 is not
+called and raw count remains2. Receiver1 holds33money/30supply, while dead
+source0 retains67/60. The remake's100/90 on its live replacement preserves
+resources by policy. Neither original data corruption nor resource loss is an
+automatic fidelity correction. Raw tombstones, imported live models and actual
+original compaction are different; [#1439](https://github.com/diegoami/imperial_conquest_2/issues/1439)
+retains the ordering/lineage boundary.
+
+Research checked255 retained closure files,32 endpoints,32 traces,30 placement
+queries and15 fresh native full-state outcomes. Its fresh private closure has
+257 files because of added audit receipts; scientific fields and rows agree.
+This is not fresh original instruction execution, an actual AI caller history,
+whole-turn/RNG parity, human UI, Godot, Windows or export/reimport acceptance.
+Closed T216's whole-unit conservation fix and its explicit safety policies are
+not reopened by this narrower placement/moves finding.
+
 ## Selection-rendering correction
 
 [Research87's selection report](https://github.com/diegoami/imperial-conquest-2-research/blob/77d89876c89570962c7dc75f718a8f88774177f9/docs/reports/2026-10-12-unit-map-selection-rendering.md)
