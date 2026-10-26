@@ -11,6 +11,30 @@ namespace IC2.Engine.Tests.Ai;
 /// <summary>Public, synthetic controls from the navigation187 matrix; no original files are loaded.</summary>
 public sealed class ClassicalArmyNavigationTests
 {
+    [Theory]
+    [InlineData(0, 58, 64, 53, 61)]
+    [InlineData(1, 86, 91, 40, 48)]
+    [InlineData(2, 82, 90, 49, 63)]
+    [InlineData(3, 99, 114, 62, 74)]
+    [InlineData(4, 149, 156, 54, 60)]
+    [InlineData(5, 150, 164, 75, 81)]
+    [InlineData(6, 163, 167, 66, 71)]
+    [InlineData(7, 190, 207, 68, 79)]
+    public void Geographic_regions_exclude_every_edge_but_include_adjacent_interior_cells(
+        int region, int minX, int maxX, int minY, int maxY)
+    {
+        var x = (minX + maxX) / 2;
+        var y = (minY + maxY) / 2;
+        Assert.Equal(-1, ClassicalArmyNavigation.Classify(minX, y).Region);
+        Assert.Equal(-1, ClassicalArmyNavigation.Classify(maxX, y).Region);
+        Assert.Equal(-1, ClassicalArmyNavigation.Classify(x, minY).Region);
+        Assert.Equal(-1, ClassicalArmyNavigation.Classify(x, maxY).Region);
+        Assert.Equal(region, ClassicalArmyNavigation.Classify(minX + 1, y).Region);
+        Assert.Equal(region, ClassicalArmyNavigation.Classify(maxX - 1, y).Region);
+        Assert.Equal(region, ClassicalArmyNavigation.Classify(x, minY + 1).Region);
+        Assert.Equal(region, ClassicalArmyNavigation.Classify(x, maxY - 1).Region);
+    }
+
     private static AiView View(int defaultCode, params (int X, int Y, int Code)[] patches)
     {
         var original = RealGameData.World;

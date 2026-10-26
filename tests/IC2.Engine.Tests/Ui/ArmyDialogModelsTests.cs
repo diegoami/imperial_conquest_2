@@ -139,6 +139,48 @@ public sealed class ArmyDialogModelsTests
         Assert.Equal(model.PartnerSupplyAfter, session.State.ArmyById(ArmyBId)!.SupplyTons);
     }
 
+    [Fact]
+    public void Quick_split_unequal_troops_propose_proportional_money_without_a_binding_cap()
+    {
+        var session = Session();
+        var source = session.State.ArmyById(ThreeUnitArmyId)! with
+        {
+            Money = 601, SupplyTons = 30,
+            Units = ValueList.Of(new UnitSlot(0, "light_infantry", 1_000, 6, "Small"),
+                new UnitSlot(0, "light_infantry", 2_000, 6, "Large")),
+        };
+        var ruleset = session.Ruleset with
+        {
+            ArmyManagement = session.Ruleset.ArmyManagement with { NewArmyMorale = source.Morale },
+        };
+        var model = SplitArmyModel.ForArmy(session.State, source, ruleset, NewArmyId);
+        Assert.True(model.SuggestBalancedSplit());
+        Assert.Equal(new[] { 0 }, model.StagedUnits);
+        Assert.Equal(200, model.Money);
+        Assert.Equal(10, model.Supply);
+        Assert.True(model.MaxMoney > model.Money);
+        Assert.NotEqual(source.Money / 2, model.Money);
+    }
+
+    [Fact]
+    public void Quick_split_equal_rounded_strength_prefers_closer_troop_totals_before_slot_order()
+    {
+        var session = Session();
+        // All subsets round to zero power under the real LI weight and divisor.
+        // [0] is earlier but leaves 100 vs 250; [0,2] leaves 200 vs 150.
+        var source = session.State.ArmyById(ThreeUnitArmyId)! with
+        {
+            Units = ValueList.Of(new UnitSlot(0, "light_infantry", 100, 6, "First"),
+                new UnitSlot(0, "light_infantry", 150, 6, "Middle"),
+                new UnitSlot(0, "light_infantry", 100, 6, "Last")),
+        };
+        var model = SplitArmyModel.ForArmy(session.State, source, session.Ruleset, NewArmyId);
+        Assert.True(model.SuggestBalancedSplit());
+        Assert.Equal(0, model.ParentPower);
+        Assert.Equal(0, model.NewArmyPower);
+        Assert.Equal(new[] { 0, 2 }, model.StagedUnits);
+    }
+
     [Theory]
     [InlineData(50)]
     [InlineData(70)]

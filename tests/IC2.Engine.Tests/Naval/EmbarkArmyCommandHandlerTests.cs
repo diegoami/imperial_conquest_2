@@ -183,6 +183,38 @@ public sealed class EmbarkArmyCommandHandlerTests
     }
 
     [Fact]
+    public void T216_middle_overflow_lands_every_later_slot_even_when_it_would_fit()
+    {
+        var state = BuildState(6_500, SeatControl.Ai, out var armyId, out var fleetId, out var nationId);
+        var source = state.ArmyById(armyId)! with
+        {
+            Money = 100, SupplyTons = 90,
+            Units = ValueList.Of(
+                new UnitSlot(0, "light_infantry", 4_000, 6, "Aboard"),
+                new UnitSlot(0, "heavy_infantry", 2_000, 7, "Overflow"),
+                new UnitSlot(0, "archers", 500, 8, "Would fit")),
+        };
+        state = state with { Armies = ValueList.Of(source) };
+        var result = DispatcherFor(SeatAsymmetryModel.Faithful)
+            .Dispatch(state, new EmbarkArmyCommand(nationId, armyId, fleetId));
+        Assert.True(result.IsAccepted, result.ToString());
+        var aboard = result.State.ArmyById(armyId)!;
+        var ashore = Assert.Single(result.State.Armies, a => a.Id != armyId);
+        Assert.Equal(new[] { source.Units[0] }, aboard.Units);
+        Assert.Equal(new[] { source.Units[1], source.Units[2] }, ashore.Units);
+        Assert.Equal((67, 60, 33, 30), (aboard.Money, aboard.SupplyTons, ashore.Money, ashore.SupplyTons));
+        Assert.Equal((100, 90, 6_500), (aboard.Money + ashore.Money,
+            aboard.SupplyTons + ashore.SupplyTons, aboard.TotalTroops + ashore.TotalTroops));
+        Assert.Equal(fleetId, aboard.AboardFleetId);
+        Assert.Null(ashore.AboardFleetId);
+        Assert.Equal(armyId, result.State.FleetById(fleetId)!.CarriedArmyId);
+        var save = new SaveGame(result.State.SchemaVersion, "middle-overflow", "Middle overflow",
+            result.State.ScenarioId, result.State.WorldId, result.State.RulesetId, result.State);
+        Assert.Equal(result.State, SaveManager.Load("middle.json", SaveManager.Serialize(save),
+            NavalTestbed.Toy.World, NavalTestbed.Ruleset).State);
+    }
+
+    [Fact]
     public void T216_single_oversized_slot_stays_whole_ashore_and_does_not_leave_a_carrier_link()
     {
         var state = BuildState(6_000, SeatControl.Ai, out var armyId, out var fleetId, out var nationId);

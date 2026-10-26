@@ -1,3 +1,4 @@
+using IC2.Engine.Armies.Commands;
 using IC2.Data;
 using IC2.Engine.Core;
 using IC2.Engine.Import;
@@ -278,6 +279,58 @@ public sealed class OriginalSaveExportTests
         var ex = Refused(changed);
         Assert.Contains(ex.Refusals, r => r.Code == OriginalSaveExportRefusal.Unrepresentable
             && r.Field == "army[0].unit[0].quality");
+    }
+
+    [Theory]
+    [InlineData(10, "10th")]
+    [InlineData(11, "11th")]
+    [InlineData(21, "21st")]
+    [InlineData(22, "22nd")]
+    [InlineData(23, "23rd")]
+    [InlineData(99, "99th")]
+    public void A_real_Dragoons_split_exports_with_a_reported_separator_alias(int ordinal, string prefix)
+    {
+        var state = Start();
+        var army = state.Armies.First(a => a.Nation == "rome");
+        var previous = ordinal - 1;
+        var suffix = previous is >= 11 and <= 13 ? "th" : (previous % 10) switch
+        {
+            1 => "st", 2 => "nd", 3 => "rd", _ => "th",
+        };
+        army = army with { Units = ValueList.Of(
+            new UnitSlot(0, "heavy_cavalry", 5_000, 6, $"{previous}{suffix} Dragoons Battalion")) };
+        state = state with { Armies = ValueList.Of(army),
+            ActiveSeatIndex = Array.IndexOf(state.TurnOrder.ToArray(), army.Nation) };
+        var dispatcher = new CommandDispatcher(SystemRegistry.FromEngineAssembly(), RealGameData.Ruleset,
+            RealGameData.World, NullEventSink.Instance);
+        var split = dispatcher.Dispatch(state, new SplitUnitCommand(army.Nation, army.Id, 0, 1_250));
+        Assert.True(split.IsAccepted, split.ToString());
+        var native = $"{prefix} Dragoons  Battalion";
+        Assert.Equal(native, split.State.ArmyById(army.Id)!.Units[1].Name);
+        var before = split.State;
+        var result = OriginalSaveExporter.ToDocument(Save(before), RealGameData.World, RealGameData.Ruleset, Ui);
+        var exported = $"{prefix} Dragoons Battalion";
+        Assert.Equal(exported, result.Document.Armies[0].Units[1].Name);
+        Assert.Equal(new OriginalSaveExportAlias(army.Id, 1, native, exported), Assert.Single(result.Report.Aliases));
+        Assert.Equal(native, before.ArmyById(army.Id)!.Units[1].Name);
+        var decoded = OriginalSaveCodec.Decode(OriginalSaveCodec.Encode(result.Document));
+        Assert.Equal(exported, decoded.Armies[0].Units[1].Name);
+    }
+
+    [Theory]
+    [InlineData("10st Dragoons  Battalion", "heavy_cavalry", 0)]
+    [InlineData("10th Dragoons  Battalion", "light_cavalry", 0)]
+    [InlineData("10th Dragoons  Battalion", "heavy_cavalry", 7)]
+    [InlineData("100th Dragoons  Battalion", "heavy_cavalry", 0)]
+    [InlineData("My custom Dragoons Battalion", "heavy_cavalry", 0)]
+    public void Dragoons_alias_never_normalizes_other_long_names(string name, string type, int label)
+    {
+        var state = Start();
+        var army = state.Armies[0];
+        var unit = army.Units[0] with { Name = name, UnitTypeId = type, MercenaryLabel = label };
+        var ex = Refused(state with { Armies = state.Armies.Replace(0,
+            army with { Units = army.Units.Replace(0, unit) }) });
+        Assert.Contains(ex.Refusals, r => r.Field == "army[0].unit[0].name");
     }
 
     [Theory]
