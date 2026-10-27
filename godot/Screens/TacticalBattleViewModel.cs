@@ -148,6 +148,8 @@ public enum BattleClickKind
 
     /// <summary><c>battle clear</c>.</summary>
     Clear,
+    /// <summary>Read-only enemy details, without selecting a unit to command.</summary>
+    Inspect,
 }
 
 /// <summary>A click turned into an order.</summary>
@@ -254,8 +256,9 @@ public static class BattlePauses
 /// <summary>
 /// What the battle screen shows for one <see cref="TacticalBattleView"/>, Godot-free (T127): each cell's icon key and
 /// tint side, the caption, the toolbar, the selected unit's panel, the last exchange and the three unit lists. It
-/// computes no rule: positions, troops, moves, targets and who is to move are the engine's, and a click is turned
-/// into the order T125's session takes, which decides whether it is legal.
+/// computes no combat outcome: positions, troops, moves, targets and who is to move are the engine's.
+/// Known order prerequisites distinguish read-only enemy inspection from eligible melee; the session remains
+/// authoritative for every submitted order.
 /// </summary>
 public sealed class TacticalBattleViewModel
 {
@@ -738,13 +741,24 @@ public sealed class TacticalBattleViewModel
                 _view.Slots[s].Troops.ToString(CultureInfo.InvariantCulture),
             })).ToList();
 
-    /// <summary>The order a left click on a cell means: select, place, move or set a melee target.</summary>
+    /// <summary>Left click selects/places/moves an own unit, sets eligible melee, or inspects enemy basics.</summary>
     /// <param name="x">The cell's column.</param>
     /// <param name="y">The cell's row.</param>
     /// <returns>The click.</returns>
     public BattleClick ForLeftClick(int x, int y)
     {
         var at = SlotAt(x, y);
+        if (at >= 0 && SideOf(at) != _perspective)
+        {
+            var canAttack = !_view.IsOver && _view.Placed
+                && !_view.ComputerControlled[_view.SideToMove] && !_view.ComputerGeneral[_view.SideToMove]
+                && SelectedSlot >= 0 && SelectedSlot < _view.Slots.Count
+                && SideOf(SelectedSlot) == _view.SideToMove && SideOf(SelectedSlot) == _perspective
+                && _view.Slots[SelectedSlot].IsLive && _view.Slots[SelectedSlot].Moves >= 1
+                && Math.Max(Math.Abs(_view.Slots[SelectedSlot].X - x), Math.Abs(_view.Slots[SelectedSlot].Y - y)) == 1;
+            return canAttack ? new BattleClick(BattleClickKind.Attack, SelectedSlot, x, y, at)
+                : new BattleClick(BattleClickKind.Inspect, at, x, y, -1);
+        }
         if (at >= 0 && SideOf(at) == _view.SideToMove)
         {
             return new BattleClick(BattleClickKind.Select, at, x, y, -1);
@@ -760,7 +774,17 @@ public sealed class TacticalBattleViewModel
             return new BattleClick(_view.Placed ? BattleClickKind.Move : BattleClickKind.Place, SelectedSlot, x, y, -1);
         }
 
-        return new BattleClick(BattleClickKind.Attack, SelectedSlot, x, y, at);
+        return new BattleClick(BattleClickKind.None, -1, x, y, -1);
+    }
+
+    /// <summary>Only the already-public basic panel fields, from the displayed snapshot.</summary>
+    public IReadOnlyList<string> InspectionLines(int slot)
+    {
+        if (slot < 0 || slot >= _view.Slots.Count || !_view.Slots[slot].IsLive)
+            return Array.Empty<string>();
+        var unit = _view.Slots[slot];
+        return new[] { NationName(SideOf(slot)), unit.Name + (unit.Origin != 0 ? " mercenaries" : string.Empty),
+            TypeName(unit.Type), $"{unit.Troops.ToString(CultureInfo.InvariantCulture)} troops" };
     }
 
     /// <summary>The order a right click on a cell means: shoot an enemy, or clear an own unit's target.</summary>

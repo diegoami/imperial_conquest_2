@@ -439,10 +439,11 @@ public partial class TacticalBattleCheck : Node
         var screen = (TacticalBattleScreen)mainGame.ActiveOverlay!;
         var before = mainGame.Session.OpenTacticalBattle!;
 
-        // Setting a melee target during placement is not legal; the screen sends it and shows the engine's refusal.
+        // A right-click shot during placement remains an engine refusal. Left-click enemy inspection
+        // is read-only (fix1492) and must no longer issue an invalid melee order just to show details.
         var enemy = before.Slots.Select((s, i) => (s, i)).First(p => p.s.IsLive && p.i >= 20);
         screen.SelectUnit(0);
-        screen.ClickCell(enemy.s.X, enemy.s.Y);
+        screen.ClickCell(enemy.s.X, enemy.s.Y, right: true);
 
         Check(
             screen.MessageLabel.Text.Contains("Refused"),

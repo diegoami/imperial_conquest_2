@@ -375,12 +375,13 @@ public partial class DiagnosticsCheck : Node
             var frameCount = Records().Count(r => Kind(r) == "Frame");
             for (int i = 0; i < 50; i++) screen.AdvancePlayback(0);
             Check(frameCount == Records().Count(r => Kind(r) == "Frame"), "idle/progress loop does not journal frames");
-            // During placement the real board routes a melee-target click and the engine refuses it.
+            // Left enemy clicks now inspect without submitting (fix1492).
+            // An unchanged right-click shot still exercises a real placement-phase refusal.
             var enemy = session.OpenTacticalBattle!.Slots.Select((slot, index) => (slot, index)).First(p => p.slot.IsLive && p.index >= 20);
-            expectedFrames.AddRange(reference.BattleAttack(0, enemy.index).TacticalTimeline); expectedSubmits++;
+            expectedFrames.AddRange(reference.BattleShoot(0, enemy.index).TacticalTimeline); expectedSubmits++;
             var beforeRefusal = JsonSerializer.Serialize(session.State);
             screen.SelectUnit(0);
-            Observe("real-tactical-refusal", "tactical", () => screen.ClickCell(enemy.slot.X, enemy.slot.Y), false, session);
+            Observe("real-tactical-refusal", "tactical", () => screen.ClickCell(enemy.slot.X, enemy.slot.Y, right: true), false, session);
             Check(JsonSerializer.Serialize(session.State) == beforeRefusal, "refused real tactical click preserves authoritative state/RNG");
             expectedFrames.AddRange(reference.BattleGeneral(true).TacticalTimeline); expectedSubmits++;
             screen.PressToolbarButton("computer_general"); skipWatch.Start(); screen.SkipPlayback(); skipWatch.Stop();

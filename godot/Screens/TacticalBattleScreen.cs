@@ -93,6 +93,7 @@ public partial class TacticalBattleScreen : Control
 
     /// <summary>The selected slot, or −1.</summary>
     public int SelectedSlot { get; private set; } = -1;
+    public int InspectedSlot { get; private set; } = -1;
 
     /// <summary>Whether the screen is replaying the exchanges of the last order.</summary>
     public bool IsPlayingBack => _playback.IsPlaying;
@@ -375,6 +376,12 @@ public partial class TacticalBattleScreen : Control
         {
             case BattleClickKind.Select:
                 SelectedSlot = click.Unit;
+                InspectedSlot = -1;
+                Refresh();
+                break;
+            case BattleClickKind.Inspect:
+                SelectedSlot = -1;
+                InspectedSlot = click.Unit;
                 Refresh();
                 break;
             case BattleClickKind.Place:
@@ -444,6 +451,7 @@ public partial class TacticalBattleScreen : Control
                 break;
             case "cancel_selection":
                 SelectedSlot = -1;
+                InspectedSlot = -1;
                 Refresh();
                 break;
             case "end_turn":
@@ -636,7 +644,11 @@ public partial class TacticalBattleScreen : Control
         CaptionLabel.Text = Model.Caption;
         PhaseLabel.Text = _playback.ResolvingHalfRound ? "Resolving combat…" : Model.CaptionPhase;
         ControllerLabel.Text = (_playback.Stage == TacticalPlaybackStage.Announcement ? "TURN BEGINS · " : "") + Model.ControllerText;
-        PanelLabel.Text = string.Join("\n", Model.PanelLines);
+        var inspection = Model.InspectionLines(InspectedSlot);
+        if (inspection.Count == 0) InspectedSlot = -1;
+        var panelLines = InspectedSlot >= 0 ? inspection : Model.PanelLines;
+        _selectedTitle.Text = InspectedSlot >= 0 ? "Unit details" : "Selected unit";
+        PanelLabel.Text = string.Join("\n", panelLines);
         ExchangeLabel.Text = string.Join("\n", Model.CurrentExchangePresentation.RichLines);
         var exchangeVisible = Model.CurrentExchangePresentation.PlainLines.Count > 0;
         PlannedExchangeLabel.Text = string.Join("\n", Model.PlannedExchangePresentation.RichLines);
@@ -646,7 +658,7 @@ public partial class TacticalBattleScreen : Control
         ActorLabel.AddThemeColorOverride("font_color", ActingCueColor);
         TargetLabel.AddThemeColorOverride("font_color", TargetCueColor);
         ExchangeLabel.AddThemeConstantOverride("outline_size", LightPanel ? 0 : 2);
-        _selectedTitle.Visible = PanelLabel.Visible = !exchangeVisible && Model.PanelLines.Count > 0;
+        _selectedTitle.Visible = PanelLabel.Visible = !exchangeVisible && panelLines.Count > 0;
         ActorLabel.Visible = !exchangeVisible && Model.ActorLines.Count > 0;
         TargetLabel.Visible = !exchangeVisible && Model.TargetLines.Count > 0;
         _exchangeTitle.Visible = ExchangeLabel.Visible = exchangeVisible;
@@ -723,7 +735,13 @@ public partial class TacticalBattleScreen : Control
                 style.ContentMarginLeft = style.ContentMarginRight = 2;
                 button.AddThemeStyleboxOverride(name, style);
             }
-            button.Pressed += () => { if (IsPlayingBack) return; SelectedSlot = slot; Refresh(); };
+            button.Pressed += () =>
+            {
+                if (IsPlayingBack) return;
+                if (Model.SideOf(slot) != _perspective) { SelectedSlot = -1; InspectedSlot = slot; }
+                else { SelectedSlot = slot; InspectedSlot = -1; }
+                Refresh();
+            };
             _rosterRowButtons[slot] = button;
             rows.AddChild(button);
         }
