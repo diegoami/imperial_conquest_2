@@ -42,13 +42,11 @@ namespace IC2.Engine.Armies.Commands;
 /// <see cref="Model.EconomyRules.CitySupplyMobilizationDivisor"/>'s remarks on the same point).
 /// </para>
 /// <para>
-/// <strong>Embarked armies are refused defensively</strong>, the same reasoning as
-/// <c>SplitArmyCommand</c>'s: an embarked army's <c>(X, Y)</c> are the carrying fleet's own snapped
-/// coordinates, not a real map cell, so a fleet moored at one of the nation's own coastal cities could
-/// otherwise satisfy the co-location check while still being referenced by that fleet's
-/// <see cref="Model.FleetState.CarriedArmyId"/> — deleting the army out from under the fleet without
-/// updating it, exactly the dangling reference <c>docs/build-process.md</c> §4.2 gate 5 looks for.
-/// <c>[designed, no confirmed evidence either way]</c>.
+/// <strong>T229: a valid carried army can be disbanded near an owned town</strong>, measured separately
+/// in <c>2026-10-26-carried-army-disband218.md</c>. Refund its money/supplies normally and clear the
+/// carrier link while preserving all other fleet fields. Malformed carrier context refuses atomically
+/// as a model-integrity check. The explicit Army command avoids copying the original's no-offer,
+/// before-repaint selection quirk. This does not relax the separate last-unit DisbandUnit safeguard.
 /// </para>
 /// </remarks>
 public sealed record DisbandArmyCommand(string IssuingNationId, string ArmyId) : ICommand
@@ -66,8 +64,8 @@ public static class DisbandArmyRejections
     /// <summary>The named army belongs to a nation other than the one issuing the command.</summary>
     public static readonly RejectionCode NotYourArmy = new("armies.not-your-army");
 
-    /// <summary>The army is aboard a fleet — see <see cref="DisbandArmyCommand"/>'s remarks.</summary>
-    public static readonly RejectionCode ArmyEmbarked = new("armies.army-embarked");
+    /// <summary>The carried army does not have a valid own launched carrier/link/position.</summary>
+    public static readonly RejectionCode InvalidCarrier = new("armies.disband-invalid-carrier");
 
     /// <summary><em>"An army must be near its own city to disband."</em></summary>
     public static readonly RejectionCode NotNearOwnCity = new("armies.not-near-own-city");

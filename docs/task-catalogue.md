@@ -55,3 +55,4 @@ Open and recent tasks only. Merged tasks (T01–T191 and others) are in their cl
 - [T226](tasks/T226.md) —  Fleet transfer working-purse arrows and partial OK accounting
 - [T227](tasks/T227.md) —  Remove auto-recruit plans from player flows and execution
 - [T228](tasks/T228.md) —  Maximum support and upkeep-derived army funding
+- [T229](tasks/T229.md) —  Whole carried-army disband with refunds and carrier unlink

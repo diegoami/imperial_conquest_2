@@ -1394,7 +1394,8 @@ public partial class MainGameScreen : Control
             return;
         }
 
-        var prompt = new ConfirmPrompt { Question = "Are you sure you want to disband this army ?" };
+        var prompt = new ConfirmPrompt { Question = army.IsEmbarked
+            ? $"Disband carried army {army.Id}?" : "Are you sure you want to disband this army ?" };
         prompt.Confirmed += () =>
         {
             CloseOverlay(prompt);
