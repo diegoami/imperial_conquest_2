@@ -86,7 +86,7 @@ public sealed class TransferMoneyCommandTests
     [Theory]
     [InlineData(0)]
     [InlineData(-100)]
-    public void Automatic_funding_still_refuses_to_spend_a_nonpositive_treasury(int treasury)
+    public void Automatic_faithful_funding_uses_upkeep_without_a_nonpositive_treasury_gate(int treasury)
     {
         var state = WithNorthTreasury(EconomyTestbed.InitialState(), treasury);
         var army = state.ArmyById("north-army-1")! with { Money = 0 };
@@ -94,7 +94,10 @@ public sealed class TransferMoneyCommandTests
         {
             AutoFundArmies = true, AutoPurseTargetTalents = 500, AutoTreasuryReserveTalents = 0,
         };
-        Assert.Null(IC2.Slice.UI.ArmyAutoSupportPlanner.Fund(state, army, EconomyTestbed.Ruleset, settings));
+        var proposal = IC2.Slice.UI.ArmyAutoSupportPlanner.Fund(state, army, EconomyTestbed.Ruleset, settings);
+        Assert.NotNull(proposal);
+        Assert.Equal(Math.Min(ArmyUpkeep.Compute(army.Units, EconomyTestbed.Ruleset),
+            EconomyTestbed.Ruleset.Economy.PurseCapPerUnit), proposal.Requested);
         Assert.Equal(treasury, state.NationById("north")!.Treasury);
     }
 
