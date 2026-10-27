@@ -70,10 +70,12 @@ public sealed record UserSettings
     /// <summary>T209: opt-in mobilization of every ready slot before confirmed End turn.</summary>
     public bool AutoMobilizeReady { get; init; }
 
-    /// <summary>T210: globally enable the world/city plans below.</summary>
+    /// <summary>Obsolete T210 compatibility shape; ignored and never executed (T227).</summary>
+    [JsonIgnore]
     public bool AutoRecruitEnabled { get; init; }
 
-    /// <summary>One global plan per world/city; shared by campaigns of that world on this machine.</summary>
+    /// <summary>Obsolete compatibility shape; plans are discarded and omitted on write.</summary>
+    [JsonIgnore]
     public ValueList<AutoRecruitCityPlan> AutoRecruitPlans { get; init; } = ValueList<AutoRecruitCityPlan>.Empty;
 
     /// <summary>The army's supply target as a percentage of its current ruleset capacity.</summary>
@@ -151,46 +153,9 @@ public sealed record UserSettings
         AutoTreasuryReserveTalents = Math.Clamp(AutoTreasuryReserveTalents, 0, MaxAutoTreasuryReserveTalents),
         AutoFleetSupplyTargetPercent = Math.Clamp(AutoFleetSupplyTargetPercent, 0, 100),
         AutoFleetRepairTargetPercent = Math.Clamp(AutoFleetRepairTargetPercent, 0, 100),
-        AutoRecruitPlans = NormalizeRecruitPlans(AutoRecruitPlans),
+        AutoRecruitEnabled = false,
+        AutoRecruitPlans = ValueList<AutoRecruitCityPlan>.Empty,
     };
-
-    public AutoRecruitCityPlan? RecruitPlanFor(string worldId, string cityId) =>
-        AutoRecruitPlans.FirstOrDefault(plan => plan.WorldId == worldId && plan.CityId == cityId);
-
-    public UserSettings WithRecruitPlan(AutoRecruitCityPlan plan) => this with
-    {
-        AutoRecruitPlans = ValueList.From(AutoRecruitPlans
-            .Where(existing => existing.WorldId != plan.WorldId || existing.CityId != plan.CityId)
-            .Append(plan)),
-    };
-
-    public UserSettings WithoutRecruitPlan(string worldId, string cityId) => this with
-    {
-        AutoRecruitPlans = ValueList.From(AutoRecruitPlans
-            .Where(plan => plan.WorldId != worldId || plan.CityId != cityId)),
-    };
-
-    private static ValueList<AutoRecruitCityPlan> NormalizeRecruitPlans(
-        ValueList<AutoRecruitCityPlan>? plans)
-    {
-        var normalized = new List<AutoRecruitCityPlan>();
-        foreach (var plan in plans ?? ValueList<AutoRecruitCityPlan>.Empty)
-        {
-            if (plan is null || string.IsNullOrWhiteSpace(plan.WorldId)
-                || string.IsNullOrWhiteSpace(plan.CityId) || string.IsNullOrWhiteSpace(plan.UnitTypeId)) continue;
-            var clean = plan with
-            {
-                WorldId = plan.WorldId.Trim(), CityId = plan.CityId.Trim(),
-                UnitTypeId = plan.UnitTypeId.Trim(), Troops = Math.Max(0, plan.Troops),
-                TargetQueued = Math.Clamp(plan.TargetQueued, 1, 40),
-            };
-            var prior = normalized.FindIndex(other => other.WorldId == clean.WorldId && other.CityId == clean.CityId);
-            if (prior >= 0) normalized[prior] = clean;
-            else normalized.Add(clean);
-        }
-
-        return ValueList.From(normalized);
-    }
 
     /// <summary>The <see cref="BattleSpeed"/> preset these pauses match, or <see langword="null"/> for custom values.</summary>
     public BattleSpeed? BattleSpeedPreset => BattleSpeeds.Match(BattleShotDelaySeconds, BattleAttackDelaySeconds);

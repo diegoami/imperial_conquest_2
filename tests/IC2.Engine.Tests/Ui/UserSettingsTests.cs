@@ -29,6 +29,25 @@ public sealed class UserSettingsTests : IDisposable
         }
     }
 
+    [Fact]
+    public void Legacy_auto_recruit_configuration_is_ignored_without_resetting_other_preferences()
+    {
+        Directory.CreateDirectory(_dir);
+        var path = PathFor("legacy-plans.json");
+        File.WriteAllText(path, """
+            {"AutoRecruitEnabled":true,"AutoRecruitPlans":[{"WorldId":"toy-3city","CityId":"arx","UnitTypeId":"light_infantry","Troops":1000,"TargetQueued":2}],
+             "AutoMobilizeReady":true,"VolumePercent":55,"ColorScheme":"dark"}
+            """);
+        var loaded = UserSettings.Load(path);
+        Assert.False(loaded.AutoRecruitEnabled);
+        Assert.Empty(loaded.AutoRecruitPlans);
+        Assert.True(loaded.AutoMobilizeReady);
+        Assert.Equal(55, loaded.VolumePercent);
+        Assert.Equal("dark", loaded.ColorScheme);
+        Assert.True(loaded.TrySave(path));
+        Assert.DoesNotContain("AutoRecruit", File.ReadAllText(path));
+    }
+
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "ic2-settings-" + Guid.NewGuid().ToString("N"));
 
     public void Dispose()
@@ -88,9 +107,6 @@ public sealed class UserSettingsTests : IDisposable
             AutoSupplyFleets = true, AutoRepairFleets = true,
             AutoFleetSupplyTargetPercent = 65, AutoFleetRepairTargetPercent = 85,
             AutoMobilizeReady = true,
-            AutoRecruitEnabled = true,
-            AutoRecruitPlans = IC2.Engine.Model.ValueList.Of(
-                new AutoRecruitCityPlan("classical-mediterranean", "rome", "light_infantry", 3_000, 2)),
         }.WithBattleSpeed(BattleSpeeds.All.Single(s => s.Id == "fast"));
 
         Assert.True(saved.TrySave(PathFor("settings.json")));
@@ -176,19 +192,17 @@ public sealed class UserSettingsTests : IDisposable
     }
 
     [Fact]
-    public void Global_city_plans_deduplicate_by_world_and_city_and_survive_restart()
+    public void Obsolete_plan_objects_are_discarded_on_normalization_and_restart()
     {
         var first = new AutoRecruitCityPlan("classical-mediterranean", "rome", "archers", 2_000, 1);
         var replacement = first with { UnitTypeId = "heavy_infantry", Troops = 4_000, TargetQueued = 2 };
         var italy = new AutoRecruitCityPlan("italy-500bc", "rome", "light_infantry", 1_000, 1);
         var settings = new UserSettings { AutoRecruitEnabled = true,
             AutoRecruitPlans = IC2.Engine.Model.ValueList.Of(first, italy, replacement) }.Normalized();
-        Assert.Equal(2, settings.AutoRecruitPlans.Count);
-        Assert.Equal(replacement, settings.RecruitPlanFor(first.WorldId, first.CityId));
-        Assert.Equal(italy, settings.RecruitPlanFor(italy.WorldId, italy.CityId));
+        Assert.False(settings.AutoRecruitEnabled);
+        Assert.Empty(settings.AutoRecruitPlans);
         Assert.True(settings.TrySave(PathFor("plans.json")));
         Assert.Equal(settings, UserSettings.Load(PathFor("plans.json")));
-        Assert.Null(settings.WithoutRecruitPlan(first.WorldId, first.CityId)
-            .RecruitPlanFor(first.WorldId, first.CityId));
+        Assert.DoesNotContain("AutoRecruit", File.ReadAllText(PathFor("plans.json")));
     }
 }

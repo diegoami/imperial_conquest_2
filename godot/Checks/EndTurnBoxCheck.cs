@@ -29,7 +29,7 @@ public partial class EndTurnBoxCheck : Control
             CheckAutoMobilizeBeforeSupport();
             CheckAutoMobilizeRefusalKeepsSlot();
             CheckAutoMobilizeHotseatIsolation();
-            CheckAutoRecruitAfterMobilize();
+            CheckLegacyPlansDoNotRecruit();
             CheckArmyTravelTargetControls();
             CheckArmyTravelContinuesAcrossTurns();
             CheckArmyTravelHotseatIsolation();
@@ -318,7 +318,7 @@ public partial class EndTurnBoxCheck : Control
         }
     }
 
-    private void CheckAutoRecruitAfterMobilize()
+    private void CheckLegacyPlansDoNotRecruit()
     {
         var session = BuildTravelAutoSession();
         var cityId = session.State.NationById("north")!.RecruitmentSlots[0].TargetCityId;
@@ -341,7 +341,7 @@ public partial class EndTurnBoxCheck : Control
             mainGame.CommandIssued += lines => commands.Add(lines.FirstOrDefault() ?? string.Empty);
             mainGame.MenuBar.PressItemForCheck("game.end_turn");
             Check(mainGame.ActiveOverlay is EndTurnBox && commands.Count == 0,
-                "auto recruit waits for End turn confirmation");
+                "automation waits for End turn confirmation");
             ((EndTurnBox)mainGame.ActiveOverlay!).MakeMoreMovesButton.EmitSignal(Button.SignalName.Pressed);
             Check(commands.Count == 0, "Make more moves issues no auto recruit order");
 
@@ -352,12 +352,13 @@ public partial class EndTurnBoxCheck : Control
             var recruit = commands.FindIndex(line => line.StartsWith("> recruit-standing ", StringComparison.Ordinal));
             var support = commands.FindIndex(line => line.StartsWith("> buy ", StringComparison.Ordinal));
             var travel = commands.FindIndex(line => line.StartsWith("> move ", StringComparison.Ordinal));
-            Check(mobilize == 0 && recruit == 1 && travel == 2 && support > travel
+            Check(mobilize == 0 && recruit == -1 && travel == 1 && support > travel
                   && commands[^1].StartsWith("> end", StringComparison.Ordinal)
-                  && commands.Count(line => line.StartsWith("> recruit-standing ", StringComparison.Ordinal)) == 1,
-                $"one travel order runs after mobilize and recruit, before support and end ({string.Join(" | ", commands)})");
-            Check(mainGame.LastMessageForCheck.Contains("Auto recruit: 1", StringComparison.Ordinal),
-                "the End-turn summary reports accepted auto recruitment");
+                  && commands.Count(line => line.StartsWith("> end", StringComparison.Ordinal)) == 1,
+                $"legacy plan adds no recruitment between mobilization, travel, support and one end ({string.Join(" | ", commands)})");
+            Check(!mainGame.LastMessageForCheck.Contains("Auto recruit:", StringComparison.Ordinal)
+                  && session.State.NationById("north")!.RecruitmentSlots.Count == 1,
+                "no legacy target replenishes the queue; the already placed unready slot remains");
             Check(mainGame.LastMessageForCheck.Contains("Army targets: 1 moved, 1 arrived", StringComparison.Ordinal)
                   && session.TravelTargetFor(army.Id) is null,
                 $"the target arrives through an ordinary move and clears visibly ({mainGame.LastMessageForCheck})");
