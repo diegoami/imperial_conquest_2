@@ -380,10 +380,12 @@ public partial class SupplyDialog : Control
             ? "No provider."
             : selected.IsFree
                 ? "Free transfer"
-                : $"Paid — {_model.StagedCostTalents} talents for {_model.StagedTons} tons.";
+                : _model.StagedTons < 0 ? "Return excess supplies" : $"Paid — {_model.StagedCostTalents} talents for {_model.StagedTons} tons.";
 
         _stagedLabel.Text = selected is { IsFree: false }
-            ? $"Staged {_model.StagedTons} t  ·  Cost {_model.StagedCostTalents} talents"
+            ? _model.StagedTons < 0
+                ? $"Return {-_model.StagedTons} t  ·  Refund {-_model.StagedCostTalents} talents"
+                : $"Staged {_model.StagedTons} t  ·  Cost {_model.StagedCostTalents} talents"
             : string.Empty;
     }
 }
