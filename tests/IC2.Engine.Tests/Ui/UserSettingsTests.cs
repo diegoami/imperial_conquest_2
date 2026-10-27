@@ -6,6 +6,29 @@ namespace IC2.Engine.Tests.Ui;
 /// <summary>#1293: display settings survive a restart, and a bad file never stops the game.</summary>
 public sealed class UserSettingsTests : IDisposable
 {
+    [Fact]
+    public void Parchment_secondary_text_remains_readable_on_panel_and_raised_backgrounds()
+    {
+        var colors = ColorSchemes.ById("parchment");
+        Assert.True(Contrast(colors.Muted, colors.Panel) >= 7);
+        Assert.True(Contrast(colors.Muted, colors.Raised) >= 7);
+
+        static double Contrast(string a, string b)
+        {
+            var x = Luminance(a); var y = Luminance(b);
+            return (Math.Max(x, y) + 0.05) / (Math.Min(x, y) + 0.05);
+        }
+        static double Luminance(string hex)
+        {
+            double Channel(int start)
+            {
+                var c = Convert.ToInt32(hex.Substring(start, 2), 16) / 255.0;
+                return c <= 0.04045 ? c / 12.92 : Math.Pow((c + 0.055) / 1.055, 2.4);
+            }
+            return 0.2126 * Channel(1) + 0.7152 * Channel(3) + 0.0722 * Channel(5);
+        }
+    }
+
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "ic2-settings-" + Guid.NewGuid().ToString("N"));
 
     public void Dispose()
