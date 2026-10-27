@@ -21,6 +21,52 @@ namespace IC2.Engine.Tests.Ui;
 /// </remarks>
 public sealed class ArmyDialogModelsTests
 {
+    [Theory]
+    [InlineData(100, 900, 100, 0, 1000)]
+    [InlineData(100, 1000, 100, 100, 1000)]
+    [InlineData(100, 1100, 100, 200, 1000)]
+    [InlineData(900, 100, -100, 1000, 0)]
+    [InlineData(1000, 100, -100, 1000, 100)]
+    [InlineData(1100, 100, -100, 1000, 200)]
+    public void T222_Money_arrows_operate_on_working_purses_including_signed_pullback(
+        int a, int b, int delta, int expectedA, int expectedB)
+    {
+        var session = Session(aMoney: a, bMoney: b);
+        var before = session.State;
+        var model = Transfer(session);
+        model.AdjustMoney(delta);
+        Assert.Equal(expectedA, model.SelectedMoneyAfter);
+        Assert.Equal(expectedB, model.PartnerMoneyAfter);
+        model.AdjustMoney(delta);
+        Assert.Equal(expectedA, model.SelectedMoneyAfter);
+        Assert.Equal(expectedB, model.PartnerMoneyAfter);
+        Assert.Equal(before, session.State);
+        Assert.Null(model.Cancel());
+        var output = session.Submit(model.ComposeOk()!);
+        Assert.DoesNotContain(output.Lines, l => l.StartsWith("Refused:", StringComparison.Ordinal));
+        Assert.Equal(expectedA, session.State.ArmyById(ArmyAId)!.Money);
+        Assert.Equal(expectedB, session.State.ArmyById(ArmyBId)!.Money);
+        Assert.Equal(before.Nations, session.State.Nations);
+    }
+
+    [Fact]
+    public void T222_Split_money_arrow_can_pull_back_from_an_overcap_parent_with_empty_new_purse()
+    {
+        var session = Session(aMoney: 1100);
+        var before = session.State;
+        var model = SplitArmyModel.ForArmy(before, before.ArmyById(ArmyAId)!, session.Ruleset, NewArmyId);
+        model.AdjustMoney(-100);
+        Assert.Equal(100, model.Money);
+        model.AdjustMoney(-100);
+        Assert.Equal(100, model.Money);
+        Assert.Null(model.Cancel());
+        Assert.Equal(before, session.State);
+        model.StageUnit(0);
+        session.Submit(model.ComposeOk()!);
+        Assert.Equal(1000, session.State.ArmyById(ArmyAId)!.Money);
+        Assert.Equal(100, session.State.ArmyById(NewArmyId)!.Money);
+    }
+
     private const string NationId = "rome";
     private const string ArmyAId = "t111-a";
     private const string ArmyBId = "t111-b";
@@ -446,14 +492,14 @@ public sealed class ArmyDialogModelsTests
     }
 
     [Fact]
-    public void Transfer_composes_nothing_when_nothing_is_staged_and_cancel_submits_nothing()
+    public void Transfer_confirmation_composes_an_order_even_without_edits_but_cancel_submits_nothing()
     {
         var session = Session();
         var model = Transfer(session);
 
-        Assert.Null(model.ComposeOk());
+        Assert.Equal($"army-transfer {ArmyAId} {ArmyBId}", model.ComposeOk());
         Assert.Null(model.Cancel());
-        Assert.Null(model.ComposeOk());
+        Assert.Equal($"army-transfer {ArmyAId} {ArmyBId}", model.ComposeOk());
     }
 
     [Fact]

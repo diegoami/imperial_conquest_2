@@ -34,7 +34,8 @@ namespace IC2.Engine.Armies.Commands;
 /// over capacity B ends at exactly <c>capB</c> while A keeps everything else, above its own capacity. An
 /// army left with no units is merged into the other and disbanded, taking all its supply and money
 /// uncapped. The steps run once, after both directions are written, on every accepted transfer — a
-/// money-only or unit-only order included. <c>OK</c> refuses nothing on capacity: the dialog's supply
+/// money-only or unit-only order included. Research84/T222 also confirms that unchanged OK (all empty/zero
+/// fields) runs this rebalance; Cancel sends no command. <c>OK</c> refuses nothing on capacity: the dialog's supply
 /// spinner room, <c>troops div 100 + 1</c>, is that dialog's own bound, not this command's.
 /// </para>
 /// <para>

@@ -38,6 +38,17 @@ namespace IC2.Slice.UI;
 /// </remarks>
 public static class ArmyDialogModels
 {
+    /// <summary>Research85: each arrow clamps the requested step against working purses,
+    /// without flooring the resulting signed pullback from an over-cap receiver.</summary>
+    internal static int MoneyArrowStep(int delta, int selectedMoney, int partnerMoney, int cap)
+    {
+        if (delta == 0) return 0;
+        var giver = delta > 0 ? selectedMoney : partnerMoney;
+        var receiver = delta > 0 ? partnerMoney : selectedMoney;
+        var admitted = Math.Min(Math.Abs((long)delta), Math.Min((long)cap - receiver, giver));
+        return (int)(delta > 0 ? admitted : -admitted);
+    }
+
     /// <summary>The first unused simple army name, shared by all split entry points.</summary>
     public static string NextArmyId(GameState state)
     {
@@ -229,12 +240,6 @@ public sealed class ArmyTransferModel
             return netOnly;
         }
 
-        var staged = _unitsToPartner.Count > 0 || _unitsBack.Count > 0 || _supplyNet != 0 || _moneyNet != 0;
-        if (!staged)
-        {
-            return netOnly;
-        }
-
         var command = new ArmyTransferCommand(
             _selected.Nation,
             _selected.Id,
@@ -371,55 +376,49 @@ public sealed class ArmyTransferModel
             return;
         }
 
-        _moneyNet = Math.Clamp(_moneyNet + delta, -MaxMoneyBack, MaxMoneyToPartner);
+        _moneyNet += ArmyDialogModels.MoneyArrowStep(delta,
+            _selected.Money - _moneyNet, _partner.Money + _moneyNet, PurseCap);
     }
 
     /// <summary>
-    /// <c>OK</c>: exactly one <c>army-transfer</c> for the whole dialog, or <see langword="null"/> when
-    /// nothing is staged. The selected army is the first id, the units moved to the partner are
+    /// <c>OK</c>: exactly one <c>army-transfer</c> for the whole dialog, including unchanged confirmation.
+    /// The selected army is the first id, the units moved to the partner are
     /// <c>units=</c>, the units moved back are <c>back-units=</c>, and each resource is netted to a single
     /// direction.
     /// </summary>
     public string? ComposeOk()
     {
         var line = $"army-transfer {SelectedArmyId} {PartnerArmyId}";
-        var any = false;
 
         if (_unitsToPartner.Count > 0)
         {
             line += $" units={Join(_unitsToPartner)}";
-            any = true;
         }
 
         if (_unitsBack.Count > 0)
         {
             line += $" back-units={Join(_unitsBack)}";
-            any = true;
         }
 
         if (_supplyNet > 0)
         {
             line += $" supply={_supplyNet}";
-            any = true;
         }
         else if (_supplyNet < 0)
         {
             line += $" back-supply={-_supplyNet}";
-            any = true;
         }
 
         if (_moneyNet > 0)
         {
             line += $" money={_moneyNet}";
-            any = true;
         }
         else if (_moneyNet < 0)
         {
             line += $" back-money={-_moneyNet}";
-            any = true;
         }
 
-        return any ? line : null;
+        return line;
     }
 
     /// <summary><c>Cancel</c>: nothing is submitted.</summary>
@@ -669,8 +668,9 @@ public sealed class SplitArmyModel
     /// <summary>One press of a supply arrow, clamped to <c>[0, <see cref="MaxSupply"/>]</c>.</summary>
     public void AdjustSupply(int delta) => _supply = Math.Clamp(_supply + delta, 0, MaxSupply);
 
-    /// <summary>One press of a money arrow, clamped to <c>[0, <see cref="MaxMoney"/>]</c>.</summary>
-    public void AdjustMoney(int delta) => _money = Math.Clamp(_money + delta, 0, MaxMoney);
+    /// <summary>The shared working-purse arrow rule, including over-cap parent pullback.</summary>
+    public void AdjustMoney(int delta) => _money += ArmyDialogModels.MoneyArrowStep(delta,
+        _army.Money - _money, _money, _ruleset.Economy.PurseCapPerUnit);
 
     /// <summary>
     /// <c>OK</c>: exactly one <c>split-army</c> with every staged unit and the staged supply and money,
