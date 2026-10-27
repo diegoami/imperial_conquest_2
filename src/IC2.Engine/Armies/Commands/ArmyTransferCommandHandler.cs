@@ -63,13 +63,10 @@ public sealed class ArmyTransferCommandHandler : ICommandHandler<ArmyTransferCom
                 ArmyTransferRejections.InvalidAmount, "Cannot transfer a negative amount of any resource.");
         }
 
-        if (command.UnitIndexes.Count == 0 && command.SupplyTons == 0 && command.Money == 0
-            && command.BackUnitIndexes.Count == 0 && command.BackSupplyTons == 0 && command.BackMoney == 0)
-        {
-            return CommandOutcome.Reject(
-                ArmyTransferRejections.InvalidAmount,
-                "Must transfer at least one unit, some supply or some money in either direction.");
-        }
+        // T222 / Research84: this command commits Army transfer's OK, including
+        // an unchanged confirmation. The normal ownership/adjacency gates still
+        // apply, and OK's selected-first supply rebalance runs below. Cancel
+        // never submits a command. No generic zero-command policy is changed.
 
         // Each side's unit indexes are its own, read before the order (the dialog clamps every click to
         // what the giver currently holds). Both directions are partitioned before anything is written.

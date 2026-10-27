@@ -18,6 +18,26 @@ namespace IC2.Engine.Tests.Armies;
 public sealed class ArmyTransferCommandTests
 {
     [Theory]
+    [InlineData(206, 0, false, 106, 100)]
+    [InlineData(206, 0, true, 100, 106)]
+    [InlineData(50, 20, false, 50, 20)]
+    [InlineData(206, 150, false, 256, 100)]
+    [InlineData(206, 150, true, 100, 256)]
+    public void T222_Confirmed_unchanged_transfer_runs_selected_first_supply_rebalance(
+        int supplyA, int supplyB, bool reverse, int expectedA, int expectedB)
+    {
+        var a = Army("unchanged-a", NorthNationId, 5, 5, Units(1, troops: 10000), money: 37, supplyTons: supplyA);
+        var b = Army("unchanged-b", NorthNationId, 6, 5, Units(1, troops: 10000), money: 23, supplyTons: supplyB);
+        var state = WithArmies(InitialState(), a, b);
+        var result = Dispatcher().Dispatch(state, OneWay(reverse ? b.Id : a.Id, reverse ? a.Id : b.Id,
+            ValueList<int>.Empty, 0, 0));
+        Assert.True(result.IsAccepted, result.ToString());
+        Assert.Equal(a with { SupplyTons = expectedA }, result.State.ArmyById(a.Id));
+        Assert.Equal(b with { SupplyTons = expectedB }, result.State.ArmyById(b.Id));
+        Assert.Equal(Totals(state), Totals(result.State));
+    }
+
+    [Theory]
     [InlineData(15000, false, 500)]
     [InlineData(15001, false, 500)]
     [InlineData(15499, false, 500)]
@@ -696,9 +716,9 @@ public sealed class ArmyTransferCommandTests
     }
 
     [Fact]
-    public void Transfer_WithNoUnitsSupplyOrMoney_IsRejectedAndTheStateIsUntouched()
+    public void Transfer_WithNoUnitsSupplyOrMoney_ConfirmsWithoutChangingBalancedArmies()
     {
-        // An empty order moves nothing, so it is refused before any state is touched (review B1, M3).
+        // Research84/T222 supersedes the old no-op refusal: this is the dialog's confirmed OK.
         var state = WithArmies(
             InitialState(),
             Army("noop-a", NorthNationId, 5, 5, Units(2)),
@@ -706,9 +726,9 @@ public sealed class ArmyTransferCommandTests
 
         var result = Dispatcher().Dispatch(state, TwoWay("noop-a", "noop-b", ValueList<int>.Empty, 0, 0, ValueList<int>.Empty, 0, 0));
 
-        Assert.True(result.IsRejected);
-        Assert.Equal(ArmyTransferRejections.InvalidAmount, result.Code);
-        Assert.Same(state, result.State);
+        Assert.True(result.IsAccepted, result.ToString());
+        Assert.Equal(state.Armies, result.State.Armies);
+        Assert.Equal(state.Nations, result.State.Nations);
     }
 
     [Fact]
