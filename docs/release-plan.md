@@ -267,6 +267,8 @@ Proof entry points (not a verdict): C1 uses T221–T226's handler/model tests an
 
 Owner revision after independent review F1 (2026-10-27): C1's army-transfer/split money-arrow fidelity is deliberately superseded by [T231](tasks/T231.md). Prefer predictable transfers in the requested direction above 1,000, within funds and the receiving save-field bound; no live-original verification is required for this chosen policy. Signed paid-supply/fleet-arrow evidence, supply rebalancing and the remaining C1 requirements stay intact. Preview must show a rejection instead of an uncommittable result. This visible policy revision is the owner's decision, not a weakened builder verdict.
 
+Owner clarification after independent review F2 (2026-10-27): [T232](tasks/T232.md) makes Improved exact transport capacity consistent across embark, hire and transfer. Division-first gates are scoped to Faithful human callers; AI hire/transfer exact admission is explicit safety policy. Faithful AI embark's measured overflow allocation remains separate. Verify preset/seat boundary cases, both transfer directions and TransportCapacityPolicyCheck; do not claim original AI caller measurements from the human controls.
+
 Out of scope: whole-turn undo (#1503, v0.9 candidate), persistent ordinary-click travel redesign (#1501), new fleet rally behavior (#1502), and support during intermediate movement steps (#1509). Existing deferred original-Windows acceptance and unmeasured fidelity gaps are not silently certified by this patch release.
 
 ## 3. Tag and GitHub Release conventions

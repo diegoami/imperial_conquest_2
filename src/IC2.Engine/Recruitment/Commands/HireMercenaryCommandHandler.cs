@@ -1,8 +1,8 @@
+using IC2.Engine.Naval;
 using IC2.Engine.Core;
 using IC2.Engine.Economy;
 using IC2.Engine.Model;
 using IC2.Engine.Movement;
-using IC2.Engine.Naval;
 using IC2.Engine.Recruitment;
 
 namespace IC2.Engine.Recruitment.Commands;
@@ -183,8 +183,9 @@ public sealed class HireMercenaryCommandHandler : ICommandHandler<HireMercenaryC
         {
             var fleet = state.FleetById(army.AboardFleetId!);
             // Research83: the per-offer gate truncates the resulting troop
-            // count before comparing ships; it is distinct from the UI opening gate.
-            if (fleet is null || troopsAfterHire / context.Ruleset.Naval.TransportTroopsPerShip > fleet.Ships)
+            // count before comparing ships for Faithful humans. T232 keeps Improved/AI
+            // exact; this remains distinct from the UI opening gate.
+            if (fleet is null || ArmyTransportCapacity.Exceeds(troopsAfterHire, fleet.Ships, context.Ruleset, context.IssuingNation.Control))
             {
                 return CommandOutcome.Reject(
                     HireMercenaryRejections.FleetNoSpace,

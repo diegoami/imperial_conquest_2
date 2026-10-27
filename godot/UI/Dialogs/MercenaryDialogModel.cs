@@ -1,6 +1,6 @@
+using IC2.Engine.Naval;
 using IC2.Engine.Model;
 using IC2.Engine.Movement;
-using IC2.Engine.Naval;
 
 namespace IC2.Slice.UI;
 
@@ -413,8 +413,10 @@ public sealed class MercenaryDialogModel
             if (fleet is not null)
             {
                 // Research83 measured this opening gate independently of the
-                // per-offer gate: compare current troops div 500 with ships.
-                if (army.TotalTroops / _ruleset.Naval.TransportTroopsPerShip > fleet.Ships)
+                // per-offer gate: current troops, not resulting troops. T232
+                // applies the same preset/seat policy to both gates.
+                if (ArmyTransportCapacity.Exceeds(army.TotalTroops, fleet.Ships, _ruleset,
+                    state.NationById(army.Nation)?.Control ?? SeatControl.Ai))
                 {
                     return "Your fleet cannot carry any more troops.";
                 }

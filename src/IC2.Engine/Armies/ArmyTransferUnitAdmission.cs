@@ -1,3 +1,4 @@
+using IC2.Engine.Naval;
 using IC2.Engine.Armies.Commands;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
@@ -54,7 +55,8 @@ public static class ArmyTransferUnitAdmission
             {
                 var army = step.ToPartner ? partner : selected;
                 if (army.IsEmbarked && state?.FleetById(army.AboardFleetId!) is { } fleet
-                    && troops / ruleset.Naval.TransportTroopsPerShip > fleet.Ships)
+                    && ArmyTransportCapacity.Exceeds(troops, fleet.Ships, ruleset,
+                        state.NationById(army.Nation)?.Control ?? SeatControl.Ai))
                     failure = ArmyTransferRejections.FleetCannotCarry;
             }
             if (failure is { } code)
