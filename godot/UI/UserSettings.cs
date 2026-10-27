@@ -272,7 +272,7 @@ public static class ColorSchemes
 
     public static readonly IReadOnlyList<ColorScheme> All = new[]
     {
-        new ColorScheme(DefaultId, "Parchment (default)", "#E8DCC0", "#F3EAD3", "#DCCBA6", "#2A2016", "#5E4F3A", "#8A4B12"),
+        new ColorScheme(DefaultId, "Parchment (default)", "#E8DCC0", "#F3EAD3", "#DCCBA6", "#2A2016", "#433728", "#8A4B12"),
         new ColorScheme("dark", "Dark", "#14110D", "#1E1912", "#2C251B", "#EDE3CC", "#B8AB8E", "#D9A55B"),
         new ColorScheme("contrast", "High contrast", "#000000", "#101010", "#262626", "#FFFFFF", "#E0E0E0", "#FFD23F"),
         new ColorScheme("slate", "Slate blue", "#11161F", "#1A2230", "#263247", "#E3E9F2", "#A5B2C6", "#6FB3E8"),

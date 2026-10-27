@@ -1,4 +1,4 @@
-[gd_resource type="Theme" load_steps=10 format=3]
+[gd_resource type="Theme" load_steps=12 format=3]
 
 [ext_resource type="FontFile" path="res://Assets/Fonts/Cinzel/Cinzel-wght.ttf" id="1"]
 [ext_resource type="FontFile" path="res://Assets/Fonts/SourceSans3/SourceSans3-wght.ttf" id="2"]
@@ -24,6 +24,38 @@ content_margin_right = 7.0
 content_margin_top = 7.0
 content_margin_bottom = 7.0
 bg_color = Color(0.172549, 0.145098, 0.105882, 1.0)
+
+[sub_resource type="StyleBoxFlat" id="Dropdown"]
+content_margin_left = 7.0
+content_margin_right = 7.0
+content_margin_top = 7.0
+content_margin_bottom = 7.0
+bg_color = Color(0.172549, 0.145098, 0.105882, 1.0)
+border_width_left = 1
+border_width_right = 1
+border_width_top = 1
+border_width_bottom = 1
+border_color = Color(0.721569, 0.670588, 0.556863, 1.0)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_left = 4
+corner_radius_bottom_right = 4
+
+[sub_resource type="StyleBoxFlat" id="DropdownHover"]
+content_margin_left = 7.0
+content_margin_right = 7.0
+content_margin_top = 7.0
+content_margin_bottom = 7.0
+bg_color = Color(0.117647, 0.098039, 0.070588, 1.0)
+border_width_left = 1
+border_width_right = 1
+border_width_top = 1
+border_width_bottom = 1
+border_color = Color(0.85098, 0.647059, 0.356863, 1.0)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_left = 4
+corner_radius_bottom_right = 4
 
 [sub_resource type="StyleBoxFlat" id="Focus"]
 content_margin_left = 7.0
@@ -150,12 +182,16 @@ OptionButton/fonts/font = SubResource("Display")
 OptionButton/font_sizes/font_size = 13
 OptionButton/colors/font_color = Color(0.929412, 0.890196, 0.8, 1.0)
 OptionButton/colors/font_hover_color = Color(0.929412, 0.890196, 0.8, 1.0)
-OptionButton/colors/font_pressed_color = Color(0.85098, 0.647059, 0.356863, 1.0)
-OptionButton/colors/font_focus_color = Color(0.85098, 0.647059, 0.356863, 1.0)
+OptionButton/colors/font_hover_pressed_color = Color(0.929412, 0.890196, 0.8, 1.0)
+OptionButton/colors/font_pressed_color = Color(0.929412, 0.890196, 0.8, 1.0)
+OptionButton/colors/font_focus_color = Color(0.929412, 0.890196, 0.8, 1.0)
 OptionButton/colors/font_disabled_color = Color(0.721569, 0.670588, 0.556863, 1.0)
-OptionButton/styles/normal = SubResource("Button")
-OptionButton/styles/hover = SubResource("Raised")
-OptionButton/styles/pressed = SubResource("Raised")
+OptionButton/constants/modulate_arrow = 1
+OptionButton/constants/arrow_margin = 8
+OptionButton/styles/normal = SubResource("Dropdown")
+OptionButton/styles/hover = SubResource("DropdownHover")
+OptionButton/styles/hover_pressed = SubResource("DropdownHover")
+OptionButton/styles/pressed = SubResource("DropdownHover")
 OptionButton/styles/disabled = SubResource("Button")
 OptionButton/styles/focus = SubResource("Focus")
 MenuButton/fonts/font = SubResource("Display")
