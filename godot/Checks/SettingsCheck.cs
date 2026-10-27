@@ -102,8 +102,8 @@ public partial class SettingsCheck : Control
             supply.EmitSignal(BaseButton.SignalName.Toggled, true);
             Check(SettingsScreen.Current.AutoSupplyArmies && UserSettings.Load(_file).AutoSupplyArmies,
                 "the Automation tab switch commits to the global settings file");
-            Check(settings.FindChildren("*", "SpinBox", true, false).OfType<SpinBox>().Count() == 5,
-                "Automation exposes army/fleet targets and treasury reserve");
+            Check(!settings.FindChildren("*", "SpinBox", true, false).OfType<SpinBox>().Any(),
+                "Automation has no editable resource/purse targets or treasury reserve");
             var fleetRepair = settings.FindChildren("*", "CheckBox", true, false).OfType<CheckBox>()
                 .Single(box => box.Text == "Auto repair fleets");
             fleetRepair.EmitSignal(BaseButton.SignalName.Toggled, true);

@@ -154,7 +154,7 @@ public sealed class RetreatSupplyPlannerTests
         Assert.Equal(coastal.Id, decision.DestinationCityId);
         Assert.Equal(before, GameStateHash.Compute(state));
         Assert.True(RetreatSupplyPlanner.Next(state, RealGameData.World,
-            RealGameData.Ruleset, new UserSettings { AutoTreasuryReserveTalents = 10_000 }, plan).Cancel);
+            RealGameData.Ruleset, new UserSettings { AutoTreasuryReserveTalents = 10_000 }, plan).AtProvider);
 
         state = state with { Fleets = ValueList.Of(fleet with
             { ConditionPercent = RealGameData.Ruleset.Naval.MaxConditionPercent }) };

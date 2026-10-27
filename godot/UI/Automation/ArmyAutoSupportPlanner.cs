@@ -16,8 +16,7 @@ public static class ArmyAutoSupportPlanner
     {
         if (!settings.AutoSupplyArmies) return null;
         var capacity = SupplyCapacity.ArmyDialogCapacityTons(army.TotalTroops, ruleset);
-        var target = (int)Math.Ceiling((double)capacity * settings.AutoSupplyTargetPercent / 100);
-        var needed = Math.Max(0, target - army.SupplyTons);
+        var needed = Math.Max(0, capacity - army.SupplyTons);
         if (needed == 0) return null;
 
         foreach (var provider in SupplyProviders.ForArmy(state, army.Id, ruleset))
@@ -52,11 +51,18 @@ public static class ArmyAutoSupportPlanner
         if (!settings.AutoFundArmies) return null;
         var nation = state.NationById(army.Nation);
         if (nation is null) return null;
-        var target = Math.Min(settings.AutoPurseTargetTalents, ruleset.Economy.PurseCapPerUnit);
+        var target = Math.Min(QuarterlyPurseTarget(army, ruleset), ruleset.Economy.PurseCapPerUnit);
         var needed = Math.Max(0, target - army.Money);
-        var available = Math.Max(0, nation.Treasury - settings.AutoTreasuryReserveTalents);
-        var amount = Math.Min(Math.Min(needed, available), ruleset.Economy.PurseCapPerUnit);
+        // Never request a positive transfer into an over-cap purse: the manual
+        // writer would pull it back to the cap. Funding is a top-up only.
+        var amount = Math.Min(needed, ruleset.Economy.PurseCapPerUnit);
+        if (ruleset.Flags.EconomyPurses != EconomyPurseModel.PerUnitPurses)
+            amount = Math.Min(amount, Math.Max(0, nation.Treasury));
         return amount == 0 ? null : new(army.Id,
             $"transfer-money {army.Id} {amount.ToString(CultureInfo.InvariantCulture)}", "money", amount);
     }
+
+    /// <summary>The same nominal regular+mercenary quarterly cost shown by the army information panel.</summary>
+    public static int QuarterlyPurseTarget(ArmyState army, Ruleset ruleset) =>
+        Math.Max(0, ArmyUpkeep.Compute(army.Units, ruleset));
 }

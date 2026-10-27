@@ -53,7 +53,7 @@ public sealed class FleetAutoSupportPlannerTests
         var proposed = FleetAutoSupportPlanner.NextSupply(state, fleet, RealGameData.Ruleset,
             settings, new HashSet<string>());
         Assert.NotNull(proposed);
-        Assert.Equal((int)Math.Ceiling(capacity * 0.5), proposed.Requested);
+        Assert.Equal(capacity, proposed.Requested);
         Assert.Equal($"buy-fleet-supply {fleet.Id} {town.Id} {proposed.Requested}", proposed.CommandLine);
         Assert.Null(FleetAutoSupportPlanner.NextSupply(state, fleet, RealGameData.Ruleset,
             settings, new HashSet<string> { town.Id }));
@@ -70,7 +70,7 @@ public sealed class FleetAutoSupportPlannerTests
     }
 
     [Fact]
-    public void Repair_respects_town_cargo_construction_target_and_integer_cost_reserve()
+    public void Repair_respects_town_cargo_construction_and_full_condition_without_a_reserve()
     {
         var (state, fleet, _) = NearOwnedTown();
         var settings = new UserSettings { AutoRepairFleets = true,
@@ -79,10 +79,8 @@ public sealed class FleetAutoSupportPlannerTests
         Assert.NotNull(proposal);
         var available = state.NationById("rome")!.Treasury - settings.AutoTreasuryReserveTalents;
         var cost = fleet.Ships * proposal.Requested / RealGameData.Ruleset.Naval.RepairCostDivisor;
-        Assert.InRange(cost, 0, available);
-        Assert.True(proposal.Requested == 50
-            || fleet.Ships * (proposal.Requested + 1) / RealGameData.Ruleset.Naval.RepairCostDivisor > available,
-            "the chosen repair is the largest affordable request");
+        Assert.True(cost > available, "the obsolete reserve does not limit repair");
+        Assert.Equal(RealGameData.Ruleset.Naval.MaxConditionPercent - fleet.ConditionPercent, proposal.Requested);
         Assert.Equal($"repair-fleet {fleet.Id} {proposal.Requested}", proposal.CommandLine);
         Assert.Null(FleetAutoSupportPlanner.Repair(state, fleet with { CarriedArmyId = "army-0" },
             RealGameData.Ruleset, settings));
@@ -135,7 +133,7 @@ public sealed class FleetAutoSupportPlannerTests
         };
         Assert.Null(FleetAutoSupportPlanner.NextSupply(state, second, RealGameData.Ruleset,
             settings, new HashSet<string>()));
-        Assert.Null(FleetAutoSupportPlanner.Repair(state, second, RealGameData.Ruleset, settings));
+        Assert.NotNull(FleetAutoSupportPlanner.Repair(state, second, RealGameData.Ruleset, settings));
     }
 
     [Theory]

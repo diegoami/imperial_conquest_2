@@ -1,4 +1,5 @@
 using IC2.Engine.Model;
+using IC2.Engine.Economy;
 using IC2.Engine.Presentation;
 using IC2.Engine.Serialization;
 using IC2.Engine.Tests.Export;
@@ -92,7 +93,8 @@ public sealed class ArmyAutoSupportPlannerTests
         };
         Assert.Equal(50, ArmyAutoSupportPlanner.NextSupply(state, first, RealGameData.Ruleset, settings,
             new HashSet<string>())?.Requested);
-        Assert.Equal(500, ArmyAutoSupportPlanner.Fund(state, first, RealGameData.Ruleset, settings)?.Requested);
+        var demand = Math.Min(ArmyUpkeep.Compute(first.Units, RealGameData.Ruleset), RealGameData.Ruleset.Economy.PurseCapPerUnit);
+        Assert.Equal(demand, ArmyAutoSupportPlanner.Fund(state, first, RealGameData.Ruleset, settings)?.Requested);
 
         state = state with
         {
@@ -103,11 +105,11 @@ public sealed class ArmyAutoSupportPlannerTests
         };
         Assert.Null(ArmyAutoSupportPlanner.NextSupply(state with { Fleets = ValueList<FleetState>.Empty },
             second, RealGameData.Ruleset, settings, new HashSet<string>()));
-        Assert.Null(ArmyAutoSupportPlanner.Fund(state, second, RealGameData.Ruleset, settings));
+        Assert.Equal(demand, ArmyAutoSupportPlanner.Fund(state, second, RealGameData.Ruleset, settings)?.Requested);
     }
 
     [Fact]
-    public void Target_percent_and_ruleset_purse_cap_are_respected()
+    public void Legacy_target_percent_is_ignored_and_funding_uses_upkeep_within_the_purse_cap()
     {
         var (state, army, _) = NearOwnCity();
         var settings = new UserSettings
@@ -118,12 +120,12 @@ public sealed class ArmyAutoSupportPlannerTests
         };
         var capacity = IC2.Engine.Economy.SupplyCapacity.ArmyDialogCapacityTons(army.TotalTroops,
             RealGameData.Ruleset);
-        var target = (int)Math.Ceiling(capacity * 0.25);
+        var target = Math.Min(capacity, 250);
         Assert.Equal(target, ArmyAutoSupportPlanner.NextSupply(state, army, RealGameData.Ruleset,
             settings, new HashSet<string>())?.Requested);
         var rich = state with { Nations = ValueList.From(state.Nations.Select(n => n.Id == "rome"
             ? n with { Treasury = 1_000_000 } : n)) };
-        Assert.Equal(RealGameData.Ruleset.Economy.PurseCapPerUnit,
+        Assert.Equal(Math.Min(ArmyUpkeep.Compute(army.Units, RealGameData.Ruleset), RealGameData.Ruleset.Economy.PurseCapPerUnit),
             ArmyAutoSupportPlanner.Fund(rich, army, RealGameData.Ruleset, settings)?.Requested);
     }
 
@@ -177,12 +179,13 @@ public sealed class ArmyAutoSupportPlannerTests
         Assert.NotNull(funding);
         Assert.DoesNotContain(session.Submit(funding.CommandLine).Lines,
             line => line.StartsWith("Refused:", StringComparison.Ordinal));
-        Assert.Equal(500, session.State.ArmyById(army.Id)!.Money);
-        Assert.Equal(2_000, session.State.NationById("rome")!.Treasury);
+        var demand = Math.Min(ArmyUpkeep.Compute(army.Units, ruleset), ruleset.Economy.PurseCapPerUnit);
+        Assert.Equal(demand, session.State.ArmyById(army.Id)!.Money);
+        Assert.Equal(2_500 - demand, session.State.NationById("rome")!.Treasury);
     }
 
     [Fact]
-    public void Funding_respects_adjustable_target_ruleset_cap_and_treasury_reserve()
+    public void Funding_ignores_legacy_target_and_reserve_and_keeps_already_sufficient_purses()
     {
         var (state, army, _) = NearOwnCity();
         var nation = state.NationById("rome")!;
@@ -195,8 +198,9 @@ public sealed class ArmyAutoSupportPlannerTests
 
         var proposal = ArmyAutoSupportPlanner.Fund(state, army, RealGameData.Ruleset, settings);
         Assert.NotNull(proposal);
-        Assert.Equal($"transfer-money {army.Id} 500", proposal.CommandLine);
-        Assert.Null(ArmyAutoSupportPlanner.Fund(state, army with { Money = 900 }, RealGameData.Ruleset, settings));
+        var demand = Math.Min(ArmyUpkeep.Compute(army.Units, RealGameData.Ruleset), RealGameData.Ruleset.Economy.PurseCapPerUnit);
+        Assert.Equal($"transfer-money {army.Id} {demand}", proposal.CommandLine);
+        Assert.Null(ArmyAutoSupportPlanner.Fund(state, army with { Money = demand }, RealGameData.Ruleset, settings));
         Assert.Equal(2_500, state.NationById("rome")!.Treasury);
     }
 }

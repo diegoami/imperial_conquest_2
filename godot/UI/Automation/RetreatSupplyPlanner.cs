@@ -66,7 +66,7 @@ public static class RetreatSupplyPlanner
         }
         var usable = state.Cities.Where(city => city.Owner == plan.NationId
             && (fleet is null || CoastalCity.IsCoastal(city, world))
-            && CanService(city, fleet, nation, ruleset, settings, fullSupply, fullCondition)).ToArray();
+            && CanService(city, fleet, fullSupply, fullCondition)).ToArray();
         var chosen = usable.FirstOrDefault(city => city.Id == plan.DestinationCityId)
             ?? usable.OrderByDescending(city => city.Id == nation.CapitalCityId)
                 .ThenByDescending(city => city.PopulationThousands)
@@ -101,13 +101,11 @@ public static class RetreatSupplyPlanner
         return null;
     }
 
-    private static bool CanService(CityState city, FleetState? fleet,
-        NationState nation, Ruleset ruleset, UserSettings settings, bool fullSupply, bool fullCondition)
+    private static bool CanService(CityState city, FleetState? fleet, bool fullSupply, bool fullCondition)
     {
         if (!fullSupply && city.SupplyTons > 0) return true;
         if (fleet is null || fullCondition || fleet.IsCarryingArmy) return false;
-        var available = Math.Max(0, nation.Treasury - settings.AutoTreasuryReserveTalents);
-        return fleet.Ships / ruleset.Naval.RepairCostDivisor <= available;
+        return true; // The existing repair command permits debt; no automation reserve.
     }
 
     private static int Distance(int x1, int y1, int x2, int y2) =>
