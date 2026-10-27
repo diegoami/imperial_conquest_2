@@ -485,11 +485,11 @@ public sealed class FleetTransferModel
     public int MaxSupplyBack =>
         _partner is null || EitherCarryingArmy || !CombinedShipsWithinCap ? 0 : Math.Max(0, _partner.SupplyTons);
 
-    /// <summary>The most money A can send B.</summary>
+    /// <summary>A's available purse; the arrow additionally applies signed receiver room.</summary>
     public int MaxMoneyToPartner =>
         _partner is null || EitherCarryingArmy || !CombinedShipsWithinCap ? 0 : Math.Max(0, _selected.Money);
 
-    /// <summary>The most money B can send A.</summary>
+    /// <summary>B's available purse; the arrow additionally applies signed receiver room.</summary>
     public int MaxMoneyBack =>
         _partner is null || EitherCarryingArmy || !CombinedShipsWithinCap ? 0 : Math.Max(0, _partner.Money);
 
@@ -501,9 +501,13 @@ public sealed class FleetTransferModel
     public void AdjustSupply(int delta) =>
         _supplyNet = Math.Clamp(_supplyNet + delta, -MaxSupplyBack, MaxSupplyToPartner);
 
-    /// <summary>One press of a money arrow, clamped to both directions' bounds.</summary>
-    public void AdjustMoney(int delta) =>
-        _moneyNet = Math.Clamp(_moneyNet + delta, -MaxMoneyBack, MaxMoneyToPartner);
+    /// <summary>Research85: apply the signed per-arrow cap on the working purses, not on OK.</summary>
+    public void AdjustMoney(int delta)
+    {
+        if (_partner is null || EitherCarryingArmy || !CombinedShipsWithinCap) return;
+        _moneyNet += ArmyDialogModels.MoneyArrowStep(delta, _selected.Money - _moneyNet,
+            _partner.Money + _moneyNet, _ruleset.Economy.PurseCapPerUnit);
+    }
 
     /// <summary>
     /// <c>OK</c>: one <c>fleet-transfer</c> per direction that has a non-zero amount — one line for an

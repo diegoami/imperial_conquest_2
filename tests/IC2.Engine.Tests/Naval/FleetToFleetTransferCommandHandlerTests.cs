@@ -224,19 +224,10 @@ public sealed class FleetToFleetTransferCommandHandlerTests
         Assert.Equal(FleetToFleetTransferRejections.InsufficientMoney, tooMuchMoney.Code);
     }
 
-    /// <summary>
-    /// T72 Done-when 3, <c>[open]</c>: the target's pooled purse stays capped at
-    /// <c>EconomyRules.PurseCapPerUnit</c> (1,000) on the partial-transfer path with the excess credited to
-    /// the (shared) issuing nation's treasury — TODAY'S BEHAVIOUR, deliberately KEPT: <c>TFleetToFleet</c>'s
-    /// money-line arithmetic is settled by no report (the 2026-10-05 purse report names the path not-settled;
-    /// the unit-map report only calls the dialog "the naval twin of TArmyToArmy"; the refusal-texts report
-    /// reads "the dialogs clamp the value" without the rule; <c>all_app_functions.txt</c>/Ghidra unreachable
-    /// from the implementer — see <c>FleetToFleetTransferCommandHandler</c>'s remarks for the full search).
-    /// An unsettled writer keeps its behaviour rather than being changed on a guess; unlike the joins (which
-    /// T72 uncapped on the decompiled rows) this clamp stays where it is, in this writer.
-    /// </summary>
+    /// <summary>T226: a raw command carries an admitted allocation, not a nominal arrow step.
+    /// Partial OK applies it without a second 1,000 clamp or treasury sweep.</summary>
     [Fact]
-    public void PartialTransfer_MoneyAboveThePurseCap_IsClampedAndTheExcessCreditedToTheTreasury()
+    public void PartialTransfer_An_explicit_large_allocation_remains_in_the_receiver_purse()
     {
         var state = NavalTestbed.InitialState();
         var treasuryBefore = state.NationById(NationId)!.Treasury;
@@ -249,9 +240,9 @@ public sealed class FleetToFleetTransferCommandHandlerTests
             state, new FleetToFleetTransferCommand(NationId, source.Id, target.Id, Ships: 1, SupplyTons: 0, Money: 900));
 
         Assert.True(result.IsAccepted, result.ToString());
-        Assert.Equal(1000, result.State.FleetById(target.Id)!.Money); // capped, not 1,800.
+        Assert.Equal(1800, result.State.FleetById(target.Id)!.Money);
         Assert.Equal(0, result.State.FleetById(source.Id)!.Money); // the source still gave up the full 900.
-        Assert.Equal(treasuryBefore + 800, result.State.NationById(NationId)!.Treasury);
+        Assert.Equal(treasuryBefore, result.State.NationById(NationId)!.Treasury);
     }
 
     /// <summary>
@@ -326,15 +317,10 @@ public sealed class FleetToFleetTransferCommandHandlerTests
         Assert.Equal(after, reloaded.State);
     }
 
-    /// <summary>
-    /// T72 Done-when 3: a fleet-to-fleet transfer INTO a purse near 1,000 (direction one). 950 + 100:
-    /// the kept [open] clamp lands the survivor at 1,000, only 50 of the moved money fits, the other 50
-    /// is the treasury's, and the source is charged its full 100 (see
-    /// <c>FleetToFleetTransferCommandHandler</c>'s remarks — the behaviour a pre-T72 <c>Credit</c> also
-    /// applied; conserved exactly: 1,000 + 50 = 950 + 100).
-    /// </summary>
+    /// <summary>T226: a raw command carries an admitted allocation, not a nominal arrow step.
+    /// Partial OK applies it without a second 1,000 clamp or treasury sweep.</summary>
     [Fact]
-    public void PartialTransfer_IntoAPurseNearTheCap_KeepsTheClamp_AndConserves()
+    public void PartialTransfer_An_explicit_allocation_is_not_clamped_again_at_OK()
     {
         var state = NavalTestbed.InitialState();
         var treasuryBefore = state.NationById(NationId)!.Treasury;
@@ -348,23 +334,17 @@ public sealed class FleetToFleetTransferCommandHandlerTests
 
         Assert.True(result.IsAccepted, result.ToString());
         Assert.Equal(0, result.State.FleetById(source.Id)!.Money);
-        Assert.Equal(1000, result.State.FleetById(target.Id)!.Money); // stops at 1,000.
-        Assert.Equal(treasuryBefore + 50, result.State.NationById(NationId)!.Treasury); // the part that did not fit.
+        Assert.Equal(1050, result.State.FleetById(target.Id)!.Money);
+        Assert.Equal(treasuryBefore, result.State.NationById(NationId)!.Treasury);
         Assert.Equal(
             source.Money + target.Money + treasuryBefore,
             result.State.FleetById(source.Id)!.Money + result.State.FleetById(target.Id)!.Money + result.State.NationById(NationId)!.Treasury);
     }
 
-    /// <summary>
-    /// T72 Done-when 3: a fleet-to-fleet transfer INTO a purse above 1,000 (direction two — the named
-    /// fleet funds and the other receives, the reverse of the test above). A 1,066 receiver taking 50:
-    /// the kept [open] behaviour clamps the pooled 1,116 back to 1,000 and credits the whole 116 over
-    /// the cap to the treasury, charging the source its full 50 (conserved: 1,066 + 50 = 1,000 + 116).
-    /// The original's <c>TFleetToFleet</c> money-line rule is [open] — see the handler's remarks — so
-    /// this pins today's behaviour, kept on purpose, not a guess at the original's.
-    /// </summary>
+    /// <summary>T226: a raw command carries an admitted allocation, not a nominal arrow step.
+    /// Partial OK applies it without a second 1,000 clamp or treasury sweep.</summary>
     [Fact]
-    public void PartialTransfer_IntoAPurseAboveTheCap_KeepsTheClamp_AndConserves()
+    public void PartialTransfer_An_explicit_allocation_to_an_overcap_purse_does_not_sweep_to_treasury()
     {
         var state = NavalTestbed.InitialState();
         var treasuryBefore = state.NationById(NationId)!.Treasury;
@@ -378,8 +358,8 @@ public sealed class FleetToFleetTransferCommandHandlerTests
 
         Assert.True(result.IsAccepted, result.ToString());
         Assert.Equal(0, result.State.FleetById(source.Id)!.Money);
-        Assert.Equal(1000, result.State.FleetById(target.Id)!.Money); // 1,116 pooled, kept clamp pulls to 1,000.
-        Assert.Equal(treasuryBefore + 116, result.State.NationById(NationId)!.Treasury); // the whole excess over the cap, conserved.
+        Assert.Equal(1116, result.State.FleetById(target.Id)!.Money);
+        Assert.Equal(treasuryBefore, result.State.NationById(NationId)!.Treasury);
         Assert.Equal(
             source.Money + target.Money + treasuryBefore,
             result.State.FleetById(source.Id)!.Money + result.State.FleetById(target.Id)!.Money + result.State.NationById(NationId)!.Treasury);

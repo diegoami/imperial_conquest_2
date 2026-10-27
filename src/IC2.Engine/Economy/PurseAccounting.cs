@@ -5,8 +5,8 @@ namespace IC2.Engine.Economy;
 /// purses", Done-when 6, as corrected by T72 (bug #315): <see cref="Credit"/> adds without the 1,000 cap
 /// and keeps the purse inside the field's <see cref="PurseFieldMin"/> … <see cref="PurseFieldMax"/> range.
 /// The 1,000 clamp survives only on the paths that read <see cref="Model.EconomyRules.PurseCapPerUnit"/>
-/// themselves: the supply dialog's money arrows (<see cref="TreasuryPurseTransfer"/>) and the own-city
-/// resupply hygiene (<see cref="AutomaticResupply"/>).
+/// themselves: supply and army/fleet-transfer money arrows, and the own-city resupply hygiene
+/// (<see cref="AutomaticResupply"/>). Partial transfer commits do not normalize purse balances.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -21,9 +21,9 @@ namespace IC2.Engine.Economy;
 /// sweep <c>tests/IC2.Data.Tests/CorpusFixtures/ArmyFleetFieldRangeSweepTests.cs</c>), so a purse above
 /// 1,000 is legitimate, and T21's import preserves such a purse as saved.
 /// <see cref="Model.EconomyRules.PurseCapPerUnit"/> is therefore no longer read by this class — the
-/// writers that need it (the dialog transfer, the own-city refill, and the still-unsettled
-/// <c>Naval/Commands/FleetToFleetTransferCommandHandler</c>, marked <c>[open]</c> there) clamp with it
-/// themselves.
+/// writers that need it (the dialog money arrows and own-city refill) clamp with it themselves.
+/// Research85/T226 separately confirms the fleet-transfer working arrow cap; partial OK does not
+/// normalize purses or sweep money to the treasury.
 /// </para>
 /// <para>
 /// <strong>Battle capture credits this field range, corrected by T193.</strong>

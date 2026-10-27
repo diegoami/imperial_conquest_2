@@ -52,3 +52,4 @@ Open and recent tasks only. Merged tasks (T01–T191 and others) are in their cl
 - [T223](tasks/T223.md) —  Paid-supply signed returns and refunds
 - [T224](tasks/T224.md) —  AI embark overflow receiver context and movement
 - [T225](tasks/T225.md) —  Partial whole-unit admission in Army Transfer
+- [T226](tasks/T226.md) —  Fleet transfer working-purse arrows and partial OK accounting
