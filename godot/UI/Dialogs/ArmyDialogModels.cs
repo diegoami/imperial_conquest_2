@@ -40,12 +40,22 @@ namespace IC2.Slice.UI;
 public static class ArmyDialogModels
 {
     /// <summary>T231 owner policy: requested direction, actual funds and representable receiving room.</summary>
-    internal static int MoneyArrowStep(int delta, int selectedMoney, int partnerMoney, int cap)
+    internal static int FlexibleMoneyArrowStep(int delta, int selectedMoney, int partnerMoney, int cap)
     {
         if (delta == 0) return 0;
         var giver = delta > 0 ? selectedMoney : partnerMoney;
         var receiver = delta > 0 ? partnerMoney : selectedMoney;
         var admitted = Math.Max(0, Math.Min(Math.Abs((long)delta), Math.Min((long)cap - receiver, giver)));
+        return (int)(delta > 0 ? admitted : -admitted);
+    }
+
+    /// <summary>Research85 original signed arrow; retained by the separate fleet policy.</summary>
+    internal static int MoneyArrowStep(int delta, int selectedMoney, int partnerMoney, int cap)
+    {
+        if (delta == 0) return 0;
+        var giver = delta > 0 ? selectedMoney : partnerMoney;
+        var receiver = delta > 0 ? partnerMoney : selectedMoney;
+        var admitted = Math.Min(Math.Abs((long)delta), Math.Min((long)cap - receiver, giver));
         return (int)(delta > 0 ? admitted : -admitted);
     }
 
@@ -377,7 +387,7 @@ public sealed class ArmyTransferModel
             return;
         }
 
-        _moneyNet += ArmyDialogModels.MoneyArrowStep(delta,
+        _moneyNet += ArmyDialogModels.FlexibleMoneyArrowStep(delta,
             _selected.Money - _moneyNet, _partner.Money + _moneyNet, PurseCap);
     }
 
@@ -661,7 +671,7 @@ public sealed class SplitArmyModel
     public void AdjustSupply(int delta) => _supply = Math.Clamp(_supply + delta, 0, MaxSupply);
 
     /// <summary>The shared working-purse arrow rule, including over-cap parent pullback.</summary>
-    public void AdjustMoney(int delta) => _money += ArmyDialogModels.MoneyArrowStep(delta,
+    public void AdjustMoney(int delta) => _money += ArmyDialogModels.FlexibleMoneyArrowStep(delta,
         _army.Money - _money, _money, PurseAccounting.PurseFieldMax);
 
     /// <summary>
