@@ -29,10 +29,12 @@ public sealed class DisbandArmyCommandHandler : ICommandHandler<DisbandArmyComma
                 $"Army '{army.Id}' belongs to '{army.Nation}', not '{command.IssuingNationId}'.");
         }
 
-        if (army.IsEmbarked)
+        if (army.IsEmbarked && (army.CoveredTileCode is not null || state.FleetById(army.AboardFleetId!) is not { } carrier
+            || carrier.Nation != army.Nation || carrier.IsUnderConstruction
+            || carrier.CarriedArmyId != army.Id || carrier.X != army.X || carrier.Y != army.Y))
         {
             return CommandOutcome.Reject(
-                DisbandArmyRejections.ArmyEmbarked, $"Army '{army.Id}' is aboard a fleet and cannot be disbanded.");
+                DisbandArmyRejections.InvalidCarrier, $"Army '{army.Id}' does not have a valid own carrier link.");
         }
 
         var nearbyOwnCity = FindOwnCityNear(state, army.Nation, army.X, army.Y);
@@ -55,6 +57,7 @@ public sealed class DisbandArmyCommandHandler : ICommandHandler<DisbandArmyComma
         return CommandOutcome.Accept(state with
         {
             Armies = ValueList.From(updatedArmies),
+            Fleets = ValueList.From(state.Fleets.Select(f => f.CarriedArmyId == army.Id ? f with { CarriedArmyId = null } : f)),
             Cities = ValueList.From(updatedCities),
             Nations = ValueList.From(updatedNations),
         });

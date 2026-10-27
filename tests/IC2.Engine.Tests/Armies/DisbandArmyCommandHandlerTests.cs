@@ -1,4 +1,7 @@
 using IC2.Engine.Armies.Commands;
+using IC2.Engine.Model;
+using IC2.Engine.Persistence;
+using IC2.Engine.Tests.Core;
 using Xunit;
 using static IC2.Engine.Tests.Armies.ArmiesTestbed;
 
@@ -12,6 +15,61 @@ namespace IC2.Engine.Tests.Armies;
 /// </summary>
 public sealed class DisbandArmyCommandHandlerTests
 {
+    [Theory]
+    [InlineData("owner")]
+    [InlineData("position")]
+    [InlineData("link")]
+    [InlineData("construction")]
+    public void Invalid_carried_context_refuses_before_any_refund(string invalid)
+    {
+        var state = InitialState();
+        var city = state.CityById("arx")!;
+        var army = Army("cargo", NorthNationId, city.X + 1, city.Y, new[] { RegularUnit("Cargo") },
+            money: 37, supplyTons: 23, coveredTileCode: null, aboardFleetId: "carrier");
+        var fleet = new FleetState("carrier", invalid == "owner" ? SouthNationId : NorthNationId,
+            invalid == "position" ? army.X + 1 : army.X, army.Y, 7, 10, 100, 80, 60,
+            invalid == "construction" ? 1 : null, null, invalid == "link" ? null : army.Id, 0);
+        state = state with { Armies = ValueList.Of(army), Fleets = ValueList.Of(fleet) };
+        var result = Dispatcher().Dispatch(state, new DisbandArmyCommand(NorthNationId, army.Id));
+        Assert.True(result.IsRejected);
+        Assert.Equal(DisbandArmyRejections.InvalidCarrier, result.Code);
+        Assert.Same(state, result.State);
+        Assert.Equal(state.RandomSeed, result.State.RandomSeed);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Carried_army_disband_refunds_at_an_own_town_and_safely_unlinks_the_carrier(bool near)
+    {
+        var state = InitialState();
+        var city = state.CityById("arx")! with { SupplyTons = 330 };
+        var army = Army("cargo", NorthNationId, near ? city.X + 1 : 0, near ? city.Y : 5,
+            new[] { RegularUnit("Cargo", troops: 5000) }, money: 37, supplyTons: 23,
+            coveredTileCode: null, aboardFleetId: "carrier");
+        var fleet = new FleetState("carrier", NorthNationId, army.X, army.Y, 7, 10, 100, 80, 60, null, null, army.Id, 0);
+        state = state with { Armies = ValueList.Of(army), Fleets = ValueList.Of(fleet),
+            Cities = ValueList.From(state.Cities.Select(c => c.Id == city.Id ? city : c)),
+            Nations = ValueList.From(state.Nations.Select(n => n.Id == NorthNationId ? n with { Treasury = 1730 } : n)) };
+        var result = Dispatcher().Dispatch(state, new DisbandArmyCommand(NorthNationId, army.Id));
+        if (!near)
+        {
+            Assert.True(result.IsRejected);
+            Assert.Equal(DisbandArmyRejections.NotNearOwnCity, result.Code);
+            Assert.Same(state, result.State);
+            return;
+        }
+        Assert.True(result.IsAccepted, result.ToString());
+        Assert.Null(result.State.ArmyById(army.Id));
+        Assert.Equal(fleet with { CarriedArmyId = null }, result.State.FleetById(fleet.Id));
+        Assert.Equal(city with { SupplyTons = 353 }, result.State.CityById(city.Id));
+        Assert.Equal(1767, result.State.NationById(NorthNationId)!.Treasury);
+        var save = new SaveGame(result.State.SchemaVersion, "cargo-disband", "cargo-disband",
+            result.State.ScenarioId, result.State.WorldId, result.State.RulesetId, result.State);
+        Assert.Equal(result.State, SaveManager.Load("cargo-disband.json", SaveManager.Serialize(save),
+            CoreTestbed.Toy.World, ArmiesTestbed.Ruleset).State);
+    }
+
     [Fact]
     public void Disband_AtAnOwnedCity_ConservesMoneyAndSuppliesExactly()
     {
@@ -88,7 +146,7 @@ public sealed class DisbandArmyCommandHandlerTests
     }
 
     [Fact]
-    public void Disband_EmbarkedArmy_IsRejected()
+    public void Disband_CarriedArmyWithMissingCarrier_IsRejectedAtomically()
     {
         var state = InitialState();
         var arx = state.CityById("arx")!;
@@ -99,7 +157,8 @@ public sealed class DisbandArmyCommandHandlerTests
         var result = Dispatcher().Dispatch(state, new DisbandArmyCommand(NorthNationId, "disband-d"));
 
         Assert.True(result.IsRejected);
-        Assert.Equal(DisbandArmyRejections.ArmyEmbarked, result.Code);
+        Assert.Equal(DisbandArmyRejections.InvalidCarrier, result.Code);
+        Assert.Same(state, result.State);
     }
 
     [Fact]
