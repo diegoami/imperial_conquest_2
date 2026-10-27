@@ -10,6 +10,60 @@ namespace IC2.Engine.Tests.Ui;
 
 public sealed class AutoMobilizePlannerTests
 {
+    [Theory]
+    [InlineData(false, 16, false)]
+    [InlineData(false, 20, false)]
+    [InlineData(false, 23, false)]
+    [InlineData(false, 24, true)]
+    [InlineData(false, 28, true)]
+    [InlineData(false, 36, true)]
+    [InlineData(true, 16, false)]
+    [InlineData(true, 20, false)]
+    [InlineData(true, 24, true)]
+    [InlineData(true, 28, true)]
+    public void Automatic_mobilization_requires_average_or_better(bool improved, int stateCode, bool expected)
+    {
+        var (state, ruleset) = Training(improved);
+        state = state with { Nations = ValueList.From(state.Nations.Select(n => n.Id == "rome"
+            ? n with { RecruitmentSlots = ValueList.Of(n.RecruitmentSlots[0] with { StateCode = stateCode }) }
+            : n)) };
+
+        Assert.Equal(expected, AutoMobilizePlanner.Next(state, ruleset, 0) is not null);
+    }
+
+    [Fact]
+    public void Automatic_threshold_uses_resulting_quality_not_a_fixed_training_counter()
+    {
+        var (state, ruleset) = Training();
+        var changed = ruleset with { Recruitment = ruleset.Recruitment with { MobilizationQualityDivisor = 6 } };
+        Assert.NotNull(AutoMobilizePlanner.Next(state, ruleset, 1)); // 24 / 4 = Average
+        Assert.Null(AutoMobilizePlanner.Next(state, changed, 1)); // 24 / 6 = Very poor
+    }
+
+    [Fact]
+    public void Manual_mobilization_still_accepts_very_poor_troops_and_display_matches_result()
+    {
+        var (state, ruleset) = Training();
+        state = state with { Nations = ValueList.From(state.Nations.Select(n => n.Id == "rome"
+            ? n with { RecruitmentSlots = ValueList.Of(n.RecruitmentSlots[0] with { StateCode = 16 }) }
+            : n)) };
+        var save = new SaveGame(state.SchemaVersion, "manual-quality", "manual-quality",
+            state.ScenarioId, state.WorldId, state.RulesetId, state);
+        var session = new GameSession(RealGameData.World, ruleset, RealGameData.Scenario, save);
+        var row = Assert.Single(RecruitmentPanelViewModel.TrainingForNation(state, ruleset, "rome"));
+        Assert.True(row.IsReady);
+        Assert.Equal(4, row.Quality);
+        Assert.Equal("very poor", row.QualityText);
+        Assert.Null(AutoMobilizePlanner.Next(state, ruleset, 0));
+        var unitsBefore = session.State.Armies.Sum(a => a.Units.Count);
+        var output = session.Submit($"mobilize 0 {RecruitUnitDialogModel.NextArmyId(state)}");
+        Assert.DoesNotContain(output.Lines, line => line.StartsWith("Refused:", StringComparison.Ordinal));
+        Assert.Empty(session.State.NationById("rome")!.RecruitmentSlots);
+        Assert.Equal(unitsBefore + 1, session.State.Armies.Sum(a => a.Units.Count));
+        Assert.Contains(session.State.Armies.Where(a => a.Nation == "rome").SelectMany(a => a.Units),
+            u => u.Quality == row.Quality && u.UnitTypeId == row.UnitTypeId && u.Troops == row.Troops);
+    }
+
     private static (GameState State, Ruleset Ruleset) Training(bool improved = false)
     {
         var ruleset = improved
@@ -20,8 +74,8 @@ public sealed class AutoMobilizePlannerTests
         var city = state.Cities.First(c => c.Owner == "rome");
         var slots = ValueList.Of(
             new RecruitmentSlot(city.Id, "light_infantry", 3_000, 15),
-            new RecruitmentSlot(city.Id, "heavy_infantry", 4_000, 16),
-            new RecruitmentSlot(city.Id, "archers", 2_000, 24));
+            new RecruitmentSlot(city.Id, "heavy_infantry", 4_000, 24),
+            new RecruitmentSlot(city.Id, "archers", 2_000, 28));
         state = state with
         {
             RulesetId = ruleset.Id,

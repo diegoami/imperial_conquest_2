@@ -256,9 +256,9 @@ public partial class SettingsScreen : Control
 
         Section(column, "Recruitment");
         column.AddChild(UiKit.MakeLabel(
-            "At confirmed End turn, mobilize ready units in queue order. This may create new armies.",
+            "At confirmed End turn, mobilize Average or better units in queue order. This may create new armies.",
             AppTheme.Note, UiKit.MutedTextColor));
-        var mobilize = new CheckBox { Text = "Auto mobilize ready units", ButtonPressed = Current.AutoMobilizeReady };
+        var mobilize = new CheckBox { Text = "Auto mobilize Average or better", ButtonPressed = Current.AutoMobilizeReady };
         mobilize.Toggled += on => Commit(Current with { AutoMobilizeReady = on });
         Row(column, "Mobilize").AddChild(mobilize);
         var recruit = new CheckBox { Text = "Auto recruit to city plans", ButtonPressed = Current.AutoRecruitEnabled };

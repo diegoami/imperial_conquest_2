@@ -110,7 +110,7 @@ public partial class SettingsCheck : Control
             Check(SettingsScreen.Current.AutoRepairFleets && UserSettings.Load(_file).AutoRepairFleets,
                 "the fleet repair switch commits to the global settings file");
             var mobilize = settings.FindChildren("*", "CheckBox", true, false).OfType<CheckBox>()
-                .Single(box => box.Text == "Auto mobilize ready units");
+                .Single(box => box.Text == "Auto mobilize Average or better");
             mobilize.EmitSignal(BaseButton.SignalName.Toggled, true);
             Check(SettingsScreen.Current.AutoMobilizeReady && UserSettings.Load(_file).AutoMobilizeReady,
                 "the auto mobilize switch commits to the global settings file");

@@ -284,7 +284,7 @@ public partial class EndTurnBoxCheck : Control
     private void CheckAutoMobilizeBeforeSupport()
     {
         SettingsScreen.Commit(new UserSettings { AutoMobilizeReady = true, AutoSupplyArmies = true });
-        var mainGame = AddMainGame(BuildAutoMobilizeSession());
+        var mainGame = AddMainGame(BuildAutoMobilizeSession(lowerQualitySlots: true));
         try
         {
             var before = mainGame.Session.State.NationById("north")!.RecruitmentSlots;
@@ -305,8 +305,9 @@ public partial class EndTurnBoxCheck : Control
                   && commands[^1].StartsWith("> end", StringComparison.Ordinal),
                 "mobilize runs before army support and one ordinary end");
             var remaining = mainGame.Session.State.NationById("north")!.RecruitmentSlots;
-            Check(remaining.Count == 1 && remaining[0].StateCode < 24,
-                "the ready slot was mobilized and the unready slot remains");
+            Check(remaining.Count == 3 && remaining.Any(s => s.StateCode == 18)
+                  && remaining.Any(s => s.StateCode == 22),
+                "Average slot mobilized; unready, Very poor and Poor slots remain and train normally");
             Check(mainGame.LastMessageForCheck.Contains("Auto mobilize: 1", StringComparison.Ordinal),
                 "the End-turn summary reports the accepted mobilization");
         }
@@ -1257,7 +1258,7 @@ public partial class EndTurnBoxCheck : Control
         return new GameSession(original.World, original.Ruleset, original.Scenario, save);
     }
 
-    private static GameSession BuildAutoMobilizeSession(bool refuse = false)
+    private static GameSession BuildAutoMobilizeSession(bool refuse = false, bool lowerQualitySlots = false)
     {
         var original = BuildSession(warning: true);
         var state = original.State;
@@ -1267,9 +1268,13 @@ public partial class EndTurnBoxCheck : Control
             Cities = ValueList.From(state.Cities.Select(c => c.Id == city.Id
                 ? c with { SupplyTons = 600 } : c)),
             Nations = ValueList.From(state.Nations.Select(n => n.Id == "north"
-                ? n with { RecruitmentSlots = ValueList.Of(
+                ? n with { RecruitmentSlots = ValueList.From(new[] {
                     new RecruitmentSlot(city.Id, "light_infantry", 2_000, 0),
-                    new RecruitmentSlot(city.Id, "light_infantry", 3_000, 24)) } : n)),
+                    new RecruitmentSlot(city.Id, "light_infantry", 3_000, 24) }
+                    .Concat(lowerQualitySlots ? new[] {
+                    new RecruitmentSlot(city.Id, "light_infantry", 2_000, 16),
+                    new RecruitmentSlot(city.Id, "light_infantry", 2_000, 20) }
+                    : Array.Empty<RecruitmentSlot>())) } : n)),
         };
         var ruleset = original.Ruleset;
         if (refuse)

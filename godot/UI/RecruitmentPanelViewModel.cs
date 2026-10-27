@@ -40,6 +40,12 @@ public sealed record TrainingRegimentView(
     bool IsReady,
     int? WeeksUntilReady)
 {
+    /// <summary>The quality produced by mobilizing now, not a projected future tier.</summary>
+    public int Quality { get; init; }
+
+    /// <summary>Use the same short quality words as mobilized army units.</summary>
+    public string QualityText => ArmyDialogModels.QualityCaption(Quality);
+
     /// <summary>The words a panel shows for this regiment's readiness: <c>"ready"</c>, or
     /// <c>"4 weeks"</c>, or <c>"not reachable"</c> for the ruleset shape above.</summary>
     public string ReadinessText =>
@@ -243,7 +249,10 @@ public static class RecruitmentPanelViewModel
             StateCode: slot.StateCode,
             SlotIndex: slotIndex,
             IsReady: IsReady(slot, nation, ruleset),
-            WeeksUntilReady: WeeksUntilReady(slot.StateCode, nation, ruleset));
+            WeeksUntilReady: WeeksUntilReady(slot.StateCode, nation, ruleset))
+        {
+            Quality = MobilizationReadiness.QualityFor(slot.StateCode, ruleset.Recruitment),
+        };
 
     private static bool IsReady(RecruitmentSlot slot, NationState nation, Ruleset ruleset) =>
         MobilizationReadiness.IsReady(

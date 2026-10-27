@@ -242,7 +242,7 @@ public static class NationStatusModel
             var regiment = inTraining[i];
             lines.Add(new NationStatusLine(
                 TrainingKeyPrefix + i,
-                $"{regiment.UnitTypeId} — {InformationWords.Grouped(regiment.Troops)} troops — {regiment.ReadinessText} — at "
+                $"{regiment.QualityText} — {regiment.UnitTypeId} — {InformationWords.Grouped(regiment.Troops)} troops — {regiment.ReadinessText} — at "
                 + $"{CityName(state, regiment.TargetCityId)}"));
         }
     }

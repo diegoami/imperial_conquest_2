@@ -367,7 +367,7 @@ public partial class ContextPanel : Control
         {
             foreach (var regiment in inTraining)
             {
-                Fact($"{regiment.UnitTypeId} — {regiment.Troops} troops — {regiment.ReadinessText}");
+                Fact($"{regiment.QualityText} — {regiment.UnitTypeId} — {regiment.Troops} troops — {regiment.ReadinessText}");
             }
         }
 

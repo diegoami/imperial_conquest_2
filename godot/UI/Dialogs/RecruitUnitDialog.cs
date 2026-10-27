@@ -341,7 +341,7 @@ public partial class RecruitUnitDialog : Control
         RefreshTrainingList();
         var selectedRow = _trainingRows.FirstOrDefault(row => row.SlotIndex == _selectedSlotIndex);
         _trainingQualityLabel.Visible = selectedRow is not null;
-        _trainingQualityLabel.Text = selectedRow is null ? string.Empty : TrainingQualityText(selectedRow);
+        _trainingQualityLabel.Text = selectedRow?.QualityText ?? string.Empty;
         if (selectedRow is { } row)
         {
             var target = _model.MobilizationTargetFor(row.SlotIndex, RecruitUnitDialogModel.NextArmyId(Session.State));
@@ -452,22 +452,10 @@ public partial class RecruitUnitDialog : Control
         }
     }
 
-    private string TrainingQualityText(TrainingRegimentView row)
-    {
-        var stateCode = row.StateCode;
-        if (!row.IsReady && row.WeeksUntilReady is { } weeks)
-            for (var week = 0; week < weeks; week++)
-                stateCode = IC2.Engine.Calendar.CityUnitStateCode.Advance(stateCode, Session.Ruleset.Calendar);
-        var quality = ArmyDialogModels.QualityCaption(
-            IC2.Engine.Recruitment.MobilizationReadiness.QualityFor(stateCode, Session.Ruleset.Recruitment));
-        return row.IsReady ? quality
-            : row.WeeksUntilReady is not null ? $"quality when first ready: {quality}" : "quality unavailable";
-    }
-
     private string FormatTrainingRow(TrainingRegimentView row, bool withCity)
     {
         var town = withCity ? _model.CityName(row.TargetCityId) + " — " : string.Empty;
-        return $"{town}{row.UnitTypeId} — {row.Troops} troops — {row.ReadinessText} — {TrainingQualityText(row)}";
+        return $"{row.QualityText} — {town}{row.UnitTypeId} — {row.Troops} troops — {row.ReadinessText}";
     }
 
     private int? SelectedSlotIndex() => _selectedSlotIndex;
