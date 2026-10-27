@@ -467,6 +467,8 @@ public static class GameDataValidation
         RequirePositiveDivisor(documentPath, ruleset.Recruitment.MercenaryRestockTroopsScaleDenominator, "recruitment.mercenaryRestockTroopsScaleDenominator");
         // recruitment.mobilizationQualityDivisor: MobilizationReadiness: state code / this.
         RequirePositiveDivisor(documentPath, ruleset.Recruitment.MobilizationQualityDivisor, "recruitment.mobilizationQualityDivisor");
+        // T221: human transport/hire/transfer capacity compares troops / this with ships.
+        RequirePositiveDivisor(documentPath, ruleset.Naval.TransportTroopsPerShip, "naval.transportTroopsPerShip");
         // naval.repairCostDivisor: RepairFleetCommandHandler: ships * points / this.
         RequirePositiveDivisor(documentPath, ruleset.Naval.RepairCostDivisor, "naval.repairCostDivisor");
         // naval.stormDamageRandomDivisor: FleetAttritionRule: raw storm draw / this.

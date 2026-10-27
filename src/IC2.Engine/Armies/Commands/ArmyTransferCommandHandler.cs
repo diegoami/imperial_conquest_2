@@ -362,5 +362,7 @@ public sealed class ArmyTransferCommandHandler : ICommandHandler<ArmyTransferCom
         army.IsEmbarked
         && finalTroops > army.TotalTroops
         && state.FleetById(army.AboardFleetId!) is { } fleet
-        && finalTroops > fleet.Ships * ruleset.Naval.TransportTroopsPerShip;
+        // Research85 army-transfer boundary: thirty ships admit 15,499,
+        // but refuse 15,500. The division precedes the ship comparison.
+        && finalTroops / ruleset.Naval.TransportTroopsPerShip > fleet.Ships;
 }

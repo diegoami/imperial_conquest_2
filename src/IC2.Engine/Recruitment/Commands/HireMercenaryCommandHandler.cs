@@ -182,8 +182,9 @@ public sealed class HireMercenaryCommandHandler : ICommandHandler<HireMercenaryC
         if (army.IsEmbarked)
         {
             var fleet = state.FleetById(army.AboardFleetId!);
-            var capacity = fleet is null ? 0 : fleet.Ships * context.Ruleset.Naval.TransportTroopsPerShip;
-            if (fleet is null || troopsAfterHire > capacity)
+            // Research83: the per-offer gate truncates the resulting troop
+            // count before comparing ships; it is distinct from the UI opening gate.
+            if (fleet is null || troopsAfterHire / context.Ruleset.Naval.TransportTroopsPerShip > fleet.Ships)
             {
                 return CommandOutcome.Reject(
                     HireMercenaryRejections.FleetNoSpace,

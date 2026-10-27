@@ -28,6 +28,26 @@ namespace IC2.Engine.Tests.Ui;
 /// </remarks>
 public sealed class MercenaryDialogModelTests
 {
+    [Theory]
+    [InlineData(5000, true, 500)]
+    [InlineData(5001, true, 500)]
+    [InlineData(5499, true, 500)]
+    [InlineData(5500, false, 500)]
+    [InlineData(10999, true, 1000)]
+    [InlineData(11000, false, 1000)]
+    public void T221_Opening_fleet_gate_uses_current_troops_and_truncated_requirement(int troops, bool opens, int divisor)
+    {
+        var (state, ruleset) = Scripted(armyMoney: 30000, offerTroops: 500);
+        ruleset = ruleset with { Naval = ruleset.Naval with { TransportTroopsPerShip = divisor } };
+        var army = state.ArmyById(ArmyId)! with { AboardFleetId = "carrier",
+            Units = ValueList.Of(new UnitSlot(0, "light_infantry", troops, 6, "Regulars")) };
+        var fleet = new FleetState("carrier", RomeId, army.X, army.Y, 7, 10, 100, 0, 0, null, null, army.Id, null);
+        state = state with { Armies = ValueList.Of(army), Fleets = ValueList.Of(fleet) };
+        var model = MercenaryDialogModel.ForArmy(state, ArmyId, ruleset);
+        Assert.Equal(opens, model.DialogOpens);
+        Assert.Equal(opens ? null : "Your fleet cannot carry any more troops.", model.PreOpenRefusalMessage);
+    }
+
     private const string RomeId = "rome";
     private const string CarthageId = "carthage";
     private const string ArmyId = "t113-army";

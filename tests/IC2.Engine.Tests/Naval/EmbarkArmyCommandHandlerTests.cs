@@ -12,7 +12,7 @@ namespace IC2.Engine.Tests.Naval;
 /// <summary>
 /// <c>docs/task-catalogue.md</c> "T14 Naval", Done-when 3 (rewritten 2026-09-18, commit <c>87bec66</c>):
 /// exactly <c>ships × 500</c> troops is always accepted; above it, <c>classical-faithful</c> moves whole overflow slots ashore for an AI
-/// seat and refuses a human one, and <c>improved</c> refuses every seat. See
+/// seat; T221 pins the human truncated-division boundary separately. <c>improved</c> refuses every seat above exact capacity. See
 /// <see cref="EmbarkArmyCommand"/>'s remarks for the full history and evidence.
 /// <c>docs/tasks/T93.md</c> (bug #453) adds the adjacency cases at the end of this file: the user's rule
 /// of 2026-09-27 is that an army embarks from a tile adjacent to its fleet and then moves onto the
@@ -82,7 +82,7 @@ public sealed class EmbarkArmyCommandHandlerTests
     /// ruleset rather than a literal.
     /// </summary>
     private static CommandDispatcher DispatcherFor(SeatAsymmetryModel seatAsymmetry,
-        int? adjacencyRadius = null, int? maxArmies = null)
+        int? adjacencyRadius = null, int? maxArmies = null, int? transportDivisor = null)
     {
         var ruleset = NavalTestbed.Ruleset with { Flags = NavalTestbed.Ruleset.Flags with { SeatAsymmetry = seatAsymmetry } };
         if (adjacencyRadius is { } radius)
@@ -91,6 +91,8 @@ public sealed class EmbarkArmyCommandHandlerTests
         }
         if (maxArmies is { } limit)
             ruleset = ruleset with { ArmyManagement = ruleset.ArmyManagement with { MaxArmies = limit } };
+        if (transportDivisor is { } divisor)
+            ruleset = ruleset with { Naval = ruleset.Naval with { TransportTroopsPerShip = divisor } };
 
         return new CommandDispatcher(SystemRegistry.FromEngineAssembly(), ruleset, NavalTestbed.Toy.World, NullEventSink.Instance);
     }
@@ -98,13 +100,38 @@ public sealed class EmbarkArmyCommandHandlerTests
     [Fact]
     public void Faithful_HumanSeat_OverCapacity_IsRefused()
     {
-        var state = BuildState(Capacity + 1, SeatControl.Human, out var armyId, out var fleetId, out var nationId);
+        var state = BuildState(Capacity + 500, SeatControl.Human, out var armyId, out var fleetId, out var nationId);
         var result = DispatcherFor(SeatAsymmetryModel.Faithful).Dispatch(state, new EmbarkArmyCommand(nationId, armyId, fleetId));
 
         Assert.True(result.IsRejected);
         Assert.Equal(EmbarkArmyRejections.ArmyTooLarge, result.Code);
         Assert.Null(result.State.ArmyById(armyId)!.AboardFleetId);
         Assert.Null(result.State.FleetById(fleetId)!.CarriedArmyId);
+    }
+
+    [Theory]
+    [InlineData(5000, false, 500)]
+    [InlineData(5001, false, 500)]
+    [InlineData(5499, false, 500)]
+    [InlineData(5500, true, 500)]
+    [InlineData(10999, false, 1000)]
+    [InlineData(11000, true, 1000)]
+    public void T221_Faithful_human_embark_truncates_before_comparing_ships(int troops, bool refused, int divisor)
+    {
+        var state = BuildState(troops, SeatControl.Human, out var armyId, out var fleetId, out var nationId);
+        var result = DispatcherFor(SeatAsymmetryModel.Faithful, transportDivisor: divisor).Dispatch(state, new EmbarkArmyCommand(nationId, armyId, fleetId));
+        Assert.Equal(refused, result.IsRejected);
+        if (refused) Assert.Same(state, result.State);
+        else
+        {
+            var army = result.State.ArmyById(armyId)!;
+            var fleet = result.State.FleetById(fleetId)!;
+            Assert.Equal(troops, army.TotalTroops);
+            Assert.Equal(fleetId, army.AboardFleetId);
+            Assert.Equal(armyId, fleet.CarriedArmyId);
+            Assert.Equal(0, army.Moves);
+            Assert.Equal(0, fleet.Moves);
+        }
     }
 
     [Fact]

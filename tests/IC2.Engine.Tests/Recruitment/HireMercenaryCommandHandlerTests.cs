@@ -18,6 +18,46 @@ namespace IC2.Engine.Tests.Recruitment;
 /// </summary>
 public sealed class HireMercenaryCommandHandlerTests
 {
+    [Theory]
+    [InlineData(5000, false, 500)]
+    [InlineData(5001, false, 500)]
+    [InlineData(5499, false, 500)]
+    [InlineData(5500, true, 500)]
+    [InlineData(10999, false, 1000)]
+    [InlineData(11000, true, 1000)]
+    public void T221_Embarked_hire_truncates_resulting_troops_before_capacity_comparison(int totalTroops, bool refused, int divisor)
+    {
+        var initial = RecruitmentTestbed.InitialState();
+        var fleet = initial.FleetById("north-fleet-1")!;
+        var army = initial.ArmyById("north-army-1")! with {
+            Money = 30000, SupplyTons = 100, CoveredTileCode = null, AboardFleetId = fleet.Id,
+            Units = ValueList.Of(new UnitSlot(0, "light_infantry", 4000, 6, "Regulars")) };
+        var offer = new MercenaryPoolSlot(9, 2, 1, 3, "light_infantry", totalTroops - 4000, 5);
+        var state = RecruitmentTestbed.WithMercenaryPool(RecruitmentTestbed.WithArmy(initial, army), offer);
+        state = state with { Fleets = ValueList.From(state.Fleets.Select(f => f.Id == fleet.Id
+            ? f with { CarriedArmyId = army.Id } : f)) };
+        var ruleset = RecruitmentTestbed.Ruleset with { Naval = RecruitmentTestbed.Ruleset.Naval with { TransportTroopsPerShip = divisor } };
+        var dispatcher = new CommandDispatcher(SystemRegistry.FromEngineAssembly(), ruleset, RecruitmentTestbed.World, NullEventSink.Instance);
+        var result = dispatcher.Dispatch(state,
+            new HireMercenaryCommand(state.ActiveNationId, army.Id, offer.SlotIndex));
+        if (!refused) Assert.True(result.IsAccepted, result.ToString());
+        Assert.Equal(refused, result.IsRejected);
+        if (refused)
+        {
+            Assert.Equal(HireMercenaryRejections.FleetNoSpace, result.Code);
+            Assert.Same(state, result.State);
+        }
+        else
+        {
+            var hired = result.State.ArmyById(army.Id)!;
+            Assert.Equal(totalTroops, hired.TotalTroops);
+            Assert.Equal(army.Money, hired.Money);
+            Assert.Equal(army.Moves, hired.Moves);
+            Assert.Equal(fleet.Id, hired.AboardFleetId);
+            Assert.DoesNotContain(result.State.MercenaryPool, s => s.SlotIndex == offer.SlotIndex);
+        }
+    }
+
     // mercenary-pool-record.md's confirmed Felsina offer: x=98, y=31, label=11 ("Gallic"), type 0 (light
     // infantry), troops 6,438, quality 8 ("very good"). T76 (#330): the toy world has no Felsina, so the
     // offer's tile is placed on the toy world's Arx (2,1) -- the one city tile at Chebyshev distance 1

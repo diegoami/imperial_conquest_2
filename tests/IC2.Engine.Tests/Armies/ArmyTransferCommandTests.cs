@@ -17,6 +17,39 @@ namespace IC2.Engine.Tests.Armies;
 /// </summary>
 public sealed class ArmyTransferCommandTests
 {
+    [Theory]
+    [InlineData(15000, false, 500)]
+    [InlineData(15001, false, 500)]
+    [InlineData(15499, false, 500)]
+    [InlineData(15500, true, 500)]
+    [InlineData(30999, false, 1000)]
+    [InlineData(31000, true, 1000)]
+    public void T221_Transfer_into_carried_army_uses_truncated_ship_requirement(int totalTroops, bool refused, int divisor)
+    {
+        var fleet = new FleetState("ferry", NorthNationId, 6, 5, 5, 30, 100, 0, 0, null, null, "receiver", null);
+        var state = WithArmies(InitialState(),
+            Army("giver", NorthNationId, 5, 5, Units(2, troops: totalTroops - 14000)),
+            Army("receiver", NorthNationId, 6, 5, Units(1, troops: 14000),
+                coveredTileCode: null, aboardFleetId: fleet.Id));
+        state = state with { Fleets = ValueList.Of(fleet) };
+        var before = Totals(state);
+        var ruleset = ArmiesTestbed.Ruleset with { Naval = ArmiesTestbed.Ruleset.Naval with { TransportTroopsPerShip = divisor } };
+        var result = DispatcherWithRuleset(ruleset).Dispatch(state, OneWay("giver", "receiver", ValueList.Of(0), 0, 0));
+        if (!refused) Assert.True(result.IsAccepted, result.ToString());
+        Assert.Equal(refused, result.IsRejected);
+        if (refused)
+        {
+            Assert.Equal(ArmyTransferRejections.FleetCannotCarry, result.Code);
+            Assert.Same(state, result.State);
+        }
+        else
+        {
+            Assert.Equal(totalTroops, result.State.ArmyById("receiver")!.TotalTroops);
+            Assert.Equal(before, Totals(result.State));
+            Assert.Equal("receiver", result.State.FleetById(fleet.Id)!.CarriedArmyId);
+        }
+    }
+
     private static IEnumerable<UnitSlot> Units(int count, int troops = 1000, string prefix = "u") =>
         Enumerable.Range(0, count).Select(i => RegularUnit($"{prefix}{i}", troops: troops));
 
