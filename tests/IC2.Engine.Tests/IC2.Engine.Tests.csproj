@@ -78,7 +78,6 @@
     <Compile Include="../../godot/UI/Automation/ArmyAutoSupportPlanner.cs" Link="Ui/ArmyAutoSupportPlanner.cs" />
     <Compile Include="../../godot/UI/Automation/FleetAutoSupportPlanner.cs" Link="Ui/FleetAutoSupportPlanner.cs" />
     <Compile Include="../../godot/UI/Automation/AutoMobilizePlanner.cs" Link="Ui/AutoMobilizePlanner.cs" />
-    <Compile Include="../../godot/UI/Automation/AutoRecruitPlanner.cs" Link="Ui/AutoRecruitPlanner.cs" />
     <Compile Include="../../godot/UI/Automation/ArmyTravelPlanner.cs" Link="Ui/ArmyTravelPlanner.cs" />
     <Compile Include="../../godot/UI/Automation/RetreatSupplyPlanner.cs" Link="Ui/RetreatSupplyPlanner.cs" />
     <!-- The rename to "Open Imperial Conquest": user:// data migration, Godot-free. -->

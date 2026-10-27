@@ -53,3 +53,4 @@ Open and recent tasks only. Merged tasks (T01–T191 and others) are in their cl
 - [T224](tasks/T224.md) —  AI embark overflow receiver context and movement
 - [T225](tasks/T225.md) —  Partial whole-unit admission in Army Transfer
 - [T226](tasks/T226.md) —  Fleet transfer working-purse arrows and partial OK accounting
+- [T227](tasks/T227.md) —  Remove auto-recruit plans from player flows and execution
