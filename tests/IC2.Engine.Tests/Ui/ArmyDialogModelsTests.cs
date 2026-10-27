@@ -1,4 +1,5 @@
 using IC2.Engine.Model;
+using IC2.Engine.Armies;
 using IC2.Engine.Presentation;
 using IC2.Engine.Serialization;
 using IC2.Engine.Strength;
@@ -21,6 +22,50 @@ namespace IC2.Engine.Tests.Ui;
 /// </remarks>
 public sealed class ArmyDialogModelsTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void T225_Partial_working_copy_matches_OK_and_cancel_changes_no_live_state(bool back)
+    {
+        var original = Session(aSupply: 0, bSupply: 0);
+        var donor = original.State.ArmyById(ArmyAId)! with { Units = ValueList.From(Enumerable.Range(0, 3)
+            .Select(i => new UnitSlot(0, "light_infantry", 100, 6, $"D{i}"))) };
+        var receiver = original.State.ArmyById(ArmyBId)! with { Units = ValueList.From(Enumerable.Range(0, 19)
+            .Select(i => new UnitSlot(0, "light_infantry", 100, 6, $"R{i}"))) };
+        var state = original.State with { Armies = ValueList.Of(donor, receiver) };
+        var save = new SaveGame(state.SchemaVersion, "partial-model", "partial-model", state.ScenarioId, state.WorldId, state.RulesetId, state);
+        var session = new GameSession(original.World, original.Ruleset, original.Scenario, save);
+        var model = ArmyTransferModel.ForArmies(back ? receiver : donor, back ? donor : receiver,
+            session.Ruleset, state, session.World);
+        model.StageTransfers(new[] { new ArmyTransferUnitStep(!back, 1, !back), new ArmyTransferUnitStep(!back, 0, !back) });
+        Assert.Equal(20, (back ? model.SelectedWorkingUnits : model.PartnerWorkingUnits).Count);
+        Assert.Equal("D1", (back ? model.SelectedWorkingUnits : model.PartnerWorkingUnits)[^1].Unit.Name);
+        Assert.Single(model.LastUnitMessages);
+        Assert.Equal(state, session.State);
+        Assert.Null(model.Cancel());
+        var output = session.Submit(model.ComposeOk()!);
+        Assert.DoesNotContain(output.Lines, l => l.Contains("rejected", StringComparison.Ordinal));
+        Assert.Equal(new[] { "D0", "D2" }, session.State.ArmyById(donor.Id)!.Units.Select(u => u.Name));
+        Assert.Equal(20, session.State.ArmyById(receiver.Id)!.Units.Count);
+    }
+
+    [Fact]
+    public void T225_Separate_forward_and_return_arrows_keep_append_order_and_their_movement_effects()
+    {
+        var session = Session();
+        var before = session.State;
+        var model = Transfer(session);
+        model.StageUnitToPartner(0);
+        model.UnstageUnitToPartner(0);
+        Assert.Equal(before.ArmyById(ArmyAId)!.Units.Reverse(), model.SelectedWorkingUnits.Select(u => u.Unit));
+        Assert.Equal(before, session.State);
+        var output = session.Submit(model.ComposeOk()!);
+        Assert.DoesNotContain(output.Lines, l => l.Contains("rejected", StringComparison.Ordinal));
+        Assert.Equal(model.SelectedWorkingUnits.Select(u => u.Unit), session.State.ArmyById(ArmyAId)!.Units);
+        Assert.Equal(0, session.State.ArmyById(ArmyAId)!.Moves);
+        Assert.Equal(0, session.State.ArmyById(ArmyBId)!.Moves);
+    }
+
     [Theory]
     [InlineData(100, 900, 100, 0, 1000)]
     [InlineData(100, 1000, 100, 100, 1000)]
@@ -462,7 +507,7 @@ public sealed class ArmyDialogModelsTests
         model.AdjustMoney(-30);                                    // net +70
 
         Assert.Equal(
-            "army-transfer t111-a t111-b units=0 back-units=0 supply=10 money=70",
+            "army-transfer t111-a t111-b unit-steps=a0:b,b0:a supply=10 money=70",
             model.ComposeOk());
 
         // The engine's own validator accepts exactly that one line, and each unit ends in its new army.

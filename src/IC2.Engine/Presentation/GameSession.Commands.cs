@@ -1,4 +1,5 @@
 using System.Globalization;
+using IC2.Engine.Armies;
 using IC2.Engine.Armies.Commands;
 using IC2.Engine.Battle.Commands;
 using IC2.Engine.Cities.Orders;
@@ -90,6 +91,12 @@ public sealed partial class GameSession
         State = NewsLogWriter.Append(result.State, result.Events, Ruleset.NewsLog);
 
         var lines = new List<string> { $"{command.Kind} accepted." };
+        foreach (var transfer in result.Events.OfType<ArmyTransferUnitsResolved>().Where(t => t.NotMoved.Count > 0))
+        {
+            lines.Add($"Moved {transfer.Moved} of {transfer.Requested} unit moves.");
+            lines.AddRange(ArmyTransferUnitAdmission.RefusalMessages(transfer.NotMoved, Ruleset)
+                .Select(message => "Not moved: " + message));
+        }
 
         // T88 (DoD 3, Hazard 1): a human-issued attack-army command is one of the two places a battle can
         // raise a post-battle treaty for the human -- the other is an AI seat's own turn, captured from
@@ -838,7 +845,7 @@ public sealed partial class GameSession
     {
         const string usage =
             "Usage: army-transfer <selected> <partner> [units=<i,j,...>] [supply=<tons>] [money=<talents>] "
-            + "[back-units=<i,j,...>] [back-supply=<tons>] [back-money=<talents>]";
+            + "[back-units=<i,j,...>] [back-supply=<tons>] [back-money=<talents>] [unit-steps=<a0:b,b1:a,...>]";
 
         if (tokens.Length < 3)
         {
@@ -851,6 +858,7 @@ public sealed partial class GameSession
         var backUnitIndexes = new List<int>();
         var backSupplyTons = 0;
         var backMoney = 0;
+        ValueList<ArmyTransferUnitStep>? unitSteps = null;
         var seenOptions = new HashSet<string>(StringComparer.Ordinal);
 
         for (var i = 3; i < tokens.Length; i++)
@@ -870,6 +878,19 @@ public sealed partial class GameSession
 
             switch (key)
             {
+                case "unit-steps":
+                    var parsedSteps = new List<ArmyTransferUnitStep>();
+                    foreach (var token in value.Split(','))
+                    {
+                        var parts = token.Split(':');
+                        if (parts.Length != 2 || parts[0].Length < 2 || parts[0][0] is not ('a' or 'b')
+                            || parts[1] is not ("a" or "b")
+                            || !int.TryParse(parts[0][1..], NumberStyles.None, CultureInfo.InvariantCulture, out var index))
+                            return new[] { usage };
+                        parsedSteps.Add(new ArmyTransferUnitStep(parts[0][0] == 'a', index, parts[1] == "b"));
+                    }
+                    unitSteps = ValueList.From(parsedSteps);
+                    break;
                 case "units":
                     if (!TryParseUnitIndexes(value, unitIndexes))
                     {
@@ -917,9 +938,11 @@ public sealed partial class GameSession
             }
         }
 
+        if (unitSteps is not null && (seenOptions.Contains("units") || seenOptions.Contains("back-units")))
+            return new[] { usage };
         return IssueCommand(new ArmyTransferCommand(
             State.ActiveNationId, tokens[1], tokens[2], ValueList.From(unitIndexes), supplyTons, money,
-            ValueList.From(backUnitIndexes), backSupplyTons, backMoney));
+            ValueList.From(backUnitIndexes), backSupplyTons, backMoney) { UnitSteps = unitSteps });
 
         // Kept local to this method: Owns permits changes here only within HandleArmyTransfer.
         static bool TryParseUnitIndexes(string value, List<int> into)
