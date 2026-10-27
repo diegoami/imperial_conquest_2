@@ -18,6 +18,7 @@ public partial class DiplomacyFeedbackCheck : Node
             await CheckTrade(capped: true);
             await CheckTrade(capped: false);
             CheckWarRefusal();
+            await CheckMainGameTradeRefusal();
         }
         catch (Exception ex) { GD.PrintErr($"DiplomacyFeedbackCheck: {ex}"); _ok = false; }
         GD.Print($"DiplomacyFeedbackCheck: exiting with code {(_ok ? 0 : 1)}.");
@@ -103,6 +104,35 @@ public partial class DiplomacyFeedbackCheck : Node
 
     private static void SetState(GameSession session, GameState state) =>
         typeof(GameSession).GetProperty(nameof(GameSession.State))!.GetSetMethod(true)!.Invoke(session, new object[] { state });
+
+    private async Task CheckMainGameTradeRefusal()
+    {
+        var campaign = Campaign(capped: true);
+        var before = campaign.State;
+        // Resume the controlled snapshot without constructor-time AI battle
+        // reports waiting to replace the modal during the integration check.
+        var save = new SaveGame(before.SchemaVersion, "trade-feedback", "trade-feedback",
+            before.ScenarioId, before.WorldId, before.RulesetId, before);
+        var session = new GameSession(campaign.World, campaign.Ruleset, campaign.Scenario, save);
+        var main = new MainGameScreen { Session = session, RepositoryRoot = GameDataContext.RepositoryRoot,
+            Size = GetViewport().GetVisibleRect().Size };
+        AddChild(main);
+        var commands = 0;
+        main.CommandIssued += _ => commands++;
+        main.OpenDiplomacyScreen();
+        var screen = (DiplomacyScreen)main.ActiveOverlay!;
+        screen.AcceptOfferButton!.EmitSignal(Button.SignalName.Pressed);
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        Check(commands == 1 && ReferenceEquals(main.ActiveOverlay, screen), "trade refusal keeps the actual diplomacy modal and submits once");
+        Check(screen.FeedbackLabel.IsVisibleInTree() && screen.FeedbackLabel.Text.Contains("You can only trade with 3 nations")
+              && GetViewport().GetVisibleRect().Encloses(screen.FeedbackLabel.GetGlobalRect()),
+            "actual main-game refusal is readable inside the active trade dialog");
+        Check(main.OrderNoticeForCheck.Length == 0, "trade refusal does not create a covered duplicate notice behind its dialog");
+        Check(session.State == before, "displaying the refusal leaves campaign state and RNG unchanged");
+        RemoveChild(main);
+        main.QueueFree();
+    }
 
     private void Check(bool condition, string message)
     {

@@ -1983,18 +1983,26 @@ public partial class MainGameScreen : Control
     {
         if (!AllowStrategicInput()) return Array.Empty<string>();
         var lines = AppDiagnostics.Submit(Session, line, "dialog").Lines;
+        OnDialogCommandIssued(lines);
+
+        // #1280 F3: the dialog shows its reply in plain words, as the screen's message line does.
+        return lines.Select(CommandOutcomeWording.ReadableLine).ToList();
+    }
+
+    /// <summary>Dialogs own their feedback; do not leave a second map notice covered by the modal.</summary>
+    private void OnDialogCommandIssued(IReadOnlyList<string> lines)
+    {
+        var wasSubmittingFromDialog = _submittingFromDialog;
         _submittingFromDialog = true;
         try
         {
+            _orderNotice.Close();
             OnCommandIssued(lines);
         }
         finally
         {
-            _submittingFromDialog = false;
+            _submittingFromDialog = wasSubmittingFromDialog;
         }
-
-        // #1280 F3: the dialog shows its reply in plain words, as the screen's message line does.
-        return lines.Select(CommandOutcomeWording.ReadableLine).ToList();
     }
 
     /// <summary>
@@ -3420,7 +3428,7 @@ public partial class MainGameScreen : Control
     {
         if (!AllowStrategicInput()) return;
         var screen = new DiplomacyScreen { Session = Session };
-        screen.CommandIssued += OnCommandIssued;
+        screen.CommandIssued += OnDialogCommandIssued;
         screen.Closed += () => CloseOverlay(screen);
         ShowOverlay(screen);
     }
