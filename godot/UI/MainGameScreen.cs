@@ -37,6 +37,9 @@ public partial class MainGameScreen : Control
     /// Save writes back to it until a Save As names another file.</summary>
     public string? OpenedPath { get; init; }
 
+    /// <summary>Only the actual New Game route requests local capital framing; loaded views keep their opening policy.</summary>
+    public bool StartAtCapital { get; init; }
+
     /// <summary>
     /// Where <see cref="OnSavePressed"/> writes — the same <c>user://saves</c> convention
     /// <see cref="LoadGameScreen"/> already reads <c>*.json</c> saves from (its own private constant of
@@ -554,6 +557,22 @@ public partial class MainGameScreen : Control
         {
             ShowNextOverlay();
         }
+        if (StartAtCapital) FocusInitialCapital();
+    }
+
+    private async void FocusInitialCapital()
+    {
+        // Wait for the map's initial container layout/fit before setting a
+        // deliberate view. Await through the tree so a cancelled screen swap
+        // can safely discard this screen before those frames complete.
+        var tree = GetTree();
+        await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+        await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+        if (!GodotObject.IsInstanceValid(this) || !IsInsideTree()) return;
+        var nation = Session.State.NationById(Session.State.ActiveNationId);
+        if (nation?.Control != SeatControl.Human || nation.CapitalCityId is not { } id
+            || Session.State.CityById(id) is not { } capital) return;
+        _mapView.FocusOnTile(capital.X, capital.Y, 4f); // Designed local view: 24px tiles before interface scaling.
     }
 
     private Control BuildTopBar()
