@@ -14,6 +14,35 @@ namespace IC2.Engine.Tests.Ui.Screens;
 /// </summary>
 public sealed class TacticalBattleViewModelTests
 {
+    [Fact]
+    public void Enemy_inspection_exposes_only_existing_basic_fields()
+    {
+        var (_, view, display) = Opened();
+        var model = TacticalBattleViewModel.From(view, display);
+        var lines = model.InspectionLines(20);
+        Assert.Equal(4, lines.Count);
+        Assert.Contains(view.Slots[20].Name, lines[1]);
+        Assert.Equal(display.UnitTypeNames[view.Slots[20].Type], lines[2]);
+        Assert.DoesNotContain(lines, line => new[] { "Quality:", "Morale:", "Moves:", "Shots:", "Attacks:" }
+            .Any(prefix => line.StartsWith(prefix, StringComparison.Ordinal)));
+    }
+
+    [Theory]
+    [InlineData(false, false, 3, BattleClickKind.Inspect)]
+    [InlineData(true, false, 3, BattleClickKind.Inspect)]
+    [InlineData(true, true, 0, BattleClickKind.Inspect)]
+    [InlineData(true, true, 1, BattleClickKind.Attack)]
+    public void Enemy_click_inspects_unless_an_own_selected_unit_can_set_adjacent_melee(bool selected, bool adjacent, int moves, BattleClickKind expected)
+    {
+        var (_, view, display) = Opened();
+        var slots = view.Slots.ToArray();
+        slots[0] = slots[0] with { X = adjacent ? 4 : 1, Y = 5, Moves = moves };
+        slots[20] = slots[20] with { X = 5, Y = 5 };
+        var shown = view with { Placed = true, Slots = IC2.Engine.Model.ValueList.From(slots) };
+        var model = TacticalBattleViewModel.From(shown, display, selectedSlot: selected ? 0 : -1);
+        Assert.Equal(expected, model.ForLeftClick(5, 5).Kind);
+    }
+
     private static (GameSession Session, TacticalBattleView View, BattleDisplay Display) Opened()
     {
         var session = TacticalSessionTestbed.ToySession(HumanBattleMode.Tactical, armies: TacticalSessionTestbed.StrongAttacker());
@@ -370,11 +399,11 @@ public sealed class TacticalBattleViewModelTests
         var none = TacticalBattleViewModel.From(view, display);
         var selected = TacticalBattleViewModel.From(view, display, selectedSlot: 1);
 
-        // Left click: an own unit selects, an empty cell places (placement) or moves (movement), an enemy sets a target.
+        // Left click: own unit selects; empty cell places/moves. During placement an enemy is inspected.
         Assert.Equal(new BattleClick(BattleClickKind.Select, 1, own.X, own.Y, -1), none.ForLeftClick(own.X, own.Y));
         Assert.Equal(BattleClickKind.None, none.ForLeftClick(0, 5).Kind);
         Assert.Equal(new BattleClick(BattleClickKind.Place, 1, 3, 1, -1), selected.ForLeftClick(3, 1));
-        Assert.Equal(new BattleClick(BattleClickKind.Attack, 1, enemy.X, enemy.Y, 20), selected.ForLeftClick(enemy.X, enemy.Y));
+        Assert.Equal(new BattleClick(BattleClickKind.Inspect, 20, enemy.X, enemy.Y, -1), selected.ForLeftClick(enemy.X, enemy.Y));
 
         // Right click: an enemy is shot at by the selected unit, an own unit's target is cleared, ground does nothing.
         Assert.Equal(new BattleClick(BattleClickKind.Shoot, 1, enemy.X, enemy.Y, 20), selected.ForRightClick(enemy.X, enemy.Y));
