@@ -5,7 +5,7 @@ namespace IC2.Engine.Economy;
 /// purses", Done-when 6, as corrected by T72 (bug #315): <see cref="Credit"/> adds without the 1,000 cap
 /// and keeps the purse inside the field's <see cref="PurseFieldMin"/> … <see cref="PurseFieldMax"/> range.
 /// The 1,000 clamp survives only on the paths that read <see cref="Model.EconomyRules.PurseCapPerUnit"/>
-/// themselves: supply and army/fleet-transfer money arrows, and the own-city resupply hygiene
+/// themselves: treasury/fleet-supply and fleet-transfer money arrows, and the own-city resupply hygiene
 /// (<see cref="AutomaticResupply"/>). Partial transfer commits do not normalize purse balances.
 /// </summary>
 /// <remarks>
@@ -22,6 +22,9 @@ namespace IC2.Engine.Economy;
 /// 1,000 is legitimate, and T21's import preserves such a purse as saved.
 /// <see cref="Model.EconomyRules.PurseCapPerUnit"/> is therefore no longer read by this class — the
 /// writers that need it (the dialog money arrows and own-city refill) clamp with it themselves.
+/// Owner policy T231 deliberately replaces the army-transfer/split arrow cap with requested-direction
+/// allocation up to the save-field limit, including Supply army funding from another army.
+/// The historical original formula above remains evidence, not that remake convenience policy.
 /// Research85/T226 separately confirms the fleet-transfer working arrow cap; partial OK does not
 /// normalize purses or sweep money to the treasury.
 /// </para>

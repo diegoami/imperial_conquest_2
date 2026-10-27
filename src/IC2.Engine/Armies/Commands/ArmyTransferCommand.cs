@@ -53,9 +53,9 @@ namespace IC2.Engine.Armies.Commands;
 /// legacy batches mean selected-side descending followed by partner-side descending. Limits read
 /// <see cref="Model.ArmyManagementRules.MaxUnitsPerArmy"/> and
 /// <see cref="Model.ArmyManagementRules.MaxTroopsPerArmy"/>. Accepted commands report typed not-moved
-/// units without falsely rejecting their successful moves. Money is never rebalanced: the purse cap is the dialog's money stepper,
-/// <c>min(step, 1000 − money(receiver), money(giver))</c>, so it bounds only money moved between two
-/// surviving armies, and the emptied-army merge pools a purse uncapped.
+/// units without falsely rejecting their successful moves. Money is never rebalanced. T231's owner-approved remake policy accepts
+/// purse allocations above 1,000, bounded by available funds and the representable save field;
+/// it does not reproduce the original signed-pullback arrow quirk. Emptied-army merge policy is unchanged.
 /// </para>
 /// <para>
 /// <strong>Not in scope.</strong> The dialog's Disband transaction lifetime is a separate #1522 gap.
@@ -142,7 +142,7 @@ public static class ArmyTransferRejections
 
     /// <summary>
     /// An army that receives money between two surviving armies would exceed
-    /// <see cref="Model.EconomyRules.PurseCapPerUnit"/> — the dialog's money stepper.
+    /// <see cref="Economy.PurseAccounting.PurseFieldMax"/> — the save field limit (T231).
     /// </summary>
     public static readonly RejectionCode PurseCapExceeded = new("armies.army-transfer-purse-cap-exceeded");
 }

@@ -54,7 +54,11 @@ public partial class ArmyTransferDialog : Control
     private Label _supplyLabel = null!;
     private Label _moneyLabel = null!;
     private Label _replyLabel = null!;
+    private Button _okButton = null!;
     private bool _updatingSpinners;
+
+    public bool ConfirmationEnabledForCheck => !_okButton.Disabled;
+    public string PreviewNoticeForCheck => _figuresLabel.Text;
 
     // The display rows: each unit slot with its source army and source index, and which side it is
     // currently shown on (true = the partner's list). A staged unit flips sides; its source index never
@@ -131,7 +135,8 @@ public partial class ArmyTransferDialog : Control
         buttons.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(buttons);
         buttons.AddChild(UiKit.MakeButton("Cancel", Cancel));
-        buttons.AddChild(UiKit.MakeButton("OK", Ok));
+        _okButton = UiKit.MakeButton("OK", Ok);
+        buttons.AddChild(_okButton);
     }
 
     private ItemList BuildSide(Container parent, string title, bool isSelectedSide)
@@ -377,6 +382,12 @@ public partial class ArmyTransferDialog : Control
 
     private void Ok()
     {
+        if (_model.PreviewRejection is { } rejection)
+        {
+            _replyLabel.Text = rejection;
+            Refresh();
+            return;
+        }
         SubmitIfAny(_model.ComposeOk());
         Closed?.Invoke();
     }
@@ -420,6 +431,9 @@ public partial class ArmyTransferDialog : Control
         _figuresLabel.Text = selected is null || partner is null
             ? string.Empty
             : "Pending changes · OK applies · Cancel discards";
+        var rejection = _model.PreviewRejection;
+        _okButton.Disabled = rejection is not null;
+        if (rejection is not null) _figuresLabel.Text = rejection;
         _selectedTitle.Text = $"{ArmyId} · {_model.SelectedTroopTotal:N0} troops\n"
             + $"Supply {_model.SelectedSupplyNow:N0} → {_model.SelectedSupplyAfter:N0} t\n"
             + $"Money {selected?.Money ?? 0:N0} → {_model.SelectedMoneyAfter:N0}";

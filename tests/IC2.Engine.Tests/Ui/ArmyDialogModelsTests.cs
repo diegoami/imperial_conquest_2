@@ -67,14 +67,19 @@ public sealed class ArmyDialogModelsTests
     }
 
     [Theory]
-    [InlineData(100, 900, 100, 0, 1000)]
-    [InlineData(100, 1000, 100, 100, 1000)]
-    [InlineData(100, 1100, 100, 200, 1000)]
-    [InlineData(900, 100, -100, 1000, 0)]
-    [InlineData(1000, 100, -100, 1000, 100)]
-    [InlineData(1100, 100, -100, 1000, 200)]
-    public void T222_Money_arrows_operate_on_working_purses_including_signed_pullback(
-        int a, int b, int delta, int expectedA, int expectedB)
+    [InlineData(100, 900, 100, 0, 1000, 0, 1000)]
+    [InlineData(100, 1000, 100, 0, 1100, 0, 1100)]
+    [InlineData(100, 1100, 100, 0, 1200, 0, 1200)]
+    [InlineData(900, 100, -100, 1000, 0, 1000, 0)]
+    [InlineData(1000, 100, -100, 1100, 0, 1100, 0)]
+    [InlineData(1100, 100, -100, 1200, 0, 1200, 0)]
+    [InlineData(900, 1200, 100, 800, 1300, 700, 1400)]
+    [InlineData(1200, 900, -100, 1300, 800, 1400, 700)]
+    [InlineData(1200, 1200, 100, 1100, 1300, 1000, 1400)]
+    [InlineData(100, 32760, 100, 93, 32767, 93, 32767)]
+    [InlineData(32760, 100, -100, 32767, 93, 32767, 93)]
+    public void T231_Money_arrows_follow_requested_direction_and_commit_without_a_1000_cap(
+        int a, int b, int delta, int expectedA, int expectedB, int twiceA, int twiceB)
     {
         var session = Session(aMoney: a, bMoney: b);
         var before = session.State;
@@ -83,33 +88,74 @@ public sealed class ArmyDialogModelsTests
         Assert.Equal(expectedA, model.SelectedMoneyAfter);
         Assert.Equal(expectedB, model.PartnerMoneyAfter);
         model.AdjustMoney(delta);
-        Assert.Equal(expectedA, model.SelectedMoneyAfter);
-        Assert.Equal(expectedB, model.PartnerMoneyAfter);
+        Assert.Equal(twiceA, model.SelectedMoneyAfter);
+        Assert.Equal(twiceB, model.PartnerMoneyAfter);
         Assert.Equal(before, session.State);
         Assert.Null(model.Cancel());
         var output = session.Submit(model.ComposeOk()!);
-        Assert.DoesNotContain(output.Lines, l => l.StartsWith("Refused:", StringComparison.Ordinal));
-        Assert.Equal(expectedA, session.State.ArmyById(ArmyAId)!.Money);
-        Assert.Equal(expectedB, session.State.ArmyById(ArmyBId)!.Money);
+        Assert.DoesNotContain(output.Lines, l => l.Contains("rejected", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(twiceA, session.State.ArmyById(ArmyAId)!.Money);
+        Assert.Equal(twiceB, session.State.ArmyById(ArmyBId)!.Money);
+        Assert.Equal(a + b, twiceA + twiceB);
         Assert.Equal(before.Nations, session.State.Nations);
     }
 
     [Fact]
-    public void T222_Split_money_arrow_can_pull_back_from_an_overcap_parent_with_empty_new_purse()
+    public void T231_Split_money_arrow_never_reverses_and_can_allocate_above_1000()
     {
         var session = Session(aMoney: 1100);
         var before = session.State;
         var model = SplitArmyModel.ForArmy(before, before.ArmyById(ArmyAId)!, session.Ruleset, NewArmyId);
         model.AdjustMoney(-100);
-        Assert.Equal(100, model.Money);
-        model.AdjustMoney(-100);
-        Assert.Equal(100, model.Money);
+        Assert.Equal(0, model.Money);
+        model.AdjustMoney(1100);
+        Assert.Equal(1100, model.Money);
         Assert.Null(model.Cancel());
         Assert.Equal(before, session.State);
         model.StageUnit(0);
         session.Submit(model.ComposeOk()!);
-        Assert.Equal(1000, session.State.ArmyById(ArmyAId)!.Money);
-        Assert.Equal(100, session.State.ArmyById(NewArmyId)!.Money);
+        Assert.Equal(0, session.State.ArmyById(ArmyAId)!.Money);
+        Assert.Equal(1100, session.State.ArmyById(NewArmyId)!.Money);
+    }
+
+    [Fact]
+    public void T231_Overcap_money_commits_with_unit_and_supply_edits()
+    {
+        var session = Session(aMoney: 900, bMoney: 1200);
+        var before = session.State;
+        var model = Transfer(session);
+        model.StageUnitToPartner(0);
+        model.AdjustMoney(100);
+        model.AdjustSupply(10);
+        Assert.Null(model.PreviewRejection);
+        var aSupply = model.SelectedSupplyAfter;
+        var bSupply = model.PartnerSupplyAfter;
+        Assert.Equal(before, session.State);
+        var output = session.Submit(model.ComposeOk()!);
+        Assert.DoesNotContain(output.Lines, l => l.Contains("rejected", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(800, session.State.ArmyById(ArmyAId)!.Money);
+        Assert.Equal(1300, session.State.ArmyById(ArmyBId)!.Money);
+        Assert.Equal(aSupply, session.State.ArmyById(ArmyAId)!.SupplyTons);
+        Assert.Equal(bSupply, session.State.ArmyById(ArmyBId)!.SupplyTons);
+        Assert.Single(session.State.ArmyById(ArmyAId)!.Units);
+        Assert.Equal(2, session.State.ArmyById(ArmyBId)!.Units.Count);
+        Assert.Equal(before.Nations, session.State.Nations);
+    }
+
+    [Fact]
+    public void T231_Rejected_preview_exposes_reason_and_shows_unchanged_balances()
+    {
+        var session = Session(aMoney: 900, bMoney: 1200);
+        var a = session.State.ArmyById(ArmyAId)!;
+        var b = session.State.ArmyById(ArmyBId)! with { X = a.X + 5 };
+        var state = session.State with { Armies = ValueList.Of(a, b) };
+        var model = ArmyTransferModel.ForArmies(a, b, session.Ruleset, state, session.World);
+        model.AdjustMoney(100);
+        Assert.NotNull(model.PreviewRejection);
+        Assert.Equal(900, model.SelectedMoneyAfter);
+        Assert.Equal(1200, model.PartnerMoneyAfter);
+        Assert.Null(model.Cancel());
+        Assert.Equal(session.State.ArmyById(ArmyAId), a);
     }
 
     private const string NationId = "rome";
@@ -189,7 +235,7 @@ public sealed class ArmyDialogModelsTests
     [Theory]
     [InlineData(100, 100, 300, 200, 200)]
     [InlineData(100, 100, 30, 130, 0)]
-    [InlineData(100, 990, 300, 1000, 290)]
+    [InlineData(100, 990, 300, 1090, 200)]
     [InlineData(-50, 100, 300, 50, 350)]
     public void Supply_money_from_selected_army_uses_its_purse_and_leaves_treasury(
         int amount, int receiver, int donor, int expectedReceiver, int expectedDonor)
@@ -566,9 +612,9 @@ public sealed class ArmyDialogModelsTests
         Assert.Equal(31, defaultModel.MaxSupplyToPartner);
         Assert.Equal(1_030, widenedModel.MaxSupplyToPartner);
 
-        // A purse cap of 50 against B's 100 talents leaves no room, so the widened cap is read.
+        // T231: the legacy 1,000 target is not an army-transfer receiving bound.
         Assert.Equal(200, defaultModel.MaxMoneyToPartner);
-        Assert.Equal(0, widenedModel.MaxMoneyToPartner);
+        Assert.Equal(200, widenedModel.MaxMoneyToPartner);
     }
 
     // ---- Done-when 1: SplitArmyModel ----
@@ -672,8 +718,7 @@ public sealed class ArmyDialogModelsTests
         }
 
         Assert.Equal(room, model.Supply);
-        Assert.Equal(session.Ruleset.Economy.PurseCapPerUnit, model.Money);
-        Assert.Equal(1_000, model.Money);
+        Assert.Equal(5_000, model.Money);
 
         // A poor giver bounds both too: A's own supply and money.
         var poor = army with { Money = 40, SupplyTons = 15 };

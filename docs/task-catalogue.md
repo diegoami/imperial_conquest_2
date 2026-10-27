@@ -57,3 +57,4 @@ Open and recent tasks only. Merged tasks (T01–T191 and others) are in their cl
 - [T228](tasks/T228.md) —  Maximum support and upkeep-derived army funding
 - [T229](tasks/T229.md) —  Whole carried-army disband with refunds and carrier unlink
 - [T230](tasks/T230.md) —  Compact unit action grouping and original vector icons
+- [T231](tasks/T231.md) —  User-friendly army transfer and split purses

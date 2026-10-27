@@ -113,12 +113,12 @@ public sealed class SplitArmyAllocationTests
     /// the cap and is refused one talent above it, with the state left unchanged.
     /// </summary>
     [Fact]
-    public void Money_AtTheRulesetPurseCap_IsAcceptedAndOneAboveIt_IsRefused()
+    public void Money_AtTheSaveFieldLimit_IsAcceptedAndAboveTheGiverIsRefused()
     {
-        var cap = ArmiesTestbed.Ruleset.Economy.PurseCapPerUnit;
-        Assert.Equal(1000, cap); // the value the entry names; read from the ruleset, not a literal.
+        var cap = IC2.Engine.Economy.PurseAccounting.PurseFieldMax;
+        Assert.Equal(short.MaxValue, cap);
         var parent = Army("purse-cap", NorthNationId, 3, 3,
-            new[] { RegularUnit("a"), RegularUnit("b") }, money: 1200);
+            new[] { RegularUnit("a"), RegularUnit("b") }, money: cap);
         var state = WithArmies(InitialState(), parent);
 
         var accepted = Dispatcher().Dispatch(
@@ -128,7 +128,7 @@ public sealed class SplitArmyAllocationTests
 
         Assert.True(accepted.IsAccepted, accepted.ToString());
         Assert.Equal(cap, accepted.State.ArmyById("purse-cap-new")!.Money);
-        Assert.Equal(1200 - cap, accepted.State.ArmyById("purse-cap")!.Money);
+        Assert.Equal(0, accepted.State.ArmyById("purse-cap")!.Money);
 
         var refused = Dispatcher().Dispatch(
             state,
@@ -136,8 +136,8 @@ public sealed class SplitArmyAllocationTests
                 NorthNationId, "purse-cap", "purse-cap-new", ValueList.Of(1), MoneyToNewArmy: cap + 1));
 
         Assert.True(refused.IsRejected);
-        Assert.Equal(SplitArmyRejections.PurseCapExceeded, refused.Code);
-        Assert.Equal("armies.split-army-purse-cap-exceeded", refused.Rejection!.Code.Value);
+        Assert.Equal(SplitArmyRejections.InvalidMoneyAllocation, refused.Code);
+        Assert.Equal("armies.invalid-money-allocation", refused.Rejection!.Code.Value);
         Assert.Same(state, refused.State); // unchanged, because nothing was written.
     }
 
