@@ -26,7 +26,8 @@ namespace IC2.Engine.Naval.Commands;
 /// <list type="bullet">
 /// <item><description>
 /// <c>classical-faithful</c> (<see cref="Model.SeatAsymmetryModel.Faithful"/>): a <strong>human</strong>
-/// seat is refused with <see cref="EmbarkArmyRejections.ArmyTooLarge"/>; an <strong>AI</strong> seat
+/// seat compares <c>troops div transportTroopsPerShip</c> with ships (Research83/T221), so ten ships
+/// admit up to 5,499 and refuse 5,500 with <see cref="EmbarkArmyRejections.ArmyTooLarge"/>. An <strong>AI</strong> seat
 /// lands every whole unit from the first slot that would exceed capacity.
 /// A receiver that cannot be made safely refuses atomically under T216's owner-approved interim policy.
 /// </description></item>

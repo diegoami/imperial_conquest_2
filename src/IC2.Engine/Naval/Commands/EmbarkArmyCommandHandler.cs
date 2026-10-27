@@ -81,11 +81,18 @@ public sealed class EmbarkArmyCommandHandler : ICommandHandler<EmbarkArmyCommand
 
         var capacity = fleet.Ships * context.Ruleset.Naval.TransportTroopsPerShip;
         var totalTroops = army.TotalTroops;
-        var overCapacity = totalTroops > capacity;
+        var seatIsAi = context.IssuingNation.Control == SeatControl.Ai;
+        // Research83, 2026-10-26-human-transport-rounding83.md: the human UI
+        // compares ships with troops div 500, admitting 5,499 on ten ships.
+        // This is separate from the AI whole-slot allocator and Improved's
+        // explicitly normalized exact-capacity refusal.
+        var faithfulHuman = context.Ruleset.Flags.SeatAsymmetry == SeatAsymmetryModel.Faithful && !seatIsAi;
+        var overCapacity = faithfulHuman
+            ? totalTroops / context.Ruleset.Naval.TransportTroopsPerShip > fleet.Ships
+            : totalTroops > capacity;
 
         // seatAsymmetry gating (design-audit.md Q6, EmbarkArmyCommand's own remarks): classical-faithful
         // trims an AI seat and refuses a human one; improved refuses every seat.
-        var seatIsAi = context.IssuingNation.Control == SeatControl.Ai;
         var trims = overCapacity
             && context.Ruleset.Flags.SeatAsymmetry == SeatAsymmetryModel.Faithful
             && seatIsAi;

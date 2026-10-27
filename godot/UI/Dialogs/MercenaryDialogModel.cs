@@ -412,8 +412,9 @@ public sealed class MercenaryDialogModel
             var fleet = state.FleetById(army.AboardFleetId);
             if (fleet is not null)
             {
-                var capacity = (long)fleet.Ships * _ruleset.Naval.TransportTroopsPerShip;
-                if (army.TotalTroops > capacity)
+                // Research83 measured this opening gate independently of the
+                // per-offer gate: compare current troops div 500 with ships.
+                if (army.TotalTroops / _ruleset.Naval.TransportTroopsPerShip > fleet.Ships)
                 {
                     return "Your fleet cannot carry any more troops.";
                 }

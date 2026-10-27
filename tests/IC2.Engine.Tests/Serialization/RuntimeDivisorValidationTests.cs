@@ -16,6 +16,7 @@ public class RuntimeDivisorValidationTests
 
     public static IEnumerable<object[]> DivisorMutations()
     {
+        yield return new object[] { "naval.transportTroopsPerShip", (Func<Ruleset, int, Ruleset>)((r, v) => r with { Naval = r.Naval with { TransportTroopsPerShip = v } }) };
         yield return new object[] { "economy.taxRateDivisor", (Func<Ruleset, int, Ruleset>)((r, v) => r with { Economy = r.Economy with { TaxRateDivisor = v } }) };
         yield return new object[] { "economy.supplyTonsPerTalent", (Func<Ruleset, int, Ruleset>)((r, v) => r with { Economy = r.Economy with { SupplyTonsPerTalent = v } }) };
         yield return new object[] { "economy.armySupplyTonsPerTroops", (Func<Ruleset, int, Ruleset>)((r, v) => r with { Economy = r.Economy with { ArmySupplyTonsPerTroops = v } }) };

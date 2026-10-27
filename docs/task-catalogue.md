@@ -47,3 +47,4 @@ Open and recent tasks only. Merged tasks (T01–T191 and others) are in their cl
 - [T218](tasks/T218.md) —  One rally target per nation for newly mobilized armies
 - [T219](tasks/T219.md) —  Faithful manual treasury funding may enter debt
 - [T220](tasks/T220.md) —  Visible recruitment quality and Average-or-better auto-mobilize
+- [T221](tasks/T221.md) —  Truncated human transport, hire and army-transfer capacity
