@@ -1,4 +1,5 @@
 using IC2.Engine.Armies.Commands;
+using IC2.Engine.Armies;
 using IC2.Engine.Economy;
 using IC2.Engine.Model;
 using Xunit;
@@ -11,8 +12,8 @@ namespace IC2.Engine.Tests.Armies;
 /// <c>docs/tasks/T117.md</c> to the original's one dialog <c>OK</c>: one command carries both directions
 /// and commits them at once, then <c>TArmyToArmy_OK</c> rebalances supply and merges an emptied army
 /// uncapped. Every T106 boundary still stands: distance 0, distance 2 and a foreign army are refused with
-/// the whole state untouched; and each limit — 20 units, 100,000 troops and the purse cap — accepts at the
-/// boundary and refuses one past it. The two supply-capacity tests and the merge's purse-spill test are
+/// the whole state untouched. T225 checks unit/troop/fleet limits per incoming unit, with typed not-moved
+/// feedback; resource and identity refusals stay atomic. The two supply-capacity tests and the merge's purse-spill test are
 /// replaced by the rebalancing tests T117 requires.
 /// </summary>
 public sealed class ArmyTransferCommandTests
@@ -55,12 +56,12 @@ public sealed class ArmyTransferCommandTests
         var before = Totals(state);
         var ruleset = ArmiesTestbed.Ruleset with { Naval = ArmiesTestbed.Ruleset.Naval with { TransportTroopsPerShip = divisor } };
         var result = DispatcherWithRuleset(ruleset).Dispatch(state, OneWay("giver", "receiver", ValueList.Of(0), 0, 0));
-        if (!refused) Assert.True(result.IsAccepted, result.ToString());
-        Assert.Equal(refused, result.IsRejected);
+        Assert.True(result.IsAccepted, result.ToString());
         if (refused)
         {
-            Assert.Equal(ArmyTransferRejections.FleetCannotCarry, result.Code);
-            Assert.Same(state, result.State);
+            Assert.Equal(ArmyTransferRejections.FleetCannotCarry,
+                Assert.Single(Assert.Single(result.Events.OfType<ArmyTransferUnitsResolved>()).NotMoved).Code);
+            Assert.Equal(state.Armies, result.State.Armies);
         }
         else
         {
@@ -259,7 +260,7 @@ public sealed class ArmyTransferCommandTests
     }
 
     [Fact]
-    public void Transfer_TwentyOneUnitsOnTheReceiver_IsRejected()
+    public void Transfer_TwentyOneUnitsOnTheReceiver_LeavesTheUnitAndReportsItsLimit()
     {
         var state = WithArmies(
             InitialState(),
@@ -268,9 +269,10 @@ public sealed class ArmyTransferCommandTests
 
         var result = Dispatcher().Dispatch(state, OneWay("cap-d", "cap-c", ValueList.Of(0), 0, 0));
 
-        Assert.True(result.IsRejected);
-        Assert.Equal(ArmyTransferRejections.CombinedUnitsTooLarge, result.Code);
-        Assert.Same(state, result.State);
+        Assert.True(result.IsAccepted, result.ToString());
+        Assert.Equal(ArmyTransferRejections.CombinedUnitsTooLarge,
+            Assert.Single(Assert.Single(result.Events.OfType<ArmyTransferUnitsResolved>()).NotMoved).Code);
+        Assert.Equal(state.Armies, result.State.Armies);
     }
 
     [Fact]
@@ -288,7 +290,7 @@ public sealed class ArmyTransferCommandTests
     }
 
     [Fact]
-    public void Transfer_PastOneHundredThousandTroopsOnTheReceiver_IsRejected()
+    public void Transfer_PastOneHundredThousandTroopsOnTheReceiver_LeavesTheUnitAndReportsItsLimit()
     {
         var state = WithArmies(
             InitialState(),
@@ -297,9 +299,10 @@ public sealed class ArmyTransferCommandTests
 
         var result = Dispatcher().Dispatch(state, OneWay("troop-d", "troop-c", ValueList.Of(0), 0, 0));
 
-        Assert.True(result.IsRejected);
-        Assert.Equal(ArmyTransferRejections.CombinedTroopsTooLarge, result.Code);
-        Assert.Same(state, result.State);
+        Assert.True(result.IsAccepted, result.ToString());
+        Assert.Equal(ArmyTransferRejections.CombinedTroopsTooLarge,
+            Assert.Single(Assert.Single(result.Events.OfType<ArmyTransferUnitsResolved>()).NotMoved).Code);
+        Assert.Equal(state.Armies, result.State.Armies);
     }
 
     [Fact]
@@ -888,10 +891,9 @@ public sealed class ArmyTransferCommandTests
     }
 
     [Fact]
-    public void Transfer_TwoWayOrder_UnitCapOnTheFinalComposition_IsRefusedWhole()
+    public void Transfer_TwoWayOrder_A_refused_back_unit_does_not_discard_staged_money()
     {
-        // Done-when 3: the 20-unit cap applies to each composition after both directions, so a back-unit
-        // that pushes the selected army past 20 refuses the whole order.
+        // T225: the back-unit stays, but confirming the staged money still commits it.
         var twentyUnits = Enumerable.Range(0, 20).Select(i => RegularUnit($"full{i}", troops: 10)).ToArray();
         var state = WithArmies(
             InitialState(),
@@ -900,9 +902,13 @@ public sealed class ArmyTransferCommandTests
 
         var result = Dispatcher().Dispatch(state, TwoWay("cap2-a", "cap2-b", ValueList<int>.Empty, 0, 1, ValueList.Of(0), 0, 0));
 
-        Assert.True(result.IsRejected);
-        Assert.Equal(ArmyTransferRejections.CombinedUnitsTooLarge, result.Code);
-        Assert.Same(state, result.State);
+        Assert.True(result.IsAccepted, result.ToString());
+        Assert.Equal(ArmyTransferRejections.CombinedUnitsTooLarge,
+            Assert.Single(Assert.Single(result.Events.OfType<ArmyTransferUnitsResolved>()).NotMoved).Code);
+        Assert.Equal(state.ArmyById("cap2-a")!.Units, result.State.ArmyById("cap2-a")!.Units);
+        Assert.Equal(state.ArmyById("cap2-b")!.Units, result.State.ArmyById("cap2-b")!.Units);
+        Assert.Equal(0, result.State.ArmyById("cap2-a")!.Money);
+        Assert.Equal(1, result.State.ArmyById("cap2-b")!.Money);
     }
 
     [Fact]
@@ -995,10 +1001,13 @@ public sealed class ArmyTransferCommandTests
 
         var result = Dispatcher().Dispatch(state, OneWay("rome-e", "rome-f", ValueList.Of(0), 0, 0));
 
-        Assert.Equal(refused, result.IsRejected);
+        Assert.True(result.IsAccepted, result.ToString());
         if (refused)
         {
-            Assert.Equal(ArmyTransferRejections.FleetCannotCarry, result.Code);
+            Assert.Equal(ArmyTransferRejections.FleetCannotCarry,
+                Assert.Single(Assert.Single(result.Events.OfType<ArmyTransferUnitsResolved>()).NotMoved).Code);
+            Assert.Equal(state.Armies, result.State.Armies);
         }
+        else Assert.Equal(2000, result.State.ArmyById("rome-f")!.TotalTroops);
     }
 }

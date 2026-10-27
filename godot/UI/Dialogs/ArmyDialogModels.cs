@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Numerics;
+using IC2.Engine.Armies;
 using IC2.Engine.Armies.Commands;
 using IC2.Engine.Core;
 using IC2.Engine.Economy;
@@ -138,9 +139,9 @@ public static class ArmyDialogModels
 /// <remarks>
 /// <para>
 /// <strong>The units and both directions.</strong> The dialog's first list is the selected army (A) and
-/// its second is the game's pick, the partner (B). A unit staged from A is carried as <c>units=</c>, a
-/// unit staged back from B as <c>back-units=</c>; the indexes are into each source list as it stands when
-/// the dialog opened.
+/// its second is the game's pick, the partner (B). T225 carries chronological <c>unit-steps=</c>
+/// with identities from the original rosters, so partial admission, compaction, append order and
+/// return moves replay at OK. Legacy unit-index batches remain supported by the command parser.
 /// </para>
 /// <para>
 /// <strong>The supply and money spinners' limits</strong> <c>[confirmed: code, FUN_00442310 and
@@ -160,6 +161,8 @@ public sealed class ArmyTransferModel
     private readonly ArmyState _partner;
     private readonly List<int> _unitsToPartner = new();
     private readonly List<int> _unitsBack = new();
+    private readonly List<ArmyTransferUnitStep> _unitSteps = new();
+    private ArmyTransferUnitPlan _unitPlan;
     private readonly GameState? _state;
     private readonly World? _world;
     private int _supplyNet;
@@ -173,6 +176,7 @@ public sealed class ArmyTransferModel
         _ruleset = ruleset;
         _state = state;
         _world = world;
+        _unitPlan = ArmyTransferUnitAdmission.Plan(selected, partner, ruleset, state, Array.Empty<ArmyTransferUnitStep>());
     }
 
     /// <summary>
@@ -195,11 +199,15 @@ public sealed class ArmyTransferModel
     /// <summary>B, the game-picked partner — the command's second id.</summary>
     public string PartnerArmyId => _partner.Id;
 
-    /// <summary>Indexes into A's own list, moved A → B as <c>units=</c>.</summary>
+    /// <summary>Original A indexes currently on B's working side.</summary>
     public IReadOnlyList<int> UnitsToPartner => _unitsToPartner;
 
-    /// <summary>Indexes into B's own list, moved B → A as <c>back-units=</c>.</summary>
+    /// <summary>Original B indexes currently on A's working side.</summary>
     public IReadOnlyList<int> UnitsBack => _unitsBack;
+
+    public IReadOnlyList<ArmyTransferUnitIdentity> SelectedWorkingUnits => _unitPlan.Selected;
+    public IReadOnlyList<ArmyTransferUnitIdentity> PartnerWorkingUnits => _unitPlan.Partner;
+    public IReadOnlyList<string> LastUnitMessages { get; private set; } = Array.Empty<string>();
 
     /// <summary>The staged supply net: positive is A → B, negative is B → A.</summary>
     public int SupplyNet => _supplyNet;
@@ -211,14 +219,10 @@ public sealed class ArmyTransferModel
     /// The troops now listed under A: A's units that are not staged to B, plus B's units staged back
     /// (the sum of the troops of the units the dialog shows in A's list).
     /// </summary>
-    public int SelectedTroopTotal =>
-        _selected.Units.Where((_, i) => !_unitsToPartner.Contains(i)).Sum(u => u.Troops)
-        + _partner.Units.Where((_, i) => _unitsBack.Contains(i)).Sum(u => u.Troops);
+    public int SelectedTroopTotal => _unitPlan.Selected.Sum(u => u.Unit.Troops);
 
     /// <summary>The troops now listed under B: B's units not staged back, plus A's units staged to B.</summary>
-    public int PartnerTroopTotal =>
-        _partner.Units.Where((_, i) => !_unitsBack.Contains(i)).Sum(u => u.Troops)
-        + _selected.Units.Where((_, i) => _unitsToPartner.Contains(i)).Sum(u => u.Troops);
+    public int PartnerTroopTotal => _unitPlan.Partner.Sum(u => u.Unit.Troops);
 
     /// <summary>A's supply in tons if OK were pressed now: the real command's result (0 if A is disbanded).</summary>
     public int SelectedSupplyAfter => Preview().Selected;
@@ -244,12 +248,12 @@ public sealed class ArmyTransferModel
             _selected.Nation,
             _selected.Id,
             _partner.Id,
-            ValueList.From(_unitsToPartner.OrderBy(i => i)),
+            ValueList<int>.Empty,
             Math.Max(0, _supplyNet),
             Math.Max(0, _moneyNet),
-            ValueList.From(_unitsBack.OrderBy(i => i)),
+            ValueList<int>.Empty,
             Math.Max(0, -_supplyNet),
-            Math.Max(0, -_moneyNet));
+            Math.Max(0, -_moneyNet)) { UnitSteps = ValueList.From(_unitSteps) };
         _dispatcher ??= new CommandDispatcher(
             SystemRegistry.FromEngineAssembly(), _ruleset, _world, NullEventSink.Instance);
         var result = _dispatcher.Dispatch(_state, command);
@@ -317,39 +321,34 @@ public sealed class ArmyTransferModel
     public int MaxMoneyBack =>
         Math.Max(0, Math.Min(_partner.Money, PurseCap - _selected.Money));
 
-    /// <summary>Stages one of A's units for the move to B; an already-staged index is ignored.</summary>
-    public void StageUnitToPartner(int selectedIndex)
+    /// <summary>Stages a complete arrow's descending working-row requests, preserving earlier arrows.</summary>
+    public void StageTransfers(IEnumerable<ArmyTransferUnitStep> steps)
     {
-        if (selectedIndex < 0 || selectedIndex >= _selected.Units.Count)
-        {
-            return;
-        }
-
-        if (!_unitsToPartner.Contains(selectedIndex))
-        {
-            _unitsToPartner.Add(selectedIndex);
-        }
+        var known = steps.Where(s => s.Index >= 0
+            && s.Index < (s.SelectedOrigin ? _selected.Units.Count : _partner.Units.Count));
+        _unitPlan = ArmyTransferUnitAdmission.Plan(_selected, _partner, _ruleset, _state, _unitSteps.Concat(known));
+        _unitSteps.Clear();
+        _unitSteps.AddRange(_unitPlan.AcceptedSteps);
+        _unitsToPartner.Clear();
+        _unitsToPartner.AddRange(_unitPlan.Partner.Where(u => u.SelectedOrigin).Select(u => u.Index));
+        _unitsBack.Clear();
+        _unitsBack.AddRange(_unitPlan.Selected.Where(u => !u.SelectedOrigin).Select(u => u.Index));
+        LastUnitMessages = ArmyTransferUnitAdmission.RefusalMessages(_unitPlan.NotMoved, _ruleset);
     }
 
-    /// <summary>Stages one of B's units for the move back to A; an already-staged index is ignored.</summary>
-    public void StageUnitBack(int partnerIndex)
-    {
-        if (partnerIndex < 0 || partnerIndex >= _partner.Units.Count)
-        {
-            return;
-        }
+    public void StageUnitToPartner(int selectedIndex) =>
+        StageTransfers(new[] { new ArmyTransferUnitStep(true, selectedIndex, true) });
 
-        if (!_unitsBack.Contains(partnerIndex))
-        {
-            _unitsBack.Add(partnerIndex);
-        }
-    }
+    public void StageUnitBack(int partnerIndex) =>
+        StageTransfers(new[] { new ArmyTransferUnitStep(false, partnerIndex, false) });
 
-    /// <summary>Puts back one of A's staged units (the dialog's second Transfer on it).</summary>
-    public void UnstageUnitToPartner(int selectedIndex) => _unitsToPartner.Remove(selectedIndex);
+    /// <summary>Transfers A's original unit back to A, appending to the current working list.</summary>
+    public void UnstageUnitToPartner(int selectedIndex) =>
+        StageTransfers(new[] { new ArmyTransferUnitStep(true, selectedIndex, false) });
 
-    /// <summary>Puts back one of B's staged units (the dialog's second Transfer on it).</summary>
-    public void UnstageUnitBack(int partnerIndex) => _unitsBack.Remove(partnerIndex);
+    /// <summary>Transfers B's original unit back to B, appending to the current working list.</summary>
+    public void UnstageUnitBack(int partnerIndex) =>
+        StageTransfers(new[] { new ArmyTransferUnitStep(false, partnerIndex, true) });
 
     /// <summary>
     /// One press of a supply arrow: moves <paramref name="delta"/>, clamped to the giver's own stock and
@@ -382,23 +381,16 @@ public sealed class ArmyTransferModel
 
     /// <summary>
     /// <c>OK</c>: exactly one <c>army-transfer</c> for the whole dialog, including unchanged confirmation.
-    /// The selected army is the first id, the units moved to the partner are
-    /// <c>units=</c>, the units moved back are <c>back-units=</c>, and each resource is netted to a single
-    /// direction.
+    /// The selected army is the first id, ordered unit moves use <c>unit-steps=</c>, and each resource
+    /// is netted to a single direction.
     /// </summary>
     public string? ComposeOk()
     {
         var line = $"army-transfer {SelectedArmyId} {PartnerArmyId}";
 
-        if (_unitsToPartner.Count > 0)
-        {
-            line += $" units={Join(_unitsToPartner)}";
-        }
-
-        if (_unitsBack.Count > 0)
-        {
-            line += $" back-units={Join(_unitsBack)}";
-        }
+        if (_unitSteps.Count > 0)
+            line += " unit-steps=" + string.Join(',', _unitSteps.Select(s =>
+                $"{(s.SelectedOrigin ? "a" : "b")}{s.Index.ToString(CultureInfo.InvariantCulture)}:{(s.ToPartner ? "b" : "a")}"));
 
         if (_supplyNet > 0)
         {
@@ -430,8 +422,6 @@ public sealed class ArmyTransferModel
     private int Room(ArmyState receiver) =>
         Math.Max(0, SupplyCapacity.ArmyDialogCapacityTons(receiver.TotalTroops, _ruleset) - receiver.SupplyTons);
 
-    private static string Join(IEnumerable<int> indexes) =>
-        string.Join(',', indexes.Select(i => i.ToString(CultureInfo.InvariantCulture)));
 }
 
 /// <summary>

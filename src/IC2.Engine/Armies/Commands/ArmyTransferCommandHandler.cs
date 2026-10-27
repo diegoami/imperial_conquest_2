@@ -68,19 +68,27 @@ public sealed class ArmyTransferCommandHandler : ICommandHandler<ArmyTransferCom
         // apply, and OK's selected-first supply rebalance runs below. Cancel
         // never submits a command. No generic zero-command policy is changed.
 
-        // Each side's unit indexes are its own, read before the order (the dialog clamps every click to
-        // what the giver currently holds). Both directions are partitioned before anything is written.
+        if (command.UnitSteps is not null && (command.UnitIndexes.Count > 0 || command.BackUnitIndexes.Count > 0))
+            return CommandOutcome.Reject(ArmyTransferRejections.InvalidAmount,
+                "Use ordered unit steps or unit index batches, not both.");
+
+        // Validate every original identity before planning any partial admission.
         if (!TryPartition(source.Units, command.UnitIndexes,
-                out var moving, out var remainingUnits, out var sourceRejection, out var sourceMessage))
+                out _, out _, out var sourceRejection, out var sourceMessage))
         {
             return CommandOutcome.Reject(sourceRejection, $"{sourceMessage} (army '{source.Id}')");
         }
 
         if (!TryPartition(target.Units, command.BackUnitIndexes,
-                out var returning, out var remainingTarget, out var targetRejection, out var targetMessage))
+                out _, out _, out var targetRejection, out var targetMessage))
         {
             return CommandOutcome.Reject(targetRejection, $"{targetMessage} (army '{target.Id}')");
         }
+        if (command.UnitSteps is { } ordered)
+            foreach (var step in ordered)
+                if (step.Index < 0 || step.Index >= (step.SelectedOrigin ? source.Units.Count : target.Units.Count))
+                    return CommandOutcome.Reject(ArmyTransferRejections.UnknownUnitIndex,
+                        $"There is no original unit at index {step.Index}.");
 
         // Each side gives at most the supply and money it holds before the order.
         if (command.SupplyTons > source.SupplyTons)
@@ -111,37 +119,17 @@ public sealed class ArmyTransferCommandHandler : ICommandHandler<ArmyTransferCom
                 $"Army '{target.Id}' has only {target.Money} money.");
         }
 
-        // Both compositions after both directions, since each side now both gives and receives.
-        var rules = context.Ruleset.ArmyManagement;
-        // #869: each direction moves its selected units highest original slot first, each written at the
-        // receiver's unit count (TArmyToArmy_Army1Transfer's loop from slot 19 down; research
-        // 2026-10-08-transfer-dialog-20-units-and-slot-gaps.md, [confirmed] cases c1, c3, c4), so they land in
-        // descending slot order.
-        var finalSourceUnits = ValueList.From(remainingUnits.Concat(returning.AsEnumerable().Reverse()));
-        var finalTargetUnits = ValueList.From(remainingTarget.Concat(moving.AsEnumerable().Reverse()));
-        if (finalSourceUnits.Count > rules.MaxUnitsPerArmy || finalTargetUnits.Count > rules.MaxUnitsPerArmy)
-        {
-            return CommandOutcome.Reject(
-                ArmyTransferRejections.CombinedUnitsTooLarge,
-                $"This army already has {rules.MaxUnitsPerArmy} units.");
-        }
-
+        // T225: each arrow admits whole units independently and continues after
+        // failures. Legacy two-direction requests mean A's descending batch,
+        // then B's; the UI supplies its chronological working-copy history.
+        var steps = command.UnitSteps ?? ValueList.From(
+            command.UnitIndexes.OrderByDescending(i => i).Select(i => new ArmyTransferUnitStep(true, i, true))
+                .Concat(command.BackUnitIndexes.OrderByDescending(i => i).Select(i => new ArmyTransferUnitStep(false, i, false))));
+        var plan = ArmyTransferUnitAdmission.Plan(source, target, context.Ruleset, state, steps);
+        var finalSourceUnits = ValueList.From(plan.Selected.Select(u => u.Unit));
+        var finalTargetUnits = ValueList.From(plan.Partner.Select(u => u.Unit));
         var finalSourceTroops = SumTroops(finalSourceUnits);
         var finalTargetTroops = SumTroops(finalTargetUnits);
-        if (finalSourceTroops > rules.MaxTroopsPerArmy || finalTargetTroops > rules.MaxTroopsPerArmy)
-        {
-            return CommandOutcome.Reject(
-                ArmyTransferRejections.CombinedTroopsTooLarge,
-                $"An army can not hold more than {News.NewsLogWriter.FormatGroupedAmount(rules.MaxTroopsPerArmy)} troops.");
-        }
-
-        // #802 R30 (play TR3b): an army aboard a fleet may not end with more troops than its ships carry.
-        if (ExceedsFleet(state, source, finalSourceTroops, context.Ruleset)
-            || ExceedsFleet(state, target, finalTargetTroops, context.Ruleset))
-        {
-            return CommandOutcome.Reject(
-                ArmyTransferRejections.FleetCannotCarry, "This fleet can not carry any more troops.");
-        }
 
         var sourceIsEmpty = finalSourceUnits.Count == 0;
         var targetIsEmpty = finalTargetUnits.Count == 0;
@@ -213,8 +201,12 @@ public sealed class ArmyTransferCommandHandler : ICommandHandler<ArmyTransferCom
         var updatedArmies = BuildArmies(
             state, source, target, finalSourceUnits, finalTargetUnits,
             supplySource, supplyTarget, moneySource, moneyTarget, sourceIsEmpty, targetIsEmpty,
-            sourceReceivedUnits: returning.Count > 0,
-            targetReceivedUnits: moving.Count > 0);
+            sourceReceivedUnits: plan.SelectedReceived,
+            targetReceivedUnits: plan.PartnerReceived);
+
+        if (steps.Count > 0)
+            context.Events.Publish(new ArmyTransferUnitsResolved(source.Id, target.Id,
+                plan.AcceptedSteps.Count, steps.Count, plan.NotMoved));
 
         return CommandOutcome.Accept(state with
         {
@@ -355,11 +347,4 @@ public sealed class ArmyTransferCommandHandler : ICommandHandler<ArmyTransferCom
     private static int ChebyshevDistance(int fromX, int fromY, int toX, int toY) =>
         LandingTile.ChebyshevDistance(new GridPoint(fromX, fromY), new GridPoint(toX, toY));
 
-    private static bool ExceedsFleet(GameState state, ArmyState army, int finalTroops, Ruleset ruleset) =>
-        army.IsEmbarked
-        && finalTroops > army.TotalTroops
-        && state.FleetById(army.AboardFleetId!) is { } fleet
-        // Research85 army-transfer boundary: thirty ships admit 15,499,
-        // but refuse 15,500. The division precedes the ship comparison.
-        && finalTroops / ruleset.Naval.TransportTroopsPerShip > fleet.Ships;
 }

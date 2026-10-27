@@ -1,4 +1,5 @@
 using Godot;
+using IC2.Engine.Armies;
 using IC2.Engine.Model;
 using IC2.Engine.Presentation;
 
@@ -58,7 +59,6 @@ public partial class ArmyTransferDialog : Control
     // The display rows: each unit slot with its source army and source index, and which side it is
     // currently shown on (true = the partner's list). A staged unit flips sides; its source index never
     // changes, which is exactly what the composed command's units=/back-units= need.
-    private readonly List<TransferRow> _rows = new();
 
     private sealed record TransferRow(string ArmyId, int SourceIndex, UnitSlot Unit, bool OnPartnerSide);
 
@@ -79,15 +79,6 @@ public partial class ArmyTransferDialog : Control
         }
 
         _model = ArmyTransferModel.ForArmies(selected, partner, Session.Ruleset, Session.State, Session.World);
-        for (var i = 0; i < selected.Units.Count; i++)
-        {
-            _rows.Add(new TransferRow(selected.Id, i, selected.Units[i], OnPartnerSide: false));
-        }
-
-        for (var i = 0; i < partner.Units.Count; i++)
-        {
-            _rows.Add(new TransferRow(partner.Id, i, partner.Units[i], OnPartnerSide: true));
-        }
 
         BuildUi();
         Refresh();
@@ -159,7 +150,8 @@ public partial class ArmyTransferDialog : Control
             _partnerTitle = heading;
         }
 
-        var list = new ItemList { CustomMinimumSize = new Vector2(320, 140), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        var list = new ItemList { CustomMinimumSize = new Vector2(320, 140), SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            SelectMode = ItemList.SelectModeEnum.Multi };
         list.AddThemeFontSizeOverride("font_size", AppTheme.Note);
         list.AddThemeConstantOverride("v_separation", 0);
         box.AddChild(list);
@@ -226,18 +218,23 @@ public partial class ArmyTransferDialog : Control
 
     private void TransferSelected(bool isSelectedSide)
     {
-        var row = SelectedRow(isSelectedSide);
-        if (row is null)
-        {
-            return;
-        }
-
-        Toggle(row);
+        var rows = Rows(isSelectedSide);
+        var list = isSelectedSide ? _selectedList : _partnerList;
+        var picked = list.GetSelectedItems().Where(i => i >= 0 && i < rows.Count).OrderByDescending(i => i)
+            .Select(i => rows[i]).ToArray();
+        if (picked.Length == 0) return;
+        StageRows(picked);
         Refresh();
     }
 
     private void DisbandSelected(bool isSelectedSide)
     {
+        var list = isSelectedSide ? _selectedList : _partnerList;
+        if (list.GetSelectedItems().Length > 1)
+        {
+            _replyLabel.Text = "Select one unit to disband.";
+            return;
+        }
         if (SelectedRow(isSelectedSide) is { } row)
         {
             DisbandSelected(row);
@@ -271,58 +268,23 @@ public partial class ArmyTransferDialog : Control
         }
 
         _model = ArmyTransferModel.ForArmies(selected, partner, Session.Ruleset, Session.State, Session.World);
-        _rows.Clear();
-        for (var i = 0; i < selected.Units.Count; i++)
-        {
-            _rows.Add(new TransferRow(selected.Id, i, selected.Units[i], OnPartnerSide: false));
-        }
-
-        for (var i = 0; i < partner.Units.Count; i++)
-        {
-            _rows.Add(new TransferRow(partner.Id, i, partner.Units[i], OnPartnerSide: true));
-        }
 
         return true;
     }
 
     /// <summary>
-    /// Flips one row between the two lists, keeping the model's staged set in step: a row of the
-    /// selected army on the partner side is staged as <c>units=</c>, a row of the partner army on the
-    /// selected side is staged as <c>back-units=</c>.
+    /// Requests one whole-unit move using its original identity and current working side.
     /// </summary>
     private void Toggle(TransferRow row)
     {
-        var nowPartnerSide = !row.OnPartnerSide;
-        var index = _rows.FindIndex(candidate => ReferenceEquals(candidate, row));
-        if (index < 0)
-        {
-            return;
-        }
+        StageRows(new[] { row });
+    }
 
-        _rows[index] = row with { OnPartnerSide = nowPartnerSide };
-
-        if (string.Equals(row.ArmyId, _model.SelectedArmyId, StringComparison.Ordinal))
-        {
-            if (nowPartnerSide)
-            {
-                _model.StageUnitToPartner(row.SourceIndex);
-            }
-            else
-            {
-                _model.UnstageUnitToPartner(row.SourceIndex);
-            }
-        }
-        else
-        {
-            if (nowPartnerSide)
-            {
-                _model.UnstageUnitBack(row.SourceIndex);
-            }
-            else
-            {
-                _model.StageUnitBack(row.SourceIndex);
-            }
-        }
+    private void StageRows(IEnumerable<TransferRow> rows)
+    {
+        _model.StageTransfers(rows.Select(row => new ArmyTransferUnitStep(row.ArmyId == ArmyId,
+            row.SourceIndex, !row.OnPartnerSide)));
+        _replyLabel.Text = string.Join('\n', _model.LastUnitMessages);
     }
 
     private TransferRow? SelectedRow(bool isSelectedSide)
@@ -341,7 +303,9 @@ public partial class ArmyTransferDialog : Control
     }
 
     private List<TransferRow> Rows(bool isSelectedSide) =>
-        _rows.Where(row => row.OnPartnerSide != isSelectedSide).ToList();
+        (isSelectedSide ? _model.SelectedWorkingUnits : _model.PartnerWorkingUnits)
+            .Select(row => new TransferRow(row.SelectedOrigin ? ArmyId : PartnerId, row.Index, row.Unit,
+                OnPartnerSide: !isSelectedSide)).ToList();
 
     private void PressSupply(int delta)
     {
@@ -362,7 +326,7 @@ public partial class ArmyTransferDialog : Control
     /// </summary>
     public bool TransferBySourceForCheck(string armyId, int sourceIndex)
     {
-        var row = _rows.FirstOrDefault(
+        var row = Rows(true).Concat(Rows(false)).FirstOrDefault(
             candidate => string.Equals(candidate.ArmyId, armyId, StringComparison.Ordinal)
                 && candidate.SourceIndex == sourceIndex);
         if (row is null)
@@ -378,7 +342,7 @@ public partial class ArmyTransferDialog : Control
     /// <summary>Disbands the unit at <paramref name="sourceIndex"/>, exactly as its Disband button does.</summary>
     public bool DisbandBySourceForCheck(string armyId, int sourceIndex)
     {
-        var row = _rows.FirstOrDefault(
+        var row = Rows(true).Concat(Rows(false)).FirstOrDefault(
             candidate => string.Equals(candidate.ArmyId, armyId, StringComparison.Ordinal)
                 && candidate.SourceIndex == sourceIndex);
         if (row is null)
@@ -395,6 +359,9 @@ public partial class ArmyTransferDialog : Control
 
     /// <summary>The partner's list widget, so a check can select a row the way a click does.</summary>
     public ItemList PartnerListForCheck => _partnerList;
+
+    public void TransferSelectedForCheck(bool selectedSide) => TransferSelected(selectedSide);
+    public void DisbandSelectedForCheck(bool selectedSide) => DisbandSelected(selectedSide);
 
     /// <summary>One press of a supply arrow, exactly as the buttons do.</summary>
     public void PressSupplyForCheck(int delta) => PressSupply(delta);
@@ -437,7 +404,7 @@ public partial class ArmyTransferDialog : Control
         }
 
         var lines = Submit(line);
-        _replyLabel.Text = lines.Skip(1).FirstOrDefault(text => text.Length > 0) ?? string.Empty;
+        _replyLabel.Text = CommandOutcomeWording.Apply(CommandOutcomeText.OutcomeBlock(lines));
         Refresh();
     }
 

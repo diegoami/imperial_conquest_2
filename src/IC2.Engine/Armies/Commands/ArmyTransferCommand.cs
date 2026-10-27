@@ -46,19 +46,21 @@ namespace IC2.Engine.Armies.Commands;
 /// army's troop count changes.
 /// </para>
 /// <para>
-/// <strong>The 20-unit and 100,000-troop limits are the Join armies rules</strong> [confirmed:
-/// <c>decompiled-unit-map-orders-and-record-fields.md</c>]: at most
-/// <see cref="Model.ArmyManagementRules.MaxUnitsPerArmy"/> units and
-/// <see cref="Model.ArmyManagementRules.MaxTroopsPerArmy"/> troops, applied to each army's composition
-/// after both directions. They and <see cref="Model.EconomyRules.PurseCapPerUnit"/> never re-derive a
-/// literal here. Money is never rebalanced: the purse cap is the dialog's money stepper,
+/// <strong>Unit admission is partial</strong> [confirmed: Research85,
+/// <c>2026-10-26-partial-army-transfer85.md</c>]. Each arrow processes descending working slots,
+/// checks unit count, troop total, then carried-fleet capacity, appends fitting whole units and
+/// continues after refusals. T225 preserves chronological UI arrows through <see cref="UnitSteps"/>;
+/// legacy batches mean selected-side descending followed by partner-side descending. Limits read
+/// <see cref="Model.ArmyManagementRules.MaxUnitsPerArmy"/> and
+/// <see cref="Model.ArmyManagementRules.MaxTroopsPerArmy"/>. Accepted commands report typed not-moved
+/// units without falsely rejecting their successful moves. Money is never rebalanced: the purse cap is the dialog's money stepper,
 /// <c>min(step, 1000 − money(receiver), money(giver))</c>, so it bounds only money moved between two
 /// surviving armies, and the emptied-army merge pools a purse uncapped.
 /// </para>
 /// <para>
-/// <strong>Not in scope.</strong> The dialog's single-unit Disband is T107's <c>disband-unit</c>. An army
-/// aboard a fleet is not addressed — the reports are silent and the task leaves it to the distance rule
-/// (see this task's PR body); only the now-dangling back-reference is dropped.
+/// <strong>Not in scope.</strong> The dialog's Disband transaction lifetime is a separate #1522 gap.
+/// Carrier capacity uses the independently measured truncated boundary (T221); when a source is
+/// emptied at OK its carrier's dangling back-reference is dropped.
 /// </para>
 /// </remarks>
 /// <param name="IssuingNationId">The nation issuing the order; both armies must be its own.</param>
@@ -84,6 +86,10 @@ public sealed record ArmyTransferCommand(
     int BackSupplyTons,
     int BackMoney) : ICommand
 {
+    /// <summary>Optional chronological unit moves for the working-copy UI. Original unit identity is stable;
+    /// omit for legacy units/back-units batches (selected side descending, then partner descending).</summary>
+    public ValueList<ArmyTransferUnitStep>? UnitSteps { get; init; }
+
     /// <inheritdoc/>
     public string Kind => "armies.army-transfer";
 }
@@ -125,16 +131,12 @@ public static class ArmyTransferRejections
     public static readonly RejectionCode InsufficientMoney = new("armies.army-transfer-insufficient-money");
 
     /// <summary>
-    /// Either army would hold more than
-    /// <see cref="Model.ArmyManagementRules.MaxUnitsPerArmy"/> units after both directions — the Join
-    /// armies limit.
+    /// This individual incoming unit would exceed <see cref="Model.ArmyManagementRules.MaxUnitsPerArmy"/>.
     /// </summary>
     public static readonly RejectionCode CombinedUnitsTooLarge = new("armies.army-transfer-units-too-large");
 
     /// <summary>
-    /// Either army would hold more than
-    /// <see cref="Model.ArmyManagementRules.MaxTroopsPerArmy"/> troops after both directions — the Join
-    /// armies limit.
+    /// This individual incoming unit would exceed <see cref="Model.ArmyManagementRules.MaxTroopsPerArmy"/>.
     /// </summary>
     public static readonly RejectionCode CombinedTroopsTooLarge = new("armies.army-transfer-troops-too-large");
 
