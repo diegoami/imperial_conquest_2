@@ -39,13 +39,29 @@ public sealed class ArmyTransferCommandTests
     }
 
     [Theory]
-    [InlineData(15000, false, 500)]
-    [InlineData(15001, false, 500)]
-    [InlineData(15499, false, 500)]
-    [InlineData(15500, true, 500)]
-    [InlineData(30999, false, 1000)]
-    [InlineData(31000, true, 1000)]
-    public void T221_Transfer_into_carried_army_uses_truncated_ship_requirement(int totalTroops, bool refused, int divisor)
+    [InlineData(15000, false, 500, SeatAsymmetryModel.Faithful, SeatControl.Human)]
+    [InlineData(15001, false, 500, SeatAsymmetryModel.Faithful, SeatControl.Human)]
+    [InlineData(15499, false, 500, SeatAsymmetryModel.Faithful, SeatControl.Human)]
+    [InlineData(15500, true, 500, SeatAsymmetryModel.Faithful, SeatControl.Human)]
+    [InlineData(30999, false, 1000, SeatAsymmetryModel.Faithful, SeatControl.Human)]
+    [InlineData(31000, true, 1000, SeatAsymmetryModel.Faithful, SeatControl.Human)]
+    [InlineData(15000, false, 500, SeatAsymmetryModel.Normalized, SeatControl.Human)]
+    [InlineData(15001, true, 500, SeatAsymmetryModel.Normalized, SeatControl.Human)]
+    [InlineData(15499, true, 500, SeatAsymmetryModel.Normalized, SeatControl.Human)]
+    [InlineData(15500, true, 500, SeatAsymmetryModel.Normalized, SeatControl.Human)]
+    [InlineData(15000, false, 500, SeatAsymmetryModel.Normalized, SeatControl.Ai)]
+    [InlineData(15001, true, 500, SeatAsymmetryModel.Normalized, SeatControl.Ai)]
+    [InlineData(15499, true, 500, SeatAsymmetryModel.Normalized, SeatControl.Ai)]
+    [InlineData(15500, true, 500, SeatAsymmetryModel.Normalized, SeatControl.Ai)]
+    [InlineData(15000, false, 500, SeatAsymmetryModel.Faithful, SeatControl.Ai)]
+    [InlineData(15001, true, 500, SeatAsymmetryModel.Faithful, SeatControl.Ai)]
+    [InlineData(15499, true, 500, SeatAsymmetryModel.Faithful, SeatControl.Ai)]
+    [InlineData(15500, true, 500, SeatAsymmetryModel.Faithful, SeatControl.Ai)]
+    [InlineData(30000, false, 1000, SeatAsymmetryModel.Normalized, SeatControl.Human)]
+    [InlineData(30001, true, 1000, SeatAsymmetryModel.Normalized, SeatControl.Human)]
+    [InlineData(30000, false, 1000, SeatAsymmetryModel.Faithful, SeatControl.Ai)]
+    [InlineData(30001, true, 1000, SeatAsymmetryModel.Faithful, SeatControl.Ai)]
+    public void T232_Transfer_admission_respects_preset_and_seat_in_both_directions(int totalTroops, bool refused, int divisor, SeatAsymmetryModel asymmetry, SeatControl control)
     {
         var fleet = new FleetState("ferry", NorthNationId, 6, 5, 5, 30, 100, 0, 0, null, null, "receiver", null);
         var state = WithArmies(InitialState(),
@@ -54,8 +70,14 @@ public sealed class ArmyTransferCommandTests
                 coveredTileCode: null, aboardFleetId: fleet.Id));
         state = state with { Fleets = ValueList.Of(fleet) };
         var before = Totals(state);
-        var ruleset = ArmiesTestbed.Ruleset with { Naval = ArmiesTestbed.Ruleset.Naval with { TransportTroopsPerShip = divisor } };
-        var result = DispatcherWithRuleset(ruleset).Dispatch(state, OneWay("giver", "receiver", ValueList.Of(0), 0, 0));
+        var ruleset = ArmiesTestbed.Ruleset with { Flags = ArmiesTestbed.Ruleset.Flags with { SeatAsymmetry = asymmetry }, Naval = ArmiesTestbed.Ruleset.Naval with { TransportTroopsPerShip = divisor } };
+        state = state with { Nations = ValueList.From(state.Nations.Select(n => n.Id == state.ActiveNationId ? n with { Control = control } : n)) };
+        var results = new[] {
+            DispatcherWithRuleset(ruleset).Dispatch(state, OneWay("giver", "receiver", ValueList.Of(0), 0, 0)),
+            DispatcherWithRuleset(ruleset).Dispatch(state, TwoWay("receiver", "giver", ValueList<int>.Empty,
+                0, 0, ValueList.Of(0), 0, 0)) };
+        foreach (var result in results)
+        {
         Assert.True(result.IsAccepted, result.ToString());
         if (refused)
         {
@@ -68,6 +90,7 @@ public sealed class ArmyTransferCommandTests
             Assert.Equal(totalTroops, result.State.ArmyById("receiver")!.TotalTroops);
             Assert.Equal(before, Totals(result.State));
             Assert.Equal("receiver", result.State.FleetById(fleet.Id)!.CarriedArmyId);
+        }
         }
     }
 

@@ -29,20 +29,37 @@ namespace IC2.Engine.Tests.Ui;
 public sealed class MercenaryDialogModelTests
 {
     [Theory]
-    [InlineData(5000, true, 500)]
-    [InlineData(5001, true, 500)]
-    [InlineData(5499, true, 500)]
-    [InlineData(5500, false, 500)]
-    [InlineData(10999, true, 1000)]
-    [InlineData(11000, false, 1000)]
-    public void T221_Opening_fleet_gate_uses_current_troops_and_truncated_requirement(int troops, bool opens, int divisor)
+    [InlineData(5000, true, 500, SeatAsymmetryModel.Faithful, SeatControl.Human)]
+    [InlineData(5001, true, 500, SeatAsymmetryModel.Faithful, SeatControl.Human)]
+    [InlineData(5499, true, 500, SeatAsymmetryModel.Faithful, SeatControl.Human)]
+    [InlineData(5500, false, 500, SeatAsymmetryModel.Faithful, SeatControl.Human)]
+    [InlineData(10999, true, 1000, SeatAsymmetryModel.Faithful, SeatControl.Human)]
+    [InlineData(11000, false, 1000, SeatAsymmetryModel.Faithful, SeatControl.Human)]
+    [InlineData(5000, true, 500, SeatAsymmetryModel.Normalized, SeatControl.Human)]
+    [InlineData(5001, false, 500, SeatAsymmetryModel.Normalized, SeatControl.Human)]
+    [InlineData(5499, false, 500, SeatAsymmetryModel.Normalized, SeatControl.Human)]
+    [InlineData(5500, false, 500, SeatAsymmetryModel.Normalized, SeatControl.Human)]
+    [InlineData(5000, true, 500, SeatAsymmetryModel.Normalized, SeatControl.Ai)]
+    [InlineData(5001, false, 500, SeatAsymmetryModel.Normalized, SeatControl.Ai)]
+    [InlineData(5499, false, 500, SeatAsymmetryModel.Normalized, SeatControl.Ai)]
+    [InlineData(5500, false, 500, SeatAsymmetryModel.Normalized, SeatControl.Ai)]
+    [InlineData(5000, true, 500, SeatAsymmetryModel.Faithful, SeatControl.Ai)]
+    [InlineData(5001, false, 500, SeatAsymmetryModel.Faithful, SeatControl.Ai)]
+    [InlineData(5499, false, 500, SeatAsymmetryModel.Faithful, SeatControl.Ai)]
+    [InlineData(5500, false, 500, SeatAsymmetryModel.Faithful, SeatControl.Ai)]
+    [InlineData(10000, true, 1000, SeatAsymmetryModel.Normalized, SeatControl.Human)]
+    [InlineData(10001, false, 1000, SeatAsymmetryModel.Normalized, SeatControl.Human)]
+    [InlineData(10000, true, 1000, SeatAsymmetryModel.Faithful, SeatControl.Ai)]
+    [InlineData(10001, false, 1000, SeatAsymmetryModel.Faithful, SeatControl.Ai)]
+    public void T232_Opening_fleet_gate_checks_current_troops_under_preset_and_seat_policy(int troops, bool opens, int divisor, SeatAsymmetryModel asymmetry, SeatControl control)
     {
         var (state, ruleset) = Scripted(armyMoney: 30000, offerTroops: 500);
-        ruleset = ruleset with { Naval = ruleset.Naval with { TransportTroopsPerShip = divisor } };
+        ruleset = ruleset with { Flags = ruleset.Flags with { SeatAsymmetry = asymmetry }, Naval = ruleset.Naval with { TransportTroopsPerShip = divisor } };
         var army = state.ArmyById(ArmyId)! with { AboardFleetId = "carrier",
             Units = ValueList.Of(new UnitSlot(0, "light_infantry", troops, 6, "Regulars")) };
         var fleet = new FleetState("carrier", RomeId, army.X, army.Y, 7, 10, 100, 0, 0, null, null, army.Id, null);
         state = state with { Armies = ValueList.Of(army), Fleets = ValueList.Of(fleet) };
+        state = state with { Nations = ValueList.Of(state.Nations[0] with { Id = RomeId, Control = control }) };
         var model = MercenaryDialogModel.ForArmy(state, ArmyId, ruleset);
         Assert.Equal(opens, model.DialogOpens);
         Assert.Equal(opens ? null : "Your fleet cannot carry any more troops.", model.PreOpenRefusalMessage);

@@ -19,13 +19,29 @@ namespace IC2.Engine.Tests.Recruitment;
 public sealed class HireMercenaryCommandHandlerTests
 {
     [Theory]
-    [InlineData(5000, false, 500)]
-    [InlineData(5001, false, 500)]
-    [InlineData(5499, false, 500)]
-    [InlineData(5500, true, 500)]
-    [InlineData(10999, false, 1000)]
-    [InlineData(11000, true, 1000)]
-    public void T221_Embarked_hire_truncates_resulting_troops_before_capacity_comparison(int totalTroops, bool refused, int divisor)
+    [InlineData(5000, false, 500, SeatAsymmetryModel.Faithful, SeatControl.Human)]
+    [InlineData(5001, false, 500, SeatAsymmetryModel.Faithful, SeatControl.Human)]
+    [InlineData(5499, false, 500, SeatAsymmetryModel.Faithful, SeatControl.Human)]
+    [InlineData(5500, true, 500, SeatAsymmetryModel.Faithful, SeatControl.Human)]
+    [InlineData(10999, false, 1000, SeatAsymmetryModel.Faithful, SeatControl.Human)]
+    [InlineData(11000, true, 1000, SeatAsymmetryModel.Faithful, SeatControl.Human)]
+    [InlineData(5000, false, 500, SeatAsymmetryModel.Normalized, SeatControl.Human)]
+    [InlineData(5001, true, 500, SeatAsymmetryModel.Normalized, SeatControl.Human)]
+    [InlineData(5499, true, 500, SeatAsymmetryModel.Normalized, SeatControl.Human)]
+    [InlineData(5500, true, 500, SeatAsymmetryModel.Normalized, SeatControl.Human)]
+    [InlineData(5000, false, 500, SeatAsymmetryModel.Normalized, SeatControl.Ai)]
+    [InlineData(5001, true, 500, SeatAsymmetryModel.Normalized, SeatControl.Ai)]
+    [InlineData(5499, true, 500, SeatAsymmetryModel.Normalized, SeatControl.Ai)]
+    [InlineData(5500, true, 500, SeatAsymmetryModel.Normalized, SeatControl.Ai)]
+    [InlineData(5000, false, 500, SeatAsymmetryModel.Faithful, SeatControl.Ai)]
+    [InlineData(5001, true, 500, SeatAsymmetryModel.Faithful, SeatControl.Ai)]
+    [InlineData(5499, true, 500, SeatAsymmetryModel.Faithful, SeatControl.Ai)]
+    [InlineData(5500, true, 500, SeatAsymmetryModel.Faithful, SeatControl.Ai)]
+    [InlineData(10000, false, 1000, SeatAsymmetryModel.Normalized, SeatControl.Human)]
+    [InlineData(10001, true, 1000, SeatAsymmetryModel.Normalized, SeatControl.Human)]
+    [InlineData(10000, false, 1000, SeatAsymmetryModel.Faithful, SeatControl.Ai)]
+    [InlineData(10001, true, 1000, SeatAsymmetryModel.Faithful, SeatControl.Ai)]
+    public void T232_Embarked_hire_checks_resulting_troops_under_preset_and_seat_policy(int totalTroops, bool refused, int divisor, SeatAsymmetryModel asymmetry, SeatControl control)
     {
         var initial = RecruitmentTestbed.InitialState();
         var fleet = initial.FleetById("north-fleet-1")!;
@@ -36,7 +52,8 @@ public sealed class HireMercenaryCommandHandlerTests
         var state = RecruitmentTestbed.WithMercenaryPool(RecruitmentTestbed.WithArmy(initial, army), offer);
         state = state with { Fleets = ValueList.From(state.Fleets.Select(f => f.Id == fleet.Id
             ? f with { CarriedArmyId = army.Id } : f)) };
-        var ruleset = RecruitmentTestbed.Ruleset with { Naval = RecruitmentTestbed.Ruleset.Naval with { TransportTroopsPerShip = divisor } };
+        var ruleset = RecruitmentTestbed.Ruleset with { Flags = RecruitmentTestbed.Ruleset.Flags with { SeatAsymmetry = asymmetry }, Naval = RecruitmentTestbed.Ruleset.Naval with { TransportTroopsPerShip = divisor } };
+        state = state with { Nations = ValueList.From(state.Nations.Select(n => n.Id == state.ActiveNationId ? n with { Control = control } : n)) };
         var dispatcher = new CommandDispatcher(SystemRegistry.FromEngineAssembly(), ruleset, RecruitmentTestbed.World, NullEventSink.Instance);
         var result = dispatcher.Dispatch(state,
             new HireMercenaryCommand(state.ActiveNationId, army.Id, offer.SlotIndex));
