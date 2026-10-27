@@ -78,17 +78,19 @@ public sealed record UserSettings
     [JsonIgnore]
     public ValueList<AutoRecruitCityPlan> AutoRecruitPlans { get; init; } = ValueList<AutoRecruitCityPlan>.Empty;
 
-    /// <summary>The army's supply target as a percentage of its current ruleset capacity.</summary>
+    /// <summary>Legacy preference only; T228 always supplies to maximum.</summary>
     public int AutoSupplyTargetPercent { get; init; } = 100;
 
-    /// <summary>Target purse in talents, further capped by the active ruleset.</summary>
+    /// <summary>Legacy preference only; T228 derives nominal quarterly regular+mercenary upkeep.</summary>
     public int AutoPurseTargetTalents { get; init; } = 1_000;
 
-    /// <summary>Automatic funding never deliberately lowers treasury below this many talents.</summary>
+    /// <summary>Legacy preference only; T228 imposes no treasury reserve.</summary>
     public int AutoTreasuryReserveTalents { get; init; } = 1_000;
 
+    /// <summary>Legacy preference only; T228 always supplies fleets to maximum.</summary>
     public int AutoFleetSupplyTargetPercent { get; init; } = 100;
 
+    /// <summary>Legacy preference only; T228 repairs to the loaded maximum condition.</summary>
     public int AutoFleetRepairTargetPercent { get; init; } = 100;
 
     /// <summary>One of <see cref="MapStyles.All"/>' ids: the map drawn as tiles (the default) or painted.</summary>

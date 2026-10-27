@@ -26,6 +26,7 @@ public partial class EndTurnBoxCheck : Control
             CheckAutoSupportHotseatSeparation();
             CheckAutoSupportFromFleet();
             CheckFleetAutoSupportFromTown();
+            CheckDerivedSupportWhileInDebt();
             CheckAutoMobilizeBeforeSupport();
             CheckAutoMobilizeRefusalKeepsSlot();
             CheckAutoMobilizeHotseatIsolation();
@@ -130,6 +131,8 @@ public partial class EndTurnBoxCheck : Control
         try
         {
             var initial = mainGame.Session.State.ArmyById("north-land-warning")!;
+            var expectedFunding = Math.Min(IC2.Engine.Economy.ArmyUpkeep.Compute(initial.Units, mainGame.Session.Ruleset),
+                mainGame.Session.Ruleset.Economy.PurseCapPerUnit);
             var snapshots = new List<(int Supply, int Money, int Turn)>();
             mainGame.CommandIssued += _ =>
             {
@@ -151,8 +154,8 @@ public partial class EndTurnBoxCheck : Control
             {
                 Check(snapshots[0].Supply > initial.SupplyTons && snapshots[0].Money == 0,
                     "own-city supply command is accepted before money");
-                Check(snapshots[1].Money == 500 && snapshots[1].Turn == snapshots[0].Turn,
-                    "treasury reserve limits the accepted purse transfer to 500");
+                Check(snapshots[1].Money == expectedFunding && snapshots[1].Turn == snapshots[0].Turn,
+                    "accepted purse transfer uses quarterly upkeep, ignoring the legacy reserve");
                 Check(snapshots[2].Turn == snapshots[0].Turn + 1,
                     "ordinary end command runs after auto support");
             }
@@ -193,11 +196,14 @@ public partial class EndTurnBoxCheck : Control
         try
         {
             var otherBefore = mainGame.Session.State.ArmyById("south-auto")!.Money;
+            var ownArmy = mainGame.Session.State.ArmyById("north-land-warning")!;
+            var expectedFunding = Math.Min(IC2.Engine.Economy.ArmyUpkeep.Compute(ownArmy.Units, mainGame.Session.Ruleset),
+                mainGame.Session.Ruleset.Economy.PurseCapPerUnit);
             var otherFleetBefore = mainGame.Session.State.FleetById("south-fleet-auto")!;
             mainGame.MenuBar.PressItemForCheck("game.end_turn");
             if (mainGame.ActiveOverlay is EndTurnBox box)
                 box.EndTurnButton.EmitSignal(Button.SignalName.Pressed);
-            Check(mainGame.Session.State.ArmyById("north-land-warning")!.Money == 500,
+            Check(mainGame.Session.State.ArmyById("north-land-warning")!.Money == expectedFunding,
                 "global auto funding acts for the active human nation");
             Check(mainGame.Session.State.ArmyById("south-auto")!.Money == otherBefore,
                 "global auto funding does not pre-fund the next hotseat nation");
@@ -279,6 +285,46 @@ public partial class EndTurnBoxCheck : Control
             RemoveMainGame(mainGame);
             SettingsScreen.Commit(new UserSettings());
         }
+    }
+
+    private void CheckDerivedSupportWhileInDebt()
+    {
+        var original = BuildFleetAutoSession();
+        var nationId = original.State.ActiveNationId;
+        var army = original.State.Armies.First(a => a.Nation == nationId) with { Money = 0 };
+        var fleet = original.State.Fleets.First(f => f.Nation == nationId);
+        var state = original.State with { Armies = ValueList.Of(army),
+            Nations = ValueList.From(original.State.Nations.Select(n => n.Id == nationId
+                ? n with { Treasury = -100, Wealth = 1000000, Unity = 900 } : n)) };
+        var save = new SaveGame(state.SchemaVersion, "derived-debt", "derived-debt", state.ScenarioId, state.WorldId, state.RulesetId, state);
+        var session = new GameSession(original.World, original.Ruleset, original.Scenario, save);
+        SettingsScreen.Commit(new UserSettings { AutoFundArmies = true, AutoRepairFleets = true,
+            AutoPurseTargetTalents = 0, AutoFleetRepairTargetPercent = 0, AutoTreasuryReserveTalents = 100000 });
+        var main = AddMainGame(session);
+        try
+        {
+            var commands = new List<string>();
+            var cost = IC2.Engine.Economy.ArmyUpkeep.Compute(army.Units, session.Ruleset);
+            var repairCost = fleet.Ships * (session.Ruleset.Naval.MaxConditionPercent - fleet.ConditionPercent)
+                / session.Ruleset.Naval.RepairCostDivisor;
+            main.CommandIssued += lines =>
+            {
+                var line = lines.FirstOrDefault() ?? string.Empty;
+                commands.Add(line);
+                if (line.StartsWith("> repair-fleet ", StringComparison.Ordinal))
+                    Check(session.State.FleetById(fleet.Id)!.ConditionPercent == session.Ruleset.Naval.MaxConditionPercent
+                          && session.State.FleetById(fleet.Id)!.Moves == 0
+                          && session.State.NationById(nationId)!.Treasury == -100 - cost - repairCost,
+                        "confirmed support funds quarterly upkeep and repairs fully in debt, without the legacy reserve");
+            };
+            main.MenuBar.PressItemForCheck("game.end_turn");
+            if (main.ActiveOverlay is EndTurnBox box) box.EndTurnButton.EmitSignal(Button.SignalName.Pressed);
+            DismissOfferNotices(main);
+            Check(commands.Count == 3 && commands[0].StartsWith("> transfer-money ", StringComparison.Ordinal)
+                  && commands[1].StartsWith("> repair-fleet ", StringComparison.Ordinal)
+                  && commands[2].StartsWith("> end", StringComparison.Ordinal), "derived debt support preserves order and one End turn");
+        }
+        finally { RemoveMainGame(main); SettingsScreen.Commit(new UserSettings()); }
     }
 
     private void CheckAutoMobilizeBeforeSupport()

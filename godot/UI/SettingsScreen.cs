@@ -208,59 +208,41 @@ public partial class SettingsScreen : Control
     private void BuildAutomation(VBoxContainer column)
     {
         Section(column, "Army support");
-        column.AddChild(UiKit.MakeLabel(
-            "Global for all campaigns. Runs after you confirm End turn; uses ordinary orders and can spend treasury.",
-            AppTheme.Note, UiKit.MutedTextColor));
+        AutomationNote(column,
+            "Global for all campaigns, after confirmed End turn. Supply fills to maximum; purses cover quarterly troop and mercenary costs within transfer limits.");
 
         var supply = new CheckBox { Text = "Auto supply armies", ButtonPressed = Current.AutoSupplyArmies };
         supply.Toggled += on => Commit(Current with { AutoSupplyArmies = on });
         Row(column, "Supply").AddChild(supply);
 
-        var supplyTarget = new SpinBox { MinValue = 0, MaxValue = 100, Step = 5,
-            Value = Current.AutoSupplyTargetPercent, Suffix = "% capacity" };
-        supplyTarget.ValueChanged += value => Commit(Current with { AutoSupplyTargetPercent = (int)value });
-        Row(column, "Supply target").AddChild(supplyTarget);
-
         var funding = new CheckBox { Text = "Auto fund army purses", ButtonPressed = Current.AutoFundArmies };
         funding.Toggled += on => Commit(Current with { AutoFundArmies = on });
         Row(column, "Money").AddChild(funding);
 
-        var purseTarget = new SpinBox { MinValue = 0, MaxValue = UserSettings.MaxAutoPurseTargetTalents,
-            Step = 100, Value = Current.AutoPurseTargetTalents, Suffix = " talents" };
-        purseTarget.ValueChanged += value => Commit(Current with { AutoPurseTargetTalents = (int)value });
-        Row(column, "Purse target").AddChild(purseTarget);
-
-        var reserve = new SpinBox { MinValue = 0, MaxValue = UserSettings.MaxAutoTreasuryReserveTalents,
-            Step = 100, Value = Current.AutoTreasuryReserveTalents, Suffix = " talents" };
-        reserve.ValueChanged += value => Commit(Current with { AutoTreasuryReserveTalents = (int)value });
-        Row(column, "Treasury reserve").AddChild(reserve);
-
         Section(column, "Fleet support");
-        column.AddChild(UiKit.MakeLabel(
-            "Only owned towns supply and repair fleets. Repairs spend treasury and use the fleet's remaining moves.",
-            AppTheme.Note, UiKit.MutedTextColor));
+        AutomationNote(column,
+            "Owned towns replenish supplies and repair fully at confirmed End turn. Repairs spend treasury and use remaining moves.");
         var fleetSupply = new CheckBox { Text = "Auto supply fleets", ButtonPressed = Current.AutoSupplyFleets };
         fleetSupply.Toggled += on => Commit(Current with { AutoSupplyFleets = on });
         Row(column, "Fleet supply").AddChild(fleetSupply);
-        var fleetSupplyTarget = new SpinBox { MinValue = 0, MaxValue = 100, Step = 5,
-            Value = Current.AutoFleetSupplyTargetPercent, Suffix = "% capacity" };
-        fleetSupplyTarget.ValueChanged += value => Commit(Current with { AutoFleetSupplyTargetPercent = (int)value });
-        Row(column, "Fleet supply target").AddChild(fleetSupplyTarget);
         var fleetRepair = new CheckBox { Text = "Auto repair fleets", ButtonPressed = Current.AutoRepairFleets };
         fleetRepair.Toggled += on => Commit(Current with { AutoRepairFleets = on });
         Row(column, "Fleet repair").AddChild(fleetRepair);
-        var repairTarget = new SpinBox { MinValue = 0, MaxValue = 100, Step = 5,
-            Value = Current.AutoFleetRepairTargetPercent, Suffix = "% condition" };
-        repairTarget.ValueChanged += value => Commit(Current with { AutoFleetRepairTargetPercent = (int)value });
-        Row(column, "Repair target").AddChild(repairTarget);
 
         Section(column, "Recruitment");
-        column.AddChild(UiKit.MakeLabel(
-            "At confirmed End turn, mobilize Average or better units in queue order. This may create new armies.",
-            AppTheme.Note, UiKit.MutedTextColor));
+        AutomationNote(column,
+            "At confirmed End turn, mobilize Average or better units in queue order. This may create new armies.");
         var mobilize = new CheckBox { Text = "Auto mobilize Average or better", ButtonPressed = Current.AutoMobilizeReady };
         mobilize.Toggled += on => Commit(Current with { AutoMobilizeReady = on });
         Row(column, "Mobilize").AddChild(mobilize);
+    }
+
+    private static void AutomationNote(VBoxContainer column, string text)
+    {
+        var note = UiKit.MakeLabel(text, AppTheme.Note, UiKit.MutedTextColor);
+        note.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        note.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        column.AddChild(note);
     }
 
     public override void _UnhandledInput(InputEvent @event)

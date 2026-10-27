@@ -10,7 +10,7 @@ namespace IC2.Slice.UI;
 public sealed record FleetAutoSupportProposal(string FleetId, string CommandLine, string Kind,
     int Requested, string? CityId = null);
 
-/// <summary>T208: deterministic owned-town fleet supply and affordable repair suggestions.</summary>
+/// <summary>T208/T228: owned-town maximum supply and repair through ordinary commands.</summary>
 public static class FleetAutoSupportPlanner
 {
     public static FleetAutoSupportProposal? NextSupply(GameState state, FleetState fleet, Ruleset ruleset,
@@ -18,8 +18,7 @@ public static class FleetAutoSupportPlanner
     {
         if (!settings.AutoSupplyFleets || fleet.IsUnderConstruction) return null;
         var capacity = SupplyCapacity.FleetCapacityTons(fleet.Ships, ruleset);
-        var target = (int)Math.Ceiling((double)capacity * settings.AutoFleetSupplyTargetPercent / 100);
-        var needed = Math.Max(0, target - fleet.SupplyTons);
+        var needed = Math.Max(0, capacity - fleet.SupplyTons);
         if (needed == 0) return null;
 
         foreach (var city in state.Cities)
@@ -43,18 +42,11 @@ public static class FleetAutoSupportPlanner
         if (city is null) return null;
         var nation = state.NationById(fleet.Nation);
         if (nation is null) return null;
-        var target = Math.Min(settings.AutoFleetRepairTargetPercent, ruleset.Naval.MaxConditionPercent);
-        var room = Math.Max(0, target - fleet.ConditionPercent);
-        var available = Math.Max(0, nation.Treasury - settings.AutoTreasuryReserveTalents);
-        for (var points = room; points > 0; points--)
-        {
-            var cost = (fleet.Ships * points) / ruleset.Naval.RepairCostDivisor;
-            if (cost <= available)
-                return new(fleet.Id, $"repair-fleet {fleet.Id} {points.ToString(CultureInfo.InvariantCulture)}",
-                    "repair", points, city.Id);
-        }
-
-        return null;
+        var room = Math.Max(0, ruleset.Naval.MaxConditionPercent - fleet.ConditionPercent);
+        // RepairFleetCommand already permits debt and spends remaining moves;
+        // automation adds no reserve or affordability rule.
+        return room == 0 ? null : new(fleet.Id, $"repair-fleet {fleet.Id} {room.ToString(CultureInfo.InvariantCulture)}",
+            "repair", room, city.Id);
     }
 
     private static bool OwnTownNearby(CityState city, FleetState fleet, Ruleset ruleset) =>

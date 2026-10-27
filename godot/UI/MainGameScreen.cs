@@ -2299,7 +2299,7 @@ public partial class MainGameScreen : Control
         var gainedAny = false;
         if (!plan.IsFleet && Session.State.ArmyById(plan.UnitId) is { } army)
         {
-            var local = settings with { AutoSupplyArmies = true, AutoSupplyTargetPercent = 100,
+            var local = settings with { AutoSupplyArmies = true,
                 AutoFundArmies = true };
             var attempted = new HashSet<string>(StringComparer.Ordinal);
             foreach (var city in Session.State.Cities)
@@ -2332,8 +2332,7 @@ public partial class MainGameScreen : Control
         }
         else if (plan.IsFleet && Session.State.FleetById(plan.UnitId) is { } fleet)
         {
-            var local = settings with { AutoSupplyFleets = true, AutoFleetSupplyTargetPercent = 100,
-                AutoRepairFleets = true, AutoFleetRepairTargetPercent = Session.Ruleset.Naval.MaxConditionPercent };
+            var local = settings with { AutoSupplyFleets = true, AutoRepairFleets = true };
             var attempted = new HashSet<string>(StringComparer.Ordinal);
             foreach (var city in Session.State.Cities)
                 if (city.Id != chosenCityId) attempted.Add(city.Id);
@@ -2402,8 +2401,7 @@ public partial class MainGameScreen : Control
                 {
                     var capacity = Engine.Economy.SupplyCapacity.ArmyDialogCapacityTons(
                         afterSupply.TotalTroops, Session.Ruleset);
-                    var target = (int)Math.Ceiling((double)capacity * settings.AutoSupplyTargetPercent / 100);
-                    if (afterSupply.SupplyTons < target)
+                    if (afterSupply.SupplyTons < capacity)
                         skipped.Add($"{armyId}: no eligible owned supply provider has enough stock");
                 }
             }
@@ -2419,9 +2417,10 @@ public partial class MainGameScreen : Control
                     if (gained > 0) { funded++; fundedTalents += gained; }
                     else skipped.Add($"{armyId}: {AutoRefusalText(response, "funding refused")}");
                 }
-                else if (moneyArmy.Money < Math.Min(settings.AutoPurseTargetTalents,
-                             Session.Ruleset.Economy.PurseCapPerUnit))
-                    skipped.Add($"{armyId}: treasury reserve prevents funding");
+                else if (moneyArmy.Money < ArmyAutoSupportPlanner.QuarterlyPurseTarget(moneyArmy, Session.Ruleset))
+                    skipped.Add(moneyArmy.Money >= Session.Ruleset.Economy.PurseCapPerUnit
+                        ? $"{armyId}: purse transfer limit reached"
+                        : $"{armyId}: funding unavailable under current money-transfer rules");
             }
         }
 
@@ -2469,8 +2468,7 @@ public partial class MainGameScreen : Control
                     else
                     {
                         var capacity = Engine.Economy.SupplyCapacity.FleetCapacityTons(afterSupply.Ships, Session.Ruleset);
-                        var target = (int)Math.Ceiling((double)capacity * settings.AutoFleetSupplyTargetPercent / 100);
-                        if (afterSupply.SupplyTons < target)
+                        if (afterSupply.SupplyTons < capacity)
                             skipped.Add($"{fleetId}: no owned town has eligible supply stock");
                     }
                 }
@@ -2494,11 +2492,11 @@ public partial class MainGameScreen : Control
                     }
                     else skipped.Add($"{fleetId}: {AutoRefusalText(response, "repair refused")}");
                 }
-                else if (repairFleet.ConditionPercent < settings.AutoFleetRepairTargetPercent)
+                else if (repairFleet.ConditionPercent < Session.Ruleset.Naval.MaxConditionPercent)
                 {
                     var reason = repairFleet.IsUnderConstruction ? "under construction"
                         : repairFleet.IsCarryingArmy ? "carrying an army"
-                        : "no eligible owned town or treasury above reserve";
+                        : "no eligible owned town";
                     skipped.Add($"{fleetId}: repair skipped ({reason})");
                 }
             }
