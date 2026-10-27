@@ -35,12 +35,23 @@ public sealed class OriginalSaveExportTests
         var ruleset = RealGameData.Ruleset;
         var state = GameStateFactory.CreateInitial(world, ruleset, RealGameData.Scenario);
         var source = state.Armies.First(a => a.Nation == "carthage");
-        var city = state.Cities.First(c => c.Owner == source.Nation
-            && CoastalCity.FirstAdjacentSeaTile(c, world) is not null);
-        var sea = CoastalCity.FirstAdjacentSeaTile(city, world)!.Value;
+        // T224: use a legal adjacent free land source, not the coastal city's
+        // occupied tile. Boarding vacates this cell for the receiver search.
+        var placement = (from city in state.Cities
+            where city.Owner == source.Nation
+            let coast = CoastalCity.FirstAdjacentSeaTile(city, world)
+            where coast is not null
+            from dx in Enumerable.Range(-1, 3)
+            from dy in Enumerable.Range(-1, 3)
+            let land = new IC2.Engine.Movement.GridPoint(coast.Value.X + dx, coast.Value.Y + dy)
+            where LandingTile.IsPassableForArmy(land, world)
+                && !state.Cities.Any(c => c.X == land.X && c.Y == land.Y)
+            select (Sea: coast.Value, Land: land)).First();
+        var sea = placement.Sea;
         source = source with
         {
-            X = city.X, Y = city.Y, Moves = 5, CoveredTileCode = 2,
+            X = placement.Land.X, Y = placement.Land.Y, Moves = 5,
+            CoveredTileCode = world.Terrain.Decode(world.Width, world.Height)[placement.Land.Y * world.Width + placement.Land.X],
             Money = 100, SupplyTons = 90,
             Units = ValueList.Of(
                 new UnitSlot(0, "light_infantry", 4_000, 6, "Light"),
@@ -76,7 +87,9 @@ public sealed class OriginalSaveExportTests
             (Assert.Single(document.Armies[1].Units).Troops,
                 document.Armies[1].Money, document.Armies[1].Supplies));
         Assert.True(document.Armies[1].Cell >= 0);
+        Assert.Equal(0, document.Armies[1].Moves);
         var decoded = OriginalSaveCodec.Decode(OriginalSaveCodec.Encode(document));
+        Assert.Equal(0, decoded.Armies[1].Moves);
         Assert.Equal(document.Fleets[0].Army, decoded.Fleets[0].Army);
         Assert.Equal(document.Armies[1].Units[0].Troops, decoded.Armies[1].Units[0].Troops);
     }

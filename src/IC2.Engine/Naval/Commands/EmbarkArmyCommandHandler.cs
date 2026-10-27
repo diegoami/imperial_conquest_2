@@ -110,11 +110,20 @@ public sealed class EmbarkArmyCommandHandler : ICommandHandler<EmbarkArmyCommand
             if (capacity <= 0)
                 return CommandOutcome.Reject(EmbarkArmyRejections.ArmyTooLarge,
                     $"Fleet '{fleet.Id}' has no capacity for army '{army.Id}'.");
-            // T216: F8FC uses the same land receiver creator as splitting an
-            // army. Check the receiver before any mutation; an unmeasured
-            // allocation failure is an owner-approved atomic refusal here.
+            // T224 / Research89: B79C boards before F8FC searches. Stage that
+            // context without committing it: the source cell is now free and
+            // the search is centered on the fleet. Allocation failure remains
+            // an owner-approved atomic refusal, not destructive original writes.
+            var boardedArmy = army with { X = fleet.X, Y = fleet.Y, Moves = 0,
+                CoveredTileCode = null, AboardFleetId = fleet.Id };
+            var boardedState = state with
+            {
+                Armies = ValueList.From(state.Armies.Select(a => a.Id == army.Id ? boardedArmy : a)),
+                Fleets = ValueList.From(state.Fleets.Select(f => f.Id == fleet.Id
+                    ? f with { Moves = 0, CarriedArmyId = army.Id } : f)),
+            };
             if (state.Armies.Count >= context.Ruleset.ArmyManagement.MaxArmies
-                || SplitPlacement.ArmyCellFor(state, context.World, army) is not { } land)
+                || SplitPlacement.ArmyCellFor(boardedState, context.World, boardedArmy) is not { } land)
                 return CommandOutcome.Reject(EmbarkArmyRejections.NoSafeOverflowReceiver,
                     $"Army '{army.Id}' cannot embark over capacity because no safe land receiver is available.");
 
@@ -126,7 +135,7 @@ public sealed class EmbarkArmyCommandHandler : ICommandHandler<EmbarkArmyCommand
                 receiverId = $"{army.Id}-overflow-{suffix}";
             var terrain = context.World.Terrain.Decode(context.World.Width, context.World.Height);
             var receiver = new ArmyState(receiverId, army.Nation, land.X, land.Y,
-                context.Ruleset.ArmyManagement.NewArmyMovesAiSeat, 59,
+                0, 59,
                 landMoney, landSupply, terrain[land.Y * context.World.Width + land.X], null,
                 ValueList.From(partition.Ashore));
             if (partition.Aboard.Count == 0)
@@ -138,17 +147,16 @@ public sealed class EmbarkArmyCommandHandler : ICommandHandler<EmbarkArmyCommand
             var updatedArmiesWithOverflow = partition.Aboard.Count == 0
                 ? ValueList.From(state.Armies.Select(a => a.Id == army.Id ? receiver : a))
                 : ValueList.From(state.Armies.Select(a => a.Id == army.Id
-                    ? a with
+                    ? boardedArmy with
                     {
-                        X = fleet.X, Y = fleet.Y, Moves = 0,
-                        CoveredTileCode = null, AboardFleetId = fleet.Id,
                         Units = ValueList.From(partition.Aboard),
                         Money = army.Money - landMoney,
                         SupplyTons = army.SupplyTons - landSupply,
                     }
                     : a).Append(receiver));
             // When every slot is ashore, the receiver replaces the emptied
-            // source at its original index, matching record compaction.
+            // source at its original live-model index. This is the native
+            // conservation policy, not original raw-record compaction (#1439).
             return CommandOutcome.Accept(state with
             {
                 Armies = updatedArmiesWithOverflow,

@@ -21,6 +21,53 @@ namespace IC2.Engine.Tests.Naval;
 /// </summary>
 public sealed class EmbarkArmyCommandHandlerTests
 {
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(1, false)]
+    [InlineData(2, false)]
+    [InlineData(0, true)]
+    public void T224_Overflow_receiver_uses_boarded_context_vacated_source_and_zero_moves(int occupant, bool allOverflow)
+    {
+        var state = BuildState(6000, SeatControl.Ai, out var armyId, out var fleetId, out var nationId,
+            armyX: 39, armyY: 34, fleetX: 40, fleetY: 33);
+        var world = NavalTestbed.Toy.World;
+        var land = world.TileTypes.First(t => t.PassableByArmies && !t.PassableByFleets).Code;
+        var water = world.TileTypes.First(t => t.PassableByFleets && !t.PassableByArmies).Code;
+        var cells = Enumerable.Repeat(water, 48 * 40).ToArray();
+        foreach (var (x, y) in new[] { (39, 34), (40, 34), (40, 35) }) cells[y * 48 + x] = land;
+        world = world with { Width = 48, Height = 40,
+            Terrain = new TerrainGrid(TerrainEncoding.RunLength, ValueList.From(cells.Select(c => new TerrainRun(c, 1)))) };
+        var army = state.ArmyById(armyId)! with { CoveredTileCode = land, Money = 100, SupplyTons = 90,
+            Units = allOverflow ? ValueList.Of(new UnitSlot(0, "light_infantry", 6000, 6, "Whole"))
+                : ValueList.Of(new UnitSlot(0, "light_infantry", 4000, 6, "Aboard"),
+                    new UnitSlot(0, "heavy_infantry", 2000, 7, "Overflow")) };
+        state = state with { Armies = ValueList.Of(army), Cities = ValueList<CityState>.Empty };
+        ArmyState? blocker = null;
+        if (occupant != 0)
+        {
+            blocker = army with { Id = "occupied-control", X = 40, Y = 34,
+                Nation = occupant == 1 ? nationId : "north", Units = ValueList.Of(army.Units[0]) };
+            state = state with { Armies = ValueList.From(state.Armies.Append(blocker)) };
+        }
+        var ruleset = NavalTestbed.Ruleset with { Flags = NavalTestbed.Ruleset.Flags with { SeatAsymmetry = SeatAsymmetryModel.Faithful } };
+        var dispatcher = new CommandDispatcher(SystemRegistry.FromEngineAssembly(), ruleset, world, NullEventSink.Instance);
+        var result = dispatcher.Dispatch(state, new EmbarkArmyCommand(nationId, armyId, fleetId));
+        Assert.True(result.IsAccepted, result.ToString());
+        var receiver = Assert.Single(result.State.Armies, a => a.Id != armyId && a.Id != blocker?.Id);
+        Assert.Equal((occupant == 0 ? 40 : 39, 34, 0), (receiver.X, receiver.Y, receiver.Moves));
+        Assert.Null(receiver.AboardFleetId);
+        Assert.Equal(land, receiver.CoveredTileCode);
+        Assert.Equal(state.Armies.Sum(a => a.TotalTroops), result.State.Armies.Sum(a => a.TotalTroops));
+        Assert.Equal(state.Armies.Sum(a => a.Money), result.State.Armies.Sum(a => a.Money));
+        Assert.Equal(state.Armies.Sum(a => a.SupplyTons), result.State.Armies.Sum(a => a.SupplyTons));
+        Assert.Equal(RngStreams.Advance(state.RandomSeed), result.State.RandomSeed);
+        if (blocker is not null) Assert.Equal(blocker, result.State.ArmyById(blocker.Id));
+        Assert.Equal(0, result.State.FleetById(fleetId)!.Moves);
+        if (allOverflow) Assert.Null(result.State.FleetById(fleetId)!.CarriedArmyId);
+        else Assert.Equal((40, 33, 0, fleetId), (result.State.ArmyById(armyId)!.X,
+            result.State.ArmyById(armyId)!.Y, result.State.ArmyById(armyId)!.Moves, result.State.ArmyById(armyId)!.AboardFleetId));
+    }
+
     private const int Ships = 10;
     private const int Capacity = Ships * 500; // 5,000
 
@@ -184,7 +231,7 @@ public sealed class EmbarkArmyCommandHandlerTests
         Assert.Equal((67, 60), (aboard.Money, aboard.SupplyTons));
         Assert.Equal((33, 30), (overflow.Money, overflow.SupplyTons));
         Assert.Equal(59, overflow.Morale);
-        Assert.Equal(1, overflow.Moves);
+        Assert.Equal(0, overflow.Moves);
         Assert.Equal((expectedLand.Value.X, expectedLand.Value.Y), (overflow.X, overflow.Y));
         Assert.Null(overflow.AboardFleetId);
         Assert.NotNull(overflow.CoveredTileCode);
