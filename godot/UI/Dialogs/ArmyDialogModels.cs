@@ -26,7 +26,7 @@ namespace IC2.Slice.UI;
 /// (<see cref="ArmyManagementRules.MaxArmies"/>), the two-unit split floor
 /// (<see cref="ArmyManagementRules.SplitMinUnits"/>), the dialog supply room
 /// (<see cref="SupplyCapacity.ArmyDialogCapacityTons"/>) and the purse cap
-/// (<see cref="EconomyRules.PurseCapPerUnit"/>) — never a C# literal. Only the confirmed step sizes are
+/// (<see cref="PurseAccounting.PurseFieldMax"/>, owner policy T231). Only the confirmed step sizes are
 /// named constants.
 /// </para>
 /// <para>
@@ -39,14 +39,13 @@ namespace IC2.Slice.UI;
 /// </remarks>
 public static class ArmyDialogModels
 {
-    /// <summary>Research85: each arrow clamps the requested step against working purses,
-    /// without flooring the resulting signed pullback from an over-cap receiver.</summary>
+    /// <summary>T231 owner policy: requested direction, actual funds and representable receiving room.</summary>
     internal static int MoneyArrowStep(int delta, int selectedMoney, int partnerMoney, int cap)
     {
         if (delta == 0) return 0;
         var giver = delta > 0 ? selectedMoney : partnerMoney;
         var receiver = delta > 0 ? partnerMoney : selectedMoney;
-        var admitted = Math.Min(Math.Abs((long)delta), Math.Min((long)cap - receiver, giver));
+        var admitted = Math.Max(0, Math.Min(Math.Abs((long)delta), Math.Min((long)cap - receiver, giver)));
         return (int)(delta > 0 ? admitted : -admitted);
     }
 
@@ -149,8 +148,8 @@ public static class ArmyDialogModels
 /// <c>min(step, receiver's room, giver's supply)</c> and the receiver's room is
 /// <c>troops div 100 + 1 − supply</c> — exactly <see cref="SupplyCapacity.ArmyDialogCapacityTons"/> minus
 /// the receiver's stock, floored at 0. The money spinner moves
-/// <c>min(step, 1000 − receiver's money, giver's money)</c>, the 1,000 read from
-/// <see cref="EconomyRules.PurseCapPerUnit"/>. The spinners share one signed net per resource, so the
+/// only in the requested direction, bounded by working funds and
+/// <see cref="PurseAccounting.PurseFieldMax"/> (owner policy T231). The spinners share one signed net per resource, so the
 /// command carries a single <c>supply=</c>/<c>back-supply=</c> and <c>money=</c>/<c>back-money=</c>.
 /// </para>
 /// </remarks>
@@ -233,15 +232,17 @@ public sealed class ArmyTransferModel
     /// <summary>
     /// Runs the very command OK would send on the live state through the engine's own dispatcher and reads
     /// both armies' supply back, so the caption can never disagree with the rebalancing. Without a state, or
-    /// when the engine would refuse, falls back to the staged net alone.
+    /// when the engine refuses, shows unchanged balances and exposes the reason.
     /// </summary>
-    private (int Selected, int Partner, int SelectedMoney, int PartnerMoney) Preview()
+    public string? PreviewRejection => Preview().Error;
+
+    private (int Selected, int Partner, int SelectedMoney, int PartnerMoney, string? Error) Preview()
     {
         var netOnly = (_selected.SupplyTons - _supplyNet, _partner.SupplyTons + _supplyNet,
             _selected.Money - _moneyNet, _partner.Money + _moneyNet);
         if (_state is null || _world is null)
         {
-            return netOnly;
+            return (netOnly.Item1, netOnly.Item2, netOnly.Item3, netOnly.Item4, null);
         }
 
         var command = new ArmyTransferCommand(
@@ -259,14 +260,15 @@ public sealed class ArmyTransferModel
         var result = _dispatcher.Dispatch(_state, command);
         if (result.IsRejected)
         {
-            return netOnly;
+            return (_selected.SupplyTons, _partner.SupplyTons, _selected.Money, _partner.Money,
+                result.Rejection!.Message);
         }
 
         return (
             result.State.ArmyById(_selected.Id)?.SupplyTons ?? 0,
             result.State.ArmyById(_partner.Id)?.SupplyTons ?? 0,
             result.State.ArmyById(_selected.Id)?.Money ?? 0,
-            result.State.ArmyById(_partner.Id)?.Money ?? 0);
+            result.State.ArmyById(_partner.Id)?.Money ?? 0, null);
     }
 
     /// <summary>A's supply in tons as the dialog opened.</summary>
@@ -313,11 +315,11 @@ public sealed class ArmyTransferModel
     public int MaxSupplyBack =>
         Math.Max(0, Math.Min(_partner.SupplyTons, Room(_selected)));
 
-    /// <summary>The most money A can send B: <c>min(A's money, 1000 − B's money)</c>.</summary>
+    /// <summary>Money A can send B, bounded only by funds and the save field.</summary>
     public int MaxMoneyToPartner =>
         Math.Max(0, Math.Min(_selected.Money, PurseCap - _partner.Money));
 
-    /// <summary>The most money B can send A: <c>min(B's money, 1000 − A's money)</c>.</summary>
+    /// <summary>Money B can send A, bounded only by funds and the save field.</summary>
     public int MaxMoneyBack =>
         Math.Max(0, Math.Min(_partner.Money, PurseCap - _selected.Money));
 
@@ -416,7 +418,7 @@ public sealed class ArmyTransferModel
     /// <summary><c>Cancel</c>: nothing is submitted.</summary>
     public string? Cancel() => null;
 
-    private int PurseCap => _ruleset.Economy.PurseCapPerUnit;
+    private int PurseCap => PurseAccounting.PurseFieldMax;
 
     /// <summary>The receiver's dialog room: <c>troops div 100 + 1 − stock</c>, floored at 0.</summary>
     private int Room(ArmyState receiver) =>
@@ -436,8 +438,8 @@ public sealed class ArmyTransferModel
 /// "Split army uses the same form", and item 6]</c>: the supply spinner moves
 /// <c>min(step, B's room, A's supply)</c> with B's room <c>troops div 100 + 1 − supply</c> (B's troops
 /// being the staged units', its supply 0), and the money spinner
-/// <c>min(step, 1000 − B's money, A's money)</c> with the 1,000 read from
-/// <see cref="EconomyRules.PurseCapPerUnit"/>. Both steps are 10 and 100. The selected army keeps at
+/// only in the requested direction within funds and the save-field bound
+/// (owner policy T231). Both steps are 10 and 100. The selected army keeps at
 /// least one unit (the engine's <c>armies.invalid-unit-selection</c>), so the last unit cannot be staged.
 /// </para>
 /// <para>
@@ -628,8 +630,8 @@ public sealed class SplitArmyModel
     /// <summary>The most supply that can move: <c>min(A's supply, B's room)</c>.</summary>
     public int MaxSupply => Math.Max(0, Math.Min(_army.SupplyTons, NewArmyRoom));
 
-    /// <summary>The most money that can move: <c>min(A's money, 1000 − B's money)</c> (B's money is 0).</summary>
-    public int MaxMoney => Math.Max(0, Math.Min(_army.Money, _ruleset.Economy.PurseCapPerUnit));
+    /// <summary>The most money that can move, bounded by parent funds and the save field.</summary>
+    public int MaxMoney => Math.Max(0, Math.Min(_army.Money, PurseAccounting.PurseFieldMax));
 
     /// <summary>
     /// Stages one of A's units for the new army. Out-of-range and already-staged indexes are ignored,
@@ -660,7 +662,7 @@ public sealed class SplitArmyModel
 
     /// <summary>The shared working-purse arrow rule, including over-cap parent pullback.</summary>
     public void AdjustMoney(int delta) => _money += ArmyDialogModels.MoneyArrowStep(delta,
-        _army.Money - _money, _money, _ruleset.Economy.PurseCapPerUnit);
+        _army.Money - _money, _money, PurseAccounting.PurseFieldMax);
 
     /// <summary>
     /// <c>OK</c>: exactly one <c>split-army</c> with every staged unit and the staged supply and money,

@@ -79,10 +79,9 @@ public sealed class SplitArmyCommandHandler : ICommandHandler<SplitArmyCommand>
                 $"Cannot move {command.MoneyToNewArmy} money to the new army; army '{army.Id}' holds {army.Money}.");
         }
 
-        // The purse bound is the dialog's money stepper's ceiling: the new army opens with 0, so its bound
-        // is min(step, purseCapPerUnit - 0, money(parent)). The parent half is the InvalidMoneyAllocation
-        // check just above; this is the cap half (SplitArmyCommand's remarks, T141).
-        var purseCap = context.Ruleset.Economy.PurseCapPerUnit;
+        // T231 owner policy: only the representable save-field limit, not the
+        // original arrow's 1,000 target, restricts an explicit split allocation.
+        var purseCap = PurseAccounting.PurseFieldMax;
         if (command.MoneyToNewArmy > purseCap)
         {
             return CommandOutcome.Reject(

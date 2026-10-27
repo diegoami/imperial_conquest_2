@@ -377,9 +377,9 @@ public sealed class ArmyTransferCommandTests
     }
 
     [Fact]
-    public void Transfer_MoneyOnePastThePurseCap_IsRejected()
+    public void Transfer_MoneyOnePastTheSaveFieldLimit_IsRejected()
     {
-        var cap = ArmiesTestbed.Ruleset.Economy.PurseCapPerUnit;
+        var cap = IC2.Engine.Economy.PurseAccounting.PurseFieldMax;
         var state = WithArmies(
             InitialState(),
             Army("pur-c", NorthNationId, 5, 5, Units(1), money: cap),
@@ -408,9 +408,9 @@ public sealed class ArmyTransferCommandTests
     }
 
     [Fact]
-    public void Transfer_BackMoneyOnePastThePurseCap_IsRejected()
+    public void Transfer_BackMoneyOnePastTheSaveFieldLimit_IsRejected()
     {
-        var cap = ArmiesTestbed.Ruleset.Economy.PurseCapPerUnit;
+        var cap = IC2.Engine.Economy.PurseAccounting.PurseFieldMax;
         var state = WithArmies(
             InitialState(),
             Army("bp-a", NorthNationId, 5, 5, Units(1), money: cap),

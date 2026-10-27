@@ -50,7 +50,7 @@ namespace IC2.Engine.Armies.Commands;
 /// talents to 156 (parent) / 100 (new army). <see cref="MoneyToNewArmy"/> and
 /// <see cref="SupplyTonsToNewArmy"/> model exactly that: they default to 0 (the dialog's opening state)
 /// and are validated against what the parent actually holds — money additionally against the receiving
-/// army's <see cref="Model.EconomyRules.PurseCapPerUnit"/> bound, the dialog's money stepper, refused with
+/// army's <see cref="Economy.PurseAccounting.PurseFieldMax"/> bound, the T231 save-field limit, refused with
 /// <see cref="SplitArmyRejections.PurseCapExceeded"/> — then subtracted from the parent and credited to the
 /// new army exactly; the two money totals conserve, they are never a constant.
 /// </para>
@@ -102,7 +102,7 @@ namespace IC2.Engine.Armies.Commands;
 /// </param>
     /// <param name="MoneyToNewArmy">
     /// Talents moved from the parent's purse to the new army's. Defaults to 0, bounded above by the
-    /// receiving army's <see cref="Model.EconomyRules.PurseCapPerUnit"/> (the dialog's money stepper), and
+    /// receiving army's <see cref="Economy.PurseAccounting.PurseFieldMax"/> (the T231 save-field limit), and
     /// never rebalanced.
     /// </param>
     /// <param name="SupplyTonsToNewArmy">
@@ -152,7 +152,7 @@ public static class SplitArmyRejections
     public static readonly RejectionCode InvalidSupplyAllocation = new("armies.invalid-supply-allocation");
 
     /// <summary>
-    /// The new army would hold more than <see cref="Model.EconomyRules.PurseCapPerUnit"/> talents — the
+    /// The new army would hold more than <see cref="Economy.PurseAccounting.PurseFieldMax"/> talents — the
     /// dialog's money stepper, the same purse bound the transfer keeps
     /// (<see cref="ArmyTransferRejections.PurseCapExceeded"/>).
     /// </summary>

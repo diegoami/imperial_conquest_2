@@ -140,11 +140,11 @@ public sealed class ArmyTransferCommandHandler : ICommandHandler<ArmyTransferCom
         var moneySource = source.Money - command.Money + command.BackMoney;
         var moneyTarget = target.Money - command.BackMoney + command.Money;
 
-        // The purse cap is the dialog's money stepper, min(step, 1000 - money(receiver), money(giver)); it
-        // bounds only money moved between two surviving armies (the merge below pools uncapped).
+        // T231 owner policy: allow flexible allocations above 1,000, without
+        // losing money at the save-field boundary. The merge policy below is unchanged.
         if (!sourceIsEmpty && !targetIsEmpty)
         {
-            var purseCap = context.Ruleset.Economy.PurseCapPerUnit;
+            var purseCap = PurseAccounting.PurseFieldMax;
             if (command.BackMoney > 0 && moneySource > purseCap)
             {
                 return CommandOutcome.Reject(
