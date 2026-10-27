@@ -21,12 +21,12 @@ public partial class RecruitQualityCheck : Node
             var dialog = new RecruitUnitDialog { Session = session, Submit = line => session.Submit(line).Lines };
             AddChild(dialog);
             dialog.SelectCityForCheck("arx");
-            Check(dialog.TrainingRowTextsForCheck.Any(s => s.EndsWith("— ready — very poor", StringComparison.Ordinal)),
+            Check(dialog.TrainingRowTextsForCheck.Any(s => s.StartsWith("very poor —", StringComparison.Ordinal)),
                 "minimum-ready regiment visibly reports very poor quality");
-            Check(dialog.TrainingRowTextsForCheck.Any(s => s.EndsWith("— ready — average", StringComparison.Ordinal)),
+            Check(dialog.TrainingRowTextsForCheck.Any(s => s.StartsWith("average —", StringComparison.Ordinal)),
                 "further training displays its higher actual mobilization quality");
-            Check(dialog.TrainingRowTextsForCheck.Any(s => s.Contains("quality when first ready: very poor")),
-                "unfinished training names the earliest quality without pretending it is mobilizable now");
+            Check(dialog.TrainingRowTextsForCheck.Any(s => s.StartsWith("not ready —", StringComparison.Ordinal)),
+                "unfinished training shows its current tier with a short label");
             var row = dialog.TrainingRowsForCheck.ToList().FindIndex(r => r.StateCode == 16);
             dialog.SelectTrainingRowForCheck(row);
             dialog.MobilizeForCheck();

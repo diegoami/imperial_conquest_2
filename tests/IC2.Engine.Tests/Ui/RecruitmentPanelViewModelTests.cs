@@ -43,6 +43,25 @@ namespace IC2.Engine.Tests.Ui;
 /// </remarks>
 public sealed class RecruitmentPanelViewModelTests
 {
+    [Theory]
+    [InlineData(0, 0, "not ready")]
+    [InlineData(16, 4, "very poor")]
+    [InlineData(20, 5, "poor")]
+    [InlineData(24, 6, "average")]
+    [InlineData(28, 7, "good")]
+    public void Training_lists_show_current_quality_without_projecting_to_readiness(int code, int quality, string caption)
+    {
+        var session = RomeSession();
+        var state = session.State with { Nations = ValueList.From(session.State.Nations.Select(n => n.Id == RomeId
+            ? n with { RecruitmentSlots = ValueList.Of(new RecruitmentSlot(RomeCityId, "light_infantry", 1000, code)) }
+            : n)) };
+        var cityRow = Assert.Single(RecruitmentPanelViewModel.TrainingAtCity(state, session.Ruleset, RomeId, RomeCityId));
+        var nationRow = Assert.Single(RecruitmentPanelViewModel.TrainingForNation(state, session.Ruleset, RomeId));
+        Assert.Equal(quality, cityRow.Quality);
+        Assert.Equal(caption, cityRow.QualityText);
+        Assert.Equal(cityRow, nationRow);
+    }
+
     private const string RomeId = "rome";
     private const string RomeCityId = "rome";
 
