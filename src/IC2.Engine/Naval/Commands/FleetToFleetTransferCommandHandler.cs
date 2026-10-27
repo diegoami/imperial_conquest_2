@@ -18,13 +18,10 @@ namespace IC2.Engine.Naval.Commands;
 /// the excess is discarded, <c>[designed]</c>, the user's decision of 2026-10-11 (PR #963).
 /// </para>
 /// <para>
-/// <strong>The partial-transfer path keeps the receiver's purse capped at 1,000 with the excess credited
-/// to the treasury (<c>[open]</c>, T72).</strong> The report does not settle it, and an unsettled writer
-/// keeps today's behaviour rather than being changed on a guess:
-/// <c>2026-10-05-army-purse-writes-and-the-1000-cap.md</c> (research 9ae8924) leaves "Join fleets and the
-/// fleet-to-fleet transfer (<c>TFleetToFleet</c>)" not settled, and the other reports searched read no
-/// money-line arithmetic for it. The clamp is this file's own: <see cref="EconomyRules.PurseCapPerUnit"/>,
-/// excess to the (shared) issuing nation's treasury, so money is conserved.
+/// <strong>T226 / Research85: the 1,000 cap belongs to the working money arrow, not partial OK.</strong>
+/// <c>2026-10-26-manual-family-assumption-sweep85.md</c> measures signed arrow admission and an unchanged
+/// over-cap purse on ship-only OK. The command carries an already staged allocation; credit it without
+/// a second 1,000 clamp or treasury sweep. Retain the explicit no-wrap field bound above.
 /// </para>
 /// </remarks>
 [CommandHandler]
@@ -165,13 +162,6 @@ public sealed class FleetToFleetTransferCommandHandler : ICommandHandler<FleetTo
             return CommandOutcome.Accept(state with { Fleets = ValueList.From(updatedFleetsOnDisband) });
         }
 
-        // [open] kept behaviour (see this type's remarks), on the partial-transfer path too: this
-        // writer's own min-clamp at PurseCapPerUnit, exactly the pre-T72 credit, excess conserved to
-        // the treasury.
-        var pooledTargetMoney = target.Money + command.Money;
-        var cappedMoney = Math.Min(pooledTargetMoney, context.Ruleset.Economy.PurseCapPerUnit);
-        var partialExcessToTreasury = pooledTargetMoney - cappedMoney;
-
         var updatedSource = source with
         {
             Ships = remainingShips,
@@ -182,7 +172,9 @@ public sealed class FleetToFleetTransferCommandHandler : ICommandHandler<FleetTo
         {
             Ships = combinedShips,
             SupplyTons = target.SupplyTons + command.SupplyTons,
-            Money = cappedMoney,
+            // Ship/supply-only OK does not normalize a purse. Money is the
+            // admitted allocation, with only the owner-approved field bound.
+            Money = command.Money == 0 ? target.Money : PurseAccounting.Credit(target.Money, command.Money),
         };
 
         var updatedFleets = state.Fleets.Select(f =>
@@ -192,22 +184,6 @@ public sealed class FleetToFleetTransferCommandHandler : ICommandHandler<FleetTo
         context.Events.Publish(new FleetToFleetTransferCompleted(
             source.Nation, source.Id, target.Id, command.Ships, command.SupplyTons, command.Money, SourceDisbanded: false));
 
-        if (partialExcessToTreasury == 0)
-        {
-            return CommandOutcome.Accept(state with { Fleets = ValueList.From(updatedFleets) });
-        }
-
-        var nationAfterTransfer = context.IssuingNation with
-        {
-            Treasury = context.IssuingNation.Treasury + partialExcessToTreasury,
-        };
-        var nationsAfterTransfer = state.Nations.Select(n =>
-            string.Equals(n.Id, nationAfterTransfer.Id, StringComparison.Ordinal) ? nationAfterTransfer : n);
-
-        return CommandOutcome.Accept(state with
-        {
-            Fleets = ValueList.From(updatedFleets),
-            Nations = ValueList.From(nationsAfterTransfer),
-        });
+        return CommandOutcome.Accept(state with { Fleets = ValueList.From(updatedFleets) });
     }
 }
