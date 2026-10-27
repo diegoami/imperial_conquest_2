@@ -49,3 +49,4 @@ Open and recent tasks only. Merged tasks (T01–T191 and others) are in their cl
 - [T220](tasks/T220.md) —  Visible recruitment quality and Average-or-better auto-mobilize
 - [T221](tasks/T221.md) —  Truncated human transport, hire and army-transfer capacity
 - [T222](tasks/T222.md) —  Army Transfer confirmation and signed working-purse arrows
+- [T223](tasks/T223.md) —  Paid-supply signed returns and refunds

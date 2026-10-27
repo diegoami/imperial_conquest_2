@@ -255,17 +255,16 @@ public sealed class SupplyDialogModel
             upper = Math.Min(upper, ArmyMoney * _ruleset.Economy.SupplyTonsPerTalent);
         }
 
-        // The room may be negative (an army past its capacity): floored at 0, so nothing can be staged.
-        upper = Math.Max(0, upper);
-
-        // Clamp against the upper bound, then the 0 floor, so a negative room never inverts the bounds.
-        _stagedTons = Math.Clamp(_stagedTons + deltaTons, 0, upper);
+        // Research85: floor the requested working amount BEFORE the signed
+        // stock/room/purse clamps. Negative room deliberately returns excess.
+        _stagedTons = Math.Min(Math.Max(0, _stagedTons + deltaTons), upper);
     }
 
-    /// <summary>Transfer: one <c>buy</c> of the staged amount, or nothing when none is staged.</summary>
+    /// <summary>Transfer: one positive request, or nothing at zero. For a return,
+    /// the production purchase rule recomputes signed admission from current room.</summary>
     public string? TransferStaged() =>
-        SelectedProvider is { IsFree: false } provider && _stagedTons > 0
-            ? BuyLine(provider, _stagedTons)
+        SelectedProvider is { IsFree: false } provider && _stagedTons != 0
+            ? BuyLine(provider, Math.Max(1, _stagedTons))
             : null;
 
     /// <summary>
