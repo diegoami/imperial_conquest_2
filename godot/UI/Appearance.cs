@@ -28,7 +28,7 @@ public static class Appearance
     {
         "font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_disabled_color",
         "font_hover_pressed_color", "font_selected_color", "font_uneditable_color", "font_placeholder_color", "font_outline_color", "default_color",
-        "icon_normal_color", "icon_hover_color", "icon_pressed_color",
+        "icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_hover_pressed_color", "icon_focus_color", "icon_disabled_color",
     };
 
     private static readonly string[] StyleboxOverrideNames = { "panel", "normal", "hover", "pressed", "focus", "disabled", "hover_pressed", "read_only" };

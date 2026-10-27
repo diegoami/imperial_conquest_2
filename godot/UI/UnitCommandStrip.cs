@@ -38,6 +38,10 @@ public partial class UnitCommandStrip : PanelContainer
     public IReadOnlyList<Button> Buttons { get; private set; } = Array.Empty<Button>();
 
     private HBoxContainer _row = null!;
+    private readonly HBoxContainer _extraActions = new() { Name = "UnitExtraActions" };
+
+    /// <summary>Group existing selected-unit conveniences with its ordinary actions without rebinding them.</summary>
+    public void AddExtraAction(Control action) => _extraActions.AddChild(action);
     private readonly Dictionary<string, Button> _buttonByCommand = new(StringComparer.Ordinal);
     private bool _hintsEnabled = true;
 
@@ -99,6 +103,7 @@ public partial class UnitCommandStrip : PanelContainer
     {
         foreach (var child in _row.GetChildren())
         {
+            if (ReferenceEquals(child, _extraActions)) continue;
             _row.RemoveChild(child);
             child.QueueFree();
         }
@@ -119,6 +124,8 @@ public partial class UnitCommandStrip : PanelContainer
             buttons.Add(button);
         }
 
+        if (_extraActions.GetParent() is null) _row.AddChild(_extraActions);
+        _row.MoveChild(_extraActions, -1);
         Buttons = buttons;
         Visible = buttons.Count > 0;
     }
@@ -137,9 +144,7 @@ public partial class UnitCommandStrip : PanelContainer
         if (QolCommandIcons.ForCommand(row.Id) is { } convenienceIcon)
         {
             button.Icon = convenienceIcon;
-            button.AddThemeColorOverride("icon_normal_color", UiKit.TextColor);
-            button.AddThemeColorOverride("icon_hover_color", UiKit.AccentColor);
-            button.AddThemeColorOverride("icon_pressed_color", UiKit.AccentColor);
+            QolCommandIcons.ApplyTint(button);
         }
         else if (row.IconKey is { } iconKey && AssetLoader?.TryGetTexture(iconKey) is { } texture)
         {

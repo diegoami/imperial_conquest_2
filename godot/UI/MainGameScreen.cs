@@ -345,7 +345,7 @@ public partial class MainGameScreen : Control
         QolCommandIcons.Apply(_retreatSplitButton, "split", "Suggest a balanced split for supply");
         _retreatSplitButton.Pressed += () => OpenSplitArmyDialog(suggestBalanced: true);
         _retreatSupplyRow.AddChild(_retreatSplitButton);
-        Toolbar.ExtraActions.AddChild(_retreatSupplyRow);
+        _commandStrip.AddExtraAction(_retreatSupplyRow);
 
         _rallyPointRow = new HBoxContainer();
         _rallyPointLabel = UiKit.MakeLabel(string.Empty, AppTheme.Note, UiKit.MutedTextColor);

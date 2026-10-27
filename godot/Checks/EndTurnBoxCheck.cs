@@ -556,8 +556,9 @@ public partial class EndTurnBoxCheck : Control
             Check(mainGame.RetreatSupplyButtonForCheck.Visible,
                 "a selected owned army shows the Retreat and supply control");
             Check(mainGame.RetreatSupplyButtonForCheck.Icon is not null && mainGame.RetreatSupplyButtonForCheck.Text.Length == 0
-                  && mainGame.Toolbar.IsAncestorOf(mainGame.RetreatSupplyButtonForCheck),
-                "recovery is an icon in the toolbar instead of a full-width row");
+                  && mainGame.CommandStrip.IsAncestorOf(mainGame.RetreatSupplyButtonForCheck)
+                  && !mainGame.Toolbar.ExtraActions.IsAncestorOf(mainGame.RetreatSupplyButtonForCheck),
+                "recovery is an icon grouped with selected-unit actions");
             Check(mainGame.RallyPointSetButtonForCheck.Icon is not null && mainGame.RallyPointSetButtonForCheck.Text.Length == 0
                   && mainGame.Toolbar.IsAncestorOf(mainGame.RallyPointSetButtonForCheck),
                 "rally point is a compact toolbar icon");
