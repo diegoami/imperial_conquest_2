@@ -96,7 +96,8 @@ public partial class AppRoot : Control
         flow.BackToMenuRequested += ShowMainMenu;
         flow.GameStarted += session =>
         {
-            var screen = new MainGameScreen { Session = session, RepositoryRoot = GameDataContext.RepositoryRoot };
+            var screen = new MainGameScreen { Session = session, RepositoryRoot = GameDataContext.RepositoryRoot,
+                StartAtCapital = true };
             SwapTo(screen);
         };
         SwapTo(flow);

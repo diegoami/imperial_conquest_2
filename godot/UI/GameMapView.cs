@@ -435,6 +435,15 @@ public partial class GameMapView : Control
     /// <summary>Zooms the order map around its visible centre when the wheel is over the overview map.</summary>
     public void ZoomFromOverview(bool increase) => Zoom(Size / 2f, increase ? 1.15f : 1f / 1.15f);
 
+    /// <summary>Set a deliberate local view using the ordinary zoom/pan clamps.</summary>
+    public void FocusOnTile(int x, int y, float zoom)
+    {
+        if (_session is null || Size.X <= 0 || Size.Y <= 0) return;
+        Zoom(Size / 2f, zoom / _zoom);
+        CentreOnTile(x, y);
+        _userAdjustedView = true;
+    }
+
     /// <summary>Zooms to <see cref="MaxZoom"/> through the same <see cref="Zoom"/> path the mouse wheel
     /// uses, so <c>godot/Checks/MapClipCheck.cs</c> reproduces the maximum-zoom case without simulating
     /// wheel events.</summary>
