@@ -85,8 +85,12 @@ public partial class ParchmentControlsCheck : Node
               && !box.BgColor.IsEqualApprox(UiKit.PanelColor), context + ": unfocused dropdown has a contrasting outline and fill");
         Check(picker.GetThemeConstant("modulate_arrow") == 1 && picker.GetThemeIcon("arrow") is not null,
             context + ": dropdown arrow follows the readable text colour");
-        Check(Contrast(picker.GetThemeColor("font_color"), box.BgColor) >= 4.5,
-            context + ": normal text remains readable");
+        foreach (var (state, font) in new[] { ("normal", "font_color"), ("hover", "font_hover_color"),
+                     ("pressed", "font_pressed_color"), ("hover_pressed", "font_hover_pressed_color"),
+                     ("normal", "font_focus_color"), ("disabled", "font_disabled_color") })
+            Check(picker.GetThemeStylebox(state) is StyleBoxFlat surface
+                  && Contrast(picker.GetThemeColor(font), surface.BgColor) >= 4.5,
+                context + ": " + font + " remains readable on " + state);
         picker.ShowPopup();
         Check(picker.GetPopup().Visible, context + ": actual dropdown opens");
         picker.GetPopup().Hide();
