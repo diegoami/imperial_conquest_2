@@ -552,7 +552,7 @@ public partial class ContextPanel : Control
         foreach (var offer in model.Offers)
         {
             Fact(
-                $"{offer.TypeName}  —  {offer.Troops.ToString(System.Globalization.CultureInfo.InvariantCulture)} troops"
+                $"{offer.Name} · {offer.TypeName}  —  {offer.Troops.ToString(System.Globalization.CultureInfo.InvariantCulture)} troops"
                 + $"  —  {MercenaryDialogModel.QualityCaption(offer.Quality)}"
                 + $"  —  {offer.QuarterlyCostTalents.ToString(System.Globalization.CultureInfo.InvariantCulture)}/quarter");
         }

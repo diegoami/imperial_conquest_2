@@ -1,6 +1,7 @@
 using Godot;
 using IC2.Engine.Model;
 using IC2.Engine.Presentation;
+using IC2.Engine.Recruitment;
 using IC2.Slice.UI;
 
 namespace IC2.Slice.Checks;
@@ -228,6 +229,13 @@ public partial class MercenariesCheck : Control
         var dialog = (RecruitMercenariesDialog)_mainGame.ActiveOverlay!;
         Check(dialog.ModelForCheck.DialogOpens, "the dialog's model says the dialog may open");
         Check(dialog.ModelForCheck.Offers.Count >= 2, "the dialog lists at least two offers");
+        var offerList = dialog.FindChildren("*", "ItemList", true, false).OfType<ItemList>().Single();
+        for (var i = 0; i < dialog.ModelForCheck.Offers.Count; i++)
+        {
+            var pool = _session.State.MercenaryPool.First(s => s.SlotIndex == dialog.ModelForCheck.Offers[i].SlotIndex);
+            Check(offerList.GetItemText(i).Contains(MercenaryNameCatalog.ForLabel(pool.NameLabel), StringComparison.Ordinal),
+                "the actual hire row identifies the offer by its own mercenary name");
+        }
 
         var army = _session.State.ArmyById(ArmyId)!;
         _unitsCountBefore = army.Units.Count;
@@ -257,6 +265,9 @@ public partial class MercenariesCheck : Control
         var offerOriginal = _preHireOffers[SlotLightInfantry];
         Check(hired.UnitTypeId == "light_infantry" && hired.Troops == offerOriginal.Troops && hired.Quality == offerOriginal.Quality,
             "the appended unit carries the offer's type / troops / quality");
+        Check(hired.Name == MercenaryNameCatalog.ForLabel(offerOriginal.NameLabel)
+            && hired.MercenaryLabel == offerOriginal.NameLabel,
+            "the named hire row and the resulting unit use the same offer identity");
 
         Check(armyAfter.Money == _purseBefore, $"the army's purse is unchanged ({armyAfter.Money} vs {_purseBefore})");
         var treasury = _session.State.NationById(RomeId)!.Treasury;
@@ -444,10 +455,13 @@ public partial class MercenariesCheck : Control
         Check(heading == $"Mercenaries at {city.Name}",
             $"the heading is 'Mercenaries at {city.Name}' (saw '{heading}')");
 
-        // The HC offer is still live (the refusal did not consume it), so the listing still shows
-        // it; the LI offer was hired and is gone; the hired sentinel is never listed.
+        // A HC offer remains after the hires; the hired sentinel is never listed.
         Check(labels.Any(text => text.Contains("Heavy cavalry", StringComparison.Ordinal)),
             "the HC offer (still live) appears in the city listing");
+        foreach (var offer in _session.State.MercenaryPool.Where(s => s.X == city.X && s.Y == city.Y
+                     && s.Troops != MercenaryDialogModel.HiredSlotSentinelTroops))
+            Check(labels.Any(text => text.Contains(MercenaryNameCatalog.ForLabel(offer.NameLabel), StringComparison.Ordinal)),
+                "the city listing identifies each remaining pool offer by its own name");
         Check(labels.Any(text => text.Contains("quarter", StringComparison.Ordinal)),
             "the city listing shows the quarterly-cost column");
 
@@ -642,15 +656,15 @@ public partial class MercenariesCheck : Control
         var offers = new List<MercenaryPoolSlot>
         {
             // The first hire's priced offer (gate 27, displayed 34).
-            new(SlotHeavyCavalry, X: OfferCityX, Y: OfferCityY, NameLabel: 0, UnitTypeId: "heavy_cavalry", Troops: 960, Quality: 9),
+            new(SlotHeavyCavalry, X: OfferCityX, Y: OfferCityY, NameLabel: 1, UnitTypeId: "heavy_cavalry", Troops: 960, Quality: 9),
             // A second priced offer so the dialog can refuse a second hire without emptying the pool.
-            new(SlotLightInfantry, X: OfferCityX, Y: OfferCityY, NameLabel: 0, UnitTypeId: "light_infantry", Troops: 3_868, Quality: 8),
+            new(SlotLightInfantry, X: OfferCityX, Y: OfferCityY, NameLabel: 11, UnitTypeId: "light_infantry", Troops: 3_868, Quality: 8),
             // The hired sentinel — its X/Y are intact, its troops are 0xFFFF.
             new(HiredSlot, X: OfferCityX, Y: OfferCityY, NameLabel: 0, UnitTypeId: "heavy_infantry",
                 Troops: MercenaryDialogModel.HiredSlotSentinelTroops, Quality: 5),
             // R5: an offer for the 19-unit army on its own offer city at (4,5); troops small enough
             // to fit, gate (1 * 4 / 1000) * 9 = 0 * 9 = 0 so it passes the purse gate too.
-            new(20, X: 4, Y: 5, NameLabel: 0, UnitTypeId: "heavy_cavalry", Troops: 1, Quality: 9),
+            new(20, X: 4, Y: 5, NameLabel: 2, UnitTypeId: "heavy_cavalry", Troops: 1, Quality: 9),
         };
 
         var initial = new GameSession(

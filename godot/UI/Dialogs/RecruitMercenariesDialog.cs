@@ -152,7 +152,7 @@ public partial class RecruitMercenariesDialog : Control
     }
 
     private static string FormatOffer(MercenaryOfferLine offer) =>
-        $"{offer.TypeName}  —  {offer.Troops.ToString(System.Globalization.CultureInfo.InvariantCulture)} troops  —  "
+        $"{offer.Name} · {offer.TypeName}  —  {offer.Troops.ToString(System.Globalization.CultureInfo.InvariantCulture)} troops  —  "
         + MercenaryDialogModel.QualityCaption(offer.Quality)
         + $"  —  {offer.QuarterlyCostTalents.ToString(System.Globalization.CultureInfo.InvariantCulture)}/quarter";
 
