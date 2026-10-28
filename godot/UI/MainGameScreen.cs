@@ -221,6 +221,7 @@ public partial class MainGameScreen : Control
     private AreaMapView _areaMapView = null!;
     private ContextPanel _contextPanel = null!;
     private NewsLogPanel _newsLog = null!;
+    private bool _latestNewsPending;
     private Label _lastCommandLabel = null!;
 
     // #1286: a refused order's message over the map; dialogs show their own reply instead.
@@ -553,10 +554,9 @@ public partial class MainGameScreen : Control
         RefreshTopBar();
 
         // T127: a loaded game that holds an open tactical battle reopens the battle screen at once.
-        if (Session.OpenTacticalBattle is not null)
-        {
-            ShowNextOverlay();
-        }
+        _latestNewsPending = activeNation?.Control == SeatControl.Human && !Session.IsGameOver;
+        if (Session.OpenTacticalBattle is not null) ShowNextOverlay();
+        else RevealLatestNewsIfReady();
         if (StartAtCapital) FocusInitialCapital();
     }
 
@@ -2922,6 +2922,11 @@ public partial class MainGameScreen : Control
         _lastKnownTurnIndex = turnIndex;
         if (turnStarted || !string.Equals(activeId, _lastKnownActiveNationId, StringComparison.Ordinal))
         {
+            if (Session.State.NationById(activeId)?.Control == SeatControl.Human && !Session.IsGameOver)
+            {
+                _latestNewsPending = true;
+                _newsLog.Visible = false; // Wait for the existing handoff/result routing.
+            }
             // Only re-view when it actually differs: an unconditional SetViewedNation on every "end"
             // would clear a Find-a-city highlight chosen this turn for a view that did not change.
             if (!string.Equals(ViewedNationId, _displayViewer, StringComparison.Ordinal))
@@ -3175,6 +3180,19 @@ public partial class MainGameScreen : Control
                 ShowNextOverlay();
             };
             ShowOverlay(notice);
+        }
+        RevealLatestNewsIfReady();
+    }
+
+    private void RevealLatestNewsIfReady()
+    {
+        if (ActiveOverlay is null && _latestNewsPending && !StrategicTravel.IsActive
+            && !Session.HasPendingPeaceOffers
+            && Session.State.NationById(Session.State.ActiveNationId)?.Control == SeatControl.Human
+            && !Session.IsGameOver)
+        {
+            _latestNewsPending = false;
+            _newsLog.ShowLatest();
         }
     }
 

@@ -87,7 +87,7 @@ public partial class ScreenshotTour : Control
             case 3 when _frame >= SettleFrames:
                 var mainGame = (MainGameScreen)_appRoot.CurrentScreen!;
                 mainGame.ContextPanel.ShowCity("rome");
-                mainGame.NewsLog.Toggle();
+                mainGame.NewsLog.ShowLatest();
                 _frame = 0;
                 _step = 4;
                 break;

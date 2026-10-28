@@ -310,6 +310,9 @@ public sealed partial class GameSession
         return lines;
     }
 
+    /// <summary>Uses the news command's formatter without submitting a command or draining pending reports.</summary>
+    public IReadOnlyList<string> ReadNewsLines() => RenderNews();
+
     private IReadOnlyList<string> RenderNews()
     {
         if (State.NewsLog.Slots.Count == 0)
