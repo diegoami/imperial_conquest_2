@@ -32,6 +32,7 @@ public partial class ScenarioSeatScreen : Control
     private IReadOnlyList<SeatOption> _seatOptions = Array.Empty<SeatOption>();
     private readonly Dictionary<string, CheckBox> _humanBoxes = new(StringComparer.Ordinal);
     private readonly Dictionary<string, LineEdit> _leaderEdits = new(StringComparer.Ordinal);
+    private IReadOnlyDictionary<string, string> _drawnNames = null!;
     private Button _startButton = null!;
     private Label _playersLine = null!;
     private HSlider _aggressionSlider = null!;
@@ -44,6 +45,7 @@ public partial class ScenarioSeatScreen : Control
 
         var resolved = GameDataContext.Repository.Resolve(Selection.SelectedCard.ScenarioId);
         _seatOptions = GameSessionFactory.SeatOptionsFor(resolved);
+        _drawnNames = GameSessionFactory.LeaderNamePreview(resolved);
 
         var margin = new MarginContainer();
         margin.SetAnchorsPreset(LayoutPreset.FullRect);
@@ -107,14 +109,22 @@ public partial class ScenarioSeatScreen : Control
             grid.AddChild(name);
 
             var human = new CheckBox { Name = $"Human_{nationId}", ButtonPressed = humansAtStart.Contains(nationId) };
-            human.Toggled += _ => RefreshPlayers();
+            human.Toggled += enabled =>
+            {
+                var edit = _leaderEdits[nationId];
+                edit.Editable = enabled;
+                if (enabled) { edit.GrabFocus(); edit.SelectAll(); }
+                else edit.Text = _drawnNames[nationId];
+                RefreshPlayers();
+            };
             grid.AddChild(human);
             _humanBoxes[nationId] = human;
 
             var leader = new LineEdit
             {
                 Name = $"Leader_{nationId}",
-                PlaceholderText = resolved.World.NationById(nationId)?.LeaderName ?? string.Empty,
+                Text = _drawnNames[nationId],
+                PlaceholderText = _drawnNames[nationId],
                 MaxLength = NewGameSelection.MaxLeaderNameLength,
                 CustomMinimumSize = new Vector2(260, 0),
             };
@@ -152,6 +162,7 @@ public partial class ScenarioSeatScreen : Control
 
     /// <summary>#719, for checks: whether a nation's leader's name can be edited (only a human's can).</summary>
     public bool IsLeaderEditableForCheck(string nationId) => _leaderEdits[nationId].Editable;
+    public LineEdit LeaderEditForCheck(string nationId) => _leaderEdits[nationId];
 
     private void RefreshPlayers()
     {

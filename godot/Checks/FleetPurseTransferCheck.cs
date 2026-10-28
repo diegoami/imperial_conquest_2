@@ -35,7 +35,7 @@ public partial class FleetPurseTransferCheck : Node
         var session = new GameSession(data.World, data.Ruleset, data.Scenario, save);
         var commands = 0;
         var dialog = new FleetTransferDialog { Session = session, FleetId = a.Id, PartnerId = b.Id,
-            Submit = line => { commands++; return session.Submit(line).Lines; } };
+            CommitEdits = (draft, final) => { commands++; return draft.Commit(final); } };
         AddChild(dialog);
         var step = receiverMoney == 950 ? 50 : receiverMoney == 1100 ? -100 : 0;
         if (shipsOnly) dialog.AdjustShipsForCheck(1);

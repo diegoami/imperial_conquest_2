@@ -155,7 +155,7 @@ public partial class SplitArmyDialog : Control
         if (stagedSide) _newArmyTitle = heading;
         else _armyTitle = heading;
 
-        var list = new ItemList { CustomMinimumSize = new Vector2(320, 140), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        var list = new ItemList { SelectMode = ItemList.SelectModeEnum.Multi, CustomMinimumSize = new Vector2(320, 140), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         list.AddThemeFontSizeOverride("font_size", AppTheme.Note);
         list.AddThemeConstantOverride("v_separation", 0);
         box.AddChild(list);
@@ -232,70 +232,49 @@ public partial class SplitArmyDialog : Control
         Refresh();
     }
 
-    /// <summary>The army-list index of the selected row of one list, or -1.</summary>
-    private int SelectedArmyIndex(bool stagedSide)
+    private int[] SelectedArmyIndices(bool stagedSide)
     {
         var list = stagedSide ? _newArmyList : _armyList;
         var rows = stagedSide ? _newArmyRows : _armyRows;
-        var picked = list.GetSelectedItems();
-        return picked.Length > 0 && picked[0] < rows.Count ? rows[picked[0]] : -1;
+        return list.GetSelectedItems().Where(i => i >= 0 && i < rows.Count).Select(i => rows[i]).OrderDescending().ToArray();
     }
 
     private void TransferSelected(bool stagedSide)
     {
-        var index = SelectedArmyIndex(stagedSide);
-        if (index < 0)
+        var indices = SelectedArmyIndices(stagedSide);
+        if (indices.Length == 0) return;
+        var candidate = _model.Copy();
+        foreach (var index in indices)
+            if (stagedSide) candidate.UnstageUnit(index); else candidate.StageUnit(index);
+        if (indices.Any(i => candidate.StagedUnits.Contains(i) == stagedSide))
         {
+            _replyLabel.Text = "No selected units moved. Keep at least one unit in the first army.";
             return;
         }
-
-        if (stagedSide)
-        {
-            _model.UnstageUnit(index);
-        }
-        else
-        {
-            _model.StageUnit(index);
-        }
-
-        Refresh();
+        var trial = Session.BeginDialogEdit(DialogEditKind.Army);
+        var line = candidate.ComposeOk();
+        var result = trial.StageMany(line is null ? _draft.Commands : _draft.Commands.Append(line));
+        if (result.Accepted) _model = candidate;
+        _replyLabel.Text = result.Accepted ? string.Empty : CommandOutcomeWording.Apply(CommandOutcomeText.OutcomeBlock(result.Output.Lines));
+        trial.Cancel(); Refresh();
     }
 
     private void DisbandSelected(bool stagedSide)
     {
-        var index = SelectedArmyIndex(stagedSide);
-        if (index >= 0)
-        {
-            var prompt = new ConfirmPrompt { Question = ChangeUnitsModel.DisbandPromptText(1) };
-            prompt.Confirmed += () => { prompt.QueueFree(); Disband(index); };
-            prompt.Refused += prompt.QueueFree;
-            AddChild(prompt); prompt.SetAnchorsPreset(LayoutPreset.FullRect);
-        }
+        var indices = SelectedArmyIndices(stagedSide);
+        if (indices.Length == 0) return;
+        var prompt = new ConfirmPrompt { Question = ChangeUnitsModel.DisbandPromptText(indices.Length) };
+        prompt.Confirmed += () => { prompt.QueueFree(); Disband(indices); };
+        prompt.Refused += prompt.QueueFree;
+        AddChild(prompt); prompt.SetAnchorsPreset(LayoutPreset.FullRect);
     }
 
-    /// <summary>
-    /// Stages <c>disband-unit</c> for the selected origin unit on the private working copy.
-    /// When the private command accepts it, the model re-reads the working army and drops the unit
-    /// from the staging; a refusal leaves everything as it was.
-    /// </summary>
-    private void Disband(int armyIndex)
+    private void Disband(params int[] indices)
     {
-        var before = _draft.WorkingState.ArmyById(ArmyId)?.Units.Count ?? 0;
-        var result = _draft.Stage(_model.DisbandLine(armyIndex));
+        var result = _draft.StageMany(indices.OrderDescending().Select(_model.DisbandLine));
         var message = CommandOutcomeWording.Apply(CommandOutcomeText.OutcomeBlock(result.Output.Lines));
-        _replyLabel.Text = result.Accepted ? $"Pending: {message}" : message;
-        var army = _draft.WorkingState.ArmyById(ArmyId);
-        if (army is null)
-        {
-            Closed?.Invoke();
-            return;
-        }
-
-        if (army.Units.Count < before)
-        {
-            _model.ApplyDisband(armyIndex, army);
-        }
-
+        _replyLabel.Text = result.Accepted ? $"Pending: {indices.Length} unit(s) disbanded." : message;
+        if (result.Accepted && _draft.WorkingState.ArmyById(ArmyId) is { } army) _model.ApplyDisbands(indices, army);
         Refresh();
     }
 

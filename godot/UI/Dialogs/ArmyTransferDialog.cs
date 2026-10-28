@@ -237,30 +237,28 @@ public partial class ArmyTransferDialog : Control
     private void DisbandSelected(bool isSelectedSide)
     {
         var list = isSelectedSide ? _selectedList : _partnerList;
-        if (list.GetSelectedItems().Length > 1)
+        var rows = Rows(isSelectedSide);
+        var selected = list.GetSelectedItems().Where(i => i >= 0 && i < rows.Count).Select(i => rows[i])
+            .OrderBy(r => r.ArmyId, StringComparer.Ordinal).ThenByDescending(r => r.SourceIndex).ToArray();
+        if (selected.Length == 0) return;
+        var prompt = new ConfirmPrompt { Question = ChangeUnitsModel.DisbandPromptText(selected.Length) };
+        prompt.Confirmed += () =>
         {
-            _replyLabel.Text = "Select one unit to disband.";
-            return;
-        }
-        if (SelectedRow(isSelectedSide) is { } row)
-        {
-            var prompt = new ConfirmPrompt { Question = ChangeUnitsModel.DisbandPromptText(1) };
-            prompt.Confirmed += () => { prompt.QueueFree(); DisbandSelected(row); };
-            prompt.Refused += prompt.QueueFree;
-            AddChild(prompt); prompt.SetAnchorsPreset(LayoutPreset.FullRect);
-        }
+            prompt.QueueFree();
+            StageDisbands(selected);
+        };
+        prompt.Refused += prompt.QueueFree;
+        AddChild(prompt); prompt.SetAnchorsPreset(LayoutPreset.FullRect);
     }
 
-    private void DisbandSelected(TransferRow row)
+    private void StageDisbands(TransferRow[] selected)
     {
-        var result = _draft.Stage($"disband-unit {row.ArmyId} {row.SourceIndex}");
+        var result = _draft.StageMany(selected.Select(r => $"disband-unit {r.ArmyId} {r.SourceIndex}"));
         var message = CommandOutcomeWording.Apply(CommandOutcomeText.OutcomeBlock(result.Output.Lines));
-        _replyLabel.Text = result.Accepted ? $"Pending: {message}" : message;
-        if (result.Accepted) _model = _model.AfterDisband(_draft.WorkingState, row.ArmyId, row.SourceIndex);
+        _replyLabel.Text = result.Accepted ? $"Pending: {selected.Length} unit(s) disbanded." : message;
+        if (result.Accepted) _model = _model.AfterDisbands(_draft.WorkingState, selected.Select(r => (r.ArmyId, r.SourceIndex)));
         Refresh();
     }
-
-
 
     /// <summary>
     /// Requests one whole-unit move using its original identity and current working side.
@@ -273,23 +271,8 @@ public partial class ArmyTransferDialog : Control
     private void StageRows(IEnumerable<TransferRow> rows)
     {
         _model.StageTransfers(rows.Select(row => new ArmyTransferUnitStep(row.ArmyId == ArmyId,
-            row.SourceIndex, !row.OnPartnerSide)));
+            row.SourceIndex, !row.OnPartnerSide)), atomic: true);
         _replyLabel.Text = string.Join('\n', _model.LastUnitMessages);
-    }
-
-    private TransferRow? SelectedRow(bool isSelectedSide)
-    {
-        var list = isSelectedSide ? _selectedList : _partnerList;
-        var picked = list.GetSelectedItems();
-        if (picked.Length == 0)
-        {
-            // Nothing selected: Transfer and Disband do nothing (FirstOrDefault would have read row 0).
-            return null;
-        }
-
-        var selected = picked[0];
-        var rows = Rows(isSelectedSide);
-        return selected >= 0 && selected < rows.Count ? rows[selected] : null;
     }
 
     private List<TransferRow> Rows(bool isSelectedSide) =>
@@ -340,7 +323,7 @@ public partial class ArmyTransferDialog : Control
             return false;
         }
 
-        DisbandSelected(row);
+        StageDisbands(new[] { row });
         return true;
     }
 

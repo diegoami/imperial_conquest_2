@@ -3,7 +3,7 @@ using IC2.Engine.Model;
 
 namespace IC2.Engine.Presentation;
 
-public enum DialogEditKind { Army, Diplomacy }
+public enum DialogEditKind { Army, Diplomacy, Fleet, Recruitment }
 
 public sealed record DialogEditResult(bool Accepted, SessionOutput Output);
 
@@ -81,9 +81,14 @@ public sealed class DialogCommandDraft
     internal static bool Allowed(string line, DialogEditKind kind)
     {
         var verb = line.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.ToLowerInvariant();
-        return kind == DialogEditKind.Army
-            ? verb is "rename-unit" or "split-unit" or "join-units" or "disband-unit" or "army-transfer" or "split-army"
-            : verb is "declare-war" or "make-peace" or "propose-trade" or "propose-alliance" or "accept-offer";
+        return kind switch
+        {
+            DialogEditKind.Army => verb is "rename-unit" or "split-unit" or "join-units" or "disband-unit" or "army-transfer" or "split-army",
+            DialogEditKind.Diplomacy => verb is "declare-war" or "make-peace" or "propose-trade" or "propose-alliance" or "accept-offer",
+            DialogEditKind.Fleet => verb is "fleet-transfer" or "split-fleet",
+            DialogEditKind.Recruitment => verb is "mobilize" or "disband-slot",
+            _ => false,
+        };
     }
 }
 

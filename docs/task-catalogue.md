@@ -62,3 +62,4 @@ Open and recent tasks only. Merged tasks (T01–T191 and others) are in their cl
 - [T233](tasks/T233.md) —  Staged army-dialog edits
 - [T234](tasks/T234.md) —  Staged diplomacy choices
 - [T235](tasks/T235.md) —  Latest news at human turn start
+- [T236](tasks/T236.md) —  Remaining manual UI audit corrections

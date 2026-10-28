@@ -15,6 +15,18 @@ namespace IC2.Engine.Tests.Ui;
 /// </summary>
 public sealed class NewGameSelectionTests
 {
+    [Fact]
+    public void Leader_preview_matches_the_campaign_draw_without_advancing_a_turn()
+    {
+        var resolved = Repository.Resolve("classical-mediterranean");
+        var preview = GameSessionFactory.LeaderNamePreview(resolved);
+        var selection = new NewGameSelection { HumanNationId = "rome" };
+        var plain = GameSessionFactory.CreateSession(Repository, selection);
+        foreach (var nation in plain.State.Nations) Assert.Equal(nation.LeaderName, preview[nation.Id]);
+        foreach (var pair in preview) selection.LeaderNames[pair.Key] = pair.Value;
+        var displayed = GameSessionFactory.CreateSession(Repository, selection);
+        Assert.Equal(plain.State, displayed.State);
+    }
     private static readonly GameDataRepository Repository = GameDataRepository.Load(ModelTestPaths.DataRoot);
 
     [Theory]

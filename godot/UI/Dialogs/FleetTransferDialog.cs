@@ -29,12 +29,14 @@ public partial class FleetTransferDialog : Control
     public required string PartnerId { get; init; }
 
     /// <summary>Submits one composed line through the screen's path and returns the session's lines.</summary>
-    public required Func<string, IReadOnlyList<string>> Submit { get; init; }
+    public Func<DialogCommandDraft, string?, DialogEditResult> CommitEdits { get; init; } = (draft, final) => draft.Commit(final);
 
     /// <summary>Raised by OK and Cancel; <see cref="MainGameScreen"/> closes the overlay.</summary>
     public event Action? Closed;
 
     private FleetTransferModel _model = null!;
+    private DialogCommandDraft _draft = null!;
+    public string FiguresForCheck => _figuresLabel.Text;
     private Label _figuresLabel = null!;
     private Label _replyLabel = null!;
     private Label _shipsLabel = null!;
@@ -58,6 +60,7 @@ public partial class FleetTransferDialog : Control
         }
 
         _model = FleetTransferModel.ForFleets(selected, partner, Session.Ruleset);
+        _draft = Session.BeginDialogEdit(DialogEditKind.Fleet);
         BuildUi();
         Refresh();
     }
@@ -183,19 +186,16 @@ public partial class FleetTransferDialog : Control
             return;
         }
 
-        foreach (var line in lines)
-        {
-            var output = Submit(line);
-            _replyLabel.Text = output.Skip(1).FirstOrDefault(text => text.Length > 0) ?? string.Empty;
-        }
-
-        Refresh();
-        Closed?.Invoke();
+        var preview = _draft.ReplacePlan(lines);
+        var applied = preview.Accepted ? CommitEdits(_draft, null) : preview;
+        _replyLabel.Text = CommandOutcomeWording.Apply(CommandOutcomeText.OutcomeBlock(applied.Output.Lines));
+        if (applied.Accepted) Closed?.Invoke();
     }
 
     private void Cancel()
     {
         _model.Cancel();
+        _draft.Cancel();
         Closed?.Invoke();
     }
 
@@ -215,17 +215,21 @@ public partial class FleetTransferDialog : Control
             return;
         }
 
-        var selected = Session.State.FleetById(FleetId);
-        var partner = Session.State.FleetById(PartnerId);
-        _figuresLabel.Text = selected is null || partner is null
-            ? string.Empty
-            : $"{FleetId}: {selected.Ships} ships · {selected.SupplyTons} t · {selected.Money} talents"
-              + $"   |   {PartnerId}: {partner.Ships} ships · {partner.SupplyTons} t · {partner.Money} talents";
+        var preview = _draft.ReplacePlan(_model.ComposeOk());
+        var refusal = _model.RefusalMessage;
+        _replyLabel.Text = refusal ?? (preview.Accepted ? string.Empty
+            : CommandOutcomeWording.Apply(CommandOutcomeText.OutcomeBlock(preview.Output.Lines)));
+        _figuresLabel.Text = !preview.Accepted || refusal is not null ? "No valid transfer preview."
+            : Balance(FleetId, _draft.WorkingState.FleetById(FleetId)) + "\n"
+              + Balance(PartnerId, _draft.WorkingState.FleetById(PartnerId));
 
         _shipsLabel.Text = Net("Ships", _model.ShipsNet, _model.MaxShipsToPartner, _model.MaxShipsBack);
         _supplyLabel.Text = Net("Supply", _model.SupplyNet, _model.MaxSupplyToPartner, _model.MaxSupplyBack);
         _moneyLabel.Text = Net("Money", _model.MoneyNet, _model.MaxMoneyToPartner, _model.MaxMoneyBack);
     }
+
+    private static string Balance(string id, FleetState? fleet) => fleet is null ? $"{id}: merged into the other fleet"
+        : $"{id}: {fleet.Ships} ships · {fleet.SupplyTons} t · {fleet.Money} talents";
 
     private static string Net(string resource, int net, int maxToPartner, int maxBack) => net switch
     {

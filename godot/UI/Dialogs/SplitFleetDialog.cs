@@ -29,12 +29,14 @@ public partial class SplitFleetDialog : Control
     public required string NewFleetId { get; init; }
 
     /// <summary>Submits one composed line through the screen's path and returns the session's lines.</summary>
-    public required Func<string, IReadOnlyList<string>> Submit { get; init; }
+    public Func<DialogCommandDraft, string?, DialogEditResult> CommitEdits { get; init; } = (draft, final) => draft.Commit(final);
 
     /// <summary>Raised by OK and Cancel; <see cref="MainGameScreen"/> closes the overlay.</summary>
     public event Action? Closed;
 
     private SplitFleetModel _model = null!;
+    private DialogCommandDraft _draft = null!;
+    public string FiguresForCheck => _figuresLabel.Text;
     private Label _refusalLabel = null!;
     private Label _figuresLabel = null!;
     private Label _replyLabel = null!;
@@ -60,6 +62,7 @@ public partial class SplitFleetDialog : Control
         }
 
         _model = SplitFleetModel.ForFleet(Session.State, fleet, Session.Ruleset, NewFleetId);
+        _draft = Session.BeginDialogEdit(DialogEditKind.Fleet);
         BuildUi();
         Refresh();
     }
@@ -188,15 +191,16 @@ public partial class SplitFleetDialog : Control
             return;
         }
 
-        var lines = Submit(line);
-        _replyLabel.Text = lines.Skip(1).FirstOrDefault(text => text.Length > 0) ?? string.Empty;
-        Refresh();
-        Closed?.Invoke();
+        var preview = _draft.ReplacePlan(new[] { line });
+        var applied = preview.Accepted ? CommitEdits(_draft, null) : preview;
+        _replyLabel.Text = CommandOutcomeWording.Apply(CommandOutcomeText.OutcomeBlock(applied.Output.Lines));
+        if (applied.Accepted) Closed?.Invoke();
     }
 
     private void Cancel()
     {
         _model.Cancel();
+        _draft.Cancel();
         Closed?.Invoke();
     }
 
@@ -216,13 +220,16 @@ public partial class SplitFleetDialog : Control
             return;
         }
 
-        var fleet = Session.State.FleetById(FleetId);
-        _refusalLabel.Text = _model.RefusalMessage ?? string.Empty;
-        _okButton.Disabled = !_model.CanSplit || _model.Ships < 1;
-
-        _figuresLabel.Text = fleet is null
-            ? string.Empty
-            : $"{FleetId}: {fleet.Ships} ships · {fleet.SupplyTons} t · {fleet.Money} talents";
+        var line = _model.ComposeOk();
+        var preview = _draft.ReplacePlan(line is null ? Array.Empty<string>() : new[] { line });
+        _refusalLabel.Text = _model.RefusalMessage ?? (preview.Accepted ? string.Empty
+            : CommandOutcomeWording.Apply(CommandOutcomeText.OutcomeBlock(preview.Output.Lines)));
+        _okButton.Disabled = !_model.CanSplit || line is null || !preview.Accepted;
+        var fleet = _draft.WorkingState.FleetById(FleetId);
+        var newFleet = _draft.WorkingState.FleetById(NewFleetId);
+        _figuresLabel.Text = !preview.Accepted || !_model.CanSplit ? "No valid split preview."
+            : $"{FleetId}: {fleet?.Ships ?? 0} ships · {fleet?.SupplyTons ?? 0} t · {fleet?.Money ?? 0} talents\n"
+              + $"{NewFleetId}: {newFleet?.Ships ?? 0} ships · {newFleet?.SupplyTons ?? 0} t · {newFleet?.Money ?? 0} talents";
         _shipsLabel.Text = $"Ships: {_model.Ships} to the new fleet  ·  max {_model.MaxShips}";
         _supplyLabel.Text = $"Supply: {_model.Supply} t to the new fleet  ·  max {_model.MaxSupply}";
         _moneyLabel.Text = $"Money: {_model.Money} to the new fleet  ·  max {_model.MaxMoney}";

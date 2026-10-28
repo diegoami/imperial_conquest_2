@@ -47,8 +47,8 @@ public sealed class NewGameSelection
     /// <summary>#719: every nation a person plays, in seat order; two or more make a hotseat game.</summary>
     public List<string> HumanNationIds { get; } = new();
 
-    /// <summary>#719: the longest leader name New Game accepts. <c>[designed]</c>: room for a Roman three-part name.</summary>
-    public const int MaxLeaderNameLength = 24;
+    /// <summary>T236: the manual's 25-character input limit; blank keeps the generated name by owner choice.</summary>
+    public const int MaxLeaderNameLength = 25;
 
     /// <summary>#719: the leader names typed at New Game, by nation id (blank keeps the drawn leader).</summary>
     public Dictionary<string, string> LeaderNames { get; } = new(StringComparer.Ordinal);
@@ -77,6 +77,12 @@ public sealed class NewGameSelection
 /// </summary>
 public static class GameSessionFactory
 {
+    /// <summary>The existing pure leader draw; previewing it does not advance a campaign or consume its RNG.</summary>
+    public static IReadOnlyDictionary<string, string> LeaderNamePreview(ResolvedScenario resolved)
+    {
+        var initial = GameStateFactory.CreateInitial(resolved.World, resolved.Ruleset, resolved.Scenario);
+        return NewGameLeaders.Apply(initial, resolved.World).Nations.ToDictionary(n => n.Id, n => n.LeaderName, StringComparer.Ordinal);
+    }
     /// <summary>
     /// The repository root, given <c>res://</c> already globalized to an absolute path — mirrors
     /// <c>Slice.cs</c>'s own convention (<c>godot/</c> is one level below the repository root) exactly,
