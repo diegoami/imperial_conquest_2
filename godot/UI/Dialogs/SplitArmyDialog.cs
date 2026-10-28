@@ -18,7 +18,7 @@ namespace IC2.Slice.UI;
 /// the supply and money spinners move the amounts toward B, and <b>OK</b> composes <em>one</em>
 /// <c>split-army</c> with every staged unit, the supply and the money (T141's form); the engine places
 /// the new army. <b>Cancel</b> submits nothing. <b>Disband</b> under either list submits
-/// <c>disband-unit</c> at once and the lists are re-read from the new state.
+/// <c>disband-unit</c> on a private working copy after confirmation. Only OK commits; Cancel discards it (T233).
 /// </para>
 /// <para>
 /// Rules live in the Godot-free <see cref="SplitArmyModel"/>; this control owns widgets and the submit
@@ -40,13 +40,14 @@ public partial class SplitArmyDialog : Control
     /// <summary>Open with a strength-balanced whole-unit proposal instead of empty staging.</summary>
     public bool SuggestBalanced { get; init; }
 
-    /// <summary>Submits one composed line through the screen's path and returns the session's lines.</summary>
-    public required Func<string, IReadOnlyList<string>> Submit { get; init; }
+    /// <summary>Applies one confirmed plan through the screen’s ordinary outcome path.</summary>
+    public Func<DialogCommandDraft, string?, DialogEditResult> CommitEdits { get; init; } = (draft, final) => draft.Commit(final);
 
     /// <summary>Raised by Close, OK and Cancel; <see cref="MainGameScreen"/> closes the overlay.</summary>
     public event Action? Closed;
 
     private SplitArmyModel _model = null!;
+    private DialogCommandDraft _draft = null!;
     private ItemList _armyList = null!;
     private ItemList _newArmyList = null!;
     private Label _refusalLabel = null!;
@@ -84,7 +85,8 @@ public partial class SplitArmyDialog : Control
             return;
         }
 
-        _model = SplitArmyModel.ForArmy(Session.State, army, Session.Ruleset, NewArmyId);
+        _draft = Session.BeginDialogEdit(DialogEditKind.Army);
+        _model = SplitArmyModel.ForArmy(_draft.WorkingState, army, Session.Ruleset, NewArmyId);
         if (SuggestBalanced) _model.SuggestBalancedSplit();
         BuildUi();
         Refresh();
@@ -264,22 +266,25 @@ public partial class SplitArmyDialog : Control
         var index = SelectedArmyIndex(stagedSide);
         if (index >= 0)
         {
-            Disband(index);
+            var prompt = new ConfirmPrompt { Question = ChangeUnitsModel.DisbandPromptText(1) };
+            prompt.Confirmed += () => { prompt.QueueFree(); Disband(index); };
+            prompt.Refused += prompt.QueueFree;
+            AddChild(prompt); prompt.SetAnchorsPreset(LayoutPreset.FullRect);
         }
     }
 
     /// <summary>
-    /// Submits <c>disband-unit</c> for the selected army's unit at <paramref name="armyIndex"/> at once.
-    /// When the engine accepted it (the unit count fell) the model re-reads the army and drops the unit
+    /// Stages <c>disband-unit</c> for the selected origin unit on the private working copy.
+    /// When the private command accepts it, the model re-reads the working army and drops the unit
     /// from the staging; a refusal leaves everything as it was.
     /// </summary>
     private void Disband(int armyIndex)
     {
-        var before = Session.State.ArmyById(ArmyId)?.Units.Count ?? 0;
-        var lines = Submit(_model.DisbandLine(armyIndex));
-        _replyLabel.Text = lines.Skip(1).FirstOrDefault(text => text.Length > 0) ?? string.Empty;
-
-        var army = Session.State.ArmyById(ArmyId);
+        var before = _draft.WorkingState.ArmyById(ArmyId)?.Units.Count ?? 0;
+        var result = _draft.Stage(_model.DisbandLine(armyIndex));
+        var message = CommandOutcomeWording.Apply(CommandOutcomeText.OutcomeBlock(result.Output.Lines));
+        _replyLabel.Text = result.Accepted ? $"Pending: {message}" : message;
+        var army = _draft.WorkingState.ArmyById(ArmyId);
         if (army is null)
         {
             Closed?.Invoke();
@@ -335,19 +340,21 @@ public partial class SplitArmyDialog : Control
     private void Ok()
     {
         var line = _model.ComposeOk();
-        if (line is null)
+        var editsOnly = _draft.HasChanges && _model.StagedUnits.Count == 0 && _model.Money == 0 && _model.Supply == 0;
+        if (line is null && !editsOnly)
         {
             return;
         }
 
-        var lines = Submit(line);
-        _replyLabel.Text = lines.Skip(1).FirstOrDefault(text => text.Length > 0) ?? string.Empty;
-        Closed?.Invoke();
+        var result = CommitEdits(_draft, line);
+        _replyLabel.Text = CommandOutcomeWording.Apply(CommandOutcomeText.OutcomeBlock(result.Output.Lines));
+        if (result.Accepted) Closed?.Invoke();
     }
 
     private void Cancel()
     {
         _model.Cancel();
+        _draft.Cancel();
         Closed?.Invoke();
     }
 
@@ -367,10 +374,10 @@ public partial class SplitArmyDialog : Control
             return;
         }
 
-        var army = Session.State.ArmyById(ArmyId);
+        var army = _draft.WorkingState.ArmyById(ArmyId);
         if (army is not null)
         {
-            var preview = _model.PreviewBalances(Session.State, Session.World);
+            var preview = _model.PreviewBalances(_draft.WorkingState, Session.World);
             var childTroops = _model.StagedUnits.Sum(i => army.Units[i].Troops);
             _armyTitle.Text = $"{ArmyId} · {army.TotalTroops - childTroops:N0} troops\n"
                 + $"Supply {army.SupplyTons:N0} → {preview.ParentSupply:N0} t\n"
@@ -379,8 +386,9 @@ public partial class SplitArmyDialog : Control
                 + $"Supply 0 → {preview.NewSupply:N0} t\n"
                 + $"Money 0 → {preview.NewMoney:N0}";
         }
-        _refusalLabel.Text = _model.RefusalMessage ?? string.Empty;
-        _okButton.Disabled = !_model.CanSplit || _model.StagedUnits.Count == 0;
+        var editsOnly = _draft.HasChanges && _model.StagedUnits.Count == 0 && _model.Money == 0 && _model.Supply == 0;
+        _refusalLabel.Text = editsOnly ? "OK applies pending edits without creating a new army." : _model.RefusalMessage ?? string.Empty;
+        _okButton.Disabled = !editsOnly && (!_model.CanSplit || _model.StagedUnits.Count == 0);
 
         _armyList.Clear();
         _armyRows.Clear();

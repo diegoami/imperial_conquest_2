@@ -78,6 +78,7 @@ public sealed partial class GameSession
 
         var nationsBeforeDispatch = State.Nations;
         var result = _dispatcher.Dispatch(State, command);
+        LastDialogCommandResult = result;
         if (result.IsRejected)
         {
             return new[] { $"{command.Kind} rejected ({result.Code}): {result.Rejection!.Message}" };

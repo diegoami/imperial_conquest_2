@@ -315,15 +315,16 @@ public partial class ArmyOrdersCheck : Control
             && dialog.ModelForCheck.StagedUnits.Count == 0,
             "Disband and Transfer with no selected row change and stage nothing");
 
-        // Under the selected army's own list: select the row of unit 3 (row 3, nothing staged), press Disband.
+        // Under the working army's own list: select the row of unit 3 (row 3, nothing staged), press Disband.
         dialog.ArmyListForCheck.Select(3);
         before = _commandsSeen;
         disbandButtons[0].EmitSignal(BaseButton.SignalName.Pressed);
-        var afterFirst = _session.State.ArmyById(SplitDisbandArmyId)!;
-        Check(_commandsSeen == before + 1, $"Disband under the army's list counts one command ({_commandsSeen - before})");
+        dialog.GetChildren().OfType<ConfirmPrompt>().Last().AnswerForCheck(true);
+        var afterFirst = dialog.ModelForCheck.Units;
+        Check(_commandsSeen == before, $"Disband under the army's list stays pending ({_commandsSeen - before})");
         Check(
-            afterFirst.Units.Count == original.Count - 1 && !afterFirst.Units.Contains(original[3]),
-            "the unstaged unit is gone from the selected army");
+            afterFirst.Count == original.Count - 1 && !afterFirst.Contains(original[3]),
+            "the unstaged unit is gone from the working army");
 
         // Stage units 1 and 2 with the real Transfer button, then Disband the staged row of unit 1.
         dialog.ArmyListForCheck.Select(1);
@@ -337,23 +338,24 @@ public partial class ArmyOrdersCheck : Control
         dialog.NewArmyListForCheck.Select(0); // the staged row of unit 1.
         before = _commandsSeen;
         disbandButtons[1].EmitSignal(BaseButton.SignalName.Pressed);
-        var afterSecond = _session.State.ArmyById(SplitDisbandArmyId)!;
-        Check(_commandsSeen == before + 1, $"Disband under the new army's list counts one command ({_commandsSeen - before})");
+        dialog.GetChildren().OfType<ConfirmPrompt>().Last().AnswerForCheck(true);
+        var afterSecond = dialog.ModelForCheck.Units;
+        Check(_commandsSeen == before, $"Disband under the new army's list stays pending ({_commandsSeen - before})");
         Check(
-            afterSecond.Units.Count == original.Count - 2 && !afterSecond.Units.Contains(original[1]),
-            "the staged unit is gone from the selected army");
+            afterSecond.Count == original.Count - 2 && !afterSecond.Contains(original[1]),
+            "the staged unit is gone from the working army");
         Check(
             dialog.ModelForCheck.StagedUnits.Count == 1
-            && afterSecond.Units[dialog.ModelForCheck.StagedUnits[0]] == original[2],
+            && afterSecond[dialog.ModelForCheck.StagedUnits[0]] == original[2],
             "the staging re-reads its indexes from the new state");
 
         before = _commandsSeen;
         dialog.CancelForCheck();
         Check(_commandsSeen == before, "Cancel submits nothing");
         Check(
-            _session.State.ArmyById(SplitDisbandArmyId)!.Units.Count == original.Count - 2
+            _session.State.ArmyById(SplitDisbandArmyId)!.Units.Count == original.Count
             && _session.State.ArmyById(dialog.ModelForCheck.NewArmyId) is null,
-            "Cancel leaves the disbands in place and adds no army");
+            "Cancel discards the disbands and adds no army");
     }
 
     /// <summary>
@@ -406,12 +408,13 @@ public partial class ArmyOrdersCheck : Control
 
         var dialog = (ChangeUnitsDialog)_mainGame.ActiveOverlay!;
         dialog.RenameUnitForCheck(1, "Legio I");
+        Check(_commandsSeen == before, "renaming stays pending until OK");
+        dialog.OkForCheck();
 
         Check(_commandsSeen == before + 1, $"Change units renames through one command ({_commandsSeen - before})");
         Check(
             _session.State.ArmyById(ChangeArmyId)!.Units[1].Name == "Legio I",
             "the unit carries the new name");
-        dialog.CancelForCheck();
     }
 
     /// <summary>
@@ -481,12 +484,13 @@ public partial class ArmyOrdersCheck : Control
         var dialog = (ChangeUnitsDialog)_mainGame.ActiveOverlay!;
         Check(dialog.ArmyId == CarriedArmyId, $"Change units targets the army aboard ({dialog.ArmyId})");
         dialog.RenameUnitForCheck(0, "Legio Aboard");
+        Check(_commandsSeen == before, "renaming stays pending until OK");
+        dialog.OkForCheck();
 
         Check(_commandsSeen == before + 1, $"the rename is one command ({_commandsSeen - before})");
         Check(
             _session.State.ArmyById(CarriedArmyId)!.Units[0].Name == "Legio Aboard",
             "the army aboard carries the new unit name");
-        dialog.CancelForCheck();
     }
 
     /// <summary>

@@ -54,7 +54,8 @@ public partial class UnitSplitInputCheck : Node
     private ChangeUnitsDialog Open(GameSession session, string armyId, List<string> commands)
     {
         var dialog = new ChangeUnitsDialog { Session = session, ArmyId = armyId,
-            Submit = line => { commands.Add(line); return session.Submit(line).Lines; } };
+            CommitEdits = (draft, final) => { var planned = draft.Commands.ToArray(); var result = draft.Commit(final);
+                if (result.Accepted) commands.AddRange(planned); return result; } };
         AddChild(dialog);
         dialog.SelectUnitForCheck(0);
         Press(dialog, "Split unit");

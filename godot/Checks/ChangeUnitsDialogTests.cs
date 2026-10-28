@@ -140,6 +140,9 @@ public partial class ChangeUnitsDialogTests : Control
         }
 
         Press(prompt, "Yes");
+        Check(_submitted.Count == 0 && _session.State.ArmyById(ArmyId)!.Units.Count == original.Count,
+            "confirmed disband remains pending until outer OK");
+        dialog.OkForCheck();
 
         var expected = new[] { $"disband-unit {ArmyId} 1", $"disband-unit {ArmyId} 0" };
         Check(
@@ -160,10 +163,12 @@ public partial class ChangeUnitsDialogTests : Control
         {
             Session = _session,
             ArmyId = ArmyId,
-            Submit = line =>
+            CommitEdits = (draft, final) =>
             {
-                _submitted.Add(line);
-                return _session.Submit(line).Lines;
+                var planned = draft.Commands.ToArray();
+                var result = draft.Commit(final);
+                if (result.Accepted) _submitted.AddRange(planned);
+                return result;
             },
         };
         AddChild(dialog);

@@ -1285,7 +1285,7 @@ public partial class MainGameScreen : Control
             Session = Session,
             ArmyId = army.Id,
             PartnerId = partner.Id,
-            Submit = SubmitFromDialog,
+            CommitEdits = CommitFromDialog,
         };
         dialog.Closed += () => CloseOverlay(dialog);
         ShowOverlay(dialog);
@@ -1331,7 +1331,7 @@ public partial class MainGameScreen : Control
             ArmyId = army.Id,
             NewArmyId = newArmyId,
             SuggestBalanced = suggestBalanced,
-            Submit = SubmitFromDialog,
+            CommitEdits = CommitFromDialog,
         };
         dialog.Closed += () => CloseOverlay(dialog);
         ShowOverlay(dialog);
@@ -1374,7 +1374,7 @@ public partial class MainGameScreen : Control
         {
             Session = Session,
             ArmyId = army.Id,
-            Submit = SubmitFromDialog,
+            CommitEdits = CommitFromDialog,
         };
         dialog.Closed += () => CloseOverlay(dialog);
         ShowOverlay(dialog);
@@ -1999,6 +1999,19 @@ public partial class MainGameScreen : Control
     /// <see cref="OnCommandIssued"/> — the same path every other control's command takes, so
     /// <see cref="CommandIssued"/> counts it exactly once.
     /// </summary>
+    private DialogEditResult CommitFromDialog(DialogCommandDraft draft, string? finalCommand)
+    {
+        if (!AllowStrategicInput()) return new(false,
+            new SessionOutput(new[] { "Wait for the current transition to finish." }, false));
+        if (!draft.HasChanges && finalCommand is null) return draft.Commit();
+        var result = AppDiagnostics.Operation(DiagnosticEvent.Command, "dialog", () => draft.Commit(finalCommand),
+            command: draft.Commands.FirstOrDefault() ?? finalCommand, turn: Session.State.Calendar.TurnIndex,
+            success: applied => applied.Accepted, nation: Session.State.ActiveNationId);
+        if (result.Accepted) OnDialogCommandIssued(result.Output.Lines);
+        return result with { Output = result.Output with {
+            Lines = result.Output.Lines.Select(CommandOutcomeWording.ReadableLine).ToArray() } };
+    }
+
     private IReadOnlyList<string> SubmitFromDialog(string line)
     {
         if (!AllowStrategicInput()) return Array.Empty<string>();

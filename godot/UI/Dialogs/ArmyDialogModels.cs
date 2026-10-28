@@ -351,6 +351,18 @@ public sealed class ArmyTransferModel
     public void StageUnitToPartner(int selectedIndex) =>
         StageTransfers(new[] { new ArmyTransferUnitStep(true, selectedIndex, true) });
 
+    /// <summary>Keep surviving pending transfers/allocations after a staged origin-roster deletion.</summary>
+    public ArmyTransferModel AfterDisband(GameState state, string armyId, int removedIndex)
+    {
+        var selectedOrigin = armyId == _selected.Id;
+        var next = ForArmies(state.ArmyById(_selected.Id)!, state.ArmyById(_partner.Id)!, _ruleset, state, _world);
+        next.StageTransfers(_unitSteps.Where(s => s.SelectedOrigin != selectedOrigin || s.Index != removedIndex)
+            .Select(s => s.SelectedOrigin == selectedOrigin && s.Index > removedIndex ? s with { Index = s.Index - 1 } : s));
+        next._supplyNet = _supplyNet;
+        next._moneyNet = _moneyNet;
+        return next;
+    }
+
     public void StageUnitBack(int partnerIndex) =>
         StageTransfers(new[] { new ArmyTransferUnitStep(false, partnerIndex, false) });
 
@@ -502,6 +514,9 @@ public sealed class SplitArmyModel
 
     /// <summary>The army's live unit count.</summary>
     public int UnitCount => _army.Units.Count;
+
+    /// <summary>The working origin roster after pending disbands, before its staged split allocation.</summary>
+    public IReadOnlyList<UnitSlot> Units => _army.Units;
 
     /// <summary>
     /// Whether the split can be offered: at least <see cref="MinUnits"/> units and the armies in play below
@@ -744,7 +759,7 @@ public sealed class SplitArmyModel
 /// <remarks>
 /// The original's <c>TChangeArmyUnits</c> has Rename unit, Split unit, Join units, Disband, OK and
 /// Cancel. This engine exposes each verb as its own command, so each button composes and submits the one
-/// command it names; OK and Cancel simply close the dialog.
+/// command it names; T233’s dialog applies these only to its private working copy until OK.
 /// </remarks>
 public sealed class ChangeUnitsModel
 {

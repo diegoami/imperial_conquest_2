@@ -43,7 +43,7 @@ public partial class PartialArmyTransferCheck : Node
         var commands = 0;
         var dialog = new ArmyTransferDialog { Session = session,
             ArmyId = back ? receiver.Id : donor.Id, PartnerId = back ? donor.Id : receiver.Id,
-            Submit = line => { commands++; return session.Submit(line).Lines; } };
+            CommitEdits = (draft, final) => { var result = draft.Commit(final); if (result.Accepted) commands++; return result; } };
         AddChild(dialog);
         var list = back ? dialog.PartnerListForCheck : dialog.SelectedListForCheck;
         Check(list.SelectMode == ItemList.SelectModeEnum.Multi, "unit list supports multi-selection");
