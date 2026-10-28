@@ -59,3 +59,6 @@ Open and recent tasks only. Merged tasks (T01–T191 and others) are in their cl
 - [T230](tasks/T230.md) —  Compact unit action grouping and original vector icons
 - [T231](tasks/T231.md) —  User-friendly army transfer and split purses
 - [T232](tasks/T232.md) —  Consistent exact transport capacity in Improved
+- [T233](tasks/T233.md) —  Staged army-dialog edits
+- [T234](tasks/T234.md) —  Staged diplomacy choices
+- [T235](tasks/T235.md) —  Latest news at human turn start
