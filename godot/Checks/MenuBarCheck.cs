@@ -505,7 +505,7 @@ public partial class MenuBarCheck : Control
     private void AssertRelationsFits(DiplomacyScreen diplomacy, string label)
     {
         var viewportRect = new Rect2(Vector2.Zero, GetViewport().GetVisibleRect().Size);
-        var buttonRect = FindButton(diplomacy, "Close")?.GetGlobalRect() ?? default;
+        var buttonRect = diplomacy.CancelButton.GetGlobalRect();
         Check(
             viewportRect.Encloses(buttonRect),
             $"the International relations Close button lies inside the viewport, {label} (button {buttonRect}, viewport {viewportRect})");
