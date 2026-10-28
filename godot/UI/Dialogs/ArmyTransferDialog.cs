@@ -17,7 +17,7 @@ namespace IC2.Slice.UI;
 /// <para>
 /// All rules live in the Godot-free <see cref="ArmyTransferModel"/>; this control owns only widgets, the
 /// display of the staged units and the submit callback. A staged unit moves to the other list, and
-/// Transfer on it again puts it back. Disband submits T107's <c>disband-unit</c> at once. <c>OK</c>
+/// Transfer on it again puts it back. Disband stages T107's <c>disband-unit</c> after confirmation. <c>OK</c>
 /// submits exactly one <c>army-transfer</c> (<c>docs/tasks/T117.md</c>); Cancel submits nothing.
 /// </para>
 /// <para>
@@ -37,13 +37,14 @@ public partial class ArmyTransferDialog : Control
     /// <summary>B, the game-picked partner — the command's second id.</summary>
     public required string PartnerId { get; init; }
 
-    /// <summary>Submits one composed line through the screen's path and returns the session's lines.</summary>
-    public required Func<string, IReadOnlyList<string>> Submit { get; init; }
+    /// <summary>Applies one confirmed plan through the screen’s ordinary outcome path.</summary>
+    public Func<DialogCommandDraft, string?, DialogEditResult> CommitEdits { get; init; } = (draft, final) => draft.Commit(final);
 
     /// <summary>Raised by Close, OK and Cancel; <see cref="MainGameScreen"/> closes the overlay.</summary>
     public event Action? Closed;
 
     private ArmyTransferModel _model = null!;
+    private DialogCommandDraft _draft = null!;
     private ItemList _selectedList = null!;
     private ItemList _partnerList = null!;
     private Label _figuresLabel = null!;
@@ -82,7 +83,8 @@ public partial class ArmyTransferDialog : Control
             return;
         }
 
-        _model = ArmyTransferModel.ForArmies(selected, partner, Session.Ruleset, Session.State, Session.World);
+        _draft = Session.BeginDialogEdit(DialogEditKind.Army);
+        _model = ArmyTransferModel.ForArmies(selected, partner, Session.Ruleset, _draft.WorkingState, Session.World);
 
         BuildUi();
         Refresh();
@@ -242,40 +244,23 @@ public partial class ArmyTransferDialog : Control
         }
         if (SelectedRow(isSelectedSide) is { } row)
         {
-            DisbandSelected(row);
+            var prompt = new ConfirmPrompt { Question = ChangeUnitsModel.DisbandPromptText(1) };
+            prompt.Confirmed += () => { prompt.QueueFree(); DisbandSelected(row); };
+            prompt.Refused += prompt.QueueFree;
+            AddChild(prompt); prompt.SetAnchorsPreset(LayoutPreset.FullRect);
         }
     }
 
     private void DisbandSelected(TransferRow row)
     {
-        var lines = Submit($"disband-unit {row.ArmyId} {row.SourceIndex}");
-        _replyLabel.Text = lines.Skip(1).FirstOrDefault(text => text.Length > 0) ?? string.Empty;
-
-        // The unit is gone from the live state, so rebuild the model and the display lists from it
-        // (any staging is dropped, exactly as a fresh dialog would open).
-        if (!RebuildFromState())
-        {
-            Closed?.Invoke();
-            return;
-        }
-
+        var result = _draft.Stage($"disband-unit {row.ArmyId} {row.SourceIndex}");
+        var message = CommandOutcomeWording.Apply(CommandOutcomeText.OutcomeBlock(result.Output.Lines));
+        _replyLabel.Text = result.Accepted ? $"Pending: {message}" : message;
+        if (result.Accepted) _model = _model.AfterDisband(_draft.WorkingState, row.ArmyId, row.SourceIndex);
         Refresh();
     }
 
-    /// <summary>Re-reads both armies from the live state; false when either is gone.</summary>
-    private bool RebuildFromState()
-    {
-        var selected = Session.State.ArmyById(ArmyId);
-        var partner = Session.State.ArmyById(PartnerId);
-        if (selected is null || partner is null)
-        {
-            return false;
-        }
 
-        _model = ArmyTransferModel.ForArmies(selected, partner, Session.Ruleset, Session.State, Session.World);
-
-        return true;
-    }
 
     /// <summary>
     /// Requests one whole-unit move using its original identity and current working side.
@@ -388,13 +373,15 @@ public partial class ArmyTransferDialog : Control
             Refresh();
             return;
         }
-        SubmitIfAny(_model.ComposeOk());
-        Closed?.Invoke();
+        var result = CommitEdits(_draft, _model.ComposeOk());
+        _replyLabel.Text = CommandOutcomeWording.Apply(CommandOutcomeText.OutcomeBlock(result.Output.Lines));
+        if (result.Accepted) Closed?.Invoke();
     }
 
     private void Cancel()
     {
         _model.Cancel();
+        _draft.Cancel();
         Closed?.Invoke();
     }
 
@@ -407,17 +394,7 @@ public partial class ArmyTransferDialog : Control
         }
     }
 
-    private void SubmitIfAny(string? line)
-    {
-        if (line is null)
-        {
-            return;
-        }
 
-        var lines = Submit(line);
-        _replyLabel.Text = CommandOutcomeWording.Apply(CommandOutcomeText.OutcomeBlock(lines));
-        Refresh();
-    }
 
     private void Refresh()
     {

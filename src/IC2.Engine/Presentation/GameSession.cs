@@ -1483,6 +1483,7 @@ public sealed partial class GameSession
     public SessionOutput Submit(string rawLine)
     {
         ArgumentNullException.ThrowIfNull(rawLine);
+        LastDialogCommandResult = null;
         LastStrategicTimeline = StrategicTravelBatch.Empty;
         _strategicTimeline.BeginSubmit(_humanSeatNationId ?? State.ActiveNationId);
         SessionOutput output;

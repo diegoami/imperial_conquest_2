@@ -169,7 +169,7 @@ public partial class DiagnosticsCheck : Node
         Check(game.MenuBar.PressItemForCheck("unit_map.army_change_units"), "real change-units menu opens");
         var dialog = (ChangeUnitsDialog)game.ActiveOverlay!;
         before = commands;
-        Observe("dialog-submit", "dialog", () => dialog.RenameUnitForCheck(0, "PrivateNameProbe"), session: session);
+        Observe("dialog-submit", "dialog", () => { dialog.RenameUnitForCheck(0, "PrivateNameProbe"); dialog.OkForCheck(); }, session: session);
         Check(commands == before + 1 && session.State.ArmyById("army-0")!.Units[0].Name == "PrivateNameProbe", "dialog preserves rename behavior and one submit");
         dialog.CancelForCheck();
 

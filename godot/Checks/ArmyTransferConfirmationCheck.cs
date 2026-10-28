@@ -43,7 +43,7 @@ public partial class ArmyTransferConfirmationCheck : Node
         var commands = 0;
         var dialog = new ArmyTransferDialog { Session = session,
             ArmyId = reverse ? b.Id : a.Id, PartnerId = reverse ? a.Id : b.Id,
-            Submit = line => { commands++; return session.Submit(line).Lines; } };
+            CommitEdits = (draft, final) => { var result = draft.Commit(final); if (result.Accepted) commands++; return result; } };
         AddChild(dialog);
         Check(commands == 0 && session.State == state, "opening and preview do not change live state");
         if (rejected)

@@ -13,10 +13,8 @@ namespace IC2.Slice.UI;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The engine exposes each verb as its own command, so each button composes and submits the one command
-/// it names and the list refreshes with the session's answer in <see cref="_replyLabel"/>; OK and Cancel
-/// close the dialog. The units are listed with their regiment quality, the same caption the army panel
-/// and the unit list print.
+/// T233 runs each editing verb on a private working copy. Only outer OK commits the validated
+/// plan; Cancel/Escape discards it. The list includes pending changes and regiment quality.
 /// </para>
 /// <para>
 /// Rules and composed lines live in the Godot-free <see cref="ChangeUnitsModel"/>.
@@ -30,13 +28,14 @@ public partial class ChangeUnitsDialog : Control
     /// <summary>The army whose units the dialog lists.</summary>
     public required string ArmyId { get; init; }
 
-    /// <summary>Submits one composed line through the screen's path and returns the session's lines.</summary>
-    public required Func<string, IReadOnlyList<string>> Submit { get; init; }
+    /// <summary>One confirmed editing plan, through the screen's ordinary outcome path.</summary>
+    public Func<DialogCommandDraft, string?, DialogEditResult> CommitEdits { get; init; } = (draft, final) => draft.Commit(final);
 
     /// <summary>Raised by Close, OK and Cancel; <see cref="MainGameScreen"/> closes the overlay.</summary>
     public event Action? Closed;
 
     private ChangeUnitsModel _model = null!;
+    private DialogCommandDraft _draft = null!;
     private ItemList _unitList = null!;
     private Label _replyLabel = null!;
     private Control _renamePanel = null!;
@@ -65,6 +64,7 @@ public partial class ChangeUnitsDialog : Control
             return;
         }
 
+        _draft = Session.BeginDialogEdit(DialogEditKind.Army);
         _model = ChangeUnitsModel.ForArmy(army);
         BuildUi();
         Refresh();
@@ -89,6 +89,7 @@ public partial class ChangeUnitsDialog : Control
         panel.AddChild(column);
 
         column.AddChild(UiKit.MakeLabel("Change units", AppTheme.Header, UiKit.AccentColor));
+        column.AddChild(UiKit.MakeLabel("Pending changes · OK applies · Cancel discards", AppTheme.Note, UiKit.MutedTextColor));
         _unitList = new ItemList
         {
             CustomMinimumSize = new Vector2(0, 180),
@@ -124,7 +125,7 @@ public partial class ChangeUnitsDialog : Control
         buttons.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(buttons);
         buttons.AddChild(UiKit.MakeButton("Cancel", Cancel));
-        buttons.AddChild(UiKit.MakeButton("OK", Cancel));
+        buttons.AddChild(UiKit.MakeButton("OK", Ok));
     }
 
     private Control BuildRenamePanel()
@@ -216,7 +217,7 @@ public partial class ChangeUnitsDialog : Control
             return;
         }
 
-        var current = Session.State.ArmyById(ArmyId)?.Units[index].Name ?? string.Empty;
+        var current = _draft.WorkingState.ArmyById(ArmyId)?.Units[index].Name ?? string.Empty;
         _renameCurrentLabel.Text = $"Current name: {current}";
         _renameEdit.Text = current;
         _renamePanel.Visible = true;
@@ -303,10 +304,8 @@ public partial class ChangeUnitsDialog : Control
     /// <summary>Submits the orders the model composes for the answered prompt; No composes none.</summary>
     private void SubmitDisbandOrders(IReadOnlyList<int> selectedIndexes, bool confirmed)
     {
-        foreach (var line in _model.DisbandOrders(selectedIndexes, confirmed))
-        {
-            SubmitIfAny(line);
-        }
+        var lines = _model.DisbandOrders(selectedIndexes, confirmed);
+        if (lines.Count > 0) ShowStageResult(_draft.StageMany(lines));
     }
 
     private static void DismissPrompt(ConfirmPrompt prompt) => prompt.QueueFree();
@@ -356,12 +355,23 @@ public partial class ChangeUnitsDialog : Control
         SubmitIfAny(_model.JoinUnitsLine(indexes));
 
     /// <summary>OK, exactly as its button does: close, submitting nothing further.</summary>
-    public void OkForCheck() => Cancel();
+    public void OkForCheck() => Ok();
 
     /// <summary>Cancel, exactly as its button does: close, submitting nothing.</summary>
     public void CancelForCheck() => Cancel();
 
-    private void Cancel() => Closed?.Invoke();
+    private void Cancel()
+    {
+        _draft.Cancel();
+        Closed?.Invoke();
+    }
+
+    private void Ok()
+    {
+        var result = CommitEdits(_draft, null);
+        _replyLabel.Text = CommandOutcomeWording.Apply(CommandOutcomeText.OutcomeBlock(result.Output.Lines));
+        if (result.Accepted) Closed?.Invoke();
+    }
 
     public override void _UnhandledInput(InputEvent @event)
     {
@@ -379,9 +389,14 @@ public partial class ChangeUnitsDialog : Control
             return;
         }
 
-        var lines = Submit(line);
-        _replyLabel.Text = lines.Skip(1).FirstOrDefault(text => text.Length > 0) ?? string.Empty;
-        _model = ChangeUnitsModel.ForArmy(Session.State.ArmyById(ArmyId)!);
+        ShowStageResult(_draft.Stage(line));
+    }
+
+    private void ShowStageResult(DialogEditResult result)
+    {
+        var message = CommandOutcomeWording.Apply(CommandOutcomeText.OutcomeBlock(result.Output.Lines));
+        _replyLabel.Text = result.Accepted ? $"Pending: {message}" : message;
+        _model = ChangeUnitsModel.ForArmy(_draft.WorkingState.ArmyById(ArmyId)!);
         Refresh();
     }
 
