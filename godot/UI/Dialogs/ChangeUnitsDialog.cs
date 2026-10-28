@@ -43,8 +43,12 @@ public partial class ChangeUnitsDialog : Control
     private Label _renameCurrentLabel = null!;
     private LineEdit _renameEdit = null!;
     private Control _splitPanel = null!;
-    private SpinBox _splitThousands = null!;
-    private SpinBox _splitHundreds = null!;
+    private SpinBox _splitAmount = null!;
+    private Label _splitSourceLabel = null!;
+    private Label _splitBalances = null!;
+    private Button _splitButton = null!;
+    private int? _splitUnitIndex;
+    private bool _updatingSplit;
 
     /// <summary>The live model, exposed so a headless check can read the army's units.</summary>
     public ChangeUnitsModel ModelForCheck => _model;
@@ -90,6 +94,8 @@ public partial class ChangeUnitsDialog : Control
             CustomMinimumSize = new Vector2(0, 180),
             SelectMode = ItemList.SelectModeEnum.Multi,
         };
+        _unitList.ItemSelected += _ => RefreshSplitSelection();
+        _unitList.MultiSelected += (_, _) => RefreshSplitSelection();
         column.AddChild(_unitList);
 
         var actions = new HBoxContainer();
@@ -150,35 +156,53 @@ public partial class ChangeUnitsDialog : Control
     {
         var panel = new VBoxContainer();
         panel.AddChild(UiKit.MakeLabel("Split unit", AppTheme.Body, UiKit.TextColor));
+        _splitSourceLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
+        panel.AddChild(_splitSourceLabel);
+        _splitBalances = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
+        _splitBalances.Name = "SplitBalances";
+        panel.AddChild(_splitBalances);
 
         var spinners = new HBoxContainer();
         spinners.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         panel.AddChild(spinners);
-        spinners.AddChild(UiKit.MakeLabel("1000s", AppTheme.Body, UiKit.MutedTextColor));
-        _splitThousands = new SpinBox { MinValue = 0, MaxValue = 1_000, Step = 1_000 };
-        spinners.AddChild(_splitThousands);
-        spinners.AddChild(UiKit.MakeLabel("100s", AppTheme.Body, UiKit.MutedTextColor));
-        _splitHundreds = new SpinBox { MinValue = 0, MaxValue = 900, Step = 100, Value = 100 };
-        spinners.AddChild(_splitHundreds);
+        spinners.AddChild(UiKit.MakeLabel("New unit", AppTheme.Body, UiKit.MutedTextColor));
+        _splitAmount = new SpinBox { Step = 1, CustomMinimumSize = new Vector2(110, 0) };
+        _splitAmount.ValueChanged += _ => UpdateSplitBalances();
+        spinners.AddChild(_splitAmount);
+        foreach (var delta in new[] { -1000, -100, 100, 1000 })
+        {
+            var step = delta;
+            spinners.AddChild(UiKit.MakeButton(delta > 0 ? $"+{delta}" : $"{delta}", () =>
+                _splitAmount.Value = Math.Clamp(_splitAmount.Value + step, _splitAmount.MinValue, _splitAmount.MaxValue)));
+        }
 
         var row = new HBoxContainer();
         panel.AddChild(row);
-        row.AddChild(UiKit.MakeButton("Split", () =>
+        _splitButton = UiKit.MakeButton("Split", SubmitSplit);
+        row.AddChild(_splitButton);
+        row.AddChild(UiKit.MakeButton("Cancel", () =>
         {
-            if (FirstSelected() is { } index)
-            {
-                SubmitIfAny(_model.SplitUnitLine(index, SplitTroops()));
-            }
-
             panel.Visible = false;
+            _splitUnitIndex = null;
         }));
-        row.AddChild(UiKit.MakeButton("Cancel", () => panel.Visible = false));
         panel.Visible = false;
         return panel;
     }
 
-    /// <summary>The two split spinners' sum, in troops — the original's 1000s and 100s boxes.</summary>
-    private int SplitTroops() => (int)_splitThousands.Value + (int)_splitHundreds.Value;
+    private void SubmitSplit()
+    {
+        if (_splitUnitIndex is not { } index || FirstSelected() != index
+            || _unitList.GetSelectedItems().Length != 1) return;
+        var bounds = _model.SplitBounds(index, Session.Ruleset);
+        var amount = (int)_splitAmount.Value;
+        if (!bounds.CanSplit || amount < bounds.Minimum || amount > bounds.Maximum)
+        {
+            _replyLabel.Text = bounds.Refusal ?? "Choose a valid size for both units.";
+            return;
+        }
+        SubmitIfAny(_model.SplitUnitLine(index, amount));
+        _splitPanel.Visible = false;
+    }
 
     private void ShowRenamePanel()
     {
@@ -205,9 +229,41 @@ public partial class ChangeUnitsDialog : Control
         {
             return;
         }
-
+        var index = FirstSelected() ?? -1;
+        var bounds = _model.SplitBounds(index, Session.Ruleset);
+        if (!bounds.CanSplit)
+        {
+            _replyLabel.Text = bounds.Refusal!;
+            _splitPanel.Visible = false;
+            _splitUnitIndex = null;
+            return;
+        }
+        _splitUnitIndex = index;
+        _updatingSplit = true;
+        _splitAmount.MinValue = bounds.Minimum;
+        _splitAmount.MaxValue = bounds.Maximum;
+        _splitAmount.Value = bounds.DefaultTroops;
+        _updatingSplit = false;
+        var unit = _model.Units[index];
+        _splitSourceLabel.Text = $"{unit.Name} · {unit.Troops:N0} troops";
         _splitPanel.Visible = true;
         _renamePanel.Visible = false;
+        UpdateSplitBalances();
+    }
+
+    private void RefreshSplitSelection()
+    {
+        if (_splitPanel is { Visible: true }) ShowSplitPanel();
+    }
+
+    private void UpdateSplitBalances()
+    {
+        if (_updatingSplit || _splitUnitIndex is not { } index) return;
+        var source = _model.Units[index];
+        var amount = (int)_splitAmount.Value;
+        _splitBalances.Text = $"Kept: {source.Troops - amount:N0} · New: {amount:N0} troops";
+        var bounds = _model.SplitBounds(index, Session.Ruleset);
+        _splitButton.Disabled = !bounds.CanSplit || amount < bounds.Minimum || amount > bounds.Maximum;
     }
 
     private void JoinSelected()
@@ -336,6 +392,8 @@ public partial class ChangeUnitsDialog : Control
             return;
         }
 
+        _splitPanel.Visible = false;
+        _splitUnitIndex = null;
         _unitList.Clear();
         foreach (var unit in _model.Units)
         {
