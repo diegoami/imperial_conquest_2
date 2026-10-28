@@ -27,6 +27,21 @@ gh issue list --label triage:needed --state open     # untriaged bugs and follow
 | [task-catalogue.md](task-catalogue.md), [tasks/](tasks/) | Open tasks and their contracts |
 | [evidence-pipeline.md](evidence-pipeline.md), [recording-analysis.md](recording-analysis.md), [investigations/](investigations/README.md) | Evidence processing and write-ups |
 
+## Original-game UI reference (private)
+
+The research-authored **original Imperial Conquest 2 v1.01 user manual** is the reference for original UI workflows. Its October 2026 source is `diegoami/ic2-conquest#133`; the private folder's `README.txt` identifies the edition and contents. Consult the relevant sections **and screenshots before GUI implementation or audit**. Later owner decisions, measured research corrections and deliberate Faithful/Improved policies must be cited specifically when they differ from the manual; a code comment or a narrow exception is not approval for a generally different screen.
+
+The complete reference folder contains `manual.html` (self-contained), `manual.pdf`, `chapters/` with Markdown and used screenshots, `source/`, and `all-screenshots/`. On the desktop it is synced at `G:\My Drive\IC2\manual`. A private working copy belongs under the git-ignored `rendered/manual-reference/`:
+
+```powershell
+rclone copy "gdrive:IC2/manual" "rendered/manual-reference" --create-empty-src-dirs
+rclone check "gdrive:IC2/manual" "rendered/manual-reference" --one-way
+```
+
+Verify the authenticated remote/root in each environment. Copy the whole folder so supporting material remains available; do not use a deleting sync. The [authenticated Drive HTML reference](https://drive.google.com/file/d/1P72gUKdGyE4kn7cM9tyUSHF5zX49uyap/view) is a fallback entry point. Preserve sharing permissions. The manual and original-game screenshots remain private and must never be committed or attached to public issues/releases.
+
+For recruitment, start at `manual.html#recruiting-regular-units` (§5.3), or `chapters/05-cities.md`. The [manual-to-UI audit contract (#1551)](https://github.com/diegoami/imperial_conquest_2/issues/1551) defines the evidence table: manual section and expectation, current file/line and reproduction, preset/context, exact decision exception, priority and follow-up. Record source revisions and distinguish a verified match, unsupported difference, approved exception and unresolved evidence conflict. Do not rewrite the manual to fit the implementation. Tests that restate current code do not establish fidelity, and headless checks alone do not establish visual acceptance. Do the discovery first; reserve owner playtesting for the remaining acceptance.
+
 ## Original game files (never in a repo or release)
 
 Configured by `assets.local.ini` (git-ignored, copied from `assets.example.ini`); absent in the cloud. Tests name fixtures by
