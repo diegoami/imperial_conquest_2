@@ -14,6 +14,7 @@ namespace IC2.Slice.Checks;
 public partial class MapFitCheck : Control
 {
     private const int SettleFrames = 8;
+    private const float CoverageRounding = 0.001f;
 
     private static readonly (int Width, int Height)[] Worlds = { (160, 200), (400, 120) };
 
@@ -105,7 +106,11 @@ public partial class MapFitCheck : Control
         var mapRect = new Rect2(Vector2.Zero, map.Size);
         var terrain = map.TerrainDrawRectForCheck;
         Check(map.Size.X > 0 && map.Size.Y > 0, $"{what}: the main map has a real size ({map.Size})");
-        Check(terrain.Encloses(mapRect), $"{what}: the drawn terrain {terrain} covers the main map {mapRect} (no background)");
+        // Float centering/scaling can leave offsets around 0.000015px. Allow
+        // only a thousandth of a pixel; a visible background gap still fails.
+        Check(terrain.Grow(CoverageRounding).Encloses(mapRect), $"{what}: the drawn terrain {terrain} covers the main map {mapRect} (no background)");
+        Check(!new Rect2(new Vector2(1, 0), map.Size - new Vector2(1, 0)).Grow(CoverageRounding).Encloses(mapRect),
+            "coverage rounding cannot hide a one-pixel background gap");
 
         var area = _mainGame.AreaMapView;
         var geometry = area.GeometryForCheck;

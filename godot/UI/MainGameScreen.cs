@@ -555,7 +555,8 @@ public partial class MainGameScreen : Control
 
         // T127: a loaded game that holds an open tactical battle reopens the battle screen at once.
         _latestNewsPending = activeNation?.Control == SeatControl.Human && !Session.IsGameOver;
-        ShowNextOverlay();
+        if (Session.OpenTacticalBattle is not null) ShowNextOverlay();
+        else RevealLatestNewsIfReady();
         if (StartAtCapital) FocusInitialCapital();
     }
 
@@ -3180,7 +3181,13 @@ public partial class MainGameScreen : Control
             };
             ShowOverlay(notice);
         }
-        if (ActiveOverlay is null && _latestNewsPending
+        RevealLatestNewsIfReady();
+    }
+
+    private void RevealLatestNewsIfReady()
+    {
+        if (ActiveOverlay is null && _latestNewsPending && !StrategicTravel.IsActive
+            && !Session.HasPendingPeaceOffers
             && Session.State.NationById(Session.State.ActiveNationId)?.Control == SeatControl.Human
             && !Session.IsGameOver)
         {
