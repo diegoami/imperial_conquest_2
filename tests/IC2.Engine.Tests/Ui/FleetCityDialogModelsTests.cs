@@ -252,7 +252,7 @@ public sealed class FleetCityDialogModelsTests
     // ---- Done-when 1: Transfer ships refuses the selected fleet's last ship (T112 R2) ----
 
     [Fact]
-    public void Transfer_ships_refuses_moving_the_selected_fleets_last_ship()
+    public void Transfer_ships_allows_either_empty_donor()
     {
         var ruleset = ClassicalRuleset;
         var selected = Fleet(ships: 30);
@@ -265,8 +265,8 @@ public sealed class FleetCityDialogModelsTests
         model.AdjustShips(30);
         Assert.Equal(30, model.ShipsNet);
         Assert.True(model.MovesEverySelectedShip);
-        Assert.Equal(FleetCityDialogModels.TransferAllShipsMessage, model.RefusalMessage);
-        Assert.Empty(model.ComposeOk());
+        Assert.Null(model.RefusalMessage);
+        Assert.Equal($"fleet-transfer {FleetId} {PartnerId} 30 0 0", Assert.Single(model.ComposeOk()));
 
         // One short of every ship is accepted: the partial A -> B line composes as before.
         model.AdjustShips(-1);
@@ -275,47 +275,29 @@ public sealed class FleetCityDialogModelsTests
         Assert.Equal($"fleet-transfer {FleetId} {PartnerId} 29 0 0", Assert.Single(model.ComposeOk()));
     }
 
-    /// <summary>
-    /// T112 R2: the permitted two-way staging that stages <em>all</em> of A's ships toward B plus B's
-    /// money toward A is refused, and the engine confirms the sequence the pre-fix model composed was
-    /// destructive: the A → B line disbands A, so the following B → A line names a fleet that no longer
-    /// exists and the staged money is lost.
-    /// </summary>
     [Fact]
-    public void Transfer_ships_refuses_the_all_ships_two_way_staging_and_the_engine_confirms_the_lost_line()
+    public void Transfer_ships_completes_reverse_resources_before_deleting_donor()
     {
         var state = CoreTestbed.InitialState();
         var selected = Fleet(FleetId, x: 3, y: 3, ships: 30, supply: 300, money: 100, nation: EngineNationId);
         var partner = Fleet(PartnerId, x: 4, y: 3, ships: 20, supply: 200, money: 50, nation: EngineNationId);
         state = state with { Fleets = ValueList.Of(selected, partner) };
-
         var ruleset = NavalTestbed.Ruleset;
-        var model = FleetTransferModel.ForFleets(state.FleetById(FleetId)!, state.FleetById(PartnerId)!, ruleset);
-
-        // The destructive staging: A -> B 30/30 ships and B -> A 50 talents.
+        var model = FleetTransferModel.ForFleets(selected, partner, ruleset);
         model.AdjustShips(30);
         model.AdjustMoney(-50);
-
-        // The model refuses the whole staging and composes nothing — there is no first line to disband A.
-        Assert.True(model.MovesEverySelectedShip);
-        Assert.Equal(FleetCityDialogModels.TransferAllShipsMessage, model.RefusalMessage);
-        Assert.Empty(model.ComposeOk());
-
-        // The engine confirms the pre-fix sequence was destructive: A -> B 30 ships disbands A ...
+        Assert.Null(model.RefusalMessage);
+        Assert.Equal(new[] { $"fleet-transfer {PartnerId} {FleetId} 0 0 50", $"fleet-transfer {FleetId} {PartnerId} 30 0 0" }, model.ComposeOk());
         var dispatcher = NavalTestbed.RealEngineDispatcher();
-        var disband = dispatcher.Dispatch(
-            state,
-            new FleetToFleetTransferCommand(EngineNationId, FleetId, PartnerId, Ships: 30, SupplyTons: 0, Money: 0));
-        Assert.True(disband.IsAccepted, disband.ToString());
-        Assert.Null(disband.State.FleetById(FleetId));
-
-        // ... and the following B -> A 50-talents line is then rejected outright: the staged money is lost.
-        var lost = dispatcher.Dispatch(
-            disband.State,
-            new FleetToFleetTransferCommand(EngineNationId, PartnerId, FleetId, Ships: 0, SupplyTons: 0, Money: 50));
-        Assert.True(lost.IsRejected);
-        Assert.Equal(FleetToFleetTransferRejections.UnknownFleet, lost.Code);
-        Assert.Same(disband.State, lost.State);
+        var reverse = dispatcher.Dispatch(state, new FleetToFleetTransferCommand(EngineNationId, PartnerId, FleetId, 0, 0, 50));
+        Assert.True(reverse.IsAccepted);
+        var merged = dispatcher.Dispatch(reverse.State, new FleetToFleetTransferCommand(EngineNationId, FleetId, PartnerId, 30, 0, 0));
+        Assert.True(merged.IsAccepted);
+        Assert.Null(merged.State.FleetById(FleetId));
+        var survivor = merged.State.FleetById(PartnerId)!;
+        Assert.Equal(50, survivor.Ships);
+        Assert.Equal(500, survivor.SupplyTons);
+        Assert.Equal(150, survivor.Money);
     }
 
     // ---- Done-when 1: Transfer ships refuses a carrying fleet (T112 R1) ----

@@ -51,12 +51,14 @@ public partial class RecruitUnitDialog : Control
 
     /// <summary>Submits one composed line through the screen's path and returns the session's lines.</summary>
     public required Func<string, IReadOnlyList<string>> Submit { get; init; }
+    public Func<DialogCommandDraft, string?, DialogEditResult> CommitEdits { get; init; } = (draft, final) => draft.Commit(final);
 
     /// <summary>Raised by OK, Cancel, and a confirmed Disband's overlay close; <see cref="MainGameScreen"/>
     /// closes the overlay.</summary>
     public event Action? Closed;
 
     private RecruitUnitDialogModel _model = null!;
+    private GameState _displayState = null!;
     private OptionButton _cityDropdown = null!;
     private readonly List<string> _cityIds = new();
     private readonly List<Button> _typeButtons = new();
@@ -65,6 +67,7 @@ public partial class RecruitUnitDialog : Control
     private Label _troopBoundsLabel = null!;
     private Label _costLabel = null!;
     private Label _selectionLabel = null!;
+    private Label _trainingHeading = null!;
     private ItemList _trainingList = null!;
     private Label _trainingLocationLabel = null!;
     private Button _recruitButton = null!;
@@ -75,15 +78,15 @@ public partial class RecruitUnitDialog : Control
     private Label _mobTargetLabel = null!;
 
     /// <summary>
-    /// The slot-table index of the training list's selected row, or <see langword="null"/> when none
-    /// is selected. Kept as a field because <see cref="RefreshTrainingList"/> rebuilds the
+    /// The slot-table indices of the training list's selected rows; empty when none
+    /// are selected. Kept as a field because <see cref="RefreshTrainingList"/> rebuilds the
     /// <c>ItemList</c> (whose <c>Clear</c> wipes the widget's own selection) on every refresh; the
     /// field survives and the rebuilt list re-selects the row it still names.
     /// </summary>
-    private int? _selectedSlotIndex;
+    private readonly HashSet<int> _selectedSlotIndices = new();
 
     /// <summary>The rows <see cref="_trainingList"/> currently shows, in row order — the map from a
-    /// row position to <see cref="_selectedSlotIndex"/>.</summary>
+    /// row position to <see cref="_selectedSlotIndices"/>.</summary>
     private IReadOnlyList<TrainingRegimentView> _trainingRows = Array.Empty<TrainingRegimentView>();
 
     /// <summary>The live model, exposed so a headless check can read its figures.</summary>
@@ -130,6 +133,7 @@ public partial class RecruitUnitDialog : Control
 
     public override void _Ready()
     {
+        _displayState = Session.State;
         _model = RecruitUnitDialogModel.ForActiveNation(Session.State, Session.Ruleset, Session.World);
         if (_model.UnitTypes.Count == 0)
         {
@@ -170,7 +174,7 @@ public partial class RecruitUnitDialog : Control
 
         _cityDropdown.ItemSelected += _ =>
         {
-            _selectedSlotIndex = null;
+            _selectedSlotIndices.Clear();
             Refresh();
         };
         column.AddChild(_cityDropdown);
@@ -228,14 +232,18 @@ public partial class RecruitUnitDialog : Control
         column.AddChild(_costLabel);
 
         column.AddChild(new HSeparator());
-        column.AddChild(UiKit.MakeLabel("In training here", AppTheme.Body, UiKit.MutedTextColor));
+        _trainingHeading = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.MutedTextColor);
+        column.AddChild(_trainingHeading);
 
-        _trainingList = new ItemList { CustomMinimumSize = new Vector2(0, 140),
+        _trainingList = new ItemList { SelectMode = ItemList.SelectModeEnum.Multi, CustomMinimumSize = new Vector2(0, 140),
             TooltipText = "Ready is the minimum readiness. Waiting can improve quality; mobilizing ends training." };
-        _trainingList.ItemSelected += index =>
+        _trainingList.MultiSelected += (index, selected) =>
         {
-            var row = index >= 0 && index < _trainingRows.Count ? _trainingRows[(int)index] : null;
-            _selectedSlotIndex = row?.SlotIndex;
+            if (index >= 0 && index < _trainingRows.Count)
+            {
+                var slot = _trainingRows[(int)index].SlotIndex;
+                if (selected) _selectedSlotIndices.Add(slot); else _selectedSlotIndices.Remove(slot);
+            }
             Refresh();
         };
         column.AddChild(_trainingList);
@@ -281,10 +289,11 @@ public partial class RecruitUnitDialog : Control
         }
 
         // Opening rule (T162): All cities when any regiment trains at a city other than the capital,
-        // so nothing hides behind the dropdown; otherwise the first listed town, as before.
+        // so nothing hides behind the dropdown; otherwise the capital, with alphabetical fallback (T236).
         if (_cityDropdown.ItemCount > 0)
         {
-            _cityDropdown.Select(_model.OpensOnAllCities ? _cityDropdown.ItemCount - 1 : 0);
+            var capitalIndex = _cityIds.IndexOf(_model.Nation.CapitalCityId ?? string.Empty);
+            _cityDropdown.Select(_model.OpensOnAllCities ? _cityDropdown.ItemCount - 1 : Math.Max(0, capitalIndex));
         }
 
         Refresh();
@@ -311,29 +320,39 @@ public partial class RecruitUnitDialog : Control
         }
 
         var troops = (int)_troops.Value;
-        _selectionLabel.Text = $"Recruit: {_model.UnitTypes.First(t => t.Id == _selectedUnitTypeId).Name} · {troops:N0} troops";
+        var recruitTown = _model.CityName(_model.RecruitCityIdFor(SelectedCityIdForCheck));
+        _selectionLabel.Text = $"Recruit at {recruitTown}: {_model.UnitTypes.First(t => t.Id == _selectedUnitTypeId).Name} · {troops:N0} troops";
+        _trainingHeading.Text = RecruitUnitDialogModel.IsAllCities(SelectedCityIdForCheck)
+            ? "Units at all cities" : $"Units at {_model.CityName(SelectedCityIdForCheck)}";
         _troopBoundsLabel.Text = _model.TroopBoundsText(_selectedUnitTypeId);
         _costLabel.Text =
             $"Cost: {_model.InitialCostFor(troops, _selectedUnitTypeId).ToString(System.Globalization.CultureInfo.InvariantCulture)}"
             + $"  ·  quarterly: {_model.QuarterlyCostFor(troops, _selectedUnitTypeId).ToString(System.Globalization.CultureInfo.InvariantCulture)}";
 
         RefreshTrainingList();
-        var selectedRow = _trainingRows.FirstOrDefault(row => row.SlotIndex == _selectedSlotIndex);
+        var selectedRows = _trainingRows.Where(row => _selectedSlotIndices.Contains(row.SlotIndex)).ToArray();
+        var selectedRow = selectedRows.FirstOrDefault();
         _trainingLocationLabel.Visible = selectedRow is not null;
         _trainingLocationLabel.Text = selectedRow is null ? string.Empty : $"Training at {_model.CityName(selectedRow.TargetCityId)}";
         if (selectedRow is { } row)
         {
             var target = _model.MobilizationTargetFor(row.SlotIndex, RecruitUnitDialogModel.NextArmyId(Session.State));
             _mobTargetLabel.Text = target.ReceivingArmyId is null
-                ? $"The regiment will appear in a new army beside the city."
-                : $"The regiment will join army {target.ReceivingArmyId}.";
+                ? $"New army beside {_model.CityName(row.TargetCityId)}."
+                : $"Join army {target.ReceivingArmyId} near {_model.CityName(row.TargetCityId)}.";
         }
         else
         {
             _mobTargetLabel.Text = string.Empty;
         }
+        if (selectedRows.Length > 1)
+        {
+            _trainingLocationLabel.Text = $"{selectedRows.Length} selected · " + string.Join(", ", selectedRows.Select(r => _model.CityName(r.TargetCityId)).Distinct());
+            _mobTargetLabel.Text = "Mobilize near each training town.";
+        }
 
-        _mobilizeButton.Disabled = !RecruitUnitDialogModel.MayMobilize(selectedRow);
+        _mobilizeButton.Disabled = selectedRows.Length == 0 || selectedRows.Any(row => !row.IsReady);
+        _mobilizeButton.TooltipText = selectedRows.Any(row => !row.IsReady) ? "Every selected unit must be ready; no units will be mobilized." : string.Empty;
         _disbandButton.Disabled = !RecruitUnitDialogModel.MayDisband(selectedRow);
 
         // T155 (#515): Recruit is offered only in a town the order accepts — the engine's own
@@ -350,7 +369,7 @@ public partial class RecruitUnitDialog : Control
     {
         foreach (var city in _model.ListedCities)
         {
-            _cityDropdown.AddItem(city.Name);
+            _cityDropdown.AddItem(city.Id == _model.Nation.CapitalCityId ? city.Name.ToUpperInvariant() : city.Name);
             _cityDropdown.SetItemMetadata(_cityDropdown.ItemCount - 1, city.Id);
             _cityIds.Add(city.Id);
         }
@@ -368,23 +387,17 @@ public partial class RecruitUnitDialog : Control
     {
         _trainingList.Clear();
         _trainingRows = _model.TrainingFor(SelectedCityIdForCheck);
-        var reselectRow = -1;
+        _selectedSlotIndices.IntersectWith(_trainingRows.Select(row => row.SlotIndex));
         for (var i = 0; i < _trainingRows.Count; i++)
         {
             _trainingList.AddItem(FormatTrainingRow(_trainingRows[i]));
             _trainingList.SetItemTooltip(i, $"Training at {_model.CityName(_trainingRows[i].TargetCityId)}");
-            if (_trainingRows[i].SlotIndex == _selectedSlotIndex)
+            if (_selectedSlotIndices.Contains(_trainingRows[i].SlotIndex))
             {
-                reselectRow = i;
+                _trainingList.Select(i, false);
             }
         }
 
-        // ItemList.Clear wiped the widget's selection; restore it when the refreshed list still
-        // contains the selected slot, so Mobilize and Disband keep acting on the player's pick.
-        if (reselectRow >= 0)
-        {
-            _trainingList.Select(reselectRow);
-        }
     }
 
     private static string FormatTrainingRow(TrainingRegimentView row)
@@ -394,7 +407,6 @@ public partial class RecruitUnitDialog : Control
         return $"{row.UnitTypeId} - {row.Troops} troops - {status}";
     }
 
-    private int? SelectedSlotIndex() => _selectedSlotIndex;
 
     private void SubmitRecruit()
     {
@@ -427,49 +439,50 @@ public partial class RecruitUnitDialog : Control
 
     private void SubmitMobilize()
     {
-        if (SelectedSlotIndex() is not { } slotIndex)
-        {
-            return;
-        }
-
-        var line = _model.MobilizeLine(slotIndex, RecruitUnitDialogModel.NextArmyId(Session.State));
-        var lines = Submit(line);
-        _replyLabel.Text = lines.Skip(1).FirstOrDefault(text => text.Length > 0) ?? string.Empty;
-        _selectedSlotIndex = null;
-        RebuildModel();
-        Refresh();
+        if (RefreshStaleSelection()) return;
+        if (_selectedSlotIndices.Count == 0) return;
+        RunBatch(Session.BeginDialogEdit(DialogEditKind.Recruitment), _selectedSlotIndices.OrderDescending().ToArray(), mobilize: true);
     }
 
     private void SubmitDisband()
     {
-        if (SelectedSlotIndex() is not { } slotIndex)
+        if (RefreshStaleSelection()) return;
+        var slots = _selectedSlotIndices.OrderDescending().ToArray();
+        if (slots.Length == 0) return;
+        var draft = Session.BeginDialogEdit(DialogEditKind.Recruitment);
+        var prompt = new ConfirmPrompt { Question = RecruitUnitDialogModel.DisbandPromptText(slots.Length) };
+        prompt.Confirmed += () => { prompt.QueueFree(); RunBatch(draft, slots, mobilize: false); };
+        prompt.Refused += () => { draft.Cancel(); prompt.QueueFree(); };
+        AddChild(prompt); prompt.SetAnchorsPreset(LayoutPreset.FullRect);
+    }
+
+    private void RunBatch(DialogCommandDraft draft, int[] slots, bool mobilize)
+    {
+        // Descending original slot identities survive compacting the queue after each command.
+        DialogEditResult? result = null;
+        foreach (var slot in slots)
         {
-            return;
+            var line = mobilize ? _model.MobilizeLine(slot, RecruitUnitDialogModel.NextArmyId(draft.WorkingState))
+                : _model.DisbandSlotLine(slot);
+            result = draft.Stage(line);
+            if (!result.Accepted) break;
         }
+        if (result?.Accepted == true) result = CommitEdits(draft, null);
+        if (result is null) return;
+        _replyLabel.Text = result.Accepted ? $"{slots.Length} unit(s) {(mobilize ? "mobilized" : "disbanded")}."
+            : CommandOutcomeWording.Apply(CommandOutcomeText.OutcomeBlock(result.Output.Lines));
+        if (result.Accepted || Session.State != _displayState) _selectedSlotIndices.Clear();
+        else draft.Cancel();
+        RebuildModel(); Refresh();
+    }
 
-        var slotCount = _model.Slots.Count;
-        if (slotIndex < 0 || slotIndex >= slotCount)
-        {
-            return;
-        }
-
-        // One row can be selected at a time, so the prompt always names one unit. The text is the
-        // original's own [derived: code, TArmyRecruits_DisbandUnits :56133-56148].
-        var prompt = new ConfirmPrompt { Question = RecruitUnitDialogModel.DisbandPromptText(1) };
-        prompt.Confirmed += () =>
-        {
-            prompt.QueueFree();
-            var line = _model.DisbandSlotLine(slotIndex);
-            var lines = Submit(line);
-            _replyLabel.Text = lines.Skip(1).FirstOrDefault(text => text.Length > 0) ?? string.Empty;
-            _selectedSlotIndex = null;
-            RebuildModel();
-            Refresh();
-        };
-        prompt.Refused += prompt.QueueFree;
-
-        AddChild(prompt);
-        prompt.SetAnchorsPreset(LayoutPreset.FullRect);
+    private bool RefreshStaleSelection()
+    {
+        if (Session.State == _displayState) return false;
+        _selectedSlotIndices.Clear();
+        RebuildModel(); Refresh();
+        _replyLabel.Text = "The campaign changed. Select the units again.";
+        return true;
     }
 
     /// <summary>
@@ -481,6 +494,7 @@ public partial class RecruitUnitDialog : Control
     /// </summary>
     private void RebuildModel()
     {
+        _displayState = Session.State;
         _model = RecruitUnitDialogModel.ForActiveNation(Session.State, Session.Ruleset, Session.World);
         RebuildCityDropdown();
     }
@@ -503,7 +517,7 @@ public partial class RecruitUnitDialog : Control
         if (keep < 0 && _cityDropdown.ItemCount > 0)
         {
             keep = 0;
-            _selectedSlotIndex = null;
+            _selectedSlotIndices.Clear();
         }
 
         if (keep >= 0)
@@ -558,7 +572,7 @@ public partial class RecruitUnitDialog : Control
             if (string.Equals(_cityIds[i], cityId, StringComparison.Ordinal))
             {
                 _cityDropdown.Select(i);
-                _selectedSlotIndex = null;
+                _selectedSlotIndices.Clear();
                 Refresh();
                 return;
             }
@@ -574,7 +588,7 @@ public partial class RecruitUnitDialog : Control
         }
 
         _cityDropdown.Select(_cityDropdown.ItemCount - 1);
-        _selectedSlotIndex = null;
+        _selectedSlotIndices.Clear();
         Refresh();
     }
 
@@ -623,8 +637,20 @@ public partial class RecruitUnitDialog : Control
             return;
         }
 
-        _selectedSlotIndex = _trainingRows[rowIndex].SlotIndex;
+        _selectedSlotIndices.Clear();
+        _selectedSlotIndices.Add(_trainingRows[rowIndex].SlotIndex);
         _trainingList.Select(rowIndex);
+        Refresh();
+    }
+
+    public ItemList TrainingListForCheck => _trainingList;
+    public string TrainingHeadingForCheck => _trainingHeading.Text;
+    public string OrderCaptionForCheck => _selectionLabel.Text;
+    public IReadOnlyList<string> CityCaptionsForCheck => Enumerable.Range(0, _cityDropdown.ItemCount).Select(_cityDropdown.GetItemText).ToArray();
+    public void SelectTrainingRowsForCheck(params int[] rows)
+    {
+        _selectedSlotIndices.Clear();
+        foreach (var row in rows.Where(i => i >= 0 && i < _trainingRows.Count)) _selectedSlotIndices.Add(_trainingRows[row].SlotIndex);
         Refresh();
     }
 

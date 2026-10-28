@@ -589,12 +589,12 @@ public sealed class RecruitUnitDialogModel
                 }
             }
 
-            return list;
+            return list.OrderBy(city => city.Name, StringComparer.OrdinalIgnoreCase).ThenBy(city => city.Id, StringComparer.Ordinal).ToArray();
         }
     }
 
-    /// <summary>The default city on first open — the first listed town in the world's order.</summary>
-    public CityState? DefaultCity => ListedCities.Count > 0 ? ListedCities[0] : null;
+    /// <summary>T236: prefer the capital; fall back to the first alphabetical eligible town.</summary>
+    public CityState? DefaultCity => ListedCities.FirstOrDefault(c => c.Id == Nation.CapitalCityId) ?? ListedCities.FirstOrDefault();
 
     /// <summary>
     /// Whether the engine would accept a new recruitment order at <paramref name="cityId"/> —
@@ -734,7 +734,7 @@ public sealed class RecruitUnitDialogModel
     /// <summary>
     /// The rule the dialog opens by: on All cities when the nation has a regiment in training at any
     /// city other than its capital (so nothing is hidden behind the dropdown), otherwise on the
-    /// first listed town, as before (T162).
+    /// capital (T236).
     /// </summary>
     public bool OpensOnAllCities
     {

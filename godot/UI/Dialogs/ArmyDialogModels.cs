@@ -334,11 +334,17 @@ public sealed class ArmyTransferModel
         Math.Max(0, Math.Min(_partner.Money, PurseCap - _selected.Money));
 
     /// <summary>Stages a complete arrow's descending working-row requests, preserving earlier arrows.</summary>
-    public void StageTransfers(IEnumerable<ArmyTransferUnitStep> steps)
+    public void StageTransfers(IEnumerable<ArmyTransferUnitStep> steps, bool atomic = false)
     {
         var known = steps.Where(s => s.Index >= 0
             && s.Index < (s.SelectedOrigin ? _selected.Units.Count : _partner.Units.Count));
-        _unitPlan = ArmyTransferUnitAdmission.Plan(_selected, _partner, _ruleset, _state, _unitSteps.Concat(known));
+        var candidate = ArmyTransferUnitAdmission.Plan(_selected, _partner, _ruleset, _state, _unitSteps.Concat(known));
+        if (atomic && candidate.NotMoved.Count > 0)
+        {
+            LastUnitMessages = new[] { "No selected units moved." }.Concat(ArmyTransferUnitAdmission.RefusalMessages(candidate.NotMoved, _ruleset)).ToArray();
+            return;
+        }
+        _unitPlan = candidate;
         _unitSteps.Clear();
         _unitSteps.AddRange(_unitPlan.AcceptedSteps);
         _unitsToPartner.Clear();
@@ -353,11 +359,15 @@ public sealed class ArmyTransferModel
 
     /// <summary>Keep surviving pending transfers/allocations after a staged origin-roster deletion.</summary>
     public ArmyTransferModel AfterDisband(GameState state, string armyId, int removedIndex)
+        => AfterDisbands(state, new[] { (armyId, removedIndex) });
+
+    public ArmyTransferModel AfterDisbands(GameState state, IEnumerable<(string ArmyId, int Index)> removed)
     {
-        var selectedOrigin = armyId == _selected.Id;
+        var deletions = removed.ToArray();
         var next = ForArmies(state.ArmyById(_selected.Id)!, state.ArmyById(_partner.Id)!, _ruleset, state, _world);
-        next.StageTransfers(_unitSteps.Where(s => s.SelectedOrigin != selectedOrigin || s.Index != removedIndex)
-            .Select(s => s.SelectedOrigin == selectedOrigin && s.Index > removedIndex ? s with { Index = s.Index - 1 } : s));
+        int[] Removed(bool selected) => deletions.Where(d => d.ArmyId == (selected ? _selected.Id : _partner.Id)).Select(d => d.Index).ToArray();
+        next.StageTransfers(_unitSteps.Where(s => !Removed(s.SelectedOrigin).Contains(s.Index))
+            .Select(s => s with { Index = s.Index - Removed(s.SelectedOrigin).Count(i => i < s.Index) }));
         next._supplyNet = _supplyNet;
         next._moneyNet = _moneyNet;
         return next;
@@ -535,6 +545,13 @@ public sealed class SplitArmyModel
 
     /// <summary>Indexes into A's own list (as it stands now) staged for the new army, ascending.</summary>
     public IReadOnlyList<int> StagedUnits => _staged;
+
+    public SplitArmyModel Copy()
+    {
+        var copy = new SplitArmyModel(_army, _ruleset, NewArmyId, _armiesInPlay) { _supply = _supply, _money = _money };
+        copy._staged.AddRange(_staged);
+        return copy;
+    }
 
     /// <summary>Projected field strength of A after the currently staged whole units move.</summary>
     public int ParentPower => ArmyPower.Compute(
@@ -728,17 +745,15 @@ public sealed class SplitArmyModel
     /// drops the unit from the staging if it was staged, and shifts the later staged indexes down.
     /// </summary>
     public void ApplyDisband(int removedIndex, ArmyState refreshed)
+        => ApplyDisbands(new[] { removedIndex }, refreshed);
+
+    public void ApplyDisbands(IEnumerable<int> removedIndices, ArmyState refreshed)
     {
         ArgumentNullException.ThrowIfNull(refreshed);
+        var removed = removedIndices.ToArray();
         _army = refreshed;
-        _staged.Remove(removedIndex);
-        for (var i = 0; i < _staged.Count; i++)
-        {
-            if (_staged[i] > removedIndex)
-            {
-                _staged[i]--;
-            }
-        }
+        var surviving = _staged.Where(i => !removed.Contains(i)).Select(i => i - removed.Count(r => r < i)).ToArray();
+        _staged.Clear(); _staged.AddRange(surviving);
 
         _staged.RemoveAll(i => i >= _army.Units.Count);
         Reclamp();

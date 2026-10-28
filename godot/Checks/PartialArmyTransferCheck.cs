@@ -51,14 +51,21 @@ public partial class PartialArmyTransferCheck : Node
         list.Select(1, false);
         if (mixed) list.Select(2, false);
         dialog.DisbandSelectedForCheck(!back);
-        Check(commands == 0 && session.State == state && dialog.ReplyForCheck == "Select one unit to disband.",
-            "multi-selection does not accidentally disband the first row");
+        var prompt = dialog.GetChildren().OfType<ConfirmPrompt>().Last();
+        Check(prompt.Question.Contains(mixed ? "3" : "2") && commands == 0 && session.State == state,
+            "multi-selection Disband confirms the exact count before changing anything");
+        prompt.AnswerForCheck(false);
+        dialog.TransferSelectedForCheck(!back);
+        var unchanged = back ? dialog.ModelForCheck.SelectedWorkingUnits : dialog.ModelForCheck.PartnerWorkingUnits;
+        Check(unchanged.Count == 19 && dialog.ReplyForCheck.StartsWith("No selected units moved.", StringComparison.Ordinal),
+            "an over-capacity selected batch changes none of the working roster");
+        Check(dialog.ReplyForCheck.Contains("This army already has 20 units.")
+              && (!mixed || dialog.ReplyForCheck.Contains("This fleet can not carry any more troops.")),
+            "the batch reports every relevant refusal instead of silently skipping units");
+        list.DeselectAll(); list.Select(1);
         dialog.TransferSelectedForCheck(!back);
         var working = back ? dialog.ModelForCheck.SelectedWorkingUnits : dialog.ModelForCheck.PartnerWorkingUnits;
-        Check(working.Count == 20 && working[^1].Unit.Name == "D1", "highest fitting selected row appends while refused rows stay");
-        Check(dialog.ReplyForCheck.StartsWith("This army already has 20 units.", StringComparison.Ordinal)
-              && (!mixed || dialog.ReplyForCheck.EndsWith("This fleet can not carry any more troops.", StringComparison.Ordinal)),
-            "one or both applicable refusal classes are visible in measured order");
+        Check(working.Count == 20 && working[^1].Unit.Name == "D1", "a separately selected fitting unit still transfers");
         Check(commands == 0 && session.State == state, "staging changes no live state and submits nothing");
         var expectedSelected = dialog.ModelForCheck.SelectedWorkingUnits.Select(u => u.Unit).ToArray();
         var expectedPartner = dialog.ModelForCheck.PartnerWorkingUnits.Select(u => u.Unit).ToArray();

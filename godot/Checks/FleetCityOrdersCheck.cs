@@ -188,19 +188,11 @@ public partial class FleetCityOrdersCheck : Control
         dialog.AdjustShipsForCheck(selectedBefore.Ships);
         dialog.AdjustMoneyForCheck(-50);
         Check(dialog.ModelForCheck.MovesEverySelectedShip, "the model sees the A -> B line would move every ship");
-        Check(
-            dialog.ModelForCheck.RefusalMessage == FleetCityDialogModels.TransferAllShipsMessage,
-            $"the model shows the all-ships refusal ({dialog.ModelForCheck.RefusalMessage})");
-
-        dialog.OkForCheck();
-
-        Check(_commandsSeen == before, $"the refused all-ships OK composes no command ({_commandsSeen - before})");
-        Check(_mainGame.ActiveOverlay is FleetTransferDialog, "the refused all-ships dialog stays open");
-        var selectedAfter = _session.State.FleetById(SupplyFleetId)!;
-        var partnerAfter = _session.State.FleetById(PartnerFleetId)!;
-        Check(
-            selectedAfter == selectedBefore && partnerAfter == partnerBefore,
-            "the all-ships post-state matches the pre-state exactly (no ships, supply or money moved)");
+        Check(dialog.ModelForCheck.RefusalMessage is null && dialog.ModelForCheck.ComposeOk().Count == 2,
+            "all ships plus reverse resources compose safely, with deletion last");
+        Check(dialog.FiguresForCheck.Contains("merged into the other fleet"), "the preview identifies the merged donor");
+        Check(_commandsSeen == before && _session.State.FleetById(SupplyFleetId) == selectedBefore
+            && _session.State.FleetById(PartnerFleetId) == partnerBefore, "preview preserves both live fleets");
 
         dialog.CancelForCheck();
         Check(_mainGame.ActiveOverlay is null, "Cancel closes the refused all-ships dialog");

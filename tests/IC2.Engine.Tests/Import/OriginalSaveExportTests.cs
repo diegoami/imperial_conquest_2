@@ -18,6 +18,17 @@ namespace IC2.Engine.Tests.Import;
 /// </summary>
 public sealed class OriginalSaveExportTests
 {
+    [Fact]
+    public void Manual_length_leader_name_survives_original_save_encoding()
+    {
+        var state = GameStateFactory.CreateInitial(RealGameData.World, RealGameData.Ruleset, RealGameData.Scenario);
+        var name = "ABCDEFGHIJKLMNOPQRSTUVWXY";
+        state = state with { Nations = ValueList.From(state.Nations.Select((n, i) => i == 0 ? n with { LeaderName = name } : n)) };
+        var document = Export(state);
+        var bytes = OriginalSaveCodec.Encode(document);
+        Assert.Contains(name, System.Text.Encoding.ASCII.GetString(bytes));
+        Assert.Equal(name, document.Nations[0].Leader);
+    }
     /// <summary>A plausible interface profile, chosen here (the export copies it unchanged).</summary>
     internal static OriginalSaveUiProfile Ui { get; } = new(
         Enumerable.Range(0, 16).Select(_ => new OriginalNationUi(1, 0, [0, 0, 400, 300], [400, 0, 300, 200], [400, 200, 300, 260], 40, 80, 0, 10, 5)).ToArray(),

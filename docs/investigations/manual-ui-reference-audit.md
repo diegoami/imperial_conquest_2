@@ -74,6 +74,8 @@ There are 35 ledger entries across discrepancies, existing gaps, scoped exceptio
 
 These are scoped owner/merged-contract exceptions located in the inspected records. Preserve their limits; they do not authorize an entire screen to differ from the manual.
 
+The owner's 2026-10-28 follow-up decisions are recorded in [T236](../tasks/T236.md): atomic selected UI batches (rather than the manual's partial transfer/disband processing), alphabetical city views with capital/All cities opening, and 25-character leader input with blank keeping the generated name. Those decisions supersede the earlier first-listed-city opening and 24-character name policy only within their stated scope.
+
 | Scope | Decision/contract trace | Qualification |
 | --- | --- | --- |
 | T220 Average-or-better automatic mobilisation; manual q4/q5 mobilisation remains | https://github.com/diegoami/imperial_conquest_2/issues/1499; docs/tasks/T220.md | Its former quality-first presentation is superseded by #1550; preserve mechanics |

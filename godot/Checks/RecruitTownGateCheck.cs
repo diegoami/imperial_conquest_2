@@ -185,7 +185,7 @@ public partial class RecruitTownGateCheck : Control
         // 77%) — and Capua (57%, no training) is not listed.
         Check(expected.SequenceEqual(new[] { RomeCityId, LuceriaCityId }),
             $"the shipped FUN_004544E0 list is rome + luceria (got {string.Join(", ", expected)})");
-        Check(dialog.CityIdsForCheck.SequenceEqual(expected),
+        Check(dialog.CityIdsForCheck.SequenceEqual(expected.OrderBy(id => _session.State.CityById(id)!.Name, StringComparer.OrdinalIgnoreCase).ThenBy(id => id, StringComparer.Ordinal)),
             $"the dialog lists exactly FUN_004544E0's towns (got {string.Join(", ", dialog.CityIdsForCheck)})");
     }
 

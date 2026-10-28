@@ -1495,6 +1495,7 @@ public partial class MainGameScreen : Control
         {
             Session = Session,
             Submit = SubmitFromDialog,
+            CommitEdits = CommitFromDialog,
         };
         dialog.Closed += () => CloseOverlay(dialog);
         ShowOverlay(dialog);
@@ -1590,7 +1591,7 @@ public partial class MainGameScreen : Control
             Session = Session,
             FleetId = fleet.Id,
             PartnerId = partner.Id,
-            Submit = SubmitFromDialog,
+            CommitEdits = CommitFromDialog,
         };
         dialog.Closed += () => CloseOverlay(dialog);
         ShowOverlay(dialog);
@@ -1611,7 +1612,7 @@ public partial class MainGameScreen : Control
             Session = Session,
             FleetId = fleet.Id,
             NewFleetId = NextSplitFleetId(fleet.Id),
-            Submit = SubmitFromDialog,
+            CommitEdits = CommitFromDialog,
         };
         dialog.Closed += () => CloseOverlay(dialog);
         ShowOverlay(dialog);

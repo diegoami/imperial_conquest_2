@@ -445,14 +445,11 @@ public sealed class FleetTransferModel
                 ? FleetCityDialogModels.TransferCarryingArmyMessage
                 : !CombinedShipsWithinCap
                     ? FleetCityDialogModels.CombinedShipsTooLargeMessage(_ruleset)
-                    : MovesEverySelectedShip
-                        ? FleetCityDialogModels.TransferAllShipsMessage
-                        : null;
+                    : null;
 
     /// <summary>
     /// Whether the staged A → B ship move takes every one of the selected fleet's ships — the engine's own
-    /// disband trigger (<c>remainingShips == 0</c>). Submitting it would delete the selected fleet before a
-    /// staged B → A line could run, so <see cref="ComposeOk"/> refuses the whole staging (T112 R2).
+    /// disband trigger (<c>remainingShips == 0</c>). ComposeOk puts that deleting leg last.
     /// </summary>
     public bool MovesEverySelectedShip => _shipsNet > 0 && _shipsNet == _selected.Ships;
 
@@ -512,13 +509,11 @@ public sealed class FleetTransferModel
     /// <summary>
     /// <c>OK</c>: one <c>fleet-transfer</c> per direction that has a non-zero amount — one line for an
     /// ordinary staging, two when the player staged resources both ways, and none when refused or nothing
-    /// is staged. A staging whose A → B line would move the selected fleet's last ship composes
-    /// <em>nothing</em>: the engine would disband that fleet first, and the second line would then name a
-    /// fleet that no longer exists (T112 R2).
+    /// is staged. A leg moving every ship runs last, after any reverse resource leg.
     /// </summary>
     public IReadOnlyList<string> ComposeOk()
     {
-        if (_partner is null || EitherCarryingArmy || !CombinedShipsWithinCap || MovesEverySelectedShip
+        if (_partner is null || EitherCarryingArmy || !CombinedShipsWithinCap
             || (_shipsNet == 0 && _supplyNet == 0 && _moneyNet == 0))
         {
             return Array.Empty<string>();
@@ -539,6 +534,9 @@ public sealed class FleetTransferModel
                 + $"{Math.Max(0, -_shipsNet)} {Math.Max(0, -_supplyNet)} {Math.Max(0, -_moneyNet)}");
         }
 
+        // A final ship transfer pools the emptied donor's remaining stores.
+        // Complete any reverse resource leg first, while both fleets still exist.
+        if (MovesEverySelectedShip) lines.Reverse();
         return lines;
     }
 

@@ -34,6 +34,7 @@ public partial class FindCityDialog : Control
 
     /// <summary>Raised with the chosen city's id; <see cref="MainGameScreen"/> centres and highlights it.</summary>
     public event Action<string>? CityChosen;
+    public IReadOnlyList<string> CityIdsForCheck => _cityIds;
 
     /// <summary>Raised by Cancel (or Esc); <see cref="MainGameScreen"/> closes the overlay.</summary>
     public event Action? Closed;
@@ -136,7 +137,7 @@ public partial class FindCityDialog : Control
 
         _cityIds.Clear();
         _cityList.Clear();
-        foreach (var city in Session.State.Cities)
+        foreach (var city in Session.State.Cities.OrderBy(city => city.Name, StringComparer.OrdinalIgnoreCase).ThenBy(city => city.Id, StringComparer.Ordinal))
         {
             if (!string.Equals(city.Owner, nationId, StringComparison.Ordinal))
             {
