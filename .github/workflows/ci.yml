@@ -8,6 +8,8 @@ name: CI
 # only by a reviewer's machine and the user's visual sign-off.
 
 on:
+  # Release claims can be documentation-only; validate the exact frozen commit on demand.
+  workflow_dispatch:
   # push on main and on a maintenance line's release/** branch (T133): a v0.4.x is
   # cut from release/0.4's tip, so a push there must be checked too. A same-repo
   # PR still runs twice on one SHA only when its head branch is itself named
@@ -54,6 +56,11 @@ jobs:
           PUSH_BEFORE: ${{ github.event.before }}
           HEAD_SHA: ${{ github.sha }}
         run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "godot=true" >> "$GITHUB_OUTPUT"
+            echo "explicit exact-candidate validation: run everything"
+            exit 0
+          fi
           if [ "$EVENT_NAME" = "pull_request" ]; then
             base="$PR_BASE"
           else
