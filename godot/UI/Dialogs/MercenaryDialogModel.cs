@@ -1,6 +1,7 @@
 using IC2.Engine.Naval;
 using IC2.Engine.Model;
 using IC2.Engine.Movement;
+using IC2.Engine.Recruitment;
 
 namespace IC2.Slice.UI;
 
@@ -43,7 +44,14 @@ public sealed record MercenaryOfferLine(
     int Troops,
     int Quality,
     string TypeName,
-    int QuarterlyCostTalents);
+    int QuarterlyCostTalents)
+{
+    /// <summary>The pool's name identity, independent of its slot index and unit type.</summary>
+    public int NameLabel { get; init; }
+
+    /// <summary>Manual §4.10: use the same name and unknown-label fallback as the hired unit.</summary>
+    public string Name => MercenaryNameCatalog.ForLabel(NameLabel);
+}
 
 /// <summary>
 /// The Recruit mercenaries dialog and the city's right-click listing, Godot-free — the offers the
@@ -315,7 +323,7 @@ public sealed class MercenaryDialogModel
                 slot.Troops,
                 slot.Quality,
                 typeName,
-                DisplayedQuarterlyCost(slot.Troops, price, slot.Quality)));
+                DisplayedQuarterlyCost(slot.Troops, price, slot.Quality)) { NameLabel = slot.NameLabel });
         }
     }
 
