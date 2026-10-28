@@ -33,6 +33,34 @@ public sealed class DialogCommandDraftTests
         $"join-units {Army} 0 3", $"disband-unit {Army} 1" };
 
     [Fact]
+    public void Commit_preserves_the_construction_prelude_exactly_once_like_a_plain_command()
+    {
+        var data = CoreTestbed.Toy;
+        GameSession NewSession() => new(data.World, data.Ruleset, data.Scenario,
+            seedOverride: 42, humanSeatNationId: "south");
+        var session = NewSession();
+        var control = NewSession();
+        var army = session.State.Armies.First(a => a.Nation == "south");
+        var command = $"rename-unit {army.Id} 0 Renamed";
+        var expected = control.Submit(command);
+        // Positive control: the first AI seat really produced pending construction output.
+        Assert.Contains(expected.Lines.TakeWhile(line => line != $"> {command}"),
+            line => line.Contains("takes its turn:", StringComparison.Ordinal));
+        var before = session.State;
+        var draft = session.BeginDialogEdit(DialogEditKind.Army);
+        Assert.True(draft.Stage(command).Accepted);
+        Assert.Same(before, session.State);
+        var applied = draft.Commit();
+        Assert.True(applied.Accepted);
+        Assert.Equal(expected.Lines, applied.Output.Lines);
+        Assert.Equal(expected.Battles, applied.Output.Battles);
+        Assert.Equal(expected.SeatFalls, applied.Output.SeatFalls);
+        Assert.Equal(control.State, session.State);
+        // It was delivered, not merely retained for duplicate delivery on the next call.
+        Assert.Equal(control.Submit(command).Lines, session.Submit(command).Lines);
+    }
+
+    [Fact]
     public void Preview_and_cancel_preserve_authoritative_state_metadata_rng_and_events()
     {
         var session = Build();

@@ -12,7 +12,7 @@ public partial class ManualBatchSelectionCheck : Node
     {
         try
         {
-            Cities(); Mobilize();
+            Cities(); Mobilize(); MobilizeFirstRefusal();
             foreach (var all in new[] { false, true }) await RecruitmentDisband(all);
             foreach (var commit in new[] { false, true }) { await Split(commit); await Transfer(commit); }
             await MixedDisband(); await StaleRecruitment();
@@ -22,7 +22,7 @@ public partial class ManualBatchSelectionCheck : Node
         CheckExit.Quit(this, _ok ? 0 : 1);
     }
 
-    private static GameSession Build(bool away = false, bool capitalOnly = false, bool otherCapital = false)
+    private static GameSession Build(bool away = false, bool capitalOnly = false, bool otherCapital = false, bool highSlotUnready = false)
     {
         var data = GameDataContext.Repository.Resolve("toy-3city");
         var initial = new GameSession(data.World, data.Ruleset, data.Scenario, seedOverride: 42, humanSeatNationId: "north");
@@ -33,7 +33,7 @@ public partial class ManualBatchSelectionCheck : Node
             new UnitSlot(0, "archers", 100, 6, "V1")) };
         var slots = new[] { new RecruitmentSlot("arx", "light_infantry", 1100, 16),
             new RecruitmentSlot("portus", "heavy_infantry", 1200, 16), new RecruitmentSlot("arx", "archers", 1300, 0),
-            new RecruitmentSlot("portus", "light_cavalry", 1400, 24) };
+            new RecruitmentSlot("portus", "light_cavalry", 1400, highSlotUnready ? 0 : 24) };
         var state = initial.State with { Armies = ValueList.Of(a, b), Fleets = ValueList<FleetState>.Empty,
             Cities = ValueList.From(initial.State.Cities.Select(c => c with { Name = c.Id == "arx" ? "Zulu" : c.Id == "portus" ? "Alpha" : c.Name, FortificationCode = 99 })),
             Nations = ValueList.From(initial.State.Nations.Select(n => n.Id != "north" ? n : n with {
@@ -88,6 +88,21 @@ public partial class ManualBatchSelectionCheck : Node
         var after = s.State; d.MobilizeForCheck();
         Check(ReferenceEquals(after, s.State) && events == 1 && d.TrainingListForCheck.GetSelectedItems().Length == 0,
             "post-action refresh clears selection instead of retargeting shifted slots"); Remove(d);
+    }
+
+    private void MobilizeFirstRefusal()
+    {
+        var s = Build(highSlotUnready: true); var before = s.State; var d = Recruit(s);
+        var events = 0; s.EventsPublished += _ => events++;
+        d.SelectTrainingRowsForCheck(0, 3); d.MobilizeForCheck();
+        Check(ReferenceEquals(before, s.State) && events == 0 && d.ReplyForCheck.Length > 0
+            && d.TrainingListForCheck.GetSelectedItems().Length == 2,
+            "a higher-index unready slot refuses before the ready slot: no accepted remainder may commit");
+        d.SelectTrainingRowsForCheck(0, 1); d.MobilizeForCheck();
+        Check(s.State.NationById("north")!.RecruitmentSlots.Select(x => x.Troops).SequenceEqual(new[] { 1300, 1400 })
+            && s.State.Armies.SelectMany(a => a.Units).Count(u => u.Troops is 1100 or 1200) == 2 && events == 1,
+            "a later valid selection mobilizes exactly its own units, without leaking the failed batch");
+        Remove(d);
     }
 
     private async Task RecruitmentDisband(bool all)

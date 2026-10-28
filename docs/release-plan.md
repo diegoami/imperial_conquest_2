@@ -291,6 +291,8 @@ The [v0.8.4 milestone](https://github.com/diegoami/imperial_conquest_2/milestone
 
 **Not in v0.8.4:** new combat rules or Improved-general optimization; #1501 travel redesign, #1502 fleet rally symbols, #1503 undo, #1509 intermediate-move support; #713 regular-unit near-city restriction; #1549 army merge-purse/zero-money supply follow-ups; #1405 stored AI fleet routes; #1439 raw overflow lineage; new original-Windows export continuations or #1355 natural-entry/installed battle acceptance. T184–T186 retain the owner's deferred acceptance exception. Do not claim all manual discrepancies, natural battle parity, owner-installed visual/audio acceptance or broad original compatibility are complete.
 
+**Re-freeze 1 (2026-10-28):** the [independent review of candidate 542c6cc2](https://github.com/diegoami/imperial_conquest_2/pull/1582#issuecomment-6473589570) marked C1–C9 MET with no release blocker. Its F1/F2 SHOULD FIX findings and F3 NOTE identified tests insensitive to lost pending construction output, click-order diplomacy and an early recruitment refusal. #1583 adds positive controls and regressions that fail under each demonstrated mutation. Production behavior and C1–C9 are unchanged; no claim is weakened. The delta review covers C2/C3/C5 and the tidied draft notes. N1's noncanonical local corpus and N2's editor-import churn remain disclosed environment limits.
+
 ## 3. Tag and GitHub Release conventions
 
 ### 3.1 Naming and placement — **DECIDED**

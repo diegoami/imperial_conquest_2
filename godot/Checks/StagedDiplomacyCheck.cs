@@ -16,6 +16,7 @@ public partial class StagedDiplomacyCheck : Node
         {
             await ChoicesAndCancel();
             CommitMixed();
+            CommitWarsInDisplayedOrder();
             RefusalKeepsPlan();
             Stale();
         }
@@ -24,7 +25,7 @@ public partial class StagedDiplomacyCheck : Node
         CheckExit.Quit(this, _ok ? 0 : 1);
     }
 
-    private static GameSession Build(bool capped = false)
+    private static GameSession Build(bool capped = false, bool noPacts = false)
     {
         var data = GameDataContext.Repository.Resolve("classical-mediterranean");
         var initial = new GameSession(data.World, data.Ruleset, data.Scenario, seedOverride: 42, humanSeatNationId: "rome");
@@ -33,6 +34,10 @@ public partial class StagedDiplomacyCheck : Node
         var relations = state.Relations;
         foreach (var nation in state.Nations.Where(n => n.Id != "rome"))
             relations = relations.WithRelation("rome", nation.Id, codes.Peace);
+        if (noPacts)
+            foreach (var a in state.Nations)
+                foreach (var b in state.Nations.Where(b => b.Id != a.Id))
+                    relations = relations.WithRelation(a.Id, b.Id, codes.Peace);
         if (capped)
             foreach (var nation in state.Nations.Where(n => n.Id != "rome" && n.Id != "media").Take(3))
                 relations = relations.WithRelation("rome", nation.Id, codes.Trade);
@@ -111,11 +116,32 @@ public partial class StagedDiplomacyCheck : Node
         control.Submit("declare-war carthage");
         control.Submit("accept-offer");
         Press(screen.OkButton);
-        Check(session.State == control.State, "mixed final choices commit in displayed nation order, matching real commands and RNG");
+        Check(session.State == control.State, "mixed final choices match real command outcomes and RNG");
         Check(observed.Count == 1 && observed[0] == session.State && notifications == 1 && closes == 1,
             "OK publishes one completed campaign and closes once");
         Press(screen.OkButton);
         Check(observed.Count == 1 && notifications == 1 && closes == 1, "a repeated OK cannot apply or publish twice");
+        Remove(screen);
+    }
+
+    private void CommitWarsInDisplayedOrder()
+    {
+        var session = Build(noPacts: true);
+        var displayedOrder = Build(noPacts: true);
+        var clickOrder = Build(noPacts: true);
+        displayedOrder.Submit("declare-war carthage"); displayedOrder.Submit("declare-war media");
+        clickOrder.Submit("declare-war media"); clickOrder.Submit("declare-war carthage");
+        // Unlike the trade/war pair above, these commands do not commute: reports retain their order.
+        Check(displayedOrder.State.NewsLog != clickOrder.State.NewsLog,
+            "positive control: reversing the two wars changes the observable news history");
+        var before = session.State;
+        var screen = Open(session);
+        Press(RowButton(screen, "Media", "Declare War")); screen.PendingPrompt!.AnswerForCheck(true);
+        Press(RowButton(screen, "Carthage", "Declare War")); screen.PendingPrompt!.AnswerForCheck(true);
+        Check(ReferenceEquals(before, session.State), "reversed clicks still leave the campaign untouched before OK");
+        Press(screen.OkButton);
+        Check(session.State == displayedOrder.State && session.State != clickOrder.State,
+            "OK commits noncommuting choices in displayed nation order, including their report chronology");
         Remove(screen);
     }
 
