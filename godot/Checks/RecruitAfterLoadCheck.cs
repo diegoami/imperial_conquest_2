@@ -110,8 +110,8 @@ public partial class RecruitAfterLoadCheck : Node
         Check(dialog.RecruitEnabledForCheck, "All cities offers Recruit, which trains at the capital (T166)");
         Check(dialog.TrainingRowsForCheck.Any(r => r.SlotIndex == recruitedSlot && r.TargetCityId == town.Id),
             "the recruited unit is listed, with its city");
-        Check(dialog.TrainingRowTextsForCheck.Any(t => t.Contains(resumed.Session.State.CityById(town.Id)!.Name)),
-            "the row text names the city");
+        Check(dialog.TrainingRowTooltipsForCheck.Any(t => t.Contains(resumed.Session.State.CityById(town.Id)!.Name)),
+            "the row tooltip preserves the training city separately from its compact caption");
         dialog.CancelForCheck();
 
         // ---- wait until ready, then mobilize from All cities ----

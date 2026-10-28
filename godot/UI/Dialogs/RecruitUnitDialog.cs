@@ -66,7 +66,7 @@ public partial class RecruitUnitDialog : Control
     private Label _costLabel = null!;
     private Label _selectionLabel = null!;
     private ItemList _trainingList = null!;
-    private Label _trainingQualityLabel = null!;
+    private Label _trainingLocationLabel = null!;
     private Button _recruitButton = null!;
     private Button _mobilizeButton = null!;
     private Button _disbandButton = null!;
@@ -239,9 +239,9 @@ public partial class RecruitUnitDialog : Control
             Refresh();
         };
         column.AddChild(_trainingList);
-        _trainingQualityLabel = UiKit.MakeLabel(string.Empty, AppTheme.Note, UiKit.TextColor);
-        _trainingQualityLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        column.AddChild(_trainingQualityLabel);
+        _trainingLocationLabel = UiKit.MakeLabel(string.Empty, AppTheme.Note, UiKit.TextColor);
+        _trainingLocationLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        column.AddChild(_trainingLocationLabel);
 
         // The action buttons: each reads the same training list selection.
         var actionRow = new HBoxContainer();
@@ -319,8 +319,8 @@ public partial class RecruitUnitDialog : Control
 
         RefreshTrainingList();
         var selectedRow = _trainingRows.FirstOrDefault(row => row.SlotIndex == _selectedSlotIndex);
-        _trainingQualityLabel.Visible = selectedRow is not null;
-        _trainingQualityLabel.Text = selectedRow?.QualityText ?? string.Empty;
+        _trainingLocationLabel.Visible = selectedRow is not null;
+        _trainingLocationLabel.Text = selectedRow is null ? string.Empty : $"Training at {_model.CityName(selectedRow.TargetCityId)}";
         if (selectedRow is { } row)
         {
             var target = _model.MobilizationTargetFor(row.SlotIndex, RecruitUnitDialogModel.NextArmyId(Session.State));
@@ -371,7 +371,8 @@ public partial class RecruitUnitDialog : Control
         var reselectRow = -1;
         for (var i = 0; i < _trainingRows.Count; i++)
         {
-            _trainingList.AddItem(FormatTrainingRow(_trainingRows[i], RecruitUnitDialogModel.IsAllCities(SelectedCityIdForCheck)));
+            _trainingList.AddItem(FormatTrainingRow(_trainingRows[i]));
+            _trainingList.SetItemTooltip(i, $"Training at {_model.CityName(_trainingRows[i].TargetCityId)}");
             if (_trainingRows[i].SlotIndex == _selectedSlotIndex)
             {
                 reselectRow = i;
@@ -386,10 +387,11 @@ public partial class RecruitUnitDialog : Control
         }
     }
 
-    private string FormatTrainingRow(TrainingRegimentView row, bool withCity)
+    private static string FormatTrainingRow(TrainingRegimentView row)
     {
-        var town = withCity ? _model.CityName(row.TargetCityId) + " — " : string.Empty;
-        return $"{row.QualityText} — {town}{row.UnitTypeId} — {row.Troops} troops — {row.ReadinessText}";
+        var status = row.IsReady ? row.QualityText
+            : row.WeeksUntilReady is not null ? $"ready in {row.ReadinessText}" : row.ReadinessText;
+        return $"{row.UnitTypeId} - {row.Troops} troops - {status}";
     }
 
     private int? SelectedSlotIndex() => _selectedSlotIndex;
@@ -582,6 +584,10 @@ public partial class RecruitUnitDialog : Control
     /// <summary>The training list's row texts as shown — exposed for the headless check (T162).</summary>
     public IReadOnlyList<string> TrainingRowTextsForCheck =>
         Enumerable.Range(0, _trainingList.ItemCount).Select(i => _trainingList.GetItemText(i)).ToList();
+
+    public IReadOnlyList<string> TrainingRowTooltipsForCheck =>
+        Enumerable.Range(0, _trainingList.ItemCount).Select(i => _trainingList.GetItemTooltip(i)).ToList();
+    public string TrainingLocationForCheck => _trainingLocationLabel.Text;
 
     /// <summary>Whether the Mobilize button is enabled — exposed for the headless check (T162).</summary>
     public bool MobilizeEnabledForCheck => !_mobilizeButton.Disabled;
