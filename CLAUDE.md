@@ -16,6 +16,7 @@ cross-family review) is frozen on the `local` branch and is **not** in force her
 7. **Upstream defects go through the bug list** (file an issue; do not patch another task's files).
 8. **Research-repo work** (`imperial-conquest-2-research`): commit and push without asking.
 9. **At session start**, check the triage queue (`gh issue list --label triage:needed --state open`; if GraphQL is blocked, the REST form in [docs/cloud-mode.md](docs/cloud-mode.md#github-from-the-cloud-rest-only)) and anything `status:in-progress`, and tell the user where things stand.
+10. **Use the manual before GUI work.** Read the relevant original-game manual sections and screenshots through [the operating-guide entry point](docs/operating-guide.md#original-game-ui-reference-private). Cite the expected behavior and any specifically approved exception; do not infer permission for a different screen from a narrow convenience change. Find and record discrepancies proactively before asking the owner to rediscover them through playtesting.
 
 ## Token economy
 
