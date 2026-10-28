@@ -57,8 +57,8 @@ public partial class DiplomacyFeedbackCheck : Node
         screen.AcceptOfferButton!.EmitSignal(Button.SignalName.Pressed);
         await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
         await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-        Check(commands == 1 && screen.FeedbackLabel.Visible && screen.FeedbackLabel.GetLineCount() > 0,
-            "one click dispatches once and leaves visible feedback inside the dialog");
+        Check(commands == 0 && screen.FeedbackLabel.Visible && screen.FeedbackLabel.GetLineCount() > 0,
+            "a choice leaves visible feedback without dispatching to the campaign");
         Check(screen.FeedbackLabel.Size.Y >= AppTheme.Body
               && GetViewport().GetVisibleRect().Encloses(screen.FeedbackLabel.GetGlobalRect()),
             "feedback has readable height and lies inside the viewport after layout");
@@ -76,12 +76,14 @@ public partial class DiplomacyFeedbackCheck : Node
         }
         else
         {
-            Check(screen.FeedbackLabel.Text.Contains("accepted")
-                  && session.State.Relations.Get(before.ActiveNationId, "media") == session.Ruleset.Diplomacy.StateCodes.Trade,
-                "successful acceptance both changes the real relation and confirms it");
+            Check(screen.FeedbackLabel.Text.Contains("Pending") && session.State == before,
+                "successful choice stays pending without changing the campaign");
             Check(screen.RelationshipSummary.Text.Contains("Trading (1/3): Media") && screen.AcceptOfferButton!.Disabled
-                  && screen.PendingOfferLabel!.Text.Contains("already active"), "accepted offer becomes an active agreement, not another invitation to accept");
+                  && screen.PendingOfferLabel!.Text.Contains("pending"), "accepted offer is clearly pending and cannot be added twice");
             Check(session.State.PendingOffer == before.PendingOffer, "UI leaves original pending-offer persistence semantics intact");
+            screen.OkButton.EmitSignal(Button.SignalName.Pressed);
+            Check(commands == 1 && session.State.Relations.Get(before.ActiveNationId, "media") == session.Ruleset.Diplomacy.StateCodes.Trade,
+                "OK commits the accepted offer once");
         }
         RemoveChild(screen);
         screen.QueueFree();
@@ -124,7 +126,7 @@ public partial class DiplomacyFeedbackCheck : Node
         screen.AcceptOfferButton!.EmitSignal(Button.SignalName.Pressed);
         await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
         await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-        Check(commands == 1 && ReferenceEquals(main.ActiveOverlay, screen), "trade refusal keeps the actual diplomacy modal and submits once");
+        Check(commands == 0 && ReferenceEquals(main.ActiveOverlay, screen), "trade refusal keeps the actual diplomacy modal without a live submission");
         Check(screen.FeedbackLabel.IsVisibleInTree() && screen.FeedbackLabel.Text.Contains("You can only trade with 3 nations")
               && GetViewport().GetVisibleRect().Encloses(screen.FeedbackLabel.GetGlobalRect()),
             "actual main-game refusal is readable inside the active trade dialog");

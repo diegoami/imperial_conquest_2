@@ -153,6 +153,7 @@ public partial class DiagnosticsCheck : Node
         {
             diplomacy.Grid.GetChildren().OfType<Button>().First(b => !b.Disabled && b.Text == "Declare War").EmitSignal(BaseButton.SignalName.Pressed);
             diplomacy.PendingPrompt!.AnswerForCheck(yes: true); // #1280 F4: Declare War confirms first.
+            diplomacy.OkButton.EmitSignal(BaseButton.SignalName.Pressed);
         }, session: session);
         Check(commands == before + 1, "diplomacy action submits exactly once");
         diplomacy.Close();
