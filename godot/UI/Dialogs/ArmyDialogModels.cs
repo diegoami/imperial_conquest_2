@@ -780,6 +780,30 @@ public sealed class ChangeUnitsModel
     /// <summary>Split unit composes <c>split-unit</c>.</summary>
     public string SplitUnitLine(int unitIndex, int troops) => $"split-unit {ArmyId} {unitIndex} {troops}";
 
+    /// <summary>Manual §4.8.2: legal halves from the selected unit and loaded type size.</summary>
+    public UnitSplitBounds SplitBounds(int unitIndex, Ruleset ruleset)
+    {
+        if (unitIndex < 0 || unitIndex >= _army.Units.Count)
+            return UnitSplitBounds.Refused("Select one unit to split.");
+        var source = _army.Units[unitIndex];
+        if (!source.IsRegular)
+            return UnitSplitBounds.Refused("You can only split regular units.");
+        var type = ruleset.UnitTypeById(source.UnitTypeId);
+        if (type is null)
+            return UnitSplitBounds.Refused($"'{source.UnitTypeId}' is not a declared unit type.");
+        // Match the handler's distinct source-size and per-half gates, including
+        // integer rounding when a custom standard size is not divisible by five.
+        var minimumSource = (int)((long)type.StandardBattalionSize * 2 / 5);
+        var minimumPart = type.StandardBattalionSize / 5;
+        if (source.Troops < minimumSource || source.Troops - minimumPart < minimumPart)
+            return UnitSplitBounds.Refused("This unit is too small to split.");
+        if (_army.Units.Count >= ruleset.ArmyManagement.MaxUnitsPerArmy)
+            return UnitSplitBounds.Refused($"This army already has {ruleset.ArmyManagement.MaxUnitsPerArmy} units.");
+        var maximum = source.Troops - minimumPart;
+        return new UnitSplitBounds(minimumPart, maximum,
+            Math.Clamp(source.Troops / 2, minimumPart, maximum), null);
+    }
+
     /// <summary>Join units composes <c>join-units</c> over every selected unit, the first index surviving.</summary>
     public string JoinUnitsLine(params int[] unitIndexes) =>
         $"join-units {ArmyId} {string.Join(' ', unitIndexes)}";
@@ -812,4 +836,11 @@ public sealed class ChangeUnitsModel
                 .ToArray()
             : Array.Empty<string>();
     }
+}
+
+/// <summary>Input bounds only; authoritative split legality remains in the production command.</summary>
+public sealed record UnitSplitBounds(int Minimum, int Maximum, int DefaultTroops, string? Refusal)
+{
+    public bool CanSplit => Refusal is null;
+    public static UnitSplitBounds Refused(string reason) => new(0, 0, 0, reason);
 }
