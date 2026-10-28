@@ -158,8 +158,9 @@ public partial class DiagnosticsCheck : Node
         diplomacy.Close();
 
         var newsBefore = session.State.NewsLog.Slots.Select(e => e.Text).ToArray();
-        Observe("real-news-Refresh", "news", game.NewsLog.Refresh, session: session);
-        Observe("real-news-Toggle", "news", game.NewsLog.Toggle, session: session);
+        if (game.NewsLog.Visible) game.NewsLog.Toggle();
+        Observe("real-news-Refresh", "news", game.NewsLog.Refresh, session: session, expectedSubmits: 0);
+        Observe("real-news-Toggle", "news", game.NewsLog.Toggle, session: session, expectedSubmits: 0);
         var recordsBeforeHide = Records().Length;
         game.NewsLog.Toggle();
         Check(Records().Length == recordsBeforeHide && newsBefore.SequenceEqual(session.State.NewsLog.Slots.Select(e => e.Text)), "news hide submits nothing and read retains news content");
@@ -201,7 +202,7 @@ public partial class DiagnosticsCheck : Node
             && engineLog.Contains("build=" + startup.GetProperty("metadata").GetProperty("build").GetString(), StringComparison.Ordinal), "engine and custom startup run/build identity correlate");
     }
 
-    private void Observe(string name, string source, Action action, bool success = true, GameSession? session = null)
+    private void Observe(string name, string source, Action action, bool success = true, GameSession? session = null, int expectedSubmits = 1)
     {
         var before = Records().Where(r => r.GetProperty("source").GetString() == source && r.GetProperty("outcome").GetString() == "BEFORE").Select(r => r.GetProperty("operation").GetInt64()).ToHashSet();
         int observed = 0;
@@ -219,7 +220,7 @@ public partial class DiagnosticsCheck : Node
         if (session is not null) session.EventsPublished += countSubmit;
         try { action(); }
         finally { AppDiagnostics.BeforeObserver = null; if (session is not null) session.EventsPublished -= countSubmit; }
-        if (session is not null) Check(submitted == 1, name + $": exactly one actual Session.Submit (count {submitted})");
+        if (session is not null) Check(submitted == expectedSubmits, name + $": actual Session.Submit count {submitted}, expected {expectedSubmits}");
         var added = Records().Where(r => r.GetProperty("source").GetString() == source && r.GetProperty("outcome").GetString() == "BEFORE" && !before.Contains(r.GetProperty("operation").GetInt64())).ToArray();
         Check(added.Length == 1 && observed == 1, name + ": exactly one real entry BEFORE");
         if (added.Length != 1) return;

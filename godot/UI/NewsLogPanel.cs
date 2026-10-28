@@ -1,5 +1,5 @@
-using IC2.Slice.Diagnostics;
 using Godot;
+using IC2.Slice.Diagnostics;
 using IC2.Engine.Presentation;
 
 namespace IC2.Slice.UI;
@@ -8,7 +8,8 @@ namespace IC2.Slice.UI;
 /// The main game screen's news log — <c>docs/game-design.md</c> §"User interface" item 2: "persistent
 /// and dismissible, not modal, browsed often but never blocking." Toggled by the bottom toolbar's own
 /// "News" button (<see cref="MainGameScreen"/>); when hidden it neither draws nor accepts input, so it
-/// never sits on top of the map the way the original's own news popups did.
+/// never sits on top of the map the way the original's own news popups did. T235 reveals its latest
+/// reports when each human strategic view is ready, after the existing handoff/result sequence.
 /// </summary>
 public partial class NewsLogPanel : Control
 {
@@ -52,15 +53,27 @@ public partial class NewsLogPanel : Control
         Visible = !Visible;
         if (Visible)
         {
-            Refresh();
+            ShowLatest();
         }
     }
 
-    /// <summary>Re-reads the news log through the command layer (<c>Submit("news")</c>) — never a direct
-    /// read of <c>GameState.NewsLog</c> that bypasses <see cref="GameSession"/>.</summary>
+    /// <summary>Owner policy T235: reveal the existing panel at the latest reports.</summary>
+    public void ShowLatest()
+    {
+        Visible = true;
+        Refresh();
+        Callable.From(() =>
+        {
+            if (IsInsideTree() && GodotObject.IsInstanceValid(_text))
+                _text.ScrollToLine(Math.Max(0, _text.GetLineCount() - 1));
+        }).CallDeferred();
+    }
+
+    /// <summary>Use the command's read-only formatter without consuming pending session outputs.</summary>
     public void Refresh()
     {
-        var output = AppDiagnostics.Submit(Session, "news", "news");
-        _text.Text = string.Join('\n', output.Lines);
+        var lines = AppDiagnostics.Operation(DiagnosticEvent.Command, "news", Session.ReadNewsLines,
+            command: "news", turn: Session.State.Calendar.TurnIndex, nation: Session.State.ActiveNationId);
+        _text.Text = string.Join('\n', lines);
     }
 }
