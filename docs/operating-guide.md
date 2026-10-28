@@ -42,6 +42,8 @@ Verify the authenticated remote/root in each environment. Copy the whole folder 
 
 For recruitment, start at `manual.html#recruiting-regular-units` (§5.3), or `chapters/05-cities.md`. The [manual-to-UI audit contract (#1551)](https://github.com/diegoami/imperial_conquest_2/issues/1551) defines the evidence table: manual section and expectation, current file/line and reproduction, preset/context, exact decision exception, priority and follow-up. Record source revisions and distinguish a verified match, unsupported difference, approved exception and unresolved evidence conflict. Do not rewrite the manual to fit the implementation. Tests that restate current code do not establish fidelity, and headless checks alone do not establish visual acceptance. Do the discovery first; reserve owner playtesting for the remaining acceptance.
 
+The dated [manual-to-UI audit](investigations/manual-ui-reference-audit.md) maps the v0.8.3 baseline to concrete follow-ups, known gaps and specifically scoped exceptions. Use its evidence and limitations alongside the manual; implementation status remains on the linked GitHub issues.
+
 ## Original game files (never in a repo or release)
 
 Configured by `assets.local.ini` (git-ignored, copied from `assets.example.ini`); absent in the cloud. Tests name fixtures by
