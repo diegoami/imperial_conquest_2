@@ -48,6 +48,8 @@ public partial class StrategyDialogsCheck : Control
     private const string RomeCityId = "rome";
     private const string T109RomeFleetId = "t109-rom-fleet";
     private const string T109BuildCityId = "caere";
+
+    private string? _expectedBuildCityId;
     private const int T109RecruitTroops = 2_000;
     private const int T109RecruitShips = 30;
     private const string T109BuildFleetId = "t109-new-fleet";
@@ -121,6 +123,11 @@ public partial class StrategyDialogsCheck : Control
         {
             (InitialSettleFrames, CheckFixture),
 
+            // T241 (#918): at the start Rome's Build fleet names Caere, the free coastal city nearest Rome.
+            (BetweenStepsFrames, OpenBuildFleetFromMenu),
+            (BetweenStepsFrames, AssertBuildFleetPortIsCaere),
+            (BetweenStepsFrames, CancelBuildFleet),
+
             // Taxation
             (BetweenStepsFrames, OpenTaxationFromMenu),
             (BetweenStepsFrames, AssertTaxationOpened),
@@ -166,11 +173,13 @@ public partial class StrategyDialogsCheck : Control
             // Build fleet
             (BetweenStepsFrames, OpenBuildFleetFromMenu),
             (BetweenStepsFrames, AssertBuildFleetOpened),
+            (BetweenStepsFrames, AssertBuildFleetPortIsNearestFree),
             (BetweenStepsFrames, AssertShipTensSpinner),
             (BetweenStepsFrames, SubmitBuildFleet),
             (BetweenStepsFrames, AssertBuildFleetAddedUnderConstruction),
             (BetweenStepsFrames, OpenBuildFleetFromToolbar),
             (BetweenStepsFrames, AssertBuildFleetOpened),
+            (BetweenStepsFrames, AssertBuildFleetPortIsNearestFree),
             (BetweenStepsFrames, CancelBuildFleet),
 
             // ContextPanel has no Recruit / Mobilize button
@@ -636,6 +645,27 @@ public partial class StrategyDialogsCheck : Control
         Check(_mainGame.ActiveOverlay is BuildFleetDialog, "Build fleet opens its dialog");
     }
 
+    // T241 (#918): the port is the free coastal city nearest the capital: Caere for Rome at the start.
+    // By the later Build fleet steps the earlier steps' turns have moved the map on (Gaul holds Caere),
+    // so those steps check the label against the rule on the live state and the order against the label.
+    private void AssertBuildFleetPortIsCaere() => AssertBuildFleetPort("Caere");
+
+    private void AssertBuildFleetPortIsNearestFree()
+    {
+        var nation = _session.State.NationById(RomeId)!;
+        var city = CoastalCity.FleetBuildCity(_session.State, _session.World, nation);
+        Check(city is not null, "Rome has a free coastal city for Build fleet");
+        _expectedBuildCityId = city?.Id;
+        AssertBuildFleetPort(city?.Name ?? "?");
+    }
+
+    private void AssertBuildFleetPort(string city)
+    {
+        var dialog = (BuildFleetDialog)_mainGame.ActiveOverlay!;
+        Check(dialog.FleetPortForCheck == $"Fleet port: {city}",
+            $"the Build fleet label names {city} (got '{dialog.FleetPortForCheck}')");
+    }
+
     private void AssertShipTensSpinner()
     {
         var dialog = (BuildFleetDialog)_mainGame.ActiveOverlay!;
@@ -684,6 +714,7 @@ public partial class StrategyDialogsCheck : Control
         Check(fleet is not null, "the new fleet is in the state");
         Check(fleet!.Ships == T109RecruitShips, $"the new fleet has {T109RecruitShips} ships (got {fleet.Ships})");
         Check(fleet.IsUnderConstruction, "the new fleet is under construction");
+        Check(fleet.BuildCityId == _expectedBuildCityId, $"the new fleet is built at the labelled {_expectedBuildCityId} (got {fleet.BuildCityId})");
     }
 
     private void OpenBuildFleetFromToolbar()

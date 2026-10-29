@@ -254,15 +254,12 @@ public sealed class TaxationDialogModel
 /// first that fires, or the order form when none does.
 /// </para>
 /// <para>
-/// <strong>The fleet port is the engine's own pick.</strong> The original's "The fleet will be built
-/// at &lt;C&gt;." line names a single port; in the 13 nations' starts the report lists one port
-/// each (<c>2026-10-02-start-as-each-nation.md</c>), and whether a player could choose another
-/// remains <strong>[open]</strong> (task Hazards, the research question the review may ask).
-/// <see cref="FreeCoastalCityId"/> therefore offers the free coastal cities
-/// <see cref="IC2.Engine.Naval.Commands.OrderFleetCommandHandler"/> itself accepts, and the OK
-/// button submits to the first one — the engine's own coastal test, never the dialog's. The
-/// shipped ruleset fixes the candidate count to one for nearly every nation, so the dialog and
-/// the engine agree.
+/// <strong>The fleet port is the game's choice.</strong> The original builds at the nation's free
+/// coastal city nearest its capital (manual §6 "Building a fleet";
+/// <c>2026-10-09-fleet-build-city-nearest-capital.md</c>). <see cref="BuildCity"/> is that city, from
+/// <see cref="IC2.Engine.Naval.CoastalCity.FleetBuildCity"/>, the rule the AI uses too, and the OK
+/// button submits to it (T241, #918). The engine's <c>order-fleet</c> still accepts any free coastal
+/// city it is given.
 /// </para>
 /// </remarks>
 public sealed class BuildFleetDialogModel
@@ -367,10 +364,18 @@ public sealed class BuildFleetDialogModel
     /// The coastal cities this nation owns that are not already building a fleet, from
     /// <see cref="CoastalCity.FreeForFleetOrder"/>: the same test
     /// <see cref="IC2.Engine.Naval.Commands.OrderFleetCommandHandler"/> refuses on (T237, #920 item 1).
-    /// The dialog's OK composes the line against the first one.
+    /// The refusals read it; the build city is <see cref="BuildCity"/>.
     /// </summary>
     public IReadOnlyList<CityState> FreeCoastalCities =>
         CoastalCity.FreeForFleetOrder(_state, _world, Nation.Id);
+
+    /// <summary>
+    /// Where the order is built, from <see cref="CoastalCity.FleetBuildCity"/>: the free coastal city
+    /// nearest the capital, the game's choice, not the player's (manual §6 "Building a fleet": "you do
+    /// not choose the port"; T241, #918). The "Fleet port" label names it and OK composes the line
+    /// against it. <see langword="null"/> when no coastal city is free.
+    /// </summary>
+    public CityState? BuildCity => CoastalCity.FleetBuildCity(_state, _world, Nation);
 
     /// <summary>
     /// The fleets this nation is already building — the dialog's "under construction" rows, each
