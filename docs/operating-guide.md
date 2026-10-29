@@ -61,5 +61,6 @@ templates ([packaging.md](packaging.md)); the installer needs Inno Setup 6.
 
 - A question is not a request to edit files. Answer it, propose a fix, wait.
 - Upstream defects go through the bug list; design decisions are the user's.
+- A rule question this repository needs answered from the original (a decompile, a live run) is delegated as an issue in [`diegoami/imperial-conquest-2-research`](https://github.com/diegoami/imperial-conquest-2-research/issues), linked from the issue it blocks; it is not investigated here.
 - No status snapshots in documents. In reverse-engineering work, separate observation from inference and cite the exact file, hash or address.
 - Keep the user informed in short updates; link every issue, PR and file you name.
