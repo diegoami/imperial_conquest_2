@@ -21,6 +21,10 @@ public partial class ArmyTransferConfirmationCheck : Node
             foreach (var cancel in new[] { false, true })
                 Run(reverse, cancel, moneyArrow: true);
             Run(reverse: false, cancel: false, moneyArrow: true, rejected: true);
+            // #1549 N2: a receiver above 32,767 (reachable through an emptied-army merge, N1) is where the
+            // T231 no-reversal floor differs from the original signed arrow; both directions.
+            foreach (var overFieldSelected in new[] { false, true })
+                RunTowardOverFieldReceiver(overFieldSelected);
         }
         catch (Exception ex) { GD.PrintErr($"ArmyTransferConfirmationCheck: {ex}"); _ok = false; }
         GD.Print($"ArmyTransferConfirmationCheck: exiting with code {(_ok ? 0 : 1)}.");
@@ -51,13 +55,16 @@ public partial class ArmyTransferConfirmationCheck : Node
             var closed = false;
             dialog.Closed += () => closed = true;
             dialog.PressMoneyForCheck(100);
-            Check(!dialog.ConfirmationEnabledForCheck && dialog.PreviewNoticeForCheck.Length > 0,
-                "a rejected preview shows its reason and disables OK");
+            var reason = dialog.ModelForCheck.PreviewRejection;
+            Check(reason is { Length: > 0 } && !dialog.ConfirmationEnabledForCheck
+                  && dialog.PreviewNoticeForCheck == reason,
+                "a rejected preview shows its own reason (not the pending caption) and disables OK");
             Check(dialog.ModelForCheck.SelectedMoneyAfter == 900 && dialog.ModelForCheck.PartnerMoneyAfter == 1200,
                 "a rejected preview shows unchanged live purses");
             dialog.OkForCheck();
             Check(!closed && commands == 0 && session.State == state,
                 "invalid confirmation stays open without submitting or changing state");
+            Check(dialog.ReplyForCheck == reason, "a refused OK repeats the preview's reason");
             RemoveChild(dialog); dialog.QueueFree();
             return;
         }
@@ -88,6 +95,38 @@ public partial class ArmyTransferConfirmationCheck : Node
                   && session.State.ArmyById(b.Id)!.Money == (moneyArrow ? 1400 : 100),
                 "committed purse changes match the working previews");
         }
+        RemoveChild(dialog);
+        dialog.QueueFree();
+    }
+
+    private void RunTowardOverFieldReceiver(bool overFieldSelected)
+    {
+        var data = GameDataContext.Repository.Resolve("toy-3city");
+        var original = new GameSession(data.World, data.Ruleset, data.Scenario);
+        var template = original.State.Armies.First(a => a.Nation == original.State.ActiveNationId);
+        var units = ValueList.Of(new UnitSlot(0, "light_infantry", 10000, 6, "Regulars"));
+        var over = template with { Id = "over-field", X = 3, Y = 2, SupplyTons = 0, Money = 60000,
+            AboardFleetId = null, Units = units };
+        var other = over with { Id = "under-field", X = 4, Money = 100 };
+        var state = original.State with { Armies = ValueList.Of(over, other), Fleets = ValueList<FleetState>.Empty };
+        var save = new SaveGame(state.SchemaVersion, "over-field-check", "over-field-check",
+            state.ScenarioId, state.WorldId, state.RulesetId, state);
+        var session = new GameSession(data.World, data.Ruleset, data.Scenario, save);
+        var commands = 0;
+        var dialog = new ArmyTransferDialog { Session = session,
+            ArmyId = overFieldSelected ? over.Id : other.Id, PartnerId = overFieldSelected ? other.Id : over.Id,
+            CommitEdits = (draft, final) => { var result = draft.Commit(final); if (result.Accepted) commands++; return result; } };
+        AddChild(dialog);
+        var toward = overFieldSelected ? -100 : 100;
+        dialog.PressMoneyForCheck(toward);
+        dialog.PressMoneyForCheck(toward);
+        Check(dialog.ModelForCheck.MoneyNet == 0 && dialog.ModelForCheck.PreviewRejection is null
+              && dialog.ConfirmationEnabledForCheck,
+            $"an arrow toward a purse above 32,767 moves nothing and never reverses ({(overFieldSelected ? "selected" : "partner")} over the field)");
+        dialog.OkForCheck();
+        Check(commands == 1 && session.State.ArmyById(over.Id)!.Money == 60000
+              && session.State.ArmyById(other.Id)!.Money == 100,
+            "OK after the no-movement arrow commits both purses unchanged");
         RemoveChild(dialog);
         dialog.QueueFree();
     }
