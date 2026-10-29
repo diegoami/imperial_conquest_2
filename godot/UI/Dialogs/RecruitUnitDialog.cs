@@ -292,8 +292,10 @@ public partial class RecruitUnitDialog : Control
         // so nothing hides behind the dropdown; otherwise the capital, with alphabetical fallback (T236).
         if (_cityDropdown.ItemCount > 0)
         {
-            var capitalIndex = _cityIds.IndexOf(_model.Nation.CapitalCityId ?? string.Empty);
-            _cityDropdown.Select(_model.OpensOnAllCities ? _cityDropdown.ItemCount - 1 : Math.Max(0, capitalIndex));
+            var capitalIndex = DropdownIndexOf(_model.Nation.CapitalCityId ?? string.Empty);
+            _cityDropdown.Select(_model.OpensOnAllCities
+                ? DropdownIndexOf(RecruitUnitDialogModel.AllCitiesId)
+                : capitalIndex >= 0 ? capitalIndex : FirstTownIndex);
         }
 
         Refresh();
@@ -363,25 +365,43 @@ public partial class RecruitUnitDialog : Control
         _recruitButton.TooltipText = recruitRefusal ?? string.Empty;
     }
 
-    /// <summary>Fills the dropdown: the listed towns, then All cities (T162). <see cref="_cityIds"/>
-    /// holds the towns only.</summary>
+    /// <summary>Fills the dropdown: All cities when it is listed (T162), then the listed towns.
+    /// <see cref="_cityIds"/> holds the towns only.</summary>
+    /// <remarks>#1594: the original inserts All cities at the top of the town list
+    /// (research <c>2026-10-26-recruitment-default-gui81.md</c>, R04 of
+    /// <c>2026-10-30-manual-clarifications91.md</c>; a Wine candidate), above T236's alphabetical towns.</remarks>
     private void FillCityDropdown()
     {
+        if (_model.ShowsAllCities)
+        {
+            _cityDropdown.AddItem(RecruitUnitDialogModel.AllCitiesLabel);
+            _cityDropdown.SetItemMetadata(_cityDropdown.ItemCount - 1, RecruitUnitDialogModel.AllCitiesId);
+        }
+
         foreach (var city in _model.ListedCities)
         {
             _cityDropdown.AddItem(city.Id == _model.Nation.CapitalCityId ? city.Name.ToUpperInvariant() : city.Name);
             _cityDropdown.SetItemMetadata(_cityDropdown.ItemCount - 1, city.Id);
             _cityIds.Add(city.Id);
         }
+    }
 
-        if (!_model.ShowsAllCities)
+    /// <summary>The dropdown index whose metadata is <paramref name="id"/>, or -1.</summary>
+    private int DropdownIndexOf(string id)
+    {
+        for (var i = 0; i < _cityDropdown.ItemCount; i++)
         {
-            return;
+            if (string.Equals(_cityDropdown.GetItemMetadata(i).AsString(), id, StringComparison.Ordinal))
+            {
+                return i;
+            }
         }
 
-        _cityDropdown.AddItem(RecruitUnitDialogModel.AllCitiesLabel);
-        _cityDropdown.SetItemMetadata(_cityDropdown.ItemCount - 1, RecruitUnitDialogModel.AllCitiesId);
+        return -1;
     }
+
+    /// <summary>The first town's dropdown index: after All cities when it is listed.</summary>
+    private int FirstTownIndex => _model.ShowsAllCities ? 1 : 0;
 
     private void RefreshTrainingList()
     {
@@ -511,12 +531,10 @@ public partial class RecruitUnitDialog : Control
         _cityIds.Clear();
         FillCityDropdown();
 
-        var keep = RecruitUnitDialogModel.IsAllCities(selectedId)
-            ? (_model.ShowsAllCities ? _cityDropdown.ItemCount - 1 : -1)
-            : _cityIds.FindIndex(id => string.Equals(id, selectedId, StringComparison.Ordinal));
+        var keep = DropdownIndexOf(selectedId);
         if (keep < 0 && _cityDropdown.ItemCount > 0)
         {
-            keep = 0;
+            keep = Math.Min(FirstTownIndex, _cityDropdown.ItemCount - 1);
             _selectedSlotIndices.Clear();
         }
 
@@ -567,15 +585,11 @@ public partial class RecruitUnitDialog : Control
     /// <summary>Selects a city by id, exactly as the dropdown does — exposed for the headless check.</summary>
     public void SelectCityForCheck(string cityId)
     {
-        for (var i = 0; i < _cityIds.Count; i++)
+        if (_cityIds.Contains(cityId) && DropdownIndexOf(cityId) is var index and >= 0)
         {
-            if (string.Equals(_cityIds[i], cityId, StringComparison.Ordinal))
-            {
-                _cityDropdown.Select(i);
-                _selectedSlotIndices.Clear();
-                Refresh();
-                return;
-            }
+            _cityDropdown.Select(index);
+            _selectedSlotIndices.Clear();
+            Refresh();
         }
     }
 
@@ -587,7 +601,7 @@ public partial class RecruitUnitDialog : Control
             return;
         }
 
-        _cityDropdown.Select(_cityDropdown.ItemCount - 1);
+        _cityDropdown.Select(DropdownIndexOf(RecruitUnitDialogModel.AllCitiesId));
         _selectedSlotIndices.Clear();
         Refresh();
     }

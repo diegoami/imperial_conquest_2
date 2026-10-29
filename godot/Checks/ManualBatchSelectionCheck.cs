@@ -53,8 +53,9 @@ public partial class ManualBatchSelectionCheck : Node
     private void Cities()
     {
         var session = Build(); var before = session.State; var dialog = Recruit(session);
-        Check(dialog.CityIdsForCheck.SequenceEqual(new[] { "portus", "arx" }) && dialog.CityCaptionsForCheck[1] == "ZULU",
-            "custom/import snapshot city names sort alphabetically and the capital is marked");
+        Check(dialog.CityIdsForCheck.SequenceEqual(new[] { "portus", "arx" })
+            && dialog.CityCaptionsForCheck.SequenceEqual(new[] { RecruitUnitDialogModel.AllCitiesLabel, "Alpha", "ZULU" }),
+            "All cities sits at the top (#1594), then the towns sort alphabetically with the capital marked");
         Check(dialog.SelectedCityIdForCheck == RecruitUnitDialogModel.AllCitiesId
             && dialog.TrainingHeadingForCheck == "Units at all cities" && dialog.OrderCaptionForCheck.Contains("Recruit at Zulu:"),
             "All cities shows the whole queue and names its actual capital order destination");
@@ -68,7 +69,7 @@ public partial class ManualBatchSelectionCheck : Node
         dialog = Recruit(Build(capitalOnly: true));
         Check(dialog.SelectedCityIdForCheck == "arx", "alphabetical sorting does not hide the capital queue on opening"); Remove(dialog);
         dialog = Recruit(Build(otherCapital: true));
-        Check(dialog.CityCaptionsForCheck[0] == "ALPHA" && dialog.OrderCaptionForCheck.Contains("Recruit at Alpha:"), "capital marker and All cities destination follow the current campaign capital"); Remove(dialog);
+        Check(dialog.CityCaptionsForCheck[1] == "ALPHA" && dialog.OrderCaptionForCheck.Contains("Recruit at Alpha:"), "capital marker and All cities destination follow the current campaign capital"); Remove(dialog);
     }
 
     private void Mobilize()
