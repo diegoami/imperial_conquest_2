@@ -118,9 +118,14 @@ In all-overflow, AB90 tombstones source0 and unlinks its carrier; ABE0 is not
 called and raw count remains2. Receiver1 holds33money/30supply, while dead
 source0 retains67/60. The remake's100/90 on its live replacement preserves
 resources by policy. Neither original data corruption nor resource loss is an
-automatic fidelity correction. Raw tombstones, imported live models and actual
-original compaction are different; [#1439](https://github.com/diegoami/imperial_conquest_2/issues/1439)
-retains the ordering/lineage boundary.
+automatic fidelity correction. With five live armies, the embark appends the
+receiver at the end of the table and tombstones the source; the next dead-record
+sweep (`FUN_0044adb0`, before each AI seat) swap-removes the tombstone, so the
+receiver lands at the source's index, the same table as the remake's in-place
+replacement. Only a human turn that follows the embarking seat directly sees the
+unswept table (`[derived: code]`; emulation, no game run:
+[`2026-10-30-all-ashore-army-order1439.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/b74cda2/docs/reports/2026-10-30-all-ashore-army-order1439.md),
+research `b74cda2`, for [#1439](https://github.com/diegoami/imperial_conquest_2/issues/1439)).
 
 Research checked255 retained closure files,32 endpoints,32 traces,30 placement
 queries and15 fresh native full-state outcomes. Its fresh private closure has
@@ -130,16 +135,23 @@ whole-turn/RNG parity, human UI, Godot, Windows or export/reimport acceptance.
 Closed T216's whole-unit conservation fix and its explicit safety policies are
 not reopened by this narrower placement/moves finding.
 
-## Selection-rendering correction
+## Selection rendering
 
-[Research87's selection report](https://github.com/diegoami/imperial-conquest-2-research/blob/77d89876c89570962c7dc75f718a8f88774177f9/docs/reports/2026-10-12-unit-map-selection-rendering.md)
-supports a bright yellow army/fleet rhombus in retained patched-Wine screenshots.
-Its98 changed pixels lie in the horizontal scrollbar, not the selected tiles;
-the tile comparisons have zero changed pixels. This does not establish a300ms
-timer or600ms blink. The town stimulus did not demonstrate the claimed frame.
-Do not derive exact vectors, independent marker recolouring or current remake
-appearance from these captures. [#1010](https://github.com/diegoami/imperial_conquest_2/issues/1010)
-retains the remaining original-selection questions separately from T196 feedback.
+The original draws one selection frame for any selected cell, town, army or
+fleet, own or foreign: `TUnitMap_SelectUnit` calls `FUN_004465a8`, which draws
+image 12 of the unit-map image list, a black rhombus outline with corners at the
+edge midpoints (3–4 px thick, 32 px tile), with `CopyMode` SRCERASE. Where the
+image is white the tile and its marker are inverted (sea turns yellow); on the
+outline they are black. There is no game timer and nothing blinks. Five Wine
+captures (army, fleet, town, capital, foreign town) match this per-pixel model on
+1,024 of 1,024 pixels at 0.4, 1.4 and 2.9 s
+([`2026-10-30-unit-map-selection-drawing1010.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/73f3d9b/docs/reports/2026-10-30-unit-map-selection-drawing1010.md),
+research `73f3d9b`, `[confirmed]`; native Windows palettized rendering,
+keyboard selection and the area-map cursor are not established). The earlier
+report's "yellow rhombus" is that inverted tile, and its "town" capture was not a
+town. The remake's T196 gold outline is the owner-approved clear-feedback
+milestone; the original's look is what remains open on
+[#1010](https://github.com/diegoami/imperial_conquest_2/issues/1010).
 
 ## Verification limits
 
