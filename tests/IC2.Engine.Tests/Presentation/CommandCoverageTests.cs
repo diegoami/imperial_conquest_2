@@ -192,6 +192,12 @@ public sealed class CommandCoverageTests
             return emptyProperty.GetValue(null);
         }
 
+        // T238: an optional enum parameter (MoveWalkPolicy) takes its declared default.
+        if (type.IsEnum)
+        {
+            return parameter.HasDefaultValue ? parameter.DefaultValue : Enum.GetValues(type).GetValue(0);
+        }
+
         throw new NotSupportedException(
             $"CommandCoverageTests.PlaceholderFor has no case for parameter type '{type}' "
             + $"(parameter '{parameter.Name}'). Add one rather than skip the command it belongs to.");

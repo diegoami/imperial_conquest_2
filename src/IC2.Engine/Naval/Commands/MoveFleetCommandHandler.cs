@@ -116,19 +116,31 @@ public sealed class MoveFleetCommandHandler : ICommandHandler<MoveFleetCommand>
         var weather = context.Ruleset.Economy.Weather;
         int? RoughSeaPrice(GridPoint point) => state.IsRoughSea(point.X, point.Y) ? weather.RoughSeaMoveCost : null;
 
-        var walk = MovementWalker.Walk(
-            from, destination, fleet.Moves, context.Ruleset.Terrain, TileTypeIdAt, IsBlocked, context.Events,
+        MovementWalkResult WalkFrom(GridPoint origin, int moves) => MovementWalker.Walk(
+            origin, destination, moves, context.Ruleset.Terrain, TileTypeIdAt, IsBlocked, context.Events,
             RoughSeaPrice, context.Ruleset.Flags.StrategicStep, new GridPoint(world.Width, world.Height));
-
-        context.RecordTravel(StrategicMarkerKind.Fleet, fleet.Id, fleet.Nation, null, fleet.CarriedArmyId, walk);
 
         // T214: the original clears an AI fleet's remaining moves after an unaffordable step,
         // while a human fleet retains them. Reuse the army command's loaded seat-asymmetry rule;
         // a blocked marker or an affordable step keeps the walker's own budget.
-        var movesAfter = walk.StopReason == MovementStopReason.InsufficientMoves
+        int MovesAfter(MovementWalkResult result) => result.StopReason == MovementStopReason.InsufficientMoves
             ? MovementAbortRule.MovesAfterAbortedStep(
-                walk.MovesRemaining, context.IssuingNation.Control, context.Ruleset.Flags.SeatAsymmetry)
-            : walk.MovesRemaining;
+                result.MovesRemaining, context.IssuingNation.Control, context.Ruleset.Flags.SeatAsymmetry)
+            : result.MovesRemaining;
+
+        var walk = WalkFrom(from, fleet.Moves);
+        var movesAfter = MovesAfter(walk);
+
+        // T238 (#1585): a human order sails once more, on a fresh line from where the first walk ended,
+        // when it ended short with moves left (TUnitMap_MoveHumanFleet). The two walks are one route.
+        if (command.Walk == MoveWalkPolicy.HumanSecondWalk && walk.FinalPosition != destination && movesAfter > 0)
+        {
+            var second = WalkFrom(walk.FinalPosition, movesAfter);
+            walk = walk.Then(second);
+            movesAfter = MovesAfter(second);
+        }
+
+        context.RecordTravel(StrategicMarkerKind.Fleet, fleet.Id, fleet.Nation, null, fleet.CarriedArmyId, walk);
 
         var finalPosition = walk.FinalPosition;
         var coveredTileCode = InBounds(finalPosition, world)

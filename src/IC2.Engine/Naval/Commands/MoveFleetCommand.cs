@@ -9,7 +9,11 @@ namespace IC2.Engine.Naval.Commands;
 /// (<c>docs/task-catalogue.md</c> "T14 Naval" Hazards: never <see cref="Model.Ruleset.MoveCostFor"/>, the
 /// only path that raises <see cref="Movement.UnpricedTerrainEncountered"/>).
 /// </summary>
-public sealed record MoveFleetCommand(string IssuingNationId, string FleetId, int X, int Y) : ICommand
+/// <param name="Walk">T238: <see cref="Movement.MoveWalkPolicy.HumanSecondWalk"/> for a human seat's order; the
+/// AI's are <see cref="Movement.MoveWalkPolicy.Single"/>.</param>
+public sealed record MoveFleetCommand(
+    string IssuingNationId, string FleetId, int X, int Y,
+    Movement.MoveWalkPolicy Walk = Movement.MoveWalkPolicy.Single) : ICommand
 {
     /// <inheritdoc/>
     public string Kind => "naval.move-fleet";
