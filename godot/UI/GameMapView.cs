@@ -1569,8 +1569,97 @@ public partial class GameMapView : Control
         // Repaint ONLY the selected entity's contained feedback after all boards. Base art,
         // owner tints, pointer winner and picking order remain the existing T187 policy.
         // Use the selected marker (never hovered) and the same T195 fractional rectangle.
-        DrawSelectedStrategicFeedback(markers, tileSize);
+        if (!ClassicSelectionFrame) DrawSelectedStrategicFeedback(markers, tileSize);
+        PlaceSelectionFrame(markers, tileSize);
         DrawPendingMove(tileSize);
+    }
+
+    /// <summary>
+    /// T242 (#1010): the classic look ("Classic tiles", the default map style) draws the original's
+    /// selection frame instead of T196's outline; the painted (improved) look keeps T196's feedback.
+    /// </summary>
+    public static bool ClassicSelectionFrame => SettingsScreen.MapStyleId == MapStyles.Tiles;
+
+    /// <summary>The selected cell the original's frame covers this frame, in control pixels, or null.</summary>
+    public Rect2? SelectionFrameRectForCheck =>
+        _selectionFrame is { Visible: true } frame ? new Rect2(frame.Position, frame.Size) : null;
+
+    /// <summary>The frame's material, for the checks to read the mask parameters it draws with.</summary>
+    public ShaderMaterial? SelectionFrameMaterialForCheck => _selectionFrame?.Material as ShaderMaterial;
+
+    private ColorRect? _selectionFrame;
+
+    /// <summary>
+    /// T242: places the original's frame over the selected cell: a town's cell, or the selected army's
+    /// or fleet's cell where its marker is drawn (following T195's travel offset, so the frame moves
+    /// with a travelling marker inside its one-tile footprint). The frame is its own child drawn after
+    /// this view, so its shader reads everything underneath (terrain and markers) and inverts it
+    /// (<see cref="OriginalSelectionFrame"/>). Nothing here animates: no timer, no blink.
+    /// </summary>
+    private void PlaceSelectionFrame(IReadOnlyList<StrategicMarker> markers, float tileSize)
+    {
+        Rect2? cell = null;
+        if (ClassicSelectionFrame)
+        {
+            var selected = markers.FirstOrDefault(IsSelectedStrategicMarker);
+            if (selected.Id is not null)
+            {
+                cell = SelectedCellRect(selected, tileSize);
+                StrategicFeedbackBoundsForCheck[selected.Id] = cell.Value;
+            }
+            else if (_selectedArmyId is { } armyId && DisplayState.ArmyById(armyId) is { } army)
+            {
+                cell = new Rect2(TileCenter(army.X, army.Y, tileSize) - (Vector2.One * tileSize / 2f), Vector2.One * tileSize);
+            }
+            else if (_selectedCityId is { } cityId && DisplayState.CityById(cityId) is { } city)
+            {
+                cell = new Rect2(TileCenter(city.X, city.Y, tileSize) - (Vector2.One * tileSize / 2f), Vector2.One * tileSize);
+            }
+        }
+
+        if (cell is null)
+        {
+            if (_selectionFrame is not null) _selectionFrame.Visible = false;
+            return;
+        }
+
+        EnsureSelectionFrame();
+        _selectionFrame!.Position = cell.Value.Position;
+        _selectionFrame.Size = cell.Value.Size;
+        _selectionFrame.Visible = true;
+    }
+
+    /// <summary>The selected marker's whole cell, moved by its travel offset like <see cref="StrategicMarkerRect"/>.</summary>
+    private Rect2 SelectedCellRect(StrategicMarker marker, float tileSize)
+    {
+        var position = TileCenter(marker.X, marker.Y, tileSize) - (Vector2.One * tileSize / 2f);
+        var kind = marker.Kind == StrategicMarkerKind.Army
+            ? IC2.Engine.Movement.StrategicMarkerKind.Army : IC2.Engine.Movement.StrategicMarkerKind.Fleet;
+        if (TravelPlayback?.Position(kind, marker.Id) is { } travel)
+            position += new Vector2((float)(travel.X - marker.X), (float)(travel.Y - marker.Y)) * tileSize;
+        return new Rect2(position, Vector2.One * tileSize);
+    }
+
+    private void EnsureSelectionFrame()
+    {
+        if (_selectionFrame is not null)
+        {
+            return;
+        }
+
+        var material = new ShaderMaterial { Shader = GD.Load<Shader>("res://UI/OriginalSelectionFrame.gdshader") };
+        material.SetShaderParameter("mask_size", (float)OriginalSelectionFrame.MaskSize);
+        material.SetShaderParameter("line_inner", (float)OriginalSelectionFrame.LineInner);
+        material.SetShaderParameter("line_outer", (float)OriginalSelectionFrame.LineOuter);
+        _selectionFrame = new ColorRect
+        {
+            Name = "OriginalSelectionFrame",
+            Color = Colors.White,
+            MouseFilter = MouseFilterEnum.Ignore,
+            Material = material,
+            Visible = false,
+        };
+        AddChild(_selectionFrame);
     }
 
     /// <summary>#1280 F2: the marked destination, a white ring with a dark edge, readable on any terrain.</summary>
@@ -1617,7 +1706,8 @@ public partial class GameMapView : Control
         // #1309: the marker grows with the town's size rank, so a capital and a city stand out from a village.
         var rank = MapMarkerKeys.CityRank(DisplayState, city, _session!.Ruleset.MapMarkers);
         var radius = Mathf.Max(tileSize * MapMarkerKeys.CityMarkerHalfSize(rank), 3f);
-        var selected = string.Equals(city.Id, _selectedCityId, StringComparison.Ordinal);
+        // T242: the classic look marks a selected town with the original's frame instead (PlaceSelectionFrame).
+        var selected = string.Equals(city.Id, _selectedCityId, StringComparison.Ordinal) && !ClassicSelectionFrame;
 
         // MapMarkerKeys selects the live capital marker or a population tier, shared with Slice.cs.
         // T163: shipped rulesets use thresholds [25, 50, 100] (population in thousands), giving
@@ -1752,7 +1842,8 @@ public partial class GameMapView : Control
         var (background, _) = NationColors(army.Nation);
         var rect = StrategicMarkerRect(new(army.Id, StrategicMarkerKind.Army, army.X, army.Y), tileSize);
         StrategicDrawBoundsForCheck[army.Id] = rect;
-        var selected = IsSelectedStrategicMarker(new(army.Id, StrategicMarkerKind.Army, army.X, army.Y));
+        // T242: the classic look draws the marker as unselected; the original's frame goes over it.
+        var selected = IsSelectedStrategicMarker(new(army.Id, StrategicMarkerKind.Army, army.X, army.Y)) && !ClassicSelectionFrame;
 
         // T94 (#454 item 3): the confirmed three-tier size marker -- MapMarkerKeys reads the ruleset's
         // own 25,000/50,000 boundaries, never T48's [designed] per-unit-type plurality.
@@ -1796,7 +1887,7 @@ public partial class GameMapView : Control
         var (background, _) = NationColors(fleet.Nation);
         var rect = StrategicMarkerRect(new(fleet.Id, StrategicMarkerKind.Fleet, fleet.X, fleet.Y), tileSize);
         StrategicDrawBoundsForCheck[fleet.Id] = rect;
-        var selected = IsSelectedStrategicMarker(new(fleet.Id, StrategicMarkerKind.Fleet, fleet.X, fleet.Y));
+        var selected = IsSelectedStrategicMarker(new(fleet.Id, StrategicMarkerKind.Fleet, fleet.X, fleet.Y)) && !ClassicSelectionFrame;
 
         // T94: the confirmed three-tier fleet marker (ruleset's own 25/50 ship boundaries) -- the
         // fleet equivalent of DrawArmy's tier icon.
