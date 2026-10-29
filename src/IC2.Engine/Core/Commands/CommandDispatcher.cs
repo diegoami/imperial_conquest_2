@@ -200,6 +200,9 @@ public sealed class CommandDispatcher : ICommandDispatch
         // the command was issued against, and the next command sees a different one.
         var next = accepted with { RandomSeed = RngStreams.Advance(accepted.RandomSeed) };
 
+        // T240: under swapRemoveSweep an army the command removed leaves a dead slot until the next sweep.
+        next = IC2.Engine.Armies.ArmyTable.Record(state, next, _ruleset);
+
         var published = buffer.Events.ToArray();
         if (StrategicObserver is { } observer)
         {

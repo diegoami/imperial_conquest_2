@@ -604,7 +604,7 @@ public sealed class TacticalBattleSession
                 null, null, false, false, Array.Empty<DomainEvent>(), outcome.Rejection?.Message ?? "The write-back did not run.");
         }
 
-        var after = outcome.State!;
+        var after = IC2.Engine.Armies.ArmyTable.Record(game, outcome.State!, ruleset);
         var report = written.Report;
         var events = new List<DomainEvent>(sink.Events);
 
@@ -666,7 +666,8 @@ public sealed class TacticalBattleSession
             return new TacticalBattleConclusion(null, null, false, false, Array.Empty<DomainEvent>(), outcome.Rejection?.Message ?? "The write-back did not run.");
         var resultEvents = new List<DomainEvent>(sink.Events);
         if (offered) resultEvents.Add(new PeaceTreatyOffered(written.Report.WinnerNationId, written.Report.LoserNationId));
-        return new TacticalBattleConclusion(outcome.State!, written.Report, offered, drawn, resultEvents, null);
+        return new TacticalBattleConclusion(
+            IC2.Engine.Armies.ArmyTable.Record(game, outcome.State!, ruleset), written.Report, offered, drawn, resultEvents, null);
     }
 
     /// <summary>The lines of the <em>Battle ended</em> window (<c>TBattleOver_InitializeForm</c>).</summary>

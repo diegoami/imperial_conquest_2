@@ -865,6 +865,12 @@ rulesetNode["flags"]!["strategicStep"] = "lateralAlternatives";
 ((JsonObject)rulesetNode["flags"]!["_provenance"]!)["strategicStep"] =
     "#1012, confirmed, partial: source, bounded original-x86 controls and legacy Wine endpoints (2026-10-21-strategic-lateral-steps-and-callers.md, research f698190): each step prices the line's cell and two lateral alternatives (FUN_0044D420), leaves the line only for a strictly cheaper one, the first winning a tie, and enters the destination without the comparison; a city, army or fleet costs the blocked 10 (FUN_0044D31C), so the step goes around it. classical-faithful plays that step (lateralAlternatives); the other shipped rulesets keep the straight line for terrain but still step around a marker (straightLine), the user's decisions of 2026-10-12 and 2026-10-21.";
 
+// ---- T240 (#1601): the toy ruleset closes the army table at once ("inOrder"); classical-faithful keeps the
+// original's dead slots until the sweep ("swapRemoveSweep"), so the exporter owns this value and its note.
+rulesetNode["flags"]!["armyTableCompaction"] = "swapRemoveSweep";
+((JsonObject)rulesetNode["flags"]!["_provenance"]!)["armyTableCompaction"] =
+    "T240 (#1601), the owner's decision of 2026-10-30, 2026-10-30-army-table-order-after-deaths117.md and 2026-10-30-all-ashore-army-order1439.md (research 150d95d) [confirmed: code; the #232 campaigns]: the original leaves a dead army's record in its slot, marked dead, and appends a new army after every slot, dead or alive; the sweep FUN_0044adb0 walks the table from the last index down and FUN_0044abe0 swap-removes each dead slot, the last record moving into it. The sweep runs at the start of FUN_00451fdc, when a human ends the turn, and before each AI seat; it reproduces 18 of the 19 #232 death turns, where survivors kept their order in only 2. classical-faithful plays that table (swapRemoveSweep); the other shipped rulesets close the gap at once and keep the survivors in order (inOrder). Only the army order changes; fleets are out of scope.";
+
 // ---- T157 (#926): the toy ruleset keeps the designed AI economy ("designed"); classical-faithful plays the
 // original's ("original"), so the exporter owns this value and its note and never copies the toy's.
 rulesetNode["flags"]!["aiEconomy"] = "original";

@@ -566,25 +566,25 @@ Nations:
   Thracia (thracia, ai): treasury -343, unity 739, tax 9%
 
 Armies:
+  army-14 (Thracia) @ (169,38): 22000 troops in 6 units, supply 209t (95%), morale 70, moves 9
   army-1 (Rome) @ (103,42): 40588 troops in 10 units, supply 405t (99%), morale 70, moves 7
+  mac-detached (Macedonia) @ (158,24): 7900 troops in 1 units, supply 0t (0%), morale 51, moves 9
   army-3 (Carthage) @ (93,79): 22800 troops in 8 units, supply 228t (100%), morale 70, moves 3
   army-4 (Seleucid) @ (249,102): 55159 troops in 14 units, supply 551t (99%), morale 70, moves 0
   army-5 (Seleucid) @ (189,46): 37297 troops in 7 units, supply 372t (99%), morale 70, moves 0
+  mac-sac-1 (Macedonia) @ (148,40): 5014 troops in 1 units, supply 0t (0%), morale 51, moves 9
   army-7 (Ptolemaic) @ (221,90): 80800 troops in 15 units, supply 728t (90%), morale 70, moves 0
   army-8 (Macedonia) @ (136,43): 4570 troops in 2 units, supply 0t (0%), morale 51, moves 9
+  mac-marines (Macedonia) @ (137,42): 4800 troops in 2 units, supply 93t (193%), morale 58, moves 10
   army-10 (Celtiberia) @ (30,68): 31892 troops in 9 units, supply 303t (95%), morale 70, moves 9
   army-13 (Media) @ (305,57): 51200 troops in 12 units, supply 487t (95%), morale 70, moves 8
-  army-14 (Thracia) @ (169,38): 22000 troops in 6 units, supply 209t (95%), morale 70, moves 9
-  mac-detached (Macedonia) @ (158,24): 7900 troops in 1 units, supply 0t (0%), morale 51, moves 9
-  mac-marines (Macedonia) @ (137,42): 4800 troops in 2 units, supply 93t (193%), morale 58, moves 10
-  mac-sac-1 (Macedonia) @ (148,40): 5014 troops in 1 units, supply 0t (0%), morale 51, moves 9
   mac-merc (Macedonia) @ (139,45): 6305 troops in 2 units, supply 0t (0%), morale 51, moves 2
   army-0 (Seleucid) @ (223,73): 10184 troops in 2 units, supply 91t (89%), morale 65, moves 4
   army-2 (Seleucid) @ (197,46): 64700 troops in 11 units, supply 615t (95%), morale 62, moves 0
+  army-15 (Armenia) @ (261,34): 27200 troops in 6 units, supply 246t (90%), morale 62, moves 9
   army-6 (Celtiberia) @ (37,55): 55600 troops in 8 units, supply 529t (95%), morale 62, moves 8
   army-11 (Illyria) @ (136,48): 48900 troops in 9 units, supply 465t (95%), morale 62, moves 8
   army-12 (Galatia) @ (200,43): 41600 troops in 8 units, supply 396t (95%), morale 62, moves 8
-  army-15 (Armenia) @ (261,34): 27200 troops in 6 units, supply 246t (90%), morale 62, moves 9
   army-9 (Greece) @ (146,55): 23900 troops in 5 units, supply 228t (95%), morale 61, moves 9
   army-16 (Seleucid) @ (198,53): 31500 troops in 3 units, supply 315t (100%), morale 60, moves 0
 

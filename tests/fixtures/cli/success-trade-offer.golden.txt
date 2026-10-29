@@ -491,9 +491,8 @@ News:
   Sexi   (Carthage)  falls to Celtiberia.
    
   Week  3      Autumn      270BC
-  Seleucid destroys army of Ptolemaic.
   Dedan   (Ptolemaic)  falls to Seleucid.
-  Yatrib defects from Ptolemaic to Seleucid.
+  Seleucid destroys army of Ptolemaic.
 
 > end
 Macedonia (macedonia) ends its turn.

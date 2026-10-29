@@ -1389,6 +1389,7 @@
     "newGameTurnOrder": "fixed",
     "balanceSheetTotals": "reconciling",
     "strategicStep": "straightLine",
+    "armyTableCompaction": "inOrder",
     "_provenance": {
       "diplomacyModel": "docs/game-design.md §'Two shipped presets' (answers design-audit.md Q3) — use the confirmed state machine plus an AI opinion-score layer on top of it, keeping every confirmed rule intact and only adding the genuinely-missing piece (the AI's willingness). classical-faithful uses the confirmed model exactly as coded.",
       "economyPurses": "docs/game-design.md §'Two shipped presets' (answers design-audit.md Q4) — centralise supply and mercenary purchases to the national treasury, trading logistical depth for less micromanagement. classical-faithful keeps the per-army/per-fleet purses (cap 1,000) exactly as coded.",
@@ -1402,7 +1403,8 @@
       "endTurnWarningScope": "designed: docs/game-design.md §'Two shipped presets' and the user's decision of 2026-10-03 — improved checks every own unit, whether or not it has acted.",
       "newGameTurnOrder": "designed: the user's decision of 2026-10-02 (PR #601) -- improved keeps the world's fixed turn order; classical-faithful shuffles it at New Game (T119, #602, research 871ca91). The research supports the algorithm only; searched design-audit.md, docs/game-design.md and the shuffle report for a preset policy or stream name and found none, so the policy rests on the user's decisions of 2026-10-02/03 (stream name new-game.turn-order is designed).",
       "balanceSheetTotals": "designed: the user's decision of 2026-10-12 (PR #1041, question 3) -- improved keeps the reconciling Balance sheet, whose Total matches the quarter's treasury change; classical-faithful plays the original's (T167, bug #1038, research 89c37ff G2). I searched the research reports on the Balance sheet (2026-10-11-g1-original-checks.md G2 and the earlier balance-sheet notes), docs/game-design.md and docs/design-audit.md for a rule or a preset policy about the reconciling Total and found none, so the value rests on the user's decision alone.",
-      "strategicStep": "designed: the user's decision of 2026-10-12 on #1012 (improved keeps the straight line for terrain), extended by the user's decision of 2026-10-21: a city, army or fleet on the line is still stepped around through a lateral alternative, as the original does, so a move past a town never spends 0 moves."
+      "strategicStep": "designed: the user's decision of 2026-10-12 on #1012 (improved keeps the straight line for terrain), extended by the user's decision of 2026-10-21: a city, army or fleet on the line is still stepped around through a lateral alternative, as the original does, so a move past a town never spends 0 moves.",
+      "armyTableCompaction": "designed: T240 (#1601), the owner's decision of 2026-10-30: the gap a removed army leaves closes at once and the survivors keep their order (inOrder). classical-faithful plays the original's dead slots and sweep (swapRemoveSweep, FUN_0044adb0/FUN_0044abe0), 2026-10-30-army-table-order-after-deaths117.md and 2026-10-30-all-ashore-army-order1439.md (research 150d95d)."
     }
   },
   "_provenance": {

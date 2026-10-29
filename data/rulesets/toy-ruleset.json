@@ -1291,6 +1291,7 @@
     "newGameTurnOrder": "fixed",
     "balanceSheetTotals": "reconciling",
     "strategicStep": "straightLine",
+    "armyTableCompaction": "inOrder",
     "_provenance": {
       "diplomacyModel": "docs/game-design.md §'Two shipped presets' — the confirmed state machine only, with no AI opinion-score layer (audit Q3).",
       "economyPurses": "docs/game-design.md §'Two shipped presets' — per-army and per-fleet purses, as the original has (audit Q4).",
@@ -1304,7 +1305,8 @@
       "endTurnWarningScope": "designed: docs/game-design.md §'Two shipped presets' and the user's decision of 2026-10-03 — classical-faithful preserves the original's not-acted-only filter.",
       "newGameTurnOrder": "T119 (#602): the toy ruleset keeps the world's turn order; classical-faithful shuffles it at New Game with the original's algorithm and improved keeps it fixed. The research supports the algorithm only; searched design-audit.md, docs/game-design.md and the shuffle report for a preset policy or stream name and found none, so the policy rests on the user's decisions of 2026-10-02/03 (stream name new-game.turn-order is designed).",
       "balanceSheetTotals": "T167 (bug #1038): the toy ruleset keeps the reconciling Balance sheet (Total without the Mercenary units line, Fleet line of launched fleets, unrounded Debt limit); classical-faithful plays the original's (original), the user's decision of 2026-10-12 (PR #1041, question 3). I searched the research reports on the Balance sheet (2026-10-11-g1-original-checks.md G2 and the earlier balance-sheet notes), docs/game-design.md and docs/design-audit.md for a rule or a preset policy about the reconciling Total and found none, so the value rests on the user's decision alone.",
-      "strategicStep": "designed: the straight line for terrain, as improved keeps it (the user's decisions of 2026-10-12 and 2026-10-21 on #1012); a city, army or fleet on the line is still stepped around through a lateral alternative."
+      "strategicStep": "designed: the straight line for terrain, as improved keeps it (the user's decisions of 2026-10-12 and 2026-10-21 on #1012); a city, army or fleet on the line is still stepped around through a lateral alternative.",
+      "armyTableCompaction": "designed: T240 (#1601), the owner's decision of 2026-10-30: the gap a removed army leaves closes at once and the survivors keep their order (inOrder). classical-faithful plays the original's dead slots and sweep (swapRemoveSweep, FUN_0044adb0/FUN_0044abe0), 2026-10-30-army-table-order-after-deaths117.md and 2026-10-30-all-ashore-army-order1439.md (research 150d95d)."
     }
   },
   "_provenance": {

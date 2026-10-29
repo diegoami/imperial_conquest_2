@@ -38,6 +38,15 @@ namespace IC2.Engine.Model;
 /// <see cref="IC2.Engine.Economy.WeatherEventSystem"/> rewrites it. A fleet standing on one of these
 /// cells carries <see cref="FleetState.CoveredTileCode"/> = 1.
 /// </param>
+/// <param name="DeadArmySlots">
+/// T240 (#1601): under <c>flags.armyTableCompaction = swapRemoveSweep</c>, the army table positions whose army was
+/// removed since the last sweep, ascending. The army table is <see cref="Armies"/> with these dead slots
+/// interleaved: the live armies fill the other positions in list order. <see langword="null"/> (the default, and
+/// the only value under <c>inOrder</c>) means no dead slot; it is then left out of the JSON, so a state without
+/// dead slots serializes as it did before the field existed. Kept and restored by the remake's save; never
+/// written to an original SAV, whose export holds the live armies in their current order. Maintained only by
+/// <see cref="IC2.Engine.Armies.ArmyTable"/>.
+/// </param>
 public sealed record GameState(
     int SchemaVersion,
     string WorldId,
@@ -56,7 +65,9 @@ public sealed record GameState(
     NewsLog NewsLog,
     PendingDiplomaticOffer? PendingOffer,
     ValueList<NationNeighbours>? Neighbours = null,
-    ValueList<RoughSeaCell>? RoughSeaCells = null) : IVersionedDocument
+    ValueList<RoughSeaCell>? RoughSeaCells = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ValueList<int>? DeadArmySlots = null)
+    : IVersionedDocument
 {
     /// <summary>Whether (<paramref name="x"/>, <paramref name="y"/>) is rough sea this week.</summary>
     public bool IsRoughSea(int x, int y)

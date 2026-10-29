@@ -2421,6 +2421,17 @@ public sealed record AiRecruitTypeBucket(string UnitTypeId, int UpperBoundExclus
 /// alternative is open (the original's marker cost 10; the user's decision of 2026-10-21 extends it to
 /// <c>improved</c>). Read by <see cref="IC2.Engine.Movement.MovementWalker"/>'s army and fleet callers.
 /// </param>
+/// <param name="ArmyTableCompaction">
+/// T240 (#1601), the owner's decision of 2026-10-30: how the army table closes the gap a removed army leaves.
+/// <c>classical-faithful</c> is <see cref="ArmyTableCompactionPolicy.SwapRemoveSweep"/>: a removed army leaves a
+/// dead slot at its table position, a new army is appended after every slot, dead or alive, and the sweep
+/// (<c>FUN_0044adb0</c>/<c>FUN_0044abe0</c>) runs when a human seat ends its turn and before each AI seat's
+/// turn, each dead slot from the last down taking the record currently last <strong>[confirmed: code and the
+/// #232 campaigns, 18 of 19 death turns; 2026-10-30-army-table-order-after-deaths117.md, research 150d95d]</strong>;
+/// <c>improved</c>, the Italy ruleset and the toy ruleset are <see cref="ArmyTableCompactionPolicy.InOrder"/>, the
+/// gap closed at once with the survivors in order <strong>[designed: the owner's decision of 2026-10-30]</strong>.
+/// Read only by <see cref="IC2.Engine.Armies.ArmyTable"/>.
+/// </param>
 public sealed record RulesetFlags(
     DiplomacyModel DiplomacyModel,
     EconomyPurseModel EconomyPurses,
@@ -2435,6 +2446,7 @@ public sealed record RulesetFlags(
     NewGameTurnOrderPolicy NewGameTurnOrder,
     BalanceSheetTotalsPolicy BalanceSheetTotals,
     StrategicStepPolicy StrategicStep,
+    ArmyTableCompactionPolicy ArmyTableCompaction,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
 
 /// <summary>How faithfully diplomacy follows the original (audit Q3).</summary>
@@ -2532,6 +2544,19 @@ public enum StrategicStepPolicy
 
     /// <summary>The original's step: the line's cell or a strictly cheaper lateral alternative, first on a tie.</summary>
     LateralAlternatives,
+}
+
+/// <summary>T240: how the army table closes the gap a removed army leaves (<see cref="RulesetFlags.ArmyTableCompaction"/>).</summary>
+public enum ArmyTableCompactionPolicy
+{
+    /// <summary>The gap closes at once and the surviving armies keep their order.</summary>
+    InOrder,
+
+    /// <summary>
+    /// The original's: a removed army leaves a dead slot until the sweep, which moves the last record into each
+    /// dead slot from the last slot down.
+    /// </summary>
+    SwapRemoveSweep,
 }
 
 /// <summary>How the Balance sheet totals its Expenditure column and shows its Debt limit (T167).</summary>
