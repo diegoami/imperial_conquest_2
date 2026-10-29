@@ -258,6 +258,13 @@ public sealed class TurnCoordinator
                         + "Return the context's own state to do nothing.");
                 }
 
+                // T240: an army the system removed (a battle, the fleet tick, the quarterly economy, an AI order)
+                // leaves a dead slot until the next sweep. The sweep itself is the one step that reorders the table.
+                if (system.Instance is not IC2.Engine.Armies.ArmyTableSweepSystem)
+                {
+                    produced = IC2.Engine.Armies.ArmyTable.Record(current, produced, _ruleset);
+                }
+
                 if (StrategicObserver is { } observer)
                 {
                     try { observer.CompletedSystem(system.Id, phase, current, produced); }

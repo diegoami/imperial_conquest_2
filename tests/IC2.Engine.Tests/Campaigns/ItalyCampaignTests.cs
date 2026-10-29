@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using IC2.Engine.Ai;
+using IC2.Engine.Model;
 using IC2.Engine.Serialization;
 using IC2.Slice.UI;
 using IC2.Tools.TerrainImport;
@@ -34,7 +35,7 @@ public sealed class ItalyCampaignTests
     }
 
     [Fact]
-    public void The_ruleset_is_the_classical_one_but_for_its_calendar()
+    public void The_ruleset_is_the_classical_one_but_for_its_calendar_and_army_table()
     {
         var italy = Repository.RulesetById(Id)!;
         var classical = Repository.RulesetById("classical-faithful")!;
@@ -50,6 +51,12 @@ public sealed class ItalyCampaignTests
             {
                 CityPopulationTierThresholds = italy.MapMarkers.CityPopulationTierThresholds,
                 Provenance = italy.MapMarkers.Provenance,
+            },
+            // T240 (#1601): the owner's decision keeps the Italy ruleset's army table in order.
+            Flags = classical.Flags with
+            {
+                ArmyTableCompaction = ArmyTableCompactionPolicy.InOrder,
+                Provenance = italy.Flags.Provenance,
             },
             Provenance = italy.Provenance,
         };

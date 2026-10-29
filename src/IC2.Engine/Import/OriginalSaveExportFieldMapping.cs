@@ -58,6 +58,8 @@ public static class OriginalSaveExportFieldMapping
         new(typeof(GameState), "Calendar TurnOrder ActiveSeatIndex Nations Cities Armies Fleets MercenaryPool Relations NewsLog PendingOffer Neighbours RoughSeaCells",
             Kind.Written, "original tables and trailer", "These collections or values supply checked original strategic fields."),
         new(typeof(GameState), "RandomSeed", Kind.Omitted, "none", "The original save does not restore the process RNG state."),
+        new(typeof(GameState), "DeadArmySlots", Kind.Omitted, "none",
+            "T240: dead army slots are not exported; the army table holds the live armies in their current order."),
         new(typeof(GameState), "ActiveNationId", Kind.Derived, "OriginalTrailer.CurrentNation", "Derived from the saved turn order and active seat index."),
 
         new(typeof(CalendarState), "Week SeasonIndex YearBc", Kind.Written, "OriginalTrailer calendar", "The three original calendar words are written."),
