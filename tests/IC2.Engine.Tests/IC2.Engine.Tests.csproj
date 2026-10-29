@@ -170,6 +170,8 @@
     -->
     <Compile Include="../../godot/UI/MapClickRules.cs" Link="Ui/MapClickRules.cs" />
     <Compile Include="../../godot/UI/StrategicMarkerGeometry.cs" Link="Ui/StrategicMarkerGeometry.cs" />
+    <!-- T242: the original selection frame's reconstructed mask, Godot-free. -->
+    <Compile Include="../../godot/UI/OriginalSelectionFrame.cs" Link="Ui/OriginalSelectionFrame.cs" />
     <Compile Include="../../godot/UI/SidePanelToggle.cs" Link="Ui/SidePanelToggle.cs" />
 
     <!--
