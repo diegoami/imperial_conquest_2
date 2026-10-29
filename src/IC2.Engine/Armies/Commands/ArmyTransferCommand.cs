@@ -55,7 +55,11 @@ namespace IC2.Engine.Armies.Commands;
 /// <see cref="Model.ArmyManagementRules.MaxTroopsPerArmy"/>. Accepted commands report typed not-moved
 /// units without falsely rejecting their successful moves. Money is never rebalanced. T231's owner-approved remake policy accepts
 /// purse allocations above 1,000, bounded by available funds and the representable save field;
-/// it does not reproduce the original signed-pullback arrow quirk. Emptied-army merge policy is unchanged.
+/// it does not reproduce the original signed-pullback arrow quirk. An emptied army's purse still merges
+/// uncapped into the survivor, but #1549's owner decision (2026-10-30, a remake rule) refuses the whole
+/// transfer with <see cref="ArmyTransferRejections.PurseCapExceeded"/> when that merged purse would exceed
+/// the save field: no money is clamped, lost or routed elsewhere. (JoinArmies keeps its own designed
+/// clamp, #838.)
 /// </para>
 /// <para>
 /// <strong>Not in scope.</strong> The dialog's Disband transaction lifetime is a separate #1522 gap.
@@ -142,7 +146,8 @@ public static class ArmyTransferRejections
 
     /// <summary>
     /// An army that receives money between two surviving armies would exceed
-    /// <see cref="Economy.PurseAccounting.PurseFieldMax"/> — the save field limit (T231).
+    /// <see cref="Economy.PurseAccounting.PurseFieldMax"/> — the save field limit (T231) — or the survivor
+    /// of an emptied-army merge would (#1549 N1).
     /// </summary>
     public static readonly RejectionCode PurseCapExceeded = new("armies.army-transfer-purse-cap-exceeded");
 }
