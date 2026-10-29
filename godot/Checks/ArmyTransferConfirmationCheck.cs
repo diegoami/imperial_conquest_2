@@ -21,10 +21,13 @@ public partial class ArmyTransferConfirmationCheck : Node
             foreach (var cancel in new[] { false, true })
                 Run(reverse, cancel, moneyArrow: true);
             Run(reverse: false, cancel: false, moneyArrow: true, rejected: true);
-            // #1549 N2: a receiver above 32,767 (reachable through an emptied-army merge, N1) is where the
+            // #1549 N2: a receiver above 32,767 (reachable only from a save written before N1's refusal) is where the
             // T231 no-reversal floor differs from the original signed arrow; both directions.
             foreach (var overFieldSelected in new[] { false, true })
                 RunTowardOverFieldReceiver(overFieldSelected);
+            // #1549 N1: an emptied-army merge whose purse would exceed 32,767 is refused in the preview.
+            foreach (var emptySelected in new[] { false, true })
+                RunEmptiedMergeAboveTheField(emptySelected);
         }
         catch (Exception ex) { GD.PrintErr($"ArmyTransferConfirmationCheck: {ex}"); _ok = false; }
         GD.Print($"ArmyTransferConfirmationCheck: exiting with code {(_ok ? 0 : 1)}.");
@@ -127,6 +130,39 @@ public partial class ArmyTransferConfirmationCheck : Node
         Check(commands == 1 && session.State.ArmyById(over.Id)!.Money == 60000
               && session.State.ArmyById(other.Id)!.Money == 100,
             "OK after the no-movement arrow commits both purses unchanged");
+        RemoveChild(dialog);
+        dialog.QueueFree();
+    }
+
+    private void RunEmptiedMergeAboveTheField(bool emptySelected)
+    {
+        var data = GameDataContext.Repository.Resolve("toy-3city");
+        var original = new GameSession(data.World, data.Ruleset, data.Scenario);
+        var template = original.State.Armies.First(a => a.Nation == original.State.ActiveNationId);
+        var a = template with { Id = "merge-a", X = 3, Y = 2, SupplyTons = 0, Money = 30000, AboardFleetId = null,
+            Units = ValueList.Of(new UnitSlot(0, "light_infantry", 1000, 6, "A Regulars")) };
+        var b = a with { Id = "merge-b", X = 4,
+            Units = ValueList.Of(new UnitSlot(0, "light_infantry", 1000, 6, "B Regulars")) };
+        var state = original.State with { Armies = ValueList.Of(a, b), Fleets = ValueList<FleetState>.Empty };
+        var save = new SaveGame(state.SchemaVersion, "merge-check", "merge-check",
+            state.ScenarioId, state.WorldId, state.RulesetId, state);
+        var session = new GameSession(data.World, data.Ruleset, data.Scenario, save);
+        var commands = 0;
+        var dialog = new ArmyTransferDialog { Session = session, ArmyId = a.Id, PartnerId = b.Id,
+            CommitEdits = (draft, final) => { var result = draft.Commit(final); if (result.Accepted) commands++; return result; } };
+        AddChild(dialog);
+        var closed = false;
+        dialog.Closed += () => closed = true;
+        var emptied = emptySelected ? a : b;
+        var survivor = emptySelected ? b : a;
+        Check(dialog.TransferBySourceForCheck(emptied.Id, 0), "the emptied army's only unit is staged across");
+        var reason = dialog.ModelForCheck.PreviewRejection;
+        Check(reason == $"Army '{survivor.Id}' would hold 60000 money after '{emptied.Id}' joins it; an army can hold 32767."
+              && dialog.PreviewNoticeForCheck == reason && !dialog.ConfirmationEnabledForCheck,
+            $"an emptied-army merge above 32,767 shows the purse reason and disables OK ({(emptySelected ? "selected" : "partner")} emptied)");
+        dialog.OkForCheck();
+        Check(!closed && commands == 0 && session.State == state && dialog.ReplyForCheck == reason,
+            "the refused merge stays open, repeats the reason and moves no money");
         RemoveChild(dialog);
         dialog.QueueFree();
     }

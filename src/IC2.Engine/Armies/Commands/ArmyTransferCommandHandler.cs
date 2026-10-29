@@ -159,6 +159,23 @@ public sealed class ArmyTransferCommandHandler : ICommandHandler<ArmyTransferCom
                     $"Army '{target.Id}' can hold {purseCap} money, not {moneyTarget}.");
             }
         }
+        else if (sourceIsEmpty != targetIsEmpty)
+        {
+            // #1549 N1, owner decision 2026-10-30: the emptied army's purse merges into the survivor
+            // (steps 3/4 below), so the survivor is the receiving purse. Refuse rather than clamp or route
+            // the excess elsewhere: no money is lost or moved. Supply rebalancing cannot change the sum.
+            var purseCap = PurseAccounting.PurseFieldMax;
+            var merged = moneySource + moneyTarget;
+            if (merged > purseCap)
+            {
+                var survivor = sourceIsEmpty ? target : source;
+                var emptied = sourceIsEmpty ? source : target;
+                return CommandOutcome.Reject(
+                    ArmyTransferRejections.PurseCapExceeded,
+                    $"Army '{survivor.Id}' would hold {merged} money after '{emptied.Id}' joins it; "
+                    + $"an army can hold {purseCap}.");
+            }
+        }
 
         // Step 1: capA = troops(A) div 100; A's excess goes to B, A is left at capA.
         // Step 2: capB = troops(B) div 100, including step 1's push; B's excess goes back to A.
