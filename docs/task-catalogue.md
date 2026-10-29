@@ -66,3 +66,4 @@ Open and recent tasks only. Merged tasks (T01–T191 and others) are in their cl
 - [T237](tasks/T237.md) —  Engine commands repeat the original's order gates
 - [T238](tasks/T238.md) —  A human move order walks a second time
 - [T239](tasks/T239.md) —  A faithful AI army march keeps walking until next to its target
+- [T240](tasks/T240.md) —  The army table keeps dead slots until the original's sweep
