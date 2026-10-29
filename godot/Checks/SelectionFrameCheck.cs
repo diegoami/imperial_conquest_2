@@ -121,7 +121,7 @@ public partial class SelectionFrameCheck : Node
             && (float)material.GetShaderParameter("mask_size") == OriginalSelectionFrame.MaskSize
             && (float)material.GetShaderParameter("line_inner") == OriginalSelectionFrame.LineInner
             && (float)material.GetShaderParameter("line_outer") == OriginalSelectionFrame.LineOuter,
-            $"{name}: the frame inverts the screen under the reconstructed mask, with no time input");
+            $"{name}: the frame inverts the screen under the image-12 mask, with no time input");
         Require(map.GetGlobalRect() == mapRect, $"{name}: selecting moves nothing on screen");
         using var selected = await Shot(name + "-selected");
 

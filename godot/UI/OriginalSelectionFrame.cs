@@ -8,10 +8,12 @@ namespace IC2.Slice.UI;
 /// <para>
 /// Image 12 is described there as a black rhombus outline on a 32 px tile, corners at the edge
 /// midpoints, 3–4 px thick, with 240 black and 784 white pixels. The original image never enters the
-/// repository; this mask is reconstructed from that description: a pixel of the 32×32 tile is black
-/// when the taxicab distance of its centre from the tile's centre lies in
+/// repository; this mask is the rule that reproduces it: a pixel of the 32×32 tile is black when the
+/// taxicab distance of its centre from the tile's centre lies in
 /// [<see cref="LineInner"/>, <see cref="LineOuter"/>]. That band touches the edge midpoints, is four
-/// pixels wide along a row (about three across the line) and holds exactly 240 pixels.
+/// pixels wide along a row (about three across the line) and holds exactly 240 pixels. Decoding image 12
+/// from the EXE's resource confirms it pixel for pixel, the only match among the candidate centres and
+/// bands (research <c>2026-10-30-selection-rhombus-band124.md</c>, <c>576d097</c>, <c>[confirmed]</c>).
 /// </para>
 /// <para>
 /// SRCERASE is <c>source AND NOT destination</c>: where the image is white the screen is inverted
