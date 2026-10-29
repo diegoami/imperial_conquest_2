@@ -55,7 +55,7 @@ public sealed class ItalyCampaignTests
             // T240 (#1601): the owner's decision keeps the Italy ruleset's army table in order.
             Flags = classical.Flags with
             {
-                ArmyTableCompaction = ArmyTableCompactionPolicy.InOrder,
+                UnitTableCompaction = UnitTableCompactionPolicy.InOrder,
                 Provenance = italy.Flags.Provenance,
             },
             Provenance = italy.Provenance,

@@ -39,13 +39,20 @@ namespace IC2.Engine.Model;
 /// cells carries <see cref="FleetState.CoveredTileCode"/> = 1.
 /// </param>
 /// <param name="DeadArmySlots">
-/// T240 (#1601): under <c>flags.armyTableCompaction = swapRemoveSweep</c>, the army table positions whose army was
+/// T240 (#1601): under <c>flags.unitTableCompaction = swapRemoveSweep</c>, the army table positions whose army was
 /// removed since the last sweep, ascending. The army table is <see cref="Armies"/> with these dead slots
 /// interleaved: the live armies fill the other positions in list order. <see langword="null"/> (the default, and
 /// the only value under <c>inOrder</c>) means no dead slot; it is then left out of the JSON, so a state without
 /// dead slots serializes as it did before the field existed. Kept and restored by the remake's save; never
 /// written to an original SAV, whose export holds the live armies in their current order. Maintained only by
 /// <see cref="IC2.Engine.Armies.ArmyTable"/>.
+/// </param>
+/// <param name="DeadFleetSlots">
+/// T244 (#1606): the fleet table's dead slots, as <see cref="DeadArmySlots"/> is the army table's, under the same
+/// flag (<c>flags.unitTableCompaction = swapRemoveSweep</c>): the positions of <see cref="Fleets"/>' table whose fleet
+/// was removed since the last sweep, ascending. <see langword="null"/> means none and is left out of the JSON. A fleet's
+/// <see cref="FleetState.CarriedArmyId"/> and an army's <see cref="ArmyState.AboardFleetId"/> are ids, not indexes, so
+/// neither a dead slot nor the sweep's move touches them. Maintained only by <see cref="IC2.Engine.Armies.ArmyTable"/>.
 /// </param>
 public sealed record GameState(
     int SchemaVersion,
@@ -66,7 +73,8 @@ public sealed record GameState(
     PendingDiplomaticOffer? PendingOffer,
     ValueList<NationNeighbours>? Neighbours = null,
     ValueList<RoughSeaCell>? RoughSeaCells = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ValueList<int>? DeadArmySlots = null)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ValueList<int>? DeadArmySlots = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ValueList<int>? DeadFleetSlots = null)
     : IVersionedDocument
 {
     /// <summary>Whether (<paramref name="x"/>, <paramref name="y"/>) is rough sea this week.</summary>

@@ -68,3 +68,4 @@ Open and recent tasks only. Merged tasks (T01–T191 and others) are in their cl
 - [T239](tasks/T239.md) —  A faithful AI army march keeps walking until next to its target
 - [T240](tasks/T240.md) —  The army table keeps dead slots until the original's sweep
 - [T241](tasks/T241.md) —  Build fleet builds at the free coastal city nearest the capital
+- [T244](tasks/T244.md) —  The fleet table keeps dead slots until the original's sweep

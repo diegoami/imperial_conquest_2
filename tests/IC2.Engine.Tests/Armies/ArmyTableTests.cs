@@ -14,7 +14,7 @@ using CaptureFixtures = IC2.Engine.Tests.Cities.Capture.CaptureTestbed;
 namespace IC2.Engine.Tests.Armies;
 
 /// <summary>
-/// T240 (#1601): under <c>flags.armyTableCompaction = swapRemoveSweep</c> a removed army leaves a dead slot until the
+/// T240 (#1601): under <c>flags.unitTableCompaction = swapRemoveSweep</c> a removed army leaves a dead slot until the
 /// original's sweep (<c>FUN_0044adb0</c>/<c>FUN_0044abe0</c>), which runs when a human ends the turn and before each
 /// AI seat. Under <c>inOrder</c> nothing changes. The research's worked cases
 /// (2026-10-30-army-table-order-after-deaths117.md, research 150d95d) are driven through the real dispatcher and
@@ -31,7 +31,7 @@ public sealed class ArmyTableTests
 
     private static Ruleset Swept => Toy with
     {
-        Flags = Toy.Flags with { ArmyTableCompaction = ArmyTableCompactionPolicy.SwapRemoveSweep },
+        Flags = Toy.Flags with { UnitTableCompaction = UnitTableCompactionPolicy.SwapRemoveSweep },
     };
 
     /// <summary>
@@ -210,7 +210,7 @@ public sealed class ArmyTableTests
     [Fact]
     public void In_order_rulesets_close_the_gap_at_once_and_keep_the_survivors_in_order()
     {
-        Assert.Equal(ArmyTableCompactionPolicy.InOrder, Toy.Flags.ArmyTableCompaction);
+        Assert.Equal(UnitTableCompactionPolicy.InOrder, Toy.Flags.UnitTableCompaction);
         var registry = SystemRegistry.FromEngineAssembly();
         var dispatcher = new CommandDispatcher(registry, Toy, CoreTestbed.Toy.World, NullEventSink.Instance);
         var coordinator = new TurnCoordinator(registry, Toy, CoreTestbed.Toy.World, NullEventSink.Instance, dispatcher);
@@ -225,14 +225,14 @@ public sealed class ArmyTableTests
     }
 
     [Theory]
-    [InlineData("classical-faithful", ArmyTableCompactionPolicy.SwapRemoveSweep)]
-    [InlineData("improved", ArmyTableCompactionPolicy.InOrder)]
-    [InlineData("italy-500bc", ArmyTableCompactionPolicy.InOrder)]
-    [InlineData("toy-ruleset", ArmyTableCompactionPolicy.InOrder)]
-    public void The_shipped_rulesets_carry_the_owners_choice(string rulesetId, ArmyTableCompactionPolicy expected)
+    [InlineData("classical-faithful", UnitTableCompactionPolicy.SwapRemoveSweep)]
+    [InlineData("improved", UnitTableCompactionPolicy.InOrder)]
+    [InlineData("italy-500bc", UnitTableCompactionPolicy.InOrder)]
+    [InlineData("toy-ruleset", UnitTableCompactionPolicy.InOrder)]
+    public void The_shipped_rulesets_carry_the_owners_choice(string rulesetId, UnitTableCompactionPolicy expected)
     {
         var repository = IC2.Engine.Serialization.GameDataRepository.Load(IC2.Engine.Tests.Model.TestPaths.DataRoot);
-        Assert.Equal(expected, repository.RulesetById(rulesetId)!.Flags.ArmyTableCompaction);
+        Assert.Equal(expected, repository.RulesetById(rulesetId)!.Flags.UnitTableCompaction);
     }
 
     // ------------------------------------------------------------ the faithful small-army merge (FUN_004509f0)
@@ -250,7 +250,7 @@ public sealed class ArmyTableTests
             Flags = toy.Flags with
             {
                 AiEconomy = AiEconomyModel.Original,
-                ArmyTableCompaction = ArmyTableCompactionPolicy.SwapRemoveSweep,
+                UnitTableCompaction = UnitTableCompactionPolicy.SwapRemoveSweep,
             },
         };
         var registry = SystemRegistry.FromEngineAssembly();
@@ -294,18 +294,21 @@ public sealed class ArmyTableTests
     {
         var violations = new List<string>();
         var deaths = 0;
+        var fleetLosses = 0;
         ArmyTable.OrderViolationObserver = violations.Add;
         ArmyTable.SweepObserver = closed => deaths += closed;
+        ArmyTable.FleetSweepObserver = closed => fleetLosses += closed;
         try
         {
             var classical = IC2.Engine.Tests.Ai.AiTestbed.Classical;
-            Assert.Equal(ArmyTableCompactionPolicy.SwapRemoveSweep, classical.Ruleset.Flags.ArmyTableCompaction);
+            Assert.Equal(UnitTableCompactionPolicy.SwapRemoveSweep, classical.Ruleset.Flags.UnitTableCompaction);
             AiGameRunner.Run(classical.World, classical.Ruleset, classical.Scenario, seed: 3, turnCap: 160);
         }
         finally
         {
             ArmyTable.OrderViolationObserver = null;
             ArmyTable.SweepObserver = null;
+            ArmyTable.FleetSweepObserver = null;
         }
 
         foreach (var violation in violations.Distinct())
@@ -313,7 +316,7 @@ public sealed class ArmyTableTests
             _output.WriteLine(violation);
         }
 
-        _output.WriteLine($"dead slots swept: {deaths}");
+        _output.WriteLine($"dead slots swept: {deaths} army, {fleetLosses} fleet");
         Assert.Empty(violations);
         Assert.True(deaths > 0, "the run must remove armies for the check to mean anything");
     }

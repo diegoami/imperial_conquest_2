@@ -166,7 +166,7 @@ public class ImprovedPresetTests
             "flags.newGameTurnOrder",
             "flags.balanceSheetTotals",
             "flags.strategicStep",
-            "flags.armyTableCompaction",
+            "flags.unitTableCompaction",
             "ai.resupplyStrengthTroopsDivisor",
             "economy.rebirthPreservesInboundRelations",
             "victory.defaultCondition",
