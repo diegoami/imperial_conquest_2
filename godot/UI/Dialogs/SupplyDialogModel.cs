@@ -210,7 +210,10 @@ public sealed class SupplyDialogModel
             return $"army-transfer {_armyId} {armyId} {(amount > 0 ? "back-money" : "money")}={Math.Abs((long)amount)}";
         var transfer = ArmyTransferModel.ForArmies(receiver, donor, _ruleset);
         transfer.AdjustMoney(-amount);
-        return transfer.ComposeOk();
+        // #1549 N4: an arrow that moves nothing (empty giver, full receiver) submits nothing, so the
+        // dialog shows its no-money feedback. An unchanged army-transfer would run OK's supply rebalance;
+        // that is the Transfer dialog's own unchanged-OK semantics, not a Supply money arrow's.
+        return transfer.MoneyNet == 0 ? null : transfer.ComposeOk();
     }
 
     /// <summary>

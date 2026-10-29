@@ -20,7 +20,7 @@ namespace IC2.Engine.Tests.Ui;
 /// composed lines are submitted through a real <see cref="GameSession"/> and judged by the real engine,
 /// never re-derived here.
 /// </remarks>
-public sealed class ArmyDialogModelsTests
+public sealed partial class ArmyDialogModelsTests
 {
     [Theory]
     [InlineData(false)]
