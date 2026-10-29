@@ -586,7 +586,8 @@ public static class AiMilitaryPhase
             // score sits at or above the floor in every preset), so this matches pass-through
             // behaviour and is the do-not-change-the-rules correction.
             AddMarchCandidate(view, army, x, y, AiCandidate.ApproachKind,
-                why, view.Ruleset.Ai.ApproachCityBaseScore, progress, into);
+                why, view.Ruleset.Ai.ApproachCityBaseScore, progress, into,
+                target: new GridPoint(targetArmy.X, targetArmy.Y));
         }
     }
 
@@ -604,9 +605,19 @@ public static class AiMilitaryPhase
         string why,
         long baseScore,
         long progress,
-        List<AiCandidate> into)
+        List<AiCandidate> into,
+        GridPoint? target = null)
     {
-        var command = new Movement.Commands.MoveArmyCommand(view.NationId, army.Id, x, y);
+        // T239 (#1592): a faithful march (the original's classical navigation) keeps walking toward the
+        // target the tree chose, as FUN_0044dba8 does; (x, y) may be a waypoint. A march across
+        // geographic regions (the original's ferry lookup, absent here) keeps the single walk.
+        var aimedAt = target ?? new GridPoint(x, y);
+        var continues = ClassicalArmyNavigation.Applies(view)
+            && ClassicalArmyNavigation.Classify(army.X, army.Y) == ClassicalArmyNavigation.Classify(aimedAt.X, aimedAt.Y);
+        var command = continues
+            ? new Movement.Commands.MoveArmyCommand(view.NationId, army.Id, x, y,
+                Movement.MoveWalkPolicy.AiContinuation, aimedAt.X, aimedAt.Y)
+            : new Movement.Commands.MoveArmyCommand(view.NationId, army.Id, x, y);
         // The march must also make progress this turn: a first step dearer than the army's moves would
         // be accepted and park the army with its moves zeroed (Sol's R1 on PR #933). Not proposing it
         // lets the caller's fallback chain (garrison, then the emergency move) take over.

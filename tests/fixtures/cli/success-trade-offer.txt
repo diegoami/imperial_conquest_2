@@ -20,10 +20,10 @@ disband-army mac-spare
 move mac-detached 157 31
 move army-8 135 52
 end
+end
 accept-offer
 move mac-detached 155 29
 move army-8 135 52
-end
 move army-8 135 52
 end
 move mac-detached 155 26

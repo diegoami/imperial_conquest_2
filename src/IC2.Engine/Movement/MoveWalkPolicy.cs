@@ -15,4 +15,12 @@ public enum MoveWalkPolicy
     /// (<c>0x00446D9C</c>) and <c>TUnitMap_MoveHumanFleet</c> (<c>0x00446E24</c>) do. Never more than two walks.
     /// </summary>
     HumanSecondWalk,
+
+    /// <summary>
+    /// T239 (#1592): a faithful AI march (<c>FUN_0044dba8</c>). After the first walk it keeps walking, level
+    /// by level, until the army is within 1 tile of the order's target or out of moves; a level that makes no
+    /// progress walks toward the local fallback point and costs 1 move whatever happens, so moves may end at
+    /// −1. Needs the order's target.
+    /// </summary>
+    AiContinuation,
 }

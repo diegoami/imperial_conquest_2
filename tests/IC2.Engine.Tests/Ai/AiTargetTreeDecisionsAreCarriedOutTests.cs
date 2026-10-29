@@ -3,6 +3,7 @@ using IC2.Engine.Battle;
 using IC2.Engine.Cities.Capture;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
+using IC2.Engine.Movement;
 using IC2.Engine.Movement.Commands;
 using IC2.Engine.Naval;
 using IC2.Engine.Recruitment.Commands;
@@ -63,7 +64,7 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
                 round.Clear();
                 log.Clear();
                 var startOfRound = session.State;
-                session.Submit("end");
+                var roundRoutes = session.Submit("end").StrategicTimeline.Steps.SelectMany(s => s.Routes).ToList();
 
                 captures += round.OfType<CityFallsToNation>().Count(c => c.NewOwner != seatName);
                 var turns = SplitByNationTurn(round);
@@ -83,12 +84,12 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
                 {
                     checkedDecisions++;
                     skipped += decision.Skipped;
-                    if (turns.TryGetValue(decision.NationId, out var carriedEvents) && IsCarriedOut(decision, carriedEvents))
+                    if (turns.TryGetValue(decision.NationId, out var carriedEvents) && IsCarriedOut(decision, carriedEvents, roundRoutes))
                     {
                         carriedOut++;
                     }
 
-                    if (!turns.TryGetValue(decision.NationId, out var turnEvents) || !IsCarriedOut(decision, turnEvents))
+                    if (!turns.TryGetValue(decision.NationId, out var turnEvents) || !IsCarriedOut(decision, turnEvents, roundRoutes))
                     {
                         // T157 (#926): the narrow exemption. A later decision for the same army from the same
                         // position supersedes this one when this one's target is unreachable from that position
@@ -174,7 +175,9 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
         return turns;
     }
 
-    private static bool IsCarriedOut(AiArmyTargetTree.DecisionRecord decision, List<DomainEvent> turnEvents)
+    private static bool IsCarriedOut(
+        AiArmyTargetTree.DecisionRecord decision, List<DomainEvent> turnEvents,
+        IReadOnlyList<StrategicTravelObservation> routes)
     {
         var attackCity = decision.Kind == AiArmyTargetTree.Kind.AttackCity;
         var targetId = attackCity ? decision.TargetCityId : decision.TargetArmyId;
@@ -197,7 +200,15 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
             }
         }
 
-        return false;
+        // T239 (#1592): a faithful march keeps walking level by level, and a later level's intermediate
+        // point or local fallback may lead away again, as the original's FUN_0044dba8 does. The march still
+        // carried the decision out when its route came closer to the goal at some cell on the way.
+        return routes.Any(route =>
+            string.Equals(route.EntityId, decision.ArmyId, StringComparison.Ordinal)
+            && route.Origin == new GridPoint(decision.ArmyX, decision.ArmyY)
+            && route.EnteredCells.Any(cell => IsCloserToRouteGoal(
+                new ArmyMoved(decision.ArmyId, decision.NationId, route.Origin.X, route.Origin.Y, cell.X, cell.Y, 0),
+                targetX, targetY)));
     }
 
     private static bool IsCloserToRouteGoal(ArmyMoved moved, int targetX, int targetY)

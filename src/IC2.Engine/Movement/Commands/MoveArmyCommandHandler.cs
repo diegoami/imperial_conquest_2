@@ -125,9 +125,11 @@ public sealed class MoveArmyCommandHandler : ICommandHandler<MoveArmyCommand>
 
         var from = new GridPoint(army.X, army.Y);
         // #1012: the ruleset's step policy, and the map size for the original step helper's bounds guard.
-        MovementWalkResult WalkFrom(GridPoint origin, int moves) => MovementWalker.Walk(
-            origin, destination, moves, context.Ruleset.Terrain, TileTypeIdAt, IsBlocked, context.Events,
+        MovementWalkResult WalkTo(GridPoint origin, GridPoint to, int moves) => MovementWalker.Walk(
+            origin, to, moves, context.Ruleset.Terrain, TileTypeIdAt, IsBlocked, context.Events,
             step: context.Ruleset.Flags.StrategicStep, worldSize: new GridPoint(world.Width, world.Height));
+
+        MovementWalkResult WalkFrom(GridPoint origin, int moves) => WalkTo(origin, destination, moves);
 
         int MovesAfter(MovementWalkResult result) => result.StopReason == MovementStopReason.InsufficientMoves
             ? MovementAbortRule.MovesAfterAbortedStep(
@@ -144,6 +146,80 @@ public sealed class MoveArmyCommandHandler : ICommandHandler<MoveArmyCommand>
             var second = WalkFrom(walk.FinalPosition, movesAfter);
             walk = walk.Then(second);
             movesAfter = MovesAfter(second);
+        }
+
+        // T239 (#1592): a faithful AI march keeps walking as FUN_0044dba8 does. Each level after a walk:
+        // when the walk left the moves unchanged and positive, walk toward CEC8's local fallback point and
+        // spend 1 move whatever happens (moves may reach -1; no point ends the order); then, while the army
+        // is more than 1 tile from the target with moves left, start a level from the new cell: the direct
+        // line when CB40 passes, otherwise D174's intermediate point (none, or an undefined original
+        // context, ends the order). The levels are one route.
+        if (command.Walk == MoveWalkPolicy.AiContinuation && command.TargetX is { } targetX && command.TargetY is { } targetY)
+        {
+            var target = new GridPoint(targetX, targetY);
+            var movesBefore = army.Moves;
+
+            // The original routines read the live map, where the marching army's marker stands on its cell.
+            Ai.AiView ViewAt(GridPoint cell) => new(
+                state with
+                {
+                    Armies = ValueList.From(state.Armies.Select(a =>
+                        string.Equals(a.Id, army.Id, StringComparison.Ordinal) ? a with { X = cell.X, Y = cell.Y } : a)),
+                },
+                context.Ruleset, world, army.Nation);
+            while (true)
+            {
+                if (movesAfter == movesBefore && movesAfter > 0)
+                {
+                    var here = walk.FinalPosition;
+                    var fallback = Ai.ClassicalArmyNavigation.LocalFallback(ViewAt(here), here);
+                    if (fallback is { } point)
+                    {
+                        var side = WalkTo(here, point, movesAfter);
+                        walk = walk.Then(side);
+                        movesAfter = MovesAfter(side);
+                    }
+
+                    movesAfter -= 1;
+                    if (fallback is null)
+                    {
+                        break;
+                    }
+                }
+
+                var at = walk.FinalPosition;
+                if (Math.Max(Math.Abs(target.X - at.X), Math.Abs(target.Y - at.Y)) <= 1 || movesAfter <= 0)
+                {
+                    break;
+                }
+
+                GridPoint aim;
+                try
+                {
+                    var view = ViewAt(at);
+                    if (Ai.ClassicalArmyNavigation.DirectLine(view, at, target))
+                    {
+                        aim = target;
+                    }
+                    else if (Ai.ClassicalArmyNavigation.Intermediate(view, at, target).Point is { } waypoint)
+                    {
+                        aim = waypoint;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                catch (NotSupportedException)
+                {
+                    break;
+                }
+
+                movesBefore = movesAfter;
+                var level = WalkTo(at, aim, movesAfter);
+                walk = walk.Then(level);
+                movesAfter = MovesAfter(level);
+            }
         }
 
         if (army.CoveredTileCode is not null && !army.IsEmbarked)
