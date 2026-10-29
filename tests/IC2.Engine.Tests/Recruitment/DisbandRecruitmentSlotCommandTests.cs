@@ -55,7 +55,7 @@ public sealed class DisbandRecruitmentSlotCommandTests
     public void DisbandSlot_removes_the_slot_leaves_the_treasury_alone_and_keeps_the_recruit_fall()
     {
         const string unitType = "light_infantry";
-        const int troops = 200; // tests/fixtures/cli/success.txt's own recruit-standing line.
+        const int troops = 3000; // tests/fixtures/cli/success.txt's own recruit-standing line.
         var dispatcher = NewDispatcher();
         var initial = ClassicalInitial();
         var romeInitial = initial.NationById(Nation)!;
@@ -98,7 +98,7 @@ public sealed class DisbandRecruitmentSlotCommandTests
         var initial = ClassicalInitial();
 
         var recruited = dispatcher.Dispatch(
-            initial, new RecruitStandingUnitCommand(Nation, CityId, "light_infantry", 200));
+            initial, new RecruitStandingUnitCommand(Nation, CityId, "light_infantry", 3000));
         Assert.True(recruited.IsAccepted);
 
         var ready = recruited.State.NationById(Nation)!.RecruitmentSlots[0] with
@@ -131,7 +131,7 @@ public sealed class DisbandRecruitmentSlotCommandTests
         var initial = ClassicalInitial();
 
         var recruited = dispatcher.Dispatch(
-            initial, new RecruitStandingUnitCommand(Nation, CityId, "light_infantry", 200));
+            initial, new RecruitStandingUnitCommand(Nation, CityId, "light_infantry", 3000));
         Assert.True(recruited.IsAccepted);
 
         var beyond = dispatcher.Dispatch(recruited.State, new DisbandRecruitmentSlotCommand(Nation, 1));
@@ -235,7 +235,7 @@ public sealed class DisbandRecruitmentSlotCommandTests
         var boundary = ClassicalOnTheLastWeekBeforeAQuarter();
 
         var kept = NewDispatcher().Dispatch(
-            boundary, new RecruitStandingUnitCommand(Nation, CityId, "light_infantry", 200));
+            boundary, new RecruitStandingUnitCommand(Nation, CityId, "light_infantry", 3000));
         Assert.True(kept.IsAccepted);
         var slot = Assert.Single(kept.State.NationById(Nation)!.RecruitmentSlots);
 

@@ -134,8 +134,8 @@ recruitment.mobilize-recruit-slot rejected (recruitment.unknown-recruitment-slot
 > hire-mercenary north-army-1 0
 recruitment.hire-mercenary rejected (mercenary.unknown-pool-slot): Mercenary pool slot 0 has no offer to hire.
 
-> recruit-standing arx heavy_infantry 1000
-recruitment.recruit-standing-unit rejected (recruitment.insufficient-treasury): Nation 'north' has 0 talents, which is less than the order's cost of 100.
+> recruit-standing arx heavy_infantry 1200
+recruitment.recruit-standing-unit rejected (recruitment.insufficient-treasury): Nation 'north' has 0 talents, which is less than the order's cost of 120.
 
 > move-fleet north-fleet-1 999 999
 naval.move-fleet rejected (naval.out-of-bounds): (999, 999) is outside the 8x6 map.

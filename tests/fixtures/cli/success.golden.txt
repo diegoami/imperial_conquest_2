@@ -21,10 +21,10 @@ armies.split-army accepted.
 > order-city pella fortify 1
 city.order accepted.
 
-> recruit-standing pella light_infantry 200
+> recruit-standing pella light_infantry 3000
 recruitment.recruit-standing-unit accepted.
 
-> recruit-standing pella light_infantry 200
+> recruit-standing pella light_infantry 3000
 recruitment.recruit-standing-unit accepted.
 
 > order-fleet amphipolis 20 mac-fleet-1
@@ -318,7 +318,7 @@ army-8 moved from (136,51) to (136,43), spending 9 of 9 moves.
 mac-marines bought 5 tons of supply at pella, free at your own city.
 
 > buy mac-marines pella 5000
-mac-marines bought 60 tons of supply at pella, free at your own city.
+mac-marines bought 116 tons of supply at pella, free at your own city.
 
 > transfer-money mac-marines 100
 mac-marines received 100 talents from the treasury.
@@ -550,7 +550,7 @@ Nations:
   Carthage (carthage, ai): treasury 11251, unity 726, tax 5%
   Seleucid (seleucid, ai): treasury -2967, unity 746, tax 36%
   Ptolemaic (ptolemaic, ai): treasury 64, unity 675, tax 13%
-  Macedonia (macedonia, human): treasury 765, unity 867, tax 15%
+  Macedonia (macedonia, human): treasury 681, unity 867, tax 15%
   Numidia (numidia, ai): treasury 1927, unity 665, tax 5%
   Gaul (gaul, ai): treasury -4955, unity 562, tax 17%
   Greece (greece, ai): treasury -870, unity 551, tax 17%
@@ -573,7 +573,7 @@ Armies:
   army-13 (Media) @ (305,57): 51200 troops in 12 units, supply 487t (95%), morale 70, moves 8
   army-14 (Thracia) @ (169,38): 22000 troops in 6 units, supply 209t (95%), morale 70, moves 9
   mac-detached (Macedonia) @ (157,24): 7900 troops in 1 units, supply 0t (0%), morale 51, moves 9
-  mac-marines (Macedonia) @ (137,42): 4800 troops in 2 units, supply 37t (77%), morale 58, moves 10
+  mac-marines (Macedonia) @ (137,42): 4800 troops in 2 units, supply 93t (193%), morale 58, moves 10
   mac-sac-1 (Macedonia) @ (143,43): 4972 troops in 1 units, supply 0t (0%), morale 51, moves 9
   mac-merc (Macedonia) @ (140,45): 6305 troops in 2 units, supply 0t (0%), morale 51, moves 3
   army-2 (Seleucid) @ (208,53): 75142 troops in 12 units, supply 751t (99%), morale 62, moves 0

@@ -51,8 +51,8 @@ public sealed class RecruitAllCitiesTests
     private static GameSession TwoCitySession()
     {
         var session = RomeSession();
-        Recruit(session, RomeCityId, "light_infantry", 200);
-        Recruit(session, LuceriaCityId, "archers", 400);
+        Recruit(session, RomeCityId, "light_infantry", 3000);
+        Recruit(session, LuceriaCityId, "archers", 700);
         return session;
     }
 
@@ -80,10 +80,10 @@ public sealed class RecruitAllCitiesTests
         var session = RomeSession();
         Assert.False(Model(session).OpensOnAllCities);
 
-        Recruit(session, RomeCityId, "light_infantry", 200);
+        Recruit(session, RomeCityId, "light_infantry", 3000);
         Assert.False(Model(session).OpensOnAllCities);
 
-        Recruit(session, LuceriaCityId, "archers", 400);
+        Recruit(session, LuceriaCityId, "archers", 700);
         Assert.True(Model(session).ShowsAllCities);
         Assert.True(Model(session).OpensOnAllCities);
     }
@@ -94,15 +94,15 @@ public sealed class RecruitAllCitiesTests
         var session = RomeSession();
         Assert.False(Model(session).ShowsAllCities);
 
-        Recruit(session, LuceriaCityId, "archers", 400);
+        Recruit(session, LuceriaCityId, "archers", 700);
         Assert.False(Model(session).ShowsAllCities);
         Assert.False(Model(session).OpensOnAllCities);
 
         // Two units at the same town are still one town.
-        Recruit(session, LuceriaCityId, "archers", 400);
+        Recruit(session, LuceriaCityId, "archers", 700);
         Assert.False(Model(session).ShowsAllCities);
 
-        Recruit(session, RomeCityId, "light_infantry", 200);
+        Recruit(session, RomeCityId, "light_infantry", 3000);
         Assert.True(Model(session).ShowsAllCities);
     }
 
@@ -119,15 +119,15 @@ public sealed class RecruitAllCitiesTests
         Assert.True(model.CanRecruitAt(RecruitUnitDialogModel.AllCitiesId));
         Assert.Null(model.RecruitRefusalReasonAt(RecruitUnitDialogModel.AllCitiesId));
 
-        var lineAll = model.RecruitStandingLine(model.RecruitCityIdFor(RecruitUnitDialogModel.AllCitiesId), "archers", 300);
-        var lineCapital = Model(viaCapital).RecruitStandingLine(capital, "archers", 300);
+        var lineAll = model.RecruitStandingLine(model.RecruitCityIdFor(RecruitUnitDialogModel.AllCitiesId), "archers", 700);
+        var lineCapital = Model(viaCapital).RecruitStandingLine(capital, "archers", 700);
         Assert.Equal(lineCapital, lineAll);
 
         var before = Model(viaAll).TrainingFor(capital).Count;
         Assert.Equal(viaCapital.Submit(lineCapital).Lines, viaAll.Submit(lineAll).Lines);
         var after = Model(viaAll).TrainingFor(capital);
         Assert.Equal(before + 1, after.Count);
-        Assert.Contains(after, r => r.UnitTypeId == "archers" && r.Troops == 300);
+        Assert.Contains(after, r => r.UnitTypeId == "archers" && r.Troops == 700);
     }
 
     [Fact]
@@ -199,7 +199,7 @@ public sealed class RecruitAllCitiesTests
     public void The_readiness_text_reads_weeks_until_ready_and_then_ready_at_the_boundary()
     {
         var session = RomeSession();
-        Recruit(session, LuceriaCityId, "archers", 400);
+        Recruit(session, LuceriaCityId, "archers", 700);
         var threshold = session.Ruleset.Recruitment.MobilizationMinStateCodeHumanSeat;
         var step = session.Ruleset.Calendar.CityUnitStateCodeStep;
         var weeksToReady = threshold / step;

@@ -53,7 +53,7 @@ naval.embark-army accepted.
 > disembark-army mac-marines 148 40
 naval.disembark-army accepted.
 
-> recruit-standing pella light_infantry 200
+> recruit-standing pella light_infantry 3000
 recruitment.recruit-standing-unit accepted.
 
 > disband-slot 0
