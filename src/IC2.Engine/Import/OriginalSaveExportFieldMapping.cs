@@ -60,6 +60,8 @@ public static class OriginalSaveExportFieldMapping
         new(typeof(GameState), "RandomSeed", Kind.Omitted, "none", "The original save does not restore the process RNG state."),
         new(typeof(GameState), "DeadArmySlots", Kind.Omitted, "none",
             "T240: dead army slots are not exported; the army table holds the live armies in their current order."),
+        new(typeof(GameState), "DeadFleetSlots", Kind.Omitted, "none",
+            "T244: dead fleet slots are not exported; the fleet table holds the live fleets in their current order."),
         new(typeof(GameState), "ActiveNationId", Kind.Derived, "OriginalTrailer.CurrentNation", "Derived from the saved turn order and active seat index."),
 
         new(typeof(CalendarState), "Week SeasonIndex YearBc", Kind.Written, "OriginalTrailer calendar", "The three original calendar words are written."),

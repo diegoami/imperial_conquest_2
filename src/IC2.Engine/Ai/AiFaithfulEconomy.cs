@@ -564,8 +564,9 @@ public static class AiFaithfulEconomy
             return (state, 0, 0);
         }
 
-        // The < 99 gate counts the whole fleet table, every nation's fleets (DAT_004a0326).
-        var fleets = state.Fleets.Count;
+        // The < 99 gate counts the whole fleet table, every nation's fleets (DAT_004a0326), and with them, under
+        // unitTableCompaction = swapRemoveSweep, the dead records not yet swept (T244, #1606).
+        var fleets = IC2.Engine.Armies.ArmyTable.FleetTableCount(state);
 
         var cities = 0;
         foreach (var city in state.Cities)
