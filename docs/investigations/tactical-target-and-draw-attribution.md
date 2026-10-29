@@ -27,7 +27,7 @@ The state-only `ar-hi-three_s3_r5_hook` discrepancy clears across all 22 files d
 | Series with a local discrepancy | 19 | Six Pass 2, fifteen threat, two overlapping |
 | Series without one in those probes | 17 | No local cause established by this probe set |
 
-**All 36 residual complete causal paths remain open.** The state-only case is `ar-hi-three_s3_r5_hook`, BATTLE19, slot 2 Y: port 3 / original 4, with 218 identical draws. Of the 35 first draw mismatches, 30 occur at original site `0x439557`, four at `0x439188`, one at `0x4395ce`. These identify original call sites; the port may already be acting with a different actor or target. All residual start saves parse to turn 0743. [Source: inventory and all-divergences table](https://github.com/diegoami/imperial-conquest-2-research/blob/93bee8965e5d0d05017deb3b31d5289f7af263c0/docs/reports/2026-10-16-tactical-target-and-draw-attribution.md#all-surviving-first-divergences).
+**Each of the 36 residual series is since attributed to one later main commit** ([below](#attribution-of-the-36-residual-series)). The state-only case is `ar-hi-three_s3_r5_hook`, BATTLE19, slot 2 Y: port 3 / original 4, with 218 identical draws. Of the 35 first draw mismatches, 30 occur at original site `0x439557`, four at `0x439188`, one at `0x4395ce`. These identify original call sites; the port may already be acting with a different actor or target. All residual start saves parse to turn 0743. [Source: inventory and all-divergences table](https://github.com/diegoami/imperial-conquest-2-research/blob/93bee8965e5d0d05017deb3b31d5289f7af263c0/docs/reports/2026-10-16-tactical-target-and-draw-attribution.md#all-surviving-first-divergences).
 
 **[Provenance limit]** Original logs and SAVs are existing Wine battle-lab observations. Local x86 probes execute original instructions under Unicorn 2.1.4 on synthetic or contemporaneous **model** inputs. This supplies no new native Windows confirmation. Research intake independently checked text hashes, raw draw streams, boundary bytes and inventory counts, but did not rerun .NET, Unicorn, the complete phase observer or original Wine/UI execution. This build-side evaluation reads the promoted reports and current production source; it does not repeat those runs.
 
@@ -67,8 +67,21 @@ The following original rules have code and x86 evidence. Current production path
 
 By baseline `5ca9c3f`, issue 1107 had 63 cases / 48 series: the missing survey series was still omitted and seven others added. T175's **whole** strict registry transition was 633→94 (545 removals and six expressly approved exposed cases); 90 of the 94 point to 1107 and four to [1106](https://github.com/diegoami/imperial_conquest_2/issues/1106). The 90 include non-hook/resume comparisons and are not the 36 hook residual series. [Source: inventory reconciliation](https://github.com/diegoami/imperial-conquest-2-research/blob/93bee8965e5d0d05017deb3b31d5289f7af263c0/docs/reports/2026-10-16-tactical-target-and-draw-attribution.md#inventory-42-5741-6348-and-the-corrected-comparison).
 
+## Attribution of the 36 residual series
+
+[Research `c7d267f`](https://github.com/diegoami/imperial-conquest-2-research/blob/c7d267f/docs/reports/2026-10-30-tactical-residuals-attributed25.md) (answering research issue 25) compiled the unchanged strict #157 replay (`Corpus.cs`: GoldenReplay plus ordered DrawComparison, no KnownFailures) against 23 main-project pins and ran it on the same private corpus (revision `6319802a`). Its baseline at `257f2d2` is the inventory above. Each of the 36 disappears at exactly one commit, and every later residual set is a subset of the earlier one:
+
+| Commit | Change | Series removed |
+|---|---|---|
+| `32f3ce7` (T188, first tested on main at `30e1386`) | Pass 2 weighted candidate eligibility and strict minimum | 23 |
+| `65cfc1f` (T189) | threat movement actor shooting mode and radius | 11, including the state-only `ar-hi-three_s3` and `hi-ar-three_s3`, and `mix-rg_s3` |
+| `f0cd629` (PR1371) | later-pass slot order | `mix-rg_s1`, the pinned HR6 start; the threat correction alone does not remove it |
+| `3c18600` (PR1387) | captured Walk target / live-shot guard | `mix-rg_s2` |
+
+The 16 other tactical-touching commits tested change no result; at `b593c6e` all 318 series pass. **[Provenance limit]** This is attribution by source change: no game run, and no fixture, draw-bound or tolerance change. Per-series instruction-level causality is not established (PR1371's four files were not separated), and nothing beyond this recorded corpus follows: not natural End-turn battle entry, the deployed build or native Windows.
+
 ## Consequences for the build
 
-The original-rule claims in [game-design.md](../game-design.md) are corrected independently of runtime implementation. The [audit](../design-audit.md#215-tactical-general-local-rules-differ-from-the-merged-port--confirmed-code-and-x86-complete-attribution-open) and [release gates](../release-plan.md#2-the-release-ladder) retain the distinction between local evidence and complete replay fidelity. The T175 control prerequisite is met; that alone does not close the residual investigation. No new product choice follows from these factual corrections.
+The original-rule claims in [game-design.md](../game-design.md) are corrected independently of runtime implementation. The [audit](../design-audit.md#215-tactical-general-local-rules-differ-from-the-merged-port--confirmed-code-and-x86-complete-attribution-open) and [release gates](../release-plan.md#2-the-release-ladder) retain the distinction between local evidence and complete replay fidelity. The T175 control prerequisite is met, and the 36 hook residual series are [attributed](#attribution-of-the-36-residual-series): none survives at current main. That does not extend to battles outside the recorded corpus. No new product choice follows from these factual corrections.
 
 A later reviewed correction must retain immutable original fixtures, draw bounds/results and strict state/draw comparisons, then identify which complete trial divergences actually disappear. This evaluation authorizes no fixture/registry edits, expected-failure additions, draw rebaseline or change to `improved`'s separately designed rules. Merged historical task contracts remain historical; no undispatched tactical entry is changed.
