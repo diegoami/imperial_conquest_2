@@ -39,6 +39,16 @@ public sealed class OrderFleetCommandHandler : ICommandHandler<OrderFleetCommand
                 OrderFleetRejections.CityNotCoastal, $"City '{city.Id}' does not touch the sea.");
         }
 
+        // T237 (#920 item 1): the Build fleet dialog's free-coastal-city test (R56), repeated here.
+        if (CoastalCity.IsBuildingFleet(state, command.IssuingNationId, city.Id))
+        {
+            return CommandOutcome.Reject(
+                OrderFleetRejections.CityNotFree,
+                CoastalCity.FreeForFleetOrder(state, context.World, command.IssuingNationId).Count == 0
+                    ? "You do not have a free coastal city at this time."
+                    : $"City '{city.Id}' is already building a fleet.");
+        }
+
         var rules = context.Ruleset.Naval;
         if (command.Ships < rules.OrderMinShips || command.Ships > rules.OrderMaxShips)
         {
