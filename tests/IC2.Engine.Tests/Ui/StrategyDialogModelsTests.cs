@@ -311,11 +311,37 @@ public sealed class StrategyDialogModelsTests
     {
         var session = RomeSession();
         var model = BuildFleetDialogModel.ForActiveNation(session.State, session.Ruleset, session.World);
-        var city = model.FreeCoastalCities[0];
+        var city = model.BuildCity!;
 
         var line = model.OrderFleetLine(20, city.Id, "t109-new-fleet");
 
-        Assert.Equal($"order-fleet {city.Id} 20 t109-new-fleet", line);
+        Assert.Equal("order-fleet caere 20 t109-new-fleet", line);
+    }
+
+    /// <summary>
+    /// T241 (#918): the dialog does not let the player choose the port; it names the free coastal city
+    /// nearest the capital, as the original does (manual §6 "Building a fleet"). Six orders from Rome in
+    /// one turn, each composed by the dialog's model against <see cref="BuildFleetDialogModel.BuildCity"/>
+    /// and submitted, go to Caere, Antium, Tarquinii, Pisae, Neapolis and Ariminum: the original's
+    /// sequence. World order would give Pisae first.
+    /// </summary>
+    [Fact]
+    public void Build_fleet_builds_Romes_orders_nearest_the_capital_first()
+    {
+        var session = RomeSession();
+        var cities = new List<string>();
+        for (var i = 0; i < 6; i++)
+        {
+            var model = BuildFleetDialogModel.ForActiveNation(session.State, session.Ruleset, session.World);
+            Assert.Null(model.PreOpenRefusalMessage);
+            var city = model.BuildCity!;
+            var fleetId = BuildFleetDialogModel.NextFleetId(session.State);
+            session.Submit(model.OrderFleetLine(10, city.Id, fleetId));
+            Assert.Equal(city.Id, session.State.FleetById(fleetId)?.BuildCityId);
+            cities.Add(city.Id);
+        }
+
+        Assert.Equal(new[] { "caere", "antium", "tarquinii", "pisae", "neapolis", "ariminum" }, cities);
     }
 
     /// <summary>

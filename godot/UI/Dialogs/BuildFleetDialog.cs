@@ -18,7 +18,7 @@ namespace IC2.Slice.UI;
 /// <see cref="IC2.Engine.Model.NavalRules.OrderMinShips"/> /
 /// <see cref="IC2.Engine.Model.NavalRules.OrderMaxShips"/>, the cost from
 /// <see cref="IC2.Engine.Model.NavalRules.BuildCostPerShip"/>, the fleet port from
-/// <see cref="IC2.Engine.Naval.CoastalCity.IsCoastal"/>, and the pre-open refusals in the
+/// <see cref="IC2.Engine.Naval.CoastalCity.FleetBuildCity"/>, and the pre-open refusals in the
 /// order the original's <c>TPremierForm_BuildNewFleet</c> lists them.
 /// </para>
 /// <para>
@@ -31,13 +31,12 @@ namespace IC2.Slice.UI;
 /// player wants one, is a second menu pick.
 /// </para>
 /// <para>
-/// <strong>The fleet port is the engine's own pick.</strong> The dialog offers the free coastal
-/// cities <see cref="IC2.Engine.Naval.Commands.OrderFleetCommandHandler"/> itself accepts
-/// (the engine's own coastal test) and submits to the first one. The Hazards flag on
-/// <em>whether <c>TBuildFleet</c> lets the player pick the city</em> is still
-/// <strong>[open]</strong>; the engine and the dialog agree on one port for every nation in the
-/// shipped world, and a code comment marks the question for review
-/// (<c>docs/tasks/T109.md</c> Hazards).
+/// <strong>The fleet port is the game's choice.</strong> The player does not choose it (manual §6
+/// "Building a fleet": "you do not choose the port"); the original builds at the free coastal city
+/// nearest the capital. The "Fleet port" label names <see cref="BuildFleetDialogModel.BuildCity"/>
+/// (<see cref="IC2.Engine.Naval.CoastalCity.FleetBuildCity"/>) and OK submits to it (T241, #918).
+/// The label is the clone's: the original shows no port before OK and names it in its "The fleet
+/// will be built at &lt;C&gt;." box after.
 /// </para>
 /// </remarks>
 public partial class BuildFleetDialog : Control
@@ -72,6 +71,9 @@ public partial class BuildFleetDialog : Control
 
     /// <summary>The session's own reply line for the last command submitted from this dialog.</summary>
     public string ReplyForCheck => _replyLabel.Text;
+
+    /// <summary>The "Fleet port" label's text, exposed for the headless check.</summary>
+    public string FleetPortForCheck => _fleetPortLabel.Text;
 
     public override void _Ready()
     {
@@ -184,9 +186,9 @@ public partial class BuildFleetDialog : Control
 
         _refusalLabel.Text = _model.PreOpenRefusalMessage ?? string.Empty;
 
-        if (_model.FreeCoastalCities.Count > 0)
+        if (_model.BuildCity is { } buildCity)
         {
-            _fleetPortLabel.Text = $"Fleet port: {_model.FreeCoastalCities[0].Name}";
+            _fleetPortLabel.Text = $"Fleet port: {buildCity.Name}";
         }
         else
         {
@@ -240,13 +242,12 @@ public partial class BuildFleetDialog : Control
             return;
         }
 
-        if (_model.FreeCoastalCities.Count == 0)
+        if (_model.BuildCity is not { } city)
         {
             return;
         }
 
         var ships = (int)_ships.Value;
-        var city = _model.FreeCoastalCities[0];
         var line = _model.OrderFleetLine(ships, city.Id, BuildFleetDialogModel.NextFleetId(Session.State));
         var lines = Submit(line);
         _replyLabel.Text = lines.Skip(1).FirstOrDefault(text => text.Length > 0) ?? string.Empty;
