@@ -15,10 +15,12 @@ namespace IC2.Engine.Tests.Ui;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>N1 is characterised, not corrected.</strong> The tests named <c>N1_Characterisation_*</c> pin
-/// today's behaviour of an emptied-army merge whose summed purse exceeds the 32,767 field, and of what
-/// later happens to that army. They are not a policy: the owner has not chosen one, and when a policy is
-/// chosen these tests are expected to change with it.
+/// <strong>N1</strong> (owner decision 2026-10-30): an army transfer that empties an army, whose merged
+/// purse would exceed the 32,767 field, is refused with its reason in the preview; no money is lost or
+/// moved elsewhere. The tests named <c>N1_*</c> pin that refusal and its boundary. A purse above the field
+/// is no longer reachable through a transfer, but a native save written before this fix can still hold
+/// one, so the <c>Legacy_*</c> tests keep characterising what happens to such an army (export refusal,
+/// round trip, later Join and treasury credits). Join armies' own designed clamp (#838) is unchanged.
 /// </para>
 /// <para>
 /// <strong>N2</strong>: with the purse cap at the field maximum, the flexible arrow and the original
@@ -36,26 +38,24 @@ public sealed partial class ArmyDialogModelsTests
     private const string OverFieldPartnerId = "fix1549-c";
 
     /// <summary>
-    /// N1's reachable state: A and B at 30,000 each, every A unit transferred to B, OK. B ends at 60,000
-    /// and A is disbanded. Returns the session after that commit.
+    /// The state N1 used to reach before the refusal: B holds 60,000 and A is gone, as a native save written
+    /// before #1549's fix may still hold it. Built directly, because a transfer can no longer produce it.
     /// </summary>
-    private static GameSession MergedAboveTheField(bool intoPartner = true)
+    private static GameSession MergedAboveTheField()
     {
         var session = Session(aMoney: 30_000, bMoney: 30_000);
-        var model = Transfer(session);
-        if (intoPartner)
+        var a = session.State.ArmyById(ArmyAId)!;
+        var b = session.State.ArmyById(ArmyBId)!;
+        var merged = b with { Money = 60_000, Units = ValueList.From(b.Units.Concat(a.Units.Reverse())) };
+        var state = session.State with
         {
-            model.StageUnitToPartner(1);
-            model.StageUnitToPartner(0);
-        }
-        else
-        {
-            model.StageUnitBack(0);
-        }
-
-        var output = session.Submit(model.ComposeOk()!);
-        Assert.DoesNotContain(output.Lines, l => l.Contains("rejected", StringComparison.OrdinalIgnoreCase));
-        return session;
+            Armies = ValueList.From(session.State.Armies
+                .Where(army => army.Id != ArmyAId)
+                .Select(army => army.Id == ArmyBId ? merged : army)),
+        };
+        var save = new SaveGame(state.SchemaVersion, "fix1549", "fix1549", state.ScenarioId, state.WorldId,
+            state.RulesetId, state);
+        return new GameSession(session.World, session.Ruleset, session.Scenario, save);
     }
 
     /// <summary>The merged session plus a one-unit army C (100 talents) on A's freed cell, next to B.</summary>
@@ -73,15 +73,10 @@ public sealed partial class ArmyDialogModelsTests
         return new GameSession(merged.World, merged.Ruleset, merged.Scenario, save);
     }
 
-    // ---- N1: characterisation of today's behaviour (no policy asserted) ----
+    // ---- N1: an emptied-army transfer whose merged purse exceeds the field is refused ----
 
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void N1_Characterisation_emptied_army_merge_previews_and_commits_a_purse_above_the_field(bool intoPartner)
+    private static ArmyTransferModel StageEmptying(GameSession session, bool intoPartner)
     {
-        var session = Session(aMoney: 30_000, bMoney: 30_000);
-        var before = session.State;
         var model = Transfer(session);
         if (intoPartner)
         {
@@ -93,23 +88,65 @@ public sealed partial class ArmyDialogModelsTests
             model.StageUnitBack(0);
         }
 
-        // Today: no preview rejection, and the preview predicts the raw sum.
-        Assert.Null(model.PreviewRejection);
-        Assert.Equal(intoPartner ? 0 : 60_000, model.SelectedMoneyAfter);
-        Assert.Equal(intoPartner ? 60_000 : 0, model.PartnerMoneyAfter);
-        Assert.Equal(before, session.State);
+        return model;
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void N1_emptied_army_merge_above_the_field_is_refused_with_the_reason_in_the_preview(bool intoPartner)
+    {
+        var session = Session(aMoney: 30_000, bMoney: 30_000);
+        var before = session.State;
+        var model = StageEmptying(session, intoPartner);
+
+        var survivorId = intoPartner ? ArmyBId : ArmyAId;
+        var emptiedId = intoPartner ? ArmyAId : ArmyBId;
+        Assert.Equal(
+            $"Army '{survivorId}' would hold 60000 money after '{emptiedId}' joins it; an army can hold 32767.",
+            model.PreviewRejection);
+        // A refused preview shows the live purses unchanged.
+        Assert.Equal(30_000, model.SelectedMoneyAfter);
+        Assert.Equal(30_000, model.PartnerMoneyAfter);
 
         var output = session.Submit(model.ComposeOk()!);
+        Assert.Contains(output.Lines, l => l.Contains("rejected", StringComparison.OrdinalIgnoreCase)
+            && l.Contains("would hold 60000 money", StringComparison.Ordinal));
+        // Nothing moves: both armies, both purses and the treasury are as before.
+        Assert.Equal(before, session.State);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void N1_emptied_army_merge_exactly_at_the_field_is_accepted(bool intoPartner)
+    {
+        var session = Session(aMoney: 16_384, bMoney: 16_383);
+        var model = StageEmptying(session, intoPartner);
+
+        Assert.Null(model.PreviewRejection);
+        var output = session.Submit(model.ComposeOk()!);
         Assert.DoesNotContain(output.Lines, l => l.Contains("rejected", StringComparison.OrdinalIgnoreCase));
-        var survivor = session.State.ArmyById(intoPartner ? ArmyBId : ArmyAId)!;
+        Assert.Equal(PurseAccounting.PurseFieldMax, session.State.ArmyById(intoPartner ? ArmyBId : ArmyAId)!.Money);
         Assert.Null(session.State.ArmyById(intoPartner ? ArmyAId : ArmyBId));
-        Assert.Equal(60_000, survivor.Money);
-        Assert.True(survivor.Money > PurseAccounting.PurseFieldMax);
-        Assert.Equal(before.Nations, session.State.Nations);
     }
 
     [Fact]
-    public void N1_Characterisation_join_armies_clamps_the_same_sum_at_the_field_and_discards_the_excess()
+    public void N1_emptied_army_merge_that_also_moves_money_is_refused_on_the_merged_sum()
+    {
+        // The money arrow cannot route around the refusal: the merged purse is the same sum either way.
+        var session = Session(aMoney: 20_000, bMoney: 13_000);
+        var before = session.State;
+        var model = StageEmptying(session, intoPartner: true);
+        model.AdjustMoney(-100);
+
+        Assert.NotNull(model.PreviewRejection);
+        session.Submit(model.ComposeOk()!);
+        Assert.Equal(before, session.State);
+    }
+
+    [Fact]
+    public void N1_join_armies_still_clamps_the_same_sum_at_the_field_and_discards_the_excess()
     {
         // The comparison the note asks for: Join armies routes the same sum through PurseAccounting.Credit.
         var session = Session(aMoney: 30_000, bMoney: 30_000);
@@ -120,7 +157,7 @@ public sealed partial class ArmyDialogModelsTests
     }
 
     [Fact]
-    public void N1_Characterisation_original_save_export_refuses_the_merged_purse_as_unrepresentable()
+    public void Legacy_original_save_export_refuses_the_merged_purse_as_unrepresentable()
     {
         var session = MergedAboveTheField();
         var index = session.State.Armies.ToList().FindIndex(a => a.Id == ArmyBId);
@@ -145,7 +182,7 @@ public sealed partial class ArmyDialogModelsTests
     }
 
     [Fact]
-    public void N1_Characterisation_the_native_save_round_trips_the_merged_purse_unchanged()
+    public void Legacy_the_native_save_round_trips_the_merged_purse_unchanged()
     {
         var session = MergedAboveTheField();
         var save = new SaveGame(GameDataSchema.CurrentVersion, "fix1549", "fix1549", session.State.ScenarioId,
@@ -156,7 +193,7 @@ public sealed partial class ArmyDialogModelsTests
     }
 
     [Fact]
-    public void N1_Characterisation_a_later_join_credits_through_the_field_clamp_and_loses_the_excess()
+    public void Legacy_a_later_join_credits_through_the_field_clamp_and_loses_the_excess()
     {
         var session = WithPartnerNextToOverFieldArmy(MergedAboveTheField());
         var treasury = session.State.NationById(NationId)!.Treasury;
@@ -173,7 +210,7 @@ public sealed partial class ArmyDialogModelsTests
     [Theory]
     [InlineData(-100, 27_233)]
     [InlineData(100, 59_000)]
-    public void N1_Characterisation_a_later_treasury_money_arrow_pulls_the_purse_into_range(int request, int treasuryGain)
+    public void Legacy_a_later_treasury_money_arrow_pulls_the_purse_into_range(int request, int treasuryGain)
     {
         // Faithful per-unit purses: a withdrawal of 100 lands at the field through PurseAccounting.Credit, and
         // a deposit meets the signed 1,000 arrow cap; either way the treasury receives the difference.

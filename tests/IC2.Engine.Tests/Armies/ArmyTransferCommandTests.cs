@@ -501,6 +501,43 @@ public sealed class ArmyTransferCommandTests
         Assert.Equal(before.Money, after.Money);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Transfer_ThatEmptiesOneArmy_WithAMergedPurseAboveTheSaveField_IsRejected(bool emptySource)
+    {
+        // #1549 N1, owner decision 2026-10-30: refuse, never clamp or route the excess elsewhere.
+        var field = IC2.Engine.Economy.PurseAccounting.PurseFieldMax;
+        var state = WithArmies(
+            InitialState(),
+            Army("over-a", NorthNationId, 5, 5, new[] { RegularUnit("a", troops: 700) }, money: field - 10),
+            Army("over-b", NorthNationId, 6, 5, new[] { RegularUnit("b", troops: 800) }, money: 11));
+        var command = emptySource
+            ? OneWay("over-a", "over-b", ValueList.Of(0), 0, 0)
+            : TwoWay("over-a", "over-b", ValueList<int>.Empty, 0, 0, ValueList.Of(0), 0, 0);
+
+        var result = Dispatcher().Dispatch(state, command);
+
+        Assert.True(result.IsRejected);
+        Assert.Equal(ArmyTransferRejections.PurseCapExceeded, result.Code);
+        Assert.Same(state, result.State);
+    }
+
+    [Fact]
+    public void Transfer_ThatEmptiesOneArmy_WithAMergedPurseExactlyAtTheSaveField_IsAccepted()
+    {
+        var field = IC2.Engine.Economy.PurseAccounting.PurseFieldMax;
+        var state = WithArmies(
+            InitialState(),
+            Army("at-a", NorthNationId, 5, 5, new[] { RegularUnit("a", troops: 700) }, money: field - 10),
+            Army("at-b", NorthNationId, 6, 5, new[] { RegularUnit("b", troops: 800) }, money: 10));
+
+        var result = Dispatcher().Dispatch(state, OneWay("at-a", "at-b", ValueList.Of(0), 0, 0));
+
+        Assert.True(result.IsAccepted, result.ToString());
+        Assert.Equal(field, result.State.ArmyById("at-b")!.Money);
+    }
+
     [Fact]
     public void Transfer_ThatEmptiesAnEmbarkedArmy_ClearsTheCarryingFleetsBackReference()
     {
