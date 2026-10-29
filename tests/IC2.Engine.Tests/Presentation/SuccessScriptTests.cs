@@ -529,6 +529,10 @@ quit
     {
         var original = OriginalA.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => l.Trim()).ToArray();
         Assert.Equal(87, original.Length);
+        // T237 (#920 item 2): the engine refuses a recruit below one fifth of the battalion, so the
+        // baseline's 200 light infantry becomes the 3,000-troop minimum everywhere it appears.
+        original = original.Select(l => l == "recruit-standing pella light_infantry 200"
+            ? "recruit-standing pella light_infantry 3000" : l).ToArray();
         var prefix = new List<string>();
         for (var i = 1; i <= 78; i++)
         {

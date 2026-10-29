@@ -364,41 +364,13 @@ public sealed class BuildFleetDialogModel
     }
 
     /// <summary>
-    /// The coastal cities this nation owns that are not already building a fleet — the cities
-    /// <see cref="IC2.Engine.Naval.Commands.OrderFleetCommandHandler"/> will accept an
-    /// <c>order-fleet</c> for. The dialog's OK composes the line against the first one; the engine
-    /// applies the same test, so the order never reaches the handler for a city not on this list.
+    /// The coastal cities this nation owns that are not already building a fleet, from
+    /// <see cref="CoastalCity.FreeForFleetOrder"/>: the same test
+    /// <see cref="IC2.Engine.Naval.Commands.OrderFleetCommandHandler"/> refuses on (T237, #920 item 1).
+    /// The dialog's OK composes the line against the first one.
     /// </summary>
-    public IReadOnlyList<CityState> FreeCoastalCities
-    {
-        get
-        {
-            var busy = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var fleet in _state.Fleets)
-            {
-                if (!string.Equals(fleet.Nation, Nation.Id, StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                if (fleet.IsUnderConstruction && fleet.BuildCityId is { } buildCity)
-                {
-                    busy.Add(buildCity);
-                }
-            }
-
-            var list = new List<CityState>();
-            foreach (var city in CoastalCities)
-            {
-                if (!busy.Contains(city.Id))
-                {
-                    list.Add(city);
-                }
-            }
-
-            return list;
-        }
-    }
+    public IReadOnlyList<CityState> FreeCoastalCities =>
+        CoastalCity.FreeForFleetOrder(_state, _world, Nation.Id);
 
     /// <summary>
     /// The fleets this nation is already building — the dialog's "under construction" rows, each

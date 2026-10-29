@@ -84,6 +84,47 @@ public sealed class FleetOrderAndConstructionTests
         Assert.Equal(OrderFleetRejections.ShipsOutOfRange, tooMany.Code);
     }
 
+    /// <summary>
+    /// T237 (#920 item 1): a city already building one of the nation's fleets is not free, so a second
+    /// order there is refused. Arx is north's only coastal city, so the refusal is the original's R56.
+    /// </summary>
+    [Fact]
+    public void OrderFleetCommand_AtACityAlreadyBuildingAFleet_IsRefused()
+    {
+        var state = NavalTestbed.InitialState();
+        var nation = state.Nations[0];
+        var arx = state.CityById("arx")!;
+        var dispatcher = NavalTestbed.RealEngineDispatcher();
+        var first = dispatcher.Dispatch(state, new OrderFleetCommand(nation.Id, arx.Id, Ships: 10, NewFleetId: "first"));
+        Assert.True(first.IsAccepted, first.ToString());
+
+        var second = dispatcher.Dispatch(first.State, new OrderFleetCommand(nation.Id, arx.Id, Ships: 10, NewFleetId: "second"));
+
+        Assert.Equal(OrderFleetRejections.CityNotFree, second.Code);
+        Assert.Equal("You do not have a free coastal city at this time.", second.Rejection!.Message);
+        Assert.Same(first.State, second.State);
+    }
+
+    /// <summary>T237: once the fleet has launched, its build city is free again and takes a new order.</summary>
+    [Fact]
+    public void OrderFleetCommand_AfterTheFleetLaunches_IsAcceptedAgain()
+    {
+        var state = NavalTestbed.InitialState();
+        var nation = state.Nations[0];
+        var arx = state.CityById("arx")!;
+        var dispatcher = NavalTestbed.RealEngineDispatcher();
+        var first = dispatcher.Dispatch(state, new OrderFleetCommand(nation.Id, arx.Id, Ships: 10, NewFleetId: "first"));
+        var launched = first.State with
+        {
+            Fleets = ValueList.From(first.State.Fleets.Select(f =>
+                f.Id == "first" ? f with { ConstructionTicksRemaining = null } : f)),
+        };
+
+        var second = dispatcher.Dispatch(launched, new OrderFleetCommand(nation.Id, arx.Id, Ships: 10, NewFleetId: "second"));
+
+        Assert.True(second.IsAccepted, second.ToString());
+    }
+
     [Fact]
     public void ConstructionCountdown_LaunchesAfterExactlyTwelveTicksOfTheConfirmedMinusTwoStep()
     {

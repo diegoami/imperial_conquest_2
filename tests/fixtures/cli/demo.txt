@@ -21,7 +21,7 @@ propose-trade north
 accept-offer
 mobilize 0 north-recruit-army
 hire-mercenary north-army-1 0
-recruit-standing arx heavy_infantry 1000
+recruit-standing arx heavy_infantry 1200
 move-fleet north-fleet-1 999 999
 order-fleet portus 10 north-fleet-2
 repair-fleet north-fleet-1 5

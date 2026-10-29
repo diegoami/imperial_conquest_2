@@ -95,6 +95,14 @@ public sealed class RecruitStandingUnitCommandHandler : ICommandHandler<RecruitS
                 RecruitStandingUnitRejections.InvalidTroops, "Must recruit a positive number of troops.");
         }
 
+        // T237 (#920 item 2): the recruit dialog's range, which the original keeps in its dialog only.
+        if (!RecruitTroopRange.Contains(type, command.Troops))
+        {
+            return CommandOutcome.Reject(
+                RecruitStandingUnitRejections.TroopsOutOfRange,
+                $"A {type.Name} unit is recruited with {News.NewsLogWriter.FormatGroupedAmount(RecruitTroopRange.Minimum(type))} to {News.NewsLogWriter.FormatGroupedAmount(RecruitTroopRange.Maximum(type))} troops.");
+        }
+
         var nation = context.IssuingNation;
         if (nation.RecruitmentSlots.Count >= context.Ruleset.Recruitment.MaxSlots)
         {

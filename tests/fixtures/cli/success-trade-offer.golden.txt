@@ -21,10 +21,10 @@ armies.split-army accepted.
 > order-city pella fortify 1
 city.order accepted.
 
-> recruit-standing pella light_infantry 200
+> recruit-standing pella light_infantry 3000
 recruitment.recruit-standing-unit accepted.
 
-> recruit-standing pella light_infantry 200
+> recruit-standing pella light_infantry 3000
 recruitment.recruit-standing-unit accepted.
 
 > order-fleet amphipolis 20 mac-fleet-1
@@ -331,7 +331,7 @@ army-8 moved from (136,51) to (136,43), spending 9 of 9 moves.
 mac-marines bought 5 tons of supply at pella, free at your own city.
 
 > buy mac-marines pella 5000
-mac-marines bought 60 tons of supply at pella, free at your own city.
+mac-marines bought 116 tons of supply at pella, free at your own city.
 
 > transfer-money mac-marines 100
 mac-marines received 100 talents from the treasury.

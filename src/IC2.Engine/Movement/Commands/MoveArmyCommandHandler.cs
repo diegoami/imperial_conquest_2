@@ -40,6 +40,15 @@ public sealed class MoveArmyCommandHandler : ICommandHandler<MoveArmyCommand>
                 $"Army '{army.Id}' belongs to '{army.Nation}', not '{command.IssuingNationId}'.");
         }
 
+        // T237 (#920 item 3): an army aboard a fleet moves only with its fleet; disembarking is the
+        // fleet's order (disembark-army), so a move order for it is refused rather than a silent no-op.
+        if (army.IsEmbarked)
+        {
+            return CommandOutcome.Reject(
+                MoveArmyRejections.ArmyEmbarked,
+                $"Army '{army.Id}' is aboard fleet '{army.AboardFleetId}'; disembark it to move it.");
+        }
+
         if (army.Moves <= 0)
         {
             return CommandOutcome.Reject(
@@ -61,6 +70,16 @@ public sealed class MoveArmyCommandHandler : ICommandHandler<MoveArmyCommand>
             InBounds(point, world) ? world.TileTypeByCode(terrainCells[(point.Y * world.Width) + point.X]) : null;
 
         string? TileTypeIdAt(GridPoint point) => TileTypeAt(point)?.Id;
+
+        // T237 (#1587): the map click's "army to land" row. A click on a tile armies cannot stand on
+        // does nothing in the original and in the remake's map, so the engine refuses the order too;
+        // a walk toward land that meets the sea part-way still stops at the shore (IsBlocked below).
+        if (TileTypeAt(destination)?.PassableByArmies != true)
+        {
+            return CommandOutcome.Reject(
+                MoveArmyRejections.DestinationNotLand,
+                $"({command.X}, {command.Y}) is not land; an army can only be ordered to a land tile.");
+        }
 
         bool IsBlocked(GridPoint point)
         {

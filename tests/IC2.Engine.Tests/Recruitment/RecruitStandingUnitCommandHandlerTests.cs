@@ -100,6 +100,40 @@ public sealed class RecruitStandingUnitCommandHandlerTests
         Assert.Same(before, result.State);
     }
 
+    /// <summary>
+    /// T237 (#920 item 2): light cavalry's battalion is 7,000, so the dialog's range is 1,400 to 7,000.
+    /// One troop either side of it is refused, as the recruit dialog never lets a player ask.
+    /// </summary>
+    [Theory]
+    [InlineData(1399)]
+    [InlineData(7001)]
+    [InlineData(99999)]
+    public void A_troop_count_outside_the_dialogs_range_is_rejected_and_changes_nothing(int troops)
+    {
+        var dispatcher = RecruitmentTestbed.Dispatcher();
+        var before = RecruitmentTestbed.InitialState();
+
+        var result = dispatcher.Dispatch(before, new RecruitStandingUnitCommand(before.ActiveNationId, "arx", "light_cavalry", troops));
+
+        Assert.Equal(RecruitStandingUnitRejections.TroopsOutOfRange, result.Code);
+        Assert.Contains("1,400 to 7,000", result.Rejection!.Message, StringComparison.Ordinal);
+        Assert.Same(before, result.State);
+    }
+
+    /// <summary>T237: both ends of the range pass the range gate (the full battalion may still be unaffordable).</summary>
+    [Theory]
+    [InlineData(1400)]
+    [InlineData(7000)]
+    public void A_troop_count_at_either_end_of_the_range_passes_the_range_gate(int troops)
+    {
+        var dispatcher = RecruitmentTestbed.Dispatcher();
+        var before = RecruitmentTestbed.InitialState();
+
+        var result = dispatcher.Dispatch(before, new RecruitStandingUnitCommand(before.ActiveNationId, "arx", "light_cavalry", troops));
+
+        Assert.NotEqual(RecruitStandingUnitRejections.TroopsOutOfRange, result.Code);
+    }
+
     [Fact]
     public void An_order_the_treasury_cannot_afford_is_rejected_and_changes_nothing()
     {
