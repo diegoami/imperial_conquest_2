@@ -53,6 +53,25 @@ public sealed record MovementWalkResult(
 
     /// <summary>The cell the mover ends the walk on: the last entered cell, or <see cref="Origin"/>.</summary>
     public GridPoint FinalPosition => EnteredCells.Count > 0 ? EnteredCells[^1] : Origin;
+
+    /// <summary>
+    /// T238: this walk followed by <paramref name="next"/>, which started where this one ended, as one
+    /// route: this origin, both walks' cells in order, the summed cost, and <paramref name="next"/>'s
+    /// remaining moves and stop.
+    /// </summary>
+    /// <exception cref="ArgumentException"><paramref name="next"/> does not start at <see cref="FinalPosition"/>.</exception>
+    public MovementWalkResult Then(MovementWalkResult next)
+    {
+        ArgumentNullException.ThrowIfNull(next);
+        if (next.Origin != FinalPosition)
+        {
+            throw new ArgumentException("The next walk must start where this one ended.", nameof(next));
+        }
+
+        return new MovementWalkResult(
+            Origin, EnteredCells.Concat(next.EnteredCells).ToArray(), MovesSpent + next.MovesSpent,
+            next.MovesRemaining, next.StopReason, next.BlockedAt);
+    }
 }
 
 /// <summary>

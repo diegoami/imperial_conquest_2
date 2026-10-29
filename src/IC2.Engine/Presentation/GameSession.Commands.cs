@@ -1199,7 +1199,7 @@ public sealed partial class GameSession
             return new[] { "Usage: move-fleet <fleet> <x> <y>" };
         }
 
-        return IssueCommand(new MoveFleetCommand(State.ActiveNationId, tokens[1], x, y));
+        return IssueCommand(new MoveFleetCommand(State.ActiveNationId, tokens[1], x, y, HumanMoveWalk()));
     }
 
     private IReadOnlyList<string> HandleOrderFleet(string[] tokens)

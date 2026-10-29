@@ -172,6 +172,12 @@ public sealed class CommandOutcomeWordingTests
             return emptyProperty.GetValue(null);
         }
 
+        // T238: an optional enum parameter (MoveWalkPolicy) takes its declared default.
+        if (type.IsEnum)
+        {
+            return parameter.HasDefaultValue ? parameter.DefaultValue : Enum.GetValues(type).GetValue(0);
+        }
+
         throw new NotSupportedException(
             $"CommandOutcomeWordingTests.PlaceholderFor has no case for parameter type '{type}' "
             + $"(parameter '{parameter.Name}').");

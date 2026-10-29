@@ -89,10 +89,10 @@ mac-spare moved from (147,40) to (147,41), spending 1 of 9 moves.
 armies.disband-army accepted.
 
 > move mac-detached 157 31
-mac-detached moved from (146,41) to (151,37), spending 8 of 9 moves.
+mac-detached moved from (146,41) to (152,36), spending 9 of 9 moves.
 
 > move army-8 135 52
-army-8 moved from (145,40) to (141,45), spending 7 of 10 moves.
+army-8 moved from (145,40) to (140,47), spending 10 of 10 moves.
 
 > end
 Macedonia (macedonia) ends its turn.
@@ -119,10 +119,10 @@ News:
   Week  5      Spring      270BC
 
 > move mac-detached 155 29
-mac-detached moved from (151,37) to (154,32), spending 6 of 9 moves.
+mac-detached moved from (152,36) to (154,31), spending 9 of 9 moves.
 
 > move army-8 135 52
-army-8 moved from (141,45) to (139,48), spending 8 of 10 moves.
+army-8 moved from (140,47) to (136,51), spending 5 of 10 moves.
 
 > end
 Macedonia (macedonia) ends its turn.
@@ -151,7 +151,7 @@ News:
   Seleucid destroys army of Bithynia.
 
 > move army-8 135 52
-army-8 moved from (139,48) to (136,51), spending 4 of 10 moves.
+army-8 moved from (136,51) to (136,51), spending 0 of 10 moves.
 
 > end
 Macedonia (macedonia) ends its turn.
@@ -178,7 +178,7 @@ News:
   Carthage declares war on Rome.
 
 > move mac-detached 155 26
-mac-detached moved from (154,32) to (155,29), spending 9 of 9 moves.
+mac-detached moved from (154,31) to (155,26), spending 8 of 9 moves.
 
 > end
 Macedonia (macedonia) ends its turn.
@@ -242,7 +242,7 @@ News:
   Ptolemaic fails to capture Aradus   (Seleucid).
 
 > move mac-sac-1 151 31
-mac-sac-1 moved from (137,52) to (139,48), spending 7 of 9 moves.
+mac-sac-1 moved from (137,52) to (141,47), spending 9 of 9 moves.
 
 > end
 Macedonia (macedonia) ends its turn.
@@ -271,7 +271,7 @@ News:
   Synnada   (Galatia)  falls to Seleucid.
 
 > move mac-sac-1 151 31
-mac-sac-1 moved from (139,48) to (141,45), spending 6 of 9 moves.
+mac-sac-1 moved from (141,47) to (146,39), spending 9 of 9 moves.
 
 > end
 Macedonia (macedonia) ends its turn.
@@ -400,10 +400,10 @@ News:
   Week  9      Summer      270BC
 
 > move mac-detached 156 24
-mac-detached moved from (155,29) to (156,24), spending 7 of 9 moves.
+mac-detached moved from (155,26) to (156,24), spending 3 of 9 moves.
 
 > move mac-detached 158 24
-mac-detached moved from (156,24) to (157,24), spending 2 of 2 moves.
+mac-detached moved from (156,24) to (158,24), spending 4 of 6 moves.
 
 > end
 Macedonia (macedonia) ends its turn.
@@ -428,7 +428,7 @@ News:
   Week  11      Summer      270BC
 
 > move mac-sac-1 148 40
-mac-sac-1 moved from (141,45) to (143,43), spending 3 of 9 moves.
+mac-sac-1 moved from (146,39) to (148,40), spending 2 of 9 moves.
 
 > end
 Macedonia (macedonia) ends its turn.
@@ -497,7 +497,7 @@ News:
 Macedonia (macedonia) ends its turn.
 Numidia (numidia) takes its turn: 0 orders issued.
 Gaul (gaul) takes its turn: 0 orders issued.
-Greece (greece) takes its turn: 11 orders issued.
+Greece (greece) takes its turn: 10 orders issued.
 Celtiberia (celtiberia) takes its turn: 1 order issued.
 Illyria (illyria) takes its turn: 4 orders issued.
 Dacia (dacia) takes its turn: 0 orders issued.
@@ -506,9 +506,11 @@ Galatia (galatia) takes its turn: 5 orders issued.
 Armenia (armenia) takes its turn: 3 orders issued.
 Media (media) takes its turn: 1 order issued.
 Thracia (thracia) takes its turn: 1 order issued.
+  Weather: rough-sea-painted (week 3).
+  Weather: rough-sea-painted (week 3).
 Rome (rome) takes its turn: 1 order issued.
 Carthage (carthage) takes its turn: 1 order issued.
-Seleucid (seleucid) takes its turn: 13 orders issued.
+Seleucid (seleucid) takes its turn: 14 orders issued.
 Ptolemaic (ptolemaic) takes its turn: 3 orders issued.
 Now: Week 5, Autumn 270 BC. Active seat: Macedonia (macedonia).
 News:
@@ -540,7 +542,7 @@ News:
   Week  7      Autumn      270BC
 
 > move mac-merc 139 43
-mac-merc moved from (141,48) to (140,45), spending 6 of 9 moves.
+mac-merc moved from (141,48) to (139,45), spending 7 of 9 moves.
 
 > status
 Week 7, Autumn 270 BC (turn 15). Active seat: Macedonia (macedonia).
@@ -548,12 +550,12 @@ Week 7, Autumn 270 BC (turn 15). Active seat: Macedonia (macedonia).
 Nations:
   Rome (rome, ai): treasury 1516, unity 845, tax 19%
   Carthage (carthage, ai): treasury 11251, unity 726, tax 5%
-  Seleucid (seleucid, ai): treasury -2967, unity 746, tax 36%
+  Seleucid (seleucid, ai): treasury -3046, unity 746, tax 36%
   Ptolemaic (ptolemaic, ai): treasury 64, unity 675, tax 13%
   Macedonia (macedonia, human): treasury 681, unity 867, tax 15%
   Numidia (numidia, ai): treasury 1927, unity 665, tax 5%
   Gaul (gaul, ai): treasury -4955, unity 562, tax 17%
-  Greece (greece, ai): treasury -870, unity 551, tax 17%
+  Greece (greece, ai): treasury -570, unity 551, tax 17%
   Celtiberia (celtiberia, ai): treasury -2333, unity 734, tax 33%
   Illyria (illyria, ai): treasury -1000, unity 690, tax 23%
   Dacia (dacia, ai): treasury 337, unity 653, tax 5%
@@ -572,10 +574,10 @@ Armies:
   army-10 (Celtiberia) @ (36,65): 30622 troops in 7 units, supply 291t (95%), morale 70, moves 9
   army-13 (Media) @ (305,57): 51200 troops in 12 units, supply 487t (95%), morale 70, moves 8
   army-14 (Thracia) @ (169,38): 22000 troops in 6 units, supply 209t (95%), morale 70, moves 9
-  mac-detached (Macedonia) @ (157,24): 7900 troops in 1 units, supply 0t (0%), morale 51, moves 9
+  mac-detached (Macedonia) @ (158,24): 7900 troops in 1 units, supply 0t (0%), morale 51, moves 9
   mac-marines (Macedonia) @ (137,42): 4800 troops in 2 units, supply 93t (193%), morale 58, moves 10
-  mac-sac-1 (Macedonia) @ (143,43): 4972 troops in 1 units, supply 0t (0%), morale 51, moves 9
-  mac-merc (Macedonia) @ (140,45): 6305 troops in 2 units, supply 0t (0%), morale 51, moves 3
+  mac-sac-1 (Macedonia) @ (148,40): 4972 troops in 1 units, supply 0t (0%), morale 51, moves 9
+  mac-merc (Macedonia) @ (139,45): 6305 troops in 2 units, supply 0t (0%), morale 51, moves 2
   army-2 (Seleucid) @ (208,53): 75142 troops in 12 units, supply 751t (99%), morale 62, moves 0
   army-6 (Ptolemaic) @ (227,90): 17192 troops in 4 units, supply 171t (99%), morale 62, moves 0
   army-5 (Illyria) @ (132,49): 48900 troops in 9 units, supply 465t (95%), morale 62, moves 8
@@ -616,8 +618,8 @@ Cities:
   helice "Helice" @ (46,65), owner Carthage: supply 0t, loyalty 71, fortification 24%
   bordeaux "Bordeaux" @ (47,29), owner Celtiberia: supply 260t, loyalty 66, fortification 42%
   saguntum "Saguntum" @ (47,55), owner Celtiberia: supply 500t, loyalty 84, fortification 78%
-  hemeroscopium "Hemeroscopium" @ (47,59), owner Greece: supply 37t, loyalty 73, fortification 42%
-  akra-leuke "Akra Leuke" @ (47,63), owner Carthage: supply 62t, loyalty 88, fortification 94%
+  hemeroscopium "Hemeroscopium" @ (47,59), owner Greece: supply 38t, loyalty 73, fortification 42%
+  akra-leuke "Akra Leuke" @ (47,63), owner Carthage: supply 63t, loyalty 88, fortification 94%
   osca "Osca" @ (49,41), owner Celtiberia: supply 120t, loyalty 69, fortification 31%
   rotomagus "Rotomagus" @ (51,3), owner Gaul: supply 180t, loyalty 79, fortification 28%
   icosium "Icosium" @ (51,78), owner Carthage: supply 340t, loyalty 82, fortification 52%

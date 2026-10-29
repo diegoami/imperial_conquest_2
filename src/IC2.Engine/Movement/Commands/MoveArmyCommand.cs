@@ -10,7 +10,10 @@ namespace IC2.Engine.Movement.Commands;
 /// The rule lives entirely in <see cref="MoveArmyCommandHandler"/>, and entirely in terms of T09's
 /// <see cref="MovementWalker"/>/<see cref="TerrainCostLookup"/> — this record carries only the request.
 /// </remarks>
-public sealed record MoveArmyCommand(string IssuingNationId, string ArmyId, int X, int Y) : ICommand
+/// <param name="Walk">T238: <see cref="MoveWalkPolicy.HumanSecondWalk"/> for a human seat's order; the AI's are
+/// <see cref="MoveWalkPolicy.Single"/>.</param>
+public sealed record MoveArmyCommand(
+    string IssuingNationId, string ArmyId, int X, int Y, MoveWalkPolicy Walk = MoveWalkPolicy.Single) : ICommand
 {
     /// <inheritdoc/>
     public string Kind => "movement.move-army";

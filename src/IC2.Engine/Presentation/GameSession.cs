@@ -1740,6 +1740,16 @@ public sealed partial class GameSession
         return normalOutput;
     }
 
+    /// <summary>
+    /// T238 (#1585): the walk policy of a <c>move</c>/<c>move-fleet</c> line, which the map click and the CLI
+    /// both submit. A human seat's order walks a second time when the first ends short; any other seat's
+    /// walks once, as the AI's own orders (built without this path) always do.
+    /// </summary>
+    private Movement.MoveWalkPolicy HumanMoveWalk() =>
+        State.NationById(State.ActiveNationId)?.Control == SeatControl.Human
+            ? Movement.MoveWalkPolicy.HumanSecondWalk
+            : Movement.MoveWalkPolicy.Single;
+
     private IReadOnlyList<string> HandleMove(string[] tokens)
     {
         if (IsWatchModeActive)
@@ -1757,7 +1767,7 @@ public sealed partial class GameSession
         var armyId = tokens[1];
         var beforeMoves = State.ArmyById(armyId)?.Moves;
 
-        var command = new MoveArmyCommand(State.ActiveNationId, armyId, x, y);
+        var command = new MoveArmyCommand(State.ActiveNationId, armyId, x, y, HumanMoveWalk());
         var result = _dispatcher.Dispatch(State, command);
 
         if (result.IsRejected)

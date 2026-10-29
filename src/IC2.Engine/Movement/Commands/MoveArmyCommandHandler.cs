@@ -125,17 +125,29 @@ public sealed class MoveArmyCommandHandler : ICommandHandler<MoveArmyCommand>
 
         var from = new GridPoint(army.X, army.Y);
         // #1012: the ruleset's step policy, and the map size for the original step helper's bounds guard.
-        var walk = MovementWalker.Walk(
-            from, destination, army.Moves, context.Ruleset.Terrain, TileTypeIdAt, IsBlocked, context.Events,
+        MovementWalkResult WalkFrom(GridPoint origin, int moves) => MovementWalker.Walk(
+            origin, destination, moves, context.Ruleset.Terrain, TileTypeIdAt, IsBlocked, context.Events,
             step: context.Ruleset.Flags.StrategicStep, worldSize: new GridPoint(world.Width, world.Height));
+
+        int MovesAfter(MovementWalkResult result) => result.StopReason == MovementStopReason.InsufficientMoves
+            ? MovementAbortRule.MovesAfterAbortedStep(
+                result.MovesRemaining, context.IssuingNation.Control, context.Ruleset.Flags.SeatAsymmetry)
+            : result.MovesRemaining;
+
+        var walk = WalkFrom(from, army.Moves);
+        var movesAfter = MovesAfter(walk);
+
+        // T238 (#1585): a human order walks once more, on a fresh line from where the first walk ended,
+        // when it ended short with moves left (TUnitMap_MoveHumanArmy). The two walks are one route.
+        if (command.Walk == MoveWalkPolicy.HumanSecondWalk && walk.FinalPosition != destination && movesAfter > 0)
+        {
+            var second = WalkFrom(walk.FinalPosition, movesAfter);
+            walk = walk.Then(second);
+            movesAfter = MovesAfter(second);
+        }
 
         if (army.CoveredTileCode is not null && !army.IsEmbarked)
             context.RecordTravel(StrategicMarkerKind.Army, army.Id, army.Nation, army.AboardFleetId, null, walk);
-
-        var movesAfter = walk.StopReason == MovementStopReason.InsufficientMoves
-            ? MovementAbortRule.MovesAfterAbortedStep(
-                walk.MovesRemaining, context.IssuingNation.Control, context.Ruleset.Flags.SeatAsymmetry)
-            : walk.MovesRemaining;
 
         var finalPosition = walk.FinalPosition;
         var coveredTileCode = InBounds(finalPosition, world)
