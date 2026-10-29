@@ -217,6 +217,11 @@ public static class AiArmyTargetTree
     /// score the decision tree compares against <see cref="AiWeightsRules.ArmyScoreThreshold"/> is the
     /// selected capped/bonus term plus its distance returned here.
     /// </summary>
+    /// <remarks>
+    /// A tie between equal scores goes, under the original AI (<c>flags.aiEconomy = original</c>), to the first
+    /// army in <see cref="GameState.Armies"/> order, the original's table order under T240 (T243, #1216, the
+    /// owner's decision of 2026-10-30); under the designed AI to the lower army id (T156).
+    /// </remarks>
     public static ArmyTarget ScoreArmyTarget(
         AiView view,
         ArmyState army)
@@ -233,6 +238,7 @@ public static class AiArmyTargetTree
 
         var strength = ArmyPower.Compute(army.Units, army.Morale, view.Ruleset);
         var armyRegion = RegionOf(view, army.X, army.Y);
+        var firstEqualInTableOrder = view.Ruleset.Flags.AiEconomy == AiEconomyModel.Original;
 
         ArmyState? best = null;
         long bestScore = long.MinValue;
@@ -297,8 +303,11 @@ public static class AiArmyTargetTree
                 clamped += weakerBonus;
             }
 
+            // T243 (#1216): the faithful AI keeps the first equal target in table order, as FUN_0044ee60
+            // replaces its pick only on a strictly greater score; under classical-faithful T240 makes
+            // view.State.Armies that table. The designed AI keeps T156's ID tie-break.
             if (clamped > bestScore
-                || (clamped == bestScore && string.CompareOrdinal(target.Id, best!.Id) < 0))
+                || (!firstEqualInTableOrder && clamped == bestScore && string.CompareOrdinal(target.Id, best!.Id) < 0))
             {
                 best = target;
                 bestScore = clamped;

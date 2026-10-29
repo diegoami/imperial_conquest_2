@@ -583,9 +583,9 @@ Armies:
   army-2 (Seleucid) @ (197,46): 64700 troops in 11 units, supply 615t (95%), morale 62, moves 0
   army-15 (Armenia) @ (261,34): 27200 troops in 6 units, supply 246t (90%), morale 62, moves 9
   army-6 (Celtiberia) @ (37,55): 55600 troops in 8 units, supply 529t (95%), morale 62, moves 8
-  army-11 (Illyria) @ (136,48): 48900 troops in 9 units, supply 465t (95%), morale 62, moves 8
+  army-11 (Illyria) @ (134,46): 48900 troops in 9 units, supply 465t (95%), morale 62, moves 8
   army-12 (Galatia) @ (200,43): 41600 troops in 8 units, supply 396t (95%), morale 62, moves 8
-  army-9 (Greece) @ (146,55): 23900 troops in 5 units, supply 228t (95%), morale 61, moves 9
+  army-9 (Greece) @ (146,53): 23900 troops in 5 units, supply 228t (95%), morale 61, moves 9
   army-16 (Seleucid) @ (198,53): 31500 troops in 3 units, supply 315t (100%), morale 60, moves 0
 
 Cities:
