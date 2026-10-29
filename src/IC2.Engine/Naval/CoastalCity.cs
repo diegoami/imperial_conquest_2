@@ -123,4 +123,81 @@ public static class CoastalCity
 
         return list;
     }
+
+    /// <summary>
+    /// Where <paramref name="nation"/>'s next fleet order is built: its own coastal city nearest its capital
+    /// by Chebyshev distance that is not already building a fleet, or <see langword="null"/> when none is
+    /// free. The original chooses the city itself, and the manual's Rome sequence is Caere, Antium,
+    /// Tarquinii, Pisae, Neapolis, Ariminum, the sea-touching cities nearest first
+    /// (<c>2026-10-09-fleet-build-city-nearest-capital.md</c>, research <c>c36b255</c>; T241, #918).
+    /// The Build fleet dialog and the AI's <c>AiFaithfulEconomy.ChoosePort</c> (<c>FUN_004496e0</c>) both
+    /// use it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Ties</strong> go to the lower city id, ordinal: [designed], the AI's existing rule. The
+    /// original's tie-break is not established.
+    /// </para>
+    /// <para>
+    /// <strong>No capital</strong> (no <see cref="NationState.CapitalCityId"/>, or one not in the state):
+    /// the first free coastal city in the world's order, the behaviour before T241. The AI never reaches
+    /// this: <c>ChoosePort</c> orders no fleet without a capital.
+    /// </para>
+    /// <para>
+    /// <strong>The free test.</strong> By default a city is busy when this nation builds a fleet there
+    /// (<see cref="IsBuildingFleet"/>, T237), the test the engine's order refuses on. With
+    /// <paramref name="busyWhenAnyNationBuilds"/> a fleet of any nation under construction there makes it
+    /// busy, the AI's own test, kept as it was.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    public static CityState? FleetBuildCity(
+        GameState state, World world, NationState nation, bool busyWhenAnyNationBuilds = false)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(nation);
+
+        var capital = nation.CapitalCityId is { } capitalId ? state.CityById(capitalId) : null;
+        CityState? best = null;
+        var bestDistance = int.MaxValue;
+        foreach (var city in state.Cities)
+        {
+            if (!string.Equals(city.Owner, nation.Id, StringComparison.Ordinal)
+                || !IsCoastal(city, world)
+                || (busyWhenAnyNationBuilds ? HostsConstruction(state, city.Id) : IsBuildingFleet(state, nation.Id, city.Id)))
+            {
+                continue;
+            }
+
+            if (capital is null)
+            {
+                return city;
+            }
+
+            var distance = LandingTile.ChebyshevDistance(
+                new GridPoint(city.X, city.Y), new GridPoint(capital.X, capital.Y));
+            if (distance < bestDistance
+                || (distance == bestDistance && best is not null && string.CompareOrdinal(city.Id, best.Id) < 0))
+            {
+                best = city;
+                bestDistance = distance;
+            }
+        }
+
+        return best;
+    }
+
+    private static bool HostsConstruction(GameState state, string cityId)
+    {
+        foreach (var fleet in state.Fleets)
+        {
+            if (fleet.IsUnderConstruction && string.Equals(fleet.BuildCityId, cityId, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

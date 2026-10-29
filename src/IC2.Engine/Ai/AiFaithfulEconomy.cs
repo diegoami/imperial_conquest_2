@@ -622,37 +622,18 @@ public static class AiFaithfulEconomy
     /// water cell is free is made: the report gives no predicate for the decompile's "free".
     /// Equal distances: the lower city id (ordinal) wins. [designed]: the report names no loop order or
     /// tie rule for FUN_004496e0 (searched 2026-10-07-strategic-ai-turn.md and
-    /// 2026-10-09-fleet-build-city-nearest-capital.md, which did not play a tie).
+    /// 2026-10-09-fleet-build-city-nearest-capital.md, which did not play a tie). Since T241 the rule is
+    /// <see cref="CoastalCity.FleetBuildCity"/>, shared with the human's Build fleet, with this method's
+    /// any-nation free test (<c>busyWhenAnyNationBuilds</c>) and its refusal to choose without a capital.
     /// </summary>
     public static CityState? ChoosePort(GameState state, World world, NationState nation)
     {
-        var capital = nation.CapitalCityId is { } id ? state.CityById(id) : null;
-        if (capital is null)
+        if (nation.CapitalCityId is not { } id || state.CityById(id) is null)
         {
             return null;
         }
 
-        CityState? best = null;
-        var bestDistance = int.MaxValue;
-        foreach (var city in state.Cities)
-        {
-            if (!string.Equals(city.Owner, nation.Id, StringComparison.Ordinal)
-                || !CoastalCity.IsCoastal(city, world)
-                || HostsConstruction(state, city.Id))
-            {
-                continue;
-            }
-
-            var distance = AiView.Distance(city.X, city.Y, capital.X, capital.Y);
-            if (distance < bestDistance
-                || (distance == bestDistance && best is not null && string.CompareOrdinal(city.Id, best.Id) < 0))
-            {
-                best = city;
-                bestDistance = distance;
-            }
-        }
-
-        return best;
+        return CoastalCity.FleetBuildCity(state, world, nation, busyWhenAnyNationBuilds: true);
     }
 
     /// <summary>
@@ -847,19 +828,6 @@ public static class AiFaithfulEconomy
         }
 
         return (state, 0, 0);
-    }
-
-    private static bool HostsConstruction(GameState state, string cityId)
-    {
-        foreach (var fleet in state.Fleets)
-        {
-            if (fleet.IsUnderConstruction && string.Equals(fleet.BuildCityId, cityId, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private static int Queued(NationState nation, string cityId)
