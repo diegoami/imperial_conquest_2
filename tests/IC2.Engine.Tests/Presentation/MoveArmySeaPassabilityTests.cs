@@ -44,41 +44,28 @@ public sealed class MoveArmySeaPassabilityTests
         SystemRegistry.FromEngineAssembly(), CoreTestbed.Toy.Ruleset, CoreTestbed.Toy.World, NullEventSink.Instance);
 
     /// <summary>
-    /// The toy world's row <c>y = 5</c> is sea across its whole width (<c>~ ~ ~ ~ ~ ~ ~ ~</c>, confirmed
-    /// by the golden transcript's own <c>map</c> rendering). North's army starts at <c>(3, 2)</c>; ordering
-    /// it to <c>(1, 5)</c> traces the straight-line path <c>(3,2) -&gt; (2,3) -&gt; (2,4) -&gt; (1,5)</c>
-    /// (<c>BresenhamPath.Trace</c>), two plain steps and then open sea, with no city, army or fleet on any
-    /// of those cells to stop it early the way Meridia used to.
+    /// T237 (#1587): the toy world's row <c>y = 5</c> is sea across its whole width (<c>~ ~ ~ ~ ~ ~ ~ ~</c>).
+    /// Before T237 an order to <c>(1, 5)</c> was accepted and the army walked
+    /// <c>(3,2) -&gt; (2,3) -&gt; (2,4)</c> and stopped at the shore. The original's map click, and the
+    /// remake's (<c>MapClickRules</c>, army to land only), do nothing for a sea tile, so the engine now
+    /// refuses the order and the army stays where it is.
     /// </summary>
     [Fact]
-    public void An_army_ordered_into_open_sea_stops_at_the_shore_instead_of_entering_it()
+    public void An_army_ordered_onto_open_sea_is_refused_and_does_not_move()
     {
         var dispatcher = Dispatcher();
         var state = CoreTestbed.InitialState();
         var army = state.ArmyById("north-army-1")!;
-        var world = CoreTestbed.Toy.World;
 
-        // (3, 2) toward (1, 5): two plain steps down through (2,3) and (2,4), then open sea at (1,5).
         var result = dispatcher.Dispatch(state, new MoveArmyCommand(state.ActiveNationId, army.Id, 1, 5));
 
-        Assert.True(result.IsAccepted, result.ToString());
-        var updated = result.State.ArmyById(army.Id)!;
-
-        var terrain = world.Terrain.Decode(world.Width, world.Height);
-        var finalTileType = world.TileTypeByCode(terrain[(updated.Y * world.Width) + updated.X]);
-        Assert.NotNull(finalTileType);
-        Assert.True(finalTileType!.PassableByArmies, $"The army ended on '{finalTileType.Id}', which armies cannot pass.");
-        Assert.NotEqual(5, updated.Y); // never reached the sea row.
-        Assert.Equal(2, updated.X);
-        Assert.Equal(4, updated.Y);
+        Assert.Equal(MoveArmyRejections.DestinationNotLand, result.Code);
+        Assert.Same(state, result.State);
     }
 
     /// <summary>
-    /// The mirror of the fleet-side test this same class of bug would have caught earlier: a destination
-    /// that is itself open sea is refused the same way an out-of-bounds one is, by simply never being
-    /// reached — the walk stops on the last passable tile rather than throwing or teleporting. The army
-    /// first walks the clean <c>(3,2) -&gt; (2,3) -&gt; (2,4)</c> path (no Meridia in the way) to stand one
-    /// step from row 5's sea, then is ordered one cell further, straight down, onto <c>(2, 5)</c>.
+    /// The shore itself is still a legal destination, and from there one step down onto the sea is
+    /// refused: the army stays on <c>(2, 4)</c>, a passable tile.
     /// </summary>
     [Fact]
     public void An_army_already_at_the_shore_cannot_step_directly_onto_open_sea()
@@ -88,21 +75,19 @@ public sealed class MoveArmySeaPassabilityTests
         var army = state.ArmyById("north-army-1")!;
         var world = CoreTestbed.Toy.World;
 
-        // One army-move short of the sea: (3,2) -> (2,4) leaves it one plain step from row 5.
+        // (3,2) -> (2,4): two plain steps, ending one step from row 5's sea.
         var moved = dispatcher.Dispatch(state, new MoveArmyCommand(state.ActiveNationId, army.Id, 2, 4));
         Assert.True(moved.IsAccepted, moved.ToString());
         var afterFirstMove = moved.State.ArmyById(army.Id)!;
         Assert.Equal(2, afterFirstMove.X);
         Assert.Equal(4, afterFirstMove.Y);
+        var terrain = world.Terrain.Decode(world.Width, world.Height);
+        Assert.True(world.TileTypeByCode(terrain[(4 * world.Width) + 2])!.PassableByArmies);
 
         var second = dispatcher.Dispatch(
             moved.State, new MoveArmyCommand(state.ActiveNationId, army.Id, 2, 5));
-        Assert.True(second.IsAccepted, second.ToString());
 
-        var updated = second.State.ArmyById(army.Id)!;
-        var terrain = world.Terrain.Decode(world.Width, world.Height);
-        var finalTileType = world.TileTypeByCode(terrain[(updated.Y * world.Width) + updated.X]);
-        Assert.True(finalTileType!.PassableByArmies, $"The army ended on '{finalTileType!.Id}', which armies cannot pass.");
-        Assert.NotEqual(5, updated.Y); // still didn't step onto the sea.
+        Assert.Equal(MoveArmyRejections.DestinationNotLand, second.Code);
+        Assert.Same(moved.State, second.State);
     }
 }

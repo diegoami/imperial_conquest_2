@@ -107,6 +107,23 @@ public sealed class MoveArmyCommandHandlerTests
         Assert.Same(before, result.State);
     }
 
+    /// <summary>
+    /// T237 (#920 item 3): an army aboard a fleet is moved by its fleet; a move order for it used to be
+    /// accepted as a no-op ("moved from (101,50) to (101,50), spending 0 of 10 moves"), and is now refused.
+    /// </summary>
+    [Fact]
+    public void An_embarked_army_is_refused_a_move_order_and_changes_nothing()
+    {
+        var dispatcher = Dispatcher();
+        var initial = CoreTestbed.InitialState();
+        var before = WithArmy(initial, initial.ArmyById("north-army-1")! with { AboardFleetId = "north-fleet-1" });
+
+        var result = dispatcher.Dispatch(before, new MoveArmyCommand(before.ActiveNationId, "north-army-1", 4, 2));
+
+        Assert.Equal(MoveArmyRejections.ArmyEmbarked, result.Code);
+        Assert.Same(before, result.State);
+    }
+
     [Fact]
     public void A_legal_move_spends_exactly_the_walkers_cost_and_ends_where_it_stops()
     {
