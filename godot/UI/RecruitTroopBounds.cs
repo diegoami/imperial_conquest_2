@@ -1,4 +1,5 @@
 using IC2.Engine.Model;
+using IC2.Engine.Recruitment;
 
 namespace IC2.Slice.UI;
 
@@ -41,7 +42,7 @@ public readonly record struct RecruitTroopBounds(
     public const int PageStepSize = 1000;
 
     /// <summary>The divisor turning a battalion size into the box's minimum and default.</summary>
-    public const int MinimumDivisor = 5;
+    public const int MinimumDivisor = RecruitTroopRange.MinimumDivisor;
 
     /// <summary>
     /// The box's bounds for <paramref name="unitTypeId"/>, read from <paramref name="ruleset"/>'s own
@@ -58,7 +59,8 @@ public readonly record struct RecruitTroopBounds(
                    ?? throw new ArgumentException(
                        $"The ruleset '{ruleset.Id}' has no unit type '{unitTypeId}'.", nameof(unitTypeId));
 
-        var fifth = type.StandardBattalionSize / MinimumDivisor;
-        return new RecruitTroopBounds(fifth, type.StandardBattalionSize, fifth, StepSize, PageStepSize);
+        // T237: the engine's own range, which RecruitStandingUnitCommandHandler also enforces.
+        var minimum = RecruitTroopRange.Minimum(type);
+        return new RecruitTroopBounds(minimum, RecruitTroopRange.Maximum(type), minimum, StepSize, PageStepSize);
     }
 }

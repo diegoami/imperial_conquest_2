@@ -29,8 +29,25 @@ public static class AiScriptedStates
     /// <summary>The shipped toy ruleset.</summary>
     public static Ruleset Ruleset => BattleCommandTestbed.ToyRuleset;
 
-    /// <summary>The shipped toy world.</summary>
-    public static World World => BattleCommandTestbed.ToyWorld;
+    /// <summary>
+    /// The shipped toy world, with the two scripted cities' cells, (0, 0) and (7, 5), made plain land.
+    /// Both are sea in the shipped grid, but every shipped world's cities stand on land, and since T237
+    /// (#1587) the engine orders an army only to a land tile, so an AI march to a city on sea would be
+    /// refused as no real map could produce it.
+    /// </summary>
+    public static World World { get; } = WithCitiesOnLand(BattleCommandTestbed.ToyWorld);
+
+    private static World WithCitiesOnLand(World world)
+    {
+        var plain = world.TileTypes.First(t => string.Equals(t.Id, "plain", StringComparison.Ordinal)).Code;
+        var cells = world.Terrain.Decode(world.Width, world.Height).ToArray();
+        cells[0] = plain;
+        cells[(5 * world.Width) + 7] = plain;
+        return world with
+        {
+            Terrain = new TerrainGrid(TerrainEncoding.RunLength, ValueList.From(cells.Select(c => new TerrainRun(c, 1)))),
+        };
+    }
 
     /// <summary>A nation record with a seat this AI will actually play, and a named personality.</summary>
     public static NationState AiNation(

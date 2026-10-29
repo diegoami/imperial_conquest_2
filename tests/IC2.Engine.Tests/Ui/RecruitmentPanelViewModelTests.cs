@@ -143,13 +143,13 @@ public sealed class RecruitmentPanelViewModelTests
         Assert.Equal(16, session.Ruleset.Recruitment.MobilizationMinStateCodeHumanSeat);
         Assert.Equal(2, session.Ruleset.Calendar.CityUnitStateCodeStep);
 
-        Recruit(session, RomeCityId, "light_infantry", 200);
-        Recruit(session, LuceriaCityId, "archers", 400);
+        Recruit(session, RomeCityId, "light_infantry", 3000);
+        Recruit(session, LuceriaCityId, "archers", 700);
 
         var rows = RecruitmentPanelViewModel.TrainingAtCity(session.State, session.Ruleset, RomeId, RomeCityId);
         var row = Assert.Single(rows);
         Assert.Equal("light_infantry", row.UnitTypeId);
-        Assert.Equal(200, row.Troops);
+        Assert.Equal(3000, row.Troops);
         Assert.Equal(RomeCityId, row.TargetCityId);
         Assert.False(row.IsReady);
         Assert.Equal(8, row.WeeksUntilReady);
@@ -177,18 +177,18 @@ public sealed class RecruitmentPanelViewModelTests
     public void The_nation_overview_lists_every_regiment_in_training()
     {
         var session = RomeSession();
-        Recruit(session, RomeCityId, "light_infantry", 200);
-        Recruit(session, LuceriaCityId, "archers", 400);
+        Recruit(session, RomeCityId, "light_infantry", 3000);
+        Recruit(session, LuceriaCityId, "archers", 700);
 
         var rows = RecruitmentPanelViewModel.TrainingForNation(session.State, session.Ruleset, RomeId);
 
         Assert.Equal(2, rows.Count);
         Assert.Equal("light_infantry", rows[0].UnitTypeId);
-        Assert.Equal(200, rows[0].Troops);
+        Assert.Equal(3000, rows[0].Troops);
         Assert.Equal(RomeCityId, rows[0].TargetCityId);
         Assert.Equal("8 weeks", rows[0].ReadinessText);
         Assert.Equal("archers", rows[1].UnitTypeId);
-        Assert.Equal(400, rows[1].Troops);
+        Assert.Equal(700, rows[1].Troops);
         Assert.Equal(LuceriaCityId, rows[1].TargetCityId);
         Assert.Equal("8 weeks", rows[1].ReadinessText);
 
@@ -206,7 +206,7 @@ public sealed class RecruitmentPanelViewModelTests
     public void The_mobilize_choice_reports_none_ready_instead_of_issuing_an_unready_slot_zero()
     {
         var session = RomeSession();
-        Recruit(session, RomeCityId, "light_infantry", 200);
+        Recruit(session, RomeCityId, "light_infantry", 3000);
 
         // The slot the old code would have blindly mobilized is real, present, and unready.
         var slotZero = RomeNation(session).RecruitmentSlots[0];
@@ -229,15 +229,15 @@ public sealed class RecruitmentPanelViewModelTests
     public void The_mobilize_choice_picks_a_ready_slot_over_an_unready_slot_zero()
     {
         var session = RomeSession();
-        Recruit(session, RomeCityId, "light_infantry", 200);
-        Recruit(session, LuceriaCityId, "archers", 400);
+        Recruit(session, RomeCityId, "light_infantry", 3000);
+        Recruit(session, LuceriaCityId, "archers", 700);
 
         EndTurns(session, 8);
         var ready = RomeNation(session).RecruitmentSlots[1];
         Assert.True(EngineSaysReady(session, ready));
 
         // A fresh order after the tick is still at 0 and stays so: the unready half of the arrangement.
-        Recruit(session, RomeCityId, "heavy_infantry", 200);
+        Recruit(session, RomeCityId, "heavy_infantry", 1200);
         var unready = RomeNation(session).RecruitmentSlots[2];
         Assert.Equal(0, unready.StateCode);
         Assert.False(EngineSaysReady(session, unready));
@@ -258,9 +258,9 @@ public sealed class RecruitmentPanelViewModelTests
     public void The_mobilize_choice_picks_the_first_ready_slot_over_a_later_unready_one()
     {
         var session = RomeSession();
-        Recruit(session, RomeCityId, "light_infantry", 200);
+        Recruit(session, RomeCityId, "light_infantry", 3000);
         EndTurns(session, 8);
-        Recruit(session, LuceriaCityId, "archers", 400);
+        Recruit(session, LuceriaCityId, "archers", 700);
 
         var slots = RomeNation(session).RecruitmentSlots;
         Assert.True(EngineSaysReady(session, slots[0]));

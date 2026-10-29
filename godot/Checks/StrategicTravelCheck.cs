@@ -564,7 +564,14 @@ public partial class StrategicTravelCheck : Node
         StartingArmy Army(string id, string nation, int x, int y, int troops) => new(id, nation, x, y,
             Morale: nation == "north" ? 68 : 59, Money: 100, SupplyTons: 500, Moves: 5,
             Units: ValueList.Of(new UnitSlot(0, nation == "north" ? "light_infantry" : "heavy_infantry", troops, 6, "Foot")));
-        var world = toy.World with { StartingArmies = ValueList.Of(
+        // T237: (6,4) and (6,5) are sea in the toy grid, and the engine now orders an army only to land,
+        // so this lap's second pair stands on plain cells there instead of on sea.
+        var plain = toy.World.TileTypes.First(t => t.Id == "plain").Code;
+        var cells = toy.World.Terrain.Decode(toy.World.Width, toy.World.Height).ToArray();
+        cells[(4 * toy.World.Width) + 6] = plain;
+        cells[(5 * toy.World.Width) + 6] = plain;
+        var world = toy.World with { Terrain = new TerrainGrid(TerrainEncoding.RunLength,
+            ValueList.From(cells.Select(c => new TerrainRun(c, 1)))), StartingArmies = ValueList.Of(
             Army("north-army-1", "north", 2, 3, 400), Army("north-army-2", "north", 6, 4, 400),
             Army("south-army-1", "south", 4, 3, 6000), Army("south-army-2", "south", 6, 5, 6000)) };
         var session = new GameSession(world, toy.Ruleset, toy.Scenario)

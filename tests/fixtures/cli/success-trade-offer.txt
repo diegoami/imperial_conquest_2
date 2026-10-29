@@ -4,8 +4,8 @@ join-armies army-8 mac-split
 split-army army-8 mac-marines 1
 split-army army-8 mac-spare 1
 order-city pella fortify 1
-recruit-standing pella light_infantry 200
-recruit-standing pella light_infantry 200
+recruit-standing pella light_infantry 3000
+recruit-standing pella light_infantry 3000
 order-fleet amphipolis 20 mac-fleet-1
 propose-trade illyria
 propose-alliance dacia

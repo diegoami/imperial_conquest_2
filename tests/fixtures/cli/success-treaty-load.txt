@@ -7,7 +7,7 @@ move mac-marines 148 40
 move-fleet mac-fleet-keep 149 41
 embark-army mac-marines mac-fleet-keep
 disembark-army mac-marines 148 40
-recruit-standing pella light_infantry 200
+recruit-standing pella light_infantry 3000
 disband-slot 0
 end
 quit

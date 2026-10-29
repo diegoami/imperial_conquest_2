@@ -576,7 +576,7 @@ public partial class StrategyDialogsCheck : Control
     private void SetupForDisband()
     {
         var session = _session;
-        var output = session.Submit($"recruit-standing {RomeCityId} light_infantry 1500");
+        var output = session.Submit($"recruit-standing {RomeCityId} light_infantry 3000");
         Debug.Assert(
             output.Lines.Any(l => l.Contains("recruitment.recruit-standing-unit accepted.", StringComparison.Ordinal)),
             "the recruit-standing order is accepted");

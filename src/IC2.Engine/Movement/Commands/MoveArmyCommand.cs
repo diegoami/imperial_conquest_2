@@ -38,4 +38,13 @@ public static class MoveArmyRejections
     /// every other illegal order is reported: a typed rejection, never an exception.
     /// </summary>
     public static readonly RejectionCode OutOfBounds = new("movement.out-of-bounds");
+
+    /// <summary>
+    /// T237 (#1587): the destination is a tile armies cannot stand on (<c>TileType.PassableByArmies</c>),
+    /// which the original's and the remake's map click ignore.
+    /// </summary>
+    public static readonly RejectionCode DestinationNotLand = new("movement.destination-not-land");
+
+    /// <summary>T237 (#920 item 3): the army is aboard a fleet, which moves it; disembarking is the fleet's order.</summary>
+    public static readonly RejectionCode ArmyEmbarked = new("movement.army-embarked");
 }

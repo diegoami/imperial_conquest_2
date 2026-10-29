@@ -71,4 +71,56 @@ public static class CoastalCity
 
         return null;
     }
+
+    /// <summary>
+    /// Whether <paramref name="nationId"/> already has a fleet under construction at
+    /// <paramref name="cityId"/>. A city building a fleet is not free for another order: the original's
+    /// Build fleet dialog refuses with <em>"You do not have a free coastal city at this time."</em> (R56)
+    /// when no coastal city is free, and T237 (#920 item 1) has the engine refuse the order too.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    public static bool IsBuildingFleet(GameState state, string nationId, string cityId)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(nationId);
+        ArgumentNullException.ThrowIfNull(cityId);
+
+        foreach (var fleet in state.Fleets)
+        {
+            if (fleet.IsUnderConstruction
+                && string.Equals(fleet.Nation, nationId, StringComparison.Ordinal)
+                && string.Equals(fleet.BuildCityId, cityId, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// The coastal cities <paramref name="nationId"/> owns, in the world's order, that are not already
+    /// building one of its fleets: the cities <see cref="Commands.OrderFleetCommandHandler"/> accepts an
+    /// order for, and the Build fleet dialog's list.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    public static IReadOnlyList<CityState> FreeForFleetOrder(GameState state, World world, string nationId)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(nationId);
+
+        var list = new List<CityState>();
+        foreach (var city in state.Cities)
+        {
+            if (string.Equals(city.Owner, nationId, StringComparison.Ordinal)
+                && IsCoastal(city, world)
+                && !IsBuildingFleet(state, nationId, city.Id))
+            {
+                list.Add(city);
+            }
+        }
+
+        return list;
+    }
 }

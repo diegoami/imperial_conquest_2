@@ -48,4 +48,10 @@ public static class OrderFleetRejections
 
     /// <summary>The requested new fleet id already names an existing fleet.</summary>
     public static readonly RejectionCode DuplicateFleetId = new("naval.duplicate-fleet-id");
+
+    /// <summary>
+    /// T237 (#920 item 1): the city is already building one of the nation's fleets, so it is not a free
+    /// coastal city (<see cref="CoastalCity.IsBuildingFleet"/>).
+    /// </summary>
+    public static readonly RejectionCode CityNotFree = new("naval.city-not-free");
 }

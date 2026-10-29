@@ -47,6 +47,12 @@ public static class RecruitStandingUnitRejections
     public static readonly RejectionCode InvalidTroops = new("recruitment.invalid-troops");
 
     /// <summary>
+    /// T237 (#920 item 2): the troop count is outside the type's <see cref="RecruitTroopRange"/>, one fifth
+    /// of the standard battalion up to the full battalion, the range the recruit dialog clamps to.
+    /// </summary>
+    public static readonly RejectionCode TroopsOutOfRange = new("recruitment.troops-out-of-range");
+
+    /// <summary>
     /// The issuing nation's treasury cannot afford the order's <see cref="StandingRecruitmentCost.InitialCost"/>
     /// and the ruleset's <see cref="RulesetFlags.UnaffordableRecruitAndFortify"/> is <c>refuse</c>
     /// (<c>allowDebt</c> accepts the order instead).
