@@ -36,11 +36,15 @@ public partial class StrategicTravelCheck : Node
         var sound = SettingsScreen.SoundEnabled;
         var shot = SettingsScreen.BattleShotDelaySeconds;
         var attack = SettingsScreen.BattleAttackDelaySeconds;
+        var style = SettingsScreen.MapStyleId;
         try
         {
             if ((!string.IsNullOrWhiteSpace(_directory) || _selectionMode is not null) && DisplayServer.GetName() == "headless")
                 throw new InvalidOperationException("Window evidence requires the real windowed display driver.");
             SettingsScreen.SetSoundEnabledForCheck(false);
+            // T242: T196's measured feedback (with its army/fleet kind cue) is the improved look's; the
+            // classic look draws the original's cell frame instead (SelectionFrameCheck).
+            if (_selectionMode is not null) SettingsScreen.SetMapStyleForCheck(IC2.Slice.UI.MapStyles.Painted);
             foreach (var selected in new[] { "authored", "placeholder" })
             {
                 _pack = selected;
@@ -73,6 +77,7 @@ public partial class StrategicTravelCheck : Node
             SettingsScreen.SetPackForCheck(pack);
             SettingsScreen.SetSoundEnabledForCheck(sound);
             SettingsScreen.SetBattlePauses(shot, attack);
+            SettingsScreen.SetMapStyleForCheck(style);
             WriteGallery();
             GD.Print("StrategicTravelCheck: settings restored.");
         }
