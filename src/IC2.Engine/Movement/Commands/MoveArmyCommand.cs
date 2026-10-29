@@ -10,10 +10,14 @@ namespace IC2.Engine.Movement.Commands;
 /// The rule lives entirely in <see cref="MoveArmyCommandHandler"/>, and entirely in terms of T09's
 /// <see cref="MovementWalker"/>/<see cref="TerrainCostLookup"/> — this record carries only the request.
 /// </remarks>
-/// <param name="Walk">T238: <see cref="MoveWalkPolicy.HumanSecondWalk"/> for a human seat's order; the AI's are
-/// <see cref="MoveWalkPolicy.Single"/>.</param>
+/// <param name="Walk">T238: <see cref="MoveWalkPolicy.HumanSecondWalk"/> for a human seat's order; the designed AI's
+/// are <see cref="MoveWalkPolicy.Single"/>, and a faithful AI march's <see cref="MoveWalkPolicy.AiContinuation"/> (T239).</param>
+/// <param name="TargetX">T239: the march's target column (the city or army the AI chose), which
+/// <see cref="MoveWalkPolicy.AiContinuation"/> keeps walking toward; <c>(X, Y)</c> may be a waypoint on the way.</param>
+/// <param name="TargetY">T239: the march's target row.</param>
 public sealed record MoveArmyCommand(
-    string IssuingNationId, string ArmyId, int X, int Y, MoveWalkPolicy Walk = MoveWalkPolicy.Single) : ICommand
+    string IssuingNationId, string ArmyId, int X, int Y, MoveWalkPolicy Walk = MoveWalkPolicy.Single,
+    int? TargetX = null, int? TargetY = null) : ICommand
 {
     /// <inheritdoc/>
     public string Kind => "movement.move-army";

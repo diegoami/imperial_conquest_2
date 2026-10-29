@@ -550,7 +550,11 @@ quit
         var trade = original.Take(67).Append("end").ToList();
         trade[47] = "split-unit mac-marines 0 1200";
         trade[50] = "split-unit mac-marines 0 1200";
-        trade.Insert(22, "accept-offer");
+        // T239 (#1592): with the faithful AI's continued marches the AI trade offer arrives only when
+        // Macedonia holds its two week-5 moves (original 23 and 24) for a turn: the script ends week 5
+        // first, accepts the offer in week 7, then makes those moves in place of original 25's end.
+        trade.RemoveAt(24);
+        trade.InsertRange(22, new[] { "end", "accept-offer" });
         trade.Insert(58, "move mac-detached 156 24");
         trade[59] = "move mac-detached 158 24";
         // #1012: the loaded case resumes before the mac-detached attack (original58), whose lost battle

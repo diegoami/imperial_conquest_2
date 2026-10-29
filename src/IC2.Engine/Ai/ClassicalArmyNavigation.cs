@@ -175,7 +175,11 @@ public static partial class ClassicalArmyNavigation
         throw new NotSupportedException("Original route-row fallback has no initialized output.");
     }
 
-    private static GridPoint? LocalFallback(AiView view, GridPoint origin)
+    /// <summary>
+    /// CEC8 (research <c>2026-10-30-ai-move-fallback-point105.md</c>): of the eight directions, the last whose three
+    /// cells out all share the origin's land/sea medium gives its third cell; <see langword="null"/> when none does.
+    /// </summary>
+    public static GridPoint? LocalFallback(AiView view, GridPoint origin)
     {
         GridPoint? chosen = null;
         var sea = IsSea(view, origin.X, origin.Y);

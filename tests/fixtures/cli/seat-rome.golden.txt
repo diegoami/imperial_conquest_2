@@ -148,7 +148,7 @@ Cities:
   arretium "Arretium" @ (99,36), owner Rome: supply 208t, loyalty 95, fortification 72%
   caere "Caere" @ (99,42), owner Rome: supply 211t, loyalty 77, fortification 50%
   rome "Rome" @ (101,43), owner Rome: supply 1298t, loyalty 95, fortification 78%
-  ariminum "Ariminum" @ (102,33), owner Rome: supply 146t, loyalty 77, fortification 52%
+  ariminum "Ariminum" @ (102,33), owner Rome: supply 125t, loyalty 77, fortification 52%
   carsioli "Carsioli" @ (102,41), owner Rome: supply 136t, loyalty 96, fortification 55%
   antium "Antium" @ (102,46), owner Rome: supply 204t, loyalty 92, fortification 69%
   alba-fucens "Alba Fucens" @ (104,42), owner Rome: supply 139t, loyalty 92, fortification 61%
