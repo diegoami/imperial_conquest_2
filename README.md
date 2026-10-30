@@ -82,6 +82,8 @@ The shipped data is the 334-city `classical-mediterranean` world and scenario, e
 
 `tests/fixtures/corpus.json` is the evidence base the rules are built against: every exact number from the research reports, transcribed once, each with its source report and tag. `tests/fixtures/known-reports.json` pins the real report filenames so a typo'd or invented citation fails CI offline, without the research repo being cloned.
 
+The [post-T248 strategic-AI evidence](docs/investigations/original-ai-control-and-support.md#army-decision-comparison-after-t248) separates the bounded 16-start, five-round decision comparison from approved reachable tiers, execution defects and unexercised helper edges. It does not certify whole-turn or native Windows parity.
+
 ## The research-inspector tools (`IC2.Inspect`)
 
 Predates the reimplementation — a read-only C#/.NET CLI and Godot viewer for original `.DAT`/`.sav` files, built during the reverse-engineering phase and still useful for inspecting real save data. Point it at your own files:
