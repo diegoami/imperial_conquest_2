@@ -14,8 +14,8 @@ namespace IC2.Engine.Tests.Presentation;
 /// <remarks>
 /// <para>
 /// <strong>Four independent cases.</strong> T192 retains a corrected new-game Macedonia/seed3
-/// prefix in <c>success.txt</c>; B (<c>success-trade-offer.txt</c>) accepts its actual Numidia
-/// trade immediately after original end22 and replays every later command. The peace answer and the
+/// prefix in <c>success.txt</c>; B (<c>success-trade-offer.txt</c>) accepts its naturally pending Bithynian
+/// trade after the first End turn's Illyria cancellation frees a slot (T245), then replays every later command. The peace answer and the
 /// marine group live in <c>success-treaty-load.txt</c>, resumed from one native port save taken on the
 /// corrected A path (#1012; see below). Fleet remains
 /// a fresh <c>toy-3city</c> case. Every case has nonempty golden equality, fresh-session/load
@@ -555,6 +555,11 @@ quit
         // first, accepts the offer in week 7, then makes those moves in place of original 25's end.
         trade.RemoveAt(24);
         trade.InsertRange(22, new[] { "end", "accept-offer" });
+        // T245's capital-defence prepass changes the later offer. Accept the naturally pending
+        // Bithynian trade after the first End turn's existing Illyria cancellation frees a trade slot,
+        // retaining seed 3, all later commands and the lineage.
+        trade.Remove("accept-offer");
+        trade.Insert(trade.IndexOf("make-peace illyria") + 1, "accept-offer");
         trade.Insert(58, "move mac-detached 156 24");
         trade[59] = "move mac-detached 158 24";
         // #1012: the loaded case resumes before the mac-detached attack (original58), whose lost battle
