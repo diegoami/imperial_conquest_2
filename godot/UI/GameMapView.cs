@@ -252,6 +252,9 @@ public partial class GameMapView : Control
     private string? _selectedCityId;
     private string? _selectedArmyId;
     private string? _selectedFleetId;
+    // #1010: the original frames an inspected foreign marker too (promoted selection1010 report).
+    // Inspection is presentation, not command selection; never feed it into MapClickRules.
+    private (MapEntityKind Kind, string Id)? _inspectionFocus;
 
     private MapClickOutcome? _pendingConfirmedAttack;
     private bool _fittedOnce;
@@ -400,6 +403,7 @@ public partial class GameMapView : Control
     public void Attach(GameSession session, string repositoryRoot)
     {
         _session = session;
+        _inspectionFocus = null;
         _assetLoader ??= AssetPackTextureLoader.TryLoadPack(
             repositoryRoot,
             SettingsScreen.SelectedPackId,
@@ -625,6 +629,7 @@ public partial class GameMapView : Control
         _selectedCityId = null;
         _selectedArmyId = null;
         _selectedFleetId = null;
+        _inspectionFocus = null;
         SelectionCleared?.Invoke();
         QueueRedraw();
     }
@@ -1273,10 +1278,12 @@ public partial class GameMapView : Control
                 return;
 
             case MapClickOutcomeKind.DropSelectionAndShowTarget:
-                // The audit's own row: the selection is cleared and only the information panel
-                // changes — the target's details show without becoming the map's selection.
+                // Clear command selection, but keep the inspected marker's cell for Classic's frame.
+                // This grants no commands and changes no campaign state (research selection1010).
                 ClearSelection();
+                _inspectionFocus = (outcome.FocusKind ?? MapEntityKind.City, outcome.FocusId!);
                 ShowDetails(outcome.FocusKind ?? MapEntityKind.City, outcome.FocusId!);
+                QueueRedraw();
                 return;
 
             case MapClickOutcomeKind.EmbarkArmy:
@@ -1422,6 +1429,7 @@ public partial class GameMapView : Control
 
     private void FocusAsSelection(MapEntityKind kind, string id)
     {
+        _inspectionFocus = null;
         switch (kind)
         {
             case MapEntityKind.City:
@@ -1614,6 +1622,22 @@ public partial class GameMapView : Control
             else if (_selectedCityId is { } cityId && DisplayState.CityById(cityId) is { } city)
             {
                 cell = new Rect2(TileCenter(city.X, city.Y, tileSize) - (Vector2.One * tileSize / 2f), Vector2.One * tileSize);
+            }
+            else if (_inspectionFocus is { } inspection)
+            {
+                // Resolve live display coordinates on every draw; do not retain stale screen pixels.
+                Vector2? inspectedCell = inspection.Kind switch
+                {
+                    MapEntityKind.City when DisplayState.CityById(inspection.Id) is { } inspectedCity
+                        => new(inspectedCity.X, inspectedCity.Y),
+                    MapEntityKind.Army when DisplayState.ArmyById(inspection.Id) is { } inspectedArmy
+                        => new(inspectedArmy.X, inspectedArmy.Y),
+                    MapEntityKind.Fleet when DisplayState.FleetById(inspection.Id) is { } inspectedFleet
+                        => new(inspectedFleet.X, inspectedFleet.Y),
+                    _ => null,
+                };
+                if (inspectedCell is { } point)
+                    cell = new Rect2(TileCenter((int)point.X, (int)point.Y, tileSize) - Vector2.One * tileSize / 2f, Vector2.One * tileSize);
             }
         }
 
