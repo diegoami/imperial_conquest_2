@@ -157,10 +157,8 @@ public static class AiArmyTargetTree
                 continue;
             }
 
-            var sameGeography = faithfulNavigation
-                && ClassicalArmyNavigation.Classify(city.X, city.Y) == armyGeography;
-            if ((faithfulNavigation && !ClassicalArmyNavigation.TargetEligible(view, army, city.X, city.Y))
-                || (!sameGeography && !IsReachable(view, army, city.X, city.Y)))
+            if (faithfulNavigation ? !ClassicalArmyNavigation.TargetEligible(view, army, city.X, city.Y)
+                : !IsReachable(view, army, city.X, city.Y))
             {
                 skipped++;
                 continue;
@@ -275,16 +273,11 @@ public static class AiArmyTargetTree
             }
 
             // T212: F31C's original same-geography target test does not require the
-            // direct walker to reach the target. A different-geography target without
-            // an own fleet is refused by CAB4; the stored-ferry route is a separate
-            // unrepresented state gap (#1405), so retain the existing reachable gate
-            // for that branch until its route lifecycle is supported.
+            // direct walker to reach the target. CAB4 admits a different geography when
+            // any own fleet exists; T247 leaves the narrower usable-ferry decision to D9A8.
             var faithfulNavigation = ClassicalArmyNavigation.Applies(view);
-            var sameGeography = faithfulNavigation
-                && ClassicalArmyNavigation.Classify(army.X, army.Y)
-                    == ClassicalArmyNavigation.Classify(target.X, target.Y);
-            if ((faithfulNavigation && !ClassicalArmyNavigation.TargetEligible(view, army, target.X, target.Y))
-                || (!sameGeography && !IsReachable(view, army, target.X, target.Y)))
+            if (faithfulNavigation ? !ClassicalArmyNavigation.TargetEligible(view, army, target.X, target.Y)
+                : !IsReachable(view, army, target.X, target.Y))
             {
                 skipped++;
                 continue;
@@ -671,7 +664,7 @@ public static class AiArmyTargetTree
         // the caller falls through to the garrison fallback and the emergency move.
         var marchesAtResupply = decision.Selected == Kind.MoveToResupplyCity
             || (decision.Selected == Kind.MercenaryRun && decision.After == Continuation.DefendResupplyCity);
-        if (marchesAtResupply)
+        if (marchesAtResupply && !(ClassicalArmyNavigation.Applies(view) && army.IsEmbarked))
         {
             decision = decision with { Resupply = ResolveResupplyCity(view, army, atWar) };
         }

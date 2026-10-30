@@ -197,6 +197,15 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
                     when string.Equals(moved.ArmyId, decision.ArmyId, StringComparison.Ordinal)
                         && IsCloserToRouteGoal(moved, targetX, targetY):
                     return true;
+
+                // T247: CAB4 admits a cross-geography target even when D9A8 finds no usable
+                // ferry. The accepted transport attempt is the original's action, possibly a
+                // no-op; require its exact army, origin and requested destination, not a general exemption.
+                case OriginalArmyTransportAttempted transport
+                    when transport.ArmyId == decision.ArmyId && transport.NationId == decision.NationId
+                        && transport.FromX == decision.ArmyX && transport.FromY == decision.ArmyY
+                        && transport.TargetX == targetX && transport.TargetY == targetY:
+                    return true;
             }
         }
 

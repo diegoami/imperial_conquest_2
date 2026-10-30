@@ -196,18 +196,26 @@ public sealed class AiCapitalDefenceTests
     }
 
     [Fact]
-    public void An_aboard_responder_intercepts_through_its_own_carrier_and_keeps_links()
+    public void An_aboard_responder_queues_a_landing_and_spends_two_without_sailing_in_the_prepass()
     {
         var responder = Army("ours", "north", 95, 40) with { CoveredTileCode = null, AboardFleetId = "carrier" };
         var fleet = new FleetState("carrier", "north", 95, 40, 3, 50, 100, 100, 100, null, null, responder.Id, 0);
         var state = State([responder, Army("threat", "south", 105, 40)]) with { Fleets = ValueList.Of(fleet) };
-        var result = Run(state, out var log, World(sea: true));
+        var world = LandingWorld();
+        var events = new RecordingEventSink();
+        var routes = new OriginalFleetRoutes();
+        var log = new List<string>();
+        var result = AiCapitalDefence.Run(state, Rules, world, "north",
+            new CommandDispatcher(SystemRegistry.FromEngineAssembly(), Rules, world, events),
+            routes.Capture(events), log);
         Assert.Equal(1, result.Dispatches);
         Assert.Equal(1, result.Issued);
         Assert.Equal(0, result.Rejected);
         Assert.Contains("toward (105, 40)", Assert.Single(log));
         var moved = result.State.FleetById(fleet.Id)!;
-        Assert.True(moved.X > fleet.X);
+        Assert.Equal(fleet, moved);
+        Assert.Equal(responder.Moves - 2, result.State.ArmyById(responder.Id)!.Moves);
+        Assert.Equal(new GridPoint(100, 40), routes.For(fleet.Id));
         Assert.Equal((moved.X, moved.Y), (result.State.ArmyById(responder.Id)!.X, result.State.ArmyById(responder.Id)!.Y));
         Assert.Equal(responder.Id, moved.CarriedArmyId);
         Assert.Equal(fleet.Id, result.State.ArmyById(responder.Id)!.AboardFleetId);
@@ -223,17 +231,30 @@ public sealed class AiCapitalDefenceTests
     }
 
     [Fact]
-    public void An_exhausted_responder_is_skipped_and_an_exhausted_carrier_is_not_sent_an_illegal_order()
+    public void An_exhausted_responder_is_skipped_but_zero_carrier_moves_do_not_suppress_the_army_request()
     {
         var tired = Army("tired", "north", 95, 40, moves: 0);
         var aboard = Army("aboard", "north", 96, 40) with { AboardFleetId = "fleet", CoveredTileCode = null };
         var fleet = new FleetState("fleet", "north", 96, 40, 0, 50, 100, 100, 100, null, null, aboard.Id, 0);
         var state = State([tired, aboard, Army("enemy", "south", 105, 40)]) with { Fleets = ValueList.Of(fleet) };
-        var result = Run(state, out _);
+        var result = Run(state, out _, LandingWorld());
         Assert.Equal(1, result.Dispatches);
-        Assert.Equal(0, result.Issued);
+        Assert.Equal(1, result.Issued);
         Assert.Equal(0, result.Rejected);
-        Assert.Equal(state, result.State);
+        Assert.Equal(tired, result.State.ArmyById(tired.Id));
+        Assert.Equal(fleet, result.State.FleetById(fleet.Id));
+        Assert.Equal(aboard.Moves - 2, result.State.ArmyById(aboard.Id)!.Moves);
+    }
+
+    private static World LandingWorld()
+    {
+        var cells = new int[320 * 140];
+        for (var y = 0; y < 140; y++)
+            for (var x = 100; x < 320; x++) cells[y * 320 + x] = 2;
+        return World(sea: true) with
+        {
+            Terrain = new(TerrainEncoding.RunLength, ValueList.From(cells.Select(c => new TerrainRun(c, 1)))),
+        };
     }
 
     [Fact]

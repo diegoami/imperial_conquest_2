@@ -14,8 +14,8 @@ namespace IC2.Engine.Tests.Presentation;
 /// <remarks>
 /// <para>
 /// <strong>Four independent cases.</strong> T192 retains a corrected new-game Macedonia/seed3
-/// prefix in <c>success.txt</c>; B (<c>success-trade-offer.txt</c>) accepts its naturally pending Bithynian
-/// trade after the first End turn's Illyria cancellation frees a slot (T245), then replays every later command. The peace answer and the
+/// prefix in <c>success.txt</c>; B (<c>success-trade-offer.txt</c>) accepts its naturally pending Gallic
+/// trade at turn 7 (T247), then replays every later command. The peace answer and the
 /// marine group live in <c>success-treaty-load.txt</c>, resumed from one native port save taken on the
 /// corrected A path (#1012; see below). Fleet remains
 /// a fresh <c>toy-3city</c> case. Every case has nonempty golden equality, fresh-session/load
@@ -370,6 +370,23 @@ public sealed class SuccessScriptTests
     }
 
     [Fact]
+    public void The_trade_case_answers_a_naturally_pending_Gallic_trade_on_the_same_fixed_seed()
+    {
+        var session = NewSuccessSession();
+        var lines = File.ReadAllLines(SuccessTradeOfferScriptPath);
+        var answer = Array.IndexOf(lines, "accept-offer");
+        Assert.True(answer > 0);
+        RunTranscript(session, lines.Take(answer));
+        Assert.Equal(7, session.State.Calendar.TurnIndex);
+        Assert.Equal(new IC2.Engine.Model.PendingDiplomaticOffer("gaul", Classical.Ruleset.Diplomacy.StateCodes.Trade),
+            session.State.PendingOffer);
+        var reply = session.Submit(lines[answer]);
+        Assert.Contains(reply.Lines, line => line == "diplomacy.accept-pending-offer accepted.");
+        Assert.Null(session.State.PendingOffer);
+        Assert.Equal(Classical.Ruleset.Diplomacy.StateCodes.Trade, session.State.Relations.Get("macedonia", "gaul"));
+    }
+
+    [Fact]
     public void Every_mutating_line_in_the_trade_offer_golden_produced_an_accepted_outcome()
     {
         AssertEveryMutatingLineProducedAnAcceptedOutcome(File.ReadAllText(SuccessTradeOfferGoldenPath));
@@ -562,6 +579,11 @@ quit
         trade.Insert(trade.IndexOf("make-peace illyria") + 1, "accept-offer");
         trade.Insert(58, "move mac-detached 156 24");
         trade[59] = "move mac-detached 158 24";
+        // T247's fleet phase consumes actual strength draws and changes campaign diplomacy.
+        // Keep every command/seed: the first natural trade now comes from Gaul after the End
+        // turn following the first sacrificial-army move. No seeded-state edit or seed search.
+        trade.Remove("accept-offer");
+        trade.Insert(trade.IndexOf("move mac-sac-1 151 31") + 2, "accept-offer");
         // #1012: the loaded case resumes before the mac-detached attack (original58), whose lost battle
         // is offered peace, then runs original79's answer and the marine group (original77, 78, 80-87).
         var treaty = new[] { "move mac-detached 155 26", original[57], original[78], original[76], original[77] }

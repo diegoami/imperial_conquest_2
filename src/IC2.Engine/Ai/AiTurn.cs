@@ -124,6 +124,8 @@ public static class AiTurn
 
         var issued = 0;
         var rejected = 0;
+        var fleetRoutes = new OriginalFleetRoutes();
+        events = fleetRoutes.Capture(events); // Accepted army requests live only inside this seat invocation.
 
         // T157 (#926): the original's economy phase runs once, before everything the army and fleet
         // phases do (FUN_0044fa20's order), so it reads the treasury and armies as the turn starts, ahead of the
@@ -163,8 +165,9 @@ public static class AiTurn
         // of AiResupplyPass is left, so slice the armies out and let its own army loop do nothing. Its
         // cities, fleets and nations are this state's own, so merge those fields back and keep the armies
         // the hire pass produced.
-        var fleetResupply = AiResupplyPass.Run(
-            state with { Armies = ValueList<ArmyState>.Empty }, ruleset, nationId);
+        var originalFleets = ClassicalFleetNavigation.Applies(new AiView(state, ruleset, world, nationId));
+        var fleetResupply = originalFleets ? new AiResupplyPass.Result(state, 0, 0, 0, 0)
+            : AiResupplyPass.Run(state with { Armies = ValueList<ArmyState>.Empty }, ruleset, nationId);
         state = state with
         {
             Cities = fleetResupply.State.Cities,
@@ -274,6 +277,7 @@ public static class AiTurn
                 && subjectId is { } armyId
                 && state.ArmyById(armyId) is { } afterTile
                 && afterTile.Moves > 0
+                && !(ClassicalArmyNavigation.Applies(view) && beforeTile.IsEmbarked && afterTile.Moves < beforeTile.Moves)
                 && beforeTile.X == afterTile.X
                 && beforeTile.Y == afterTile.Y)
             {
@@ -290,6 +294,14 @@ public static class AiTurn
                 hitCap = false;
                 break;
             }
+        }
+
+        if (originalFleets)
+        {
+            var fleets = OriginalFleetPhase.Run(state, ruleset, world, nationId, fleetRoutes, commands, events, rng, log);
+            state = fleets.State;
+            issued += fleets.Issued;
+            rejected += fleets.Rejected;
         }
 
         if (hitCap)

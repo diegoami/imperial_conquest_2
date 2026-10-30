@@ -42,7 +42,7 @@ public static partial class ClassicalArmyNavigation
         Classify(actor.X, actor.Y) == Classify(targetX, targetY)
         || view.State.Fleets.Any(f => f.Nation == actor.Nation);
 
-    /// <summary>D9A8's narrower ferry lookup, retained as a pure boundary control until route state exists.</summary>
+    /// <summary>D9A8's narrower ferry lookup for the same-seat transport handoff.</summary>
     public static FleetState? NearestUsableFerry(AiView view, ArmyState actor)
     {
         FleetState? closest = null;
@@ -97,9 +97,13 @@ public static partial class ClassicalArmyNavigation
 
     /// <summary>D174: choose a visible point, route-row entry, or source-shaped local fallback.</summary>
     public static WaypointChoice Intermediate(AiView view, GridPoint origin, GridPoint target) =>
-        Intermediate(view, RouteGroup(origin), origin, target, 0);
+        Intermediate(view, RouteGroup(origin), origin, target, 0, fleetMode: false);
 
-    private static WaypointChoice Intermediate(AiView view, int group, GridPoint origin, GridPoint target, int depth)
+    /// <summary>T247: the fleet wrapper uses group 0 and the fleet-phase sea tolerance.</summary>
+    public static WaypointChoice FleetIntermediate(AiView view, GridPoint origin, GridPoint target) =>
+        Intermediate(view, 0, origin, target, 0, fleetMode: true);
+
+    private static WaypointChoice Intermediate(AiView view, int group, GridPoint origin, GridPoint target, int depth, bool fleetMode)
     {
         if (depth > Points.Length)
             throw new NotSupportedException("Original waypoint recursion did not converge on this static world.");
@@ -133,10 +137,10 @@ public static partial class ClassicalArmyNavigation
             return new(Points[common], "common-visible", common);
         if (visible.Count > 0 && closestTarget is { } targetId)
             return RouteEntry(group, visible, targetId);
-        if (visible.Count == 0) return new(LocalFallback(view, origin), "origin-local-fallback");
-        var local = LocalFallback(view, target);
+        if (visible.Count == 0) return new(LocalFallback(view, origin, fleetMode), "origin-local-fallback");
+        var local = LocalFallback(view, target, fleetMode);
         if (local is { } next && !DirectLine(view, origin, next))
-            return Intermediate(view, group, origin, next, depth + 1);
+            return Intermediate(view, group, origin, next, depth + 1, fleetMode);
         return new(local, "target-local-fallback");
     }
 
@@ -179,7 +183,7 @@ public static partial class ClassicalArmyNavigation
     /// CEC8 (research <c>2026-10-30-ai-move-fallback-point105.md</c>): of the eight directions, the last whose three
     /// cells out all share the origin's land/sea medium gives its third cell; <see langword="null"/> when none does.
     /// </summary>
-    public static GridPoint? LocalFallback(AiView view, GridPoint origin)
+    public static GridPoint? LocalFallback(AiView view, GridPoint origin, bool fleetMode = false)
     {
         GridPoint? chosen = null;
         var sea = IsSea(view, origin.X, origin.Y);
@@ -192,14 +196,14 @@ public static partial class ClassicalArmyNavigation
                 for (var n = 1; n <= 3; n++)
                 {
                     last = new(Math.Clamp(origin.X + dx * n, 0, 319), Math.Clamp(origin.Y + dy * n, 0, 139));
-                    if (IsSea(view, last.X, last.Y) != sea) good = false;
+                    if (IsSea(view, last.X, last.Y) != sea && !(fleetMode && IsSea(view, last.X, last.Y))) good = false;
                 }
                 if (good) chosen = last; // The last successful direction wins.
             }
         return chosen;
     }
 
-    private static bool IsSea(AiView view, int x, int y)
+    internal static bool IsSea(AiView view, int x, int y)
     {
         // Fleet markers cover the army/city/base map; embarked armies have no on-map marker.
         if (view.State.Fleets.Any(f => !f.IsUnderConstruction && f.X == x && f.Y == y)) return true;
