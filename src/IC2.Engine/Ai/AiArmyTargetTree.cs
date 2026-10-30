@@ -570,11 +570,14 @@ public static class AiArmyTargetTree
         /// <summary>Neither continuation's condition holds; the run is the whole action.</summary>
         None,
 
-        /// <summary>Defend the resupply city (<c>armyScore &lt; 71 and cityScore &gt; 85</c>).</summary>
+        /// <summary>Designed/custom-world legacy city continuation, using the resupply city.</summary>
         DefendResupplyCity,
 
         /// <summary>Still chase the army target (<c>armyScore &gt;= 71</c>).</summary>
         ChaseArmy,
+
+        /// <summary>Faithful F31C city continuation: march at the enemy-city scorer target.</summary>
+        MarchAtCityTarget,
     }
 
     /// <summary>One army's tree decision.</summary>
@@ -665,10 +668,11 @@ public static class AiArmyTargetTree
         var decision = DecideFromScores(view.Ruleset.Ai, army, city, armyScore, resupply,
             originalWeakBoundary: ClassicalArmyNavigation.Applies(view));
 
-        // The destination of a resupply march (the MoveToResupplyCity branch, and the mercenary run's
-        // "defend the resupply city" continuation) is the Hazards' step 1: the original's pick when the
+        // The destination of a resupply march (MoveToResupplyCity, and the designed mercenary run's
+        // legacy resupply continuation) is the Hazards' step 1: the original's pick when the
         // reachability rule does not skip it, else the next reachable candidate, else none, in which case
-        // the caller falls through to the garrison fallback and the emergency move.
+        // the caller falls through to the garrison fallback and the emergency move. The faithful
+        // enemy-city continuation is a different target and never enters this resupply resolver.
         var marchesAtResupply = decision.Selected == Kind.MoveToResupplyCity
             || (decision.Selected == Kind.MercenaryRun && decision.After == Continuation.DefendResupplyCity);
         if (marchesAtResupply && !(ClassicalArmyNavigation.Applies(view) && army.IsEmbarked))
@@ -702,7 +706,8 @@ public static class AiArmyTargetTree
     /// <summary>
     /// The decision over already-computed scorer results. Public so a table-driven test can walk every
     /// branch and boundary without building a state for each. The optional original policy distinguishes
-    /// weak <c>&lt;= 100</c> from better-city <c>&gt; 100</c>; the default preserves designed strict weak checks.
+    /// weak <c>&lt;= 100</c> from better-city <c>&gt; 100</c> and selects the original enemy-city continuation;
+    /// the default preserves the designed weak checks and resupply-city continuation.
     /// </summary>
     public static Decision DecideFromScores(
         AiWeightsRules rules,
@@ -756,7 +761,7 @@ public static class AiArmyTargetTree
                     if (armyScoreValue < rules.DefendResupplyArmyScoreThreshold
                         && cityScoreValue > rules.DefendResupplyCityScoreThreshold)
                     {
-                        after = Continuation.DefendResupplyCity;
+                        after = originalWeakBoundary ? Continuation.MarchAtCityTarget : Continuation.DefendResupplyCity;
                     }
                     else if (armyScoreValue >= rules.DefendResupplyArmyScoreThreshold)
                     {

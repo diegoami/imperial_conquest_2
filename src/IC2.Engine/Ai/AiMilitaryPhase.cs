@@ -339,6 +339,8 @@ public static class AiMilitaryPhase
             {
                 AiArmyTargetTree.Kind.AttackCity when decision.TargetCity is { } c => new GridPoint(c.X, c.Y),
                 AiArmyTargetTree.Kind.AttackArmy when decision.TargetArmy is { } a => new GridPoint(a.X, a.Y),
+                AiArmyTargetTree.Kind.MercenaryRun when decision.After == AiArmyTargetTree.Continuation.MarchAtCityTarget
+                    && decision.TargetCity is { } c => new GridPoint(c.X, c.Y),
                 _ when decision.Resupply?.City is { } c => new GridPoint(c.X, c.Y),
                 _ => (GridPoint?)null,
             };
@@ -398,6 +400,15 @@ public static class AiMilitaryPhase
 
                 switch (decision.After)
                 {
+                    case AiArmyTargetTree.Continuation.MarchAtCityTarget:
+                        if (mayMarch && decision.TargetCity is { } cityTarget)
+                        {
+                            AddMarchCandidate(view, army, cityTarget.X, cityTarget.Y, AiCandidate.ApproachKind,
+                                "march at the enemy-city target", view.Ruleset.Ai.ReinforceCityBaseScore, progress, into);
+                        }
+
+                        break;
+
                     case AiArmyTargetTree.Continuation.DefendResupplyCity:
                         if (mayMarch && decision.Resupply?.City is { } defendCity)
                         {

@@ -1022,8 +1022,8 @@ one shared scale, so the AI's determinism guarantee never depends on floating-po
 | `mercenaryRunTroopsDivisor` | int | divisor | The mercenary run needs `troops / N < supplies`; 500. |
 | `mercenaryRunCityDistanceFar` | int | tiles | With no supplies, a city farther than N is not attacked; 19. |
 | `mercenaryRunOfferRange` | int | tiles | The mercenary run considers pool offers within N of the army (`FUN_0044e84c`); 20. |
-| `defendResupplyArmyScoreThreshold` | int | score | After the mercenary run: `armyScore < N` (with the city threshold below) defends the resupply city, otherwise `armyScore >= N` chases the army; 71. |
-| `defendResupplyCityScoreThreshold` | int | score | The `cityScore > N` half of the defend-the-resupply-city test; 85. |
+| `defendResupplyArmyScoreThreshold` | int | score | After the mercenary run: `armyScore < N` (with the city threshold below) takes the city continuation, otherwise `armyScore >= N` chases the army; 71. T249 uses the enemy-city target in faithful classical navigation; Designed/custom worlds retain the resupply destination. |
+| `defendResupplyCityScoreThreshold` | int | score | The `cityScore > N` half of the mercenary continuation test; 85. Original F31C continues toward the enemy-city scorer target, not the resupply city (research `c159c93`, #1638); T249 preserves the legacy key name and Designed/custom-world resupply behavior. |
 | `resupplyStrengthTroopsDivisor` | int | divisor | The resupply scorer's strength is `troops / N`; 100. |
 | `resupplyForeignSupplyMargin` | int | tons | A foreign city needs stock above `strength + N`; 80. |
 | `resupplyForeignMoneyDivisor` | int | divisor | A foreign city needs the army's money above `strength / N`; 5. |

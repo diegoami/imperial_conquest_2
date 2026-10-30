@@ -11,7 +11,7 @@ using Fx = IC2.Engine.Tests.Cities.Capture.CaptureTestbed;
 
 namespace IC2.Engine.Tests.Ai;
 
-public sealed class AiCapitalDefenceTests
+public sealed partial class AiCapitalDefenceTests
 {
     private static Ruleset Rules => AiScriptedStates.Ruleset with
     {
