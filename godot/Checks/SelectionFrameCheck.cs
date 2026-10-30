@@ -10,9 +10,8 @@ namespace IC2.Slice.Checks;
 /// SRCERASE (research 2026-10-30-unit-map-selection-drawing1010.md): the selected cell inverted, a black
 /// rhombus outline, nothing animated. The improved look ("Painted") keeps T196's feedback.
 /// <para>
-/// Real <see cref="MainGameScreen"/>, real clicks where the remake selects (own army, own fleet, own
-/// town). A foreign town is never selected by a click, as the manual says (§2, "It is not selected"),
-/// so its frame is drawn through the check-only <c>SelectCityForCheck</c> seam.
+/// Real <see cref="MainGameScreen"/> and real clicks for owned command selections and foreign
+/// inspection frames. Foreign inspection must not enable orders or mutate campaign state.
 /// </para>
 /// Headless (CI): the frame's placement, its mask parameters, its look switch, its stability over
 /// time and its travel offset are asserted on the real view. The headless driver renders nothing, so
@@ -47,12 +46,15 @@ public partial class SelectionFrameCheck : Node
             Require(GameMapView.ClassicSelectionFrame, "Classic tiles is the classic look");
             foreach (var pixels in new[] { 32f, 56f })
             {
-                await CheckClassic(pixels, "army", MapEntityKind.Army, "a", 50, 44, click: true);
-                await CheckClassic(pixels, "fleet", MapEntityKind.Fleet, "f", 60, 47, click: true);
-                await CheckClassic(pixels, "own-town", MapEntityKind.City, "arx", 45, 40, click: true);
-                await CheckClassic(pixels, "foreign-town", MapEntityKind.City, "meridia", 55, 40, click: false);
+                await CheckClassic(pixels, "army", MapEntityKind.Army, "a", 50, 44, own: true);
+                await CheckClassic(pixels, "fleet", MapEntityKind.Fleet, "f", 60, 47, own: true);
+                await CheckClassic(pixels, "own-town", MapEntityKind.City, "arx", 45, 40, own: true);
+                await CheckClassic(pixels, "foreign-town", MapEntityKind.City, "meridia", 55, 40, own: false);
+                await CheckClassic(pixels, "foreign-army", MapEntityKind.Army, "enemy-army", 65, 44, own: false);
+                await CheckClassic(pixels, "foreign-fleet", MapEntityKind.Fleet, "enemy-fleet", 70, 47, own: false);
             }
 
+            await CheckInspectionLifecycle();
             await CheckTravel();
             SettingsScreen.SetMapStyleForCheck(MapStyles.Painted);
             Require(!GameMapView.ClassicSelectionFrame, "Painted is the improved look");
@@ -72,7 +74,7 @@ public partial class SelectionFrameCheck : Node
         CheckExit.Quit(this, _ok ? 0 : 1);
     }
 
-    private async Task CheckClassic(float pixels, string label, MapEntityKind kind, string id, int x, int y, bool click)
+    private async Task CheckClassic(float pixels, string label, MapEntityKind kind, string id, int x, int y, bool own)
     {
         var name = $"classic-{label}-{pixels:0}px";
         var main = await Open(Scenario());
@@ -81,19 +83,10 @@ public partial class SelectionFrameCheck : Node
         map.CentreOnTile(x, y);
         // Keep the command strip laid out in both renders: a neighbour army is selected first, out of
         // the sampled cell, so only the target's selection differs between the two frames.
-        if (!click)
-        {
-            // The remake, as the manual (§2), never selects a foreign town on a click.
-            Click(map, x, y);
-            await Frames();
-            Require(map.SelectionFrameRectForCheck is null,
-                $"{name}: a click on a foreign town selects nothing and draws no frame (manual §2)");
-        }
-
-        // A foreign town's selection lays the screen out its own way, so its neighbour is another
-        // foreign town (portus, also through the seam).
-        if (click) main.SelectArmyForCheck("n");
-        else main.SelectCityForCheck("portus");
+        // Keep the same action-strip layout in the selected/unselected renders. Foreign inspection
+        // uses an inspected foreign neighbour, with no command strip in either render.
+        if (own) main.SelectArmyForCheck("n");
+        else Click(map, 35, 40); // portus: foreign inspection through the production click path.
         await Frames();
         var cell = CellRect(map, x, y);
         Require(Mathf.IsEqualApprox(cell.Size.X, pixels), $"{name}: the drawn cell is {pixels} px");
@@ -102,8 +95,10 @@ public partial class SelectionFrameCheck : Node
         var mapRect = map.GetGlobalRect();
         using var unselected = await Shot(name + "-unselected");
 
-        if (click) Click(map, x, y);
-        else main.SelectCityForCheck(id);
+        var beforeState = main.Session.State;
+        var commands = 0;
+        map.CommandIssued += _ => commands++;
+        Click(map, x, y);
 
         await Frames();
         var selectedId = kind switch
@@ -112,7 +107,11 @@ public partial class SelectionFrameCheck : Node
             MapEntityKind.Fleet => main.MapView.SelectedStrategicMarkerForCheck,
             _ => null,
         };
-        Require(kind == MapEntityKind.City || selectedId == id, $"{name}: {id} is the selection");
+        Require(own ? kind == MapEntityKind.City || selectedId == id : selectedId is null,
+            $"{name}: command selection is independent of the inspection frame");
+        Require(commands == 0 && main.Session.State == beforeState, $"{name}: inspection/selection submits no order and changes no state");
+        if (!own) Require(main.CommandStrip.Selection == UnitStripSelection.None,
+            $"{name}: foreign inspection grants no command strip");
         Require(map.SelectionFrameRectForCheck is { } frame && Near(frame, cell),
             $"{name}: the frame covers exactly the selected cell ({map.SelectionFrameRectForCheck} vs {cell})");
         var material = map.SelectionFrameMaterialForCheck;
@@ -159,6 +158,49 @@ public partial class SelectionFrameCheck : Node
         Require(clean > 0 && wrong == 0, $"{name}: every one of {clean} clean cell pixels is the SRCERASE of the unselected render ({wrong} differ)");
         Require(Same(Pixel(unselected, outside), Pixel(selected, outside)),
             $"{name}: outside the cell at {outside} is unchanged ({Hex(Pixel(unselected, outside))})");
+    }
+
+    private async Task CheckInspectionLifecycle()
+    {
+        var main = await Open(Scenario());
+        var map = main.MapView;
+        map.SetDrawnCellPixelsForCheck(32);
+        map.CentreOnTile(55, 40);
+        var commands = 0;
+        map.CommandIssued += _ => commands++;
+        var before = main.Session.State;
+        Click(map, 55, 40);
+        await Frames();
+        Require(map.SelectionFrameRectForCheck is { } city && Near(city, CellRect(map, 55, 40)),
+            "inspection lifecycle: real foreign-town click draws its frame");
+        Click(map, 56, 40);
+        await Frames();
+        Require(commands == 0 && main.Session.State == before && main.CommandStrip.Selection == UnitStripSelection.None,
+            "inspection lifecycle: a later terrain click cannot move or order the foreign subject");
+        map.ClearSelection();
+        await Frames();
+        Require(map.SelectionFrameRectForCheck is null, "inspection lifecycle: Cancel clears the inspected frame");
+        Click(map, 65, 44);
+        Click(map, 50, 44);
+        await Frames();
+        Require(map.SelectedStrategicMarkerForCheck == "a" && main.CommandStrip.Selection == UnitStripSelection.OwnArmy
+            && map.SelectionFrameRectForCheck is { } own && Near(own, CellRect(map, 50, 44)),
+            "inspection lifecycle: owned selection replaces the foreign frame and retains its orders");
+        map.ClearSelection();
+        Click(map, 70, 47);
+        await Frames();
+        SettingsScreen.SetMapStyleForCheck(MapStyles.Painted);
+        map.Refresh();
+        await Frames();
+        Require(map.SelectionFrameRectForCheck is null && map.SelectedStrategicMarkerForCheck is null
+            && main.CommandStrip.Selection == UnitStripSelection.None,
+            "inspection lifecycle: Painted retains its existing no-foreign-feedback policy");
+        SettingsScreen.SetMapStyleForCheck(MapStyles.Tiles);
+        map.Refresh();
+        await Frames();
+        Require(map.SelectionFrameRectForCheck is { } fleet && Near(fleet, CellRect(map, 70, 47)),
+            "inspection lifecycle: switching back restores the current Classic inspection frame");
+        Require(commands == 0 && main.Session.State == before, "inspection lifecycle: no campaign/RNG mutation");
     }
 
     private async Task<Image?> Later(GameMapView map, Rect2 cell, string name)
@@ -415,8 +457,10 @@ public partial class SelectionFrameCheck : Node
         var places = new Dictionary<string, (int X, int Y)> { ["arx"] = (45, 40), ["meridia"] = (55, 40), ["portus"] = (35, 40) };
         state = state with
         {
-            Armies = ValueList.Of(army with { Id = "a" }, army with { Id = "n", X = 40 }),
-            Fleets = ValueList.Of(new FleetState("f", "north", 60, 47, 6, 30, 100, 100, 100, null, null, null, sea)),
+            Armies = ValueList.Of(army with { Id = "a" }, army with { Id = "n", X = 40 },
+                army with { Id = "enemy-army", Nation = "south", X = 65 }),
+            Fleets = ValueList.Of(new FleetState("f", "north", 60, 47, 6, 30, 100, 100, 100, null, null, null, sea),
+                new FleetState("enemy-fleet", "south", 70, 47, 6, 30, 100, 100, 100, null, null, null, sea)),
             Nations = ValueList.From(state.Nations.Select(n => n with { Control = SeatControl.Human })),
             Cities = ValueList.From(state.Cities.Select(c => places.TryGetValue(c.Id, out var p)
                 ? c with { X = p.X, Y = p.Y, Owner = c.Id == "portus" ? "south" : c.Owner } : c)),
