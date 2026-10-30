@@ -12,6 +12,7 @@ propose-alliance dacia
 declare-war armenia
 end
 make-peace illyria
+accept-offer
 move mac-marines 144 42
 buy mac-marines pella 5
 move mac-spare 147 40
@@ -21,7 +22,6 @@ move mac-detached 157 31
 move army-8 135 52
 end
 end
-accept-offer
 move mac-detached 155 29
 move army-8 135 52
 move army-8 135 52

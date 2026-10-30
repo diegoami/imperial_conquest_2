@@ -136,6 +136,13 @@ public static class AiTurn
             rejected += economy.Rejected;
         }
 
+        // T245: F31C calls capital defence before the per-army E41C support/hire and target loop.
+        // Run once here, outside the regenerated candidate loop, with the live table order.
+        var defence = AiCapitalDefence.Run(state, ruleset, world, nationId, commands, events, log);
+        state = defence.State;
+        issued += defence.Issued;
+        rejected += defence.Rejected;
+
         // R1: the original's FUN_0044E41C is one loop per army over the cities, and each in-range city
         // iteration resupplies the army (FUN_0044f6d8) before hiring at that city. AiMercenaryHirePass.Run
         // reproduces that loop, so the hire at an earlier city raises the troop count a later city's

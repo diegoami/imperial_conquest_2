@@ -71,3 +71,4 @@ Open and recent tasks only. Merged tasks (T01–T191 and others) are in their cl
 - [T242](tasks/T242.md) —  The classic look draws the original's selection frame
 - [T243](tasks/T243.md) —  The faithful enemy-army pick breaks a tie by table order
 - [T244](tasks/T244.md) —  The fleet table keeps dead slots until the original's sweep
+- [T245](tasks/T245.md) —  Faithful capital defence before ordinary army targeting
