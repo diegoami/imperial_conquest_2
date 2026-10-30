@@ -111,15 +111,17 @@ public static class AiCapitalDefence
     private static ICommand? Move(AiView view, ArmyState army, GridPoint target)
     {
         if ((uint)target.X >= (uint)view.World.Width || (uint)target.Y >= (uint)view.World.Height) return null;
-        // DBA8 forwards an aboard responder's movement to its carrier. Use the existing fleet
-        // command (including cargo synchronization); never send a human land-move for an aboard army.
-        // The wider faithful fleet-routing gap #1409 remains outside this prepass.
+        // DBA8 queues CD08's landing request and charges the army two moves. Sailing happens
+        // later in F608, even for a request produced by the capital-defence prepass (#1632).
         if (army.AboardFleetId is { } fleetId)
         {
             var fleet = view.State.FleetById(fleetId);
-            return fleet is { IsUnderConstruction: false, Moves: > 0 }
-                && fleet.Nation == view.NationId && fleet.CarriedArmyId == army.Id
-                    ? new MoveFleetCommand(view.NationId, fleet.Id, target.X, target.Y) : null;
+            if (fleet is not { IsUnderConstruction: false }
+                || fleet.Nation != view.NationId || fleet.CarriedArmyId != army.Id) return null;
+            if (!ClassicalArmyNavigation.Applies(view))
+                return fleet.Moves > 0 ? new MoveFleetCommand(view.NationId, fleet.Id, target.X, target.Y) : null;
+            return new MoveArmyCommand(view.NationId, army.Id, target.X, target.Y,
+                MoveWalkPolicy.AiContinuation, target.X, target.Y);
         }
         var aim = target;
         var continuation = ClassicalArmyNavigation.Applies(view)

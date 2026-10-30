@@ -42,7 +42,10 @@ public sealed class MoveArmyCommandHandler : ICommandHandler<MoveArmyCommand>
 
         // T237 (#920 item 3): an army aboard a fleet moves only with its fleet; disembarking is the
         // fleet's order (disembark-army), so a move order for it is refused rather than a silent no-op.
-        if (army.IsEmbarked)
+        var originalTransport = command.Walk == MoveWalkPolicy.AiContinuation
+            && context.IssuingNation.Control == SeatControl.Ai
+            && Ai.ClassicalArmyNavigation.Applies(new Ai.AiView(state, context.Ruleset, context.World, army.Nation));
+        if (army.IsEmbarked && !originalTransport)
         {
             return CommandOutcome.Reject(
                 MoveArmyRejections.ArmyEmbarked,
@@ -79,6 +82,20 @@ public sealed class MoveArmyCommandHandler : ICommandHandler<MoveArmyCommand>
             return CommandOutcome.Reject(
                 MoveArmyRejections.DestinationNotLand,
                 $"({command.X}, {command.Y}) is not land; an army can only be ordered to a land tile.");
+        }
+
+        var continuationTarget = new GridPoint(command.TargetX ?? command.X, command.TargetY ?? command.Y);
+        if (originalTransport && army.IsEmbarked)
+            return Ai.OriginalArmyTransport.Carried(army, continuationTarget, context);
+        if (originalTransport && new GridPoint(army.X, army.Y) != continuationTarget
+            && !Ai.ClassicalArmyNavigation.DirectLine(new Ai.AiView(state, context.Ruleset, world, army.Nation),
+                new(army.X, army.Y), continuationTarget)
+            && Ai.ClassicalArmyNavigation.Classify(army.X, army.Y)
+                != Ai.ClassicalArmyNavigation.Classify(continuationTarget.X, continuationTarget.Y))
+        {
+            var ferry = Ai.OriginalArmyTransport.Ferry(army, context, out var approach);
+            if (ferry is { } result) return result;
+            if (approach is { } point) destination = continuationTarget = point;
         }
 
         bool IsBlocked(GridPoint point)
@@ -138,6 +155,7 @@ public sealed class MoveArmyCommandHandler : ICommandHandler<MoveArmyCommand>
 
         var walk = WalkFrom(from, army.Moves);
         var movesAfter = MovesAfter(walk);
+        CommandOutcome? transportOutcome = null;
 
         // T238 (#1585): a human order walks once more, on a fresh line from where the first walk ended,
         // when it ended short with moves left (TUnitMap_MoveHumanArmy). The two walks are one route.
@@ -156,7 +174,7 @@ public sealed class MoveArmyCommandHandler : ICommandHandler<MoveArmyCommand>
         // context, ends the order). The levels are one route.
         if (command.Walk == MoveWalkPolicy.AiContinuation && command.TargetX is { } targetX && command.TargetY is { } targetY)
         {
-            var target = new GridPoint(targetX, targetY);
+            var target = continuationTarget;
             var movesBefore = army.Moves;
 
             // The original routines read the live map, where the marching army's marker stands on its cell.
@@ -201,6 +219,22 @@ public sealed class MoveArmyCommandHandler : ICommandHandler<MoveArmyCommand>
                     {
                         aim = target;
                     }
+                    else if (originalTransport && Ai.ClassicalArmyNavigation.Classify(at.X, at.Y)
+                        != Ai.ClassicalArmyNavigation.Classify(target.X, target.Y))
+                    {
+                        // A later recursive level can cross the same ferry boundary as entry. Give
+                        // D9A8 the live army, so embarking cannot be overwritten by the walk's old record.
+                        var liveArmy = army with { X = at.X, Y = at.Y, Moves = movesAfter,
+                            CoveredTileCode = terrainCells[at.Y * world.Width + at.X] };
+                        var liveState = state with { Armies = ValueList.From(state.Armies.Select(a =>
+                            a.Id == army.Id ? liveArmy : a)) };
+                        var ferry = Ai.OriginalArmyTransport.Ferry(liveArmy,
+                            new CommandContext(liveState, context.Ruleset, world, command, context.Rng, context.Events),
+                            out var approach);
+                        if (ferry is { } result) { transportOutcome = result; break; }
+                        if (approach is not { } point) break;
+                        aim = target = point;
+                    }
                     else if (Ai.ClassicalArmyNavigation.Intermediate(view, at, target).Point is { } waypoint)
                     {
                         aim = waypoint;
@@ -240,6 +274,8 @@ public sealed class MoveArmyCommandHandler : ICommandHandler<MoveArmyCommand>
 
         context.Events.Publish(new ArmyMoved(
             army.Id, army.Nation, from.X, from.Y, finalPosition.X, finalPosition.Y, walk.MovesSpent));
+
+        if (transportOutcome is { } transported) return transported;
 
         var updatedArmies = state.Armies.Select(a =>
             string.Equals(a.Id, army.Id, StringComparison.Ordinal) ? updatedArmy : a);

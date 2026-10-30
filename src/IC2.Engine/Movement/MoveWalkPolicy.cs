@@ -23,4 +23,7 @@ public enum MoveWalkPolicy
     /// −1. Needs the order's target.
     /// </summary>
     AiContinuation,
+
+    /// <summary>T247: original AI fleet E1FC routing, fallback, recursion and returning arrivals.</summary>
+    AiFleetContinuation,
 }

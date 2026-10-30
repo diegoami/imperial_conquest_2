@@ -108,7 +108,7 @@ public static class AiMilitaryPhase
 
         foreach (var army in view.OwnArmies())
         {
-            if (army.IsEmbarked || army.Moves <= 0)
+            if ((army.IsEmbarked && !ClassicalArmyNavigation.Applies(view)) || army.Moves <= 0)
             {
                 // Both are AttackLegality gates and a MoveArmyCommand gate; an army in either state has
                 // nothing to contribute to this phase at all.
@@ -118,6 +118,8 @@ public static class AiMilitaryPhase
             ProposeArmyTree(view, army, progress, armiesAlreadyMarched, into, siegeGates, boxedIn);
         }
 
+        // F608 runs once after army requests. Do not also offer the designed sailing/attack candidates.
+        if (ClassicalFleetNavigation.Applies(view)) return;
         foreach (var fleet in view.OwnFleets())
         {
             if (fleet.IsUnderConstruction || fleet.Moves <= 0)
@@ -329,6 +331,23 @@ public static class AiMilitaryPhase
         var decision = AiArmyTargetTree.DecideUnlogged(view, army, atWar, out var decisionRecord);
         var mayMarch = !Contains(armiesAlreadyMarched, army.Id);
         var candidatesBefore = into.Count;
+
+        if (army.IsEmbarked && ClassicalArmyNavigation.Applies(view))
+        {
+            if (!mayMarch) return;
+            var target = decision.Selected switch
+            {
+                AiArmyTargetTree.Kind.AttackCity when decision.TargetCity is { } c => new GridPoint(c.X, c.Y),
+                AiArmyTargetTree.Kind.AttackArmy when decision.TargetArmy is { } a => new GridPoint(a.X, a.Y),
+                _ when decision.Resupply?.City is { } c => new GridPoint(c.X, c.Y),
+                _ => (GridPoint?)null,
+            };
+            if (target is { } point)
+                AddMarchCandidate(view, army, point.X, point.Y, AiCandidate.ApproachKind, "request carried-army landing",
+                    view.Ruleset.Ai.ApproachCityBaseScore, progress, into);
+            if (into.Count > candidatesBefore) AiArmyTargetTree.LogDecision(decisionRecord);
+            return;
+        }
 
         if (siegeGates is not null)
         {
@@ -609,11 +628,13 @@ public static class AiMilitaryPhase
         GridPoint? target = null)
     {
         // T239 (#1592): a faithful march (the original's classical navigation) keeps walking toward the
-        // target the tree chose, as FUN_0044dba8 does; (x, y) may be a waypoint. A march across
-        // geographic regions (the original's ferry lookup, absent here) keeps the single walk.
+        // target the tree chose, as FUN_0044dba8 does; (x, y) may be a waypoint. T247 also
+        // hands cross-geography and carried-army requests to the same-seat ferry protocol.
         var aimedAt = target ?? new GridPoint(x, y);
-        var continues = ClassicalArmyNavigation.Applies(view)
-            && ClassicalArmyNavigation.Classify(army.X, army.Y) == ClassicalArmyNavigation.Classify(aimedAt.X, aimedAt.Y);
+        var continues = ClassicalArmyNavigation.Applies(view);
+        var transport = continues && (army.IsEmbarked
+            || (ClassicalArmyNavigation.Classify(army.X, army.Y) != ClassicalArmyNavigation.Classify(aimedAt.X, aimedAt.Y)
+                && !ClassicalArmyNavigation.DirectLine(view, new(army.X, army.Y), aimedAt, coincidentAfterOriginTest: true)));
         var command = continues
             ? new Movement.Commands.MoveArmyCommand(view.NationId, army.Id, x, y,
                 Movement.MoveWalkPolicy.AiContinuation, aimedAt.X, aimedAt.Y)
@@ -621,7 +642,12 @@ public static class AiMilitaryPhase
         // The march must also make progress this turn: a first step dearer than the army's moves would
         // be accepted and park the army with its moves zeroed (Sol's R1 on PR #933). Not proposing it
         // lets the caller's fallback chain (garrison, then the emergency move) take over.
-        if (!IsProposableMove(view, army, command) || !AiArmyTargetTree.MarchMakesProgress(view, army, x, y))
+        if (transport)
+        {
+            if (army.Moves <= 0 || (uint)x >= (uint)view.World.Width || (uint)y >= (uint)view.World.Height
+                || !view.IsArmyPassable(new(x, y))) return;
+        }
+        else if (!IsProposableMove(view, army, command) || !AiArmyTargetTree.MarchMakesProgress(view, army, x, y))
         {
             return;
         }

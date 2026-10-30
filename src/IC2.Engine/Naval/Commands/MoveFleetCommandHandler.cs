@@ -53,7 +53,10 @@ public sealed class MoveFleetCommandHandler : ICommandHandler<MoveFleetCommand>
                 MoveFleetRejections.UnderConstruction, $"Fleet '{fleet.Id}' is still under construction.");
         }
 
-        if (fleet.Moves <= 0)
+        var originalFleetMove = command.Walk == MoveWalkPolicy.AiFleetContinuation
+            && context.IssuingNation.Control == SeatControl.Ai
+            && Ai.ClassicalArmyNavigation.Applies(new Ai.AiView(state, context.Ruleset, context.World, fleet.Nation));
+        if (fleet.Moves <= 0 && !originalFleetMove)
         {
             return CommandOutcome.Reject(
                 MoveFleetRejections.NoMovesLeft, $"Fleet '{fleet.Id}' has no moves left this turn.");
@@ -67,6 +70,8 @@ public sealed class MoveFleetCommandHandler : ICommandHandler<MoveFleetCommand>
                 MoveFleetRejections.OutOfBounds,
                 $"({command.X}, {command.Y}) is outside the {world.Width}x{world.Height} map.");
         }
+
+        if (originalFleetMove) return OriginalFleetMove.Handle(command, context, fleet);
 
         var terrainCells = world.Terrain.Decode(world.Width, world.Height);
 

@@ -78,7 +78,7 @@ public static class AiResupplyPass
     /// <param name="nationId">The nation whose units resupply.</param>
     /// <exception cref="ArgumentNullException"><paramref name="state"/> or <paramref name="ruleset"/> is null.</exception>
     /// <exception cref="ArgumentException"><paramref name="nationId"/> is null or whitespace.</exception>
-    public static Result Run(GameState state, Ruleset ruleset, string nationId)
+    public static Result Run(GameState state, Ruleset ruleset, string nationId, string? onlyFleetId = null)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(ruleset);
@@ -95,7 +95,7 @@ public static class AiResupplyPass
         // The ids are collected up front because each transfer rebuilds the lists; walking the live
         // ValueList while replacing entries in it would visit stale copies.
         var faithful = ruleset.Flags.AiEconomy == AiEconomyModel.Original;
-        foreach (var armyId in IdsOfOwnArmies(state, nationId))
+        foreach (var armyId in onlyFleetId is null ? IdsOfOwnArmies(state, nationId) : new List<string>())
         {
             // #1181: the original snapshots the purse before its city loop (0044e41c).
             var entryPurse = state.ArmyById(armyId)?.Money ?? 0;
@@ -147,6 +147,7 @@ public static class AiResupplyPass
 
         foreach (var fleetId in IdsOfOwnFleets(state, nationId))
         {
+            if (onlyFleetId is not null && fleetId != onlyFleetId) continue;
             // #1181: the fleet caller (0044e5dc) snapshots the purse the same way.
             var entryPurse = state.FleetById(fleetId)?.Money ?? 0;
             foreach (var cityId in CityIds(state))
