@@ -15,7 +15,7 @@ namespace IC2.Engine.Tests.Presentation;
 /// <para>
 /// <strong>Four independent cases.</strong> T192 retains a corrected new-game Macedonia/seed3
 /// prefix in <c>success.txt</c>; B (<c>success-trade-offer.txt</c>) accepts its naturally pending Gallic
-/// trade at turn 7 (T247), then replays every later command. The peace answer and the
+/// trade at turn 4 (T249), then replays every later command. The peace answer and the
 /// marine group live in <c>success-treaty-load.txt</c>, resumed from one native port save taken on the
 /// corrected A path (#1012; see below). Fleet remains
 /// a fresh <c>toy-3city</c> case. Every case has nonempty golden equality, fresh-session/load
@@ -377,7 +377,7 @@ public sealed class SuccessScriptTests
         var answer = Array.IndexOf(lines, "accept-offer");
         Assert.True(answer > 0);
         RunTranscript(session, lines.Take(answer));
-        Assert.Equal(7, session.State.Calendar.TurnIndex);
+        Assert.Equal(4, session.State.Calendar.TurnIndex);
         Assert.Equal(new IC2.Engine.Model.PendingDiplomaticOffer("gaul", Classical.Ruleset.Diplomacy.StateCodes.Trade),
             session.State.PendingOffer);
         var reply = session.Submit(lines[answer]);
@@ -583,6 +583,11 @@ quit
         // turn following the first sacrificial-army move. No seeded-state edit or seed search.
         trade.Remove("accept-offer");
         trade.Insert(trade.IndexOf("move mac-sac-1 151 31") + 2, "accept-offer");
+        // T249 resolves capital-defence contact before later responders/support. On the same
+        // fixed seed, Gaul's first natural trade is now at turn4. Keep every command and move
+        // only the existing answer, before the first move to (155,26) while that offer is pending.
+        trade.Remove("accept-offer");
+        trade.Insert(trade.IndexOf("move mac-detached 155 26"), "accept-offer");
         // #1012: the loaded case resumes before the mac-detached attack (original58), whose lost battle
         // is offered peace, then runs original79's answer and the marine group (original77, 78, 80-87).
         var treaty = new[] { "move mac-detached 155 26", original[57], original[78], original[76], original[77] }

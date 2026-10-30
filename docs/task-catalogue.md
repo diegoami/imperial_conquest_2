@@ -75,3 +75,4 @@ Open and recent tasks only. Merged tasks (T01–T191 and others) are in their cl
 - [T246](tasks/T246.md) — Faithful city and army scorer word semantics
 - [T247](tasks/T247.md) — Faithful fleet phase, same-seat routes and destination execution
 - [T248](tasks/T248.md) — Faithful enemy-army score geography halving
+- [T249](tasks/T249.md) — Faithful mercenary continuation and capital-defence contact

@@ -1,4 +1,5 @@
 using IC2.Engine.Core;
+using IC2.Engine.Battle.Commands;
 using IC2.Engine.Model;
 using IC2.Engine.Movement;
 using IC2.Engine.Movement.Commands;
@@ -91,7 +92,9 @@ public static class AiCapitalDefence
             // counter is separate: accepting a no-op must not conceal a stalled turn.
             dispatches++;
             var destination = Destination(view, threat, capital);
-            var command = Move(view, army, destination);
+            // E094's contact precedes DBA8's no-progress fallback. An army already adjacent
+            // fights immediately rather than spending its budget walking out and back.
+            var command = (ICommand?)ArrivalAttack(view, armyId, threat.Id, destination) ?? Move(view, army, destination);
             log.Add(Inv("capital defence: {0} toward ({1}, {2}), threat {3}",
                 army.Id, destination.X, destination.Y, threat.Id));
             if (command is null) continue;
@@ -104,8 +107,40 @@ public static class AiCapitalDefence
             }
             if (!AiSubstantiveState.AreEquivalent(state, result.State)) issued++;
             state = result.State;
+            if (command is AttackArmyCommand immediate)
+            {
+                log.Add(Inv("capital defence attack: {0} against {1}", immediate.AttackerArmyId, immediate.TargetArmyId));
+                continue;
+            }
+
+            // T249 (#1639): the original walk's at-war army contact happens before the next
+            // responder is chosen. Keep this caller's measured arrival separate from general DBA8.
+            view = new AiView(state, ruleset, world, nationId);
+            var attack = ArrivalAttack(view, armyId, threat.Id, destination);
+            if (attack is null) continue;
+            var fought = commands.Dispatch(state, attack, events);
+            if (fought.IsRejected)
+            {
+                rejected++;
+                log.Add(Inv("REJECTED capital defence attack {0}: {1}", armyId, fought.Rejection!.Message));
+                continue;
+            }
+            if (!AiSubstantiveState.AreEquivalent(state, fought.State)) issued++;
+            state = fought.State;
+            log.Add(Inv("capital defence attack: {0} against {1}", armyId, threat.Id));
         }
         return new(state, dispatches, issued, rejected);
+    }
+
+    private static AttackArmyCommand? ArrivalAttack(AiView view, string armyId, string threatId, GridPoint destination)
+    {
+        if (!ClassicalArmyNavigation.Applies(view) || view.Nation.Control != SeatControl.Ai
+            || view.State.ArmyById(armyId) is not { IsEmbarked: false, Moves: > 0 } attacker
+            || view.State.ArmyById(threatId) is not { IsEmbarked: false, CoveredTileCode: not null } threat
+            || destination != new GridPoint(threat.X, threat.Y)
+            || AiView.Distance(attacker.X, attacker.Y, threat.X, threat.Y) != 1) return null;
+        var attack = new AttackArmyCommand(view.NationId, attacker.Id, threat.Id);
+        return AttackLegality.IsLegal(view.State, view.Ruleset, attack) ? attack : null;
     }
 
     private static ICommand? Move(AiView view, ArmyState army, GridPoint target)
