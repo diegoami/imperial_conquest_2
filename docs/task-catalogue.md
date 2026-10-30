@@ -72,3 +72,5 @@ Open and recent tasks only. Merged tasks (T01–T191 and others) are in their cl
 - [T243](tasks/T243.md) —  The faithful enemy-army pick breaks a tie by table order
 - [T244](tasks/T244.md) —  The fleet table keeps dead slots until the original's sweep
 - [T245](tasks/T245.md) —  Faithful capital defence before ordinary army targeting
+- [T246](tasks/T246.md) — Faithful city and army scorer word semantics
+- [T247](tasks/T247.md) — Faithful fleet phase, same-seat routes and destination execution
