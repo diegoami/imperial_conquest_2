@@ -64,3 +64,5 @@ templates ([packaging.md](packaging.md)); the installer needs Inno Setup 6.
 - A rule question this repository needs answered from the original (a decompile, a live run) is delegated as an issue in [`diegoami/imperial-conquest-2-research`](https://github.com/diegoami/imperial-conquest-2-research/issues), linked from the issue it blocks; it is not investigated here.
 - No status snapshots in documents. In reverse-engineering work, separate observation from inference and cite the exact file, hash or address.
 - Keep the user informed in short updates; link every issue, PR and file you name.
+
+For strategic-AI comparisons, use the [post-T248 decision evidence and limits](investigations/original-ai-control-and-support.md#army-decision-comparison-after-t248). Distinguish matching branch inputs from whole-turn outcomes, overlapping report categories from independently verified attribution, and approved reachable tiers from execution defects. The distance-1 army-contact tail attacks from an adjacent cell; it does not establish occupied-cell entry. Open work and release allocation remain on the linked issues, not an operating-guide status list.
