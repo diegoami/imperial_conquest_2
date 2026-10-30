@@ -131,6 +131,8 @@ public static class AiArmyTargetTree
         var armyRegion = RegionOf(view, army.X, army.Y);
 
         CityState? best = null;
+        var originalWords = view.Ruleset.Flags.AiEconomy == AiEconomyModel.Original;
+        var stored = OriginalWordScore.Empty;
         long bestScore = long.MinValue;
         var bestDistance = 0;
         var skipped = 0;
@@ -200,16 +202,18 @@ public static class AiArmyTargetTree
                 score *= 2;
             }
 
-            if (score > bestScore
-                || (score == bestScore && string.CompareOrdinal(city.Id, best!.Id) < 0))
+            if (originalWords ? stored.IsBeatenBy(unchecked((int)score))
+                : score > bestScore || (score == bestScore && string.CompareOrdinal(city.Id, best!.Id) < 0))
             {
                 best = city;
                 bestScore = score;
-                bestDistance = distance;
+                stored = stored.WithWinner(unchecked((int)score), distance);
+                bestDistance = originalWords ? stored.Distance : distance;
             }
         }
 
-        return new CityTarget(best, bestScore == long.MinValue ? 0 : bestScore + bestDistance, bestDistance, skipped);
+        return new CityTarget(best, originalWords ? stored.ReturnedScore
+            : bestScore == long.MinValue ? 0 : bestScore + bestDistance, bestDistance, skipped);
     }
 
     /// <summary>
@@ -239,6 +243,7 @@ public static class AiArmyTargetTree
         var strength = ArmyPower.Compute(army.Units, army.Morale, view.Ruleset);
         var armyRegion = RegionOf(view, army.X, army.Y);
         var firstEqualInTableOrder = view.Ruleset.Flags.AiEconomy == AiEconomyModel.Original;
+        var stored = OriginalWordScore.Empty;
 
         ArmyState? best = null;
         long bestScore = long.MinValue;
@@ -306,16 +311,18 @@ public static class AiArmyTargetTree
             // T243 (#1216): the faithful AI keeps the first equal target in table order, as FUN_0044ee60
             // replaces its pick only on a strictly greater score; under classical-faithful T240 makes
             // view.State.Armies that table. The designed AI keeps T156's ID tie-break.
-            if (clamped > bestScore
-                || (!firstEqualInTableOrder && clamped == bestScore && string.CompareOrdinal(target.Id, best!.Id) < 0))
+            if (firstEqualInTableOrder ? stored.IsBeatenBy(unchecked((int)clamped))
+                : clamped > bestScore || (clamped == bestScore && string.CompareOrdinal(target.Id, best!.Id) < 0))
             {
                 best = target;
                 bestScore = clamped;
-                bestDistance = distance;
+                stored = stored.WithWinner(unchecked((int)clamped), distance);
+                bestDistance = firstEqualInTableOrder ? stored.Distance : distance;
             }
         }
 
-        return new ArmyTarget(best, bestScore == long.MinValue ? 0 : bestScore + bestDistance, bestDistance, skipped);
+        return new ArmyTarget(best, firstEqualInTableOrder ? stored.ReturnedScore
+            : bestScore == long.MinValue ? 0 : bestScore + bestDistance, bestDistance, skipped);
     }
 
     /// <summary>
