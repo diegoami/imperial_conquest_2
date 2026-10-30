@@ -157,6 +157,20 @@ public sealed class AiCapitalDefenceTests
     }
 
     [Fact]
+    public void A_real_qualifying_offensive_pick_far_from_home_is_not_preempted()
+    {
+        var responder = Army("ours", "north", 130, 40);
+        var target = Army("offensive", "south", 129, 40) with { Units = ValueList.Of(Fx.Unit("light_infantry", 1_000)) };
+        var state = State([responder, Army("homeland-threat", "south", 105, 40), target]);
+        Assert.Equal(new[] { "homeland-threat" }, AiCapitalDefence.Threats(View(state), Capital));
+        var attack = AiArmyTargetTree.ScoreArmyTarget(View(state), responder);
+        Assert.Equal(target.Id, attack.Army!.Id);
+        Assert.True(attack.Score > 100);
+        Assert.True(attack.Distance < responder.Moves);
+        Assert.Equal(new AiCapitalDefence.Outcome(state, 0, 0, 0), Run(state, out _));
+    }
+
+    [Fact]
     public void Responders_are_taken_in_table_order_and_dispatches_stop_at_threat_count_plus_two()
     {
         var state = State(Enumerable.Range(0, 5).Select(i => Army("own-" + i, "north", 100, 41 + i))
