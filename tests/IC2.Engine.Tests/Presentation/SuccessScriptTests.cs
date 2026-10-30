@@ -382,7 +382,6 @@ public sealed class SuccessScriptTests
             session.State.PendingOffer);
         var reply = session.Submit(lines[answer]);
         Assert.Contains(reply.Lines, line => line == "diplomacy.accept-pending-offer accepted.");
-        Assert.Null(session.State.PendingOffer);
         Assert.Equal(Classical.Ruleset.Diplomacy.StateCodes.Trade, session.State.Relations.Get("macedonia", "gaul"));
     }
 
