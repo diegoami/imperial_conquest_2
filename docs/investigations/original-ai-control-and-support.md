@@ -186,6 +186,20 @@ spending, which is not attributed to support. The full foreign-purchase
 matrix remains unplayed. These automatic operations are distinct from the
 human repair dialog and its carrying-army/move restrictions.
 
+## Capital defence before the army tree
+
+The promoted [capital-defence report](https://github.com/diegoami/imperial-conquest-2-research/blob/04a9e45/docs/reports/2026-10-30-capital-defence-rule123.md) (research `04a9e45`, answering research #123) extends the original's homeland intercept account. This evaluation reads the report and production source; it does not repeat its original-game runs or artifact verification.
+
+**[confirmed: code; x86 controls; Wine candidate for in-play outcomes]** `FUN_0044efc8` runs before F31C's per-army loop. It lists the first **nine** qualifying foreign armies in table order, in the capital's region/coast side, within Chebyshev 19 at war or 9 otherwise. Own armies with moves are considered in table order until `threats + 2` have been dispatched. An army with a qualifying offensive target (score above 100 and distance below its moves) is skipped when the capital is more than three times its moves away. The nearest eligible listed live threat wins, earlier entry on an equal distance. A non-war threat is eligible only when the responder is at least 20 from the capital. Interception or capital fallback spends moves before the ordinary target tree; it does not override a target already chosen by that tree.
+
+The report's review note and Answer 4 name an **aboard responder** in the capital-fallback rule, while the research rules specification and older strategic-turn summary name an **aboard threat**. These may be separate predicates, but this intake cannot infer that from the conflicting prose. [Research #123](https://github.com/diegoami/imperial-conquest-2-research/issues/123#issuecomment-6518358999) asks for the exact record tests and consistent wording before a correction contract chooses either interpretation.
+
+The emulated controls swap records to change an equal-distance choice and the threat admitted by the nine-entry cap. Research independently reran those controls and verified 183 release files and 90/90 hooked/plain save pairs. In three 30-turn Wine starts there were 179 calls and 89 dispatches, with one or two threats per call, **zero ties and zero cap drops**. This establishes no natural-play table-order outcome difference in those turns. Crowded/later play, the aboard case and the 20-tile exemption were not isolated in play; the strict tie disassembly is conquest's reading, not a fresh research re-read. Native Windows confirmation remains open.
+
+At remake checkpoint `7982eb9a`, `AiTurn.Run` runs economy and support/hire passes then the scored proposal loop; `AiMilitaryPhase.Propose` proceeds directly to each own army's target tree. No capital-defence assignment runs first. This source comparison is filed as [#1620](https://github.com/diegoami/imperial_conquest_2/issues/1620), separate from [#1216](https://github.com/diegoami/imperial_conquest_2/issues/1216)'s remaining scorer storage gap. T240/T244 preserve table order and T243 corrects equal enemy picks; none introduces this prepass. No production correction or new remake/original runtime comparison is part of this intake.
+
+The same research commit corrects the army-table report's old “at most 10” threat count to **nine** and links the full rule. It changes no T240/T244 sweep rule or T243 enemy-pick rule. Its selection-rhombus update is only a findings-intake ledger re-review: the selection report itself remains at `576d097`, already evaluated separately.
+
 ## Remake comparison checkpoints
 
 The following findings describe the source read at build `5ca9c3f` during the
