@@ -238,6 +238,9 @@ public static class AiArmyTargetTree
         var weakerBonus = rules.ArmyScoreWeakerWithinBonus;
         var weakerDistThreshold = rules.ArmyScoreWeakerDistanceThreshold;
 
+        var faithfulNavigation = ClassicalArmyNavigation.Applies(view);
+        var armyGeography = faithfulNavigation
+            ? ClassicalArmyNavigation.Classify(army.X, army.Y) : default;
         var strength = ArmyPower.Compute(army.Units, army.Morale, view.Ruleset);
         var armyRegion = RegionOf(view, army.X, army.Y);
         var firstEqualInTableOrder = view.Ruleset.Flags.AiEconomy == AiEconomyModel.Original;
@@ -275,7 +278,6 @@ public static class AiArmyTargetTree
             // T212: F31C's original same-geography target test does not require the
             // direct walker to reach the target. CAB4 admits a different geography when
             // any own fleet exists; T247 leaves the narrower usable-ferry decision to D9A8.
-            var faithfulNavigation = ClassicalArmyNavigation.Applies(view);
             if (faithfulNavigation ? !ClassicalArmyNavigation.TargetEligible(view, army, target.X, target.Y)
                 : !IsReachable(view, army, target.X, target.Y))
             {
@@ -290,7 +292,12 @@ public static class AiArmyTargetTree
             }
 
             var score = (numerator * strength) / theirStrength - distance;
-            if (RegionOf(view, target.X, target.Y) != armyRegion)
+            // T248 (#1628): EE60's EB9C predicate compares coordinate region and coast side,
+            // just like the city scorer; nearest-city regions belong to the designed policy.
+            var anotherRegion = faithfulNavigation
+                ? ClassicalArmyNavigation.Classify(target.X, target.Y) != armyGeography
+                : RegionOf(view, target.X, target.Y) != armyRegion;
+            if (anotherRegion)
             {
                 score -= score / halving;
             }
