@@ -40,7 +40,8 @@ public sealed record AiTurnOutcome(
 
 /// <summary>
 /// One AI seat's turn: the interleaved army resupply-and-hire step, the fleet resupply, then a greedy loop
-/// of "score every candidate, take the best, look again".
+/// of scored candidates. Classical Faithful finishes each own army in table order; Improved compares
+/// candidates across armies. Non-army phase placement is unchanged.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -147,6 +148,8 @@ public static class AiTurn
 
         // T245: F31C calls capital defence before the per-army E41C support/hire and target loop.
         // Run once here, outside the regenerated candidate loop, with the live table order.
+        var armyOrder = ClassicalArmyNavigation.Applies(new AiView(state, ruleset, world, nationId))
+            ? new OriginalArmyOrder(Armies.ArmyTable.Slots(state).Count) : null;
         var defence = AiCapitalDefence.Run(state, ruleset, world, nationId, commands, events, log);
         state = defence.State;
         issued += defence.Issued;
@@ -212,8 +215,10 @@ public static class AiTurn
             var view = new AiView(state, ruleset, world, nationId);
             var candidates = new List<AiCandidate>();
             var boxedIn = new List<string>();
-            AiMilitaryPhase.Propose(
-                view, personality, rng, marched, candidates, action == 0 ? siegeGates : null, boxedIn);
+            if (armyOrder is null)
+                AiMilitaryPhase.Propose(view, personality, rng, marched, candidates, action == 0 ? siegeGates : null, boxedIn);
+            else
+                AiMilitaryPhase.ProposeInOriginalArmyOrder(view, personality, rng, marched, candidates, siegeGates, boxedIn, armyOrder);
             foreach (var boxedArmyId in boxedIn)
             {
                 if (boxedInLogged.Add(boxedArmyId))
@@ -257,6 +262,7 @@ public static class AiTurn
             var beforeArmy = subjectId is { } sid ? state.ArmyById(sid) : null;
             var execution = Execute(state, ruleset, commands, events, chosen, log);
             state = execution.State;
+            armyOrder?.Dispatched(subjectId);
             if (chosen.Kind == "ai-swap-trade-partner") tradeSwaps?.Dispatched(execution.Rejected > 0);
             var changed = !AiSubstantiveState.AreEquivalent(before, state);
             if (changed)

@@ -94,6 +94,16 @@ public static class AiMilitaryPhase
         List<AiCandidate> into,
         AiSiegeGateTally? siegeGates = null,
         ICollection<string>? boxedIn = null)
+        => ProposeCore(view, personality, rng, armiesAlreadyMarched, into, siegeGates, boxedIn, null);
+
+    internal static void ProposeInOriginalArmyOrder(AiView view, AiPersonalityProfile personality, IRng rng,
+        IReadOnlyList<string> armiesAlreadyMarched, List<AiCandidate> into, AiSiegeGateTally siegeGates,
+        ICollection<string> boxedIn, OriginalArmyOrder armyOrder)
+        => ProposeCore(view, personality, rng, armiesAlreadyMarched, into, siegeGates, boxedIn, armyOrder);
+
+    private static void ProposeCore(AiView view, AiPersonalityProfile personality, IRng rng,
+        IReadOnlyList<string> armiesAlreadyMarched, List<AiCandidate> into, AiSiegeGateTally? siegeGates,
+        ICollection<string>? boxedIn, OriginalArmyOrder? armyOrder)
     {
         ArgumentNullException.ThrowIfNull(view);
         ArgumentNullException.ThrowIfNull(personality);
@@ -106,16 +116,16 @@ public static class AiMilitaryPhase
 
         ProposeOwnWarDeclaration(view, rng, into);
 
-        foreach (var army in view.OwnArmies())
+        if (armyOrder is not null)
         {
-            if ((army.IsEmbarked && !ClassicalArmyNavigation.Applies(view)) || army.Moves <= 0)
+            armyOrder.Propose(view, progress, armiesAlreadyMarched, into, siegeGates, boxedIn);
+        }
+        else
+        {
+            foreach (var army in view.OwnArmies())
             {
-                // Both are AttackLegality gates and a MoveArmyCommand gate; an army in either state has
-                // nothing to contribute to this phase at all.
-                continue;
+                ProposeArmy(view, army, progress, armiesAlreadyMarched, into, siegeGates, boxedIn);
             }
-
-            ProposeArmyTree(view, army, progress, armiesAlreadyMarched, into, siegeGates, boxedIn);
         }
 
         // F608 runs once after army requests. Do not also offer the designed sailing/attack candidates.
@@ -133,6 +143,15 @@ public static class AiMilitaryPhase
                 ProposeFleetMarches(view, fleet, into);
             }
         }
+    }
+
+    internal static void ProposeArmy(AiView view, ArmyState army, long progress,
+        IReadOnlyList<string> marched, List<AiCandidate> into, AiSiegeGateTally? siegeGates,
+        ICollection<string>? boxedIn)
+    {
+        if (army.Nation != view.NationId || army.Moves <= 0
+            || (army.IsEmbarked && !ClassicalArmyNavigation.Applies(view))) return;
+        ProposeArmyTree(view, army, progress, marched, into, siegeGates, boxedIn);
     }
 
     /// <summary>
