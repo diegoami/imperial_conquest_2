@@ -195,6 +195,10 @@ public sealed class CommandDispatcher : ICommandDispatch
                            $"Handler '{registration.ImplementationType.FullName}' accepted command '{kind}' "
                            + "without returning a state.");
 
+        var immediate = IC2.Engine.Diplomacy.PeaceTreatySystem.ApplyBeforeAiContinues(
+            state, accepted, _ruleset, _world, command, buffer.Events.ToArray());
+        accepted = immediate.State;
+
         // One of the two points where the engine's single persisted random value moves; see RngStreams.
         // It happens after the handler has run, so the handler's own stream was derived from the value
         // the command was issued against, and the next command sees a different one.
@@ -203,7 +207,7 @@ public sealed class CommandDispatcher : ICommandDispatch
         // T240: under swapRemoveSweep an army the command removed leaves a dead slot until the next sweep.
         next = IC2.Engine.Armies.ArmyTable.Record(state, next, _ruleset);
 
-        var published = buffer.Events.ToArray();
+        var published = immediate.Events;
         if (StrategicObserver is { } observer)
         {
             try { observer.Accepted(command, state, next,

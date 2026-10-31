@@ -5,6 +5,10 @@ using IC2.Engine.News;
 
 namespace IC2.Engine.Diplomacy;
 
+/// <summary>An adjacent receipt: this trigger was already applied at its battle command boundary.</summary>
+[DomainEvent("diplomacy.ai-peace-treaty-applied")]
+public sealed record AiPeaceTreatyApplied(string WinnerNationId, string LoserNationId) : DomainEvent;
+
 /// <summary>
 /// Reacts to T16's <see cref="PeaceTreatyTriggered"/> — the post-battle treaty, <c>FUN_00450C68</c>
 /// <strong>[confirmed: decompiled-diplomacy-peace-terms-and-instant-battles.md]</strong> — with the
@@ -50,7 +54,7 @@ public sealed class PeaceTreatySystem : IGameSystem
         var published = context.PublishedEvents;
         for (var i = 0; i < published.Count; i++)
         {
-            if (published[i].Event is PeaceTreatyTriggered treaty)
+            if (published[i].Event is PeaceTreatyTriggered treaty && !AppliedImmediately(published, i, treaty))
             {
                 // #1040: the original writes "<W> destroys army of <L>." and only then the treaty block, so the
                 // battle's own line (published directly before the trigger) is written here, ahead of the
@@ -66,6 +70,42 @@ public sealed class PeaceTreatySystem : IGameSystem
         }
 
         return state;
+    }
+
+    private static bool IsReceipt(DomainEvent next, PeaceTreatyTriggered treaty) =>
+        next is AiPeaceTreatyApplied receipt && receipt.WinnerNationId == treaty.WinnerNationId
+            && receipt.LoserNationId == treaty.LoserNationId;
+
+    private static bool AppliedImmediately(IReadOnlyList<PublishedEvent> events, int index, PeaceTreatyTriggered treaty)
+        => index + 1 < events.Count && IsReceipt(events[index + 1].Event, treaty);
+
+    /// <summary>Apply the measured Faithful AI–AI field-battle treaty before later seat actions.</summary>
+    internal static (GameState State, DomainEvent[] Events) ApplyBeforeAiContinues(
+        GameState before, GameState state, Ruleset ruleset, World world, ICommand command, DomainEvent[] events)
+    {
+        if (command is not Battle.Commands.AttackArmyCommand || !events.Any(e => e is PeaceTreatyTriggered)
+            || !Ai.ClassicalArmyNavigation.Applies(new Ai.AiView(state, ruleset, world, before.ActiveNationId)))
+            return (state, events);
+        var output = new List<DomainEvent>();
+        var rng = SplitMix64Rng.ForStream(state.RandomSeed,
+            TurnCoordinator.StreamNameFor("diplomacy.peace-treaty", TurnPhase.SeatEnd));
+        for (var i = 0; i < events.Length; i++)
+        {
+            var ev = events[i];
+            output.Add(ev);
+            if (ev is not PeaceTreatyTriggered treaty
+                || before.NationById(treaty.WinnerNationId)?.Control != SeatControl.Ai
+                || before.NationById(treaty.LoserNationId)?.Control != SeatControl.Ai
+                || (i + 1 < events.Length && IsReceipt(events[i + 1], treaty))) continue;
+            // The resolver publishes the trigger before its final BattleResolved diagnostic.
+            if (!events.OfType<BattleResolved>().Any(e => e.Result.Kind == BattleKind.Field
+                && e.Result.WinnerNationId == treaty.WinnerNationId && e.Result.LoserNationId == treaty.LoserNationId)) continue;
+            if (i > 0 && events[i - 1] is BattleArmyDestroyed destroyed)
+                state = NewsLogWriter.Append(state, new[] { destroyed }, ruleset.NewsLog);
+            state = Apply(state, ruleset, world, treaty, rng);
+            output.Add(new AiPeaceTreatyApplied(treaty.WinnerNationId, treaty.LoserNationId));
+        }
+        return (state, output.ToArray());
     }
 
     /// <summary>
