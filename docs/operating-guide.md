@@ -57,6 +57,8 @@ the research repo's `docs/evidence-index.md` maps each to its release. Ask the u
 dirties `godot/project.godot` (`pwsh scripts/check-godot-churn.ps1` reverts benign churn). Packaging needs the 4.7.2 mono export
 templates ([packaging.md](packaging.md)); the installer needs Inno Setup 6.
 
+For the later [T253/T254 evidence](investigations/original-ai-control-and-support.md#comparison-after-t253-and-positive-move-t254), keep zero-budget rendezvous planning separate from army movement, adjacent embark, carried landing and negative budgets. The measured human field-battle lifecycle retains a partial seat and its fleet pass before replaying the same seat; native Tactical pre-turn replay differs, while the approved Instant exception remains. Treaty timing is a separate AI–AI battle finding. These evidence updates change no owner-deferred Windows acceptance or release allocation.
+
 ## Working rules
 
 - A question is not a request to edit files. Answer it, propose a fix, wait.

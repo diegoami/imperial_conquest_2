@@ -971,6 +971,8 @@ The `victory` object (`VictoryRules`): which victory condition a scenario gets w
 
 ### AI weights rules
 
+Faithful execution order is separate from these scoring fields. T253 runs whole armies in live table order; T254 follows an E84C run with its captured continuation when moves remain and, after #1662, can plan a non-adjacent rendezvous at exactly zero moves without moving the army. The [post-T254 evidence](investigations/original-ai-control-and-support.md#comparison-after-t253-and-positive-move-t254) measures non-adjacent rendezvous writes even at exactly zero army moves, without establishing adjacent embark, carried landing or negative-budget behavior. It also separates immediate AI–AI treaty timing and the original retained partial-seat replay after human field battles from native scheduling. These are execution-policy findings, not new authoring keys or permission to change the approved Instant mode, Improved/custom-world policy or native safety guards.
+
 The `ai` object (`AiWeightsRules`): the heuristic AI's scoring constants. **Every field here is
 `[designed]`, and that is the expected answer** — the original's own strategic turn is decompiled
 (research `2026-10-07-strategic-ai-turn.md`) but runs on fixed phases and thresholds with no scoring

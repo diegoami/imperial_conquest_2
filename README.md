@@ -84,6 +84,8 @@ The shipped data is the 334-city `classical-mediterranean` world and scenario, e
 
 The [strategic-AI evidence](docs/investigations/original-ai-control-and-support.md#army-decision-comparison-after-t248) records the bounded 16-start, five-round T249 recheck and measured helper boundaries. The owner's 2026-10-31 policy reserves #925's reachable resupply/garrison/emergency tiers for Improved; T250 gives Classical Faithful the original destinations and swing/stay-put walk, without emergency. T251 keeps trade swaps in one ordered pass; T252 chooses the recruitment order city once. These bounded corrections do not establish whole-turn or native Windows parity.
 
+The [post-T254 comparison](docs/investigations/original-ai-control-and-support.md#comparison-after-t253-and-positive-move-t254) verifies Faithful army table order on `e20a6488`. Original-code and Wine-hook evidence measures ferry rendezvous writes at exactly zero army moves, implemented by [#1662](https://github.com/diegoami/imperial_conquest_2/pull/1662); it separately identifies treaty timing and retained partial-seat replay after a human field battle. These bounded findings preserve the approved Instant battle mode and do not establish native Windows or campaign parity.
+
 The [SAV compatibility evidence](docs/game-design.md#original-save-compatibility--confirmed-format-designed-policy) distinguishes the current canonical writer policy from bounded callback/lifecycle/canary findings. Those findings add no owner-JSON conversion or native Windows acceptance, and leave GUI indirect calls and unexercised states open.
 
 ## The research-inspector tools (`IC2.Inspect`)
