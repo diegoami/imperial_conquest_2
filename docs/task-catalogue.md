@@ -81,3 +81,6 @@ Open and recent tasks only. Merged tasks (T01–T191 and others) are in their cl
 - [T252](tasks/T252.md) — Faithful recruitment chooses its order city once
 - [T253](tasks/T253.md) — Faithful armies finish in table order on live state
 - [T254](tasks/T254.md) — Faithful E84C run followed by its original continuation
+- [T255](tasks/T255.md) — Immediate Faithful AI–AI field-battle treaties
+- [T256](tasks/T256.md) — Retained Faithful Tactical AI passes
+- [T257](tasks/T257.md) — Experimental QOL settings hidden by default
