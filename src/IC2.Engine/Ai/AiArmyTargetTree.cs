@@ -3,6 +3,7 @@ using IC2.Engine.Cities.Capture;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
 using IC2.Engine.Movement;
+using IC2.Engine.Movement.Commands;
 using IC2.Engine.Strength;
 using static IC2.Engine.Ai.AiFormat;
 
@@ -449,6 +450,8 @@ public static class AiArmyTargetTree
         ArgumentNullException.ThrowIfNull(army);
 
         var original = ScoreResupplyCity(view, army, atWar);
+        // Owner decision 2026-10-31: the reachable tiers belong to Improved only.
+        if (ClassicalArmyNavigation.Applies(view)) return original;
         var terrainCells = view.World.Terrain.Decode(view.World.Width, view.World.Height);
         if (original.City is { } picked && IsUsableDestination(view, army, picked.X, picked.Y, terrainCells))
         {
@@ -793,10 +796,13 @@ public static class AiArmyTargetTree
 
         CityState? best = null;
         var bestDistance = int.MaxValue;
-        foreach (var slot in view.State.MercenaryPool)
+        var faithful = ClassicalArmyNavigation.Applies(view);
+        var offers = faithful ? view.State.MercenaryPool.OrderBy(s => s.SlotIndex) : view.State.MercenaryPool.AsEnumerable();
+        foreach (var slot in offers)
         {
             var distance = AiView.Distance(army.X, army.Y, slot.X, slot.Y);
-            if (distance > view.Ruleset.Ai.MercenaryRunOfferRange || distance > bestDistance)
+            if ((faithful ? distance >= view.Ruleset.Ai.MercenaryRunOfferRange : distance > view.Ruleset.Ai.MercenaryRunOfferRange)
+                || distance > bestDistance)
             {
                 continue;
             }
@@ -812,9 +818,9 @@ public static class AiArmyTargetTree
             }
 
             if (slotCity is null
-                || IsInsideCity(army, slotCity)
+                || (!faithful && IsInsideCity(army, slotCity))
                 || view.IsAtWar(army.Nation, slotCity.Owner)
-                || (distance == bestDistance && string.CompareOrdinal(slotCity.Id, best!.Id) >= 0))
+                || (distance == bestDistance && (faithful || string.CompareOrdinal(slotCity.Id, best!.Id) >= 0)))
             {
                 continue;
             }
@@ -852,10 +858,13 @@ public static class AiArmyTargetTree
         }
 
         var someoneAtCapital = false;
+        var faithful = ClassicalArmyNavigation.Applies(view);
         foreach (var own in state.Armies)
         {
+            var distance = AiView.Distance(own.X, own.Y, capital.X, capital.Y);
             if (string.Equals(own.Nation, army.Nation, StringComparison.Ordinal)
-                && AiView.Distance(own.X, own.Y, capital.X, capital.Y) <= view.Ruleset.Ai.GarrisonFallbackCapitalDistance)
+                && (faithful ? distance < view.Ruleset.Ai.GarrisonFallbackCapitalDistance
+                    : distance <= view.Ruleset.Ai.GarrisonFallbackCapitalDistance))
             {
                 someoneAtCapital = true;
                 break;
@@ -864,12 +873,26 @@ public static class AiArmyTargetTree
 
         if (someoneAtCapital)
         {
+            if (faithful)
+            {
+                CityState? nearest = null;
+                var distance = int.MaxValue;
+                foreach (var city in state.Cities)
+                {
+                    var candidate = AiView.Distance(army.X, army.Y, city.X, city.Y);
+                    if (candidate >= distance) continue;
+                    nearest = city;
+                    distance = candidate;
+                }
+                return nearest is null ? null : (nearest.X, nearest.Y);
+            }
             // Near the capital: candidates are every city (not the one the army is inside), nearest first,
             // then city id ascending. The first reachable one is the destination.
             return FirstReachableCity(view, army, state);
         }
 
         // Otherwise the capital alone is the candidate. If usable, that is the destination.
+        if (faithful) return (capital.X, capital.Y);
         var cells = view.World.Terrain.Decode(view.World.Width, view.World.Height);
         return IsUsableDestination(view, army, capital.X, capital.Y, cells) ? (capital.X, capital.Y) : null;
     }
@@ -892,6 +915,8 @@ public static class AiArmyTargetTree
         ArgumentNullException.ThrowIfNull(view);
         ArgumentNullException.ThrowIfNull(army);
         ArgumentNullException.ThrowIfNull(state);
+
+        if (ClassicalArmyNavigation.Applies(view)) return null;
 
         var anchor = NearestOwnCityFor(view, army, state) ?? NearestCityOfAnyOwnerFor(view, army, state);
         if (anchor is null)
@@ -948,6 +973,39 @@ public static class AiArmyTargetTree
         }
 
         return best;
+    }
+
+    /// <summary>Prepare the original first aim and final goal; Improved retains its single walk.</summary>
+    public static MoveArmyCommand? MarchCommand(AiView view, ArmyState army, GridPoint target, GridPoint? initialAim = null)
+    {
+        ArgumentNullException.ThrowIfNull(view);
+        ArgumentNullException.ThrowIfNull(army);
+        if (!ClassicalArmyNavigation.Applies(view))
+        {
+            var legacyAim = initialAim ?? target;
+            return new(view.NationId, army.Id, legacyAim.X, legacyAim.Y);
+        }
+        bool Valid(GridPoint point) => (uint)point.X < (uint)view.World.Width
+            && (uint)point.Y < (uint)view.World.Height && view.IsArmyPassable(point);
+        // The final target may be a carried enemy on sea; the command's first aim is the land tile
+        // validated by MoveArmyCommandHandler before its ferry handoff. Do not reject that raw goal.
+        if ((uint)target.X >= (uint)view.World.Width || (uint)target.Y >= (uint)view.World.Height) return null;
+        var aim = initialAim ?? target;
+        var origin = new GridPoint(army.X, army.Y);
+        if (initialAim is null && !army.IsEmbarked && origin != target
+            && ClassicalArmyNavigation.Classify(origin.X, origin.Y) == ClassicalArmyNavigation.Classify(target.X, target.Y))
+        {
+            try
+            {
+                if (!ClassicalArmyNavigation.DirectLine(view, origin, target))
+                {
+                    if (ClassicalArmyNavigation.Intermediate(view, origin, target).Point is not { } point) return null;
+                    aim = point;
+                }
+            }
+            catch (NotSupportedException) { return null; } // Keep undefined original graph/stack contexts bounded.
+        }
+        return Valid(aim) ? new(view.NationId, army.Id, aim.X, aim.Y, MoveWalkPolicy.AiContinuation, target.X, target.Y) : null;
     }
 
     /// <summary>The first city a Bresenham walk from <paramref name="army"/> can reach, in distance-then-id order.</summary>

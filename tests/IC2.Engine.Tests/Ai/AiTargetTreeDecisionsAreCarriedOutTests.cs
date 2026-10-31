@@ -19,7 +19,9 @@ namespace IC2.Engine.Tests.Ai;
 /// T156 (issue #925) Done-when 6: attack decisions are carried out. Instrumented by the tree's own decision
 /// log, over 16 rounds on the default seed, on seeds 7 and 123 as Rome, and on the default seed as
 /// Carthage: whenever the tree selected <em>attack the city</em> or <em>attack the army</em> for an army,
-/// an attack or a march toward that target was issued and accepted in that seat's turn. A count of zero
+/// an attack or a march toward that target was issued and accepted in that seat's turn. T250's original
+/// swing/stay-put may move away or not move: require the exact accepted command's raw goal and origin,
+/// rather than exempting an arbitrary move by that army. A count of zero
 /// exceptions is asserted, and the counts are written to the test output for the PR.
 /// </summary>
 public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper output)
@@ -102,7 +104,7 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
                         }
 
                         if (IsSupersededByConfirmedDestruction(roundDecisions, decisionIndex,
-                            startOfRound, session.State, round, resolved.World))
+                            startOfRound, session.State, round, resolved.World, resolved.Ruleset))
                         {
                             confirmedDestruction.Add(Describe(r, decision));
                             continue;
@@ -120,7 +122,10 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
                                 .Where(m => m.ArmyId == decision.ArmyId)
                                 .Select(m => $"({m.FromX},{m.FromY})->({m.ToX},{m.ToY})"))
                             : "no turn";
-                        exceptions.Add($"{Describe(r, decision)} route ({decision.RouteX},{decision.RouteY}); moves {moves}");
+                        var attempts = turns.TryGetValue(decision.NationId, out var attemptsInTurn)
+                            ? string.Join("; ", attemptsInTurn.OfType<OriginalArmyMarchDispatched>().Where(e => e.ArmyId == decision.ArmyId))
+                            : "no turn";
+                        exceptions.Add($"{Describe(r, decision)} route ({decision.RouteX},{decision.RouteY}); moves {moves}; accepted original marches {attempts}");
                     }
                 }
             }
@@ -205,6 +210,13 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
                     when transport.ArmyId == decision.ArmyId && transport.NationId == decision.NationId
                         && transport.FromX == decision.ArmyX && transport.FromY == decision.ArmyY
                         && transport.TargetX == targetX && transport.TargetY == targetY:
+                    return true;
+
+                case OriginalArmyMarchDispatched march
+                    when march.ArmyId == decision.ArmyId && march.NationId == decision.NationId
+                        && march.FromX == decision.ArmyX && march.FromY == decision.ArmyY
+                        && march.TargetX == (attackCity ? decision.TargetCityX : decision.TargetArmyX)
+                        && march.TargetY == (attackCity ? decision.TargetCityY : decision.TargetArmyY):
                     return true;
             }
         }
@@ -502,7 +514,7 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
     /// </summary>
     internal static bool IsSupersededByConfirmedDestruction(
         List<AiArmyTargetTree.DecisionRecord> decisions, int decisionIndex,
-        GameState start, GameState end, List<DomainEvent> round, World world)
+        GameState start, GameState end, List<DomainEvent> round, World world, Ruleset? ruleset = null)
     {
         var earlier = decisions[decisionIndex];
         if (earlier.Kind != AiArmyTargetTree.Kind.AttackArmy || earlier.TargetArmyId is not { } targetId)
@@ -572,6 +584,30 @@ public sealed class AiTargetTreeDecisionsAreCarriedOutTests(ITestOutputHelper ou
         var subjectBattles = round.Select((e, i) => (e, i)).Where(x =>
             x.e is BattleResolved b && (Same(b.Result.AttackerId, earlier.ArmyId)
                 || Same(b.Result.DefenderId, earlier.ArmyId))).ToArray();
+
+        // T250: after the separately proved destruction above, an original branch may become
+        // unproposable and fall back without logging a fresh enemy pick. Require one real accepted
+        // march AFTER the death, its exact original garrison goal, and the matching movement receipt.
+        if (ruleset is not null && subjectMoves.Length == 1 && subjectBattles.Length == 0
+            && subjectMoves[0].e is ArmyMoved fallbackMove
+            && subjectMoves[0].i > death && subjectMoves[0].i < boundary
+            && Same(fallbackMove.NationId, earlier.NationId)
+            && (fallbackMove.FromX, fallbackMove.FromY) == (earlier.ArmyX, earlier.ArmyY)
+            && (subjectEnd.X, subjectEnd.Y) == (fallbackMove.ToX, fallbackMove.ToY))
+        {
+            var army = subjectEnd with { X = earlier.ArmyX, Y = earlier.ArmyY };
+            // The reachability snapshot deliberately omits army owners. Restore this independently
+            // proved subject's owner before evaluating the original capital-radius predicate.
+            var fallbackState = atBoundary with { Armies = ValueList.From(atBoundary.Armies.Select(a =>
+                Same(a.Id, army.Id) ? army : a)) };
+            var view = new AiView(fallbackState, ruleset, world, earlier.NationId);
+            if (ClassicalArmyNavigation.Applies(view)
+                && AiArmyTargetTree.GarrisonFallback(view, army, fallbackState) is { } goal
+                && round.Select((e, i) => (e, i)).Any(x => x.i > death && x.i < boundary
+                    && x.e is OriginalArmyMarchDispatched m && m.ArmyId == earlier.ArmyId && m.NationId == earlier.NationId
+                    && (m.FromX, m.FromY) == (earlier.ArmyX, earlier.ArmyY) && (m.TargetX, m.TargetY) == goal))
+                return true;
+        }
 
         // Compare log positions, not value-equal records: each of the two earlier duplicate AttackArmy
         // records in Rome seed 123 must find a strictly later DIFFERENT target independently.

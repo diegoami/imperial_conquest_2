@@ -70,15 +70,15 @@ Dacia (dacia) takes its turn: 0 orders issued.
 Bithynia (bithynia) takes its turn: 0 orders issued.
 Galatia (galatia) takes its turn: 1 order issued.
 Armenia (armenia) takes its turn: 2 orders issued.
-Media (media) takes its turn: 2 orders issued.
+Media (media) takes its turn: 3 orders issued.
 Thracia (thracia) takes its turn: 1 order issued.
-  Weather: rough-sea-painted (week 5).
 Rome (rome) takes its turn: 1 order issued.
 Carthage (carthage) takes its turn: 2 orders issued.
-Seleucid (seleucid) takes its turn: 10 orders issued.
+Seleucid (seleucid) takes its turn: 12 orders issued.
 Ptolemaic (ptolemaic) takes its turn: 3 orders issued.
 Now: Week 7, Autumn 270 BC. Active seat: Macedonia (macedonia).
 News:
+  A fleet belonging to Carthage is lost at sea.
    
   Week  7      Autumn      270BC
 

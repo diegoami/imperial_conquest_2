@@ -1,6 +1,6 @@
 Dacia (dacia) takes its turn: 4 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 11 orders issued.
-Numidia (numidia) takes its turn: 6 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 8 orders issued.
+Numidia (numidia) takes its turn: 5 orders issued.
 
 > status mine
 Nation: Rome (rome, human): treasury 2200, unity 821, tax 10%
@@ -82,21 +82,18 @@ Cities (Carthage (carthage)):
 
 > end
 Rome (rome) ends its turn.
-Celtiberia (celtiberia) takes its turn: 12 orders issued.
+Celtiberia (celtiberia) takes its turn: 13 orders issued.
 Seleucid (seleucid) takes its turn: 13 orders issued.
-Galatia (galatia) takes its turn: 12 orders issued.
-Gaul (gaul) takes its turn: 9 orders issued.
-Illyria (illyria) takes its turn: 0 orders issued.
+Galatia (galatia) takes its turn: 14 orders issued.
+Gaul (gaul) takes its turn: 12 orders issued.
+Illyria (illyria) takes its turn: 2 orders issued.
 Greece (greece) takes its turn: 0 orders issued.
-Macedonia (macedonia) takes its turn: 2 orders issued.
+Macedonia (macedonia) takes its turn: 1 order issued.
 Media (media) takes its turn: 1 order issued.
 Armenia (armenia) takes its turn: 0 orders issued.
 Thracia (thracia) takes its turn: 2 orders issued.
 Carthage (carthage) takes its turn: 3 orders issued.
 Bithynia (bithynia) takes its turn: 7 orders issued.
-  Weather: rough-sea-painted (week 1).
-  Weather: rough-sea-painted (week 1).
-  Weather: rough-sea-painted (week 1).
 Dacia (dacia) takes its turn: 0 orders issued.
 Ptolemaic (ptolemaic) takes its turn: 2 orders issued.
 Numidia (numidia) takes its turn: 0 orders issued.
@@ -104,14 +101,18 @@ Now: Week 3, Spring 270 BC. Active seat: Rome (rome).
 News:
   Aradus   (Seleucid)  falls to Ptolemaic.
   Seleucid destroys army of Ptolemaic.
+  Ptolemaic sues Seleucid for peace and;
+      Ptolemaic ends all current trading agreements.
+      Ptolemaic  ends all current alliances.
+      Ptolemaic pays reparations of 2,664 talents.
    
   Week  3      Spring      270BC
 
 > end
 Rome (rome) ends its turn.
-Celtiberia (celtiberia) takes its turn: 1 order issued.
-Seleucid (seleucid) takes its turn: 10 orders issued.
-Galatia (galatia) takes its turn: 4 orders issued.
+Celtiberia (celtiberia) takes its turn: 4 orders issued.
+Seleucid (seleucid) takes its turn: 2 orders issued.
+Galatia (galatia) takes its turn: 2 orders issued.
 Gaul (gaul) takes its turn: 7 orders issued.
 Illyria (illyria) takes its turn: 0 orders issued.
 Greece (greece) takes its turn: 0 orders issued.
@@ -120,20 +121,14 @@ Media (media) takes its turn: 1 order issued.
 Armenia (armenia) takes its turn: 0 orders issued.
 Thracia (thracia) takes its turn: 1 order issued.
 Carthage (carthage) takes its turn: 3 orders issued.
-Bithynia (bithynia) takes its turn: 3 orders issued.
+Bithynia (bithynia) takes its turn: 2 orders issued.
   Weather: rough-sea-painted (week 3).
-  Weather: rough-sea-painted (week 3).
-Dacia (dacia) takes its turn: 1 order issued.
+Dacia (dacia) takes its turn: 0 orders issued.
 Ptolemaic (ptolemaic) takes its turn: 2 orders issued.
-Numidia (numidia) takes its turn: 1 order issued.
+Numidia (numidia) takes its turn: 0 orders issued.
 Now: Week 5, Spring 270 BC. Active seat: Rome (rome).
 News:
-  Aradus   (Ptolemaic)  falls to Seleucid.
   Carthage destroys army of Celtiberia.
-  Celtiberia sues Carthage for peace and;
-      Celtiberia ends all current trading agreements.
-      Celtiberia  ends all current alliances.
-      Celtiberia pays reparations of 433 talents.
    
   Week  5      Spring      270BC
 
@@ -204,14 +199,13 @@ News log:
   Week 1      Spring      270 BC
   Aradus   (Seleucid)  falls to Ptolemaic.
   Seleucid destroys army of Ptolemaic.
+  Ptolemaic sues Seleucid for peace and;
+      Ptolemaic ends all current trading agreements.
+      Ptolemaic  ends all current alliances.
+      Ptolemaic pays reparations of 2,664 talents.
    
   Week  3      Spring      270BC
-  Aradus   (Ptolemaic)  falls to Seleucid.
   Carthage destroys army of Celtiberia.
-  Celtiberia sues Carthage for peace and;
-      Celtiberia ends all current trading agreements.
-      Celtiberia  ends all current alliances.
-      Celtiberia pays reparations of 433 talents.
    
   Week  5      Spring      270BC
 

@@ -455,7 +455,8 @@ public static class AiMilitaryPhase
         if (mayMarch && into.Count == candidatesBefore)
         {
             var garrison = AiArmyTargetTree.GarrisonFallback(view, army, view.State);
-            var fallbackDest = garrison ?? AiArmyTargetTree.EmergencyMoveDestination(view, army, view.State);
+            var fallbackDest = garrison ?? (ClassicalArmyNavigation.Applies(view) ? null
+                : AiArmyTargetTree.EmergencyMoveDestination(view, army, view.State));
             if (fallbackDest is { } dest)
             {
                 var why = garrison is null
@@ -643,20 +644,15 @@ public static class AiMilitaryPhase
         // hands cross-geography and carried-army requests to the same-seat ferry protocol.
         var aimedAt = target ?? new GridPoint(x, y);
         var continues = ClassicalArmyNavigation.Applies(view);
-        var transport = continues && (army.IsEmbarked
-            || (ClassicalArmyNavigation.Classify(army.X, army.Y) != ClassicalArmyNavigation.Classify(aimedAt.X, aimedAt.Y)
-                && !ClassicalArmyNavigation.DirectLine(view, new(army.X, army.Y), aimedAt, coincidentAfterOriginTest: true)));
-        var command = continues
-            ? new Movement.Commands.MoveArmyCommand(view.NationId, army.Id, x, y,
-                Movement.MoveWalkPolicy.AiContinuation, aimedAt.X, aimedAt.Y)
-            : new Movement.Commands.MoveArmyCommand(view.NationId, army.Id, x, y);
+        var command = AiArmyTargetTree.MarchCommand(view, army, aimedAt,
+            target is null ? null : new GridPoint(x, y));
+        if (command is null) return;
         // The march must also make progress this turn: a first step dearer than the army's moves would
         // be accepted and park the army with its moves zeroed (Sol's R1 on PR #933). Not proposing it
         // lets the caller's fallback chain (garrison, then the emergency move) take over.
-        if (transport)
+        if (continues)
         {
-            if (army.Moves <= 0 || (uint)x >= (uint)view.World.Width || (uint)y >= (uint)view.World.Height
-                || !view.IsArmyPassable(new(x, y))) return;
+            if (army.Moves <= 0) return; // Do not filter original swing/stay-put by a single-walk probe.
         }
         else if (!IsProposableMove(view, army, command) || !AiArmyTargetTree.MarchMakesProgress(view, army, x, y))
         {

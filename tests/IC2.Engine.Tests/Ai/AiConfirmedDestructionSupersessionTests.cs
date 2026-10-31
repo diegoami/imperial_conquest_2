@@ -43,6 +43,29 @@ public sealed class AiConfirmedDestructionSupersessionTests
             e.Decisions, index, e.Start, e.End, e.Events, e.World);
 
     [Fact]
+    public void A_proved_destruction_followed_by_the_exact_garrison_fallback_qualifies()
+    {
+        var e = Valid();
+        var city = F.City("home", "Home", 4, 2, Me, Me, 80, 80, 100, 100, 1);
+        GameState Cities(GameState s) => s with { Cities = ValueList.Of(city),
+            Nations = ValueList.From(s.Nations.Select(n => n.Id == Me ? n with { CapitalCityId = city.Id } : n)) };
+        e = e with { Start = Cities(e.Start), End = Cities(e.End), Decisions = e.Decisions.Take(2).ToList(),
+            World = e.World with { Id = "classical-mediterranean", Width = 320, Height = 140,
+                Terrain = new(TerrainEncoding.RunLength, ValueList.Of(new TerrainRun(2, 320 * 140))) } };
+        e.Events.Insert(2, new OriginalArmyMarchDispatched("s", Me, 2, 2, 4, 2, 4, 2));
+        var rules = AiScriptedStates.Ruleset with { Flags = AiScriptedStates.Ruleset.Flags with { AiEconomy = AiEconomyModel.Original } };
+        bool Check(Evidence input) => AiTargetTreeDecisionsAreCarriedOutTests.IsSupersededByConfirmedDestruction(
+            input.Decisions, 0, input.Start, input.End, input.Events, input.World, rules);
+        Assert.True(Check(e));
+        var wrongGoal = e with { Events = e.Events.ToList() };
+        wrongGoal.Events[2] = new OriginalArmyMarchDispatched("s", Me, 2, 2, 5, 2, 5, 2);
+        Assert.False(Check(wrongGoal));
+        var missingReceipt = e with { Events = e.Events.ToList() };
+        missingReceipt.Events.RemoveAt(2);
+        Assert.False(Check(missingReceipt));
+    }
+
+    [Fact]
     public void Both_earlier_duplicate_records_independently_find_the_later_carried_retarget()
     {
         var e = Valid();

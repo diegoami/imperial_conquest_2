@@ -71,8 +71,10 @@ public static class AiDiplomacyPhase
     /// generator) is what makes the alliance roll turn-stable.
     /// </param>
     /// <param name="into">The collecting list.</param>
+    /// <param name="includeTradeSwaps">False when the caller supplies Faithful's seat-local ordered pass.</param>
     /// <exception cref="ArgumentNullException">Any argument is null.</exception>
-    public static void Propose(AiView view, AiPersonalityProfile personality, IRng rng, List<AiCandidate> into)
+    public static void Propose(AiView view, AiPersonalityProfile personality, IRng rng, List<AiCandidate> into,
+        bool includeTradeSwaps = true)
     {
         ArgumentNullException.ThrowIfNull(view);
         ArgumentNullException.ThrowIfNull(personality);
@@ -90,7 +92,7 @@ public static class AiDiplomacyPhase
         // InstantBattleResolver's peace-treaty trigger and GameSession's accept/refuse).
         ProposeOwnAlliance(view, rng, into);
         ProposeOwnTrade(view, into);
-        ProposeOwnTradeSwap(view, into);
+        if (includeTradeSwaps) ProposeOwnTradeSwap(view, into);
     }
 
     /// <summary>

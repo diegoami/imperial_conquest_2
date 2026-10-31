@@ -1,9 +1,16 @@
 using IC2.Engine.Battle.Commands;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
+using IC2.Engine.Movement;
+using IC2.Engine.Movement.Commands;
 using static IC2.Engine.Ai.AiFormat;
 
 namespace IC2.Engine.Ai;
+
+/// <summary>Instrumentation of an accepted original march, including swing/stay-put results.</summary>
+[DomainEvent("ai.original-march-dispatched")]
+public sealed record OriginalArmyMarchDispatched(string ArmyId, string NationId, int FromX, int FromY,
+    int AimX, int AimY, int TargetX, int TargetY) : DomainEvent;
 
 /// <summary>Everything one AI seat's turn did, for the caller and for the per-seed log.</summary>
 /// <param name="State">The state after the turn.</param>
@@ -188,6 +195,8 @@ public static class AiTurn
         var mismatches = 0;
         var hitCap = true;
         var marched = new List<string>();
+        var tradeSwaps = ruleset.Flags.AiEconomy == AiEconomyModel.Original
+            ? new OriginalTradeSwapPass() : null;
 
         // T60 Done-when 1: one siege-gate sample per turn, taken on the first proposal pass only. Later
         // passes see the same standing adjacencies again, so feeding them in too would count situations
@@ -223,7 +232,8 @@ public static class AiTurn
             // already receives above, so AiDiplomacyPhase's own Random(20) alliance roll is drawn from
             // the identical turn-stable stream as AiMilitaryPhase's Random(10) war roll -- see
             // AiDiplomacyPhase.ProposeOwnAlliance's own remarks for why that stability matters.
-            AiDiplomacyPhase.Propose(view, personality, rng, candidates);
+            AiDiplomacyPhase.Propose(view, personality, rng, candidates, includeTradeSwaps: tradeSwaps is null);
+            tradeSwaps?.Propose(view, candidates);
 
             var chosen = Select(candidates, rng, ruleset);
             if (chosen is null)
@@ -247,6 +257,7 @@ public static class AiTurn
             var beforeArmy = subjectId is { } sid ? state.ArmyById(sid) : null;
             var execution = Execute(state, ruleset, commands, events, chosen, log);
             state = execution.State;
+            if (chosen.Kind == "ai-swap-trade-partner") tradeSwaps?.Dispatched(execution.Rejected > 0);
             var changed = !AiSubstantiveState.AreEquivalent(before, state);
             if (changed)
             {
@@ -287,6 +298,15 @@ public static class AiTurn
 
             if (AiSubstantiveState.AreEquivalent(before, state))
             {
+                // Original swing/stay-put is a valid march result. This army is already in marched,
+                // so it cannot repeat that march; continue with the other armies instead of letting
+                // the designed no-op guard end their seat as well. Other no-op policies are unchanged.
+                if (ClassicalArmyNavigation.Applies(view) && chosen.IsMarch && beforeArmy is not null
+                    && execution.Rejected == 0)
+                {
+                    log.Add("original march changed nothing substantive; continue with other armies");
+                    continue;
+                }
                 // The command (and any fallback after it) was accepted and changed nothing the game can
                 // act on -- a blocked march, for instance. Re-proposing it would produce the same
                 // non-event, so the turn stops here rather than burning the action cap on it.
@@ -382,10 +402,12 @@ public static class AiTurn
         List<string> marched,
         HashSet<string> boxedInLogged)
     {
+        view = new AiView(state, ruleset, view.World, view.NationId);
         var army = state.ArmyById(armyId)!;
+        var faithful = ClassicalArmyNavigation.Applies(view);
         (int X, int Y)? dest = AiArmyTargetTree.GarrisonFallback(view, army, state);
         string? tierLabel = null;
-        if (dest is null)
+        if (dest is null && !faithful)
         {
             // Hazards' "fallback is reachable too": when no garrison candidate is reachable, try the
             // emergency move (the tile the existing move command can reach this turn).
@@ -409,10 +431,12 @@ public static class AiTurn
             ? Inv("garrison fallback {0} toward ({1}, {2})", armyId, target.X, target.Y)
             : Inv("emergency move {0} toward ({1}, {2}): no garrison destination is reachable", armyId, target.X, target.Y);
 
+        var command = AiArmyTargetTree.MarchCommand(view, army, new(target.X, target.Y));
+        if (command is null) return;
         var candidate = AiCandidate.Single(
             AiPhase.Military,
             AiCandidate.ApproachKind,
-            new Movement.Commands.MoveArmyCommand(view.NationId, armyId, target.X, target.Y),
+            command,
             ruleset.Ai.MinimumActionScore,
             rationale,
             armyId);
@@ -477,6 +501,10 @@ public static class AiTurn
                 break;
             }
 
+            if (command is MoveArmyCommand { Walk: MoveWalkPolicy.AiContinuation } march
+                && state.ArmyById(march.ArmyId) is { } before)
+                events.Publish(new OriginalArmyMarchDispatched(march.ArmyId, march.IssuingNationId,
+                    before.X, before.Y, march.X, march.Y, march.TargetX ?? march.X, march.TargetY ?? march.Y));
             state = result.State;
             log.Add(Inv("  issued {0}", command.Kind));
         }

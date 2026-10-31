@@ -189,7 +189,11 @@ public sealed class OriginalSaveExportTests
             var state = session.State;
             var bytes = OriginalSaveCodec.Encode(Export(state));
             OriginalSaveLayout.Validate(bytes);
-            var back = OriginalSaveImporter.Import(bytes, "export.sav", RealGameData.World, RealGameData.Ruleset, RealGameData.Scenario, "id", "label").Save.State;
+            Assert.Equal(state.Armies.Select(a => a.Moves), OriginalSaveCodec.Decode(bytes).Armies.Select(a => a.Moves));
+            var imported = OriginalSaveImporter.Import(bytes, "export.sav", RealGameData.World, RealGameData.Ruleset, RealGameData.Scenario, "id", "label");
+            var back = imported.Save.State;
+            Assert.Equal(state.Armies.Select((a, i) => (a, i)).Where(x => x.a.Moves < 0).Select(x => $"army-{x.i}"),
+                imported.Report.ArmiesWithClampedMoves);
             AssertSameGame(state, back, turn);
             session.Submit("end");
         }
@@ -206,7 +210,10 @@ public sealed class OriginalSaveExportTests
         for (var a = 0; a < expected.Armies.Count; a++)
         {
             var (x, y) = (expected.Armies[a], actual.Armies[a]);
-            Assert.True((x.Nation, x.X, x.Y, x.Moves, x.Morale, x.Money, x.SupplyTons) == (y.Nation, y.X, y.Y, y.Moves, y.Morale, y.Money, y.SupplyTons), $"{at}: army {a}");
+            // The existing importer deliberately clamps original negative moves (T18). T239's faithful
+            // forced step can now reach -1 naturally; export preserves it, import retains that policy.
+            Assert.True((x.Nation, x.X, x.Y, Math.Max(0, x.Moves), x.Morale, x.Money, x.SupplyTons) == (y.Nation, y.X, y.Y, y.Moves, y.Morale, y.Money, y.SupplyTons),
+                $"{at}: army {a}: {(x.Nation, x.X, x.Y, x.Moves, x.Morale, x.Money, x.SupplyTons)} vs {(y.Nation, y.X, y.Y, y.Moves, y.Morale, y.Money, y.SupplyTons)}");
             // The one alias T185 allows: a generated mercenary name too long for the original.
             var aliased = x.Units.Select(u => u.Name == $"Mercenary unit (label {u.MercenaryLabel})" && u.MercenaryLabel != 0
                 ? u with { Name = $"Mercenary (label {u.MercenaryLabel})" } : u);
