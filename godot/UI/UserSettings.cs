@@ -55,6 +55,9 @@ public sealed record UserSettings
     /// <summary>#1280 F2: a move click only marks its destination; a second click on it moves. Off by default (the original moves at once).</summary>
     public bool ConfirmMoves { get; init; }
 
+    /// <summary>Visibility only. Fresh/legacy preferences hide experimental QOL; saved choices still apply.</summary>
+    public bool ShowExperimentalQolSettings { get; init; }
+
     /// <summary>T207: opt-in supply top-up for the active human nation's armies before End turn.</summary>
     public bool AutoSupplyArmies { get; init; }
 

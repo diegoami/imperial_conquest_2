@@ -147,6 +147,7 @@ public partial class SettingsScreen : Control
 
     /// <summary>The volume slider's node name, for the headless checks (the other two sliders are the pauses).</summary>
     public const string VolumeSliderName = "VolumeSlider";
+    public const string ExperimentalQolVisibilityName = "ExperimentalQolVisibility";
 
     private readonly List<(HSlider Slider, Label Value)> _pauseRows = new();
     private OptionButton _speedPicker = null!;
@@ -185,8 +186,29 @@ public partial class SettingsScreen : Control
         BuildMap(column);
         BuildBattle(column);
         BuildSound(column);
+        BuildExperimentalVisibility(column);
         BuildGame(column);
-        BuildAutomation(TabColumn(Tabs, "Automation"));
+        var experimental = TabColumn(Tabs, "Experimental QOL");
+        Section(experimental, "Experimental gameplay conveniences");
+        AutomationNote(experimental, "These optional features can change gameplay and may differ from the original.");
+        BuildMoveConfirmation(experimental);
+        BuildBattleReports(experimental);
+        BuildAutomation(experimental);
+        Tabs.SetTabHidden(1, !Current.ShowExperimentalQolSettings);
+    }
+
+    private void BuildExperimentalVisibility(VBoxContainer column)
+    {
+        Section(column, "Experimental QOL");
+        var show = new CheckBox { Name = ExperimentalQolVisibilityName,
+            Text = "Show experimental QOL settings", ButtonPressed = Current.ShowExperimentalQolSettings };
+        show.TooltipText = "Shows or hides the experimental tab. Saved choices continue to apply when hidden.";
+        show.Toggled += on => {
+            Commit(Current with { ShowExperimentalQolSettings = on });
+            Tabs.SetTabHidden(1, !on);
+        };
+        column.AddChild(show);
+        AutomationNote(column, "Hiding the settings preserves your saved choices.");
     }
 
     private static VBoxContainer TabColumn(TabContainer tabs, string title)
@@ -331,6 +353,11 @@ public partial class SettingsScreen : Control
             "After an attack", BattlePauses.AttackStepSeconds, BattleAttackDelaySeconds,
             value => { SetBattlePauses(BattleShotDelaySeconds, value); SyncSpeedPicker(); }, _pauseRows));
 
+    }
+
+    private void BuildBattleReports(VBoxContainer column)
+    {
+        Section(column, "Other battle reports");
         // #1280 F7: battles between two computer nations need not interrupt the player's turn.
         var others = new CheckBox { Text = "Pop up reports of battles between other nations", ButtonPressed = Current.ShowOtherBattleReports };
         others.Toggled += on => Commit(Current with { ShowOtherBattleReports = on });
@@ -352,6 +379,11 @@ public partial class SettingsScreen : Control
             s => Commit(Current with { MapStyle = s.Id })).Name = MapStylePickerName;
         column.AddChild(UiKit.MakeLabel("Classic tiles: one patterned tile per map square, as the original. Painted: blended terrain.", AppTheme.Note, UiKit.MutedTextColor));
 
+    }
+
+    private void BuildMoveConfirmation(VBoxContainer column)
+    {
+        Section(column, "Movement");
         // #1280 F2: a near-miss on a marker must not march an army away unasked.
         var confirm = new CheckBox { Text = "Confirm moves with a second click", ButtonPressed = Current.ConfirmMoves };
         confirm.Toggled += on => Commit(Current with { ConfirmMoves = on });

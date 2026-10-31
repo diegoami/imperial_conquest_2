@@ -615,11 +615,9 @@ public sealed partial class GameSession
     }
 
     /// <summary>
-    /// The end of an AI-phase battle (T126). The write-back is made on the state the battle opened on, and
-    /// is <strong>not</strong> committed to <see cref="State"/>: it is kept in the lap, and the AI seat's turn is
-    /// replayed from the pre-turn state with it injected at the attack, which publishes its events (the news line,
-    /// the peace offer) like any command's and runs every consequence a played turn runs (the fall messages, the
-    /// treaty offer, the game-over check). Then the lap goes on.
+    /// Writes an AI-phase battle back on its opened state. Faithful commits the retained partial pass
+    /// and battle result, then starts the same seat again. Other presets store the result for pre-turn
+    /// replay. Both paths publish battle consequences before continuing the lap.
     /// </summary>
     private void FinishAiPhaseBattle(List<string> lines, TacticalBattleSession battle, AiLap lap)
     {
@@ -627,6 +625,26 @@ public sealed partial class GameSession
         if (conclusion.State is null || conclusion.Report is null)
         {
             lines.Add($"The battle could not be written back: {conclusion.Rejection}");
+            return;
+        }
+
+        if (lap.RetainsPartial)
+        {
+            var before = State;
+            var nationsBefore = State.Nations;
+            State = NewsLogWriter.Append(conclusion.State, conclusion.Events, Ruleset.NewsLog);
+            AccumulateEvents(conclusion.Events);
+            _strategicTimeline.Battle(new AttackArmyCommand(lap.Seat, battle.Battle.AttackerArmyId,
+                battle.Battle.DefenderArmyId), before, State, completed: true, conclusion.Events);
+            _pendingTacticalReport = conclusion.Report;
+            _pendingTacticalTimeline.AddRange(battle.DrainTimeline());
+            _battle = null;
+            _lap = null;
+            lines.AddRange(TacticalBattleSession.ReportLines(conclusion.Report, State));
+            CapturePeaceTreatyOfferIfAny(lines, conclusion.Events);
+            AppendFallMessagesForNewlyLostHumanSeats(lines, nationsBefore);
+            if (!AnnounceAndAdoptWatchModeIfSeatIsLost(lines) && !AnnounceGameOverIfNoHumanSeatRemains(lines))
+                ResumeAiLap(lines, lap);
             return;
         }
 

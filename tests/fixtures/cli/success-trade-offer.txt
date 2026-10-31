@@ -30,11 +30,11 @@ end
 besiege-city army-8 phoenice
 split-army army-8 mac-sac-1 0
 end
+move mac-sac-1 151 31
+end
+move mac-sac-1 151 31
+end
 accept-offer
-move mac-sac-1 151 31
-end
-move mac-sac-1 151 31
-end
 mobilize 2 mac-recruit-0
 mobilize 2 mac-recruit-1
 join-units mac-marines 1 2

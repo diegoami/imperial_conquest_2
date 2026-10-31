@@ -2132,11 +2132,9 @@ public sealed partial class GameSession
     }
 
     /// <summary>
-    /// One seat's turn of <see cref="PlayUntilOneFullLapOrRepeat"/>'s loop: the pipeline run, then everything that
-    /// follows it. Under <see cref="HumanBattleMode.Tactical"/> an AI seat's attack on a human's army stops the turn
-    /// at that attack (T126, <see cref="AiPhaseBattleGate"/>); the battle opens on the state at the attack and
-    /// <see cref="State"/> is left as it was, so this method is also how the turn is <em>replayed</em> from the
-    /// same pre-turn state when the battle ends, the finished battles injected in order.
+    /// One seat's pipeline run and its presentation consequences. Faithful Tactical retains the partial
+    /// army/fleet pass without advancing the seat; battle completion starts a fresh pass on that state.
+    /// Other presets retain T126's pre-turn replay with completed battle results injected at their attacks.
     /// </summary>
     private LapStep PlaySeatTurn(List<string> lines, AiLap lap)
     {
@@ -2146,11 +2144,35 @@ public sealed partial class GameSession
         TurnResult result;
         if (UsesAiPhaseBattleGate())
         {
-            var gate = new AiPhaseBattleGate(_dispatcher, Ruleset, lap, _strategicTimeline);
+            var retain = Ai.ClassicalArmyNavigation.Applies(new Ai.AiView(State, Ruleset, World, seat));
+            var gate = new AiPhaseBattleGate(_dispatcher, Ruleset, lap, _strategicTimeline,
+                retain ? NextTacticalBattleIdentity : null);
             var gated = new TurnCoordinator(_registry, Ruleset, World, NullEventSink.Instance, gate, Scenario) { StrategicObserver = _strategicTimeline };
             try
             {
                 result = gated.RunTurn(State);
+                if (gate.PendingBattle is { } pending)
+                {
+                    // F31C stopped its remaining armies; F608 completed before the coordinator
+                    // returned without SeatEnd/advance. Keep that state, rather than replaying it.
+                    State = result.State;
+                    _strategicTimeline.Battle(gate.PendingAttack!, State, State, completed: false);
+                    _strategicTimeline.EndAttempt(completed: true);
+                    AccumulateEvents(result.Events);
+                    AppendPerSeatLine(lines, seat, result.Events);
+                    CapturePeaceTreatyOfferIfAny(lines, result.Events);
+                    CaptureBattleResultsIfAny(result.Events);
+                    AppendFallMessagesForNewlyLostHumanSeats(lines, nationsBeforeThisSeatsTurn);
+                    lap.RetainsPartial = true;
+                    lap.AtAttack = gate.AtAttack;
+                    lap.Opened = State;
+                    _battle = pending;
+                    _lap = lap;
+                    lines.Add($"{NationDisplay(lap.Seat)} attacks {NationDisplay(State.ArmyById(gate.PendingAttack!.TargetArmyId)!.Nation)}: the battle opens on the board.");
+                    lines.AddRange(_battle.ShowLines());
+                    if (_battle.IsOver) FinishTacticalBattle(lines);
+                    return LapStep.Suspended;
+                }
             }
             catch (AiPhaseBattleSuspended suspended)
             {
@@ -2204,11 +2226,9 @@ public sealed partial class GameSession
     private AiLap? _lap;
 
     /// <summary>
-    /// The stored continuation of an interrupted lap (T126). The suspension is a <strong>replay</strong>: nothing
-    /// outside <see cref="Ai.AiTurn"/> can pause a turn inside <see cref="TurnCoordinator.RunTurn"/>, so
-    /// the seat's turn is abandoned at the attack (<see cref="AiPhaseBattleGate"/>), the battle is fought on the state
-    /// at that attack, and when it ends the same seat's turn is run again from the same pre-turn state (hence the
-    /// same seed and the same proposals) with <see cref="Done"/>'s results injected, in order, at their attacks.
+    /// The continuation of an interrupted lap. Faithful Tactical keeps the partial pass in State and
+    /// restarts the same seat after battle. Other presets abandon the pass and replay the pre-turn state
+    /// with Done results injected in order at their attacks.
     /// </summary>
     private sealed class AiLap
     {
@@ -2240,6 +2260,7 @@ public sealed partial class GameSession
 
         /// <summary>The game the open battle was opened on (the attacker's moves spent, the computer side's army changed).</summary>
         public GameState? Opened { get; set; }
+        public bool RetainsPartial { get; set; }
     }
 
     /// <summary>One finished AI-phase battle: the game at its attack, the game after its write-back and the events that raised.</summary>
@@ -2261,26 +2282,33 @@ public sealed partial class GameSession
     }
 
     /// <summary>
-    /// Wraps the command dispatcher for an AI seat's turn under <see cref="HumanBattleMode.Tactical"/>. An
-    /// <see cref="AttackArmyCommand"/> by an AI seat on a human's army that the board can host is not dispatched: the
-    /// first time it is met the turn is abandoned (<see cref="AiPhaseBattleSuspended"/>); on the replay, an attack
-    /// whose battle has been fought gets that battle's result instead of the instant resolver's. Every other command
-    /// goes to the inner dispatcher untouched, so a turn with no such attack is the same turn as without the gate.
+    /// Wraps an AI seat's dispatcher under Tactical. Faithful opens a supported human field battle,
+    /// signals the army-loop interruption and retains the fleet pass. Other presets throw to abandon
+    /// the pass and later inject completed battle results during pre-turn replay. Other commands use
+    /// the inner dispatcher unchanged.
     /// </summary>
-    private sealed class AiPhaseBattleGate : ICommandDispatch
+    private sealed class AiPhaseBattleGate : ICommandDispatch, IAiBattleInterruption
     {
         private readonly ICommandDispatch _inner;
         private readonly Ruleset _ruleset;
         private readonly AiLap _lap;
         private readonly StrategicTravelTimeline _strategic;
         private int _met;
+        private readonly Func<string>? _nextIdentity;
+        public bool RetainPartialAiPass => _nextIdentity is not null;
+        public bool ArmyPhaseInterrupted => PendingBattle is not null;
+        public TacticalBattleSession? PendingBattle { get; private set; }
+        public AttackArmyCommand? PendingAttack { get; private set; }
+        public GameState? AtAttack { get; private set; }
 
-        public AiPhaseBattleGate(ICommandDispatch inner, Ruleset ruleset, AiLap lap, StrategicTravelTimeline strategic)
+        public AiPhaseBattleGate(ICommandDispatch inner, Ruleset ruleset, AiLap lap, StrategicTravelTimeline strategic,
+            Func<string>? nextIdentity = null)
         {
             _inner = inner;
             _ruleset = ruleset;
             _lap = lap;
             _strategic = strategic;
+            _nextIdentity = nextIdentity;
         }
 
         public CommandResult Dispatch(GameState state, ICommand command) =>
@@ -2291,6 +2319,16 @@ public sealed partial class GameSession
             if (!OpensABattle(state, command, out var attack))
             {
                 return _inner.Dispatch(state, command, events);
+            }
+
+            if (RetainPartialAiPass)
+            {
+                if (PendingBattle is not null) throw new InvalidOperationException("An AI pass already has a pending field battle.");
+                AtAttack = state;
+                PendingAttack = attack;
+                PendingBattle = TacticalBattleSession.Open(state, attack.AttackerArmyId, attack.TargetArmyId,
+                    _ruleset, out var opened, _nextIdentity!());
+                return CommandResult.Accepted(opened, command.Kind, ValueList<DomainEvent>.Empty);
             }
 
             var index = _met++;
@@ -2361,8 +2399,8 @@ public sealed partial class GameSession
     }
 
     /// <summary>
-    /// The battle of <see cref="_lap"/> has ended and its result is stored: replays the seat's turn with it injected,
-    /// then goes on with the lap and its tail exactly as the uninterrupted lap would have.
+    /// Continues the same seat after battle: a fresh pass from retained Faithful state, or the
+    /// existing result-injection replay for other presets, then the remaining lap and its tail.
     /// </summary>
     private void ResumeAiLap(List<string> lines, AiLap lap)
     {

@@ -93,8 +93,16 @@ public partial class SettingsCheck : Control
             var settings = (SettingsScreen)_game.ActiveOverlay!;
             Check(settings.Tabs.GetTabCount() == 2
                   && settings.Tabs.GetTabTitle(0) == "Display & controls"
-                  && settings.Tabs.GetTabTitle(1) == "Automation",
-                "Settings has display and global Automation tabs");
+                  && settings.Tabs.GetTabTitle(1) == "Experimental QOL",
+                "Settings has display and clearly labelled Experimental QOL tabs");
+            var experimental = settings.FindChildren("*", "CheckBox", true, false).OfType<CheckBox>()
+                .Single(box => box.Name == SettingsScreen.ExperimentalQolVisibilityName);
+            Check(!experimental.ButtonPressed && settings.Tabs.IsTabHidden(1),
+                "experimental QOL controls are hidden by default");
+            experimental.ButtonPressed = true;
+            experimental.EmitSignal(BaseButton.SignalName.Toggled, true);
+            Check(!settings.Tabs.IsTabHidden(1) && UserSettings.Load(_file).ShowExperimentalQolSettings,
+                "opting in reveals the experimental controls and persists visibility");
             settings.Tabs.CurrentTab = 1;
             var supply = settings.FindChildren("*", "CheckBox", true, false).OfType<CheckBox>()
                 .Single(box => box.Text == "Auto supply armies");
@@ -117,6 +125,14 @@ public partial class SettingsCheck : Control
             Check(!settings.FindChildren("*", "CheckBox", true, false).OfType<CheckBox>()
                 .Any(box => box.Text.Contains("Auto recruit", StringComparison.OrdinalIgnoreCase)),
                 "Settings has no obsolete auto-recruit switch");
+            settings.Tabs.CurrentTab = 0;
+            experimental.ButtonPressed = false;
+            experimental.EmitSignal(BaseButton.SignalName.Toggled, false);
+            Check(settings.Tabs.IsTabHidden(1) && SettingsScreen.Current.AutoSupplyArmies
+                  && SettingsScreen.Current.AutoRepairFleets && SettingsScreen.Current.AutoMobilizeReady,
+                "hiding QOL preserves active saved choices");
+            Check(!UserSettings.Load(_file).ShowExperimentalQolSettings && UserSettings.Load(_file).AutoSupplyArmies,
+                "hidden visibility persists independently of automation choices");
             SettingsScreen.Commit(SettingsScreen.Current with { AutoSupplyArmies = false });
             SettingsScreen.Commit(SettingsScreen.Current with { AutoRepairFleets = false });
             SettingsScreen.Commit(SettingsScreen.Current with { AutoMobilizeReady = false });

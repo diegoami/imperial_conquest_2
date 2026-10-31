@@ -107,6 +107,12 @@ public static class AiCapitalDefence
             }
             if (!AiSubstantiveState.AreEquivalent(state, result.State)) issued++;
             state = result.State;
+            if (commands is IAiBattleInterruption { ArmyPhaseInterrupted: true })
+            {
+                if (command is AttackArmyCommand pending)
+                    log.Add(Inv("capital defence attack: {0} against {1}", pending.AttackerArmyId, pending.TargetArmyId));
+                break;
+            }
             if (command is AttackArmyCommand immediate)
             {
                 log.Add(Inv("capital defence attack: {0} against {1}", immediate.AttackerArmyId, immediate.TargetArmyId));
@@ -128,6 +134,7 @@ public static class AiCapitalDefence
             if (!AiSubstantiveState.AreEquivalent(state, fought.State)) issued++;
             state = fought.State;
             log.Add(Inv("capital defence attack: {0} against {1}", armyId, threat.Id));
+            if (commands is IAiBattleInterruption { ArmyPhaseInterrupted: true }) break;
         }
         return new(state, dispatches, issued, rejected);
     }

@@ -104,7 +104,7 @@ News:
   Ptolemaic sues Seleucid for peace and;
       Ptolemaic ends all current trading agreements.
       Ptolemaic  ends all current alliances.
-      Ptolemaic pays reparations of 2,664 talents.
+      Ptolemaic pays reparations of 2,570 talents.
    
   Week  3      Spring      270BC
 
@@ -202,7 +202,7 @@ News log:
   Ptolemaic sues Seleucid for peace and;
       Ptolemaic ends all current trading agreements.
       Ptolemaic  ends all current alliances.
-      Ptolemaic pays reparations of 2,664 talents.
+      Ptolemaic pays reparations of 2,570 talents.
    
   Week  3      Spring      270BC
   Carthage destroys army of Celtiberia.

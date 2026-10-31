@@ -134,6 +134,8 @@ public static class AiTurn
         var rejected = 0;
         var fleetRoutes = new OriginalFleetRoutes();
         events = fleetRoutes.Capture(events); // Accepted army requests live only inside this seat invocation.
+        var retainedPass = commands is IAiBattleInterruption { RetainPartialAiPass: true };
+        var originalFleets = ClassicalFleetNavigation.Applies(new AiView(state, ruleset, world, nationId));
 
         // T157 (#926): the original's economy phase runs once, before everything the army and fleet
         // phases do (FUN_0044fa20's order), so it reads the treasury and armies as the turn starts, ahead of the
@@ -148,12 +150,20 @@ public static class AiTurn
 
         // T245: F31C calls capital defence before the per-army E41C support/hire and target loop.
         // Run once here, outside the regenerated candidate loop, with the live table order.
-        var armyOrder = ClassicalArmyNavigation.Applies(new AiView(state, ruleset, world, nationId))
-            ? new OriginalArmyOrder(Armies.ArmyTable.Slots(state).Count) : null;
         var defence = AiCapitalDefence.Run(state, ruleset, world, nationId, commands, events, log);
         state = defence.State;
         issued += defence.Issued;
         rejected += defence.Rejected;
+        if (commands is IAiBattleInterruption { ArmyPhaseInterrupted: true })
+        {
+            log.Add("army phase interrupted before support; retaining the fleet pass");
+            var interruptedFleets = OriginalFleetPhase.Run(state, ruleset, world, nationId, fleetRoutes, commands, events, rng, log);
+            return new(interruptedFleets.State, nationId, log, issued + interruptedFleets.Issued,
+                rejected + interruptedFleets.Rejected, 0, false);
+        }
+        // F31C loads the physical count at 44F32F, after EFC8 at 44F32A (#1660).
+        var armyOrder = ClassicalArmyNavigation.Applies(new AiView(state, ruleset, world, nationId))
+            ? new OriginalArmyOrder(Armies.ArmyTable.Slots(state).Count) : null;
 
         // R1: the original's FUN_0044E41C is one loop per army over the cities, and each in-range city
         // iteration resupplies the army (FUN_0044f6d8) before hiring at that city. AiMercenaryHirePass.Run
@@ -168,14 +178,14 @@ public static class AiTurn
             moneyAtTurnStart[army.Id] = army.Money;
         }
 
-        var mercenary = AiMercenaryHirePass.Run(state, ruleset, nationId, moneyAtTurnStart);
+        var mercenary = retainedPass ? new AiMercenaryHirePass.Result(state, 0, 0)
+            : AiMercenaryHirePass.Run(state, ruleset, nationId, moneyAtTurnStart);
         state = mercenary.State;
 
         // The hire pass already ran every army's resupply, interleaved city by city. Only the fleet half
         // of AiResupplyPass is left, so slice the armies out and let its own army loop do nothing. Its
         // cities, fleets and nations are this state's own, so merge those fields back and keep the armies
         // the hire pass produced.
-        var originalFleets = ClassicalFleetNavigation.Applies(new AiView(state, ruleset, world, nationId));
         var fleetResupply = originalFleets ? new AiResupplyPass.Result(state, 0, 0, 0, 0)
             : AiResupplyPass.Run(state with { Armies = ValueList<ArmyState>.Empty }, ruleset, nationId);
         state = state with
@@ -187,13 +197,25 @@ public static class AiTurn
 
         // One resupply line, the same shape AiResupplyPass reported before T76, now summing the army half
         // done inside the hire pass and the fleet half done here.
-        log.Add(Inv(
-            "resupply: {0} army transfers, {1} fleet transfers, {2} tons, {3} talents",
-            mercenary.ArmyTransfers,
-            fleetResupply.FleetTransfers,
-            mercenary.TonsMoved + fleetResupply.TonsMoved,
-            mercenary.TalentsPaid + fleetResupply.TalentsPaid));
-        log.Add(mercenary.Describe());
+        void LogSupport()
+        {
+            log.Add(Inv(
+                "resupply: {0} army transfers, {1} fleet transfers, {2} tons, {3} talents",
+                mercenary.ArmyTransfers,
+                fleetResupply.FleetTransfers,
+                mercenary.TonsMoved + fleetResupply.TonsMoved,
+                mercenary.TalentsPaid + fleetResupply.TalentsPaid));
+            log.Add(mercenary.Describe());
+        }
+        if (!retainedPass) LogSupport();
+        AiView PrepareArmy(AiView current, ArmyState army)
+        {
+            var next = AiMercenaryHirePass.RunArmy(current.State, ruleset, nationId, army.Id);
+            mercenary = new(next.State, mercenary.OffersHired + next.OffersHired,
+                mercenary.ArmiesHired + next.ArmiesHired, mercenary.ArmyTransfers + next.ArmyTransfers,
+                mercenary.TonsMoved + next.TonsMoved, mercenary.TalentsPaid + next.TalentsPaid);
+            return new(next.State, ruleset, world, nationId);
+        }
 
         var mismatches = 0;
         var hitCap = true;
@@ -218,7 +240,11 @@ public static class AiTurn
             if (armyOrder is null)
                 AiMilitaryPhase.Propose(view, personality, rng, marched, candidates, action == 0 ? siegeGates : null, boxedIn);
             else
-                AiMilitaryPhase.ProposeInOriginalArmyOrder(view, personality, rng, marched, candidates, siegeGates, boxedIn, armyOrder);
+            {
+                view = AiMilitaryPhase.ProposeInOriginalArmyOrder(view, personality, rng, marched, candidates,
+                    siegeGates, boxedIn, armyOrder, retainedPass ? PrepareArmy : null);
+                state = view.State;
+            }
             foreach (var boxedArmyId in boxedIn)
             {
                 if (boxedInLogged.Add(boxedArmyId))
@@ -278,6 +304,12 @@ public static class AiTurn
 
             rejected += execution.Rejected;
             mismatches += execution.Mismatches;
+            if (commands is IAiBattleInterruption { ArmyPhaseInterrupted: true })
+            {
+                log.Add("army phase interrupted; retaining the fleet pass");
+                hitCap = false;
+                break;
+            }
 
             if (execution.Rejected == 0 && chosen.OriginalMercenaryContinuation is { } continuation
                 && subjectId is { } continuingArmyId)
@@ -335,6 +367,7 @@ public static class AiTurn
             }
         }
 
+        if (retainedPass) LogSupport();
         if (originalFleets)
         {
             var fleets = OriginalFleetPhase.Run(state, ruleset, world, nationId, fleetRoutes, commands, events, rng, log);

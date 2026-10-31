@@ -492,13 +492,18 @@ public sealed class NewsLogWriterSeatEnd : IGameSystem
 
         // #1040: a battle's "destroys army of" line that leads a peace treaty was already written by
         // PeaceTreatySystem, directly ahead of the treaty block, as the original orders them.
-        var all = context.PublishedEvents;
+        return Flush(context.State, context.Ruleset, context.PublishedEvents);
+    }
+
+    /// <summary>Render a retained partial pass without running other SeatEnd consequences.</summary>
+    internal static GameState Flush(GameState state, Ruleset ruleset, IReadOnlyList<PublishedEvent> all)
+    {
         var seatScopedEvents = all
             .Where((published, i) => TurnPhases.ScopeOf(published.Phase) == TurnPhaseScope.Seat
                 && !IC2.Engine.Diplomacy.PeaceTreatySystem.IsDestroyedLineWrittenByTreaty(all, i))
             .Select(published => published.Event);
 
-        return NewsLogWriter.Append(context.State, seatScopedEvents, context.Ruleset.NewsLog);
+        return NewsLogWriter.Append(state, seatScopedEvents, ruleset.NewsLog);
     }
 }
 
