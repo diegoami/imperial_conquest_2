@@ -82,7 +82,9 @@ The shipped data is the 334-city `classical-mediterranean` world and scenario, e
 
 `tests/fixtures/corpus.json` is the evidence base the rules are built against: every exact number from the research reports, transcribed once, each with its source report and tag. `tests/fixtures/known-reports.json` pins the real report filenames so a typo'd or invented citation fails CI offline, without the research repo being cloned.
 
-The [post-T248 strategic-AI evidence](docs/investigations/original-ai-control-and-support.md#army-decision-comparison-after-t248) separates the bounded 16-start, five-round decision comparison from approved reachable tiers, execution defects and unexercised helper edges. It does not certify whole-turn or native Windows parity.
+The [strategic-AI evidence](docs/investigations/original-ai-control-and-support.md#army-decision-comparison-after-t248) records the bounded 16-start, five-round T249 recheck and measured helper boundaries. The owner's 2026-10-31 policy reserves #925's reachable resupply/garrison/emergency tiers for Improved; Classical Faithful must use the original destinations and swing/stay-put walk, without emergency. This is a required correction, not whole-turn or native Windows parity evidence.
+
+The [SAV compatibility evidence](docs/game-design.md#original-save-compatibility--confirmed-format-designed-policy) distinguishes the current canonical writer policy from bounded callback/lifecycle/canary findings. Those findings add no owner-JSON conversion or native Windows acceptance, and leave GUI indirect calls and unexercised states open.
 
 ## The research-inspector tools (`IC2.Inspect`)
 

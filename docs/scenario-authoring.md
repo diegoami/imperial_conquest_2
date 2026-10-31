@@ -1021,7 +1021,7 @@ one shared scale, so the AI's determinism guarantee never depends on floating-po
 | `demoralisedArmyDistanceThreshold` | int | tiles | The army target must be farther than N for the demoralised test; 8. |
 | `mercenaryRunTroopsDivisor` | int | divisor | The mercenary run needs `troops / N < supplies`; 500. |
 | `mercenaryRunCityDistanceFar` | int | tiles | With no supplies, a city farther than N is not attacked; 19. |
-| `mercenaryRunOfferRange` | int | tiles | The mercenary run considers pool offers within N of the army (`FUN_0044e84c`); 20. |
+| `mercenaryRunOfferRange` | int | tiles | Faithful must consider pool offers at distance strictly `< N` from the army (`FUN_0044e84c`); 20; equal-distance ties use the first mercenary-pool slot, not city id (research `78b63aa`, #1640). Native inclusive behavior needs correction; Improved keeps its policy. |
 | `defendResupplyArmyScoreThreshold` | int | score | After the mercenary run: `armyScore < N` (with the city threshold below) takes the city continuation, otherwise `armyScore >= N` chases the army; 71. T249 uses the enemy-city target in faithful classical navigation; Designed/custom worlds retain the resupply destination. |
 | `defendResupplyCityScoreThreshold` | int | score | The `cityScore > N` half of the mercenary continuation test; 85. Original F31C continues toward the enemy-city scorer target, not the resupply city (research `c159c93`, #1638); T249 preserves the legacy key name and Designed/custom-world resupply behavior. |
 | `resupplyStrengthTroopsDivisor` | int | divisor | The resupply scorer's strength is `troops / N`; 100. |
@@ -1030,7 +1030,7 @@ one shared scale, so the AI's determinism guarantee never depends on floating-po
 | `resupplyCapitalPenalty` | int | score | An own capital scores minus N as a resupply city; 20. |
 | `resupplyForeignBonus` | int | score | A qualifying foreign city scores plus N; 20. |
 | `resupplyMaxForeignDistance` | int | tiles | A best foreign city beyond N is dropped for the nearest own city; 15. |
-| `garrisonFallbackCapitalDistance` | int | tiles | The garrison fallback sends an army to the nearest city when some own army is within N of the capital, else to the capital; 10. |
+| `garrisonFallbackCapitalDistance` | int | tiles | Under the 2026-10-31 owner policy, Faithful must choose the nearest city of any owner (first city-table record on ties) when some own army is strictly `< N` from the capital, else the capital; 10 (research `78b63aa`, #1640). Improved alone keeps #925 reachable fallback/emergency. Native inclusive/reachable Faithful behavior needs correction; keep absent-capital/null-city safety guards. |
 | `faithfulThreatPerEnemyNation` | int | threat | Threat added per nation at war with the acting nation; 15000. |
 | `faithfulOwnPerAlly` | int | strength | Own strength added per ally; 6000. |
 | `faithfulMobilizeArmyDistanceBelow` | int | > 0; default 6 | Under original AI economy, any own army at Chebyshev distance strictly below this from any positive-troop state-24 recruit opens the initial whole-queue mobilisation gate. [code]: research 0b0b55e, 2026-10-12-g4-followups.md case D, FUN_004504f4. |
