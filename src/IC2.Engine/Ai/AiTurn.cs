@@ -400,12 +400,19 @@ public static class AiTurn
         string nationId, string armyId, GridPoint target, ICommandDispatch commands, IEventSink events, List<string> log)
     {
         if (state.ArmyById(armyId) is not { } army) return new(state, 0, 0, 0);
+        var view = new AiView(state, ruleset, world, nationId);
         if (army.Moves <= 0)
         {
-            log.Add("original mercenary continuation: no positive moves; zero-move routing awaits research #159");
+            if (OriginalArmyTransport.ZeroMoveRendezvous(view, army, target) is { } request)
+            {
+                events.Publish(new OriginalArmyTransportAttempted(armyId, nationId, army.X, army.Y,
+                    target.X, target.Y, request.FleetId));
+                events.Publish(request);
+                log.Add(Inv("original zero-move mercenary rendezvous {0}: fleet {1} toward ({2}, {3})",
+                    armyId, request.FleetId, request.X, request.Y));
+            }
             return new(state, 0, 0, 0);
         }
-        var view = new AiView(state, ruleset, world, nationId);
         if (AiArmyTargetTree.MarchCommand(view, army, target) is not { } command)
         {
             log.Add("original mercenary continuation: no supported march");

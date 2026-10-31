@@ -123,13 +123,13 @@ public sealed class OriginalMercenaryContinuationTests
         Assert.Equal(0, result.Outcome.CommandsRejected);
     }
 
-    [Fact]
-    public void A_positive_budget_continuation_writes_the_same_seat_ferry_route()
+    private static (GameState State, Ruleset Rules, World World) FerryFixture(bool chase = false, int moves = 8)
     {
-        var (state, rules, world) = Fixture(true, false);
+        var (state, rules, world) = Fixture(true, chase, moves);
         var cells = new int[320 * 140];
         for (var y = 0; y < 140; y++) for (var x = 0; x <= 100; x++) cells[y * 320 + x] = 2;
         cells[90 * 320 + 120] = 2;
+        cells[91 * 320 + 120] = 2;
         world = world with { Terrain = new(TerrainEncoding.RunLength, ValueList.From(cells.Select(c => new TerrainRun(c, 1)))) };
         var game = AiTestbed.Classical;
         var fleet = GameStateFactory.CreateInitial(game.World, game.Ruleset, game.Scenario).Fleets[0] with {
@@ -137,7 +137,8 @@ public sealed class OriginalMercenaryContinuationTests
             ConstructionTicksRemaining = null, BuildCityId = null, CarriedArmyId = null, CoveredTileCode = 0
         };
         state = state with { Fleets = ValueList.Of(fleet),
-            Armies = ValueList.Of(state.Armies[0] with { X = 98, Y = 40, Money = 0 }),
+            Armies = ValueList.From(state.Armies.Select(a => a.Id == "actor"
+                ? a with { X = 98, Y = 40, Money = 0 } : a with { X = 120, Y = 91 })),
             Cities = ValueList.From(state.Cities.Select(c => c.Id switch {
                 "home" => c with { X = 90, Y = 30 },
                 "offer" => c with { X = 100, Y = 40, SupplyTons = 50000 },
@@ -146,7 +147,14 @@ public sealed class OriginalMercenaryContinuationTests
             MercenaryPool = ValueList.Of(state.MercenaryPool[0] with { X = 100, Y = 40 })
         };
         var decision = AiArmyTargetTree.DecideUnlogged(new(state, rules, world, "north"), state.Armies[0], true, out _);
-        Assert.Equal(AiArmyTargetTree.Continuation.MarchAtCityTarget, decision.After);
+        Assert.Equal(chase ? AiArmyTargetTree.Continuation.ChaseArmy : AiArmyTargetTree.Continuation.MarchAtCityTarget, decision.After);
+        return (state, rules, world);
+    }
+
+    [Fact]
+    public void A_positive_budget_continuation_writes_the_same_seat_ferry_route()
+    {
+        var (state, rules, world) = FerryFixture();
         var result = Run(state, rules, world);
         Assert.Equal(2, result.Trace.Moves.Count);
         Assert.Equal(7, result.Trace.Before[1].ArmyById("actor")!.Moves);
@@ -228,7 +236,123 @@ public sealed class OriginalMercenaryContinuationTests
     }
 
     [Fact]
-    public void The_unmeasured_zero_move_path_retains_the_existing_native_guard()
+    public void A_zero_move_city_continuation_requests_a_ferry_without_moving_the_army()
+        => CheckZeroRoute(chase: false, fleetMoves: 26, fleetX: 105, expectRoute: true);
+
+    [Fact]
+    public void A_zero_move_army_continuation_requests_a_ferry_without_moving_the_army()
+        => CheckZeroRoute(chase: true, fleetMoves: 26, fleetX: 105, expectRoute: true);
+
+    [Fact]
+    public void A_zero_move_rendezvous_already_at_the_fleet_stays_a_stored_route()
+        => CheckZeroRoute(chase: false, fleetMoves: 26, fleetX: 101, expectRoute: true);
+
+    [Fact]
+    public void Zero_fleet_moves_prevent_the_zero_army_move_rendezvous()
+        => CheckZeroRoute(chase: false, fleetMoves: 0, fleetX: 105, expectRoute: false);
+
+    private static void CheckZeroRoute(bool chase, int fleetMoves, int fleetX, bool expectRoute)
+    {
+        var (state, rules, world) = FerryFixture(chase, moves: 1);
+        state = state with { Fleets = ValueList.Of(state.Fleets[0] with { X = fleetX, Moves = fleetMoves }) };
+        var result = Run(state, rules, world);
+        Assert.Single(result.Trace.Moves); // The budget was spent by the offer walk; no second army order.
+        var army = result.Outcome.State.ArmyById("actor")!;
+        Assert.Equal((99, 40, 0), (army.X, army.Y, army.Moves));
+        Assert.Null(army.AboardFleetId);
+        var requests = result.Sink.Events.OfType<OriginalFleetRouteRequested>().ToArray();
+        if (expectRoute)
+        {
+            Assert.Equal(new OriginalFleetRouteRequested("ferry", 101, 40), Assert.Single(requests));
+            Assert.Contains(result.Sink.Events.OfType<OriginalFleetDecision>(), e => e.FleetId == "ferry" && e.Branch == "stored-route");
+            Assert.Equal((101, 40), (result.Outcome.State.FleetById("ferry")!.X, result.Outcome.State.FleetById("ferry")!.Y));
+        }
+        else Assert.Empty(requests);
+        Assert.Equal(0, result.Outcome.CommandsRejected);
+        var replay = Run(state, rules, world);
+        Assert.Equal(result.Outcome.State, replay.Outcome.State);
+        Assert.Equal(requests, replay.Sink.Events.OfType<OriginalFleetRouteRequested>());
+    }
+
+    [Theory]
+    [InlineData(SeatControl.Ai)]
+    [InlineData(SeatControl.Human)]
+    public void Public_zero_move_orders_still_refuse_without_a_route_side_effect(SeatControl control)
+    {
+        var (state, rules, world) = FerryFixture();
+        state = state with { Armies = ValueList.From(state.Armies.Select(a => a with { Moves = 0 })),
+            Nations = ValueList.From(state.Nations.Select(n => n.Id == "north" ? n with { Control = control } : n)) };
+        var sink = new RecordingEventSink();
+        var dispatch = new CommandDispatcher(SystemRegistry.FromEngineAssembly(), rules, world, sink);
+        var result = dispatch.Dispatch(state, new MoveArmyCommand("north", "actor", 120, 90,
+            IC2.Engine.Movement.MoveWalkPolicy.AiContinuation, 120, 90));
+        Assert.Equal(MoveArmyRejections.NoMovesLeft, result.Code);
+        Assert.Same(state, result.State);
+        Assert.Empty(sink.Events.OfType<OriginalFleetRouteRequested>());
+    }
+
+    [Fact]
+    public void The_unmeasured_adjacent_zero_move_embark_keeps_its_existing_guard()
+    {
+        var (state, rules, world) = FerryFixture(moves: 1);
+        var cells = world.Terrain.Decode(world.Width, world.Height).ToArray();
+        cells[41 * 320 + 100] = 0;
+        world = world with { Terrain = new(TerrainEncoding.RunLength, ValueList.From(cells.Select(c => new TerrainRun(c, 1)))) };
+        state = state with { Fleets = ValueList.Of(state.Fleets[0] with { X = 100, Y = 41 }) };
+        var result = Run(state, rules, world);
+        Assert.Empty(result.Sink.Events.OfType<OriginalFleetRouteRequested>());
+        Assert.Null(result.Outcome.State.ArmyById("actor")!.AboardFleetId);
+        Assert.Equal((99, 40, 0), (result.Outcome.State.ArmyById("actor")!.X,
+            result.Outcome.State.ArmyById("actor")!.Y, result.Outcome.State.ArmyById("actor")!.Moves));
+        Assert.Equal(0, result.Outcome.CommandsRejected);
+    }
+
+    [CommandHandler]
+    public sealed class NegativeAfterMove : ICommandHandler<MoveArmyCommand>
+    {
+        public CommandOutcome Handle(MoveArmyCommand command, CommandContext context)
+        {
+            var outcome = new MoveArmyCommandHandler().Handle(command, context);
+            return outcome.AcceptedState is { } state ? CommandOutcome.Accept(state with {
+                Armies = ValueList.From(state.Armies.Select(a => a.Id == command.ArmyId ? a with { Moves = -1 } : a))
+            }) : outcome;
+        }
+    }
+
+    [Fact]
+    public void A_negative_post_run_budget_does_not_gain_the_zero_move_route_path()
+    {
+        var (state, rules, world) = FerryFixture(moves: 1);
+        var result = Run(state, rules, world, registry: MoveRegistry(typeof(NegativeAfterMove)));
+        Assert.Empty(result.Sink.Events.OfType<OriginalFleetRouteRequested>());
+        Assert.Single(result.Trace.Moves);
+        Assert.Equal(-1, result.Outcome.State.ArmyById("actor")!.Moves);
+        Assert.Equal(0, result.Outcome.CommandsRejected);
+    }
+
+    [Fact]
+    public void Improved_does_not_use_the_original_zero_move_rendezvous_planner()
+    {
+        var (state, rules, world) = FerryFixture(moves: 1);
+        rules = rules with { Flags = rules.Flags with { AiEconomy = AiEconomyModel.Designed } };
+        var result = Run(state, rules, world);
+        Assert.Empty(result.Sink.Events.OfType<OriginalFleetRouteRequested>());
+        Assert.Equal(0, result.Outcome.CommandsRejected);
+    }
+
+    [Fact]
+    public void Zero_move_ferry_ties_keep_the_first_eligible_fleet_record()
+    {
+        var (state, rules, world) = FerryFixture(moves: 1);
+        state = state with { Fleets = ValueList.Of(state.Fleets[0] with { Id = "z-first" },
+            state.Fleets[0] with { Id = "a-second", X = 105, Y = 41 }) };
+        var result = Run(state, rules, world);
+        Assert.Equal("z-first", Assert.Single(result.Sink.Events.OfType<OriginalFleetRouteRequested>()).FleetId);
+        Assert.Equal(0, result.Outcome.CommandsRejected);
+    }
+
+    [Fact]
+    public void A_zero_move_land_continuation_does_not_walk()
     {
         var (state, rules, world) = Fixture(true, false, moves: 5);
         var result = Run(state, rules, world);
