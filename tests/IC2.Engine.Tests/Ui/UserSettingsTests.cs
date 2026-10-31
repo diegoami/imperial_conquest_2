@@ -7,6 +7,26 @@ namespace IC2.Engine.Tests.Ui;
 public sealed class UserSettingsTests : IDisposable
 {
     [Fact]
+    public void Experimental_QOL_is_hidden_for_fresh_and_legacy_preferences_without_disabling_saved_choices()
+    {
+        Assert.False(new UserSettings().ShowExperimentalQolSettings);
+        Directory.CreateDirectory(_dir);
+        var path = PathFor("experimental.json");
+        File.WriteAllText(path, """{"Schema":3,"AutoSupplyArmies":true,"AutoRepairFleets":true,"ConfirmMoves":true}""");
+        var legacy = UserSettings.Load(path);
+        Assert.False(legacy.ShowExperimentalQolSettings);
+        Assert.True(legacy.AutoSupplyArmies && legacy.AutoRepairFleets && legacy.ConfirmMoves);
+        Assert.True((legacy with { ShowExperimentalQolSettings = true }).TrySave(path));
+        var shown = UserSettings.Load(path);
+        Assert.True(shown.ShowExperimentalQolSettings);
+        Assert.True((shown with { ShowExperimentalQolSettings = false }).TrySave(path));
+        var hidden = UserSettings.Load(path);
+        Assert.False(hidden.ShowExperimentalQolSettings);
+        Assert.True(hidden.AutoSupplyArmies && hidden.AutoRepairFleets && hidden.ConfirmMoves);
+        Assert.Equal(UserSettings.CurrentSchema, hidden.Schema);
+    }
+
+    [Fact]
     public void Parchment_secondary_text_remains_readable_on_panel_and_raised_backgrounds()
     {
         var colors = ColorSchemes.ById("parchment");
