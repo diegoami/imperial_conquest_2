@@ -25,12 +25,12 @@ move mac-detached 155 29
 move army-8 135 52
 move army-8 135 52
 end
-accept-offer
 move mac-detached 155 26
 end
 besiege-city army-8 phoenice
 split-army army-8 mac-sac-1 0
 end
+accept-offer
 move mac-sac-1 151 31
 end
 move mac-sac-1 151 31
