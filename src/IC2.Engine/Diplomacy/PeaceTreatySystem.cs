@@ -17,13 +17,9 @@ public sealed record AiPeaceTreatyApplied(string WinnerNationId, string LoserNat
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>An event subscriber, not a direct call.</strong> T16 publishes <see cref="PeaceTreatyTriggered"/>
-/// rather than calling into this task, so the two do not depend on each other's internals
-/// (<c>docs/task-catalogue.md</c> T16 and T19 Scope). This system reads
-/// <see cref="SystemContext.PublishedEvents"/> — T40's seam — for every trigger published earlier in the
-/// same run, which is what lets it react regardless of which phase or command eventually publishes one;
-/// nothing in this build wires a command to <see cref="InstantBattleResolver.ResolveField"/> yet, so this
-/// task's own tests fire the trigger directly rather than through a real attack.
+/// T16 publishes <see cref="PeaceTreatyTriggered"/>. Faithful AI–AI field attacks apply it at the
+/// command boundary before the next army and publish an adjacent receipt. This SeatEnd subscriber
+/// handles other triggers and skips those receipts, so the reaction and news are applied once.
 /// </para>
 /// <para>
 /// Registered at <see cref="TurnPhase.SeatEnd"/>, default order (0) — well before

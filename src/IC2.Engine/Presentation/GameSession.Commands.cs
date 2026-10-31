@@ -615,11 +615,9 @@ public sealed partial class GameSession
     }
 
     /// <summary>
-    /// The end of an AI-phase battle (T126). The write-back is made on the state the battle opened on, and
-    /// is <strong>not</strong> committed to <see cref="State"/>: it is kept in the lap, and the AI seat's turn is
-    /// replayed from the pre-turn state with it injected at the attack, which publishes its events (the news line,
-    /// the peace offer) like any command's and runs every consequence a played turn runs (the fall messages, the
-    /// treaty offer, the game-over check). Then the lap goes on.
+    /// Writes an AI-phase battle back on its opened state. Faithful commits the retained partial pass
+    /// and battle result, then starts the same seat again. Other presets store the result for pre-turn
+    /// replay. Both paths publish battle consequences before continuing the lap.
     /// </summary>
     private void FinishAiPhaseBattle(List<string> lines, TacticalBattleSession battle, AiLap lap)
     {

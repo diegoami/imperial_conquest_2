@@ -197,14 +197,15 @@ public static class AiTurn
 
         // One resupply line, the same shape AiResupplyPass reported before T76, now summing the army half
         // done inside the hire pass and the fleet half done here.
-        void LogSupport() {
-        log.Add(Inv(
-            "resupply: {0} army transfers, {1} fleet transfers, {2} tons, {3} talents",
-            mercenary.ArmyTransfers,
-            fleetResupply.FleetTransfers,
-            mercenary.TonsMoved + fleetResupply.TonsMoved,
-            mercenary.TalentsPaid + fleetResupply.TalentsPaid));
-        log.Add(mercenary.Describe());
+        void LogSupport()
+        {
+            log.Add(Inv(
+                "resupply: {0} army transfers, {1} fleet transfers, {2} tons, {3} talents",
+                mercenary.ArmyTransfers,
+                fleetResupply.FleetTransfers,
+                mercenary.TonsMoved + fleetResupply.TonsMoved,
+                mercenary.TalentsPaid + fleetResupply.TalentsPaid));
+            log.Add(mercenary.Describe());
         }
         if (!retainedPass) LogSupport();
         AiView PrepareArmy(AiView current, ArmyState army)

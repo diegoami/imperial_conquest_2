@@ -9,7 +9,8 @@ namespace IC2.Engine.Ai;
 /// <summary>
 /// The AI's automatic mercenary hire, the computer-nation half of
 /// <c>docs/tasks/T76.md</c> Done-when 3: <c>FUN_0044E41C</c> runs for every army of the acting computer
-/// nation at the start of its turn. For each army it loops the cities once and, inside a city within
+/// nation at its support step. Faithful Tactical invokes this for each visited army; the other paths
+/// retain the whole-army prepass. For each army it loops the cities once and, inside a city within
 /// Chebyshev distance <c>&lt; 5</c> (radius 4), first resupplies the army (<c>FUN_0044f6d8</c>) and then
 /// hires <strong>every</strong> live offer on that city, if the nation is at war with someone, the army
 /// holds more than 50 money, it is not at war with the city's owner, and it has a free unit slot
