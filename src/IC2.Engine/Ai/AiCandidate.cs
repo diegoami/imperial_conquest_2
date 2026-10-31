@@ -1,5 +1,6 @@
 using IC2.Engine.Core;
 using IC2.Engine.Model;
+using IC2.Engine.Movement;
 
 namespace IC2.Engine.Ai;
 
@@ -61,6 +62,10 @@ public sealed record AiCandidate(
     string Rationale,
     string? SubjectId = null)
 {
+    // F31C retains its scorer-selected target across E84C's offer walk. This payload is local to
+    // the proposal/dispatch, never a saved travel order or a second greedy proposal.
+    internal GridPoint? OriginalMercenaryContinuation { get; init; }
+
     /// <summary>The label a march candidate carries, and the one <see cref="AiTurn"/> rations per army.</summary>
     public const string ApproachKind = "approach";
 
