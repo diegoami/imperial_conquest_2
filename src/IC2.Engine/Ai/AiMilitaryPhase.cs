@@ -408,12 +408,24 @@ public static class AiMilitaryPhase
             case AiArmyTargetTree.Kind.MercenaryRun:
                 // The run itself (FUN_0044e84c): toward the nearest live offer. The hire happens in the
                 // next turn's start-of-turn pass, once the army is within the hire range. The
-                // continuation is the destination call the report lists after it; the one march a turn
-                // allows an army goes to the run while there is an offer to run to.
+                // continuation is the destination call the report lists after it. Faithful dispatches
+                // it immediately after the run using the retained scorer target; Improved keeps its
+                // existing one-march policy while an offer is available.
                 if (mayMarch && AiArmyTargetTree.MercenaryRunDestination(view, army) is { } offerCity)
                 {
+                    var beforeRun = into.Count;
                     AddMarchCandidate(view, army, offerCity.X, offerCity.Y, AiCandidate.ApproachKind,
                         "mercenary run", view.Ruleset.Ai.ApproachCityBaseScore, progress, into);
+                    if (ClassicalArmyNavigation.Applies(view) && into.Count > beforeRun)
+                    {
+                        GridPoint? continuation = decision.After switch
+                        {
+                            AiArmyTargetTree.Continuation.MarchAtCityTarget when decision.TargetCity is { } c => new(c.X, c.Y),
+                            AiArmyTargetTree.Continuation.ChaseArmy when decision.TargetArmy is { } a => new(a.X, a.Y),
+                            _ => null,
+                        };
+                        into[^1] = into[^1] with { OriginalMercenaryContinuation = continuation };
+                    }
                     break;
                 }
 

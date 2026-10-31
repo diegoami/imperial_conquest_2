@@ -279,6 +279,19 @@ public static class AiTurn
             rejected += execution.Rejected;
             mismatches += execution.Mismatches;
 
+            if (execution.Rejected == 0 && chosen.OriginalMercenaryContinuation is { } continuation
+                && subjectId is { } continuingArmyId)
+            {
+                var beforeContinuation = state;
+                var followup = RunMercenaryContinuation(state, ruleset, world, nationId, continuingArmyId,
+                    continuation, commands, events, log);
+                state = followup.State;
+                if (!AiSubstantiveState.AreEquivalent(beforeContinuation, state)) issued += followup.Issued;
+                rejected += followup.Rejected;
+                mismatches += followup.Mismatches;
+                execution = execution with { State = state, Rejected = execution.Rejected + followup.Rejected };
+            }
+
             // T156 (issue #925) Done-when 3: the original's garrison fallback
             // (FUN_0044ebe8). When the chosen command was accepted but that army's tile is unchanged --
             // compared directly, before and after the command, not through
@@ -382,6 +395,27 @@ public static class AiTurn
     }
 
     private readonly record struct ExecutionResult(GameState State, int Issued, int Rejected, int Mismatches);
+
+    private static ExecutionResult RunMercenaryContinuation(GameState state, Ruleset ruleset, World world,
+        string nationId, string armyId, GridPoint target, ICommandDispatch commands, IEventSink events, List<string> log)
+    {
+        if (state.ArmyById(armyId) is not { } army) return new(state, 0, 0, 0);
+        if (army.Moves <= 0)
+        {
+            log.Add("original mercenary continuation: no positive moves; zero-move routing awaits research #159");
+            return new(state, 0, 0, 0);
+        }
+        var view = new AiView(state, ruleset, world, nationId);
+        if (AiArmyTargetTree.MarchCommand(view, army, target) is not { } command)
+        {
+            log.Add("original mercenary continuation: no supported march");
+            return new(state, 0, 0, 0);
+        }
+        log.Add(Inv("original mercenary continuation {0} toward ({1}, {2})", armyId, target.X, target.Y));
+        return Execute(state, ruleset, commands, events,
+            AiCandidate.Single(AiPhase.Military, AiCandidate.ApproachKind, command, ruleset.Ai.MinimumActionScore,
+                "original E84C continuation", armyId), log);
+    }
 
     /// <summary>
     /// T156 (issue #925) Done-when 3: the original's garrison fallback

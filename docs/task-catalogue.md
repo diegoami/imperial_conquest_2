@@ -80,3 +80,4 @@ Open and recent tasks only. Merged tasks (T01–T191 and others) are in their cl
 - [T251](tasks/T251.md) — Faithful trade swaps run one ordered pass
 - [T252](tasks/T252.md) — Faithful recruitment chooses its order city once
 - [T253](tasks/T253.md) — Faithful armies finish in table order on live state
+- [T254](tasks/T254.md) — Faithful E84C run followed by its original continuation
