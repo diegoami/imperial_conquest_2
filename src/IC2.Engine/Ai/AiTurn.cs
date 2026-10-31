@@ -188,6 +188,8 @@ public static class AiTurn
         var mismatches = 0;
         var hitCap = true;
         var marched = new List<string>();
+        var tradeSwaps = ruleset.Flags.AiEconomy == AiEconomyModel.Original
+            ? new OriginalTradeSwapPass() : null;
 
         // T60 Done-when 1: one siege-gate sample per turn, taken on the first proposal pass only. Later
         // passes see the same standing adjacencies again, so feeding them in too would count situations
@@ -223,7 +225,8 @@ public static class AiTurn
             // already receives above, so AiDiplomacyPhase's own Random(20) alliance roll is drawn from
             // the identical turn-stable stream as AiMilitaryPhase's Random(10) war roll -- see
             // AiDiplomacyPhase.ProposeOwnAlliance's own remarks for why that stability matters.
-            AiDiplomacyPhase.Propose(view, personality, rng, candidates);
+            AiDiplomacyPhase.Propose(view, personality, rng, candidates, includeTradeSwaps: tradeSwaps is null);
+            tradeSwaps?.Propose(view, candidates);
 
             var chosen = Select(candidates, rng, ruleset);
             if (chosen is null)
@@ -247,6 +250,7 @@ public static class AiTurn
             var beforeArmy = subjectId is { } sid ? state.ArmyById(sid) : null;
             var execution = Execute(state, ruleset, commands, events, chosen, log);
             state = execution.State;
+            if (chosen.Kind == "ai-swap-trade-partner") tradeSwaps?.Dispatched(execution.Rejected > 0);
             var changed = !AiSubstantiveState.AreEquivalent(before, state);
             if (changed)
             {

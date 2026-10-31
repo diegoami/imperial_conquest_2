@@ -357,13 +357,24 @@ public static class AiOwnDiplomacyRule
     }
 
     /// <summary>
-    /// The first "swap a poorer partner for a richer one" opportunity (report §1a's closing loop): the
-    /// first of <paramref name="meId"/>'s own current trade partners <c>s</c>, in
-    /// <see cref="GameState.Nations"/> order, for which some AI nation <c>k</c> at peace with
-    /// <paramref name="meId"/> and under <see cref="DiplomacyRules.MaxTradePartners"/> has a higher
-    /// <see cref="NationState.TaxBase"/> than <c>s</c> — first match for <c>k</c>, per <c>s</c>, in the
-    /// same stable order.
+    /// Live legality for one pair in FUN_0044FB7C's closing swap loops. The command handler rechecks
+    /// these gates at dispatch; missing/eliminated records are safely skipped.
     /// </summary>
+    public static bool MaySwapTradePartner(GameState state, Ruleset ruleset, string meId,
+        string partnerId, string candidateId)
+    {
+        var partner = state.NationById(partnerId);
+        var candidate = state.NationById(candidateId);
+        var codes = ruleset.Diplomacy.StateCodes;
+        return partner is { Eliminated: false } && candidate is { Eliminated: false, Control: SeatControl.Ai }
+            && meId != partnerId && meId != candidateId && partnerId != candidateId
+            && state.Relations.Get(meId, partnerId) == codes.Trade
+            && state.Relations.Get(meId, candidateId) == codes.Peace
+            && candidate.TaxBase > partner.TaxBase
+            && TradeCount(state, ruleset, candidateId) < ruleset.Diplomacy.MaxTradePartners;
+    }
+
+    /// <summary>Legacy restarted search used by Improved; Faithful uses its seat-local ordered pass.</summary>
     public static (string PoorerPartner, string RicherCandidate)? FindTradeSwap(
         GameState state, Ruleset ruleset, string meId)
     {
