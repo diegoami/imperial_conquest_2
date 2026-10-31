@@ -350,6 +350,107 @@ public sealed class AiFaithfulEconomyTests
 
     private static string? Choose(GameState s) => AiFaithfulEconomy.ChooseCity(s, Rules(), s.NationById(Me)!)?.Id;
 
+    private sealed class OrderTrace(ICommandDispatch inner) : ICommandDispatch
+    {
+        public List<string> Cities { get; } = [];
+        public CommandResult Dispatch(GameState state, ICommand command) => Dispatch(state, command, NullEventSink.Instance);
+        public CommandResult Dispatch(GameState state, ICommand command, IEventSink events)
+        {
+            if (command is IC2.Engine.Recruitment.Commands.RecruitStandingUnitCommand order) Cities.Add(order.CityId);
+            return inner.Dispatch(state, command, events);
+        }
+    }
+
+    [Fact]
+    public void New_orders_keep_one_city_when_the_live_queue_crosses_the_capital_fraction()
+    {
+        var state = CityState(atCapital: 0);
+        var rules = Rules();
+        var dispatcher = new CommandDispatcher(SystemRegistry.FromEngineAssembly(), rules,
+            BattleCommandTestbed.ToyWorld, NullEventSink.Instance);
+        var trace = new OrderTrace(dispatcher);
+        var rng = new ScriptedRng(Enumerable.Repeat(0, 32).ToArray());
+        var result = AiFaithfulEconomy.PlaceOrders(state, rules, trace, NullEventSink.Instance, rng, Me, [], long.MaxValue);
+        Assert.Equal(0, result.Rejected);
+        Assert.Equal(rules.Ai.FaithfulMaxOrdersPerTurn, result.Issued);
+        Assert.All(trace.Cities, city => Assert.Equal("a-cap", city));
+        Assert.All(result.State.NationById(Me)!.RecruitmentSlots, slot => Assert.Equal("a-cap", slot.TargetCityId));
+        Assert.Equal(2 * result.Issued, rng.Draws);
+        Assert.Equal("fort", Choose(result.State)); // Re-running the helper mid-loop would change the destination.
+        trace.Cities.Clear();
+        var next = AiFaithfulEconomy.PlaceOrders(result.State, rules, trace, NullEventSink.Instance, rng, Me, [], long.MaxValue);
+        Assert.Equal(0, next.Rejected);
+        Assert.NotEmpty(trace.Cities);
+        Assert.All(trace.Cities, city => Assert.Equal("fort", city));
+    }
+
+    [Fact]
+    public void A_full_queue_or_missing_capital_does_not_issue_an_order()
+    {
+        var rules = Rules();
+        var dispatcher = new CommandDispatcher(SystemRegistry.FromEngineAssembly(), rules,
+            BattleCommandTestbed.ToyWorld, NullEventSink.Instance);
+        foreach (var state in new[] { CityState(atCapital: rules.Recruitment.MaxSlots),
+            CityState() with { Cities = ValueList<CityState>.Empty } })
+        {
+            var trace = new OrderTrace(dispatcher);
+            var result = AiFaithfulEconomy.PlaceOrders(state, rules, trace, NullEventSink.Instance,
+                new ScriptedRng(0, 0), Me, [], long.MaxValue);
+            Assert.Empty(trace.Cities);
+            Assert.Equal(0, result.Issued);
+            Assert.Equal(0, result.Rejected);
+            Assert.Same(state, result.State);
+        }
+    }
+
+    [Fact]
+    public void The_live_queue_cap_stops_a_partially_full_queue_after_one_order()
+    {
+        var rules = Rules();
+        var state = CityState(atCapital: rules.Recruitment.MaxSlots - 1);
+        var dispatcher = new CommandDispatcher(SystemRegistry.FromEngineAssembly(), rules,
+            BattleCommandTestbed.ToyWorld, NullEventSink.Instance);
+        var trace = new OrderTrace(dispatcher);
+        var rng = new ScriptedRng(0, 0);
+        var result = AiFaithfulEconomy.PlaceOrders(state, rules, trace, NullEventSink.Instance, rng, Me, [], long.MaxValue);
+        Assert.Equal(new[] { "fort" }, trace.Cities);
+        Assert.Equal(rules.Recruitment.MaxSlots, Slots(result.State));
+        Assert.Equal(1, result.Issued);
+        Assert.Equal(0, result.Rejected);
+        Assert.Equal(2, rng.Draws);
+    }
+
+    [Fact]
+    public void A_cached_city_becoming_foreign_stops_orders_instead_of_resampling_or_using_a_stale_record()
+    {
+        var state = CityState(); // Starts at fort; the capital would be a safe alternative if resampled.
+        var rules = Rules();
+        var registry = SystemRegistry.FromAssemblies([typeof(AiFaithfulEconomyTests).Assembly],
+            type => type == typeof(ChangeOwnerAfterRecruit));
+        var dispatcher = new CommandDispatcher(registry, rules,
+            BattleCommandTestbed.ToyWorld, NullEventSink.Instance);
+        var trace = new OrderTrace(dispatcher);
+        var result = AiFaithfulEconomy.PlaceOrders(state, rules, trace, NullEventSink.Instance,
+            new ScriptedRng(Enumerable.Repeat(0, 16).ToArray()), Me, [], long.MaxValue);
+        Assert.Equal(new[] { "fort" }, trace.Cities);
+        Assert.Equal(1, result.Issued);
+        Assert.Equal(0, result.Rejected);
+    }
+
+    // Adversarial dispatcher fixture: the real recruitment handler runs, then the city changes owner.
+    // This tests the pass's live-state boundary without weakening production command validation.
+    [CommandHandler]
+    public sealed class ChangeOwnerAfterRecruit : ICommandHandler<IC2.Engine.Recruitment.Commands.RecruitStandingUnitCommand>
+    {
+        public CommandOutcome Handle(IC2.Engine.Recruitment.Commands.RecruitStandingUnitCommand command, CommandContext context)
+        {
+            var outcome = new IC2.Engine.Recruitment.Commands.RecruitStandingUnitCommandHandler().Handle(command, context);
+            return outcome.AcceptedState is { } state ? CommandOutcome.Accept(state with {
+                Cities = ValueList.From(state.Cities.Select(c => c.Id == command.CityId ? c with { Owner = Foe } : c))
+            }) : outcome;
+        }
+    }
+
     [Fact]
     public void The_capital_is_the_default()
     {

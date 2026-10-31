@@ -290,8 +290,8 @@ public static class AiFaithfulEconomy
     }
 
     /// <summary>
-    /// §2.2: places new orders while the caps allow, drawing type then amount for each, then choosing the
-    /// city. Stops at the first condition that would make the engine refuse an order.
+    /// §2.2: chooses the order city once, then places orders while the caps allow, drawing type then
+    /// amount for each. Reads the live city/nation before each command; an invalid city stops the pass.
     /// </summary>
     public static (GameState State, int Issued, int Rejected) PlaceOrders(
         GameState state,
@@ -307,6 +307,11 @@ public static class AiFaithfulEconomy
         var issued = 0;
         var rejected = 0;
         long queuedPower = 0;
+        // FUN_004504F4 calls 4502E0 at 450664, outside the 450672–45075A order loop.
+        // Cache identity only: queue changes must not select another town, and command validation
+        // must still see the latest owner, fortification and nation state.
+        var cityId = state.NationById(nationId) is { } initialNation
+            ? ChooseCity(state, ruleset, initialNation)?.Id : null;
         for (var placed = 0; placed < weights.FaithfulMaxOrdersPerTurn && queuedPower < remainingTarget; placed++)
         {
             var nation = state.NationById(nationId);
@@ -330,7 +335,7 @@ public static class AiFaithfulEconomy
             }
 
             var troops = RollTroops(rng, type, ruleset);
-            var city = ChooseCity(state, ruleset, nation);
+            var city = cityId is { } id ? state.CityById(id) : null;
             if (city is null || !string.Equals(city.Owner, nationId, StringComparison.Ordinal)
                 || !RecruitmentEligibility.MayTakeOrder(city, nation, ruleset))
             {
