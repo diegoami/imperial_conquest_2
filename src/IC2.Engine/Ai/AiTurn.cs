@@ -382,10 +382,12 @@ public static class AiTurn
         List<string> marched,
         HashSet<string> boxedInLogged)
     {
+        view = new AiView(state, ruleset, view.World, view.NationId);
         var army = state.ArmyById(armyId)!;
+        var faithful = ClassicalArmyNavigation.Applies(view);
         (int X, int Y)? dest = AiArmyTargetTree.GarrisonFallback(view, army, state);
         string? tierLabel = null;
-        if (dest is null)
+        if (dest is null && !faithful)
         {
             // Hazards' "fallback is reachable too": when no garrison candidate is reachable, try the
             // emergency move (the tile the existing move command can reach this turn).
@@ -409,10 +411,12 @@ public static class AiTurn
             ? Inv("garrison fallback {0} toward ({1}, {2})", armyId, target.X, target.Y)
             : Inv("emergency move {0} toward ({1}, {2}): no garrison destination is reachable", armyId, target.X, target.Y);
 
+        var command = AiArmyTargetTree.MarchCommand(view, army, new(target.X, target.Y));
+        if (command is null) return;
         var candidate = AiCandidate.Single(
             AiPhase.Military,
             AiCandidate.ApproachKind,
-            new Movement.Commands.MoveArmyCommand(view.NationId, armyId, target.X, target.Y),
+            command,
             ruleset.Ai.MinimumActionScore,
             rationale,
             armyId);
