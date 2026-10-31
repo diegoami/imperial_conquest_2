@@ -10,9 +10,11 @@ internal sealed class OriginalArmyOrder(int entryCount)
     private int _sampledThrough = -1;
     private int _offeredSlot;
     private string? _offeredId;
+    private readonly bool[] _supported = new bool[entryCount];
 
-    internal void Propose(AiView view, long progress, IReadOnlyList<string> marched,
-        List<AiCandidate> into, AiSiegeGateTally? siegeGates, ICollection<string>? boxedIn)
+    internal AiView Propose(AiView view, long progress, IReadOnlyList<string> marched,
+        List<AiCandidate> into, AiSiegeGateTally? siegeGates, ICollection<string>? boxedIn,
+        Func<AiView, IC2.Engine.Model.ArmyState, AiView>? prepare = null)
     {
         _offeredId = null;
         var slot = _slot;
@@ -24,6 +26,13 @@ internal sealed class OriginalArmyOrder(int entryCount)
             // Original table sweeps preserve a dead slot during the seat. If a custom command removes
             // the current record instead, advance safely rather than inheriting another army's turn.
             if (slot == _slot && _armyId is not null && _armyId != army.Id) { slot++; continue; }
+            if (prepare is not null && !_supported[slot])
+            {
+                view = prepare(view, army);
+                _supported[slot] = true;
+                army = view.State.ArmyById(army.Id);
+                if (army is null) { slot++; continue; }
+            }
             var candidates = new List<AiCandidate>();
             AiMilitaryPhase.ProposeArmy(view, army, progress, marched, candidates,
                 slot <= _sampledThrough ? null : siegeGates, boxedIn);
@@ -33,10 +42,11 @@ internal sealed class OriginalArmyOrder(int entryCount)
                 into.AddRange(candidates);
                 _offeredSlot = slot;
                 _offeredId = army.Id;
-                return; // This army owns the next military action, independent of later scores.
+                return view; // This army owns the next military action, independent of later scores.
             }
             slot++;
         }
+        return view;
     }
 
     internal void Dispatched(string? armyId)

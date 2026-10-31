@@ -9,7 +9,7 @@ namespace IC2.Engine.Tests.Presentation;
 public sealed class CapitalDefenceTacticalGateTests
 {
     [Fact]
-    public void A_capital_defence_attack_opens_the_humans_battle_and_replays_the_same_AI_turn()
+    public void A_capital_defence_attack_retains_the_partial_pass_then_restarts_the_same_AI_seat()
     {
         var toy = TacticalSessionTestbed.Toy;
         var world = toy.World with
@@ -36,8 +36,9 @@ public sealed class CapitalDefenceTacticalGateTests
         Assert.Null(closed.OpenBattleView);
         Assert.NotNull(closed.EndedBattleReport);
         Assert.Equal("north", session.State.ActiveNationId);
-        var turn = Assert.Single(events.OfType<AiTurnDecided>(), e => e.NationId == "south");
-        Assert.Contains(turn.Lines, line => line.StartsWith("capital defence attack:", StringComparison.Ordinal));
-        Assert.Equal(0, turn.CommandsRejected);
+        var turns = events.OfType<AiTurnDecided>().Where(e => e.NationId == "south").ToArray();
+        Assert.Equal(2, turns.Length);
+        Assert.Contains(turns[0].Lines, line => line.StartsWith("capital defence attack:", StringComparison.Ordinal));
+        Assert.All(turns, turn => Assert.Equal(0, turn.CommandsRejected));
     }
 }

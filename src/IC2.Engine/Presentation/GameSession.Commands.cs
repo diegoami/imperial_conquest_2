@@ -630,6 +630,26 @@ public sealed partial class GameSession
             return;
         }
 
+        if (lap.RetainsPartial)
+        {
+            var before = State;
+            var nationsBefore = State.Nations;
+            State = NewsLogWriter.Append(conclusion.State, conclusion.Events, Ruleset.NewsLog);
+            AccumulateEvents(conclusion.Events);
+            _strategicTimeline.Battle(new AttackArmyCommand(lap.Seat, battle.Battle.AttackerArmyId,
+                battle.Battle.DefenderArmyId), before, State, completed: true, conclusion.Events);
+            _pendingTacticalReport = conclusion.Report;
+            _pendingTacticalTimeline.AddRange(battle.DrainTimeline());
+            _battle = null;
+            _lap = null;
+            lines.AddRange(TacticalBattleSession.ReportLines(conclusion.Report, State));
+            CapturePeaceTreatyOfferIfAny(lines, conclusion.Events);
+            AppendFallMessagesForNewlyLostHumanSeats(lines, nationsBefore);
+            if (!AnnounceAndAdoptWatchModeIfSeatIsLost(lines) && !AnnounceGameOverIfNoHumanSeatRemains(lines))
+                ResumeAiLap(lines, lap);
+            return;
+        }
+
         lap.Done.Add(new AiPhaseBattleResult(lap.AtAttack!, conclusion.State, conclusion.Events));
         _pendingTacticalReport = conclusion.Report;
         _pendingTacticalTimeline.AddRange(battle.DrainTimeline());

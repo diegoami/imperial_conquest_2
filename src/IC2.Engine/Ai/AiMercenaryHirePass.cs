@@ -122,6 +122,13 @@ public static class AiMercenaryHirePass
         Ruleset ruleset,
         string nationId,
         IReadOnlyDictionary<string, int>? moneyAtTurnStart = null)
+        => RunCore(state, ruleset, nationId, moneyAtTurnStart, null);
+
+    internal static Result RunArmy(GameState state, Ruleset ruleset, string nationId, string armyId)
+        => RunCore(state, ruleset, nationId, null, armyId);
+
+    private static Result RunCore(GameState state, Ruleset ruleset, string nationId,
+        IReadOnlyDictionary<string, int>? moneyAtTurnStart, string? onlyArmy)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(ruleset);
@@ -143,6 +150,7 @@ public static class AiMercenaryHirePass
         // live ValueList while replacing entries in it would visit stale copies.
         foreach (var armyId in IdsOfOwnArmies(state, nationId))
         {
+            if (onlyArmy is not null && onlyArmy != armyId) continue;
             if (state.ArmyById(armyId) is not { } army)
             {
                 continue;

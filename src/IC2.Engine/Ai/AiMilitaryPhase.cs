@@ -96,14 +96,14 @@ public static class AiMilitaryPhase
         ICollection<string>? boxedIn = null)
         => ProposeCore(view, personality, rng, armiesAlreadyMarched, into, siegeGates, boxedIn, null);
 
-    internal static void ProposeInOriginalArmyOrder(AiView view, AiPersonalityProfile personality, IRng rng,
+    internal static AiView ProposeInOriginalArmyOrder(AiView view, AiPersonalityProfile personality, IRng rng,
         IReadOnlyList<string> armiesAlreadyMarched, List<AiCandidate> into, AiSiegeGateTally siegeGates,
-        ICollection<string> boxedIn, OriginalArmyOrder armyOrder)
-        => ProposeCore(view, personality, rng, armiesAlreadyMarched, into, siegeGates, boxedIn, armyOrder);
+        ICollection<string> boxedIn, OriginalArmyOrder armyOrder, Func<AiView, ArmyState, AiView>? prepare = null)
+        => ProposeCore(view, personality, rng, armiesAlreadyMarched, into, siegeGates, boxedIn, armyOrder, prepare);
 
-    private static void ProposeCore(AiView view, AiPersonalityProfile personality, IRng rng,
+    private static AiView ProposeCore(AiView view, AiPersonalityProfile personality, IRng rng,
         IReadOnlyList<string> armiesAlreadyMarched, List<AiCandidate> into, AiSiegeGateTally? siegeGates,
-        ICollection<string>? boxedIn, OriginalArmyOrder? armyOrder)
+        ICollection<string>? boxedIn, OriginalArmyOrder? armyOrder, Func<AiView, ArmyState, AiView>? prepare = null)
     {
         ArgumentNullException.ThrowIfNull(view);
         ArgumentNullException.ThrowIfNull(personality);
@@ -118,7 +118,7 @@ public static class AiMilitaryPhase
 
         if (armyOrder is not null)
         {
-            armyOrder.Propose(view, progress, armiesAlreadyMarched, into, siegeGates, boxedIn);
+            view = armyOrder.Propose(view, progress, armiesAlreadyMarched, into, siegeGates, boxedIn, prepare);
         }
         else
         {
@@ -129,7 +129,7 @@ public static class AiMilitaryPhase
         }
 
         // F608 runs once after army requests. Do not also offer the designed sailing/attack candidates.
-        if (ClassicalFleetNavigation.Applies(view)) return;
+        if (ClassicalFleetNavigation.Applies(view)) return view;
         foreach (var fleet in view.OwnFleets())
         {
             if (fleet.IsUnderConstruction || fleet.Moves <= 0)
@@ -143,6 +143,7 @@ public static class AiMilitaryPhase
                 ProposeFleetMarches(view, fleet, into);
             }
         }
+        return view;
     }
 
     internal static void ProposeArmy(AiView view, ArmyState army, long progress,

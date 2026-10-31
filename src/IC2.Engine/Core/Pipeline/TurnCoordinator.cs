@@ -192,6 +192,14 @@ public sealed class TurnCoordinator
 
         current = RunPhases(current, turnSeed, phases, events, signals, trace, published);
 
+        if (_commands is IAiBattleInterruption { ArmyPhaseInterrupted: true })
+        {
+            // Flush only narration. SeatEnd's treaties/advance and the round tick must wait until
+            // the battle ends and the same AI seat has run again on this retained state.
+            current = IC2.Engine.News.NewsLogWriterSeatEnd.Flush(current, _ruleset, published);
+            return new TurnResult(current, ValueList.From(recorder.Events), ValueList.From(trace), false);
+        }
+
         // A direct round tick is itself the round tick, so it reports one without being signalled.
         var roundTickRan = !mayFollowOnToRoundPhases;
         if (mayFollowOnToRoundPhases && signals.RoundTickRequested)
@@ -272,6 +280,7 @@ public sealed class TurnCoordinator
                 }
                 current = produced;
                 trace.Add(new SystemExecution(system.Id, phase));
+                if (_commands is IAiBattleInterruption { ArmyPhaseInterrupted: true }) return current;
             }
         }
 
@@ -282,10 +291,12 @@ public sealed class TurnCoordinator
     /// A dispatcher bound to one run's event sink, so a system's orders publish into that run rather than
     /// into whatever sink the dispatcher was originally constructed with.
     /// </summary>
-    private sealed class BoundCommandDispatch : ICommandDispatch
+    private sealed class BoundCommandDispatch : ICommandDispatch, IAiBattleInterruption
     {
         private readonly ICommandDispatch _inner;
         private readonly IEventSink _events;
+        public bool RetainPartialAiPass => _inner is IAiBattleInterruption { RetainPartialAiPass: true };
+        public bool ArmyPhaseInterrupted => _inner is IAiBattleInterruption { ArmyPhaseInterrupted: true };
 
         public BoundCommandDispatch(ICommandDispatch inner, IEventSink events)
         {

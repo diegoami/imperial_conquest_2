@@ -2146,11 +2146,35 @@ public sealed partial class GameSession
         TurnResult result;
         if (UsesAiPhaseBattleGate())
         {
-            var gate = new AiPhaseBattleGate(_dispatcher, Ruleset, lap, _strategicTimeline);
+            var retain = Ai.ClassicalArmyNavigation.Applies(new Ai.AiView(State, Ruleset, World, seat));
+            var gate = new AiPhaseBattleGate(_dispatcher, Ruleset, lap, _strategicTimeline,
+                retain ? NextTacticalBattleIdentity : null);
             var gated = new TurnCoordinator(_registry, Ruleset, World, NullEventSink.Instance, gate, Scenario) { StrategicObserver = _strategicTimeline };
             try
             {
                 result = gated.RunTurn(State);
+                if (gate.PendingBattle is { } pending)
+                {
+                    // F31C stopped its remaining armies; F608 completed before the coordinator
+                    // returned without SeatEnd/advance. Keep that state, rather than replaying it.
+                    State = result.State;
+                    _strategicTimeline.Battle(gate.PendingAttack!, State, State, completed: false);
+                    _strategicTimeline.EndAttempt(completed: true);
+                    AccumulateEvents(result.Events);
+                    AppendPerSeatLine(lines, seat, result.Events);
+                    CapturePeaceTreatyOfferIfAny(lines, result.Events);
+                    CaptureBattleResultsIfAny(result.Events);
+                    AppendFallMessagesForNewlyLostHumanSeats(lines, nationsBeforeThisSeatsTurn);
+                    lap.RetainsPartial = true;
+                    lap.AtAttack = gate.AtAttack;
+                    lap.Opened = State;
+                    _battle = pending;
+                    _lap = lap;
+                    lines.Add($"{NationDisplay(lap.Seat)} attacks {NationDisplay(State.ArmyById(gate.PendingAttack!.TargetArmyId)!.Nation)}: the battle opens on the board.");
+                    lines.AddRange(_battle.ShowLines());
+                    if (_battle.IsOver) FinishTacticalBattle(lines);
+                    return LapStep.Suspended;
+                }
             }
             catch (AiPhaseBattleSuspended suspended)
             {
@@ -2240,6 +2264,7 @@ public sealed partial class GameSession
 
         /// <summary>The game the open battle was opened on (the attacker's moves spent, the computer side's army changed).</summary>
         public GameState? Opened { get; set; }
+        public bool RetainsPartial { get; set; }
     }
 
     /// <summary>One finished AI-phase battle: the game at its attack, the game after its write-back and the events that raised.</summary>
@@ -2267,20 +2292,28 @@ public sealed partial class GameSession
     /// whose battle has been fought gets that battle's result instead of the instant resolver's. Every other command
     /// goes to the inner dispatcher untouched, so a turn with no such attack is the same turn as without the gate.
     /// </summary>
-    private sealed class AiPhaseBattleGate : ICommandDispatch
+    private sealed class AiPhaseBattleGate : ICommandDispatch, IAiBattleInterruption
     {
         private readonly ICommandDispatch _inner;
         private readonly Ruleset _ruleset;
         private readonly AiLap _lap;
         private readonly StrategicTravelTimeline _strategic;
         private int _met;
+        private readonly Func<string>? _nextIdentity;
+        public bool RetainPartialAiPass => _nextIdentity is not null;
+        public bool ArmyPhaseInterrupted => PendingBattle is not null;
+        public TacticalBattleSession? PendingBattle { get; private set; }
+        public AttackArmyCommand? PendingAttack { get; private set; }
+        public GameState? AtAttack { get; private set; }
 
-        public AiPhaseBattleGate(ICommandDispatch inner, Ruleset ruleset, AiLap lap, StrategicTravelTimeline strategic)
+        public AiPhaseBattleGate(ICommandDispatch inner, Ruleset ruleset, AiLap lap, StrategicTravelTimeline strategic,
+            Func<string>? nextIdentity = null)
         {
             _inner = inner;
             _ruleset = ruleset;
             _lap = lap;
             _strategic = strategic;
+            _nextIdentity = nextIdentity;
         }
 
         public CommandResult Dispatch(GameState state, ICommand command) =>
@@ -2291,6 +2324,16 @@ public sealed partial class GameSession
             if (!OpensABattle(state, command, out var attack))
             {
                 return _inner.Dispatch(state, command, events);
+            }
+
+            if (RetainPartialAiPass)
+            {
+                if (PendingBattle is not null) throw new InvalidOperationException("An AI pass already has a pending field battle.");
+                AtAttack = state;
+                PendingAttack = attack;
+                PendingBattle = TacticalBattleSession.Open(state, attack.AttackerArmyId, attack.TargetArmyId,
+                    _ruleset, out var opened, _nextIdentity!());
+                return CommandResult.Accepted(opened, command.Kind, ValueList<DomainEvent>.Empty);
             }
 
             var index = _met++;
