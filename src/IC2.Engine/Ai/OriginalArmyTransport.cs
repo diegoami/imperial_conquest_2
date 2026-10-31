@@ -12,6 +12,30 @@ public sealed record OriginalArmyTransportAttempted(string ArmyId, string Nation
 /// <summary>T247's DBA8/CD08/D9A8 transport handoff, from the promoted navigation187 specification.</summary>
 internal static class OriginalArmyTransport
 {
+    /// <summary>
+    /// Research #159: an E84C continuation can write a non-adjacent rendezvous at exactly zero army
+    /// moves. This is route planning, not an army order: the army neither walks nor boards here.
+    /// </summary>
+    internal static OriginalFleetRouteRequested? ZeroMoveRendezvous(AiView view, ArmyState army, GridPoint target)
+    {
+        if (army.Moves != 0 || army.IsEmbarked || army.Nation != view.NationId
+            || view.Nation.Control != SeatControl.Ai || !ClassicalArmyNavigation.Applies(view)) return null;
+        var from = new GridPoint(army.X, army.Y);
+        bool InBounds(GridPoint p) => (uint)p.X < (uint)view.World.Width && (uint)p.Y < (uint)view.World.Height;
+        if (!InBounds(from) || !InBounds(target) || !view.IsArmyPassable(target)) return null;
+        // Keep the existing transport classification/line predicate. A same-geography land walk
+        // at zero has no effect; this does not grant the adjacent-embark or carried landing paths.
+        if (from == target || ClassicalArmyNavigation.Classify(from.X, from.Y)
+            == ClassicalArmyNavigation.Classify(target.X, target.Y)
+            || ClassicalArmyNavigation.DirectLine(view, from, target)) return null;
+        var fleet = ClassicalArmyNavigation.NearestUsableFerry(view, army);
+        if (fleet is null || AiView.Distance(army.X, army.Y, fleet.X, fleet.Y) <= 1) return null;
+        var coast = ClassicalFleetNavigation.CoastTransition(view, from, new(fleet.X, fleet.Y));
+        // D9A8 writes the rejected (first sea) point even when no accepted land point exists.
+        return coast is { } transition
+            ? new OriginalFleetRouteRequested(fleet.Id, transition.Rejected.X, transition.Rejected.Y) : null;
+    }
+
     internal static CommandOutcome Carried(ArmyState army, GridPoint target, CommandContext context)
     {
         var state = context.State;

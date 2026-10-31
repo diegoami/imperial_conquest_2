@@ -441,7 +441,7 @@ Thracia (thracia) takes its turn: 2 orders issued.
   Weather: rough-sea-painted (week 11).
   Weather: rough-sea-painted (week 11).
 Rome (rome) takes its turn: 2 orders issued.
-Carthage (carthage) takes its turn: 3 orders issued.
+Carthage (carthage) takes its turn: 2 orders issued.
 Seleucid (seleucid) takes its turn: 15 orders issued.
 Ptolemaic (ptolemaic) takes its turn: 15 orders issued.
 Now: Week 1, Autumn 270 BC. Active seat: Macedonia (macedonia).
@@ -549,7 +549,7 @@ Week 7, Autumn 270 BC (turn 15). Active seat: Macedonia (macedonia).
 
 Nations:
   Rome (rome, ai): treasury 2348, unity 883, tax 5%
-  Carthage (carthage, ai): treasury 12676, unity 689, tax 5%
+  Carthage (carthage, ai): treasury 12460, unity 689, tax 5%
   Seleucid (seleucid, ai): treasury -4094, unity 866, tax 36%
   Ptolemaic (ptolemaic, ai): treasury 1159, unity 631, tax 13%
   Macedonia (macedonia, human): treasury 681, unity 867, tax 15%
@@ -569,7 +569,7 @@ Armies:
   army-13 (Media) @ (308,59): 51200 troops in 12 units, supply 487t (95%), morale 70, moves 8
   army-1 (Rome) @ (103,45): 40780 troops in 10 units, supply 407t (99%), morale 70, moves -1
   mac-detached (Macedonia) @ (158,24): 7900 troops in 1 units, supply 0t (0%), morale 51, moves 9
-  army-3 (Carthage) @ (64,76): 28593 troops in 9 units, supply 285t (99%), morale 70, moves 7
+  army-3 (Carthage) @ (63,72): 28593 troops in 9 units, supply 285t (99%), morale 70, moves 7
   army-4 (Seleucid) @ (214,32): 51377 troops in 14 units, supply 513t (99%), morale 70, moves 0
   army-0 (Seleucid) @ (231,99): 15768 troops in 4 units, supply 150t (95%), morale 65, moves 0
   army-14 (Thracia) @ (169,38): 22000 troops in 6 units, supply 209t (95%), morale 70, moves 9
@@ -642,7 +642,7 @@ Cities:
   cirta "Cirta" @ (79,82), owner Numidia: supply 580t, loyalty 78, fortification 56%
   nicaea "Nicaea" @ (80,34), owner Greece: supply 190t, loyalty 67, fortification 35%
   rufiana "Rufiana" @ (81,2), owner Gaul: supply 100t, loyalty 87, fortification 19%
-  hippo-regius "Hippo Regius" @ (82,79), owner Carthage: supply 588t, loyalty 81, fortification 66%
+  hippo-regius "Hippo Regius" @ (82,79), owner Carthage: supply 498t, loyalty 81, fortification 66%
   theveste "Theveste" @ (83,85), owner Carthage: supply 750t, loyalty 74, fortification 69%
   taurasia "Taurasia" @ (84,27), owner Gaul: supply 210t, loyalty 54, fortification 22%
   capsa "Capsa" @ (85,89), owner Numidia: supply 300t, loyalty 72, fortification 36%
