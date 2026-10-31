@@ -55,6 +55,17 @@ public sealed class FaithfulDestinationPolicyTests
         if (faithful) Assert.Equal(cap.Id, result.City?.Id);
     }
 
+    [Fact]
+    public void Improved_keeps_its_explicit_initial_aim_and_existing_proposal_validation()
+    {
+        var actor = Actor();
+        var view = View(false, actor, [City("cap", 235, 80)], edit: cells => cells[80 * 320 + 235] = 0);
+        var command = AiArmyTargetTree.MarchCommand(view, actor, new(235, 80), new(232, 81));
+        Assert.NotNull(command);
+        Assert.Equal((232, 81), (command.X, command.Y));
+        Assert.Equal(MoveWalkPolicy.Single, command.Walk);
+    }
+
     [Theory]
     [InlineData(true, 9, 232, 80)]
     [InlineData(true, 10, 230, 60)]
@@ -169,6 +180,41 @@ public sealed class FaithfulDestinationPolicyTests
     }
 
     [Fact]
+    public void An_original_no_ferry_no_op_does_not_end_the_other_armys_turn()
+    {
+        var actor = Actor(8) with { X = 100, Y = 40 };
+        var other = actor with { Id = "other", X = 124, Y = 90 };
+        var view = View(true, actor, [City("cap", 120, 90)], [other], edit: cells => {
+            for (var y = actor.Y - 1; y <= actor.Y + 1; y++)
+                for (var x = actor.X - 1; x <= actor.X + 1; x++)
+                    if ((x, y) != (actor.X, actor.Y)) cells[y * 320 + x] = 0;
+        });
+        var game = AiTestbed.Classical;
+        var unavailableFleet = GameStateFactory.CreateInitial(game.World, game.Ruleset, game.Scenario).Fleets[0]
+            with { Nation = "north", Moves = 0, ConstructionTicksRemaining = 1 };
+        view = new(view.State with { Fleets = ValueList.Of(unavailableFleet) }, view.Ruleset, view.World, "north");
+        var events = new RecordingEventSink();
+        var trace = new Trace(new CommandDispatcher(SystemRegistry.FromEngineAssembly(), view.Ruleset, view.World, events));
+        var turn = AiTurn.Run(view.State, view.Ruleset, view.World, trace, new FirstCandidateRng(), events);
+        Assert.Contains(turn.Log, s => s == "original march changed nothing substantive; continue with other armies");
+        Assert.Equal((actor.X, actor.Y), (turn.State.ArmyById(actor.Id)!.X, turn.State.ArmyById(actor.Id)!.Y));
+        Assert.NotEqual((other.X, other.Y), (turn.State.ArmyById(other.Id)!.X, turn.State.ArmyById(other.Id)!.Y));
+        Assert.Equal(0, turn.CommandsRejected);
+        Assert.False(turn.HitActionCap);
+    }
+
+    private sealed class FirstCandidateRng : IRng
+    {
+        public ulong Seed => 1;
+        public ulong State => 1;
+        public ulong NextUInt64() => 0;
+        public int NextInt(int exclusiveUpperBound) => 0;
+        public int NextInt(int inclusiveLowerBound, int exclusiveUpperBound) => inclusiveLowerBound;
+        public bool NextChance(int numerator, int denominator) => false;
+        public IRng ForStream(string streamName) => this;
+    }
+
+    [Fact]
     public void A_blocked_raw_resupply_order_prepares_the_original_first_waypoint()
     {
         var actor = Actor();
@@ -205,6 +251,10 @@ public sealed class FaithfulDestinationPolicyTests
         var end = turn.State.ArmyById(actor.Id)!;
         Assert.Equal((230, 80, 6), (end.X, end.Y, end.Moves));
         Assert.Equal(0, turn.CommandsRejected);
+        var accepted = events.Events.OfType<OriginalArmyMarchDispatched>().ToArray();
+        Assert.Equal(moves.Length, accepted.Length);
+        Assert.All(accepted, e => Assert.Equal((actor.Id, actor.X, actor.Y, 229, 79),
+            (e.ArmyId, e.FromX, e.FromY, e.TargetX, e.TargetY)));
         Assert.DoesNotContain(turn.Log, s => s.Contains("emergency move", StringComparison.Ordinal));
     }
 }

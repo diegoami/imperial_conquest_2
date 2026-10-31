@@ -1,9 +1,16 @@
 using IC2.Engine.Battle.Commands;
 using IC2.Engine.Core;
 using IC2.Engine.Model;
+using IC2.Engine.Movement;
+using IC2.Engine.Movement.Commands;
 using static IC2.Engine.Ai.AiFormat;
 
 namespace IC2.Engine.Ai;
+
+/// <summary>Instrumentation of an accepted original march, including swing/stay-put results.</summary>
+[DomainEvent("ai.original-march-dispatched")]
+public sealed record OriginalArmyMarchDispatched(string ArmyId, string NationId, int FromX, int FromY,
+    int AimX, int AimY, int TargetX, int TargetY) : DomainEvent;
 
 /// <summary>Everything one AI seat's turn did, for the caller and for the per-seed log.</summary>
 /// <param name="State">The state after the turn.</param>
@@ -291,6 +298,15 @@ public static class AiTurn
 
             if (AiSubstantiveState.AreEquivalent(before, state))
             {
+                // Original swing/stay-put is a valid march result. This army is already in marched,
+                // so it cannot repeat that march; continue with the other armies instead of letting
+                // the designed no-op guard end their seat as well. Other no-op policies are unchanged.
+                if (ClassicalArmyNavigation.Applies(view) && chosen.IsMarch && beforeArmy is not null
+                    && execution.Rejected == 0)
+                {
+                    log.Add("original march changed nothing substantive; continue with other armies");
+                    continue;
+                }
                 // The command (and any fallback after it) was accepted and changed nothing the game can
                 // act on -- a blocked march, for instance. Re-proposing it would produce the same
                 // non-event, so the turn stops here rather than burning the action cap on it.
@@ -485,6 +501,10 @@ public static class AiTurn
                 break;
             }
 
+            if (command is MoveArmyCommand { Walk: MoveWalkPolicy.AiContinuation } march
+                && state.ArmyById(march.ArmyId) is { } before)
+                events.Publish(new OriginalArmyMarchDispatched(march.ArmyId, march.IssuingNationId,
+                    before.X, before.Y, march.X, march.Y, march.TargetX ?? march.X, march.TargetY ?? march.Y));
             state = result.State;
             log.Add(Inv("  issued {0}", command.Kind));
         }

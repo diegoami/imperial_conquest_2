@@ -980,11 +980,16 @@ public static class AiArmyTargetTree
     {
         ArgumentNullException.ThrowIfNull(view);
         ArgumentNullException.ThrowIfNull(army);
+        if (!ClassicalArmyNavigation.Applies(view))
+        {
+            var legacyAim = initialAim ?? target;
+            return new(view.NationId, army.Id, legacyAim.X, legacyAim.Y);
+        }
         bool Valid(GridPoint point) => (uint)point.X < (uint)view.World.Width
             && (uint)point.Y < (uint)view.World.Height && view.IsArmyPassable(point);
-        if (!Valid(target)) return null;
-        if (!ClassicalArmyNavigation.Applies(view))
-            return new(view.NationId, army.Id, target.X, target.Y);
+        // The final target may be a carried enemy on sea; the command's first aim is the land tile
+        // validated by MoveArmyCommandHandler before its ferry handoff. Do not reject that raw goal.
+        if ((uint)target.X >= (uint)view.World.Width || (uint)target.Y >= (uint)view.World.Height) return null;
         var aim = initialAim ?? target;
         var origin = new GridPoint(army.X, army.Y);
         if (initialAim is null && !army.IsEmbarked && origin != target
