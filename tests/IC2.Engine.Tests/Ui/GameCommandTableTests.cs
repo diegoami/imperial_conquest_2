@@ -88,6 +88,7 @@ public sealed class GameCommandTableTests
         ("Unit map", "Fleet", "Repair fleet"),
         ("Unit map", "Fleet", "Transfer ships"),
         ("Unit map", "Fleet", "Split fleet"),
+        ("Unit map", "Fleet", "Split in two"), // Owner's fleet convenience, T262.
         ("Unit map", "Fleet", "Join fleets"),
         ("Unit map", "Fleet", "Scuttle fleet"),
         ("Unit map", "City", "Fortify city"),

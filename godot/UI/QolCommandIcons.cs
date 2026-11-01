@@ -9,7 +9,7 @@ public static class QolCommandIcons
 
     public static Texture2D? ForCommand(string command) => command switch
     {
-        "unit_map.army_split_two" => Icon("split"),
+        "unit_map.army_split_two" or "unit_map.fleet_split_two" => Icon("split"),
         "unit_map.army_set_target" => Icon("travel"),
         _ => null,
     };

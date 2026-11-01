@@ -246,6 +246,7 @@ public sealed class GameCommandTable
             new GameCommandRow("unit_map.fleet_repair", "Unit map", "Fleet", "Repair fleet", "ui.command.fleet_repair.icon", null, Wired: true),
             new GameCommandRow("unit_map.fleet_transfer_ships", "Unit map", "Fleet", "Transfer ships", "ui.command.fleet_transfer_ships.icon", null, Wired: true),
             new GameCommandRow("unit_map.fleet_split", "Unit map", "Fleet", "Split fleet", "ui.command.fleet_split.icon", null, Wired: true),
+            new GameCommandRow("unit_map.fleet_split_two", "Unit map", "Fleet", "Split in two", null, null, Wired: true),
             new GameCommandRow("unit_map.fleet_join", "Unit map", "Fleet", "Join fleets", "ui.command.fleet_join.icon", null, Wired: true),
             new GameCommandRow("unit_map.fleet_scuttle", "Unit map", "Fleet", "Scuttle fleet", "ui.command.fleet_scuttle.icon", null, Wired: true),
             new GameCommandRow("unit_map.city_fortify", "Unit map", "City", "Fortify city", "ui.command.city_fortify.icon", null, Wired: true),
