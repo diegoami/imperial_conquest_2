@@ -5,6 +5,7 @@ No originals, network, randomness or billed generation. Reuses T182's integer
 rasterizer, horse motif, three-size tint frame and BMP writer. Writes eight
 optional visual keys per pack, preserving all existing assets/manifest entries.
 --verify writes nothing. --board emits an ignored PNG contact sheet for inspection.
+--pack-dir targets one existing pack, including isolated placeholder regeneration.
 """
 import argparse
 import importlib.util
@@ -76,6 +77,7 @@ def entries():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--verify", action="store_true")
+    parser.add_argument("--pack-dir", type=Path, help="Generate or verify only this existing pack directory.")
     parser.add_argument("--board", type=Path)
     args = parser.parse_args()
     items = list(entries())
@@ -100,8 +102,8 @@ def main():
                               + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
         print("Board: light/heavy rows; strategic, small, medium, large columns; 3x and native views.")
     failures = []
-    for pack in ("authored", "placeholder"):
-        directory = ROOT / "assets/packs" / pack
+    directories = [args.pack_dir] if args.pack_dir else [ROOT / "assets/packs" / pack for pack in ("authored", "placeholder")]
+    for directory in directories:
         manifest_path = directory / "manifest.json"
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         for key, relative, glyph in items:
@@ -109,7 +111,7 @@ def main():
             data = native.bmp_bytes(glyph)
             if args.verify:
                 if manifest["assets"].get(key) != relative or not path.exists() or path.read_bytes() != data:
-                    failures.append(f"{pack}: {key}")
+                    failures.append(f"{directory.name}: {key}")
             else:
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(data)
@@ -119,7 +121,7 @@ def main():
     if failures:
         print("MISMATCH: " + ", ".join(failures))
         return 1
-    print("Verified" if args.verify else "Generated", "16 optional period-unit BMPs; existing glyphs preserved.")
+    print("Verified" if args.verify else "Generated", f"{len(items) * len(directories)} optional period-unit BMPs; existing glyphs preserved.")
     return 0
 
 
