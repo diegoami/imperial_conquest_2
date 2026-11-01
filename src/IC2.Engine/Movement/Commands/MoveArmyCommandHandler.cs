@@ -1,4 +1,5 @@
 using IC2.Engine.Core;
+using IC2.Engine.Economy;
 using IC2.Engine.Model;
 
 namespace IC2.Engine.Movement.Commands;
@@ -141,10 +142,24 @@ public sealed class MoveArmyCommandHandler : ICommandHandler<MoveArmyCommand>
         }
 
         var from = new GridPoint(army.X, army.Y);
+        void EnteredCell(GridPoint point, int remaining)
+        {
+            if (context.IssuingNation.Control != SeatControl.Human
+                || context.HumanSupport is not { } support || (!support.SupplyArmies && !support.FundArmies)) return;
+            var current = state.ArmyById(command.ArmyId)! with
+            {
+                X = point.X, Y = point.Y, Moves = remaining,
+                CoveredTileCode = terrainCells[point.Y * world.Width + point.X],
+            };
+            state = state with { Armies = ValueList.From(state.Armies.Select(a => a.Id == current.Id ? current : a)) };
+            state = HumanMovementSupport.Army(state, context, current.Id);
+            army = state.ArmyById(current.Id)!;
+        }
         // #1012: the ruleset's step policy, and the map size for the original step helper's bounds guard.
         MovementWalkResult WalkTo(GridPoint origin, GridPoint to, int moves) => MovementWalker.Walk(
             origin, to, moves, context.Ruleset.Terrain, TileTypeIdAt, IsBlocked, context.Events,
-            step: context.Ruleset.Flags.StrategicStep, worldSize: new GridPoint(world.Width, world.Height));
+            step: context.Ruleset.Flags.StrategicStep, worldSize: new GridPoint(world.Width, world.Height),
+            onEnteredCell: EnteredCell);
 
         MovementWalkResult WalkFrom(GridPoint origin, int moves) => WalkTo(origin, destination, moves);
 

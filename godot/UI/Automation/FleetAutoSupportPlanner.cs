@@ -49,6 +49,16 @@ public static class FleetAutoSupportPlanner
             "repair", room, city.Id);
     }
 
+    public static FleetAutoSupportProposal? Fund(GameState state, FleetState fleet, Ruleset ruleset,
+        UserSettings settings)
+    {
+        if (!settings.AutoFundFleets || fleet.IsUnderConstruction) return null;
+        var target = HumanAutoSupport.FleetPurseTarget(fleet, ruleset);
+        var amount = (int)Math.Min(ruleset.Economy.PurseCapPerUnit, Math.Max(0L, (long)target - fleet.Money));
+        return amount == 0 ? null : new(fleet.Id,
+            $"transfer-money {fleet.Id} {amount.ToString(CultureInfo.InvariantCulture)}", "money", amount);
+    }
+
     private static bool OwnTownNearby(CityState city, FleetState fleet, Ruleset ruleset) =>
         string.Equals(city.Owner, fleet.Nation, StringComparison.Ordinal)
         && LandingTile.ChebyshevDistance(new GridPoint(city.X, city.Y),

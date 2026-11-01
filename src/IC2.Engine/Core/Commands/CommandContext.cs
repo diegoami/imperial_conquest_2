@@ -1,4 +1,5 @@
 using IC2.Engine.Model;
+using IC2.Engine.Economy;
 
 namespace IC2.Engine.Core;
 
@@ -44,6 +45,9 @@ public sealed class CommandContext
     /// different command kinds issued against the same state draw independently.
     /// </summary>
     public IRng Rng { get; }
+
+    /// <summary>Opt-in runtime human automation; absent for existing dispatcher callers.</summary>
+    public HumanSupportOptions? HumanSupport { get; internal init; }
 
     /// <summary>
     /// Where the handler publishes domain events.

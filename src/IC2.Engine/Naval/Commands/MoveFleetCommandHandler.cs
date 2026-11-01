@@ -1,4 +1,5 @@
 using IC2.Engine.Core;
+using IC2.Engine.Economy;
 using IC2.Engine.Model;
 using IC2.Engine.Movement;
 
@@ -121,9 +122,29 @@ public sealed class MoveFleetCommandHandler : ICommandHandler<MoveFleetCommand>
         var weather = context.Ruleset.Economy.Weather;
         int? RoughSeaPrice(GridPoint point) => state.IsRoughSea(point.X, point.Y) ? weather.RoughSeaMoveCost : null;
 
+        void EnteredCell(GridPoint point, int remaining)
+        {
+            if (context.IssuingNation.Control != SeatControl.Human || context.HumanSupport is not { Enabled: true }) return;
+            var current = state.FleetById(command.FleetId)! with
+            {
+                X = point.X, Y = point.Y, Moves = remaining,
+                CoveredTileCode = state.IsRoughSea(point.X, point.Y) ? weather.RoughSeaTileCode
+                    : terrainCells[point.Y * world.Width + point.X],
+            };
+            state = state with
+            {
+                Fleets = ValueList.From(state.Fleets.Select(f => f.Id == current.Id ? current : f)),
+                Armies = current.CarriedArmyId is { } cargo
+                    ? ValueList.From(state.Armies.Select(a => a.Id == cargo ? a with { X = point.X, Y = point.Y } : a))
+                    : state.Armies,
+            };
+            state = HumanMovementSupport.Fleet(state, context, current.Id);
+            fleet = state.FleetById(current.Id)!;
+        }
+
         MovementWalkResult WalkFrom(GridPoint origin, int moves) => MovementWalker.Walk(
             origin, destination, moves, context.Ruleset.Terrain, TileTypeIdAt, IsBlocked, context.Events,
-            RoughSeaPrice, context.Ruleset.Flags.StrategicStep, new GridPoint(world.Width, world.Height));
+            RoughSeaPrice, context.Ruleset.Flags.StrategicStep, new GridPoint(world.Width, world.Height), EnteredCell);
 
         // T214: the original clears an AI fleet's remaining moves after an unaffordable step,
         // while a human fleet retains them. Reuse the army command's loaded seat-asymmetry rule;

@@ -92,7 +92,8 @@ public static class AutomaticResupply
     /// <param name="cityNation">The city's own nation; its <see cref="NationState.Id"/> must equal <paramref name="city"/>'s <see cref="CityState.Owner"/>.</param>
     /// <param name="ruleset">Supplies every constant and the <see cref="RulesetFlags.EconomyPurses"/> flag — never a C# literal.</param>
     /// <exception cref="ArgumentException"><paramref name="armyNation"/> or <paramref name="cityNation"/> is not the expected owner.</exception>
-    public static ArmyResult ForArmy(ArmyState army, CityState city, NationState armyNation, NationState cityNation, Ruleset ruleset)
+    public static ArmyResult ForArmy(ArmyState army, CityState city, NationState armyNation, NationState cityNation,
+        Ruleset ruleset, bool resupply = true, bool fundPurse = true)
     {
         ArgumentNullException.ThrowIfNull(army);
         ArgumentNullException.ThrowIfNull(city);
@@ -117,7 +118,7 @@ public static class AutomaticResupply
         var isOwnCity = string.Equals(city.Owner, army.Nation, StringComparison.Ordinal);
         var capacity = SupplyCapacity.ArmyCapacityTons(army.TotalTroops, ruleset); // general cap, no dialog bonus.
         var room = capacity - army.SupplyTons; // not floored at 0.
-        var tons = Math.Min(room, city.SupplyTons);
+        var tons = resupply ? Math.Min(room, city.SupplyTons) : 0;
 
         var updatedArmyNation = armyNation;
         var updatedCityNation = cityNation;
@@ -129,7 +130,7 @@ public static class AutomaticResupply
             updatedArmy = army with { SupplyTons = army.SupplyTons + tons };
             updatedCity = city with { SupplyTons = city.SupplyTons - tons };
 
-            if (ruleset.Flags.EconomyPurses == EconomyPurseModel.PerUnitPurses)
+            if (fundPurse && ruleset.Flags.EconomyPurses == EconomyPurseModel.PerUnitPurses)
             {
                 (updatedArmy, updatedArmyNation) = ApplyPurseHygiene(updatedArmy.Money, updatedArmy, updatedArmyNation, ruleset,
                     (a, money) => a with { Money = money });

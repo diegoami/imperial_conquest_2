@@ -117,6 +117,11 @@ public partial class SettingsCheck : Control
             fleetRepair.EmitSignal(BaseButton.SignalName.Toggled, true);
             Check(SettingsScreen.Current.AutoRepairFleets && UserSettings.Load(_file).AutoRepairFleets,
                 "the fleet repair switch commits to the global settings file");
+            var fleetFunding = settings.FindChildren("*", "CheckBox", true, false).OfType<CheckBox>()
+                .Single(box => box.Text == "Auto fund fleet purses");
+            fleetFunding.EmitSignal(BaseButton.SignalName.Toggled, true);
+            Check(SettingsScreen.Current.AutoFundFleets && UserSettings.Load(_file).AutoFundFleets,
+                "the quarterly fleet funding switch persists as an opt-in preference");
             var mobilize = settings.FindChildren("*", "CheckBox", true, false).OfType<CheckBox>()
                 .Single(box => box.Text == "Auto mobilize Average or better");
             mobilize.EmitSignal(BaseButton.SignalName.Toggled, true);
@@ -126,13 +131,16 @@ public partial class SettingsCheck : Control
                 .Any(box => box.Text.Contains("Auto recruit", StringComparison.OrdinalIgnoreCase)),
                 "Settings has no obsolete auto-recruit switch");
             settings.Tabs.CurrentTab = 0;
+            var beforeVisibility = _game.Session.State;
             experimental.ButtonPressed = false;
             experimental.EmitSignal(BaseButton.SignalName.Toggled, false);
             Check(settings.Tabs.IsTabHidden(1) && SettingsScreen.Current.AutoSupplyArmies
-                  && SettingsScreen.Current.AutoRepairFleets && SettingsScreen.Current.AutoMobilizeReady,
+                  && SettingsScreen.Current.AutoFundFleets && SettingsScreen.Current.AutoRepairFleets && SettingsScreen.Current.AutoMobilizeReady,
                 "hiding QOL preserves active saved choices");
             Check(!UserSettings.Load(_file).ShowExperimentalQolSettings && UserSettings.Load(_file).AutoSupplyArmies,
                 "hidden visibility persists independently of automation choices");
+            Check(ReferenceEquals(beforeVisibility, _game.Session.State),
+                "hiding experimental settings alone performs no support or campaign mutation");
             SettingsScreen.Commit(SettingsScreen.Current with { AutoSupplyArmies = false });
             SettingsScreen.Commit(SettingsScreen.Current with { AutoRepairFleets = false });
             SettingsScreen.Commit(SettingsScreen.Current with { AutoMobilizeReady = false });

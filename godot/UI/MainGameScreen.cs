@@ -543,6 +543,8 @@ public partial class MainGameScreen : Control
         StrategicTravel.BoundaryCompleted += OnStrategicBoundaryCompleted;
         _mapView.Attach(Session, RepositoryRoot);
         _areaMapView.Attach(Session, _mapView);
+        SettingsScreen.Committed += RefreshHumanSupportSettings;
+        RefreshHumanSupportSettings();
 
         var activeNation = Session.State.NationById(Session.State.ActiveNationId);
         _lastKnownActiveNationId = Session.State.ActiveNationId;
@@ -2095,6 +2097,23 @@ public partial class MainGameScreen : Control
         ShowOverlay(settings);
     }
 
+    private void RefreshHumanSupportSettings()
+    {
+        var settings = SettingsScreen.Current.Normalized();
+        var before = Session.State;
+        var result = Session.ConfigureHumanSupport(new Engine.Economy.HumanSupportOptions(
+            settings.AutoSupplyArmies, settings.AutoFundArmies, settings.AutoSupplyFleets, settings.AutoFundFleets));
+        if (!ReferenceEquals(before, Session.State))
+        {
+            _mapView.Refresh();
+            _areaMapView.Refresh();
+            _contextPanel.Refresh();
+            RefreshTopBar();
+        }
+        if (result.Failures.Count > 0)
+            _orderNotice.ShowMessage(string.Join('\n', result.Failures.Select(f => f.Rejection.Message)));
+    }
+
     private void ShowAbout()
     {
         var about = new AboutDialog();
@@ -2469,7 +2488,7 @@ public partial class MainGameScreen : Control
     private string? RunFleetAutoSupport()
     {
         var settings = SettingsScreen.Current.Normalized();
-        if (!settings.AutoSupplyFleets && !settings.AutoRepairFleets) return null;
+        if (!settings.AutoSupplyFleets && !settings.AutoFundFleets && !settings.AutoRepairFleets) return null;
         var nationId = Session.State.ActiveNationId;
         if (Session.State.NationById(nationId)?.Control != SeatControl.Human) return null;
 
@@ -2511,6 +2530,14 @@ public partial class MainGameScreen : Control
                 }
             }
 
+            if (Session.State.FleetById(fleetId) is { } fundingFleet
+                && FleetAutoSupportPlanner.Fund(Session.State, fundingFleet, Session.Ruleset, settings) is { } funding)
+            {
+                var before = fundingFleet.Money;
+                var response = SubmitForCheck(funding.CommandLine);
+                if ((Session.State.FleetById(fleetId)?.Money ?? before) <= before)
+                    skipped.Add($"{fleetId}: {AutoRefusalText(response, "funding unavailable under current money-transfer rules")}");
+            }
             if (settings.AutoRepairFleets && Session.State.FleetById(fleetId) is { } repairFleet)
             {
                 var proposal = FleetAutoSupportPlanner.Repair(Session.State, repairFleet, Session.Ruleset, settings);
@@ -3106,6 +3133,7 @@ public partial class MainGameScreen : Control
         // godot/Audio. Unsubscribing here keeps a screen swap from leaving a stale handler on
         // Session.EventsPublished.
         Session.EventsPublished -= OnSessionEventsPublished;
+        SettingsScreen.Committed -= RefreshHumanSupportSettings;
     }
 
     private void ToggleSidePanel()

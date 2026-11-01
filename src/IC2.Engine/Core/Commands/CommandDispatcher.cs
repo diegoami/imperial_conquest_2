@@ -86,6 +86,11 @@ public sealed class UnavailableCommandDispatch : ICommandDispatch
 /// </remarks>
 public sealed class CommandDispatcher : ICommandDispatch
 {
+    /// <summary>Runtime human support configuration; not part of campaign serialization.</summary>
+    public IC2.Engine.Economy.HumanSupportOptions? HumanSupport { get; set; }
+
+    /// <summary>Optional per-command policy for campaign-saved per-unit recovery modes.</summary>
+    public Func<ICommand, IC2.Engine.Economy.HumanSupportOptions?>? HumanSupportForCommand { get; set; }
     private readonly SystemRegistry _registry;
     private readonly Ruleset _ruleset;
     private readonly World _world;
@@ -179,7 +184,8 @@ public sealed class CommandDispatcher : ICommandDispatch
             _world,
             command,
             SplitMix64Rng.ForStream(state.RandomSeed, StreamNameFor(kind)),
-            buffer) { StrategicRoutes = StrategicObserver is null ? null : new() };
+            buffer) { StrategicRoutes = StrategicObserver is null ? null : new(),
+                HumanSupport = HumanSupportForCommand is { } resolve ? resolve(command) : HumanSupport };
 
         var outcome = registration.Instance.Handle(command, context);
 

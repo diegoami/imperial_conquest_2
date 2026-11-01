@@ -103,6 +103,7 @@ public sealed class UserSettingsTests : IDisposable
         Assert.False(settings.AutoSupplyArmies);
         Assert.False(settings.AutoFundArmies);
         Assert.False(settings.AutoSupplyFleets);
+        Assert.False(settings.AutoFundFleets);
         Assert.False(settings.AutoRepairFleets);
         Assert.False(settings.AutoMobilizeReady);
         Assert.False(settings.AutoRecruitEnabled);
@@ -124,7 +125,7 @@ public sealed class UserSettingsTests : IDisposable
             Font = "garamond", TextScalePercent = 125, Fullscreen = true, ShowOtherBattleReports = false, ConfirmMoves = true,
             MapStyle = "painted", AutoSupplyArmies = true, AutoFundArmies = true,
             AutoSupplyTargetPercent = 75, AutoPurseTargetTalents = 800, AutoTreasuryReserveTalents = 2_500,
-            AutoSupplyFleets = true, AutoRepairFleets = true,
+            AutoSupplyFleets = true, AutoFundFleets = true, AutoRepairFleets = true,
             AutoFleetSupplyTargetPercent = 65, AutoFleetRepairTargetPercent = 85,
             AutoMobilizeReady = true,
         }.WithBattleSpeed(BattleSpeeds.All.Single(s => s.Id == "fast"));
