@@ -181,6 +181,7 @@ def rules_for(year):
     rules["victory"]["hardEndYearBc"] = year - 20
     rules["calendar"].setdefault("_provenance", {})["startYearBc"] = f"designed: owner-selected historical opening around {year} BC."
     rules["victory"].setdefault("_provenance", {})["hardEndYearBc"] = "designed: a twenty-year campaign, the Mediterranean campaign's existing horizon."
+    rules["mapMarkers"].setdefault("_provenance", {})["cityPopulationTierThresholds"] = "designed: reuse Italy's [6,10,18] smaller-town marker scale for authored city/region populations; not a historical census."
     names = {
         "light_infantry": ("Spearmen", "Sp", "Spearmen", None),
         "heavy_infantry": ("Guard infantry", "Gu", "Guards", None),

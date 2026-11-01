@@ -1232,7 +1232,7 @@
     "_provenance": {
       "armyTroopTierThresholds": "confirmed: decompiled-unit-map-orders-and-record-fields.md part 3 — FUN_0044A80C picks the army marker band from troops / 1000 being under 25, under 50, or at least 50, i.e. three size classes split at 25,000 and 50,000 troops. T04 fixtures corpus id: 'movement.blockingMarkerRange.army'.",
       "fleetShipTierThresholds": "confirmed: decompiled-unit-map-orders-and-record-fields.md part 3 — FUN_0044A878 splits fleets at 25 and 50 ships. T04 fixtures corpus id: 'movement.blockingMarkerRange.fleet'.",
-      "cityPopulationTierThresholds": "designed (#1309): the town tiers on this campaign's own scale (3-30 thousand people), so its towns spread over all four markers; the classical thresholds [25, 50, 100] would put 229 of its 231 towns in the smallest."
+      "cityPopulationTierThresholds": "designed: reuse Italy's [6,10,18] smaller-town marker scale for authored city/region populations; not a historical census."
     }
   },
   "victory": {

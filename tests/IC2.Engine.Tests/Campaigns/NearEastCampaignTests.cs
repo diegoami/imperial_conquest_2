@@ -80,6 +80,7 @@ public sealed class NearEastCampaignTests(ITestOutputHelper output)
             UnitTypes = baseline.UnitTypes,
             Calendar = r.Calendar with { StartYearBc = baseline.Calendar.StartYearBc, Provenance = baseline.Calendar.Provenance },
             Victory = r.Victory with { HardEndYearBc = baseline.Victory.HardEndYearBc, Provenance = baseline.Victory.Provenance },
+            MapMarkers = r.MapMarkers with { Provenance = baseline.MapMarkers.Provenance },
         });
     }
 
