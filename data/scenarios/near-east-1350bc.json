@@ -1,0 +1,169 @@
+{
+  "schemaVersion": 1,
+  "id": "near-east-1350bc",
+  "name": "Near East, c1350 BC",
+  "worldId": "near-east-1350bc",
+  "rulesetId": "near-east-1350bc",
+  "seats": [
+    {
+      "nation": "egypt",
+      "control": "human",
+      "personality": null
+    },
+    {
+      "nation": "hatti",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "mitanni",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "babylonia",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "assyria",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "arzawa",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "alashiya",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "mycenaeans",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "elam",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "syrian_cities",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "canaan",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "highlands",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "barbarians",
+      "control": "ai",
+      "personality": null
+    }
+  ],
+  "victory": {
+    "type": "totalConquest",
+    "goal": null
+  },
+  "turnLimit": null,
+  "blindHotseat": false,
+  "randomSeed": 1350,
+  "listed": true,
+  "barbarians": {
+    "nationId": "barbarians",
+    "arrivalUnits": [
+      {
+        "mercenaryLabel": 0,
+        "unitTypeId": "light_infantry",
+        "troops": 6000,
+        "quality": 6,
+        "name": "Frontier infantry"
+      },
+      {
+        "mercenaryLabel": 0,
+        "unitTypeId": "light_infantry",
+        "troops": 6000,
+        "quality": 6,
+        "name": "Frontier infantry"
+      },
+      {
+        "mercenaryLabel": 0,
+        "unitTypeId": "archers",
+        "troops": 3000,
+        "quality": 6,
+        "name": "Frontier archers"
+      },
+      {
+        "mercenaryLabel": 0,
+        "unitTypeId": "archers",
+        "troops": 3000,
+        "quality": 6,
+        "name": "Frontier archers"
+      }
+    ],
+    "fleetShips": 40,
+    "armyMorale": 70,
+    "chancePercent": 25,
+    "armyCap": 4,
+    "fleetCap": 4
+  },
+  "_provenance": {
+    "_group": "designed: owner-selected historical opening with explicit grouped-polity and regional-centre abstractions; all numerical setup is gameplay balance.",
+    "victory": "designed: existing total conquest and twenty-year horizon.",
+    "barbarians": "designed: approved shared boundary-arrival policy and provisional Italy force, with generic frontier labels."
+  }
+}

@@ -12,6 +12,7 @@ Open and recent tasks only. Merged tasks (T01–T191 and others) are in their cl
 - [T267](tasks/T267.md) — Own-turn tactical Undo
 - [T269](tasks/T269.md) — Historical Near East campaign source and mechanics brief
 - [T270](tasks/T270.md) — Barbarian arrivals, restricted military play and Italy activation
+- [T273](tasks/T273.md) — Historical Near East campaigns c1350 BC and c750 BC
 - [T181](tasks/T181.md) —  Explain tactical routing and the actual aftermath
 - [T182](tasks/T182.md) —  Recognizable three-size battle, army and fleet glyphs
 - [T271](tasks/T271.md) — Period unit presentation using existing archetypes

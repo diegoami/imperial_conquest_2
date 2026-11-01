@@ -1,0 +1,140 @@
+id,pleiades,caption1350,owner1350,caption750,owner750,population,regional
+thebes_egypt,786017,Thebes,egypt,Thebes,egypt,24,false
+memphis,736963,Memphis,egypt,Memphis,egypt,28,false
+heliopolis,727117,Iunu,egypt,Heliopolis,egypt,12,false
+buto,727094,Buto,egypt,Buto,egypt,8,false
+athribis,727078,Athribis,egypt,Athribis,egypt,7,false
+abydos,756512,Abydos,egypt,Abydos,egypt,10,false
+herakleopolis,736920,Henen-Nesut,egypt,Herakleopolis,egypt,10,false
+dendera,786127,,,Dendera,egypt,7,false
+elkab,440947682,Nekheb,egypt,El Kab,egypt,6,false
+elephantine,786021,Elephantine,egypt,Elephantine,egypt,6,false
+sais,727217,,,Sais,egypt,12,false
+medamud,748292753,Medamud,egypt,Medamud,egypt,5,false
+tanis,727236,,,Tanis,egypt,18,false
+hattusa,283602441,Hattusa,hatti,,,20,false
+alaca,991964195,Alaca Hoyuk,hatti,,,6,false
+alisar,650309285,Alisar Hoyuk,hatti,,,6,false
+sapinuwa,964671598,Sapinuwa,hatti,,,9,false
+sarissa,117143016,Sarissa,hatti,,,7,false
+masat,133411593,Tapikka,hatti,,,5,false
+samuha,819123409,Samuha,hatti,,,7,false
+kanesh,58129442,Kanesh,hatti,Kanesh,neo_hittite,7,false
+tyana,648801,Tuwanuwa,hatti,Tuwana,neo_hittite,9,false
+adana,648548,Adana,hatti,Adanawa,neo_hittite,12,false
+tarsus,648789,Tarsus,hatti,Tarsus,neo_hittite,12,false
+arslantepe,25078867,Arslantepe,hatti,Melid,neo_hittite,7,false
+ephesus,599612,Apasa,arzawa,Ephesus,greeks,12,false
+miletus,599799,Millawanda,arzawa,Miletus,greeks,12,false
+troy,550595,Troy,arzawa,,,10,false
+beycesultan,56861725,Beycesultan,arzawa,,,7,false
+hydai,599651,Tepecik,arzawa,Hydai,greeks,4,false
+demirci,777160141,Demircihoyuk region,arzawa,,,4,true
+mycenae,570491,Mycenae,mycenaeans,Mycenae,greeks,14,false
+tiryns,570740,Tiryns,mycenaeans,Tiryns,greeks,10,false
+pylos,156116232,Pylos,mycenaeans,,,12,false
+thebes_greece,541138,Thebes,mycenaeans,Thebes,greeks,12,false
+orchomenos,540987,,,Orchomenos,greeks,8,false
+gla,540789,Gla,mycenaeans,,,6,false
+nichoria,423679103,Nichoria,mycenaeans,,,4,false
+kalamianos,458012868,Kalamianos,mycenaeans,,,4,false
+knossos,589872,Knossos,mycenaeans,Knossos,greeks,16,false
+amnisos,524143100,Amnisos,mycenaeans,,,5,false
+mallia,589922,Mallia,mycenaeans,,,8,false
+phaistos,589987,Phaistos,mycenaeans,Phaistos,greeks,8,false
+kommos,589690,Kommos,mycenaeans,Kommos,greeks,5,false
+kydonia,589886,Kydonia,mycenaeans,Kydonia,greeks,8,false
+phylakopi,280341406,Phylakopi,mycenaeans,,,4,false
+athens,579885,,,Athens,greeks,18,false
+enkomi,13818291,Enkomi,alashiya,,,12,false
+kition,707534,,,Kition,phoenicia,10,false
+hala_sultan,790744210,Hala Sultan Tekke,alashiya,,,7,false
+kalavasos,754796063,Kalavasos,alashiya,,,6,false
+klavdhia,797019493,Klavdhia region,alashiya,,,4,true
+paphos,707596,,,Palaepaphos,greeks,7,false
+fekheriye,413537087,Tell Fekheriye,mitanni,Sikani,aram,10,false
+tell_brak,874735,Nagar,mitanni,Tell Brak,assyria,8,false
+tell_chuera,677382294,Harbe,mitanni,,,6,false
+tell_beydar,423885388,Tell Beydar,mitanni,,,5,false
+tell_taban,874754,Tabite,mitanni,Tabite,assyria,6,false
+ekalte,703315102,Ekalte,mitanni,,,6,false
+emar,279984092,Emar,mitanni,,,7,false
+alalah,309866128,Alalakh,mitanni,,,8,false
+assur,893945,Assur,assyria,Assur,assyria,18,false
+nineveh,874621,Nineveh,assyria,Nineveh,assyria,16,false
+arbela,874341,Arbela,assyria,Arbela,assyria,12,false
+arrapha,893941,Arrapha,assyria,Arrapha,assyria,12,false
+kilizu,894027,,,Kilizu,assyria,7,false
+karana,356369838,Karana region,assyria,Karana,assyria,5,true
+tell_taya,574198887,Tell Taya region,assyria,Tell Taya region,assyria,4,true
+kalhu,894019,,,Kalhu,assyria,24,false
+harran,658427,Harran,mitanni,Harran,assyria,9,false
+babylon,893951,Babylon,babylonia,Babylon,babylonia,28,false
+nippur,912910,Nippur,babylonia,Nippur,babylonia,16,false
+ur,912985,Ur,babylonia,Ur,babylonia,14,false
+uruk,912986,Uruk,babylonia,Uruk,babylonia,18,false
+isin,912868,Isin,babylonia,Isin,babylonia,10,false
+larsa,912897,Larsa,babylonia,Larsa,babylonia,10,false
+kish,894028,Kish,babylonia,Kish,babylonia,12,false
+borsippa,893964,Borsippa,babylonia,Borsippa,babylonia,12,false
+sippar,392373882,Sippar-Annunitu,babylonia,Sippar-Annunitu,babylonia,12,false
+dur_kurigalzu,893988,Dur Kurigalzu,babylonia,Dur Kurigalzu,babylonia,14,false
+opis,894056,Opis,babylonia,Opis,babylonia,7,false
+susa,912936,Susa,elam,Susa,elam,20,false
+anshan,922729,Anshan,elam,Anshan region,elam,10,false
+liyan,922627,Bushehr coast,elam,Bushehr coast,elam,7,true
+chogha_zanbil,459393126,,,Dur Untash,elam,6,false
+shushtar,912941,Shushtar region,elam,Shushtar region,elam,5,true
+ugarit,668295,Ugarit,syrian_cities,,,12,false
+byblos,668216,Byblos,syrian_cities,Byblos,phoenicia,10,false
+tyre,678437,Tyre,syrian_cities,Tyre,phoenicia,14,false
+sidon,678393,Sidon,syrian_cities,Sidon,phoenicia,10,false
+beirut,678060,Biruta,syrian_cities,Beirut,phoenicia,8,false
+arwad,668197,Arwad,syrian_cities,Arwad,phoenicia,7,false
+qatna,412342122,Qatna,syrian_cities,Qatna region,aram,9,false
+kadesh,668291,,,Kadesh,aram,8,false
+aleppo,658409,Halab,syrian_cities,Halab,aram,12,false
+hamath,668182,Hamath,syrian_cities,Hamath,aram,10,false
+tell_tweini,349388313,Gibala,syrian_cities,Gibala,phoenicia,5,false
+damascus,678106,,,Damascus,aram,16,false
+gaza,687902,Gaza,egypt,Gaza,philistia,9,false
+jaffa,687931,Jaffa,egypt,Jaffa,philistia,7,false
+megiddo,26356565,Megiddo,egypt,Megiddo,israel,9,false
+hazor,779967430,Hazor,canaan,Hazor,israel,12,false
+shechem,678403,Shechem,canaan,Shechem,israel,9,false
+jerusalem,687928,Jerusalem,canaan,Jerusalem,judah,10,false
+gezer,687904,Gezer,canaan,Gezer,israel,7,false
+lachish,687951,Lachish,canaan,Lachish,judah,8,false
+jericho,687917,Jericho,canaan,Jericho,judah,6,false
+ashkelon,687839,Ashkelon,canaan,Ashkelon,philistia,8,false
+gerar,687907,Gerar,canaan,Gerar,philistia,4,false
+tel_mor,999180093,Tel Mor,canaan,,,4,false
+tel_qashish,604019428,Tel Qashish,canaan,,,4,false
+samaria,678370,,,Samaria,israel,14,false
+tirzah,589744740,,,Tirzah,israel,6,false
+giyan,609518824,Giyan region,highlands,,,5,true
+godin,903035,,,Godin region,medes,7,true
+nush_i_jan,903131,,,Nush-i Jan region,medes,6,true
+marlik,745058470,Marlik region,highlands,,,6,true
+sialk,464208937,Sialk region,highlands,Sialk region,medes,6,true
+hasanlu,874502,Hasanlu region,highlands,Hasanlu,mannea,7,true
+haftavan,874495,Haftavan region,highlands,Haftavan region,urartu,5,true
+qalaichi,884161,,,Qalaichi region,mannea,7,true
+tushpa,874771,,,Tushpa,urartu,16,false
+sos_hoyuk,355216649,Sos Hoyuk region,highlands,Sos Hoyuk region,urartu,4,true
+bozkurt,121192688,Bozkurt region,highlands,Bozkurt region,urartu,4,true
+gordion,609393,,,Gordion,phrygia,16,false
+sardis,550867,,,Sardis,phrygia,14,false
+pazarli,172158348,Pazarli region,hatti,Pazarli region,neo_hittite,4,true
+usakli,512530798,Usakli Hoyuk,hatti,,,5,false
+cadir,512530799,Cadir Hoyuk,hatti,Cadir Hoyuk,neo_hittite,5,false
+ankara,619103,,,Ankara,phrygia,9,false
+seleucia_cilicia,648810,,,Mersin region,neo_hittite,5,true
+gortyn,589796,,,Gortyn,greeks,9,false
+corinth,570182,,,Corinth,greeks,14,false
+argos,570106,,,Argos,greeks,12,false
+sparta,570685,,,Sparta,greeks,12,false
+chalcis,540703,,,Chalcis,greeks,9,false
+eretria,579925,,,Eretria,greeks,9,false
+samos,599925,,,Samos,greeks,10,false
+lindos,589913,,,Lindos,greeks,10,false
