@@ -41,7 +41,7 @@ public sealed class QuarterlyNationEconomySystem : IQuarterBoundaryHandler
 
         var updatedNations = beforeThisHandler.Nations.Select(nation =>
         {
-            if (nation.Unity <= 0)
+            if (nation.IsBarbarian || nation.Unity <= 0)
             {
                 return nation;
             }

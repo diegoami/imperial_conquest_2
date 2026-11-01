@@ -98,7 +98,7 @@ public sealed class ProposeAllianceCommandHandler : ICommandHandler<ProposeAllia
             // proposer's own side is checked here -- "The AI target's own wars are not checked" -- so
             // allying with an AI already at war drags the proposer into that war through FormAlliance's
             // own cascade below, exactly as the original does.
-            if (RelationTransitions.IsAtWarWithAnyone(state, ruleset, command.IssuingNationId)
+            if (RelationTransitions.IsAtWarWithAnyone(state, ruleset, command.IssuingNationId, includeBarbarians: false)
                 || RelationTransitions.HasAnAllyAtWarWithAnyone(state, ruleset, command.IssuingNationId))
             {
                 return CommandOutcome.Reject(

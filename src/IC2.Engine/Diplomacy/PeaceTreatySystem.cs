@@ -136,6 +136,8 @@ public sealed class PeaceTreatySystem : IGameSystem
         var codes = ruleset.Diplomacy.StateCodes;
         var winnerId = treaty.WinnerNationId;
         var loserId = treaty.LoserNationId;
+        if (state.NationById(winnerId)?.IsBarbarian == true || state.NationById(loserId)?.IsBarbarian == true)
+            return state;
 
         // score(n) and armies(n) are read BEFORE the relation write below -- the original's own treaty
         // routine computes both from the state exactly as the battle left it (which already reflects the
@@ -235,6 +237,8 @@ public sealed class PeaceTreatySystem : IGameSystem
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(winnerId);
         ArgumentNullException.ThrowIfNull(loserId);
+
+        if (Barbarians.BarbarianFaction.Is(state, winnerId) || Barbarians.BarbarianFaction.Is(state, loserId)) return state;
 
         state = RelationTransitions.BreakToPeace(state, ruleset, winnerId, loserId);
 

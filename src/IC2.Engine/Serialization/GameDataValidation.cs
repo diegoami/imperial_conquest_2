@@ -792,6 +792,9 @@ public static class GameDataValidation
     private static void ValidateScenario(string documentPath, Scenario scenario)
     {
         RequireDistinct(documentPath, scenario.Seats, s => s.Nation, "seats");
+        if (scenario.Barbarians is { } faction && (string.IsNullOrWhiteSpace(faction.NationId)
+            || scenario.SeatFor(faction.NationId)?.Control != SeatControl.Ai))
+            throw new MalformedGameDataException(documentPath, "barbarians.nationId must identify an AI-only seat.");
 
         if (scenario.Victory.Type == VictoryConditionType.Custom && string.IsNullOrWhiteSpace(scenario.Victory.Goal))
         {
@@ -875,6 +878,17 @@ public static class GameDataValidation
 
     private static void ValidateState(string documentPath, GameState state)
     {
+        if (state.Nations.Count(n => n.IsBarbarian) > 1)
+            throw new MalformedGameDataException(documentPath, "Only one barbarian faction is supported.");
+        foreach (var nation in state.Nations)
+        {
+            if (nation.IsBarbarian && (nation.Control != SeatControl.Ai || nation.Eliminated
+                || nation.CapitalCityId is not null || nation.RecruitmentSlots.Count > 0 || state.Nations.Count > 16
+                || !state.TurnOrder.Contains(nation.Id)))
+                throw new MalformedGameDataException(documentPath, "A barbarian faction must be active, AI-only, capitalless and have no recruitment queue, within 16 nations.");
+            if (nation.LastBarbarianArrivalTurn is { } turn && (!nation.IsBarbarian || turn < 0 || turn > state.Calendar.TurnIndex))
+                throw new MalformedGameDataException(documentPath, "Invalid lastBarbarianArrivalTurn for this faction or calendar.");
+        }
         RequireDistinct(documentPath, state.Nations, n => n.Id, "state.nations");
         RequireDistinct(documentPath, state.Cities, c => c.Id, "state.cities");
         RequireDistinct(documentPath, state.Armies, a => a.Id, "state.armies");
@@ -1065,6 +1079,8 @@ public static class GameDataValidation
         ArgumentNullException.ThrowIfNull(scenario);
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(ruleset);
+        try { Barbarians.BarbarianFaction.ValidateScenario(world, ruleset, scenario); }
+        catch (ArgumentException ex) { throw new MalformedGameDataException(scenario.Id, ex.Message, ex); }
 
         if (scenario.Victory.Type == VictoryConditionType.Custom && !string.IsNullOrWhiteSpace(scenario.Victory.Goal))
         {

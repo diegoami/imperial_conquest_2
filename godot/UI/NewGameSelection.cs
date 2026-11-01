@@ -104,6 +104,8 @@ public static class GameSessionFactory
         var options = new List<SeatOption>();
         foreach (var seat in resolved.Scenario.Seats)
         {
+            // Owner-approved barbarian design: this faction is never a human seat.
+            if (seat.Nation == resolved.Scenario.Barbarians?.NationId) continue;
             var nation = resolved.World.NationById(seat.Nation);
             options.Add(new SeatOption(seat.Nation, nation?.Name ?? seat.Nation));
         }

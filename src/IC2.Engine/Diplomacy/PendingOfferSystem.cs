@@ -162,7 +162,7 @@ public sealed class PendingOfferSystem : IGameSystem
         }
 
         if (NeighbourGeography.AreNeighbours(state, world, human.Id, candidate.Id)
-            && !RelationTransitions.IsAtWarWithAnyone(state, ruleset, human.Id))
+            && !RelationTransitions.IsAtWarWithAnyone(state, ruleset, human.Id, includeBarbarians: false))
         {
             proposedRelation = codes.Alliance;
         }

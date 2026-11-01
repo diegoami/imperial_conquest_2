@@ -219,6 +219,7 @@ public static class CityCaptureResolver
         // branch's own attemptsMove gate both resolve to "conquer" with no special case needed. An earlier
         // revision of this remark claimed the opposite (a since-removed early return in ConquestTrigger.Evaluate
         // made it true at the time); that guard is gone.
+        if (oldOwner.IsBarbarian) return stateAfterCascade;
         var (stateAfterTrigger, shouldConquer) = ConquestTrigger.Evaluate(
             stateAfterCascade, ruleset, oldOwner.Id, formerCapitalId, wasCapital, fortifyOrder, events);
 

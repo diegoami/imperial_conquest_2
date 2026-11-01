@@ -62,7 +62,7 @@ public sealed class QuarterlyThawSystem : IQuarterBoundaryHandler
             {
                 for (var b = 0; b < columns; b++)
                 {
-                    if (a != b)
+                    if (a != b && !Barbarians.BarbarianFaction.Is(state, ids[a]) && !Barbarians.BarbarianFaction.Is(state, ids[b]))
                     {
                         relations = Visit(relations, ids[a], ids[b], diplomacy, rng);
                     }
@@ -75,6 +75,7 @@ public sealed class QuarterlyThawSystem : IQuarterBoundaryHandler
             {
                 for (var j = i + 1; j < ids.Count; j++)
                 {
+                    if (Barbarians.BarbarianFaction.Is(state, ids[i]) || Barbarians.BarbarianFaction.Is(state, ids[j])) continue;
                     relations = Visit(relations, ids[i], ids[j], diplomacy, rng);
                 }
             }

@@ -73,6 +73,11 @@ public sealed class QuarterlyEconomySystem : IQuarterBoundaryHandler
         var deletedArmyIds = new HashSet<string>(StringComparer.Ordinal);
         foreach (var army in state.Armies)
         {
+            if (state.NationById(army.Nation)?.IsBarbarian == true)
+            {
+                updatedArmies.Add(army);
+                continue;
+            }
             var billed = MercenaryDesertion.BillArmy(army, ruleset);
             regularUpkeepByNation[army.Nation] =
                 regularUpkeepByNation.GetValueOrDefault(army.Nation) + billed.RegularUpkeepCharged;
@@ -95,6 +100,11 @@ public sealed class QuarterlyEconomySystem : IQuarterBoundaryHandler
         var updatedNations = new List<NationState>(state.Nations.Count);
         foreach (var nation in state.Nations)
         {
+            if (nation.IsBarbarian)
+            {
+                updatedNations.Add(nation);
+                continue;
+            }
             var shipCharge = ShipUpkeep.ComputeForNation(state, nation.Id, ruleset);
             var armyCharge = regularUpkeepByNation.GetValueOrDefault(nation.Id);
             var garrisonCharge = GarrisonUpkeep.Compute(nation.RecruitmentSlots, ruleset);

@@ -622,7 +622,8 @@ public sealed class TacticalBattleSession
                 null, null, false, false, Array.Empty<DomainEvent>(), outcome.Rejection?.Message ?? "The write-back did not run.");
         }
 
-        var after = IC2.Engine.Armies.ArmyTable.Record(game, outcome.State!, ruleset);
+        var after = IC2.Engine.Armies.ArmyTable.Record(game,
+            Barbarians.BarbarianFaction.EnforceHostility(outcome.State!, ruleset), ruleset);
         var report = written.Report;
         var events = new List<DomainEvent>(sink.Events);
 
@@ -631,7 +632,8 @@ public sealed class TacticalBattleSession
         var loser = after.NationById(report.LoserNationId);
         var offered = false;
         var drawn = false;
-        if (winner is not null && loser is not null && (winner.Control == SeatControl.Human) != (loser.Control == SeatControl.Human))
+        if (winner is not null && loser is not null && !winner.IsBarbarian && !loser.IsBarbarian
+            && (winner.Control == SeatControl.Human) != (loser.Control == SeatControl.Human))
         {
             var gates = TotalArmyPower(after, winner.Id, ruleset) < TotalArmyPower(after, loser.Id, ruleset)
                         && loser.Unity > combat.AutoPeaceLoserUnityThreshold
@@ -668,7 +670,8 @@ public sealed class TacticalBattleSession
             var winner = afterVictory.NationById(report.WinnerNationId)!;
             var loser = afterVictory.NationById(report.LoserNationId)!;
             var combat = ruleset.Combat;
-            if (!Battle.Capped && (winner.Control == SeatControl.Human) != (loser.Control == SeatControl.Human)
+            if (!Battle.Capped && !winner.IsBarbarian && !loser.IsBarbarian
+                && (winner.Control == SeatControl.Human) != (loser.Control == SeatControl.Human)
                 && TotalArmyPower(afterVictory, winner.Id, ruleset) < TotalArmyPower(afterVictory, loser.Id, ruleset)
                 && loser.Unity > combat.AutoPeaceLoserUnityThreshold
                 && afterVictory.CountCitiesOwnedBy(loser.Id) > combat.AutoPeaceLoserCityThreshold)
@@ -685,7 +688,8 @@ public sealed class TacticalBattleSession
         var resultEvents = new List<DomainEvent>(sink.Events);
         if (offered) resultEvents.Add(new PeaceTreatyOffered(written.Report.WinnerNationId, written.Report.LoserNationId));
         return new TacticalBattleConclusion(
-            IC2.Engine.Armies.ArmyTable.Record(game, outcome.State!, ruleset), written.Report, offered, drawn, resultEvents, null);
+            IC2.Engine.Armies.ArmyTable.Record(game,
+                Barbarians.BarbarianFaction.EnforceHostility(outcome.State!, ruleset), ruleset), written.Report, offered, drawn, resultEvents, null);
     }
 
     /// <summary>The lines of the <em>Battle ended</em> window (<c>TBattleOver_InitializeForm</c>).</summary>

@@ -68,6 +68,7 @@ public static class OriginalSaveExportFieldMapping
         new(typeof(CalendarState), "TurnIndex", Kind.Omitted, "none", "The original has no elapsed-turn counter."),
 
         new(typeof(NationState), "Id", Kind.Validated, "OriginalNation table index", "Canonical world order supplies original nation codes."),
+        new(typeof(NationState), "IsBarbarian LastBarbarianArrivalTurn", Kind.Rejected, "none", "Active barbarian roles or arrival markers have no original SAV representation and are refused."),
         new(typeof(NationState), "Name LeaderName CapitalCityId Control Treasury Unity Wealth TaxBase TaxRatePercent MobilizedPercent RecruitmentSlots ConqueredBy",
             Kind.Written, "OriginalNation", "Live nation fields are checked and written to the nation record."),
         new(typeof(NationState), "ColorHex Personality Population PopulationAtStart TreasuryAtStart CityCountAtStart",

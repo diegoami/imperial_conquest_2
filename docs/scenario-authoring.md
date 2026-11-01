@@ -1148,7 +1148,37 @@ A scenario file is stored under `data/scenarios/` as a JSON file. It specifies v
 | `blindHotseat` | boolean | Yes | If true, hotseat mode does not show the map between seats (for hidden movement). |
 | `randomSeed` | integer | Yes | RNG seed for reproducible games — an **unsigned 64-bit integer** (`ulong`), not a plain `int`; set to a fixed value for testing. |
 | `listed` | boolean | No | Default `false`. When `true`, New Game offers the scenario as its own card (name, map, rules, goal and nation count); the two classical presets keep their own cards. Leave test and example scenarios unlisted. |
+| `barbarians` | object or null | No | Absent/null preserves the existing campaign. Optional designed boundary-arrival faction configuration, described below. |
 | `_provenance` | object | No | Provenance map. |
+
+### Barbarian faction configuration
+
+The optional `barbarians` object identifies one AI-only nation already present
+in the world's roster, turn order and scenario seats. It counts toward the
+16-nation budget, has no capital or recruitment queue, remains active without
+cities and cannot win. Captured towns use the existing capture and supply
+mechanics but cannot recruit troops or build fleets. Original SAV export
+refuses this role. Its permanent hostility does not count against diplomatic
+war/busy restrictions between regular nations; military hostility still counts.
+See [the barbarian contract](design/barbarians.md) for the owner decisions.
+
+| Field | Type | Default / validation |
+|---|---|---|
+| `nationId` | string | Required existing AI-only, capitalless nation. |
+| `arrivalUnits` | unit slot array | Required nonempty regular-unit composition, using the existing unit-slot fields. Positive troops, valid unit types/quality, within `maxUnitsPerArmy`; the whole army must fit the configured transport. |
+| `fleetShips` | integer | Required positive transport ship count within `joinMaxShips`; existing `transportTroopsPerShip` admission applies. |
+| `armyMorale` | integer | Default 70, within the ruleset's supply-morale floor/ceiling. |
+| `chancePercent` | integer | Default 25; 0–100. One shared seasonal attempt, not one roll per border tile. |
+| `armyCap` | integer | Default 4, positive; carried armies count. |
+| `fleetCap` | integer | Default 4, positive. A sea arrival creates one fleet carrying one army. |
+
+These values are designed provisional tuning, not original-game behavior or
+historical troop counts. Native nation metadata `isBarbarian` and
+`lastBarbarianArrivalTurn` preserve faction identity and arrival cadence; both
+are omitted in ordinary campaigns. This configuration contract alone does not
+activate arrivals: campaign activation and the seasonal executor are separate
+delivery work. Existing campaigns are never modified merely by loading an old
+save.
 
 ### Seats
 

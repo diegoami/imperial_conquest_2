@@ -266,6 +266,7 @@ public sealed class TurnCoordinator
                         + "Return the context's own state to do nothing.");
                 }
 
+                produced = IC2.Engine.Barbarians.BarbarianFaction.EnforceHostility(produced, _ruleset);
                 // T240: an army the system removed (a battle, the fleet tick, the quarterly economy, an AI order)
                 // leaves a dead slot until the next sweep. The sweep itself is the one step that reorders the table.
                 if (system.Instance is not IC2.Engine.Armies.ArmyTableSweepSystem)
@@ -355,7 +356,7 @@ public sealed class TurnCoordinator
                         + $"({handler.ImplementationType.FullName}) returned no state.");
                 }
 
-                current = produced;
+                current = IC2.Engine.Barbarians.BarbarianFaction.EnforceHostility(produced, _coordinator._ruleset);
             }
 
             return current;

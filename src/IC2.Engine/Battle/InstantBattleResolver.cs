@@ -222,8 +222,9 @@ public static class InstantBattleResolver
         //   neither this nor the human-consent path below ever fires.
         var winnerIsHuman = winnerNation.Control == SeatControl.Human;
         var loserIsHuman = loserNation.Control == SeatControl.Human;
-        var bothAi = !winnerIsHuman && !loserIsHuman;
-        var exactlyOneHuman = winnerIsHuman != loserIsHuman;
+        var diplomaticBattle = !winnerNation.IsBarbarian && !loserNation.IsBarbarian;
+        var bothAi = diplomaticBattle && !winnerIsHuman && !loserIsHuman;
+        var exactlyOneHuman = diplomaticBattle && winnerIsHuman != loserIsHuman;
 
         var peaceRoll = bothAi && rng.NextInt(combat.AutoPeaceChanceDenominator) < combat.AutoPeaceChanceNumerator;
         var peaceFired = peaceRoll

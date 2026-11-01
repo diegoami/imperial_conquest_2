@@ -797,6 +797,9 @@ public sealed partial class GameSession
                 nameof(humanSeatNationId));
         }
 
+        if (humanSeatNationId is not null && humanSeatNationId == scenario.Barbarians?.NationId)
+            throw new ArgumentException("The barbarian faction is AI-only.", nameof(humanSeatNationId));
+
         _humanSeatNationId = humanSeatNationId;
         _isWatchMode = humanSeatNationId is null && !scenario.Seats.Any(s => s.Control == SeatControl.Human);
 
@@ -1179,6 +1182,7 @@ public sealed partial class GameSession
         var updatedNations = State.Nations.Select(n =>
             string.Equals(n.Id, nation.Id, StringComparison.Ordinal) ? deposed : n);
         State = State with { Nations = ValueList.From(updatedNations), Relations = relations };
+        State = Barbarians.BarbarianFaction.EnforceHostility(State, Ruleset);
 
         // T146: after the window's figures are recorded (above), the fall redraws the leader from the
         // nation's world pool. The message line above names no leader, so it is unaffected.

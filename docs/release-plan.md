@@ -250,9 +250,20 @@ The combined claims include **C1–C7 in §2.5** and **P1–P7 in §2.6**, with 
 
 **Limits remain unchanged:** the deferred stock-original Windows/multi-state SAV and natural battle acceptance, stored AI fleet routes, named research gaps, and later Improved general/difficulty work are not newly established by this checkpoint. Keep the owner-approved names-only mercenary exception explicit. Automated audio playback does not prove audibility. Private owner files and hashes stay private. A green source build, local package or closed implementation issue does not replace independent milestone review or authorize a tag/release.
 
-### 2.8 Planned v0.9.0: Improved Computer general
+### 2.8 Planned v0.10.0: Improved Computer general
 
-The owner moved the **separate Improved Computer general mode** to v0.9.0 on 2026-10-23 ([#1363](https://github.com/diegoami/imperial_conquest_2/issues/1363)); it is not a v0.8.0 gate. Original-faithful Computer general correction and acceptance come first in v0.8. The player may select Improved in Settings and switch during an existing campaign. Improved aims for a **stronger decision policy** while combat rules and coefficients stay fixed. Candidate AI policies are to be compared through repeated headless synthetic battles using the production tactical engine, potentially delegated to [ic2-conquest #163](https://github.com/diegoami/ic2-conquest/issues/163). The older auto-resolve candidate tournament alone cannot choose the shipped tactical mode. The scoring protocol, policy values, relation to a campaign's saved ruleset, mode persistence and switching boundary need a reviewed contract before implementation. More balanced combat through Settings difficulty levels and tunable combat parameters is later work ([#1365](https://github.com/diegoami/imperial_conquest_2/issues/1365)), separate from this AI-only v0.9 scope.
+The owner moved the **separate Improved Computer general mode** from v0.9.0 to v0.10.0 on 2026-11-01 ([#1363](https://github.com/diegoami/imperial_conquest_2/issues/1363)); it is not a v0.9.0 gate. Original-faithful Computer general correction and acceptance come first in v0.8. The player may select Improved in Settings and switch during an existing campaign. Improved aims for a **stronger decision policy** while combat rules and coefficients stay fixed. Candidate AI policies are to be compared through repeated headless synthetic battles using the production tactical engine, potentially delegated to [ic2-conquest #163](https://github.com/diegoami/ic2-conquest/issues/163). The older auto-resolve candidate tournament alone cannot choose the shipped tactical mode. The scoring protocol, policy values, relation to a campaign's saved ruleset, mode persistence and switching boundary need a reviewed contract before implementation. More balanced combat through Settings difficulty levels and tunable combat parameters is later work ([#1365](https://github.com/diegoami/imperial_conquest_2/issues/1365)), separate from this AI-only v0.10 scope.
+
+The owner's v0.9.0 scope is instead the two historical Near East campaigns
+around 1350 BC and 750 BC (#1681/#1682), barbarians including Italy (#1683),
+own-turn tactical Undo (#1674), fleet Split in Two and the recorded playtest
+fixes (#1671–#1680, #1509). Reuse existing movement, supply, combat and capture
+mechanics first; the historical campaigns may rename the existing unit types
+without adding distinct chariot combat. Tactical Undo is session-only, resets on
+load, stops at opponent handoff and remains available for an own battle-ending
+action until the result is acknowledged. Strategic Undo (#1503) remains a
+separate follow-up. These are scope decisions, not implementation status or
+release acceptance; allocation and status live on GitHub labels.
 
 ### 2.9 v0.8.3: transfer fidelity and play-session usability
 

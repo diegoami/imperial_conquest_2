@@ -48,8 +48,17 @@ towns, without treasury upkeep. Towns do not recruit or build fleets: new forces
 arrive only from outside the map. Transport fleets sail to suitable landings and
 disembark their armies to attack towns. Landing and naval combat use existing
 commands. Do not obtain extra economic or diplomatic behavior by running the
-ordinary AI wholesale. Capital-capture cascade policy and town-management
-details still need an explicit contract before activating those paths.
+ordinary AI wholesale. The owner's follow-up, “reuse existing mechanics first”,
+selects the existing capture, capital and conquest cascades against ordinary
+nations, with normal city supply and loyalty rules. The barbarian loser is the
+explicit lifecycle exception: losing towns never eliminates its roaming forces.
+No new siege, capital or town-management rules are introduced for v0.9.
+
+Owner clarification, 2026-11-01: barbarian hostility does not count for
+diplomatic war/busy restrictions between regular nations (including alliance
+offers and AI diplomacy). Actual military hostility, targeting, supply and
+combat continue to count it. Wars between regular nations retain their existing
+diplomatic restrictions; this is not a general relaxation of those rules.
 
 Arrival planning uses a stable perimeter scan, equal choice between land and
 sea when both have legal entries, and equal choice among tiles of the selected
