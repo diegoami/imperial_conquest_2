@@ -119,6 +119,35 @@ public sealed class BarbarianFactionTests
     }
 
     [Fact]
+    public void Barbarian_wars_do_not_block_regular_alliance_but_remain_military_wars()
+    {
+        var f = Fixture();
+        var state = f.State with
+        {
+            ActiveSeatIndex = f.State.TurnOrder.ToList().IndexOf("north"),
+            Nations = new(f.State.Nations.Select(n => n.Id == "north" ? n with { Control = SeatControl.Human, MobilizedPercent = 0 } : n)),
+        };
+        Assert.True(RelationTransitions.IsAtWarWithAnyone(state, f.Rules, "north"));
+        Assert.False(RelationTransitions.IsAtWarWithAnyone(state, f.Rules, "north", includeBarbarians: false));
+        Assert.False(AiOwnDiplomacyRule.IsBusy(state, f.Rules, "north"));
+        var dispatch = new CommandDispatcher(SystemRegistry.FromEngineAssembly(), f.Rules, f.World, new RecordingEventSink());
+        var alliance = dispatch.Dispatch(state, new ProposeAllianceCommand("north", "south"));
+        Assert.True(alliance.IsAccepted, alliance.Rejection?.Message);
+        Assert.Equal(f.Rules.Diplomacy.StateCodes.Alliance, alliance.State.Relations.Get("north", "south"));
+        Assert.False(RelationTransitions.HasAnAllyAtWarWithAnyone(alliance.State, f.Rules, "north"));
+        Assert.Equal(f.Rules.Diplomacy.StateCodes.War, alliance.State.Relations.Get("north", "raiders"));
+        var offered = state with { PendingOffer = new("south", f.Rules.Diplomacy.StateCodes.Alliance) };
+        var accepted = dispatch.Dispatch(offered, new AcceptPendingOfferCommand("north"));
+        Assert.True(accepted.IsAccepted, accepted.Rejection?.Message);
+        Assert.Equal(f.Rules.Diplomacy.StateCodes.Alliance, accepted.State.Relations.Get("north", "south"));
+
+        var atWar = state with { Relations = state.Relations.WithRelation("north", "south", f.Rules.Diplomacy.StateCodes.War) };
+        Assert.True(RelationTransitions.IsAtWarWithAnyone(atWar, f.Rules, "north", includeBarbarians: false));
+        Assert.True(AiOwnDiplomacyRule.IsBusy(atWar, f.Rules, "north"));
+        Assert.False(dispatch.Dispatch(atWar, new ProposeAllianceCommand("north", "south")).IsAccepted);
+    }
+
+    [Fact]
     public void Normal_seat_rotation_gives_cityless_faction_a_turn_then_continues()
     {
         var f = Fixture();

@@ -158,7 +158,7 @@ public sealed class AcceptPendingOfferCommandHandler : ICommandHandler<AcceptPen
                 // human's own allies' wars (FUN_00449CD8) -- never the AI proposer's, so allying with an
                 // AI at war drags the human into that war through RelationTransitions.FormAlliance's own
                 // cascade -- exactly as the original does.
-                if (RelationTransitions.IsAtWarWithAnyone(state, ruleset, command.IssuingNationId)
+                if (RelationTransitions.IsAtWarWithAnyone(state, ruleset, command.IssuingNationId, includeBarbarians: false)
                     || RelationTransitions.HasAnAllyAtWarWithAnyone(state, ruleset, command.IssuingNationId))
                 {
                     return CommandOutcome.Reject(

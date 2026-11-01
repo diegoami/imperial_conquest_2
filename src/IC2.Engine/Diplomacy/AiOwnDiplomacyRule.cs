@@ -64,7 +64,7 @@ public static class AiOwnDiplomacyRule
             return true;
         }
 
-        if (RelationTransitions.IsAtWarWithAnyone(state, ruleset, nationId))
+        if (RelationTransitions.IsAtWarWithAnyone(state, ruleset, nationId, includeBarbarians: false))
         {
             return true;
         }

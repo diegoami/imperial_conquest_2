@@ -319,8 +319,10 @@ public static class RelationTransitions
     /// wars are not checked" — so this is applied to the human/accepting/proposing party only, never the
     /// AI counterparty), shared by <c>ProposeAllianceCommandHandler</c> and
     /// <c>AcceptPendingOfferCommandHandler</c> rather than duplicated in each.
+    /// The owner-approved barbarian exception is opt-in at diplomatic callers;
+    /// military callers retain actual hostility by default.
     /// </summary>
-    public static bool IsAtWarWithAnyone(GameState state, Ruleset ruleset, string nationId)
+    public static bool IsAtWarWithAnyone(GameState state, Ruleset ruleset, string nationId, bool includeBarbarians = true)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(ruleset);
@@ -329,6 +331,7 @@ public static class RelationTransitions
         foreach (var other in state.Relations.NationIds)
         {
             if (!string.Equals(other, nationId, StringComparison.Ordinal)
+                && (includeBarbarians || !Barbarians.BarbarianFaction.Is(state, other))
                 && state.Relations.Get(nationId, other) == warCode)
             {
                 return true;
@@ -357,7 +360,7 @@ public static class RelationTransitions
         {
             if (!string.Equals(ally, nationId, StringComparison.Ordinal)
                 && state.Relations.Get(nationId, ally) == allianceCode
-                && IsAtWarWithAnyone(state, ruleset, ally))
+                && IsAtWarWithAnyone(state, ruleset, ally, includeBarbarians: false))
             {
                 return true;
             }
