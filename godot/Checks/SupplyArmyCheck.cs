@@ -189,6 +189,8 @@ public partial class SupplyArmyCheck : Control
         Check(after.Commands == before.Commands + 1, $"the +10 press issues exactly one command ({after.Commands - before.Commands})");
         Check(after.ArmySupply == before.ArmySupply + 10, $"the army gains 10 t ({before.ArmySupply} -> {after.ArmySupply})");
         Check(after.OwnCitySupply == before.OwnCitySupply - 10, $"the city loses 10 t ({before.OwnCitySupply} -> {after.OwnCitySupply})");
+        Check(string.IsNullOrEmpty(_mainGame.LastMessageForCheck),
+            "successful supply updates the dialog balances without a bottom supply log");
         Check(after.ArmyMoney == before.ArmyMoney, "the army's money is unchanged");
         Check(after.Treasury == before.Treasury, "the treasury is unchanged");
         Check(
@@ -237,6 +239,8 @@ public partial class SupplyArmyCheck : Control
         Check(after.Commands == before.Commands + 1, "the +100 money press issues exactly one command");
         Check(after.ArmyMoney == before.ArmyMoney + 100, $"the purse gains 100 talents ({before.ArmyMoney} -> {after.ArmyMoney})");
         Check(after.Treasury == before.Treasury - 100, $"the treasury loses 100 talents ({before.Treasury} -> {after.Treasury})");
+        Check(string.IsNullOrEmpty(_mainGame.LastMessageForCheck),
+            "successful funding updates balances without a bottom purse log");
     }
 
     private void CloseFirstDialog()

@@ -22,6 +22,32 @@ namespace IC2.Engine.Tests.Ui;
 /// </remarks>
 public sealed class CommandOutcomeWordingTests
 {
+    [Theory]
+    [InlineData("economy.buy-supply accepted.")]
+    [InlineData("naval.buy-fleet-supply accepted.")]
+    [InlineData("economy.transfer-money accepted.")]
+    [InlineData("north-army-1 bought 10 tons of supply at northford, free at your own city.")]
+    [InlineData("north-army-1 bought 10 tons of supply from fleet f1, free.")]
+    [InlineData("north-army-1 received 100 talents from the treasury.")]
+    public void Routine_success_is_quiet_only_in_the_bottom_strip(string receipt)
+    {
+        Assert.Empty(CommandOutcomeWording.ForBottomLog(receipt, null));
+        Assert.NotEmpty(CommandOutcomeWording.Apply(receipt));
+    }
+
+    [Theory]
+    [InlineData("economy.buy-supply rejected (no_stock): no stock remains")]
+    [InlineData("north-army-1 received 0 talents from the treasury.")]
+    [InlineData("north-army-1 received 50 of 100 requested talents from the treasury (the treasury held 50).")]
+    [InlineData("economy.buy-supply accepted.\ndiplomacy.declare-war accepted.")]
+    [InlineData("economy.buy-supply accepted.\nRefused: the second action failed.")]
+    [InlineData("naval.split-fleet accepted.")]
+    public void Refusals_partial_transfers_and_unrelated_or_mixed_results_remain_visible(string receipt)
+    {
+        Assert.Equal(CommandOutcomeWording.Apply(receipt), CommandOutcomeWording.ForBottomLog(receipt, null));
+        Assert.NotEmpty(CommandOutcomeWording.ForBottomLog(receipt, null));
+    }
+
     [Fact]
     public void Every_command_kind_the_app_can_issue_has_a_readable_wording()
     {

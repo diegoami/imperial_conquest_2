@@ -159,8 +159,9 @@ public partial class EndTurnBoxCheck : Control
                 Check(snapshots[2].Turn == snapshots[0].Turn + 1,
                     "ordinary end command runs after auto support");
             }
-            Check(mainGame.LastMessageForCheck.Contains("Auto support:", StringComparison.Ordinal),
-                "the confirmed turn shows a compact auto-support summary");
+            Check(!mainGame.LastMessageForCheck.Contains("supply transfers", StringComparison.Ordinal)
+                && !mainGame.LastMessageForCheck.Contains("purse transfers", StringComparison.Ordinal),
+                "successful auto supply/funding leaves no routine resource summary in the bottom strip");
         }
         finally
         {
@@ -278,7 +279,7 @@ public partial class EndTurnBoxCheck : Control
             Check(second.Condition == 100 && second.Moves == 0,
                 "repair reaches the target and consumes remaining moves before End turn");
             Check(mainGame.LastMessageForCheck.Contains("Auto fleets:", StringComparison.Ordinal),
-                "fleet support reports its supply and repair result");
+                "fleet repair still reports its result without routine supply totals");
         }
         finally
         {

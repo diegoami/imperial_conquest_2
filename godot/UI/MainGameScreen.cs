@@ -428,6 +428,7 @@ public partial class MainGameScreen : Control
         // text in the tooltip keep a long result from widening this full-rect root or pushing the
         // context panel off-screen.
         _lastCommandLabel = UiKit.MakeLabel(string.Empty, AppTheme.Note, UiKit.TextColor);
+        _lastCommandLabel.Visible = false;
         _lastCommandLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _lastCommandLabel.MaxLinesVisible = LastCommandVisibleLineCount;
         _lastCommandLabel.ClipText = true;
@@ -2074,6 +2075,7 @@ public partial class MainGameScreen : Control
     private void ShowScreenMessage(string message)
     {
         _lastCommandLabel.Text = message;
+        _lastCommandLabel.Visible = !string.IsNullOrWhiteSpace(message);
         _lastCommandLabel.TooltipText = message;
         UpdateLastCommandLinesSkipped();
     }
@@ -2323,7 +2325,7 @@ public partial class MainGameScreen : Control
                         else if (decision.CommandLine is not null) summary.Add($"next: {decision.DestinationCityId}");
                     }
                 }
-                summaries.Add($"{unitId}: {string.Join("; ", summary)}");
+                if (summary.Count > 0) summaries.Add($"{unitId}: {string.Join("; ", summary)}");
             }
         }
         finally { _runningRetreatSupply = false; }
@@ -2352,21 +2354,16 @@ public partial class MainGameScreen : Control
                 var before = current.SupplyTons;
                 var response = SubmitForCheck(proposal.CommandLine);
                 var gained = Math.Max(0, (Session.State.ArmyById(plan.UnitId)?.SupplyTons ?? before) - before);
-                if (gained > 0) { gainedAny = true; summary.Add($"+{gained} t supply (0 talents)"); }
+                if (gained > 0) gainedAny = true;
                 else summary.Add(AutoRefusalText(response, "supply refused"));
             }
             if (Session.State.ArmyById(plan.UnitId) is { } funded
                 && ArmyAutoSupportPlanner.Fund(Session.State, funded, Session.Ruleset, local) is { } money)
             {
                 var before = funded.Money;
-                var treasury = Session.State.NationById(nationId)?.Treasury ?? 0;
                 var response = SubmitForCheck(money.CommandLine);
                 var gained = Math.Max(0, (Session.State.ArmyById(plan.UnitId)?.Money ?? before) - before);
-                if (gained > 0)
-                {
-                    summary.Add($"+{gained} talents (treasury -{Math.Max(0, treasury - (Session.State.NationById(nationId)?.Treasury ?? treasury))})");
-                }
-                else summary.Add(AutoRefusalText(response, "funding refused"));
+                if (gained <= 0) summary.Add(AutoRefusalText(response, "funding refused"));
             }
         }
         else if (plan.IsFleet && Session.State.FleetById(plan.UnitId) is { } fleet)
@@ -2384,7 +2381,7 @@ public partial class MainGameScreen : Control
                 var before = current.SupplyTons;
                 var response = SubmitForCheck(proposal.CommandLine);
                 var gained = Math.Max(0, (Session.State.FleetById(plan.UnitId)?.SupplyTons ?? before) - before);
-                if (gained > 0) { gainedAny = true; summary.Add($"+{gained} t supply (0 talents)"); }
+                if (gained > 0) gainedAny = true;
                 else summary.Add(AutoRefusalText(response, "fleet supply refused"));
             }
             if (Session.State.FleetById(plan.UnitId) is { } repairing
@@ -2465,7 +2462,8 @@ public partial class MainGameScreen : Control
 
         var line = $"Auto support: {supplied} supply transfers ({suppliedTons} t), "
             + $"{funded} purse transfers ({fundedTalents} talents).";
-        return skipped.Count == 0 ? line : line + " Skipped: " + string.Join("; ", skipped);
+        AppDiagnostics.Detail(DiagnosticEvent.Command, line);
+        return skipped.Count == 0 ? null : "Auto support skipped: " + string.Join("; ", skipped);
     }
 
     private string? RunFleetAutoSupport()
@@ -2543,7 +2541,10 @@ public partial class MainGameScreen : Control
 
         var line = $"Auto fleets: {supplied} supply transfers ({suppliedTons} t), "
             + $"{repaired} repairs ({repairedPoints} points, {repairCost} talents).";
-        return skipped.Count == 0 ? line : line + " Skipped: " + string.Join("; ", skipped);
+        AppDiagnostics.Detail(DiagnosticEvent.Command, line);
+        if (repaired == 0 && skipped.Count == 0) return null;
+        var repairSummary = repaired == 0 ? string.Empty : $"{repaired} repairs ({repairedPoints} points, {repairCost} talents).";
+        return "Auto fleets: " + repairSummary + (skipped.Count == 0 ? string.Empty : " Skipped: " + string.Join("; ", skipped));
     }
 
     private static string AutoRefusalText(IReadOnlyList<string> response, string fallback) =>
@@ -2892,7 +2893,7 @@ public partial class MainGameScreen : Control
         }
 
         var rawOutcome = CommandOutcomeText.OutcomeBlock(lines, pendingOffers);
-        var outcome = CommandOutcomeWording.Apply(rawOutcome, Session.State);
+        var outcome = CommandOutcomeWording.ForBottomLog(rawOutcome, Session.State);
 
         // T147 (bug #781 point 4): below an accepted order's readable line, the news entries the order
         // added to State.NewsLog. Only an order whose acceptance the app rewrote gets them; an "end"
@@ -2913,6 +2914,7 @@ public partial class MainGameScreen : Control
         _newsEntriesBeforeCommand = Session.State.NewsLog.Slots;
 
         _lastCommandLabel.Text = outcome;
+        _lastCommandLabel.Visible = !string.IsNullOrWhiteSpace(outcome);
         _lastCommandLabel.TooltipText = outcome;
         UpdateLastCommandLinesSkipped();
         ShowRefusalNotice(lines);
