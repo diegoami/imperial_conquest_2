@@ -572,7 +572,7 @@ public partial class MainGameScreen : Control
         var nation = Session.State.NationById(Session.State.ActiveNationId);
         if (nation?.Control != SeatControl.Human || nation.CapitalCityId is not { } id
             || Session.State.CityById(id) is not { } capital) return;
-        _mapView.FocusOnTile(capital.X, capital.Y, 4f); // Designed local view: 24px tiles before interface scaling.
+        _mapView.FocusOnCapital(capital.X, capital.Y);
     }
 
     private Control BuildTopBar()

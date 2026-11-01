@@ -448,6 +448,14 @@ public partial class GameMapView : Control
         _userAdjustedView = true;
     }
 
+    /// <summary>Owner #1671: a local capital neighbourhood, sized for the actual viewport.</summary>
+    public void FocusOnCapital(int x, int y)
+    {
+        var shortAxis = Mathf.Min(Size.X, Size.Y);
+        var zoom = Mathf.Clamp(shortAxis / (12f * BaseTileSize), 6f, MaxZoom);
+        FocusOnTile(x, y, zoom);
+    }
+
     /// <summary>Zooms to <see cref="MaxZoom"/> through the same <see cref="Zoom"/> path the mouse wheel
     /// uses, so <c>godot/Checks/MapClipCheck.cs</c> reproduces the maximum-zoom case without simulating
     /// wheel events.</summary>
