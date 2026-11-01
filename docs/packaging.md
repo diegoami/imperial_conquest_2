@@ -109,8 +109,11 @@ install). Pass `-SkipInstallerTest` there; the workflow's runner has no such ins
 
 **The overlay.** A tag may predate the packaging files. When the tag lacks `godot/export_presets.cfg` or
 `scripts/package.ps1` (v0.4.0 lacks both), the running checkout's copy is copied into the scratch
-worktree and the script prints `release-assets: <path> is not in <tag>; using <commit>'s`. Nothing else
-is overlaid: a tag whose game code those files cannot export fails, and is reported, not patched.
+worktree and the script prints `release-assets: <path> is not in <tag>; using <commit>'s`. If that newly
+overlaid preset references an icon absent from the old tag, its icon field is cleared to use Godot's
+default; no newer icon/game asset is copied into the old tree. A tag's own existing preset is left
+unchanged. Nothing else is overlaid: a tag whose game code those files cannot export fails, and is
+reported, not patched. Failed exports print the last exporter diagnostics before scratch cleanup.
 
 ### The workflow
 

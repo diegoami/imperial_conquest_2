@@ -296,6 +296,22 @@ function Invoke-InstallerTest {
     }
 }
 
+# An old tag may predate both the preset and its authored icon. Only the newly overlaid
+# preset gets this fallback; a preset already belonging to a tag remains byte-for-byte untouched.
+function Set-OverlayIconFallbacks {
+    param([string]$PresetPath, [string]$ProjectDirectory)
+    $preset = [System.IO.File]::ReadAllText($PresetPath)
+    $icons = [regex]::Matches($preset, '(?m)^(application/(?:icon|console_wrapper_icon))="(res://[^"]+)"(?=\r?$)')
+    foreach ($icon in $icons) {
+        $resource = $icon.Groups[2].Value
+        $file = Join-Path $ProjectDirectory $resource.Substring('res://'.Length)
+        if (Test-Path -LiteralPath $file -PathType Leaf) { continue }
+        Write-Step "overlaid preset: $resource is absent from this tag; using the default icon"
+        $preset = $preset.Replace($icon.Value, $icon.Groups[1].Value + '=""')
+    }
+    [System.IO.File]::WriteAllText($PresetPath, $preset, [System.Text.UTF8Encoding]::new($false))
+}
+
 $worktree = Join-Path $OutDir 'src'
 $worktreeAdded = $false
 $smokeScratch = $null
@@ -330,6 +346,9 @@ try {
         Write-Host "release-assets: $relative is not in $Tag; using $runningCommit's"
         New-Item -ItemType Directory -Force -Path (Split-Path -Parent $target) | Out-Null
         Copy-Item -LiteralPath (Join-Path $RepoRoot $relative) -Destination $target
+        if ($relative -eq 'godot/export_presets.cfg') {
+            Set-OverlayIconFallbacks -PresetPath $target -ProjectDirectory (Join-Path $worktree 'godot')
+        }
     }
 
     # 3. Package the tag's tree.
