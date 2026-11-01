@@ -347,6 +347,39 @@ def boards(directory):
         "requires T180 integration and actual windowed captures; these boards do not replace it.\n", encoding="utf-8")
 
 
+def marker_height(data, *, purple_field=False):
+    """Visible motif stature in a 32-bit 32px BMP, not its opaque tint field.
+
+    Authored templates use purple as the owner's background colour (the
+    2026-10-21 marker contract); placeholders instead use transparent padding.
+    """
+    if (data[:2] != b"BM" or struct.unpack_from("<ii", data, 18) != (32, 32)
+            or struct.unpack_from("<H", data, 28)[0] != 32):
+        raise ValueError("marker must be a 32px, 32-bit BMP")
+    offset = struct.unpack_from("<I", data, 10)[0]
+    pixels = [data[offset + i * 4:offset + (i + 1) * 4] for i in range(1024)]
+    if any(len(p) != 4 for p in pixels):
+        raise ValueError("truncated marker pixels")
+    rows = [i // 32 for i, p in enumerate(pixels)
+            if p[3] and (not purple_field or p[:3] != bytes((128, 0, 128)))]
+    return max(rows) - min(rows) + 1 if rows else 0
+
+
+def verify_marker_stature(root):
+    failures = []
+    for pack in ("authored", "placeholder"):
+        heights = [marker_height((root / "assets/packs" / pack / "army" / f"tier{tier}.bmp").read_bytes(),
+                                 purple_field=pack == "authored") for tier in (1, 2)]
+        # T187 requires distinct builds, not identical pixels across source families.
+        # Keep the native placeholder's exact regeneration geometry, and measure
+        # the later authored recolour format according to its visible foreground.
+        valid = heights == [22, 27] if pack == "placeholder" else 0 < heights[0] < heights[1] <= 32
+        if not valid:
+            failures.append(f"{pack} weak/middling motif heights {heights}; "
+                            + ("expected [22, 27]" if pack == "placeholder" else "expected 0 < weak < middling <= 32"))
+    return failures
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--key", action="append", choices=keys(), help="select keys; authored strategic six are always preserved")
@@ -364,17 +397,7 @@ def main():
                 p=ROOT/"assets/packs"/pack/relative_path(key)
                 if not p.exists() or p.read_bytes()!=bmp_bytes(glyph(key)):
                     failed.append(str(p.relative_to(ROOT)))
-        # Read committed BMP alpha, not generator-only dimensions: pin the owner's
-        # stature order in both source families without claiming art acceptance.
-        for pack in ("authored","placeholder"):
-            heights=[]
-            for tier in (1,2):
-                data=(ROOT/"assets/packs"/pack/"army"/f"tier{tier}.bmp").read_bytes()
-                offset=struct.unpack_from("<I",data,10)[0]
-                rows=[i//32 for i in range(1024) if data[offset+i*4+3]]
-                heights.append(max(rows)-min(rows)+1)
-            if heights != [22,27]:
-                failed.append(f"{pack} actual weak/middling alpha heights {heights}; expected 22 < 27")
+        failed.extend(verify_marker_stature(ROOT))
         if failed:
             print("MISMATCH:\n"+"\n".join(failed))
             return 1
