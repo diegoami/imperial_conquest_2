@@ -13,7 +13,7 @@ public enum UnitStripSelection
     /// <summary>An own army: original Army buttons, Quick Split, Set travel target and Cancel selection.</summary>
     OwnArmy,
 
-    /// <summary>An own fleet: the 6 Fleet buttons plus Cancel selection.</summary>
+    /// <summary>An own fleet: original Fleet buttons, Quick Split and Cancel selection.</summary>
     OwnFleet,
 
     /// <summary>An own city: the 1 City button plus Cancel selection.</summary>
@@ -60,13 +60,14 @@ public static class UnitCommandStripLayout
         "unit_map.army_disband",
     };
 
-    /// <summary>The Unit map → Fleet submenu's 6 rows, in the inventory's own order (audit §1.6).</summary>
+    /// <summary>Original fleet actions plus the owner-requested Split in Two convenience.</summary>
     public static readonly IReadOnlyList<string> FleetCommands = new[]
     {
         "unit_map.fleet_supply",
         "unit_map.fleet_repair",
         "unit_map.fleet_transfer_ships",
         "unit_map.fleet_split",
+        "unit_map.fleet_split_two",
         "unit_map.fleet_join",
         "unit_map.fleet_scuttle",
     };

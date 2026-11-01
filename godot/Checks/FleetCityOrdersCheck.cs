@@ -295,6 +295,49 @@ public partial class FleetCityOrdersCheck : Control
             _session.State, _session.World, new GridPoint(parentBefore.X, parentBefore.Y));
         Check(expectedCell is not null, "the split fleet has a free water cell for the new fleet");
 
+        var stateBefore = _session.State;
+        Check(_mainGame.CommandStrip.ButtonFor("unit_map.fleet_split_two")?.Icon is not null,
+            "fleet Split in Two has a compact toolbar icon");
+        Check(_mainGame.CommandStrip.PressForCheck("unit_map.fleet_split_two"), "fleet Split in Two opens from its toolbar action");
+        var quick = (SplitFleetDialog)_mainGame.ActiveOverlay!;
+        var quickModel = quick.ModelForCheck;
+        Check(quickModel.Ships == parentBefore.Ships / 2
+            && quickModel.Supply == (long)parentBefore.SupplyTons * quickModel.Ships / parentBefore.Ships
+            && quickModel.Money == (long)parentBefore.Money * quickModel.Ships / parentBefore.Ships,
+            "quick split stages balanced ships, supply and money");
+        Check(quick.FiguresForCheck.Contains(SplitChildId, StringComparison.Ordinal)
+            && !quick.FiguresForCheck.Contains("No valid split", StringComparison.Ordinal),
+            "both working fleet balances are visible before confirming");
+        quick.CancelForCheck();
+        Check(ReferenceEquals(stateBefore, _session.State) && _commandsSeen == before,
+            "opening and cancelling quick split changes no state or RNG and commits no command");
+
+        // Confirm the balanced proposal in a separate in-memory campaign, preserving
+        // this fixture's later manual-split and join controls.
+        var save = new SaveGame(stateBefore.SchemaVersion, "quick-split", "quick-split", stateBefore.ScenarioId,
+            stateBefore.WorldId, stateBefore.RulesetId, stateBefore);
+        var confirmed = new GameSession(_session.World, _session.Ruleset, _session.Scenario, save);
+        var confirming = new MainGameScreen { Session = confirmed, RepositoryRoot = GameDataContext.RepositoryRoot };
+        confirming.SetAnchorsPreset(LayoutPreset.FullRect);
+        AddChild(confirming);
+        confirming.SelectFleetForCheck(SplitFleetId);
+        Check(confirming.MenuBar.PressItemForCheck("unit_map.fleet_split_two"), "quick split opens from the fleet menu too");
+        var proposed = (SplitFleetDialog)confirming.ActiveOverlay!;
+        var proposedShips = proposed.ModelForCheck.Ships;
+        var proposedSupply = proposed.ModelForCheck.Supply;
+        var proposedMoney = proposed.ModelForCheck.Money;
+        proposed.OkForCheck();
+        var quickChild = confirmed.State.FleetById(SplitChildId);
+        var quickParent = confirmed.State.FleetById(SplitFleetId)!;
+        Check(quickChild is not null && quickChild.Ships == proposedShips
+            && quickChild.SupplyTons == proposedSupply && quickChild.Money == proposedMoney
+            && quickParent.Ships + quickChild.Ships == parentBefore.Ships
+            && quickParent.SupplyTons + quickChild.SupplyTons == parentBefore.SupplyTons
+            && quickParent.Money + quickChild.Money == parentBefore.Money,
+            "confirming quick split creates both fleets with the proposed conserved balances");
+        RemoveChild(confirming);
+        confirming.QueueFree();
+
         Check(_mainGame.MenuBar.PressItemForCheck("unit_map.fleet_split"), "Split fleet is wired from the menu");
         Check(_mainGame.ActiveOverlay is SplitFleetDialog, "Split fleet opens its dialog");
         var dialog = (SplitFleetDialog)_mainGame.ActiveOverlay!;
@@ -414,7 +457,7 @@ public partial class FleetCityOrdersCheck : Control
     private void StripSharesTheRepairHandler()
     {
         _mainGame.SelectFleetForCheck(SupplyFleetId);
-        Check(_mainGame.CommandStrip.Buttons.Count == 7, "an own fleet shows six fleet buttons and Cancel");
+        Check(_mainGame.CommandStrip.Buttons.Count == 8, "an own fleet shows ordinary actions, Split in Two and Cancel");
         Check(
             _mainGame.CommandStrip.ButtonFor("unit_map.fleet_repair") is not null,
             "the strip shows the Repair fleet button");

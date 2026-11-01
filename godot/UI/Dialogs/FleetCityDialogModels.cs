@@ -329,6 +329,16 @@ public sealed class SplitFleetModel
     /// <summary>The money staged toward the new fleet, in talents.</summary>
     public int Money { get; private set; }
 
+    /// <summary>Propose equal fleets without committing; integer resource remainders stay with the parent.</summary>
+    public bool ProposeBalanced()
+    {
+        if (!CanSplit || _fleet.IsUnderConstruction) return false;
+        Ships = ShipCount / 2;
+        Supply = (int)((long)MaxSupply * Ships / ShipCount);
+        Money = (int)((long)MaxMoney * Ships / ShipCount);
+        return true;
+    }
+
     /// <summary>One press of a ship arrow, clamped to <c>[0, <see cref="MaxShips"/>]</c>.</summary>
     public void AdjustShips(int delta) => Ships = Math.Clamp(Ships + delta, 0, MaxShips);
 

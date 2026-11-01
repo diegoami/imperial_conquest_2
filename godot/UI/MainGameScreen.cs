@@ -675,6 +675,7 @@ public partial class MainGameScreen : Control
         BindStrategicCommand("unit_map.fleet_repair", OpenRepairFleetDialog);
         BindStrategicCommand("unit_map.fleet_transfer_ships", OpenFleetTransferDialog);
         BindStrategicCommand("unit_map.fleet_split", OpenSplitFleetDialog);
+        BindStrategicCommand("unit_map.fleet_split_two", () => OpenSplitFleetDialog(suggestBalanced: true));
         BindStrategicCommand("unit_map.fleet_join", JoinFleetsFromMenu);
         BindStrategicCommand("unit_map.fleet_scuttle", ConfirmScuttleFleet);
 
@@ -1599,6 +1600,9 @@ public partial class MainGameScreen : Control
 
     /// <summary>T112: the Fleet menu's Split fleet entry.</summary>
     private void OpenSplitFleetDialog()
+        => OpenSplitFleetDialog(suggestBalanced: false);
+
+    private void OpenSplitFleetDialog(bool suggestBalanced)
     {
         var fleet = OwnSelectedFleet();
         if (fleet is null)
@@ -1612,6 +1616,7 @@ public partial class MainGameScreen : Control
             Session = Session,
             FleetId = fleet.Id,
             NewFleetId = NextSplitFleetId(fleet.Id),
+            SuggestBalanced = suggestBalanced,
             CommitEdits = CommitFromDialog,
         };
         dialog.Closed += () => CloseOverlay(dialog);

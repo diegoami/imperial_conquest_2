@@ -28,6 +28,8 @@ public partial class SplitFleetDialog : Control
     /// <summary>The new fleet's id (B), chosen by the screen.</summary>
     public required string NewFleetId { get; init; }
 
+    public bool SuggestBalanced { get; init; }
+
     /// <summary>Submits one composed line through the screen's path and returns the session's lines.</summary>
     public Func<DialogCommandDraft, string?, DialogEditResult> CommitEdits { get; init; } = (draft, final) => draft.Commit(final);
 
@@ -62,6 +64,7 @@ public partial class SplitFleetDialog : Control
         }
 
         _model = SplitFleetModel.ForFleet(Session.State, fleet, Session.Ruleset, NewFleetId);
+        if (SuggestBalanced) _model.ProposeBalanced();
         _draft = Session.BeginDialogEdit(DialogEditKind.Fleet);
         BuildUi();
         Refresh();
@@ -85,7 +88,7 @@ public partial class SplitFleetDialog : Control
         column.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         panel.AddChild(column);
 
-        column.AddChild(UiKit.MakeLabel("Split fleet", AppTheme.Header, UiKit.AccentColor));
+        column.AddChild(UiKit.MakeLabel(SuggestBalanced ? "Split fleet in two" : "Split fleet", AppTheme.Header, UiKit.AccentColor));
         _refusalLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         _refusalLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         column.AddChild(_refusalLabel);

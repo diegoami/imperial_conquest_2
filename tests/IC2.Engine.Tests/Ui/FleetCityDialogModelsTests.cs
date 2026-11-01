@@ -128,6 +128,7 @@ public sealed class FleetCityDialogModelsTests
         Assert.False(smallModel.CanSplit);
         Assert.Equal(FleetCityDialogModels.SplitTooFewShipsMessage(ruleset), smallModel.RefusalMessage);
         Assert.Null(smallModel.ComposeOk());
+        Assert.False(smallModel.ProposeBalanced());
 
         var carrying = State(Fleet(ships: ruleset.Naval.SplitMinShips, carriedArmyId: "t112-aboard"));
         var carryingModel = SplitFleetModel.ForFleet(
@@ -135,6 +136,33 @@ public sealed class FleetCityDialogModelsTests
         Assert.False(carryingModel.CanSplit);
         Assert.Equal(FleetCityDialogModels.SplitCarryingArmyMessage, carryingModel.RefusalMessage);
         Assert.Null(carryingModel.ComposeOk());
+        Assert.False(carryingModel.ProposeBalanced());
+    }
+
+    [Theory]
+    [InlineData(20, 10, 151, 50)]
+    [InlineData(21, 10, 144, 48)]
+    [InlineData(25, 12, 145, 48)]
+    public void Quick_split_proposes_ships_and_proportionate_resources_without_mutating_state(
+        int ships, int movedShips, int supply, int money)
+    {
+        var state = State(Fleet(ships: ships, supply: 303, money: 101));
+        var fleet = state.FleetById(FleetId)!;
+        var model = SplitFleetModel.ForFleet(state, fleet, ClassicalRuleset, NewFleetId);
+        Assert.Null(model.ComposeOk()); // Manual split's defaults remain empty.
+        Assert.True(model.ProposeBalanced());
+        Assert.Equal(movedShips, model.Ships);
+        Assert.Equal(supply, model.Supply);
+        Assert.Equal(money, model.Money);
+        Assert.Equal($"split-fleet {FleetId} {NewFleetId} {movedShips} supply={supply} money={money}", model.ComposeOk());
+        Assert.Same(fleet, state.FleetById(FleetId));
+        Assert.Null(model.Cancel());
+        model.AdjustShips(1);
+        model.AdjustSupply(-1);
+        model.AdjustMoney(-1);
+        Assert.Equal(movedShips + 1, model.Ships);
+        Assert.Equal(supply - 1, model.Supply);
+        Assert.Equal(money - 1, model.Money);
     }
 
     [Fact]
