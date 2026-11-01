@@ -125,7 +125,7 @@ public sealed class MobilizeRecruitSlotCommandHandler : ICommandHandler<Mobilize
             UnitTypeId: slot.UnitTypeId,
             Troops: slot.Troops,
             Quality: MobilizationReadiness.QualityFor(slot.StateCode, recruitment),
-            Name: ArmyNaming.NextName(state, nation.Id, slot.UnitTypeId));
+            Name: ArmyNaming.NextName(state, nation.Id, slot.UnitTypeId, context.Ruleset));
 
         var updatedArmy = receivingArmy with { Units = WithUnitAt(receivingArmy.Units, unitSlotIndex, unit) };
 

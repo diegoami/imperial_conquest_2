@@ -24,6 +24,8 @@ public sealed record BattleDisplay(
 {
     /// <summary>Panel background for readable participant text; independent of nation identity.</summary>
     public string PanelColorHex { get; init; } = "#1E1912";
+    /// <summary>Optional presentation aliases; keys remain canonical mechanical unit ids.</summary>
+    public IReadOnlyDictionary<string, string> UnitVisuals { get; init; } = FrozenDictionary<string, string>.Empty;
     /// <summary>Captured immutable nation metadata, never looked up in an advanced session state.</summary>
     public IReadOnlyDictionary<string, BattleAllegiance> Allegiances { get; init; } =
         FrozenDictionary<string, BattleAllegiance>.Empty;
@@ -51,6 +53,8 @@ public sealed record BattleDisplay(
             ruleset.Combat.Tactical.BoardWidth,
             ruleset.Combat.Tactical.BoardHeight)
         {
+            UnitVisuals = ruleset.UnitTypes.Where(t => t.VisualTypeId is not null)
+                .ToFrozenDictionary(t => t.Id, t => t.VisualTypeId!, StringComparer.Ordinal),
             Allegiances = new[] { view.AttackerNationId, view.DefenderNationId }.Distinct().ToFrozenDictionary(
                 id => id, id => BattleAllegiance.For(id, world is null ? state.NationById(id)?.Name ?? id : world.NationById(id)?.Name ?? id, world),
                 StringComparer.Ordinal),
@@ -387,6 +391,8 @@ public sealed class TacticalBattleViewModel
         return $"({unit.X},{unit.Y})";
     }
 
+    private string VisualType(string canonicalId) => _display.UnitVisuals.TryGetValue(canonicalId, out var visual) ? visual : canonicalId;
+
     /// <summary>The same draw list feeds board and minimap, with no stationary duplicate.</summary>
     public IReadOnlyList<BattleUnitView> VisualUnits
     {
@@ -398,7 +404,7 @@ public sealed class TacticalBattleViewModel
             {
                 var g = pose.Glyph;
                 var cell = new BattleCellView(g.X, g.Y, g.Code, g.Slot, g.Side,
-                    BattleAssetKeys.UnitIcon(g.TypeId, (g.Code % TacticalIcon.DefenderOffset) % TacticalIcon.SizesPerType),
+                    BattleAssetKeys.UnitIcon(VisualType(g.TypeId), (g.Code % TacticalIcon.DefenderOffset) % TacticalIcon.SizesPerType),
                     !pose.Departing && g.Slot == SelectedSlot, g.Slot == ActorSlot, g.Slot == TargetSlot);
                 units.Add(new BattleUnitView(cell, pose.X, pose.Y, pose.Opacity));
             }
@@ -901,7 +907,7 @@ public sealed class TacticalBattleViewModel
                 var typeId = validIcon ? _view.UnitTypeIds[type] : string.Empty;
                 var slot = SlotAt(x, y);
                 cells.Add(new BattleCellView(
-                    x, y, code, slot, side, validIcon ? BattleAssetKeys.UnitIcon(typeId, size) : null, slot >= 0 && slot == SelectedSlot,
+                    x, y, code, slot, side, validIcon ? BattleAssetKeys.UnitIcon(VisualType(typeId), size) : null, slot >= 0 && slot == SelectedSlot,
                     slot >= 0 && slot == ActorSlot, slot >= 0 && (slot == TargetSlot || (TargetSlot < 0 && slot == PlannedTargetSlot))));
             }
         }

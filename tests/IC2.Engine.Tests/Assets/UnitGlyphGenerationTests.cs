@@ -17,19 +17,24 @@ public sealed class UnitGlyphGenerationTests
     [Theory]
     [InlineData("authored")]
     [InlineData("placeholder")]
-    public void Pack_HasExactly15Battle3Army3FleetKeys_WithRequiredPixels(string pack)
+    public void Pack_HasCanonicalAndOptionalBattleGlyphs_WithRequiredPixels(string pack)
     {
         var root = Path.Combine(FixturePaths.RepositoryRoot, "assets", "packs", pack);
         using var manifest = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "manifest.json")));
         var assets = manifest.RootElement.GetProperty("assets");
-        var expected = Types.SelectMany(type => Sizes.Select(size => $"battle.unit.{type}.{size}"))
+        var required = Types.SelectMany(type => Sizes.Select(size => $"battle.unit.{type}.{size}"))
             .Concat(new[] { "army", "fleet" }.SelectMany(kind => Enumerable.Range(1, 3)
                 .Select(tier => $"{kind}.tier{tier}.icon"))).Order().ToArray();
+        var optional = new[] { "light_chariot", "heavy_chariot" }
+            .SelectMany(type => Sizes.Select(size => $"battle.unit.{type}.{size}")).ToArray();
+        var expected = required.Concat(optional).Order().ToArray();
         var actual = assets.EnumerateObject().Select(p => p.Name).Where(k =>
             k.StartsWith("battle.unit.", StringComparison.Ordinal) ||
             k.StartsWith("army.", StringComparison.Ordinal) || k.StartsWith("fleet.", StringComparison.Ordinal))
             .Order().ToArray();
-        Assert.Equal(21, actual.Length);
+        Assert.Equal(21, required.Length);
+        Assert.Equal(6, optional.Length);
+        Assert.Equal(27, actual.Length);
         Assert.Equal(expected, actual);
         foreach (var key in expected)
         {

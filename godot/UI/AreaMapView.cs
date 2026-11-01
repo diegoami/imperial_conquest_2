@@ -657,6 +657,9 @@ public partial class AreaMapView : Control
                 continue;
             }
 
+            if (_session.Ruleset.UnitTypeById(slot.UnitTypeId)?.VisualTypeId is { } visual)
+                iconKey = $"unit.{visual}.icon";
+
             var texture = AssetLoader.TryGetTexture(iconKey);
             if (texture is null)
             {

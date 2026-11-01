@@ -615,6 +615,20 @@ four tier keys, the large castle's being `city.tier4.icon` (bug [#818](https://g
 
 ### 4.1 Unit icons — complete roster, no gap
 
+**Optional historical presentation (T271).** The canonical five troop IDs and
+required keys below remain unchanged. A unit type's optional `visualTypeId`
+can select `unit.light_chariot.icon` / `unit.heavy_chariot.icon` and their
+`battle.unit.<visual>.<small|medium|large>` keys. These are optional manifest
+extensions in both shipped packs, generated offline by
+`python scripts/generate-period-unit-glyphs.py` and checked with `--verify`.
+They reuse the native integer rasterizer, neutral transparent 32px strategic
+sprite and existing three-size battle tint frame. No required core asset key,
+troop statistic or icon-code identity changes. A custom pack lacking an
+optional key retains the existing missing-texture fallback. Chariots are
+explicit presentation proxies for existing mobile-unit mechanics, not new
+combat rules or original-game artwork. The authored-marker stature discrepancy
+in the broader legacy verifier remains separately tracked by T272/#1710.
+
 Five unit types, and confirmed as the complete strategic-map roster (no elephants, siege engines, or
 other types anywhere in the design or the audit — `game-design.md`'s Combat/Recruitment sections and
 `design-audit.md`'s missing-mechanics sweep, §1, name exactly these five throughout and introduce no
