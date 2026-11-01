@@ -714,3 +714,8 @@ Write-Host "Success: Generated placeholder asset pack at: $OutputPath"
 # This writes only the 21 battle/army/fleet icons and preserves every other pack asset.
 & python (Join-Path $PSScriptRoot 'generate-unit-glyphs.py') --pack-dir $OutputPath
 if ($LASTEXITCODE -ne 0) { throw 'Unit glyph generation failed.' }
+
+# Optional period aliases are part of the committed pack too. Target only this
+# output directory so scratch regeneration never rewrites either repository pack.
+& python (Join-Path $PSScriptRoot 'generate-period-unit-glyphs.py') --pack-dir $OutputPath
+if ($LASTEXITCODE -ne 0) { throw 'Period unit glyph generation failed.' }
