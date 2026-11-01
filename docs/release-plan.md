@@ -329,6 +329,8 @@ Owner release request, 2026-10-31, continued 2026-11-01. [Milestone 18](https://
 
 **Explicit limits:** no full original campaign/RNG/draw parity; approved Instant battles remain a designed shortcut. Unmeasured adjacent zero-move boarding, carried negative-move routing, other AI battle interruption kinds and residual fleet/economic attribution remain bounded by their task contracts and existing research issues. Improved-general optimization, combat rebalance and owner-deferred native-original/Windows acceptance (T184–T186/#1355) are not new gates. Deferred travel/rally/undo/intermediate-support requests remain outside this cut. Evidence-only PRs #1653/#1661 remain separate review material and are not merged through this implementation. QOL visibility does not revoke previously enabled campaign automation.
 
+T258 adds review follow-up obligations without changing C1–C8: a finite Windows scheduling margin for the complete real-debt/watch lap, an authored public before-support capital-defence/fleet interruption regression, and byte restoration after the package verifier's negative sidecar probe. Re-freeze any resulting main commit and request a focused C5/C8 independent recheck; preserve the original candidate and evidence. Neither game behavior nor the release's fidelity claims are expanded.
+
 ## 3. Tag and GitHub Release conventions
 
 ### 3.1 Naming and placement — **DECIDED**
