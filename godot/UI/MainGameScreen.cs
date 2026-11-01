@@ -143,7 +143,7 @@ public partial class MainGameScreen : Control
     /// <c>godot/Checks/MenuBarCheck.cs</c> can read its handler counter
     /// (<see cref="GameCommandTable.IssuedCount"/>) without re-deriving which commands were pressed.
     /// </summary>
-    public GameCommandTable CommandTable => _commandTable ??= new GameCommandTable(Session.World);
+    public GameCommandTable CommandTable => _commandTable ??= new GameCommandTable(Session.World, Session.Ruleset);
 
     private GameCommandTable? _commandTable;
 

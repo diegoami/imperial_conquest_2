@@ -250,7 +250,7 @@ public static class InformationPanelModel
         // Blank line "b+1" before the five type lines, the original's separator.
         lines.Add(BlankLine());
 
-        AddUnitTypeLines(army, lines);
+        AddUnitTypeLines(army, ruleset, lines);
         lines.Add(new InformationPanelLine(
             ArmyTotalTroopsKey, $"Total troops: {InformationWords.Grouped(army.TotalTroops)}"));
 
@@ -306,7 +306,7 @@ public static class InformationPanelModel
         // army has none, and every later line moves up one, A06), as on the own army's panel.
         lines.Add(BlankLine());
 
-        AddUnitTypeLines(army, lines);
+        AddUnitTypeLines(army, ruleset, lines);
         lines.Add(new InformationPanelLine(
             ArmyTotalTroopsKey, $"Total troops: {InformationWords.Grouped(army.TotalTroops)}"));
 
@@ -369,17 +369,16 @@ public static class InformationPanelModel
         return true;
     }
 
-    private static void AddUnitTypeLines(ArmyState army, List<InformationPanelLine> lines)
+    private static void AddUnitTypeLines(ArmyState army, Ruleset ruleset, List<InformationPanelLine> lines)
     {
         var sums = UnitTypeSums(army);
         for (var i = 0; i < UnitTypeIds.Length; i++)
         {
             var typeId = UnitTypeIds[i];
-            var name = UnitTypeLabel(typeId, sums.TryGetValue(typeId, out var t) ? t : 0, sum: sums.TryGetValue(typeId, out t) ? t : 0);
-            var troops = sums.TryGetValue(typeId, out t) ? t : 0;
+            var troops = sums.TryGetValue(typeId, out var t) ? t : 0;
             lines.Add(new InformationPanelLine(
                 ArmyUnitTypeKeyPrefix + typeId,
-                $"{UnitTypeLabel(typeId, troops, troops)}: {InformationWords.Grouped(troops)}"));
+                $"{UnitTypeDisplayName(typeId, ruleset)}: {InformationWords.Grouped(troops)}"));
         }
     }
 
@@ -389,13 +388,7 @@ public static class InformationPanelModel
     /// "Archers", "Light cavalry", "Heavy cavalry") — the original's 16-byte truncated names agree
     /// with the ruleset's full names byte-for-byte on every shipped preset.
     /// </summary>
-    private static string UnitTypeLabel(string typeId, int troops, int sum)
-    {
-        var label = UnitTypeDisplayName(typeId);
-        return label;
-    }
-
-    private static string UnitTypeDisplayName(string typeId) => typeId switch
+    private static string UnitTypeDisplayName(string typeId, Ruleset ruleset) => ruleset.UnitTypeById(typeId)?.Name ?? (typeId switch
     {
         "light_infantry" => "Light infantry",
         "heavy_infantry" => "Heavy infantry",
@@ -403,7 +396,7 @@ public static class InformationPanelModel
         "light_cavalry" => "Light cavalry",
         "heavy_cavalry" => "Heavy cavalry",
         _ => typeId,
-    };
+    });
 
     private static IReadOnlyDictionary<string, int> UnitTypeSums(ArmyState army)
     {
@@ -596,7 +589,7 @@ public static class InformationPanelModel
 
             yield return new InformationPanelLine(
                 ArmyUnitTypeKeyPrefix + typeId,
-                $"{UnitTypeDisplayName(typeId)}: {InformationWords.Grouped(sum)}");
+                $"{UnitTypeDisplayName(typeId, ruleset)}: {InformationWords.Grouped(sum)}");
         }
 
         yield return new InformationPanelLine(
@@ -638,7 +631,7 @@ public static class InformationPanelModel
 
             yield return new InformationPanelLine(
                 ArmyUnitTypeKeyPrefix + typeId,
-                $"{UnitTypeDisplayName(typeId)}: {InformationWords.Grouped(sum)}");
+                $"{UnitTypeDisplayName(typeId, ruleset)}: {InformationWords.Grouped(sum)}");
         }
 
         yield return new InformationPanelLine(

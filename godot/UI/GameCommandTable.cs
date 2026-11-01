@@ -107,11 +107,19 @@ public sealed class GameCommandTable
     /// non-classical world's menu and toolbar list exactly its nations. Without a world, or on the classical
     /// world, <see cref="MenuRows"/> is <see cref="Rows"/> itself.
     /// </summary>
-    public GameCommandTable(IC2.Engine.Model.World? world = null)
+    public GameCommandTable(IC2.Engine.Model.World? world = null, IC2.Engine.Model.Ruleset? ruleset = null)
     {
-        MenuRows = world is null
+        var rows = world is null
             ? Rows
             : BuildRows(world.Nations.Select(n => (n.Id, n.Name)).ToArray());
+        const string prefix = "area_map.show_mercs_";
+        MenuRows = ruleset is null ? rows : rows.Select(row =>
+        {
+            if (!row.Id.StartsWith(prefix, StringComparison.Ordinal)
+                || ruleset.UnitTypeById(row.Id[prefix.Length..]) is not { } type) return row;
+            return row with { Caption = type.Name,
+                IconKey = type.VisualTypeId is { } visual ? $"unit.{visual}.icon" : row.IconKey };
+        }).ToArray();
     }
 
     /// <summary>T200: this table's rows: <see cref="Rows"/> with the Nations rows of the world it was built for.</summary>

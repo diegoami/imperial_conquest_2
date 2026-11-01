@@ -4,6 +4,7 @@ using IC2.Engine.Presentation;
 using IC2.Engine.Tests.Armies;
 using IC2.Engine.Tests.Presentation;
 using IC2.Slice.Screens;
+using IC2.Slice.UI;
 using Xunit;
 
 namespace IC2.Engine.Tests.Ui.Screens;
@@ -37,5 +38,12 @@ public sealed class PeriodUnitVisualTests
         var moving = TacticalBattleViewModel.FromSnapshot(snapshot, display, pose: pose, stage: TacticalPlaybackStage.Travel);
         Assert.Equal(cell.IconKey, moving.VisualUnits.Single(u => u.Cell.Slot == 0).Cell.IconKey);
         Assert.Equal(view.Slots[0], moving.View.Slots[0]);
+        var army = session.State.ArmyById("north-army-1")!;
+        var panel = InformationPanelModel.OwnArmy(session.State, session.World, rules, army);
+        Assert.Contains(panel, line => line.Text.StartsWith("Light chariots:", StringComparison.Ordinal));
+        var table = new GameCommandTable(session.World, rules);
+        var filter = table.MenuRowById("area_map.show_mercs_light_cavalry")!;
+        Assert.Equal("Light chariots", filter.Caption);
+        Assert.Equal("unit.light_chariot.icon", filter.IconKey);
     }
 }
