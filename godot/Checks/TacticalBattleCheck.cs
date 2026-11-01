@@ -978,6 +978,8 @@ public partial class TacticalBattleCheck : Node
             siege.ActiveOverlay is BattleResultScreen,
             $"a siege shows the battle-result window as on main (got {siege.ActiveOverlay?.GetType().Name ?? "null"})");
         Check(siege.Session.OpenTacticalBattle is null, "a siege opens no battle screen");
+        if (siege.ActiveOverlay is BattleResultScreen report)
+            Check(report.ReportTitleLabel.Text == "Siege Result", "the actual siege popup is explicitly titled Siege Result");
         Free(siege);
 
         // An AI-versus-AI battle played within an end turn.

@@ -608,16 +608,28 @@ public sealed class TacticalBattleViewModelTests
     }
 
     [Fact]
-    public void Exchange_effects_and_setup_retain_combatant_roles_with_values_from_fully_updated_snapshot()
+    public void Exchange_effects_retain_roles_but_next_setup_returns_to_selected_unit_planning()
     {
         var (session, _, display) = Opened();
         var output = session.BattleGeneral(true);
         var queue = new TacticalPlayback();
         var setups = 0;
+        var effects = 0;
         queue.FrameEntered += frame =>
         {
-            if (frame.Kind is not (TacticalFrameKind.Setup or TacticalFrameKind.Rout or TacticalFrameKind.Cascade or TacticalFrameKind.Removal)
+            if (frame.Kind == TacticalFrameKind.Setup)
+            {
+                setups++;
+                Assert.Null(queue.CurrentExchange);
+                Assert.Null(queue.PreviousExchange);
+                var planning = TacticalBattleViewModel.FromSnapshot(frame.After, display, frame: frame,
+                    currentExchange: queue.CurrentExchange, previousExchange: queue.PreviousExchange, perspectiveSide: 0);
+                Assert.Empty(planning.CurrentExchangeLines);
+                return;
+            }
+            if (frame.Kind is not (TacticalFrameKind.Rout or TacticalFrameKind.Cascade or TacticalFrameKind.Removal)
                 || queue.CurrentExchange is null) return;
+            effects++;
             var model = TacticalBattleViewModel.FromSnapshot(frame.After, display, frame: frame,
                 currentExchange: queue.CurrentExchange, previousExchange: queue.PreviousExchange, perspectiveSide: 0);
             Assert.Equal(queue.CurrentExchange.Actor!.Slot, model.ActorSlot);
@@ -636,10 +648,10 @@ public sealed class TacticalBattleViewModelTests
             });
             Assert.Equal(frame.After.View.Grid, model.Cells.Select(c => c.Code));
             Assert.False(model.ResolvingHalfRound);
-            if (frame.Kind == TacticalFrameKind.Setup) setups++;
         };
         queue.Begin(output.TacticalTimeline);
         Assert.True(setups > 1);
+        Assert.True(effects > 0);
     }
     [Theory]
     [InlineData("seleucid", "ptolemaic", "renamed", "SELEUCID", "PTOLEMEAN")]

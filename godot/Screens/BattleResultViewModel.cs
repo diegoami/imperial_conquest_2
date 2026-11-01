@@ -67,6 +67,17 @@ public sealed record BattleResultViewModel(
     int WinnerPower,
     int LoserPower)
 {
+    /// <summary>The report names its actual encounter type, especially an army-versus-city siege.</summary>
+    public string ReportTitle => Kind switch
+    {
+        BattleKind.Siege => "Siege Result",
+        BattleKind.Naval => "Naval Battle Result",
+        _ => "Field Battle Result",
+    };
+
+    /// <summary>An agreement and a still-actionable offer must never share a success caption.</summary>
+    public string? PeaceHeading => PeaceTreatyFired ? "Peace agreed" : PeaceTreatyOffered ? "Peace offered" : null;
+
     /// <summary>
     /// Copies every field <paramref name="result"/> exposes (own and computed alike) — the one place this
     /// mapping happens, so <c>BattleResultViewModelTests</c>'s own reflection check

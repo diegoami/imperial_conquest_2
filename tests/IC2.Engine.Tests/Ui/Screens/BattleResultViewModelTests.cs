@@ -42,6 +42,27 @@ public sealed class BattleResultViewModelTests
             + "Add the field to BattleResultViewModel's own record and to FromResult's mapping.");
     }
 
+    [Theory]
+    [InlineData(BattleKind.Field, "Field Battle Result")]
+    [InlineData(BattleKind.Siege, "Siege Result")]
+    [InlineData(BattleKind.Naval, "Naval Battle Result")]
+    public void Encounter_heading_distinguishes_sieges_from_army_and_naval_battles(BattleKind kind, string title)
+    {
+        var view = BattleResultViewModel.FromResult(MakeResult(LoserFate.Destroyed, null) with { Kind = kind });
+        Assert.Equal(title, view.ReportTitle);
+    }
+
+    [Theory]
+    [InlineData(true, false, "Peace agreed")]
+    [InlineData(false, true, "Peace offered")]
+    [InlineData(false, false, null)]
+    public void Peace_caption_does_not_present_pending_offers_as_accepted(bool agreed, bool offered, string? heading)
+    {
+        var view = BattleResultViewModel.FromResult(MakeResult(LoserFate.Destroyed, null)
+            with { PeaceTreatyFired = agreed, PeaceTreatyOffered = offered });
+        Assert.Equal(heading, view.PeaceHeading);
+    }
+
     [Fact]
     public void FromResult_carries_every_field_through_for_a_destroyed_loser()
     {
