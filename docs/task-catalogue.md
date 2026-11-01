@@ -88,4 +88,5 @@ Open and recent tasks only. Merged tasks (T01–T191 and others) are in their cl
 - [T258](tasks/T258.md) — v0.8.6 review follow-up: Windows test margin, capital-defence fleet coverage and reversible package verification
 - [T259](tasks/T259.md) — Deterministic barbarian boundary-arrival planner
 - [T260](tasks/T260.md) — Readable News and complete campaign date
+- [T261](tasks/T261.md) — Clear battle feedback; distinguish siege and peace
 - [T262](tasks/T262.md) — Fleet Split in Two

@@ -148,6 +148,10 @@ public sealed class TacticalPlayback
         Pose = null;
         _destination = null;
         if (frame.Kind == TacticalFrameKind.HalfRound) ResolvingHalfRound = true;
+        // HalfRound still precedes old-side melee. Setup is the completed handoff
+        // where selected-unit planning replaces the previous round's exchange.
+        if (frame.Kind == TacticalFrameKind.Setup)
+            CurrentExchange = PreviousExchange = null;
         if (frame.Kind is TacticalFrameKind.Setup or TacticalFrameKind.Reconciliation or TacticalFrameKind.Terminal)
             ResolvingHalfRound = false;
         var exchange = frame.Event is TacticalShotEvent or TacticalMeleeEvent;

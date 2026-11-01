@@ -11,6 +11,35 @@ namespace IC2.Engine.Tests.Ui.Screens;
 
 public sealed class TacticalPlaybackTests
 {
+    [Fact]
+    public void Exchanges_remain_during_resolution_but_clear_at_the_next_setup()
+    {
+        var (_, opening, ending) = Battle();
+        var queue = new TacticalPlayback { ShotDelay = 0, AttackDelay = 0 };
+        var exchangesSinceSetup = 0;
+        var clearedSetups = 0;
+        queue.FrameEntered += frame =>
+        {
+            if (frame.Event is TacticalShotEvent or TacticalMeleeEvent)
+            {
+                exchangesSinceSetup++;
+                Assert.Same(frame, queue.CurrentExchange);
+                Assert.NotEmpty(Model(queue).CurrentExchangeLines);
+            }
+            if (frame.Kind == TacticalFrameKind.HalfRound && exchangesSinceSetup > 0)
+                Assert.NotNull(queue.CurrentExchange);
+            if (frame.Kind != TacticalFrameKind.Setup) return;
+            if (exchangesSinceSetup > 0) clearedSetups++;
+            exchangesSinceSetup = 0;
+            Assert.Null(queue.CurrentExchange);
+            Assert.Null(queue.PreviousExchange);
+            Assert.Empty(Model(queue).CurrentExchangeLines);
+        };
+        queue.Begin(opening.Concat(ending.TacticalTimeline));
+        queue.Finish();
+        Assert.True(clearedSetups > 0, "The control must reach a real Setup after combat, not only initial placement.");
+    }
+
     private static (GameSession Session, IReadOnlyList<TacticalBattleFrame> Opening, SessionOutput Ending) Battle()
     {
         var armies = TacticalSessionTestbed.StrongAttacker().Select(a => a with

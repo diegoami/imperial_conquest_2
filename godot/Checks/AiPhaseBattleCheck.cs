@@ -364,6 +364,16 @@ public partial class AiPhaseBattleCheck : Node
     private void CheckWindowMatches(BattleResultScreen screen, BattleResult battle, string prefix)
     {
         var window = screen.Result;
+        Check(screen.ReportTitleLabel.Text == window.ReportTitle,
+            $"{prefix}the actual report heading identifies {window.Kind}");
+        Check(screen.PeaceHeadingLabel?.Text == window.PeaceHeading,
+            $"{prefix}the actual peace section distinguishes agreed, offered and absent peace");
+        if (screen.PeaceHeadingLabel is { } peace)
+        {
+            var section = peace.GetParent().GetParent();
+            Check(section.GetIndex() < screen.WinnerLabel.GetIndex(),
+                $"{prefix}peace appears prominently before the outcome details");
+        }
         Check(
             WindowMatches(window, battle),
             $"{prefix}the window matches the engine's BattleResult: attacker {window.AttackerId} == "

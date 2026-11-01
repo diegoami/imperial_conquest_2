@@ -294,7 +294,7 @@ public sealed class TacticalBattleViewModel
     public TacticalPose? Pose { get; private set; }
     public TacticalPlaybackStage Stage { get; private set; }
     // Rout/cascade/removal are effects of the current exchange, not a reversal of its actor/target.
-    // Keep those identities through housekeeping and Setup; all numbers still read the displayed snapshot.
+    // Keep those identities through housekeeping; Setup clears the completed round's exchange.
     private TacticalBattleFrame? ParticipantFrame => CurrentExchange is not null
         && DisplayedFrame?.Kind is (TacticalFrameKind.Rout or TacticalFrameKind.Cascade or TacticalFrameKind.Removal
             or TacticalFrameKind.Morale or TacticalFrameKind.Setup or TacticalFrameKind.HalfRound

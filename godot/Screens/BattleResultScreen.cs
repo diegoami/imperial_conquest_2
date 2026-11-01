@@ -48,6 +48,9 @@ public partial class BattleResultScreen : Control
     /// <summary>Exposed for the same reason as <see cref="FateLabel"/>.</summary>
     public Label WinnerLabel { get; private set; } = null!;
 
+    public Label ReportTitleLabel { get; private set; } = null!;
+    public Label? PeaceHeadingLabel { get; private set; }
+
     public override void _Ready()
     {
         ModalOverlay.Build(out var root, out var content, AppTheme.Scrim);
@@ -58,7 +61,24 @@ public partial class BattleResultScreen : Control
         var winnerName = DisplayNation(Result.WinnerNationId);
         var loserName = DisplayNation(Result.LoserNationId);
 
-        content.AddChild(UiKit.MakeLabel("Battle Result", AppTheme.Header, UiKit.AccentColor));
+        ReportTitleLabel = UiKit.MakeLabel(Result.ReportTitle, AppTheme.Header, UiKit.AccentColor);
+        content.AddChild(ReportTitleLabel);
+        if (Result.Kind == BattleKind.Siege)
+            content.AddChild(UiKit.MakeLabel($"Siege of {CityName(Result.DefenderId)}", AppTheme.Header, UiKit.TextColor));
+        if (Result.PeaceHeading is { } peaceHeading)
+        {
+            var peacePanel = UiKit.MakePanel(UiKit.PanelColorRaised);
+            var peace = new VBoxContainer();
+            PeaceHeadingLabel = UiKit.MakeLabel(peaceHeading, AppTheme.Header, UiKit.AccentColor);
+            peace.AddChild(PeaceHeadingLabel);
+            peace.AddChild(UiKit.MakeLabel(
+                Result.PeaceTreatyFired
+                    ? $"{attackerName} and {defenderName} have agreed to end their war."
+                    : $"An offer between {attackerName} and {defenderName} awaits a decision.",
+                AppTheme.Body, UiKit.TextColor));
+            peacePanel.AddChild(peace);
+            content.AddChild(peacePanel);
+        }
         content.AddChild(UiKit.MakeLabel(
             $"{attackerName} ({Result.AttackerPower}) vs {defenderName} ({Result.DefenderPower})", AppTheme.Body, UiKit.TextColor));
 
@@ -97,7 +117,6 @@ public partial class BattleResultScreen : Control
         content.AddChild(UiKit.MakeLabel(
             $"Unity swing: {winnerName} {SignedInt(Result.WinnerUnityDelta)}, {loserName} {SignedInt(Result.LoserUnityDelta)}",
             AppTheme.Body, UiKit.MutedTextColor));
-        content.AddChild(UiKit.MakeLabel(PeaceLineText(), AppTheme.Body, UiKit.MutedTextColor));
 
         content.AddChild(new HSeparator());
         content.AddChild(UiKit.MakeButton("Close", Close));
@@ -129,13 +148,6 @@ public partial class BattleResultScreen : Control
     /// save ever carries a city this state no longer knows.
     /// </summary>
     private string CityName(string cityId) => Session.State.CityById(cityId)?.Name ?? cityId;
-
-    private string PeaceLineText() =>
-        Result.PeaceTreatyFired
-            ? "An automatic peace treaty followed this battle."
-            : Result.PeaceTreatyOffered
-                ? "A peace treaty has been offered."
-                : "No peace treaty followed.";
 
     private static string SignedInt(int value) => value > 0 ? $"+{value}" : value.ToString();
 
