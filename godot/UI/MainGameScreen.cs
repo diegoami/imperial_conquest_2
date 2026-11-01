@@ -453,7 +453,7 @@ public partial class MainGameScreen : Control
         // "Now: Week …, Active seat: …" footer is what the player sees rather than the first AI-turn
         // lines. LinesSkipped is recomputed on every command and whenever a layout pass changes the
         // label's width (which is what decides how many lines the text wraps to).
-        _lastCommandLabel.Resized += UpdateLastCommandLinesSkipped;
+        _lastCommandLabel.Resized += ScheduleLastCommandLinesSkipped;
 
         _newsLog = new NewsLogPanel { Session = Session, CustomMinimumSize = new Vector2(0, 200) };
         root.AddChild(_newsLog);
@@ -2077,7 +2077,7 @@ public partial class MainGameScreen : Control
         _lastCommandLabel.Text = message;
         _lastCommandLabel.Visible = !string.IsNullOrWhiteSpace(message);
         _lastCommandLabel.TooltipText = message;
-        UpdateLastCommandLinesSkipped();
+        ScheduleLastCommandLinesSkipped();
     }
 
     private void ShowHelpPage()
@@ -2916,7 +2916,7 @@ public partial class MainGameScreen : Control
         _lastCommandLabel.Text = outcome;
         _lastCommandLabel.Visible = !string.IsNullOrWhiteSpace(outcome);
         _lastCommandLabel.TooltipText = outcome;
-        UpdateLastCommandLinesSkipped();
+        ScheduleLastCommandLinesSkipped();
         ShowRefusalNotice(lines);
 
         // T127: the battle screen covers the map, so it shows the engine's answer itself (a refused Save during an
@@ -3130,6 +3130,19 @@ public partial class MainGameScreen : Control
     /// every text change and on every resize: a command issued before the first layout pass is
     /// recomputed once the label gets its real width.
     /// </summary>
+    private void ScheduleLastCommandLinesSkipped()
+    {
+        UpdateLastCommandLinesSkipped();
+        // A collapsed label initially shapes at zero/narrow width. Recount after
+        // the container/label layout has settled so an old wrapped offset cannot
+        // hide the first ordinary message when the strip becomes visible again.
+        Callable.From(() =>
+        {
+            if (!_closing && GodotObject.IsInstanceValid(this) && IsInsideTree()
+                && GodotObject.IsInstanceValid(_lastCommandLabel)) UpdateLastCommandLinesSkipped();
+        }).CallDeferred();
+    }
+
     private void UpdateLastCommandLinesSkipped()
     {
         var lineCount = _lastCommandLabel.GetLineCount();

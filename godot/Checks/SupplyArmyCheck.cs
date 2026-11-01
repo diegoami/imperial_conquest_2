@@ -69,6 +69,8 @@ public partial class SupplyArmyCheck : Control
         _steps.Add(PressFleet);
         _steps.Add(StageAndTransferForeignCity);
         _steps.Add(PressMoney);
+        _steps.Add(ShowOrdinaryFeedbackAfterSupply);
+        _steps.Add(CheckOrdinaryFeedbackAfterSupply);
         _steps.Add(CloseFirstDialog);
         _steps.Add(OpenAtOverfullArmy);
         _steps.Add(PressPastRoom);
@@ -241,6 +243,18 @@ public partial class SupplyArmyCheck : Control
         Check(after.Treasury == before.Treasury - 100, $"the treasury loses 100 talents ({before.Treasury} -> {after.Treasury})");
         Check(string.IsNullOrEmpty(_mainGame.LastMessageForCheck),
             "successful funding updates balances without a bottom purse log");
+    }
+
+    private void ShowOrdinaryFeedbackAfterSupply() => _mainGame.SubmitForCheck("status");
+
+    private void CheckOrdinaryFeedbackAfterSupply()
+    {
+        var label = _mainGame.GetChildren().OfType<VBoxContainer>().First()
+            .GetChildren().OfType<Label>().Single();
+        Check(label.Visible && label.GetVisibleLineCount() > 0,
+            "ordinary feedback becomes readable after the resource strip was collapsed");
+        Check(label.LinesSkipped <= Math.Max(0, label.GetLineCount() - 1),
+            "post-layout feedback offset does not skip every line");
     }
 
     private void CloseFirstDialog()
