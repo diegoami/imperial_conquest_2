@@ -27,6 +27,7 @@ Open and recent tasks only. Merged tasks (T01–T191 and others) are in their cl
 - [T198](tasks/T198.md) —  Persistent local diagnostics for crash and hang investigation
 - [T199](tasks/T199.md) —  A scenario's own victory condition is checked every round, and a scenario is validated against its world and ruleset
 - [T200](tasks/T200.md) —  New Game lists every playable scenario, and the nation menus come from the chosen world
+- [T264](tasks/T264.md) — Closer capital framing at New Game
 - [T201](tasks/T201.md) —  A reproducible terrain authoring path, and maps of any proportion fit the screen
 - [T202](tasks/T202.md) —  The Italy-before-Rome campaign: world, ruleset and scenario
 - [T203](tasks/T203.md) —  Barbarians: design, then a scoped mechanic

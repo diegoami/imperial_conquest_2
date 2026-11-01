@@ -23,10 +23,19 @@ public partial class CapitalStartCheck : Node
             var nation = before.NationById(before.ActiveNationId)!;
             var capital = before.CityById(nation.CapitalCityId!)!;
             await Frames(6);
-            Check(main.MapView.ZoomFactor >= 4, "actual New Game opens at a useful local zoom");
+            Check(main.MapView.ZoomFactor >= 6, "actual New Game opens closer than the former 4x view");
             var centre = main.MapView.TileCenterForCheck(capital.X, capital.Y);
             Check(centre.DistanceTo(main.MapView.Size / 2) < 2, "player capital is centered after initial layout");
+            var cellPixels = main.MapView.TileCenterForCheck(capital.X + 1, capital.Y).DistanceTo(centre);
+            var visibleSpan = Math.Min(main.MapView.Size.X, main.MapView.Size.Y) / cellPixels;
+            var atMaximum = Math.Abs(main.MapView.ZoomFactor - GameMapView.MaxZoom) < 0.001f;
+            Check(visibleSpan <= 14 || atMaximum,
+                $"actual footprint is local or reaches the supported zoom ceiling ({visibleSpan:0.0} tiles on the short axis)");
             Check(main.Session.State == before, "initial camera changes no campaign state or RNG");
+            var initialZoom = main.MapView.ZoomFactor;
+            main.MapView.ZoomFromOverview(increase: false);
+            await Frames(3);
+            Check(main.MapView.ZoomFactor < initialZoom, "subsequent manual zoom is retained rather than overwritten by initial framing");
             var loadedSession = new GameSession(main.Session.World, main.Session.Ruleset, main.Session.Scenario,
                 new SaveGame(before.SchemaVersion, "capital-load", "capital-load", before.ScenarioId, before.WorldId, before.RulesetId, before));
             RemoveChild(app); app.QueueFree();
