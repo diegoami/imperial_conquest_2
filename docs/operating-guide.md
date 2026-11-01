@@ -29,6 +29,44 @@ gh issue list --label triage:needed --state open     # untriaged bugs and follow
 
 ## Additional campaigns
 
+### Resuming the owner's v0.9.0 playtest
+
+On 2026-11-02 (Europe/Berlin), the owner requested installation of the published
+[v0.9.0 prerelease](https://github.com/diegoami/imperial_conquest_2/releases/tag/v0.9.0).
+The official installer checksum was verified before upgrading the existing
+per-user installation. The uninstall registry reported `DisplayVersion=0.9.0`,
+and the installed managed executable reported
+`1.0.0+88c1989b21b5ecea52243ffe764c82201c2d26f5`, matching the reviewed tag.
+The existing Start-menu shortcut was verified at
+`Programs\Imperial Conquest 2\Open Imperial Conquest.lnk`; search Start for
+**Open Imperial Conquest**, or run:
+
+```powershell
+& "$env:LOCALAPPDATA\Programs\Imperial Conquest 2\game\IC2.MapViewer.exe"
+```
+
+The installer completed without a restart. No game was launched and no player
+saves were modified during this installation. The owner chose to playtest
+tomorrow or later; this is an installation receipt, not human playtest acceptance.
+Wait for their observations rather than launching games or taking over the screen.
+The installer log is a local diagnostic at
+`rendered/release/v0.9.0-local-install/install.log` (ignored, not a durable artifact).
+
+For the independent verdict and its reasoning, read the
+[focused recheck on #1716](https://github.com/diegoami/imperial_conquest_2/pull/1716#issuecomment-6565328372):
+all C1–C8 were MET, including independent copied-package checks. The correction
+in #1719 restored placeholder chariot regeneration without changing tests,
+runtime or shipped asset bytes; a negative control reproduced the missing-file
+failure. The official [tag build](https://github.com/diegoami/imperial_conquest_2/actions/runs/41361801073)
+produced the published ZIP and installer. Consult GitHub labels/milestones for
+current work; this receipt does not replace them. The release notes retain the
+pre-existing Windows headless audio-check limitation (#1718), deferred original
+Windows acceptance (T184–T186/#1355), and stronger Improved Computer general's
+v0.10 allocation (#1362/#1363). Do not turn installation or automated package
+checks into a claim that those deferred acceptance checks were performed.
+
+### Campaign selection
+
 New Game includes Italy 500 BC, an opt-in Italy variant with barbarian arrivals,
 and Near East openings around 1350 BC and 750 BC. The historical campaigns use
 the existing five troop roles with period names/art; chariots are gameplay
