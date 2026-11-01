@@ -1,4 +1,5 @@
 using IC2.Engine.Model;
+using System.Text.RegularExpressions;
 
 namespace IC2.Slice.UI;
 
@@ -194,6 +195,21 @@ public static class CommandOutcomeWording
         }
 
         return string.Join('\n', lines);
+    }
+
+    /// <summary>Owner #1676: quiet successful resource orders in the bottom strip only.</summary>
+    public static string ForBottomLog(string block, GameState? state)
+    {
+        ArgumentNullException.ThrowIfNull(block);
+        var lines = block.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        static bool Routine(string line) => line is "economy.buy-supply accepted."
+            or "naval.buy-fleet-supply accepted." or "economy.transfer-money accepted."
+            || Regex.IsMatch(line, @"^.+ bought [1-9][0-9]* tons of supply (?:at .+|from (?:fleet|army) .+), .+\.$", RegexOptions.CultureInvariant)
+            || Regex.IsMatch(line, @"^.+ received [1-9][0-9]* talents from .+\.$", RegexOptions.CultureInvariant);
+        // Unknown, mixed, refused, zero-moved and clamped-funding receipts remain visible.
+        if (lines.Length > 0 && lines.All(Routine))
+            return string.Empty;
+        return Apply(block, state);
     }
 
     /// <summary>

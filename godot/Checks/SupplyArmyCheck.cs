@@ -69,6 +69,8 @@ public partial class SupplyArmyCheck : Control
         _steps.Add(PressFleet);
         _steps.Add(StageAndTransferForeignCity);
         _steps.Add(PressMoney);
+        _steps.Add(ShowOrdinaryFeedbackAfterSupply);
+        _steps.Add(CheckOrdinaryFeedbackAfterSupply);
         _steps.Add(CloseFirstDialog);
         _steps.Add(OpenAtOverfullArmy);
         _steps.Add(PressPastRoom);
@@ -189,6 +191,8 @@ public partial class SupplyArmyCheck : Control
         Check(after.Commands == before.Commands + 1, $"the +10 press issues exactly one command ({after.Commands - before.Commands})");
         Check(after.ArmySupply == before.ArmySupply + 10, $"the army gains 10 t ({before.ArmySupply} -> {after.ArmySupply})");
         Check(after.OwnCitySupply == before.OwnCitySupply - 10, $"the city loses 10 t ({before.OwnCitySupply} -> {after.OwnCitySupply})");
+        Check(string.IsNullOrEmpty(_mainGame.LastMessageForCheck),
+            "successful supply updates the dialog balances without a bottom supply log");
         Check(after.ArmyMoney == before.ArmyMoney, "the army's money is unchanged");
         Check(after.Treasury == before.Treasury, "the treasury is unchanged");
         Check(
@@ -237,6 +241,20 @@ public partial class SupplyArmyCheck : Control
         Check(after.Commands == before.Commands + 1, "the +100 money press issues exactly one command");
         Check(after.ArmyMoney == before.ArmyMoney + 100, $"the purse gains 100 talents ({before.ArmyMoney} -> {after.ArmyMoney})");
         Check(after.Treasury == before.Treasury - 100, $"the treasury loses 100 talents ({before.Treasury} -> {after.Treasury})");
+        Check(string.IsNullOrEmpty(_mainGame.LastMessageForCheck),
+            "successful funding updates balances without a bottom purse log");
+    }
+
+    private void ShowOrdinaryFeedbackAfterSupply() => _mainGame.SubmitForCheck("status");
+
+    private void CheckOrdinaryFeedbackAfterSupply()
+    {
+        var label = _mainGame.GetChildren().OfType<VBoxContainer>().First()
+            .GetChildren().OfType<Label>().Single();
+        Check(label.Visible && label.GetVisibleLineCount() > 0,
+            "ordinary feedback becomes readable after the resource strip was collapsed");
+        Check(label.LinesSkipped <= Math.Max(0, label.GetLineCount() - 1),
+            "post-layout feedback offset does not skip every line");
     }
 
     private void CloseFirstDialog()

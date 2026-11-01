@@ -428,6 +428,7 @@ public partial class MainGameScreen : Control
         // text in the tooltip keep a long result from widening this full-rect root or pushing the
         // context panel off-screen.
         _lastCommandLabel = UiKit.MakeLabel(string.Empty, AppTheme.Note, UiKit.TextColor);
+        _lastCommandLabel.Visible = false;
         _lastCommandLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _lastCommandLabel.MaxLinesVisible = LastCommandVisibleLineCount;
         _lastCommandLabel.ClipText = true;
@@ -452,7 +453,7 @@ public partial class MainGameScreen : Control
         // "Now: Week …, Active seat: …" footer is what the player sees rather than the first AI-turn
         // lines. LinesSkipped is recomputed on every command and whenever a layout pass changes the
         // label's width (which is what decides how many lines the text wraps to).
-        _lastCommandLabel.Resized += UpdateLastCommandLinesSkipped;
+        _lastCommandLabel.Resized += ScheduleLastCommandLinesSkipped;
 
         _newsLog = new NewsLogPanel { Session = Session, CustomMinimumSize = new Vector2(0, 200) };
         root.AddChild(_newsLog);
@@ -2074,8 +2075,9 @@ public partial class MainGameScreen : Control
     private void ShowScreenMessage(string message)
     {
         _lastCommandLabel.Text = message;
+        _lastCommandLabel.Visible = !string.IsNullOrWhiteSpace(message);
         _lastCommandLabel.TooltipText = message;
-        UpdateLastCommandLinesSkipped();
+        ScheduleLastCommandLinesSkipped();
     }
 
     private void ShowHelpPage()
@@ -2323,7 +2325,7 @@ public partial class MainGameScreen : Control
                         else if (decision.CommandLine is not null) summary.Add($"next: {decision.DestinationCityId}");
                     }
                 }
-                summaries.Add($"{unitId}: {string.Join("; ", summary)}");
+                if (summary.Count > 0) summaries.Add($"{unitId}: {string.Join("; ", summary)}");
             }
         }
         finally { _runningRetreatSupply = false; }
@@ -2352,21 +2354,16 @@ public partial class MainGameScreen : Control
                 var before = current.SupplyTons;
                 var response = SubmitForCheck(proposal.CommandLine);
                 var gained = Math.Max(0, (Session.State.ArmyById(plan.UnitId)?.SupplyTons ?? before) - before);
-                if (gained > 0) { gainedAny = true; summary.Add($"+{gained} t supply (0 talents)"); }
+                if (gained > 0) gainedAny = true;
                 else summary.Add(AutoRefusalText(response, "supply refused"));
             }
             if (Session.State.ArmyById(plan.UnitId) is { } funded
                 && ArmyAutoSupportPlanner.Fund(Session.State, funded, Session.Ruleset, local) is { } money)
             {
                 var before = funded.Money;
-                var treasury = Session.State.NationById(nationId)?.Treasury ?? 0;
                 var response = SubmitForCheck(money.CommandLine);
                 var gained = Math.Max(0, (Session.State.ArmyById(plan.UnitId)?.Money ?? before) - before);
-                if (gained > 0)
-                {
-                    summary.Add($"+{gained} talents (treasury -{Math.Max(0, treasury - (Session.State.NationById(nationId)?.Treasury ?? treasury))})");
-                }
-                else summary.Add(AutoRefusalText(response, "funding refused"));
+                if (gained <= 0) summary.Add(AutoRefusalText(response, "funding refused"));
             }
         }
         else if (plan.IsFleet && Session.State.FleetById(plan.UnitId) is { } fleet)
@@ -2384,7 +2381,7 @@ public partial class MainGameScreen : Control
                 var before = current.SupplyTons;
                 var response = SubmitForCheck(proposal.CommandLine);
                 var gained = Math.Max(0, (Session.State.FleetById(plan.UnitId)?.SupplyTons ?? before) - before);
-                if (gained > 0) { gainedAny = true; summary.Add($"+{gained} t supply (0 talents)"); }
+                if (gained > 0) gainedAny = true;
                 else summary.Add(AutoRefusalText(response, "fleet supply refused"));
             }
             if (Session.State.FleetById(plan.UnitId) is { } repairing
@@ -2465,7 +2462,8 @@ public partial class MainGameScreen : Control
 
         var line = $"Auto support: {supplied} supply transfers ({suppliedTons} t), "
             + $"{funded} purse transfers ({fundedTalents} talents).";
-        return skipped.Count == 0 ? line : line + " Skipped: " + string.Join("; ", skipped);
+        AppDiagnostics.Detail(DiagnosticEvent.Command, line);
+        return skipped.Count == 0 ? null : "Auto support skipped: " + string.Join("; ", skipped);
     }
 
     private string? RunFleetAutoSupport()
@@ -2543,7 +2541,10 @@ public partial class MainGameScreen : Control
 
         var line = $"Auto fleets: {supplied} supply transfers ({suppliedTons} t), "
             + $"{repaired} repairs ({repairedPoints} points, {repairCost} talents).";
-        return skipped.Count == 0 ? line : line + " Skipped: " + string.Join("; ", skipped);
+        AppDiagnostics.Detail(DiagnosticEvent.Command, line);
+        if (repaired == 0 && skipped.Count == 0) return null;
+        var repairSummary = repaired == 0 ? string.Empty : $"{repaired} repairs ({repairedPoints} points, {repairCost} talents).";
+        return "Auto fleets: " + repairSummary + (skipped.Count == 0 ? string.Empty : " Skipped: " + string.Join("; ", skipped));
     }
 
     private static string AutoRefusalText(IReadOnlyList<string> response, string fallback) =>
@@ -2892,7 +2893,7 @@ public partial class MainGameScreen : Control
         }
 
         var rawOutcome = CommandOutcomeText.OutcomeBlock(lines, pendingOffers);
-        var outcome = CommandOutcomeWording.Apply(rawOutcome, Session.State);
+        var outcome = CommandOutcomeWording.ForBottomLog(rawOutcome, Session.State);
 
         // T147 (bug #781 point 4): below an accepted order's readable line, the news entries the order
         // added to State.NewsLog. Only an order whose acceptance the app rewrote gets them; an "end"
@@ -2913,8 +2914,9 @@ public partial class MainGameScreen : Control
         _newsEntriesBeforeCommand = Session.State.NewsLog.Slots;
 
         _lastCommandLabel.Text = outcome;
+        _lastCommandLabel.Visible = !string.IsNullOrWhiteSpace(outcome);
         _lastCommandLabel.TooltipText = outcome;
-        UpdateLastCommandLinesSkipped();
+        ScheduleLastCommandLinesSkipped();
         ShowRefusalNotice(lines);
 
         // T127: the battle screen covers the map, so it shows the engine's answer itself (a refused Save during an
@@ -3128,6 +3130,19 @@ public partial class MainGameScreen : Control
     /// every text change and on every resize: a command issued before the first layout pass is
     /// recomputed once the label gets its real width.
     /// </summary>
+    private void ScheduleLastCommandLinesSkipped()
+    {
+        UpdateLastCommandLinesSkipped();
+        // A collapsed label initially shapes at zero/narrow width. Recount after
+        // the container/label layout has settled so an old wrapped offset cannot
+        // hide the first ordinary message when the strip becomes visible again.
+        Callable.From(() =>
+        {
+            if (!_closing && GodotObject.IsInstanceValid(this) && IsInsideTree()
+                && GodotObject.IsInstanceValid(_lastCommandLabel)) UpdateLastCommandLinesSkipped();
+        }).CallDeferred();
+    }
+
     private void UpdateLastCommandLinesSkipped()
     {
         var lineCount = _lastCommandLabel.GetLineCount();
