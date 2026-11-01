@@ -76,10 +76,16 @@ public partial class RulesetChooserScreen : Control
         var title = UiKit.MakeLabel("New Game — Choose a Ruleset", AppTheme.Header, UiKit.AccentColor);
         header.AddChild(title);
 
-        var cards = new HBoxContainer();
-        cards.AddThemeConstantOverride("separation", AppTheme.DialogGap);
-        cards.SizeFlagsVertical = SizeFlags.ExpandFill;
-        column.AddChild(cards);
+        var cardScroll = new ScrollContainer
+        {
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+            SizeFlagsVertical = SizeFlags.ExpandFill,
+        };
+        column.AddChild(cardScroll);
+        var cards = new HFlowContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        cards.AddThemeConstantOverride("h_separation", AppTheme.DialogGap);
+        cards.AddThemeConstantOverride("v_separation", AppTheme.DialogGap);
+        cardScroll.AddChild(cards);
 
         foreach (var card in RulesetPresets.CardsFor(GameDataContext.Repository))
         {
@@ -141,6 +147,7 @@ public partial class RulesetChooserScreen : Control
 
         var name = UiKit.MakeLabel(card.DisplayName, AppTheme.Header, UiKit.TextColor);
         name.HorizontalAlignment = HorizontalAlignment.Center;
+        name.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         content.AddChild(name);
         if (card.Preset != RulesetPreset.Listed)
         {

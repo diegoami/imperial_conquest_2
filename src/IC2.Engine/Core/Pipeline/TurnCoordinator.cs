@@ -346,7 +346,8 @@ public sealed class TurnCoordinator
                     _coordinator._world,
                     endingSeasonIndex,
                     rng,
-                    _events);
+                    _events,
+                    _coordinator._scenario);
 
                 GameState? produced = handler.Instance.OnQuarterBoundary(context);
                 if (produced is null)

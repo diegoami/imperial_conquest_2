@@ -8,12 +8,14 @@ namespace IC2.Engine.News;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>Every template below is transcribed from the T04 fixtures corpus</strong>
+/// <strong>The original-game templates below are transcribed from the T04 fixtures corpus</strong>
 /// (<c>tests/fixtures/corpus.json</c>, ids <c>newsMessage.*</c>) — never re-typed from a report by
 /// hand a second time. <c>NewsMessageCatalogTests</c> asserts each one against
 /// <c>FixtureCorpus.Get(id).AsString()</c> directly, so a transcription slip here fails CI rather than
 /// silently diverging from the confirmed text.
 /// </para>
+/// <para>T270's barbarian arrival message is separately authored for a designed feature; it has no
+/// original-game literal. Its actual rendering is checked independently of the unchanged corpus mapping.</para>
 /// <para>
 /// <strong>Placeholder syntax is whatever the source report used, not a syntax this task invented.</strong>
 /// Two entries (from <c>decompiled-city-capture-resolution.md</c>) use <c>{PascalCase}</c>; most of the
@@ -253,6 +255,9 @@ public static class NewsMessageCatalog
         // newsMessage.weekHeader (Q3): docs/task-catalogue.md's T42 entry gives this exact delimited
         // string; see NewsLogWriter.RenderWeekHeader for how <w>/<Season>/<year> are substituted.
         { WeekHeaderKind, "Week  <w>      <Season>      <year>BC" },
+
+        // T270, designed: the owner-approved barbarian feature has no original-game message.
+        { "barbarians.arrived", "Barbarian forces arrive <Approach> at (<X>, <Y>)." },
 
         // ---- Test-only pipeline scaffolding (#91 N10, N23) -- never corpus-backed, excluded from the
         // corpus/catalog set-equality check by the "test." prefix. See this type's remarks. ----

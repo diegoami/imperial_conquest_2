@@ -347,6 +347,7 @@ public class NewsMessageCatalogTests
 
         var productionKinds = NewsMessageCatalog.RegisteredKinds
             .Where(k => !k.StartsWith("test.", StringComparison.Ordinal))
+            .Where(k => k != "barbarians.arrived") // T270 authored feature, asserted separately; no original literal.
             .ToHashSet(StringComparer.Ordinal);
 
         Assert.Equal(corpusIds, KindToCorpusId.Values.ToHashSet(StringComparer.Ordinal));

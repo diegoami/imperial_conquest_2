@@ -41,12 +41,13 @@ public sealed class ListedScenarioCardsTests
     }
 
     [Fact]
-    public void The_shipped_data_lists_the_two_presets_then_the_Italy_campaign()
+    public void The_shipped_data_lists_the_two_presets_then_both_Italy_variants()
     {
         var cards = RulesetPresets.CardsFor(Shipped);
 
         Assert.Equal(RulesetPresets.Cards, cards.Take(2));
-        Assert.Equal("italy-500bc", Assert.Single(cards.Skip(2)).ScenarioId);
+        Assert.Equal(new[] { "italy-500bc", "italy-500bc-barbarians" }, cards.Skip(2).Select(c => c.ScenarioId).OrderBy(id => id, StringComparer.Ordinal));
+        Assert.Contains("12 playable nations; barbarian arrivals by land and sea.", cards.Single(c => c.ScenarioId == "italy-500bc-barbarians").Summary);
         Assert.True(Shipped.ScenarioById("classical-mediterranean")!.Listed);
         Assert.True(Shipped.ScenarioById("example-classical-improved")!.Listed);
         Assert.False(Shipped.ScenarioById("toy-3city")!.Listed);

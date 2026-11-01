@@ -129,6 +129,42 @@ recaptures, supply survival, rejected actions and runtime. Results support tunin
 not historical parity. Italy and both new campaigns need separate data, save/load and packaged
 launch acceptance. Do not interrupt the owner's game for these checks.
 
+## Reused execution and the Italy variant
+
+T270 uses the existing end-of-season hook, after quarterly economy and before
+calendar advance, with a dedicated `barbarians.arrivals` stream. It records the
+attempted turn even when caps, chance or blocked edges prevent arrival. An
+army starts with the ordinary full supply capacity and zero moves. A sea
+arrival atomically adds its full-condition transport with reciprocal cargo
+links; existing global army/fleet ticks refresh movement before normal orders.
+No combat or movement is executed within the arrival callback.
+
+The role's restricted driver reuses `AiResupplyPass`, `AiMilitaryPhase`, and
+the existing candidate selector, legality probes and dispatcher. Normal
+support semantics, including purse/AI fleet-repair effects at owned towns,
+remain the existing helpers' responsibility; the exemption is from quarterly
+treasury upkeep, not a replacement supply economy. Mercenary offers are
+ineligible in the proposal view, and economic, hiring, recruitment, capital
+defence and diplomatic passes are excluded. Ordinary nations' target and
+combat policies do not change.
+
+Transport destination selection is the necessary designed orchestration: find
+a free shore with a land approach to a hostile town, minimize combined sea
+and land step distance with stable grid ties, and select a clear sea waypoint.
+These distances rank destinations; the normal fleet command still charges
+actual movement and checks terrain, allowance and occupancy. The ordinary
+landing command places the cargo on a free adjacent tile and spends its normal
+moves. Without a legal route it stays put. Empty fleets use existing military
+proposals. No new battle coefficient, tactical general or teleport rule applies.
+
+Arrival caps count existing forces, including cargo and captured fleets;
+reaching a cap stops further arrivals rather than discarding assets obtained
+through ordinary conquest. The separately listed `italy-500bc-barbarians`
+variant shares the authored Italy terrain, cities, regular nations, starting
+forces and ruleset. The original `italy-500bc` documents remain unchanged and
+selectable. The new role is a designed gameplay category, not a claim of a
+unified historical invading people in 500 BC.
+
 ## Compatibility and persistence
 
 Existing classical scenarios do not acquire barbarians implicitly. Missing
@@ -140,9 +176,11 @@ Italy save does not silently gain new mechanics merely because its installed
 scenario definition has changed. Decide any existing-save opt-in separately.
 
 Authoritative faction, spawn and ownership state must survive native save/load
-and participate in state hashing and relevant snapshots. Choose optional fields
-and migrations after the rules are approved. Never infer faction role from its
-display name or erase it on load.
+and participate in state hashing and relevant snapshots. Optional nation fields
+`isBarbarian` (default false) and `lastBarbarianArrivalTurn` (default null) are
+omitted when inactive, preserving ordinary campaigns' serialized/hash bytes.
+The scenario's optional `barbarians` configuration identifies the explicit role.
+Never infer the role from a display name or erase it on load.
 
 Original SAV has no representation for this feature. Existing classical export
 retains its gates; the new campaigns retain non-classical export refusal. Never
