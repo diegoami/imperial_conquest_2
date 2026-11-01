@@ -342,6 +342,40 @@ Owner release request, 2026-10-31, continued 2026-11-01. [Milestone 18](https://
 
 T258 adds review follow-up obligations without changing C1–C8: a finite Windows scheduling margin for the complete real-debt/watch lap, an authored public before-support capital-defence/fleet interruption regression, and byte restoration after the package verifier's negative sidecar probe. Re-freeze any resulting main commit and request a focused C5/C8 independent recheck; preserve the original candidate and evidence. Neither game behavior nor the release's fidelity claims are expanded.
 
+### 2.13 v0.9.0: historical campaigns, barbarians and own-turn tactical Undo
+
+[Milestone 19](https://github.com/diegoami/imperial_conquest_2/milestone/19)
+collects the owner's 2026-11-01 scope since published `v0.8.6`
+(`e3c52c3d3adadf4a475e3f6bcc67cff801d1366d`). **Promise: players can start
+two explicitly abstracted historical Near East campaigns, face off-map land
+and sea arrivals in opted-in campaigns, undo their own tactical actions until
+handoff, and use clearer strategic feedback and fleet/resource controls.**
+The underlying task contracts and owner decisions define these claims; GitHub
+labels remain the completion authority. This table supplies proof obligations,
+not the independent review's verdict.
+
+| Claim | Expected behavior and proof entry points |
+| --- | --- |
+| C1 — Historical openings | New Game offers separate c1350 BC and c750 BC campaigns, with 12/15 regular seats, 109/107 centres and one non-playable barbarian role. Pinned public geographic sources and attributed dated site/context resources support the shared map; regional centres, ownership compression, neutral relations and numerical setup are labelled abstractions. No later Persian empire or Bronze Hittite empire in 750 BC. Existing IDs remain resolvable. Proof: T269/T273, `NearEastCampaignTests`, `ListedScenarioCardsTests`, `NearEastCampaignCheck`, `BarbarianCampaignCheck`, the source/authoring guide and both map boards. Rebuild the generated files byte for byte. Archaeological context is not exact-year political proof or historical balance acceptance. |
+| C2 — Existing mechanics and period presentation | New campaigns reuse Italy's numeric unit/combat/economy rules, configuring their calendars and period labels/art. Canonical type IDs and calculations stay unchanged. Light/heavy chariot visuals are optional aliases; existing packs/required asset keys remain usable. Proof: T271/T273, numeric-equality tests, naming/render/asset tests, `PeriodUnitAssetsCheck`, both glyph generators' `--verify`. T272 measures opaque authored motifs separately from transparent placeholders; its negative controls must still reject empty/equal-height motifs. No distinct chariot subsystem or new tactical general. |
+| C3 — Barbarian lifecycle | Only opted-in scenarios activate an AI-only, cityless/capitalless persistent role. It cannot win or negotiate, retains forces after town loss, captures/holds through existing rules and prevents regular conquest while holding cities. It uses normal supply, no treasury upkeep and no captured-town recruitment/fleet building. Its hostility does not prevent diplomacy between regular nations. Native saves preserve role/arrival bookkeeping; original-SAV export explicitly refuses it. Proof: T268, lifecycle/diplomacy/production/victory/export tests and real battle/turn controls. |
+| C4 — Boundary arrivals and military play | Italy's separately listed variant and both Near East campaigns use the approved shared seasonal 25% arrival check, with at most four live armies (cargo included) and four fleets. Entries are legal empty map-boundary land or loaded transport fleets with a reachable landing; no interior camps or forced invalid entry. Marker persistence prevents duplicate callback/reload rerolls. Existing movement, landing, supply, targeting and combat execute the proposals. Proof: T259/T270, planner/executor/military tests, Italy's 400-seat-turn seed controls and new campaigns' 200-seat-turn controls with repeated seeds; zero rejected commands, projection mismatches and full-round stalls. Arrival rates/compositions are provisional gameplay tuning. |
+| C5 — Own tactical turn Undo | Button/Ctrl+Z restores the current human tactical turn's prior accepted action, including exact arena/state/RNG, without crossing opponent or Computer-general handoff. Own battle-ending actions remain provisional and undoable until result OK; OK resumes post-battle work once. Session-only history resets on load. Partial Faithful AI seats remain retained around a human battle. Proof: T267, `TacticalUndoTests`, `TacticalUndoCheck`, AI-phase/partial-pass/audio/timeline regressions and terminal-result controls. Strategic Undo is outside this release. |
+| C6 — Supply, purses and fleet split | Opt-in human auto-support runs at turn start, during accepted travel beside eligible providers, and before confirmed End turn. Army funding targets quarterly troop/mercenary cost; fleet funding targets quarterly ship upkeep, respecting existing credit/purse rules. Repair remains End-turn-only. A fleet can split through the normal allocation dialog, with live money/supply previews and conservation; carried armies refuse safely. Successful automatic supply does not occupy the bottom log, while refusals and requested results remain visible. Proof: T262/T263/T265/T266, allocation, `HumanAutoSupportTests`, `HumanSupportTimingTests`, planner/dialog tests and the production action/End-turn checks. Disabled automation preserves baseline state and RNG. |
+| C7 — Strategic and battle feedback | New campaigns frame the human capital at a usable local zoom. Dismissed News stays closed across turns until reopened; newest reports come first with complete scrolling, and the date includes season. A new tactical round clears the last exchange so selection details take priority. Siege results say siege; accepted peace has its own prominent notice. Proof: T260/T261/T264, `CapitalStartCheck`, `HumanTurnNewsCheck`, `BattleFeedbackCheck` and related models/session tests. Existing calendar, recorded news, combat and save semantics remain unchanged by presentation. |
+| C8 — Compatibility and reviewable Windows candidate | Native schema 1/envelope 7 remain unchanged; absent optional fields retain prior behavior. Preserve original import/export boundaries and approved name exceptions; no original-derived bytes or private owner hashes enter source/packages. Full hosted engine/data and Godot CI must pass on the exact candidate; disclose skips and deferred checks, regenerate preset/gap notes, and verify a copied Windows export headlessly with SDK/runtime roots scrubbed. Freeze candidate/baseline branches and the review PR. Owner starts independent review; tags, official installer assets and publication follow its passing verdict. |
+
+**Explicit limits and deferred scope:** stronger Improved Computer general is
+v0.10 (#1362/#1363), with combat/difficulty tuning later (#1365). Strategic
+Undo (#1503), distinct chariot combat, exact historical borders/populations and
+full original campaign/battle parity are not promised. Existing bounded fleet,
+AI and native-original acceptance gaps remain disclosed; owner-deferred
+Windows/original-game acceptance (T184–T186/#1355) is not reintroduced as a gate.
+New barbarian campaigns are native JSON campaigns, not original-SAV exportable.
+Historical coastline/relief and dated occupation ranges are approximations;
+automated stability and headless geometry do not imply human visual acceptance.
+The names-only #1359 and generated-name export exceptions remain explicit.
+
 ## 3. Tag and GitHub Release conventions
 
 ### 3.1 Naming and placement — **DECIDED**
