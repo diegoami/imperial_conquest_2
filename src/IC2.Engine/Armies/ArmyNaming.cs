@@ -104,8 +104,9 @@ public static class ArmyNaming
     /// programming invariant, not a gameplay rejection: every shipped ruleset's regular unit types are
     /// exactly these five, so a caller passing anything else has a bug, not an illegal player order.
     /// </exception>
-    public static string NextName(GameState state, string nationId, string unitTypeId)
-        => NextName(state, nationId, unitTypeId, " Battalion");
+    /// <param name="ruleset">Optional period-specific labels; absent preserves the original vocabulary.</param>
+    public static string NextName(GameState state, string nationId, string unitTypeId, Ruleset? ruleset = null)
+        => NextNameCore(state, nationId, unitTypeId, " Battalion", ruleset);
 
     /// <summary>
     /// The original <c>TChangeArmyUnits_SplitUnit</c>'s new-unit format, which has two spaces before
@@ -114,10 +115,10 @@ public static class ArmyNaming
     /// observed F51 in the broad save-conversion matrix]. Keep this separate from <see cref="NextName"/>:
     /// original mobilization uses the single-space format.
     /// </summary>
-    public static string NextSplitUnitName(GameState state, string nationId, string unitTypeId)
-        => NextName(state, nationId, unitTypeId, "  Battalion");
+    public static string NextSplitUnitName(GameState state, string nationId, string unitTypeId, Ruleset? ruleset = null)
+        => NextNameCore(state, nationId, unitTypeId, "  Battalion", ruleset);
 
-    private static string NextName(GameState state, string nationId, string unitTypeId, string suffix)
+    private static string NextNameCore(GameState state, string nationId, string unitTypeId, string suffix, Ruleset? ruleset)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(nationId);
@@ -130,6 +131,7 @@ public static class ArmyNaming
                 + string.Join(", ", KnownUnitTypeIds), nameof(unitTypeId));
         }
 
+        label = ruleset?.UnitTypeById(unitTypeId)?.BattalionLabel ?? label;
         var ordinal = NextOrdinal(state, nationId, unitTypeId, label);
         return $"{Ordinal(ordinal)} {label}{suffix}";
     }

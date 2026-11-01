@@ -381,6 +381,8 @@ The `unitTypes` array is a list of unit stat rows. Each unit type is an object w
 | `quarterlyPrice` | integer | Yes | Quarterly upkeep cost (talents), and the same price a mercenary hire uses. |
 | `combatPowerWeight` | integer | Yes | Per-unit weight this type contributes to a field battle's power calculation (`Strength/ArmyPower.cs`). |
 | `shotVulnerability` | integer | Yes | The original unit-type table's `+0x20` shooting-vulnerability weight, read for the *target's* type by the tactical battle's shot formula (`combat.tactical`). Light infantry 18, heavy infantry 2, archers 18, light cavalry 15, heavy cavalry 4. |
+| `battalionLabel` | string or null | No | Optional generated-unit name label for a period scenario, using the existing ordinal scan and Battalion suffix. Defaults preserve Foot/Guards/Bowmen/Lancers/Dragoons. Omitted when null; 1–32 printable characters without surrounding whitespace. |
+| `visualTypeId` | string or null | No | Optional presentation alias, such as `light_chariot`, selecting `unit.<visual>.icon` and `battle.unit.<visual>.<size>` assets. Lowercase letters/digits/underscores, starting with a letter, at most 64 characters. No change to canonical `id`, numeric rules or battle icon codes; absent uses `id`. Extra asset keys are optional pack extensions. |
 | `_provenance` | object | No | Provenance map. |
 
 ### Terrain rules

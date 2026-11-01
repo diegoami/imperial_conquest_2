@@ -102,6 +102,14 @@
     "battle.toolbar.end_turn": "battle/toolbar_end_turn.bmp",
     "battle.toolbar.change_pauses": "battle/toolbar_change_pauses.bmp",
     "battle.toolbar.computer_general": "battle/toolbar_computer_general.bmp",
-    "battle.toolbar.surrender": "battle/toolbar_surrender.bmp"
+    "battle.toolbar.surrender": "battle/toolbar_surrender.bmp",
+    "unit.light_chariot.icon": "units/light_chariot.bmp",
+    "battle.unit.light_chariot.small": "battle/unit_light_chariot_small.bmp",
+    "battle.unit.light_chariot.medium": "battle/unit_light_chariot_medium.bmp",
+    "battle.unit.light_chariot.large": "battle/unit_light_chariot_large.bmp",
+    "unit.heavy_chariot.icon": "units/heavy_chariot.bmp",
+    "battle.unit.heavy_chariot.small": "battle/unit_heavy_chariot_small.bmp",
+    "battle.unit.heavy_chariot.medium": "battle/unit_heavy_chariot_medium.bmp",
+    "battle.unit.heavy_chariot.large": "battle/unit_heavy_chariot_large.bmp"
   }
 }

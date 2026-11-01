@@ -274,6 +274,16 @@ public static class GameDataValidation
         ValidateCalendar(documentPath, ruleset.Calendar);
         ValidateNewsLogSeasonNames(documentPath, ruleset);
         RequireDistinct(documentPath, ruleset.UnitTypes, u => u.Id, "unitTypes");
+        foreach (var unit in ruleset.UnitTypes)
+        {
+            if (unit.BattalionLabel is { } label && (string.IsNullOrWhiteSpace(label) || label != label.Trim()
+                || label.Length > 32 || label.Any(char.IsControl)))
+                throw new MalformedGameDataException(documentPath, $"unitTypes['{unit.Id}'].battalionLabel requires 1–32 printable characters without surrounding whitespace.");
+            if (unit.VisualTypeId is { } visual && (visual.Length == 0 || visual.Length > 64
+                || visual[0] is < 'a' or > 'z'
+                || visual.Any(c => c is not (>= 'a' and <= 'z' or >= '0' and <= '9' or '_'))))
+                throw new MalformedGameDataException(documentPath, $"unitTypes['{unit.Id}'].visualTypeId requires a lowercase asset identifier (letters, digits and underscores).");
+        }
         RequireDistinct(documentPath, ruleset.Terrain.MoveCosts, m => m.TileTypeId, "terrain.moveCosts");
         RequireDistinct(documentPath, ruleset.CityOrders.Orders, o => o.Id, "cityOrders.orders");
 

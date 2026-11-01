@@ -218,16 +218,18 @@ def glyph(key):
     tier = SIZES.index(parts[3]) if battle else int(parts[1][-1])-1
     if not battle:
         return strategic_glyph(name, tier)
+    return battle_glyph(motif(name), tier)
+
+
+def battle_glyph(symbol, tier):
+    """The existing opaque tint frame for an authored 26px symbol (T271 also reuses it)."""
     side = (16, 21, 26)[tier]
-    symbol = motif(name).resize(side)
+    symbol = symbol.resize(side)
     layer = Raster(32)
     offset = (32-side)//2
     for y in range(side):
         for x in range(side):
             layer.point((x+offset,y+offset),symbol.pixels[y*side+x])
-    if not battle:
-        layer.pixels = [WHITE if p[3] else (0,0,0,0) for p in layer.pixels]
-        return layer
     result = Raster(32, PURPLE)
     for y in range(32):
         for x in range(32):

@@ -14,6 +14,8 @@ Open and recent tasks only. Merged tasks (T01–T191 and others) are in their cl
 - [T270](tasks/T270.md) — Barbarian arrivals, restricted military play and Italy activation
 - [T181](tasks/T181.md) —  Explain tactical routing and the actual aftermath
 - [T182](tasks/T182.md) —  Recognizable three-size battle, army and fleet glyphs
+- [T271](tasks/T271.md) — Period unit presentation using existing archetypes
+- [T272](tasks/T272.md) — Authored marker stature and the native glyph verifier
 - [T183](tasks/T183.md) —  Tactical exchange cues follow displayed playback
 - [T184](tasks/T184.md) —  Original-compatible SAV binary writer
 - [T185](tasks/T185.md) —  Native-state SAV export bridge and offline converter

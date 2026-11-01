@@ -177,6 +177,8 @@ public sealed record CalendarRules(
 /// read <c>+0x20</c> as the shooting vulnerability, and <c>unit-type-stat-table-in-dat.md</c> carries
 /// an Update saying the same.
 /// </param>
+/// <param name="BattalionLabel">Optional period-specific generated-name label; no numeric rule changes.</param>
+/// <param name="VisualTypeId">Optional asset visual identifier; the canonical unit id and statistics remain authoritative.</param>
 public sealed record UnitTypeRules(
     string Id,
     string Name,
@@ -189,7 +191,9 @@ public sealed record UnitTypeRules(
     int QuarterlyPrice,
     int CombatPowerWeight,
     int ShotVulnerability,
-    [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null);
+    [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? BattalionLabel = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? VisualTypeId = null);
 
 /// <summary>The move cost this ruleset charges for one tile type.</summary>
 public sealed record TerrainMoveCost(string TileTypeId, int MoveCost);
