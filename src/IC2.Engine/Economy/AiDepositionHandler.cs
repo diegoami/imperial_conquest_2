@@ -48,7 +48,7 @@ public sealed class AiDepositionHandler : IQuarterBoundaryHandler
         var updatedNations = new List<NationState>(state.Nations.Count);
         foreach (var nation in state.Nations)
         {
-            if (nation.Unity <= 0 || nation.Control != SeatControl.Ai || !Deposition.InDebt(nation, ruleset))
+            if (nation.IsBarbarian || nation.Unity <= 0 || nation.Control != SeatControl.Ai || !Deposition.InDebt(nation, ruleset))
             {
                 updatedNations.Add(nation);
                 continue;
@@ -80,6 +80,6 @@ public sealed class AiDepositionHandler : IQuarterBoundaryHandler
             context.Events.Publish(new AiLeaderDeposed(deposed.Name, oldLeader));
         }
 
-        return state with { Nations = ValueList.From(updatedNations), Relations = relations };
+        return Barbarians.BarbarianFaction.EnforceHostility(state with { Nations = ValueList.From(updatedNations), Relations = relations }, ruleset);
     }
 }

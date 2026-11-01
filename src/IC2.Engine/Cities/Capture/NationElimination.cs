@@ -97,7 +97,7 @@ public static class NationElimination
         ArgumentNullException.ThrowIfNull(ruleset);
         ArgumentException.ThrowIfNullOrWhiteSpace(conquerorId);
 
-        if (nation.Eliminated || state.CountCitiesOwnedBy(nation.Id) > 0)
+        if (nation.IsBarbarian || nation.Eliminated || state.CountCitiesOwnedBy(nation.Id) > 0)
         {
             return (nation, false);
         }

@@ -99,6 +99,9 @@ public static class OriginalSaveExporter
         void Refuse(string code, string field, string detail) => refusals.Add(new(code, field, detail));
         var state = save.State;
 
+        if (state.Nations.Any(n => n.IsBarbarian || n.LastBarbarianArrivalTurn is not null))
+            Refuse(OriginalSaveExportRefusal.UnsupportedFeature, "nations", "barbarian roles and arrivals have no original SAV representation");
+
         if (!string.Equals(world.Id, OriginalSaveImporter.RequiredWorldId, StringComparison.Ordinal) ||
             !string.Equals(state.WorldId, OriginalSaveImporter.RequiredWorldId, StringComparison.Ordinal))
             Refuse(OriginalSaveExportRefusal.UnsupportedWorld, "worldId", $"'{state.WorldId}' is not {OriginalSaveImporter.RequiredWorldId}");
@@ -415,6 +418,7 @@ public sealed record OriginalSaveExportRefusal(string Code, string Field, string
     public const string UnsupportedWorld = "UNSUPPORTED_WORLD";
     public const string UnsupportedRuleset = "UNSUPPORTED_RULESET";
     public const string UnsupportedScenario = "UNSUPPORTED_SCENARIO";
+    public const string UnsupportedFeature = "UNSUPPORTED_FEATURE";
     public const string OpenBattle = "OPEN_BATTLE";
     public const string PendingPeaceOffer = "PENDING_PEACE_OFFER";
     public const string UnknownReference = "UNKNOWN_REFERENCE";

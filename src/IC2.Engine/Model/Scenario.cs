@@ -23,7 +23,8 @@ public sealed record Scenario(
     bool BlindHotseat,
     ulong RandomSeed,
     [property: JsonPropertyName("_provenance")] ProvenanceMap? Provenance = null,
-    bool Listed = false) : IVersionedDocument
+    bool Listed = false,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] BarbarianScenario? Barbarians = null) : IVersionedDocument
 {
     /// <summary>Finds the seat assigned to a nation id, or <see langword="null"/>.</summary>
     public Seat? SeatFor(string nationId) => Seats.FindById(s => s.Nation, nationId);

@@ -122,6 +122,12 @@ public static class AiTurn
             return new AiTurnOutcome(state, nationId, log, 0, 0, 0, HitActionCap: false);
         }
 
+        if (nation.IsBarbarian)
+        {
+            log.Add("barbarian seat: ordinary economy, recruitment and diplomacy are disabled");
+            return new AiTurnOutcome(state, nationId, log, 0, 0, 0, HitActionCap: false);
+        }
+
         var personality = AiPersonalityProfile.For(nation, ruleset);
         log.Add(Inv(
             "seat {0}: aggression {1}, expansionDrive {2}, loyaltyToAlliances {3} (permille)",

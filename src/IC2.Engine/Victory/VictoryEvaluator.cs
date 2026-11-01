@@ -99,7 +99,7 @@ public static class VictoryEvaluator
         {
             foreach (var nation in state.Nations)
             {
-                if (nation.Eliminated)
+                if (nation.IsBarbarian || nation.Eliminated)
                 {
                     continue;
                 }
@@ -186,7 +186,7 @@ public static class VictoryEvaluator
 
         foreach (var nation in state.Nations)
         {
-            if (nation.Eliminated)
+            if (nation.IsBarbarian || nation.Eliminated)
             {
                 continue;
             }
@@ -268,7 +268,7 @@ public static class VictoryEvaluator
 
         foreach (var nation in state.Nations)
         {
-            if (nation.Eliminated)
+            if (nation.IsBarbarian || nation.Eliminated)
             {
                 continue;
             }

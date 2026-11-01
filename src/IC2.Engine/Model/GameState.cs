@@ -226,7 +226,9 @@ public sealed record NationState(
     int CityCountAtStart,
     ValueList<RecruitmentSlot> RecruitmentSlots,
     bool Eliminated,
-    string? ConqueredBy = null);
+    string? ConqueredBy = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool IsBarbarian = false,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? LastBarbarianArrivalTurn = null);
 
 /// <summary>
 /// One occupied slot in a nation's standing-recruitment queue — <c>IC2.Data</c>'s

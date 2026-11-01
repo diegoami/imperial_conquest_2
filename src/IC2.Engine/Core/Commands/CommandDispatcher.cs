@@ -177,6 +177,11 @@ public sealed class CommandDispatcher : ICommandDispatch
                 $"Command '{kind}' was issued by '{issuer.Id}', but it is '{state.ActiveNationId}'s turn."));
         }
 
+        if (IC2.Engine.Barbarians.BarbarianFaction.DiplomacyRefusal(state, command) is { } hostileRefusal)
+            return CommandResult.Rejected(state, kind, hostileRefusal);
+        if (IC2.Engine.Barbarians.BarbarianFaction.ProductionRefusal(state, command) is { } productionRefusal)
+            return CommandResult.Rejected(state, kind, productionRefusal);
+
         var buffer = new RecordingEventSink();
         var context = new CommandContext(
             state,
@@ -203,7 +208,7 @@ public sealed class CommandDispatcher : ICommandDispatch
 
         var immediate = IC2.Engine.Diplomacy.PeaceTreatySystem.ApplyBeforeAiContinues(
             state, accepted, _ruleset, _world, command, buffer.Events.ToArray());
-        accepted = immediate.State;
+        accepted = IC2.Engine.Barbarians.BarbarianFaction.EnforceHostility(immediate.State, _ruleset);
 
         // One of the two points where the engine's single persisted random value moves; see RngStreams.
         // It happens after the handler has run, so the handler's own stream was derived from the value

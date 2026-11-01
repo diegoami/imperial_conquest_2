@@ -66,6 +66,7 @@ public static class GameStateFactory
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(ruleset);
         ArgumentNullException.ThrowIfNull(scenario);
+        Barbarians.BarbarianFaction.ValidateScenario(world, ruleset, scenario);
 
         foreach (var seat in scenario.Seats)
         {
@@ -110,8 +111,9 @@ public static class GameStateFactory
                 TreasuryAtStart: definition.Treasury,
                 CityCountAtStart: cityCount,
                 RecruitmentSlots: StartingRecruitment(definition, world, ruleset),
-                Eliminated: cityCount == 0,
-                ConqueredBy: null);
+                Eliminated: cityCount == 0 && definition.Id != scenario.Barbarians?.NationId,
+                ConqueredBy: null,
+                IsBarbarian: definition.Id == scenario.Barbarians?.NationId);
         }
 
         var cities = new CityState[world.Cities.Count];
@@ -204,6 +206,7 @@ public static class GameStateFactory
             Neighbours: Diplomacy.NeighbourGeography.InitialAdjacency(world),
             RoughSeaCells: ValueList<RoughSeaCell>.Empty);
 
+        initial = Barbarians.BarbarianFaction.EnforceHostility(initial, ruleset);
         // T81: a new game rolls the weather once, with (Spring, week 1), as FUN_00448AA4 does right after
         // it sets the date (decompiled-map-code1-overlay.md §1). The draws come from a stream of their own
         // so they cannot move any other system's roll; a world without weather centres is returned as is.

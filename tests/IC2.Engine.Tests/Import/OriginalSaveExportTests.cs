@@ -19,6 +19,15 @@ namespace IC2.Engine.Tests.Import;
 public sealed class OriginalSaveExportTests
 {
     [Fact]
+    public void Barbarian_role_is_explicitly_refused_even_with_classical_identifiers()
+    {
+        var state = GameStateFactory.CreateInitial(RealGameData.World, RealGameData.Ruleset, RealGameData.Scenario);
+        state = state with { Nations = new(state.Nations.Select((n, i) => i == 0 ? n with { IsBarbarian = true } : n)) };
+        var exception = Assert.Throws<OriginalSaveExportException>(() => Export(state));
+        Assert.Contains(exception.Refusals, r => r.Code == OriginalSaveExportRefusal.UnsupportedFeature && r.Field == "nations");
+    }
+
+    [Fact]
     public void Manual_length_leader_name_survives_original_save_encoding()
     {
         var state = GameStateFactory.CreateInitial(RealGameData.World, RealGameData.Ruleset, RealGameData.Scenario);

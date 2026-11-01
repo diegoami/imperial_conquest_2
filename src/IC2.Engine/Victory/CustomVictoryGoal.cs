@@ -78,7 +78,7 @@ public static class CustomVictoryGoal
         }
 
         var nation = state.NationById(spec.Nation);
-        if (nation is null || nation.Eliminated)
+        if (nation is null || nation.IsBarbarian || nation.Eliminated)
         {
             return VictoryOutcome.Undecided(VictoryConditionType.Custom);
         }
