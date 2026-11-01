@@ -46,7 +46,7 @@ public sealed class ListedScenarioCardsTests
         var cards = RulesetPresets.CardsFor(Shipped);
 
         Assert.Equal(RulesetPresets.Cards, cards.Take(2));
-        Assert.Equal(new[] { "italy-500bc", "italy-500bc-barbarians" }, cards.Skip(2).Select(c => c.ScenarioId).OrderBy(id => id, StringComparer.Ordinal));
+        Assert.Equal(new[] { "italy-500bc", "italy-500bc-barbarians", "near-east-1350bc", "near-east-750bc" }, cards.Skip(2).Select(c => c.ScenarioId).OrderBy(id => id, StringComparer.Ordinal));
         Assert.Contains("12 playable nations; barbarian arrivals by land and sea.", cards.Single(c => c.ScenarioId == "italy-500bc-barbarians").Summary);
         Assert.True(Shipped.ScenarioById("classical-mediterranean")!.Listed);
         Assert.True(Shipped.ScenarioById("example-classical-improved")!.Listed);

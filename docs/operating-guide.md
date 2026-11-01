@@ -27,6 +27,18 @@ gh issue list --label triage:needed --state open     # untriaged bugs and follow
 | [task-catalogue.md](task-catalogue.md), [tasks/](tasks/) | Open tasks and their contracts |
 | [evidence-pipeline.md](evidence-pipeline.md), [recording-analysis.md](recording-analysis.md), [investigations/](investigations/README.md) | Evidence processing and write-ups |
 
+## Additional campaigns
+
+New Game includes Italy 500 BC, an opt-in Italy variant with barbarian arrivals,
+and Near East openings around 1350 BC and 750 BC. The historical campaigns use
+the existing five troop roles with period names/art; chariots are gameplay
+proxies, not a separate combat model. Regional centres, political groupings and
+all numerical setup are explicit abstractions. See the
+[historical brief](design/near-east-campaigns.md) and
+[reproducible source/authoring guide](../tools/NearEast/README.md).
+Campaigns with barbarians use native JSON saves; original-SAV export refuses
+the unsupported role rather than silently discarding it.
+
 ## Original-game UI reference (private)
 
 The research-authored **original Imperial Conquest 2 v1.01 user manual** is the reference for original UI workflows. Its October 2026 source is `diegoami/ic2-conquest#133`; the private folder's `README.txt` identifies the edition and contents. Consult the relevant sections **and screenshots before GUI implementation or audit**. Later owner decisions, measured research corrections and deliberate Faithful/Improved policies must be cited specifically when they differ from the manual; a code comment or a narrow exception is not approval for a generally different screen.

@@ -1,0 +1,421 @@
+{
+  "abydos": [
+    {
+      "kind": "contextual-range",
+      "from": -1550,
+      "to": -30,
+      "uri": "https://www.ucl.ac.uk/museums-static/digitalegypt/abydos/index.html",
+      "certainty": "broad context",
+      "basis": "UCL describes continuing national importance from the New Kingdom into the Ptolemaic period.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "herakleopolis": [
+    {
+      "kind": "contextual-range",
+      "from": -2181,
+      "to": -664,
+      "uri": "https://www.ucl.ac.uk/museums-static/digitalegypt/ehnasya/index.html",
+      "certainty": "broad context",
+      "basis": "UCL describes continued importance through Egyptian history and local kings in the late Third Intermediate Period.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "elkab": [
+    {
+      "kind": "contextual-range",
+      "from": -3100,
+      "to": -30,
+      "uri": "https://pleiades.stoa.org/places/440947682",
+      "certainty": "broad context",
+      "basis": "Place overview dates the Pharaonic settlement and temple use through the Ptolemaic period.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "sapinuwa": [
+    {
+      "kind": "contextual-range",
+      "from": -1650,
+      "to": -1200,
+      "uri": "https://pleiades.stoa.org/places/964671598",
+      "certainty": "broad context",
+      "basis": "Hittite Bronze Age city identified in the place overview; broad Hittite-period context.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "sarissa": [
+    {
+      "kind": "contextual-range",
+      "from": -1650,
+      "to": -1200,
+      "uri": "https://pleiades.stoa.org/places/117143016",
+      "certainty": "broad context",
+      "basis": "Hittite settlement of the second millennium BCE identified in the place overview; broad Hittite-period context.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "masat": [
+    {
+      "kind": "contextual-range",
+      "from": -1650,
+      "to": -1200,
+      "uri": "https://pleiades.stoa.org/places/133411593",
+      "certainty": "broad context",
+      "basis": "Bronze Age Hittite centre identified in the place overview; broad Hittite-period context.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "samuha": [
+    {
+      "kind": "contextual-range",
+      "from": -1650,
+      "to": -1200,
+      "uri": "https://pleiades.stoa.org/places/819123409",
+      "certainty": "broad context",
+      "basis": "Hittite settlement identified in the place overview; broad Hittite-period context.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "ephesus": [
+    {
+      "kind": "contextual-range",
+      "from": -2000,
+      "to": -1200,
+      "uri": "https://unesco.org.tr/Content_Files/Content/Sektor/Kultur/uwhcoptimize.pdf",
+      "certainty": "broad context",
+      "basis": "UNESCO identifies the Ayasuluk urban centre as Apasa in second-millennium Hittite sources; coordinates are the broader site reference.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "troy": [
+    {
+      "kind": "contextual-range",
+      "from": -3000,
+      "to": 300,
+      "uri": "https://pleiades.stoa.org/places/550595",
+      "certainty": "broad context",
+      "basis": "Place overview describes occupation from the Bronze Age into the Roman period; no particular destruction layer is asserted.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "beycesultan": [
+    {
+      "kind": "contextual-range",
+      "from": -3500,
+      "to": -1200,
+      "uri": "https://pleiades.stoa.org/places/56861725",
+      "certainty": "broad context",
+      "basis": "Place overview describes settlement from the Late Chalcolithic through the Bronze Age.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "mycenae": [
+    {
+      "kind": "contextual-range",
+      "from": -1600,
+      "to": -1100,
+      "uri": "https://whc.unesco.org/en/list/941/",
+      "certainty": "broad context",
+      "basis": "Mycenaean cultural/site period; the opening is within the documented palace era.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    },
+    {
+      "kind": "contextual-range",
+      "from": -1000,
+      "to": -1,
+      "uri": "https://pleiades.stoa.org/places/570491",
+      "certainty": "broad context",
+      "basis": "Place overview describes a first-millennium revival; exact-year urban scale is not established.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "tiryns": [
+    {
+      "kind": "contextual-range",
+      "from": -1400,
+      "to": -1200,
+      "uri": "https://pleiades.stoa.org/places/570740",
+      "certainty": "broad context",
+      "basis": "Place overview explicitly dates the fortified Mycenaean centre to 1400–1200 BCE.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "hala_sultan": [
+    {
+      "kind": "contextual-range",
+      "from": -1550,
+      "to": -1200,
+      "uri": "https://pleiades.stoa.org/places/790744210",
+      "certainty": "broad context",
+      "basis": "Place overview identifies a major Late Bronze Age settlement; the later shrine is not the depicted polity.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "kalavasos": [
+    {
+      "kind": "contextual-range",
+      "from": -1600,
+      "to": -1200,
+      "uri": "https://pleiades.stoa.org/places/754796063",
+      "certainty": "broad context",
+      "basis": "Place overview identifies the Bronze Age monumental settlement; broad Late Bronze context, not a precise founding date.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "fekheriye": [
+    {
+      "kind": "contextual-range",
+      "from": -1000,
+      "to": -600,
+      "uri": "https://pleiades.stoa.org/places/413537087",
+      "certainty": "broad context",
+      "basis": "Sikkan belongs to the Aramaean Bit Bahiani context in the place overview; broad Iron Age context.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "alalah": [
+    {
+      "kind": "contextual-range",
+      "from": -2000,
+      "to": -1200,
+      "uri": "https://pleiades.stoa.org/places/309866128",
+      "certainty": "broad context",
+      "basis": "Place overview describes second-millennium habitation until about the twelfth century BCE.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "karana": [
+    {
+      "kind": "contextual-range",
+      "from": -3000,
+      "to": -1,
+      "uri": "https://pleiades.stoa.org/places/356369838",
+      "certainty": "broad context",
+      "basis": "Place overview describes settlement from the third to first millennium BCE; identification remains Qattara/Karana uncertain.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "tell_taya": [
+    {
+      "kind": "contextual-range",
+      "from": -3000,
+      "to": -1,
+      "uri": "https://pleiades.stoa.org/places/574198887",
+      "certainty": "broad context",
+      "basis": "Place overview describes third-to-first-millennium habitation.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "harran": [
+    {
+      "kind": "contextual-range",
+      "from": -2300,
+      "to": 300,
+      "uri": "https://pleiades.stoa.org/places/658427",
+      "certainty": "broad context",
+      "basis": "Place overview identifies a major settlement from the Bronze Age onward, first mentioned in Ebla texts.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "dur_kurigalzu": [
+    {
+      "kind": "contextual-range",
+      "from": -1400,
+      "to": -1150,
+      "uri": "https://pleiades.stoa.org/places/893988",
+      "certainty": "broad context",
+      "basis": "Place overview dates the Kassite foundation around 1400 BCE; this is a broad Kassite-era context.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "qatna": [
+    {
+      "kind": "contextual-range",
+      "from": -1600,
+      "to": -1200,
+      "uri": "https://pleiades.stoa.org/places/412342122",
+      "certainty": "broad context",
+      "basis": "Place overview places the surrounding inhabited area in the Late Bronze Age; administrative scale and ownership are abstractions.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    },
+    {
+      "kind": "contextual-range",
+      "from": -1000,
+      "to": -720,
+      "uri": "https://pleiades.stoa.org/places/412342122",
+      "certainty": "broad context",
+      "basis": "Place overview dates Aramaean-period resettlement before Sargon II's 720 BCE sack.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "megiddo": [
+    {
+      "kind": "contextual-range",
+      "from": -2000,
+      "to": -1200,
+      "uri": "https://pleiades.stoa.org/places/26356565",
+      "certainty": "broad context",
+      "basis": "Place overview identifies an important Bronze Age Canaanite city-state.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    },
+    {
+      "kind": "contextual-range",
+      "from": -1200,
+      "to": -700,
+      "uri": "https://pleiades.stoa.org/places/26356565",
+      "certainty": "broad context",
+      "basis": "Place overview identifies the Iron Age royal city of Israel; broad context before Assyrian conquest.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "hazor": [
+    {
+      "kind": "contextual-range",
+      "from": -2000,
+      "to": -800,
+      "uri": "https://pleiades.stoa.org/places/779967430",
+      "certainty": "broad context",
+      "basis": "Place overview describes the fortified centre from the Middle Bronze Age through the ninth-century Israelite period.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "shechem": [
+    {
+      "kind": "contextual-range",
+      "from": -1400,
+      "to": -1300,
+      "uri": "https://pleiades.stoa.org/places/678403",
+      "certainty": "broad context",
+      "basis": "Place overview explicitly identifies attestation in the Amarna letters; approximate correspondence-era context.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "gezer": [
+    {
+      "kind": "contextual-range",
+      "from": -2000,
+      "to": -1200,
+      "uri": "https://pleiades.stoa.org/places/687904",
+      "certainty": "broad context",
+      "basis": "Place overview dates the fortified city to the early second millennium; broad Bronze Age context.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "lachish": [
+    {
+      "kind": "contextual-range",
+      "from": -1550,
+      "to": -1200,
+      "uri": "https://en.parks.org.il/reserve-park/tel-lachish-national-park/",
+      "certainty": "broad context",
+      "basis": "National park history explicitly dates the Egyptian-ruled Canaanite city and its Amarna correspondence to the Late Bronze Age.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    },
+    {
+      "kind": "contextual-range",
+      "from": -900,
+      "to": -701,
+      "uri": "https://en.parks.org.il/reserve-park/tel-lachish-national-park/",
+      "certainty": "broad context",
+      "basis": "Iron Age fortified Judean city before the 701 BCE Assyrian destruction; broad park-history context.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "tirzah": [
+    {
+      "kind": "contextual-range",
+      "from": -7000,
+      "to": -550,
+      "uri": "https://pleiades.stoa.org/places/589744740",
+      "certainty": "broad context",
+      "basis": "Place overview describes inhabitation from the Neolithic through the Iron Age.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "giyan": [
+    {
+      "kind": "contextual-range",
+      "from": -1600,
+      "to": -1100,
+      "uri": "https://isac.uchicago.edu/sites/default/files/uploads/shared/docs/oip108_text.pdf",
+      "certainty": "broad context",
+      "basis": "Late-second-millennium Giyan cultural sequence; a labelled regional centre rather than a precise contemporary town claim.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "godin": [
+    {
+      "kind": "contextual-range",
+      "from": -850,
+      "to": -550,
+      "uri": "https://www.iranicaonline.org/articles/godin/",
+      "certainty": "broad context",
+      "basis": "Iron Age III settlement/fort context; administrative-centre placement is designed.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "nush_i_jan": [
+    {
+      "kind": "contextual-range",
+      "from": -800,
+      "to": -550,
+      "uri": "https://pleiades.stoa.org/places/903131",
+      "certainty": "broad context",
+      "basis": "Place overview states that phases begin no earlier than 800 BCE; broad Median-period regional-centre context.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "marlik": [
+    {
+      "kind": "contextual-range",
+      "from": -1500,
+      "to": -1000,
+      "uri": "https://pleiades.stoa.org/places/745058470",
+      "certainty": "broad context",
+      "basis": "Place overview dates the burial site to the mid-second millennium; the node represents an explicitly designed region.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "hasanlu": [
+    {
+      "kind": "contextual-range",
+      "from": -6000,
+      "to": 300,
+      "uri": "https://pleiades.stoa.org/places/874502",
+      "certainty": "broad context",
+      "basis": "Place overview explicitly describes continuous settlement from the sixth millennium BCE to the third century CE.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "haftavan": [
+    {
+      "kind": "contextual-range",
+      "from": -2000,
+      "to": -1000,
+      "uri": "https://www.iranicaonline.org/articles/bronze-age/",
+      "certainty": "broad context",
+      "basis": "Haftavan is identified as a key Bronze Age site in northwestern Iran; broad cultural range for a regional node.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    },
+    {
+      "kind": "contextual-range",
+      "from": -850,
+      "to": -600,
+      "uri": "https://www.iranicaonline.org/articles/haftavan-tepe/",
+      "certainty": "broad context",
+      "basis": "Iranica describes Urartian annexation in the late ninth century and subsequent occupation context.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "qalaichi": [
+    {
+      "kind": "contextual-range",
+      "from": -900,
+      "to": -600,
+      "uri": "https://pleiades.stoa.org/places/884161",
+      "certainty": "broad context",
+      "basis": "Place overview dates fortified Mannaean remains to the ninth–seventh centuries BCE; exact capital identification is not asserted.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ]
+}

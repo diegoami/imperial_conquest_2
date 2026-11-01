@@ -178,17 +178,19 @@ public sealed class MapMarkerKeysTests
 
     /// <summary>
     /// T163 DoD 2: every shipped ruleset on the classical scale ships the report's [25, 50, 100]. #1309: the
-    /// Italy campaign's ruleset is the one designed exception (its towns are 3–30 thousand), pinned in
-    /// <c>ItalyCampaignTests</c>.
+    /// Italy and the Near East campaigns share the designed smaller-town scale,
+    /// pinned in their campaign tests.
     /// </summary>
     [Fact]
     public void Every_shipped_ruleset_ships_the_confirmed_town_tier_thresholds()
     {
         Assert.NotEmpty(Repository.Rulesets);
-        foreach (var ruleset in Repository.Rulesets.Where(r => r.Id != "italy-500bc"))
+        foreach (var ruleset in Repository.Rulesets)
         {
+            var expected = ruleset.Id is "italy-500bc" or "near-east-1350bc" or "near-east-750bc"
+                ? new[] { 6, 10, 18 } : new[] { 25, 50, 100 };
             Assert.True(
-                ruleset.MapMarkers.CityPopulationTierThresholds.SequenceEqual(new[] { 25, 50, 100 }),
+                ruleset.MapMarkers.CityPopulationTierThresholds.SequenceEqual(expected),
                 $"{ruleset.Id} ships {string.Join(",", ruleset.MapMarkers.CityPopulationTierThresholds)}");
         }
     }

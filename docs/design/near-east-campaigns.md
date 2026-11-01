@@ -8,9 +8,16 @@ Delivery: [#1681](https://github.com/diegoami/imperial_conquest_2/issues/1681)
 and [#1682](https://github.com/diegoami/imperial_conquest_2/issues/1682);
 historical brief: [#1308](https://github.com/diegoami/imperial_conquest_2/issues/1308).
 
-This is a source and authoring contract, not a claim that either campaign is
-playable or that every opening city owner has been established. Historical
-openings do not force subsequent turns to reproduce history.
+The two authored campaigns use this source and authoring contract. Individual
+opening owners remain explicit gameplay compression rather than established
+exact-year borders. Historical openings do not force subsequent turns to
+reproduce history. The [authoring guide](../../tools/NearEast/README.md) records
+the pinned public sources, attribution, reproducible build and limitations.
+
+The owner additionally approved clearly labelled regional centres at dated
+archaeological sites for poorly documented tribal regions (2026-11-01).
+Their names, ownership and population are explicit game abstractions, separate
+from the cited archaeological location/date evidence.
 
 ## c1350 BC: Late Bronze Age powers and palace states
 
@@ -79,13 +86,27 @@ respective political centres; the Met's account places them in the setting of
 Assyrian expansion. This alone does not establish each border town's owner.
 [Metropolitan Museum, Cyrus and the Judean Diaspora](https://www.metmuseum.org/es/perspectives/cyrus-and-the-judean-diaspora).
 
-Authoring roster: Assyria, Urartu, Babylonia, Egypt, Elam, Phrygia, Tabalean
-principalities, Cilicia/Que, Syrian principalities, Phoenician cities, Israel,
-Judah, Mannea and Median communities, plus the barbarian role. Grouped
-principalities and coastal cities are **designed compression** within the
-nation budget. Verify individual 750 BC towns, rulers and allegiances before
-committing their data. Do not import later imperial borders, post-conquest
-Assyrian provinces or an Achaemenid Persian state into this opening.
+Authored roster: Assyria, Urartu, Babylonia, Egypt, Elam, Phrygia/Lydia,
+Neo-Hittite principalities (Tabal/Cilicia/Melid), Aramean principalities,
+Phoenician cities, Israel, Judah, Philistia, Mannea, Median communities and
+Aegean Greek communities, plus the barbarian role. These fifteen regular seats
+fit the nation budget while keeping Philistia distinct from Judah. Grouped
+principalities and coastal cities are **designed compression**, not unified
+historical states. No later imperial borders, post-conquest Assyrian provinces
+or Achaemenid Persian state are pre-applied to this opening.
+
+## Authored openings and map inspection
+
+`near-east-1350bc` has twelve regular seats and 109 centres;
+`near-east-750bc` has fifteen and 107. Both add one non-playable barbarian role
+and share a 276 × 185 geographic footprint. Each regular seat starts with one
+army; seven fleets provide naval openings in each period. Setup quantities,
+neutral regular-state relations and generic institutional leader titles are
+explicitly designed. Both use the existing twenty-year campaign horizon.
+
+![1350 BC authored map and grouped seats](../images/near-east-1350bc.png)
+
+![750 BC authored map and grouped seats](../images/near-east-750bc.png)
 
 ## Reuse of mechanics
 
