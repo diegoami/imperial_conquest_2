@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 1,
+  "id": "italy-500bc-barbarians",
+  "name": "Italy, 500 BC — barbarian arrivals",
+  "worldId": "italy-500bc-barbarians",
+  "rulesetId": "italy-500bc",
+  "seats": [
+    {
+      "nation": "rome",
+      "control": "human",
+      "personality": null
+    },
+    {
+      "nation": "etruria",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "samnites",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.8,
+        "expansionDrive": 0.6,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "umbrians",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.3,
+        "expansionDrive": 0.3,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "veneti",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.3,
+        "expansionDrive": 0.3,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "ligurians",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.4,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "senones",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.9,
+        "expansionDrive": 0.8,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "insubres",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.8,
+        "expansionDrive": 0.7,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "campanians",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.4,
+        "expansionDrive": 0.4,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "magnagraecia",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.4,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "syracuse",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.7,
+        "expansionDrive": 0.7,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "carthage",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.6,
+        "expansionDrive": 0.6,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "barbarians",
+      "control": "ai",
+      "personality": null
+    }
+  ],
+  "victory": {
+    "type": "totalConquest",
+    "goal": null
+  },
+  "turnLimit": null,
+  "blindHotseat": false,
+  "randomSeed": 500,
+  "_provenance": {
+    "seats": "designed: Rome is the default human seat; New Game lets the player take any of the twelve (owner decision D4). The AI personalities are designed, more aggressive for the Samnites and the Gauls.",
+    "victory": "designed: total conquest, the classical rules' own condition, which the ruleset keeps.",
+    "turnLimit": "designed: none; the reign ends at 460 BC (the ruleset's victory.hardEndYearBc).",
+    "randomSeed": "designed: 500, the start year.",
+    "listed": "designed: separately offered variant; old Italy campaign remains available and unchanged for old saves.",
+    "barbarians": "designed: owner-approved boundary arrivals, docs/design/barbarians.md; a gameplay faction, not a historical unified people. Provisional 18,000 troops in four units of two existing types, quality 6, morale 70 and forty transport ships; the existing siege-strength check requires a force capable of threatening normal Italian towns. 25 percent shared seasonal chance, four armies including cargo and four fleets. No historical source fixes a spawn strength; tune through headless campaign runs."
+  },
+  "listed": true,
+  "barbarians": {
+    "nationId": "barbarians",
+    "arrivalUnits": [
+      {
+        "mercenaryLabel": 0,
+        "unitTypeId": "light_infantry",
+        "troops": 6000,
+        "quality": 6,
+        "name": "Raiders 1"
+      },
+      {
+        "mercenaryLabel": 0,
+        "unitTypeId": "light_infantry",
+        "troops": 6000,
+        "quality": 6,
+        "name": "Raiders 2"
+      },
+      {
+        "mercenaryLabel": 0,
+        "unitTypeId": "archers",
+        "troops": 3000,
+        "quality": 6,
+        "name": "Archers 1"
+      },
+      {
+        "mercenaryLabel": 0,
+        "unitTypeId": "archers",
+        "troops": 3000,
+        "quality": 6,
+        "name": "Archers 2"
+      }
+    ],
+    "fleetShips": 40,
+    "armyMorale": 70,
+    "chancePercent": 25,
+    "armyCap": 4,
+    "fleetCap": 4
+  }
+}

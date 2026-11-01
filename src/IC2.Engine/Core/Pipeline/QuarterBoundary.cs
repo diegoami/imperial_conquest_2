@@ -68,13 +68,15 @@ public sealed class QuarterBoundaryHandlerAttribute : Attribute
 /// </param>
 /// <param name="Rng">This handler's own random stream, independent of every other handler's.</param>
 /// <param name="Events">Where the handler publishes anything the news log or the UI should see.</param>
+/// <param name="Scenario">Optional campaign configuration; absent keeps scenario-specific handlers inert.</param>
 public sealed record QuarterBoundaryContext(
     GameState State,
     Ruleset Ruleset,
     World World,
     int EndingSeasonIndex,
     IRng Rng,
-    IEventSink Events);
+    IEventSink Events,
+    Scenario? Scenario = null);
 
 /// <summary>
 /// The firing end of the hook, handed to a system through <see cref="SystemContext.QuarterBoundary"/>

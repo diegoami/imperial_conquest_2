@@ -27,7 +27,8 @@ public sealed record DiplomacyRelationRow(
     bool CanProposeTrade)
 {
     public DiplomaticStatus Status { get; init; }
-    public string StatusCaption => Status switch
+    public bool PermanentlyHostile { get; init; }
+    public string StatusCaption => PermanentlyHostile ? "ALWAYS HOSTILE" : Status switch
     {
         DiplomaticStatus.War => "AT WAR",
         DiplomaticStatus.Trade => "TRADING",
@@ -74,6 +75,7 @@ public static class DiplomacyGridViewModel
             var isWar = value == codes.War;
             var isAlliance = value == codes.Alliance;
             var isTrade = value == codes.Trade;
+            var diplomacyAllowed = !nation.IsBarbarian && state.NationById(activeNationId)?.IsBarbarian != true;
             // Mirrors MakePeaceCommandHandler's relation gate (T88): trade, alliance and war are all
             // something to end; peace and a cooldown value are not.
             var canMakePeace = isTrade || isAlliance || isWar;
@@ -82,11 +84,12 @@ public static class DiplomacyGridViewModel
                 nation.Id,
                 nation.Name,
                 RelationLabel(value, codes),
-                CanDeclareWar: !isWar,
-                CanMakePeace: canMakePeace,
-                CanProposeAlliance: !isWar && !isAlliance,
-                CanProposeTrade: !isWar && !isTrade)
+                CanDeclareWar: diplomacyAllowed && !isWar,
+                CanMakePeace: diplomacyAllowed && canMakePeace,
+                CanProposeAlliance: diplomacyAllowed && !isWar && !isAlliance,
+                CanProposeTrade: diplomacyAllowed && !isWar && !isTrade)
             {
+                PermanentlyHostile = nation.IsBarbarian,
                 Status = isWar ? DiplomaticStatus.War : isTrade ? DiplomaticStatus.Trade
                     : isAlliance ? DiplomaticStatus.Alliance : value < 0 ? DiplomaticStatus.Cooldown
                     : value == codes.Peace ? DiplomaticStatus.Peace : DiplomaticStatus.Unknown,

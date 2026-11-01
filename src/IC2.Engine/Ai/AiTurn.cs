@@ -83,7 +83,7 @@ public sealed record AiTurnOutcome(
 /// collecting rejections.
 /// </para>
 /// </remarks>
-public static class AiTurn
+public static partial class AiTurn
 {
     /// <summary>Plays one AI seat's turn.</summary>
     /// <param name="state">The state at the start of the seat's orders phase.</param>
@@ -123,10 +123,7 @@ public static class AiTurn
         }
 
         if (nation.IsBarbarian)
-        {
-            log.Add("barbarian seat: ordinary economy, recruitment and diplomacy are disabled");
-            return new AiTurnOutcome(state, nationId, log, 0, 0, 0, HitActionCap: false);
-        }
+            return RunBarbarian(state, ruleset, world, commands, rng, events, nation);
 
         var personality = AiPersonalityProfile.For(nation, ruleset);
         log.Add(Inv(

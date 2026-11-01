@@ -1175,10 +1175,15 @@ See [the barbarian contract](design/barbarians.md) for the owner decisions.
 These values are designed provisional tuning, not original-game behavior or
 historical troop counts. Native nation metadata `isBarbarian` and
 `lastBarbarianArrivalTurn` preserve faction identity and arrival cadence; both
-are omitted in ordinary campaigns. This configuration contract alone does not
-activate arrivals: campaign activation and the seasonal executor are separate
-delivery work. Existing campaigns are never modified merely by loading an old
-save.
+are omitted in ordinary campaigns. Enabled scenarios attempt arrival at the
+existing end-of-season callback; failed chance, full caps or no legal entry
+still records that attempt, so a repeated callback or reload cannot reroll it.
+Arrivals have normal full supply and zero moves, and use the existing movement
+reset before acting. Sea arrivals have reciprocal army/fleet links. They issue
+existing military, sailing and landing commands; they do not run the ordinary
+economic/recruitment/diplomacy passes. Existing campaigns are never modified
+merely by loading an old save. Italy's separately listed barbarian variant
+retains the old Italy world/scenario unchanged and shares its authored terrain.
 
 ### Seats
 

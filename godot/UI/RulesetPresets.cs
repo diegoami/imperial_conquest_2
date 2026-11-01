@@ -204,7 +204,9 @@ public static class RulesetPresets
             $"Map: {world.Name}, {world.Width} × {world.Height} tiles.",
             $"Rules: {ruleset.Description}",
             VictoryLineFor(scenario),
-            $"{scenario.Seats.Count} nations; you choose yours on the next screen.",
+            scenario.Barbarians is null
+                ? $"{scenario.Seats.Count} nations; you choose yours on the next screen."
+                : $"{scenario.Seats.Count(s => s.Nation != scenario.Barbarians.NationId)} playable nations; barbarian arrivals by land and sea.",
         };
         return new RulesetCard(RulesetPreset.Listed, ruleset.Id, scenario.Id, scenario.Name, summary);
     }
