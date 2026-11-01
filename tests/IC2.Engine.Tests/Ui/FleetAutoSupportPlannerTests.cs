@@ -40,8 +40,30 @@ public sealed class FleetAutoSupportPlannerTests
         Assert.Null(FleetAutoSupportPlanner.NextSupply(state, fleet, RealGameData.Ruleset,
             settings, new HashSet<string>()));
         Assert.Null(FleetAutoSupportPlanner.Repair(state, fleet, RealGameData.Ruleset, settings));
+        Assert.Null(FleetAutoSupportPlanner.Fund(state, fleet, RealGameData.Ruleset, settings));
         Assert.Equal(before, state);
         Assert.Equal(before.RandomSeed, state.RandomSeed);
+    }
+
+    [Fact]
+    public void Fleet_funding_targets_quarterly_upkeep_without_inventing_a_reserve_or_debt_gate()
+    {
+        var (state, fleet, _) = NearOwnedTown();
+        fleet = fleet with { Money = 0 };
+        state = state with
+        {
+            Fleets = ValueList.Of(fleet),
+            Nations = ValueList.From(state.Nations.Select(n => n.Id == fleet.Nation
+                ? n with { Treasury = -100 } : n)),
+        };
+        var settings = new UserSettings { AutoFundFleets = true, AutoTreasuryReserveTalents = 100000 };
+        var target = IC2.Engine.Economy.HumanAutoSupport.FleetPurseTarget(fleet, RealGameData.Ruleset);
+        var proposal = FleetAutoSupportPlanner.Fund(state, fleet, RealGameData.Ruleset, settings);
+        Assert.NotNull(proposal);
+        Assert.Equal($"transfer-money {fleet.Id} {target}", proposal.CommandLine);
+        Assert.Equal(target, proposal.Requested);
+        Assert.Null(FleetAutoSupportPlanner.Fund(state, fleet with { Money = target }, RealGameData.Ruleset, settings));
+        Assert.Null(FleetAutoSupportPlanner.Fund(state, fleet with { ConstructionTicksRemaining = 1 }, RealGameData.Ruleset, settings));
     }
 
     [Fact]

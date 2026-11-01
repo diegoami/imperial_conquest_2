@@ -127,12 +127,16 @@ public partial class EndTurnBoxCheck : Control
             AutoSupplyArmies = true, AutoFundArmies = true, AutoSupplyTargetPercent = 100,
             AutoPurseTargetTalents = 900, AutoTreasuryReserveTalents = 2_000,
         });
-        var mainGame = AddMainGame(BuildAutoSession(warning: true));
+        var starting = BuildAutoSession(warning: true, keepWarning: true);
+        var beforeEntry = starting.State.ArmyById("north-land-warning")!;
+        var mainGame = AddMainGame(starting);
         try
         {
             var initial = mainGame.Session.State.ArmyById("north-land-warning")!;
             var expectedFunding = Math.Min(IC2.Engine.Economy.ArmyUpkeep.Compute(initial.Units, mainGame.Session.Ruleset),
                 mainGame.Session.Ruleset.Economy.PurseCapPerUnit);
+            Check(initial.SupplyTons > beforeEntry.SupplyTons && initial.Money == expectedFunding,
+                "the initial human strategic view supplies and funds before the first order");
             var snapshots = new List<(int Supply, int Money, int Turn)>();
             mainGame.CommandIssued += _ =>
             {
@@ -141,7 +145,7 @@ public partial class EndTurnBoxCheck : Control
             };
             mainGame.MenuBar.PressItemForCheck("game.end_turn");
             Check(mainGame.ActiveOverlay is EndTurnBox && snapshots.Count == 0,
-                "auto support waits for warning confirmation");
+                "the End turn warning itself issues no further support commands");
             ((EndTurnBox)mainGame.ActiveOverlay!).MakeMoreMovesButton.EmitSignal(Button.SignalName.Pressed);
             Check(snapshots.Count == 0 && mainGame.Session.State.ArmyById(initial.Id) == initial,
                 "Make more moves does not auto supply or fund");
@@ -149,15 +153,12 @@ public partial class EndTurnBoxCheck : Control
             mainGame.MenuBar.PressItemForCheck("game.end_turn");
             ((EndTurnBox)mainGame.ActiveOverlay!).EndTurnButton.EmitSignal(Button.SignalName.Pressed);
             DismissOfferNotices(mainGame);
-            Check(snapshots.Count == 3, $"confirmed auto support submits buy, transfer-money, then end ({snapshots.Count})");
-            if (snapshots.Count >= 3)
+            Check(snapshots.Count == 1, $"already-supplied units do not repeat transfers before the single End turn ({snapshots.Count})");
+            if (snapshots.Count == 1)
             {
-                Check(snapshots[0].Supply > initial.SupplyTons && snapshots[0].Money == 0,
-                    "own-city supply command is accepted before money");
-                Check(snapshots[1].Money == expectedFunding && snapshots[1].Turn == snapshots[0].Turn,
-                    "accepted purse transfer uses quarterly upkeep, ignoring the legacy reserve");
-                Check(snapshots[2].Turn == snapshots[0].Turn + 1,
-                    "ordinary end command runs after auto support");
+                Check(snapshots[0].Money == expectedFunding,
+                    "incoming support retains the quarterly purse target without a legacy reserve");
+                Check(snapshots[0].Turn > 0, "the ordinary End turn still advances the campaign");
             }
             Check(!mainGame.LastMessageForCheck.Contains("supply transfers", StringComparison.Ordinal)
                 && !mainGame.LastMessageForCheck.Contains("purse transfers", StringComparison.Ordinal),
@@ -179,8 +180,8 @@ public partial class EndTurnBoxCheck : Control
             unwarned.CommandIssued += _ => commands++;
             unwarned.MenuBar.PressItemForCheck("game.end_turn");
             DismissOfferNotices(unwarned);
-            Check(unwarned.ActiveOverlay is null && commands == 2,
-                "no-warning route funds once then ends once without a box");
+            Check(unwarned.ActiveOverlay is null && commands == 1,
+                "no-warning route does not repeat initial funding and ends once without a box");
         }
         finally
         {
@@ -201,13 +202,18 @@ public partial class EndTurnBoxCheck : Control
             var expectedFunding = Math.Min(IC2.Engine.Economy.ArmyUpkeep.Compute(ownArmy.Units, mainGame.Session.Ruleset),
                 mainGame.Session.Ruleset.Economy.PurseCapPerUnit);
             var otherFleetBefore = mainGame.Session.State.FleetById("south-fleet-auto")!;
+            Check(ownArmy.Money == expectedFunding && otherBefore == 0,
+                "initial funding is restricted to the active human nation");
             mainGame.MenuBar.PressItemForCheck("game.end_turn");
             if (mainGame.ActiveOverlay is EndTurnBox box)
                 box.EndTurnButton.EmitSignal(Button.SignalName.Pressed);
             Check(mainGame.Session.State.ArmyById("north-land-warning")!.Money == expectedFunding,
                 "global auto funding acts for the active human nation");
-            Check(mainGame.Session.State.ArmyById("south-auto")!.Money == otherBefore,
-                "global auto funding does not pre-fund the next hotseat nation");
+            var other = mainGame.Session.State.ArmyById("south-auto")!;
+            var otherTarget = Math.Min(IC2.Engine.Economy.ArmyUpkeep.Compute(other.Units, mainGame.Session.Ruleset),
+                mainGame.Session.Ruleset.Economy.PurseCapPerUnit);
+            Check(mainGame.Session.State.ActiveNationId == "south" && other.Money == otherTarget,
+                "the incoming hotseat receives funding before its first order");
             Check(mainGame.Session.State.FleetById("south-fleet-auto")!.SupplyTons == otherFleetBefore.SupplyTons
                   && mainGame.Session.State.FleetById("south-fleet-auto")!.ConditionPercent == otherFleetBefore.ConditionPercent,
                 "global fleet support does not act for the next hotseat nation");
@@ -222,24 +228,22 @@ public partial class EndTurnBoxCheck : Control
     private void CheckAutoSupportFromFleet()
     {
         SettingsScreen.Commit(new UserSettings { AutoSupplyArmies = true });
-        var mainGame = AddMainGame(BuildAutoSession(warning: true, fleetProvider: true));
+        var starting = BuildAutoSession(warning: true, fleetProvider: true, keepWarning: true);
+        var fleetBeforeEntry = starting.State.FleetById("north-fleet-1")!.SupplyTons;
+        var armyBeforeEntry = starting.State.ArmyById("north-land-warning")!.SupplyTons;
+        var mainGame = AddMainGame(starting);
         try
         {
             var fleetBefore = mainGame.Session.State.FleetById("north-fleet-1")!.SupplyTons;
             var armyBefore = mainGame.Session.State.ArmyById("north-land-warning")!.SupplyTons;
-            var afterBuy = (Army: armyBefore, Fleet: fleetBefore);
+            Check(armyBefore > armyBeforeEntry && fleetBefore < fleetBeforeEntry
+                && armyBefore + fleetBefore == armyBeforeEntry + fleetBeforeEntry,
+                "initial support uses the own fleet provider with conserved stock");
             var commands = 0;
-            mainGame.CommandIssued += _ =>
-            {
-                commands++;
-                if (commands == 1)
-                    afterBuy = (mainGame.Session.State.ArmyById("north-land-warning")!.SupplyTons,
-                        mainGame.Session.State.FleetById("north-fleet-1")!.SupplyTons);
-            };
+            mainGame.CommandIssued += _ => commands++;
             mainGame.MenuBar.PressItemForCheck("game.end_turn");
             ((EndTurnBox)mainGame.ActiveOverlay!).EndTurnButton.EmitSignal(Button.SignalName.Pressed);
-            Check(commands == 2 && afterBuy.Army > armyBefore && afterBuy.Fleet < fleetBefore,
-                "confirmed auto supply uses the existing fleet-provider buy command before end");
+            Check(commands == 1, "the confirmed turn does not repeat the initial fleet-provider command");
         }
         finally
         {
@@ -252,31 +256,38 @@ public partial class EndTurnBoxCheck : Control
     {
         SettingsScreen.Commit(new UserSettings
         {
-            AutoSupplyFleets = true, AutoRepairFleets = true,
+            AutoSupplyFleets = true, AutoFundFleets = true, AutoRepairFleets = true,
             AutoTreasuryReserveTalents = 4_900,
         });
-        var mainGame = AddMainGame(BuildFleetAutoSession());
+        var starting = BuildFleetAutoSession();
+        var fleetBeforeEntry = starting.State.FleetById("north-fleet-1")!;
+        var mainGame = AddMainGame(starting);
         try
         {
             var fleetId = "north-fleet-1";
             var fleetBefore = mainGame.Session.State.FleetById(fleetId)!;
             var first = (Supply: fleetBefore.SupplyTons, Condition: fleetBefore.ConditionPercent, Moves: fleetBefore.Moves);
-            var second = first;
             var commands = 0;
-            mainGame.CommandIssued += _ =>
+            var commandLines = new List<string>();
+            Check(fleetBefore.SupplyTons == IC2.Engine.Economy.SupplyCapacity.FleetCapacityTons(fleetBefore.Ships, mainGame.Session.Ruleset)
+                && fleetBefore.Money == Math.Min(IC2.Engine.Economy.ShipUpkeep.Compute(fleetBefore.Ships, mainGame.Session.Ruleset),
+                    mainGame.Session.Ruleset.Economy.PurseCapPerUnit)
+                && fleetBefore.ConditionPercent == fleetBeforeEntry.ConditionPercent && fleetBefore.Moves == fleetBeforeEntry.Moves,
+                "initial fleet support fills supply and quarterly purse without repairing or spending moves");
+            mainGame.CommandIssued += lines =>
             {
                 commands++;
+                commandLines.Add(lines.FirstOrDefault() ?? string.Empty);
                 var fleet = mainGame.Session.State.FleetById(fleetId)!;
                 if (commands == 1) first = (fleet.SupplyTons, fleet.ConditionPercent, fleet.Moves);
-                if (commands == 2) second = (fleet.SupplyTons, fleet.ConditionPercent, fleet.Moves);
             };
             mainGame.MenuBar.PressItemForCheck("game.end_turn");
             if (mainGame.ActiveOverlay is EndTurnBox box)
                 box.EndTurnButton.EmitSignal(Button.SignalName.Pressed);
-            Check(commands == 3, $"fleet support submits town supply, repair, then end ({commands})");
-            Check(first.Supply > fleetBefore.SupplyTons && first.Condition == fleetBefore.ConditionPercent,
-                "the town supplies the fleet before repair");
-            Check(second.Condition == 100 && second.Moves == 0,
+            Check(commands == 2 && commandLines[0].StartsWith("> repair-fleet ", StringComparison.Ordinal)
+                && commandLines[1].StartsWith("> end", StringComparison.Ordinal),
+                $"full fleet needs only repair then one End turn ({commands})");
+            Check(first.Condition == 100 && first.Moves == 0,
                 "repair reaches the target and consumes remaining moves before End turn");
             Check(mainGame.LastMessageForCheck.Contains("Auto fleets:", StringComparison.Ordinal),
                 "fleet repair still reports its result without routine supply totals");
@@ -321,9 +332,9 @@ public partial class EndTurnBoxCheck : Control
             main.MenuBar.PressItemForCheck("game.end_turn");
             if (main.ActiveOverlay is EndTurnBox box) box.EndTurnButton.EmitSignal(Button.SignalName.Pressed);
             DismissOfferNotices(main);
-            Check(commands.Count == 3 && commands[0].StartsWith("> transfer-money ", StringComparison.Ordinal)
-                  && commands[1].StartsWith("> repair-fleet ", StringComparison.Ordinal)
-                  && commands[2].StartsWith("> end", StringComparison.Ordinal), "derived debt support preserves order and one End turn");
+            Check(commands.Count == 2 && commands[0].StartsWith("> repair-fleet ", StringComparison.Ordinal)
+                  && commands[1].StartsWith("> end", StringComparison.Ordinal),
+                "initial funding is not repeated; confirmed debt repair precedes one End turn");
         }
         finally { RemoveMainGame(main); SettingsScreen.Commit(new UserSettings()); }
     }
@@ -793,7 +804,8 @@ public partial class EndTurnBoxCheck : Control
             {
                 var line = lines.FirstOrDefault() ?? string.Empty;
                 commands.Add(line);
-                if (line.StartsWith($"> buy {armyId} ", StringComparison.Ordinal))
+                if (line.StartsWith($"> buy {armyId} ", StringComparison.Ordinal)
+                    || line.StartsWith($"> move {armyId} ", StringComparison.Ordinal))
                     maxSupplyAfterBuy = Math.Max(maxSupplyAfterBuy,
                         session.State.ArmyById(armyId)?.SupplyTons ?? 0);
             };
@@ -1244,7 +1256,7 @@ public partial class EndTurnBoxCheck : Control
         return new GameSession(resolved.World, ruleset, resolved.Scenario, save);
     }
 
-    private static GameSession BuildAutoSession(bool warning, bool hotseat = false, bool fleetProvider = false)
+    private static GameSession BuildAutoSession(bool warning, bool hotseat = false, bool fleetProvider = false, bool keepWarning = false)
     {
         var original = BuildSession(warning);
         var state = original.State;
@@ -1284,6 +1296,12 @@ public partial class EndTurnBoxCheck : Control
                     ? f with { SupplyTons = 600 } : f)),
             };
         }
+        if (keepWarning)
+        {
+            // Initial supply now resolves the original low-stock warning. Keep an
+            // independent undocked fleet so OK/Cancel still exercise a real box.
+            state = WithIndependentWarning(state);
+        }
         var save = new SaveGame(state.SchemaVersion, "auto-support-check", "auto-support-check",
             state.ScenarioId, state.WorldId, state.RulesetId, state);
         return new GameSession(original.World, original.Ruleset, original.Scenario, save);
@@ -1310,7 +1328,7 @@ public partial class EndTurnBoxCheck : Control
     private static GameSession BuildAutoMobilizeSession(bool refuse = false, bool lowerQualitySlots = false)
     {
         var original = BuildSession(warning: true);
-        var state = original.State;
+        var state = WithIndependentWarning(original.State);
         var city = state.Cities.First(c => c.Owner == "north");
         state = state with
         {
@@ -1342,6 +1360,14 @@ public partial class EndTurnBoxCheck : Control
     // the army's own SupplyTons and Money, never by a unit type's price. South's own records are
     // dropped by every caller, so the AI phase after an `end` can open no battle window and the check
     // stays deterministic.
+    private static GameState WithIndependentWarning(GameState state)
+    {
+        var extra = state.Fleets.First(f => f.Nation == "north") with
+            { Id = "north-warning-fleet", X = 0, Y = 3, Moves = 0, SupplyTons = 1000,
+                ConditionPercent = 100, CarriedArmyId = null, ConstructionTicksRemaining = null };
+        return state with { Fleets = ValueList.From(state.Fleets.Append(extra)) };
+    }
+
     private static ArmyState WarningArmy(string id, bool embarked, int money) => new(
         id,
         "north",

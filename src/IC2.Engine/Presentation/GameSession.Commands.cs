@@ -92,6 +92,7 @@ public sealed partial class GameSession
         State = NewsLogWriter.Append(result.State, result.Events, Ruleset.NewsLog);
 
         var lines = new List<string> { $"{command.Kind} accepted." };
+        lines.AddRange(HumanSupportRefusalLines(result.Events));
         foreach (var transfer in result.Events.OfType<ArmyTransferUnitsResolved>().Where(t => t.NotMoved.Count > 0))
         {
             lines.Add($"Moved {transfer.Moved} of {transfer.Requested} unit moves.");

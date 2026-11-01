@@ -138,7 +138,8 @@ public static class MovementWalker
         IEventSink events,
         Func<GridPoint, int?>? moveCostOverride = null,
         StrategicStepPolicy step = StrategicStepPolicy.StraightLine,
-        GridPoint? worldSize = null)
+        GridPoint? worldSize = null,
+        Action<GridPoint, int>? onEnteredCell = null)
     {
         ArgumentNullException.ThrowIfNull(terrain);
         ArgumentNullException.ThrowIfNull(tileTypeIdAt);
@@ -237,6 +238,7 @@ public static class MovementWalker
             movesLeft -= moveCost;
             entered.Add(chosen);
             mover = chosen;
+            onEnteredCell?.Invoke(chosen, movesLeft);
         }
 
         return new MovementWalkResult(

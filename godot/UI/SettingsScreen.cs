@@ -231,7 +231,7 @@ public partial class SettingsScreen : Control
     {
         Section(column, "Army support");
         AutomationNote(column,
-            "Global for all campaigns, after confirmed End turn. Supply fills to maximum; purses cover quarterly troop and mercenary costs within transfer limits.");
+            "Global for all campaigns: at turn start, during travel and before End turn. Supply fills to maximum; purses cover quarterly troop and mercenary costs within transfer limits.");
 
         var supply = new CheckBox { Text = "Auto supply armies", ButtonPressed = Current.AutoSupplyArmies };
         supply.Toggled += on => Commit(Current with { AutoSupplyArmies = on });
@@ -243,10 +243,13 @@ public partial class SettingsScreen : Control
 
         Section(column, "Fleet support");
         AutomationNote(column,
-            "Owned towns replenish supplies and repair fully at confirmed End turn. Repairs spend treasury and use remaining moves.");
+            "Owned towns replenish supplies at turn start and during travel. Fleet purses cover quarterly ship upkeep. Repair waits for confirmed End turn and uses remaining moves.");
         var fleetSupply = new CheckBox { Text = "Auto supply fleets", ButtonPressed = Current.AutoSupplyFleets };
         fleetSupply.Toggled += on => Commit(Current with { AutoSupplyFleets = on });
         Row(column, "Fleet supply").AddChild(fleetSupply);
+        var fleetFunding = new CheckBox { Text = "Auto fund fleet purses", ButtonPressed = Current.AutoFundFleets };
+        fleetFunding.Toggled += on => Commit(Current with { AutoFundFleets = on });
+        Row(column, "Fleet money").AddChild(fleetFunding);
         var fleetRepair = new CheckBox { Text = "Auto repair fleets", ButtonPressed = Current.AutoRepairFleets };
         fleetRepair.Toggled += on => Commit(Current with { AutoRepairFleets = on });
         Row(column, "Fleet repair").AddChild(fleetRepair);

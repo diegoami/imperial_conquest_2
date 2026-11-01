@@ -818,7 +818,8 @@ public sealed partial class GameSession
         Scenario = scenario;
 
         _registry = SystemRegistry.FromEngineAssembly();
-        _dispatcher = new CommandDispatcher(_registry, ruleset, world, NullEventSink.Instance) { StrategicObserver = _strategicTimeline };
+        _dispatcher = new CommandDispatcher(_registry, ruleset, world, NullEventSink.Instance)
+            { StrategicObserver = _strategicTimeline, HumanSupportForCommand = ResolveHumanSupportForCommand };
         _coordinator = new TurnCoordinator(_registry, ruleset, world, NullEventSink.Instance, _dispatcher, scenario) { StrategicObserver = _strategicTimeline };
 
         var initial = GameStateFactory.CreateInitial(world, ruleset, scenario);
@@ -897,7 +898,8 @@ public sealed partial class GameSession
         Scenario = scenario;
 
         _registry = SystemRegistry.FromEngineAssembly();
-        _dispatcher = new CommandDispatcher(_registry, ruleset, world, NullEventSink.Instance) { StrategicObserver = _strategicTimeline };
+        _dispatcher = new CommandDispatcher(_registry, ruleset, world, NullEventSink.Instance)
+            { StrategicObserver = _strategicTimeline, HumanSupportForCommand = ResolveHumanSupportForCommand };
         _coordinator = new TurnCoordinator(_registry, ruleset, world, NullEventSink.Instance, _dispatcher, scenario) { StrategicObserver = _strategicTimeline };
 
         ResumeFrom(save);
@@ -1039,6 +1041,7 @@ public sealed partial class GameSession
             : null;
         _pendingPeaceTreatyOffers.Clear();
         _pendingBattleResults.Clear();
+        ResetHumanSupportTurn();
         LastBattles = Array.Empty<Battle.BattleResult>();
 
         // T125: a save that holds an open tactical battle reopens it, whatever HumanBattles says -- the battle is
@@ -1142,12 +1145,17 @@ public sealed partial class GameSession
     /// </remarks>
     private void DepositActiveHumanSeatIfItShouldFallAtTurnStart(List<string> lines)
     {
+        if (HumanSupportAppliedThisTurn) return;
         var nation = State.NationById(State.ActiveNationId);
         if (nation is null
             || nation.Control != SeatControl.Human
-            || nation.Eliminated
-            || !Deposition.ShouldFallAtHumanTurnStart(nation, State, Ruleset))
+            || nation.Eliminated)
         {
+            return;
+        }
+        if (!Deposition.ShouldFallAtHumanTurnStart(nation, State, Ruleset))
+        {
+            ApplyHumanSupportAtTurnStart(lines);
             return;
         }
 
@@ -1798,7 +1806,7 @@ public sealed partial class GameSession
         {
             $"{armyId} moved from ({moved.FromX},{moved.FromY}) to ({moved.ToX},{moved.ToY}), "
             + $"spending {moved.MovesSpent} of {beforeMoves} moves.",
-        };
+        }.Concat(HumanSupportRefusalLines(result.Events)).ToArray();
     }
 
     /// <summary>
@@ -1812,6 +1820,10 @@ public sealed partial class GameSession
     /// </summary>
     private void ApplyAutomaticResupplyIfAgainstANonHostileCity(string armyId)
     {
+        var selected = EffectiveArmySupport(armyId);
+        var doResupply = selected?.SupplyArmies != true;
+        var fundPurse = selected?.FundArmies != true;
+        if (!doResupply && !fundPurse) return;
         if (Ruleset.Flags.HumanMoveResupply != HumanMoveResupplyPolicy.AgainstNonHostileCity)
         {
             return;
@@ -1837,7 +1849,7 @@ public sealed partial class GameSession
                 return;
             }
 
-            var resupply = AutomaticResupply.ForArmy(army, city, armyNation, cityNation, Ruleset);
+            var resupply = AutomaticResupply.ForArmy(army, city, armyNation, cityNation, Ruleset, doResupply, fundPurse);
             State = State with
             {
                 Armies = ValueList.From(State.Armies.Select(a =>

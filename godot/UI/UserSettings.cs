@@ -58,14 +58,17 @@ public sealed record UserSettings
     /// <summary>Visibility only. Fresh/legacy preferences hide experimental QOL; saved choices still apply.</summary>
     public bool ShowExperimentalQolSettings { get; init; }
 
-    /// <summary>T207: opt-in supply top-up for the active human nation's armies before End turn.</summary>
+    /// <summary>Opt-in army supply at human turn start, during travel and before End turn.</summary>
     public bool AutoSupplyArmies { get; init; }
 
-    /// <summary>T207: opt-in treasury-to-army purse top-up before End turn.</summary>
+    /// <summary>Opt-in quarterly-cost army funding at human turn start, during travel and before End turn.</summary>
     public bool AutoFundArmies { get; init; }
 
-    /// <summary>T208: opt-in town-to-fleet supply before confirmed End turn.</summary>
+    /// <summary>Opt-in town-to-fleet supply at human turn start, during travel and before End turn.</summary>
     public bool AutoSupplyFleets { get; init; }
+
+    /// <summary>Opt-in fleet purse top-up to quarterly ship upkeep, using ordinary treasury rules.</summary>
+    public bool AutoFundFleets { get; init; }
 
     /// <summary>T208: opt-in repair of eligible fleets beside owned towns.</summary>
     public bool AutoRepairFleets { get; init; }
