@@ -86,3 +86,4 @@ Open and recent tasks only. Merged tasks (T01–T191 and others) are in their cl
 - [T257](tasks/T257.md) — Experimental QOL settings hidden by default
 
 - [T258](tasks/T258.md) — v0.8.6 review follow-up: Windows test margin, capital-defence fleet coverage and reversible package verification
+- [T259](tasks/T259.md) — Deterministic barbarian boundary-arrival planner
