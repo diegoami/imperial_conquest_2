@@ -311,9 +311,9 @@ public sealed partial class GameSession
     }
 
     /// <summary>Uses the news command's formatter without submitting a command or draining pending reports.</summary>
-    public IReadOnlyList<string> ReadNewsLines() => RenderNews();
+    public IReadOnlyList<string> ReadNewsLines(bool newestFirst = false) => RenderNews(newestFirst);
 
-    private IReadOnlyList<string> RenderNews()
+    private IReadOnlyList<string> RenderNews(bool newestFirst = false)
     {
         if (State.NewsLog.Slots.Count == 0)
         {
@@ -321,7 +321,8 @@ public sealed partial class GameSession
         }
 
         var lines = new List<string> { "News log:" };
-        foreach (var entry in State.NewsLog.Slots)
+        var entries = newestFirst ? State.NewsLog.Slots.Reverse() : State.NewsLog.Slots;
+        foreach (var entry in entries)
         {
             lines.Add("  " + entry.Text);
         }

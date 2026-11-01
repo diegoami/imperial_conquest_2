@@ -8,6 +8,27 @@ namespace IC2.Engine.Tests.Presentation;
 public sealed class NewsQueryTests
 {
     [Fact]
+    public void Newest_first_is_read_only_preserves_report_lines_and_keeps_default_cli_order()
+    {
+        var data = CoreTestbed.Toy;
+        var initial = new GameSession(data.World, data.Ruleset, data.Scenario);
+        var state = initial.State with { NewsLog = NewsLog.Empty
+            .Append(new NewsEntry("Older report\n  older detail"), data.Ruleset.NewsLog)
+            .Append(new NewsEntry("Latest report\n  latest detail"), data.Ruleset.NewsLog) };
+        var save = new SaveGame(state.SchemaVersion, "news-order", "news-order", state.ScenarioId,
+            state.WorldId, state.RulesetId, state);
+        var session = new GameSession(data.World, data.Ruleset, data.Scenario, save);
+        var before = session.State;
+        Assert.Equal(new[] { "News log:", "  Latest report\n  latest detail", "  Older report\n  older detail" },
+            session.ReadNewsLines(newestFirst: true));
+        var chronological = new[] { "News log:", "  Older report\n  older detail", "  Latest report\n  latest detail" };
+        Assert.Equal(chronological, session.ReadNewsLines());
+        Assert.Same(before, session.State);
+        var output = session.Submit("news").Lines;
+        Assert.Equal(chronological, output.SkipWhile(line => line != "News log:").Take(chronological.Length));
+    }
+
+    [Fact]
     public void Reading_news_does_not_consume_a_pending_seat_fall_or_publish_events()
     {
         var data = CoreTestbed.Toy;

@@ -3206,7 +3206,7 @@ public partial class MainGameScreen : Control
             && !Session.IsGameOver)
         {
             _latestNewsPending = false;
-            _newsLog.ShowLatest();
+            if (!_newsLog.DismissedByPlayer) _newsLog.ShowLatest();
         }
     }
 
@@ -3509,7 +3509,8 @@ public partial class MainGameScreen : Control
     private void RefreshTopBar()
     {
         var calendar = DisplayState.Calendar;
-        _calendarLabel.Text = $"Week {calendar.Week}, {calendar.YearBc} BC (turn {calendar.TurnIndex})";
+        var season = Session.Ruleset.NewsLog.SeasonNames[calendar.SeasonIndex];
+        _calendarLabel.Text = $"Week {calendar.Week}, {season}, {calendar.YearBc} BC (turn {calendar.TurnIndex})";
         var nation = DisplayState.NationById(DisplayState.ActiveNationId);
         _activeNationLabel.Text = $"Playing: {nation?.Name ?? DisplayState.ActiveNationId}";
     }
