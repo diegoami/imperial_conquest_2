@@ -3386,6 +3386,7 @@ public partial class MainGameScreen : Control
         };
         var audio = new Audio.TacticalPlaybackAudio(Session.Ruleset, () => SettingsScreen.SoundEnabled, _soundPlayer.PlayTactical);
         screen.ExchangeEntered += audio.ExchangeEntered;
+        screen.UndoPresentationReset += () => _soundPlayer.ClearTactical("undo");
         screen.MeleeTargetSet += (unit, enemy) =>
         {
             if (SettingsScreen.SoundEnabled)
@@ -3411,14 +3412,28 @@ public partial class MainGameScreen : Control
         var ended = new BattleEndedScreen
         {
             Model = BattleEndedViewModel.FromReport(report, Session.State, Session.Ruleset),
+            ShowUndo = Session.TacticalUndoEnabled,
+            UndoAvailable = Session.CanUndoTactical,
+        };
+        var finishedBattleId = battleScreen.DisplayedFrame?.BattleId;
+        ended.UndoRequested += () =>
+        {
+            var undone = Session.BattleUndo();
+            if (!undone.TacticalRewound) return;
+            _soundPlayer.ClearTactical("undo");
+            _nextTacticalOpening = undone.TacticalTimeline;
+            CloseOverlay(ended);
+            CompleteTacticalCommand(undone);
         };
         ended.Closed += () =>
         {
+            var following = Session.BattleResultAwaitingAcknowledgement ? Session.AcknowledgeBattleResult() : output;
+            _nextTacticalOpening = following.TacticalTimeline.Where(frame => frame.BattleId != finishedBattleId).ToArray();
             CloseOverlay(ended);
 
-            // The engine wrote the battle back in the call that ended it; OK carries on with that call's own
-            // windows (the battle results routed to this seat, a fall, a hand-off) and then the peace offer.
-            CompleteTacticalCommand(output);
+            // Undo-enabled results commit here. Legacy results were already committed;
+            // both route their own retained consequences and any next battlefield once.
+            CompleteTacticalCommand(following);
         };
         ShowOverlay(ended);
     }

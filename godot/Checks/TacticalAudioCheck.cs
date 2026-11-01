@@ -139,8 +139,9 @@ public partial class TacticalAudioCheck : Node
         }
         else for (var i = 0; screen.IsPlayingBack && i < 100000; i++) screen.AdvancePlayback(0.1);
         screen.AdvancePlayback(100); screen.SkipPlayback(); screen.SkipPlayback();
-        Require(!screen.IsPlayingBack && main.ActiveOverlay is BattleEndedScreen && session.OpenTacticalBattle is null,
-            "terminal null-view finishes before result");
+        Require(!screen.IsPlayingBack && main.ActiveOverlay is BattleEndedScreen
+            && session.BattleResultAwaitingAcknowledgement && session.OpenTacticalBattle is { IsOver: true },
+            "terminal playback finishes before the provisional result awaits OK");
         var queued = main.SoundPlayerForCheck.QueuedForCheck;
         Require(queued.SequenceEqual(enabled ? expected : Array.Empty<string>()),
             $"{pack} delay {delay} finish {finish} sound {enabled}: production ordered exactly-once cues, no generic duplicate");

@@ -10,9 +10,9 @@ namespace IC2.Slice.Screens;
 /// battle-result window's frame <strong>[designed]</strong> and reads only <see cref="BattleEndedViewModel"/>.
 /// </summary>
 /// <remarks>
-/// The engine has already written the battle back when this opens (T125's <c>Conclude</c> runs in the call that
-/// ended the battle); <em>OK</em> only dismisses the window, after which the screen that owns it shows the peace
-/// offer if one is pending.
+/// Without Undo, write-back has already happened. With T267 UI Undo enabled, this
+/// report is provisional: OK commits the cached result and continues, while Undo
+/// restores an own-turn action before campaign consequences or opponent continuation.
 /// </remarks>
 public partial class BattleEndedScreen : Control
 {
@@ -21,6 +21,10 @@ public partial class BattleEndedScreen : Control
 
     /// <summary>Raised when the player presses OK.</summary>
     public event Action? Closed;
+    public bool ShowUndo { get; init; }
+    public bool UndoAvailable { get; init; }
+    public event Action? UndoRequested;
+    public Button? UndoButton { get; private set; }
 
     /// <summary>The title label, for <c>godot/Checks/**</c>.</summary>
     public Label TitleLabel { get; private set; } = null!;
@@ -85,6 +89,13 @@ public partial class BattleEndedScreen : Control
         content.AddChild(SuppliesLabel);
 
         content.AddChild(new HSeparator());
+        if (ShowUndo)
+        {
+            UndoButton = UiKit.MakeButton("Undo last action", () => UndoRequested?.Invoke());
+            UndoButton.Disabled = !UndoAvailable;
+            UndoButton.TooltipText = "Undo only your current tactical turn; history resets on load (Ctrl+Z).";
+            content.AddChild(UndoButton);
+        }
         var ok = UiKit.MakeButton("OK", Close);
         ok.SizeFlagsHorizontal = SizeFlags.ShrinkEnd;
         content.AddChild(ok);
@@ -100,6 +111,12 @@ public partial class BattleEndedScreen : Control
     /// </summary>
     public override void _UnhandledInput(InputEvent @event)
     {
+        if (@event is InputEventKey { Pressed: true, Echo: false, CtrlPressed: true, Keycode: Key.Z } && ShowUndo)
+        {
+            GetViewport().SetInputAsHandled();
+            if (UndoAvailable) UndoRequested?.Invoke();
+            return;
+        }
         if (@event is InputEventKey { Pressed: true, Echo: false } key && key.Keycode is Key.Escape or Key.Enter or Key.KpEnter)
         {
             GetViewport().SetInputAsHandled();

@@ -402,7 +402,8 @@ public partial class TacticalBattleCheck : Node
             return;
         }
 
-        Check(mainGame.Session.OpenTacticalBattle is null, "the engine has no open battle");
+        Check(mainGame.Session.BattleResultAwaitingAcknowledgement
+            && mainGame.Session.OpenTacticalBattle is { IsOver: true }, "the ended battle is provisional before OK");
         var expected = BattleEndedViewModel.FromReport(report!, reference.State, reference.Ruleset);
         Check(ended!.WinnerLabel.Text == expected.WinnerLine, $"the winner line equals the engine's ('{ended.WinnerLabel.Text}')");
         Check(ended.MoneyLabel.Text == expected.MoneyLine && ended.SuppliesLabel.Text == expected.SuppliesLine, "the money and supplies lines equal the engine's");
@@ -584,7 +585,8 @@ public partial class TacticalBattleCheck : Node
         slowScreen.PressToolbarButton("computer_general");
 
         Check(slowScreen.IsPlayingBack, "pauses at 1.0 s: the screen is replaying");
-        Check(slow.Session.OpenTacticalBattle is null, "pauses at 1.0 s: the engine's battle is already over");
+        Check(slow.Session.OpenTacticalBattle is { IsOver: true } && slow.Session.BattleResultAwaitingAcknowledgement,
+            "pauses at 1.0 s: the computed result waits for acknowledgement");
         Check(slow.ActiveOverlay is TacticalBattleScreen, "pauses at 1.0 s: the battle screen still holds the window");
         while (slowScreen.IsPlayingBack && slowScreen.ExchangesShown == 0) slowScreen.AdvancePlayback(0.01);
         var firstShown = slowScreen.ExchangesShown;
@@ -602,6 +604,7 @@ public partial class TacticalBattleCheck : Node
         var reference = ClassicalSession();
         reference.Submit(Attack);
         var report = reference.BattleGeneral(true).EndedBattleReport!;
+        window.Close();
         Check(
             window.TableTexts.Contains(report.WinnerFinishTotal.ToString()) && Equals(slow.Session.State, reference.State),
             "the pauses changed nothing the engine decided (same report, same state as at 0 s)");
@@ -685,14 +688,9 @@ public partial class TacticalBattleCheck : Node
         _cleanup.Add(path);
         main.SaveAsForCheck(path);
         Check(main.ActiveOverlay == screen && screen.IsPlayingBack, "Save callback cannot open peace/result ahead of terminal playback");
-        GameSession? saved = null;
-        var load = new LoadGameScreen();
-        load.GameResumed += resumed => saved = resumed;
-        AddChild(load);
-        load.ContinueForCheck(path);
-        RemoveChild(load);
-        load.QueueFree();
-        Check(saved is not null && saved.OpenTacticalBattle is null && saved.State == main.Session.State, "Save during intermediate playback serializes final authoritative session, never display snapshot");
+        Check(main.Session.BattleResultAwaitingAcknowledgement
+            && screen.MessageLabel.Text == "Acknowledge or Undo the battle result before saving.",
+            "an unacknowledged result refuses Save rather than serializing incomplete continuation");
         for (var i = 0; screen.IsPlayingBack && cues.Count < 2 && i < 10000; i++) screen.AdvancePlayback(0.05);
         Check(cues.Count >= 2 && screen.ExchangePlainText.Length > 0, "current exchange stays visible across exchanges");
         CheckNoPersistentListsOrHistory(screen);
@@ -728,8 +726,8 @@ public partial class TacticalBattleCheck : Node
             CheckNoPersistentListsOrHistory(screen);
         };
         screen.PressToolbarButton("computer_general");
-        Check(exchanges > 0 && main.Session.OpenTacticalBattle is null && main.ActiveOverlay is BattleEndedScreen,
-            "alias/escaped screen survives removed combatants and terminal null authoritative view");
+        Check(exchanges > 0 && main.Session.BattleResultAwaitingAcknowledgement && main.ActiveOverlay is BattleEndedScreen,
+            "alias/escaped screen survives removed combatants and a provisional terminal result");
         Free(main);
     }
 
@@ -854,9 +852,8 @@ public partial class TacticalBattleCheck : Node
         if (!Check(first is not null, "two-attack AI lap opens its first battle")) { Free(main); return; }
         var firstId = first!.DisplayedFrame!.BattleId;
         first.PressToolbarButton("computer_general");
-        var opening = main.Session.LastTacticalTimeline.Where(f => f.Kind == TacticalFrameKind.Initial).ToArray();
-        if (!Check(opening.Length == 1 && main.Session.OpenTacticalBattle is not null, "first terminal submission also opens second battle")) { Free(main); return; }
-        var nextId = opening[0].BattleId;
+        if (!Check(main.Session.BattleResultAwaitingAcknowledgement && main.Session.OpenTacticalBattle is { IsOver: true },
+            "first result pauses AI continuation before the second battle")) { Free(main); return; }
         Check(first.DisplayedFrame!.BattleId == firstId && first.DisplayedFrame.Kind == TacticalFrameKind.Reconciliation, "first screen consumes only its own terminal batch");
         Check(main.ActiveOverlay is BattleEndedScreen, "first result precedes second battlefield");
         // A later empty read-only submission clears Last. The result's retained opening must survive it.
@@ -864,7 +861,8 @@ public partial class TacticalBattleCheck : Node
         Check(main.Session.LastTacticalTimeline.Count == 0, "read-only command replaces retained producer batch");
         ((BattleEndedScreen)main.ActiveOverlay!).Close();
         var next = main.ActiveOverlay as TacticalBattleScreen;
-        Check(next is not null && next.DisplayedFrame?.BattleId == nextId && nextId != firstId, "next screen receives retained opening once with distinct battle identity");
+        Check(next is not null && next.DisplayedFrame?.BattleId is { } nextId && nextId != firstId,
+            "acknowledgement opens the next screen once with distinct battle identity");
         if (next is not null)
         {
             Check(next.ExchangePlainText.Length == 0 && !next.UnitListOpen, "next battle has no stale exchange history");
@@ -943,9 +941,13 @@ public partial class TacticalBattleCheck : Node
         Check(mainGame.ActiveOverlay is TacticalBattleScreen, "the battle screen stays");
 
         SettingsScreen.SetBattlePauses(0.2, 1);
+        var referenceCompletion = ToyAiAttackWithNeutralBattleSession();
+        referenceCompletion.Submit("declare-war south");
+        referenceCompletion.Submit("end");
+        var originalBattles = referenceCompletion.BattleGeneral(true).Battles.ToArray();
         screen.PressToolbarButton("computer_general");
-        var originalBattles = mainGame.Session.LastBattles.ToArray();
-        Check(originalBattles.Length > 0 && screen.IsPlayingBack, "AI completion retains battle-result metadata while playback is pending");
+        Check(originalBattles.Length > 0 && screen.IsPlayingBack && mainGame.Session.BattleResultAwaitingAcknowledgement,
+            "AI completion preview pauses before producing the reference continuation's battle metadata");
         var path = Path.Combine(ProjectSettings.GlobalizePath("user://saves"), "t180-ai-completion-metadata.json");
         _cleanup.Add(path);
         mainGame.SaveAsForCheck(path);

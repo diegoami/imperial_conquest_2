@@ -59,6 +59,10 @@ public sealed record SessionOutput(
     /// </summary>
     public TacticalBattleView? OpenBattleView { get; init; }
 
+    /// <summary>Transient exact rewind: presentation must discard old queues and exchange/selection caches.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool TacticalRewound { get; init; }
+
     /// <summary>
     /// T125: the <em>Battle ended</em> window's contents when this call ended a tactical battle (the winner, the
     /// per-type start and finish troops, the captured money and supplies, the exchange log), or

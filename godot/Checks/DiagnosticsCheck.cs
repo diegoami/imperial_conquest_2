@@ -364,6 +364,7 @@ public partial class DiagnosticsCheck : Node
             long recordStart = Records().Last().GetProperty("sequence").GetInt64() + 1;
             SettingsScreen.SetBattlePauses(zero ? 0 : 1, zero ? 0 : 2);
             var reference = Classical();
+            reference.TacticalUndoEnabled = true; // Match the UI's provisional acknowledgement protocol.
             var expectedFrames = new List<TacticalBattleFrame>();
             expectedFrames.AddRange(reference.Submit("attack-army army-0 army-3").TacticalTimeline);
             int expectedSubmits = 1, actualSubmits = 0;

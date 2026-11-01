@@ -381,7 +381,9 @@ public sealed partial class GameSession
         var timeline = IC2.Engine.Model.ValueList.From(_pendingTacticalTimeline);
         _pendingTacticalTimeline.Clear();
         LastTacticalTimeline = timeline;
-        return output with { OpenBattleView = _battle?.View(), EndedBattleReport = report, TacticalTimeline = timeline };
+        var rewound = _tacticalRewound;
+        _tacticalRewound = false;
+        return output with { OpenBattleView = _battle?.View(), EndedBattleReport = report, TacticalTimeline = timeline, TacticalRewound = rewound };
     }
 
     private static IReadOnlyList<string> RefuseWhileBattleOpen(string verb) =>
@@ -508,6 +510,11 @@ public sealed partial class GameSession
             return new[] { usage };
         }
 
+        if (tokens.Length == 2 && tokens[1].Equals("undo", StringComparison.OrdinalIgnoreCase)) return UndoTacticalAction();
+        if (tokens.Length == 2 && tokens[1].Equals("accept", StringComparison.OrdinalIgnoreCase)) return AcceptTacticalConclusion();
+        if (_undoConclusion is not null) return new[] { "Choose Undo or acknowledge the battle result before giving another order." };
+
+        var undoBefore = CaptureTacticalUndo();
         TacticalBattleOrderResult? result;
         switch (tokens[1].ToLowerInvariant())
         {
@@ -551,10 +558,12 @@ public sealed partial class GameSession
         }
 
         _pendingTacticalTimeline.AddRange(result.Timeline);
+        RetainTacticalUndo(undoBefore, result);
         var lines = new List<string>(result.Lines);
         if (result.Accepted && _battle.IsOver)
         {
-            FinishTacticalBattle(lines);
+            if (TacticalUndoEnabled) PreviewTacticalConclusion(lines);
+            else FinishTacticalBattle(lines);
         }
 
         return lines;
@@ -584,18 +593,18 @@ public sealed partial class GameSession
     /// the peace treaty offer between a human and an AI side, and then every consequence that follows an instant battle
     /// today (the fall messages of a human seat the battle eliminated, the game-over check).
     /// </summary>
-    private void FinishTacticalBattle(List<string> lines)
+    private void FinishTacticalBattle(List<string> lines, TacticalBattleConclusion? prepared = null)
     {
         var battle = _battle!;
         if (_lap is { } lap)
         {
-            FinishAiPhaseBattle(lines, battle, lap);
+            FinishAiPhaseBattle(lines, battle, lap, prepared);
             return;
         }
 
         var strategicBefore = State;
         var nationsBefore = State.Nations;
-        var conclusion = battle.Conclude(State, Ruleset, world: World);
+        var conclusion = prepared ?? battle.Conclude(State, Ruleset, world: World);
         if (conclusion.State is null || conclusion.Report is null)
         {
             lines.Add($"The battle could not be written back: {conclusion.Rejection}");
@@ -605,11 +614,11 @@ public sealed partial class GameSession
         AccumulateEvents(conclusion.Events);
         State = NewsLogWriter.Append(conclusion.State, conclusion.Events, Ruleset.NewsLog);
         _strategicTimeline.Reconcile("human-battle-completion", strategicBefore, State);
-        _pendingTacticalReport = conclusion.Report;
+        _pendingTacticalReport = prepared is null ? conclusion.Report : null;
         _pendingTacticalTimeline.AddRange(battle.DrainTimeline());
         _battle = null;
 
-        lines.AddRange(TacticalBattleSession.ReportLines(conclusion.Report, State));
+        if (prepared is null) lines.AddRange(TacticalBattleSession.ReportLines(conclusion.Report, State));
         CapturePeaceTreatyOfferIfAny(lines, conclusion.Events);
         AppendFallMessagesForNewlyLostHumanSeats(lines, nationsBefore);
         AnnounceGameOverIfNoHumanSeatRemains(lines);
@@ -620,9 +629,9 @@ public sealed partial class GameSession
     /// and battle result, then starts the same seat again. Other presets store the result for pre-turn
     /// replay. Both paths publish battle consequences before continuing the lap.
     /// </summary>
-    private void FinishAiPhaseBattle(List<string> lines, TacticalBattleSession battle, AiLap lap)
+    private void FinishAiPhaseBattle(List<string> lines, TacticalBattleSession battle, AiLap lap, TacticalBattleConclusion? prepared = null)
     {
-        var conclusion = battle.Conclude(lap.Opened!, Ruleset, world: World);
+        var conclusion = prepared ?? battle.Conclude(lap.Opened!, Ruleset, world: World);
         if (conclusion.State is null || conclusion.Report is null)
         {
             lines.Add($"The battle could not be written back: {conclusion.Rejection}");
@@ -637,11 +646,11 @@ public sealed partial class GameSession
             AccumulateEvents(conclusion.Events);
             _strategicTimeline.Battle(new AttackArmyCommand(lap.Seat, battle.Battle.AttackerArmyId,
                 battle.Battle.DefenderArmyId), before, State, completed: true, conclusion.Events);
-            _pendingTacticalReport = conclusion.Report;
+            _pendingTacticalReport = prepared is null ? conclusion.Report : null;
             _pendingTacticalTimeline.AddRange(battle.DrainTimeline());
             _battle = null;
             _lap = null;
-            lines.AddRange(TacticalBattleSession.ReportLines(conclusion.Report, State));
+            if (prepared is null) lines.AddRange(TacticalBattleSession.ReportLines(conclusion.Report, State));
             CapturePeaceTreatyOfferIfAny(lines, conclusion.Events);
             AppendFallMessagesForNewlyLostHumanSeats(lines, nationsBefore);
             if (!AnnounceAndAdoptWatchModeIfSeatIsLost(lines) && !AnnounceGameOverIfNoHumanSeatRemains(lines))
@@ -650,12 +659,12 @@ public sealed partial class GameSession
         }
 
         lap.Done.Add(new AiPhaseBattleResult(lap.AtAttack!, conclusion.State, conclusion.Events));
-        _pendingTacticalReport = conclusion.Report;
+        _pendingTacticalReport = prepared is null ? conclusion.Report : null;
         _pendingTacticalTimeline.AddRange(battle.DrainTimeline());
         _battle = null;
         _lap = null;
 
-        lines.AddRange(TacticalBattleSession.ReportLines(conclusion.Report, conclusion.State));
+        if (prepared is null) lines.AddRange(TacticalBattleSession.ReportLines(conclusion.Report, conclusion.State));
         ResumeAiLap(lines, lap);
     }
 
@@ -1443,6 +1452,8 @@ public sealed partial class GameSession
         }
 
         // T126: an AI seat's turn is in progress behind an open battle; the continuation is not saved, so nothing is.
+        if (_undoConclusion is not null)
+            return new[] { "Acknowledge or Undo the battle result before saving." };
         if (_lap is not null)
         {
             return new[] { "Finish the battle first: the turn is in progress." };
