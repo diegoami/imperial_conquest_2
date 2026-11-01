@@ -144,6 +144,24 @@ public sealed class TacticalBattleSession
     /// <summary>The raw state of the battle's draw stream, the position a save records.</summary>
     public ulong DrawState => _rng.State;
 
+    /// <summary>Exact in-memory checkpoint; unlike native faithful saves it retains the current arena and log.</summary>
+    public TacticalBattleCheckpoint CaptureCheckpoint() => new(Battle, _rng.State);
+
+    /// <summary>Restore without setup, automatic orders or random draws, using a fresh presentation epoch.</summary>
+    public TacticalBattleSession RestoreCheckpoint(TacticalBattleCheckpoint checkpoint, string battleId)
+    {
+        ArgumentNullException.ThrowIfNull(checkpoint);
+        ArgumentException.ThrowIfNullOrWhiteSpace(battleId);
+        if (checkpoint.State.AttackerArmyId != Battle.AttackerArmyId || checkpoint.State.DefenderArmyId != Battle.DefenderArmyId)
+            throw new ArgumentException("Checkpoint belongs to a different encounter.", nameof(checkpoint));
+        var context = TacticalContext.From(_context.Ruleset);
+        var timeline = new TacticalBattleTimeline(context, battleId, _attackerNationId, _defenderNationId);
+        context.Observer = timeline.Observe;
+        timeline.Observe(checkpoint.State, null, new TacticalCaptureBoundary(TacticalFrameKind.Reconciliation));
+        return new TacticalBattleSession(context, checkpoint.State, new SplitMix64Rng(checkpoint.DrawState),
+            _attackerNationId, _defenderNationId) { _timeline = timeline };
+    }
+
     /// <summary>
     /// Whether no order of the current half-round has been given since its setup: the log, read backwards,
     /// reaches a setup before it reaches an order. An exact-restored battle with an empty log is at the start.

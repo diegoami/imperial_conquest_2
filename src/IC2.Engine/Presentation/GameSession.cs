@@ -1042,6 +1042,7 @@ public sealed partial class GameSession
         _pendingPeaceTreatyOffers.Clear();
         _pendingBattleResults.Clear();
         ResetHumanSupportTurn();
+        ResetTacticalUndo();
         LastBattles = Array.Empty<Battle.BattleResult>();
 
         // T125: a save that holds an open tactical battle reopens it, whatever HumanBattles says -- the battle is

@@ -81,6 +81,7 @@ public partial class TacticalBattleScreen : Control
 
     /// <summary>Raised when an order ended the battle (after any replay); the output carries the report.</summary>
     public event Action<SessionOutput>? BattleEnded;
+    public event Action? UndoPresentationReset;
 
     /// <summary>Raised when the player presses Save.</summary>
     public event Action? SaveRequested;
@@ -163,11 +164,13 @@ public partial class TacticalBattleScreen : Control
     private Label _exchangeTitle = null!;
     private ListKind? _listKind;
     private readonly TacticalPlayback _playback = new();
+    public Button UndoButton { get; private set; } = null!;
     private Control? _dialog;
     private DialogKind _dialogKind;
 
     public override void _Ready()
     {
+        Session.TacticalUndoEnabled = true;
         _view = InitialView;
         _display = BattleDisplay.For(InitialView, Session.State, Session.Ruleset, Session.World);
         _bottomSide = !InitialView.ComputerControlled[0] ? 0
@@ -258,6 +261,10 @@ public partial class TacticalBattleScreen : Control
             _buttons[id] = button;
             toolbar.AddChild(button);
         }
+        UndoButton = UiKit.MakeButton("Undo", UndoLastAction, BattleBodySize);
+        UndoButton.Name = "TacticalUndo";
+        UndoButton.TooltipText = "Experimental: undo actions in your current tactical turn (Ctrl+Z).";
+        toolbar.AddChild(UndoButton);
 
         _board = new BoardView
         {
@@ -428,6 +435,7 @@ public partial class TacticalBattleScreen : Control
     /// <param name="id">The button.</param>
     public void PressToolbarButton(string id)
     {
+        if (id == "undo") { UndoLastAction(); return; }
         if (_dialogKind == DialogKind.None && Model is not null && IsActiveListButton(id))
         {
             CloseUnitList();
@@ -593,8 +601,30 @@ public partial class TacticalBattleScreen : Control
     {
         var output = AppDiagnostics.Operation(DiagnosticEvent.BattleCommand, "tactical", () => order(Session), command: diagnosticCommand, turn: Session.State.Calendar.TurnIndex, success: output => DiagnosticJournal.CommandSucceeded(output.Lines), nation: Session.State.ActiveNationId);
         SetPlaybackPauses();
+        if (output.TacticalRewound)
+        {
+            UndoPresentationReset?.Invoke();
+            _battleId = output.TacticalTimeline.FirstOrDefault()?.BattleId;
+            SelectedSlot = InspectedSlot = -1;
+            CloseUnitList();
+        }
         _battleId ??= output.TacticalTimeline.FirstOrDefault()?.BattleId;
         _playback.Begin(output.TacticalTimeline.Where(frame => frame.BattleId == _battleId), () => Finish(output));
+    }
+
+    public void UndoLastAction()
+    {
+        if (IsPlayingBack || _dialogKind != DialogKind.None || !Session.CanUndoTactical) return;
+        Send(s => s.BattleUndo(), "battle undo");
+    }
+
+    public override void _UnhandledInput(InputEvent @event)
+    {
+        if (@event is InputEventKey { Pressed: true, Echo: false, CtrlPressed: true, Keycode: Key.Z })
+        {
+            GetViewport().SetInputAsHandled();
+            UndoLastAction();
+        }
     }
 
     private void RecordPlaybackBoundary(DiagnosticEvent kind)
@@ -635,6 +665,7 @@ public partial class TacticalBattleScreen : Control
 
     private void Refresh()
     {
+        UndoButton.Disabled = IsPlayingBack || _dialogKind != DialogKind.None || !Session.CanUndoTactical;
         _display = _display with { PanelColorHex = "#" + UiKit.PanelColor.ToHtml(false) };
         Model = TacticalBattleViewModel.FromSnapshot(_snapshot, _display, SelectedSlot, _playback.CurrentFrame,
             _playback.CurrentExchange, _playback.PreviousExchange, _perspective, _playback.ResolvingHalfRound,
