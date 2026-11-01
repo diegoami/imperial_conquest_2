@@ -10,6 +10,7 @@ Open and recent tasks only. Merged tasks (T01–T191 and others) are in their cl
 - [T179](tasks/T179.md) —  Ordered tactical presentation snapshots
 - [T180](tasks/T180.md) —  Coherent battle replay, combatants and controller handoffs
 - [T267](tasks/T267.md) — Own-turn tactical Undo
+- [T269](tasks/T269.md) — Historical Near East campaign source and mechanics brief
 - [T181](tasks/T181.md) —  Explain tactical routing and the actual aftermath
 - [T182](tasks/T182.md) —  Recognizable three-size battle, army and fleet glyphs
 - [T183](tasks/T183.md) —  Tactical exchange cues follow displayed playback
