@@ -28,12 +28,13 @@ unified nation. Spawning is an explicitly designed abstraction.
 
 ## Approved provisional tuning and remaining decisions
 
-The owner approved one spawn check per season, a 25% chance of one new army,
-and a cap of four cityless roaming armies. Scenario data specifies composition
-and strength; headless runs inform tuning. Precisely define the roaming-army
-cap without inventing an untracked distinction between field forces and garrisons.
-Sea arrivals require a decision about transport/army counting, fleet limits and
-the land/sea selection rule.
+The owner approved one shared arrival check per season, with a 25% chance,
+choosing land or sea among legal entry types. A sea arrival is a transport fleet
+carrying one landing army; it counts as one new army and one new fleet. Caps
+are four total live barbarian armies (including carried armies) and four fleets.
+Scenario data specifies composition and strength; headless runs inform tuning.
+No fixed spawning camps or independent fleet-only arrivals are part of this
+initial design.
 
 The owner rejected the proposed 10-tile city and 5-tile army exclusion distances:
 entry is from outside the map instead. Represent arrival on a legal in-bounds
@@ -42,19 +43,22 @@ entrants require valid empty land; sea entrants require navigable sea and valid
 ship/transport capacity. No legal entry means no forced spawn or overlapping
 units. Define blocked-edge handling and arrival action timing explicitly.
 
-Further gameplay decisions must be explicit: whether fleets carry landing armies
-and also fight independently, whether captured towns recruit/build fleets, whether armies need
-normal supply and upkeep, whether they replenish from captured towns, and
-whether any capital-capture cascade applies. Do not obtain these behaviors
-accidentally by treating the faction as ordinary AI.
+The owner approved normal supply consumption and replenishment at captured
+towns, without treasury upkeep. Towns do not recruit or build fleets: new forces
+arrive only from outside the map. Transport fleets sail to suitable landings and
+disembark their armies to attack towns. Landing and naval combat use existing
+commands. Do not obtain extra economic or diplomatic behavior by running the
+ordinary AI wholesale. Capital-capture cascade policy and town-management
+details still need an explicit contract before activating those paths.
 
-The follow-up proposal presented to the owner is a shared seasonal arrival roll
-with land/sea selection among legal entry types, transport fleets carrying
-landing armies, and limits of four total live barbarian armies and four fleets.
-It proposes normal supply consumption and replenishment at captured towns,
-without treasury upkeep or town recruitment/fleet construction. These additions
-remain proposals until answered; they do not supersede the approved tuning
-automatically. Landing and ordinary naval combat must use existing commands.
+Arrival planning uses a stable perimeter scan, equal choice between land and
+sea when both have legal entries, and equal choice among tiles of the selected
+type. A sea entry must have a reachable unoccupied land disembarkation tile;
+isolated edge seas must not accumulate useless transport fleets. Terrain and
+occupancy are read from the current authoritative state. The planner returns a
+proposal without changing state; the seasonal executor must revalidate and
+create army/fleet/transport links atomically. Disabled configurations consume
+no draws. Invalid configuration is an error, not an implicit disabled mode.
 
 ## Integration findings
 
