@@ -394,13 +394,20 @@ try {
     #    watch the repository load throw before any scenario can start.
     Write-Step 'removing the terrain sidecar to prove the failure is loud'
     $missingSidecar = Join-Path $VerifyRoot 'ic2/data/worlds/classical-mediterranean.terrain.b64'
-    Remove-Item -LiteralPath $missingSidecar -Force
-    $missingLog = Join-Path $VerifyRoot 'missing-terrain-sidecar.log'
-    Set-OverrideMainScene -GameDirectory $VerifyGame -ScenePath 'res://Checks/AssetPackSelectionCheck.tscn'
-    $code = Invoke-WithScrubbedEnvironment -Executable $VerifyExe -Arguments @('--headless') -LogPath $missingLog
-    if ($code -eq 0) { Fail "the export started with the terrain sidecar removed; see $missingLog." }
-    if (-not (Select-String -LiteralPath $missingLog -Pattern 'MissingTerrainSidecarException' -Quiet)) {
-        Fail "the missing sidecar failed without naming MissingTerrainSidecarException; see $missingLog."
+    $sidecarBytes = [System.IO.File]::ReadAllBytes($missingSidecar)
+    try {
+        Remove-Item -LiteralPath $missingSidecar -Force
+        $missingLog = Join-Path $VerifyRoot 'missing-terrain-sidecar.log'
+        Set-OverrideMainScene -GameDirectory $VerifyGame -ScenePath 'res://Checks/AssetPackSelectionCheck.tscn'
+        $code = Invoke-WithScrubbedEnvironment -Executable $VerifyExe -Arguments @('--headless') -LogPath $missingLog
+        if ($code -eq 0) { throw "the export started with the terrain sidecar removed; see $missingLog." }
+        if (-not (Select-String -LiteralPath $missingLog -Pattern 'MissingTerrainSidecarException' -Quiet)) {
+            throw "the missing sidecar failed without naming MissingTerrainSidecarException; see $missingLog."
+        }
+    }
+    finally {
+        # The negative probe owns only this disposable copy; leave it usable even if launch/assertion fails.
+        [System.IO.File]::WriteAllBytes($missingSidecar, $sidecarBytes)
     }
 
     Write-Step "verify OK: screenshot at $screenshot"

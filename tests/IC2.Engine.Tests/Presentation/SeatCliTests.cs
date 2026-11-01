@@ -844,7 +844,10 @@ public sealed class SeatCliTests
     /// not a finding), so it carries no "takes its turn" line of its own; the round after that is a full
     /// 16-seat watch-mode lap, Carthage now played as AI among the rest.
     /// </summary>
-    [Fact(Timeout = 15000)]
+    // T258 / review F1: this includes construction plus a full 16-seat classical lap. Under
+    // fixture-enabled Windows suite contention, 15 seconds expired despite a terminating lap.
+    // Retain the complete workload and hang guard, with scheduling margin for the full suite.
+    [Fact(Timeout = 60000)]
     public async Task A_seat_deposed_by_real_debt_falls_and_the_session_switches_to_watch_mode()
     {
         await Task.Run(() =>
