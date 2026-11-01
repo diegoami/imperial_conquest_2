@@ -313,7 +313,11 @@ try {
     & $GodotExe --headless --path $GodotDir --export-release $PresetName $ExePath *> $exportLog
     $exportCode = $LASTEXITCODE
 
-    if ($exportCode -ne 0) { Fail "the Godot export exited with code $exportCode; see $exportLog." }
+    if ($exportCode -ne 0) {
+        # The release builder removes its scratch tree on failure: retain the actual exporter reason in CI.
+        Get-Content -LiteralPath $exportLog -Tail 30 | ForEach-Object { Write-Host $_ }
+        Fail "the Godot export exited with code $exportCode; see $exportLog."
+    }
     if (Select-String -LiteralPath $exportLog -Pattern '^\s*ERROR:' -Quiet) {
         # Show the errors where CI can read them: the log itself stays on the runner.
         Select-String -LiteralPath $exportLog -Pattern '^\s*ERROR:' -Context 2, 6 | Select-Object -First 10 |
