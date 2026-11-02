@@ -520,6 +520,8 @@ public static partial class AiTurn
 
         var command = AiArmyTargetTree.MarchCommand(view, army, new(target.X, target.Y));
         if (command is null) return;
+        // Research46f1b20: EBE8's walk at 0x44ECD6 is another measured D734 city caller.
+        if (faithful) command = command with { EndCheck = OriginalWalkEndCheck.City };
         var candidate = AiCandidate.Single(
             AiPhase.Military,
             AiCandidate.ApproachKind,

@@ -37,21 +37,23 @@ public sealed class FaithfulWalkEndContactTests
         return (new(state, rules, world, "north"), actor);
     }
 
-    private sealed class Trace(ICommandDispatch inner) : ICommandDispatch
+    private sealed class Trace(ICommandDispatch inner, Func<GameState, ICommand, ICommand>? replace = null) : ICommandDispatch
     {
         public List<(ICommand Command, GameState Before, CommandResult Result)> Calls { get; } = [];
         public CommandResult Dispatch(GameState state, ICommand command) => Dispatch(state, command, NullEventSink.Instance);
         public CommandResult Dispatch(GameState state, ICommand command, IEventSink events)
         {
-            var result = inner.Dispatch(state, command, events);
-            Calls.Add((command, state, result)); return result;
+            var actual = replace?.Invoke(state, command) ?? command;
+            var result = inner.Dispatch(state, actual, events);
+            Calls.Add((actual, state, result)); return result;
         }
     }
 
-    private static (AiTurnOutcome Outcome, Trace Trace, RecordingEventSink Sink) Run(AiView view)
+    private static (AiTurnOutcome Outcome, Trace Trace, RecordingEventSink Sink) Run(AiView view,
+        Func<GameState, ICommand, ICommand>? replace = null)
     {
         var sink = new RecordingEventSink();
-        var trace = new Trace(new CommandDispatcher(SystemRegistry.FromEngineAssembly(), view.Ruleset, view.World, sink));
+        var trace = new Trace(new CommandDispatcher(SystemRegistry.FromEngineAssembly(), view.Ruleset, view.World, sink), replace);
         return (AiTurn.Run(view.State, view.Ruleset, view.World, trace, SplitMix64Rng.ForStream(1, "ai.turn"), sink), trace, sink);
     }
 
@@ -247,5 +249,83 @@ public sealed class FaithfulWalkEndContactTests
         Assert.Single(events.OfType<OriginalArmyWalkContactReached>());
         Assert.Single(events.OfType<OriginalArmyMarchDispatched>(), e => e.ArmyId == "actor");
         Assert.Single(finished.TacticalTimeline, frame => frame.Kind == TacticalFrameKind.Terminal);
+    }
+
+    private static AiView GarrisonFixture(string mode = "faithful", bool originalTreeCommand = false)
+    {
+        var (view, actor) = Fixture();
+        actor = actor with { Units = ValueList.Of(F.Unit("light_infantry", originalTreeCommand ? 36000 : 34400)), Moves = 9 };
+        var guard = actor with { Id = "capital-guard", X = 201, Y = 50, Moves = 0 };
+        var state = view.State with { Armies = ValueList.Of(actor, guard),
+            Cities = ValueList.From(view.State.Cities.Select(c => c.Id == "target" ? c with
+            {
+                PopulationThousands = originalTreeCommand ? 90 : c.PopulationThousands,
+                Owner = mode == "friendly" ? "north" : c.Owner,
+            } : c)) };
+        var rules = mode == "improved" ? view.Ruleset with
+            { Flags = view.Ruleset.Flags with { AiEconomy = AiEconomyModel.Designed } } : view.Ruleset;
+        var world = mode == "custom" ? view.World with { Id = "custom-diagnostic" } : view.World;
+        return new(state, rules, world, "north");
+    }
+
+    [Fact]
+    public void Garrison_with_no_tree_command_besieges_the_adjacent_hostile_city()
+    {
+        var view = GarrisonFixture(); var actor = view.State.ArmyById("actor")!;
+        var decision = AiArmyTargetTree.Decide(view, actor, true);
+        Assert.InRange(AiArmyTargetTree.ScoreCityTarget(view, actor).Score, 1, 85);
+        Assert.Equal(AiArmyTargetTree.Kind.MercenaryRun, decision.Selected);
+        Assert.Equal(AiArmyTargetTree.Continuation.None, decision.After);
+        Assert.Equal((231, 80), AiArmyTargetTree.GarrisonFallback(view, actor, view.State));
+        var run = Run(view);
+        var move = Assert.Single(run.Trace.Calls, c => c.Command is MoveArmyCommand m && m.ArmyId == actor.Id);
+        var siege = Assert.Single(run.Trace.Calls, c => c.Command is BesiegeCityCommand);
+        Assert.Contains(run.Outcome.Log, l => l.Contains("garrison fallback", StringComparison.Ordinal));
+        Assert.Contains(move.Result.Events, e => e is OriginalArmyWalkContactReached { EndCheck: OriginalWalkEndCheck.City });
+        Assert.Equal((actor.X, actor.Y, actor.Moves), (siege.Before.ArmyById(actor.Id)!.X,
+            siege.Before.ArmyById(actor.Id)!.Y, siege.Before.ArmyById(actor.Id)!.Moves));
+        Assert.Equal(0, siege.Result.State.ArmyById(actor.Id)!.Moves);
+        Assert.True(siege.Result.State.CityById("target")!.Loyalty < view.State.CityById("target")!.Loyalty);
+        Assert.True(siege.Result.State.ArmyById(actor.Id)!.TotalTroops < actor.TotalTroops);
+        Assert.Equal(0, run.Outcome.CommandsRejected); Assert.Equal(0, run.Outcome.ProjectionMismatches);
+    }
+
+    [Fact]
+    public void Post_execution_garrison_uses_the_same_hostile_city_end_check()
+    {
+        var view = GarrisonFixture(originalTreeCommand: true); var actor = view.State.ArmyById("actor")!;
+        Assert.Equal(AiArmyTargetTree.Continuation.MarchAtCityTarget, AiArmyTargetTree.Decide(view, actor, true).After);
+        var replaced = false;
+        var run = Run(view, (state, command) =>
+        {
+            if (replaced || command is not MoveArmyCommand { ArmyId: "actor" }) return command;
+            replaced = true;
+            // A real accepted no-op leaves the full allowance: force the second
+            // production garrison path without fabricating state or contact events.
+            return new MoveArmyCommand("north", "actor", actor.X, actor.Y);
+        });
+        Assert.True(replaced);
+        var moves = run.Trace.Calls.Where(c => c.Command is MoveArmyCommand m && m.ArmyId == actor.Id).ToArray();
+        Assert.Equal(2, moves.Length);
+        Assert.Empty(moves[0].Result.Events.OfType<OriginalArmyWalkContactReached>());
+        Assert.Single(moves[1].Result.Events.OfType<OriginalArmyWalkContactReached>());
+        Assert.Single(run.Trace.Calls, c => c.Command is BesiegeCityCommand);
+        var end = run.Outcome.State.ArmyById(actor.Id)!;
+        Assert.Equal((actor.X, actor.Y, 0), (end.X, end.Y, end.Moves));
+        Assert.Equal(0, run.Outcome.CommandsRejected); Assert.Equal(0, run.Outcome.ProjectionMismatches);
+    }
+
+    [Theory]
+    [InlineData("improved")]
+    [InlineData("custom")]
+    [InlineData("friendly")]
+    public void Garrison_scope_does_not_add_contacts_for_other_modes_or_friendly_cities(string mode)
+    {
+        var view = GarrisonFixture(mode);
+        var run = Run(view);
+        Assert.Empty(run.Sink.Events.OfType<OriginalArmyWalkContactReached>());
+        Assert.DoesNotContain(run.Trace.Calls, c => c.Command is BesiegeCityCommand);
+        Assert.Equal(view.State.CityById("target"), run.Outcome.State.CityById("target"));
+        Assert.Equal(0, run.Outcome.CommandsRejected); Assert.Equal(0, run.Outcome.ProjectionMismatches);
     }
 }
