@@ -12,6 +12,7 @@ public sealed record OriginalArmyWalkContactReached(string ArmyId, int TargetX, 
 
 /// <summary>
 /// #1724, research07965cd: five city contacts (F4C7/F43F), one army contact (F409).
+/// #1729, research46f1b20: EBE8's garrison walk (ECD6) also reaches the city end check.
 /// Other callers, neutral-city behavior and human/Improved movement are not extended.
 /// </summary>
 internal static class OriginalArmyWalkContact

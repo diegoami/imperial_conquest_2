@@ -498,7 +498,8 @@ public static class AiMilitaryPhase
                     ? "emergency move (no garrison destination is reachable)"
                     : "garrison fallback";
                 AddMarchCandidate(view, army, dest.X, dest.Y, AiCandidate.ApproachKind,
-                    why, view.Ruleset.Ai.ReinforceCityBaseScore, progress, into);
+                    why, view.Ruleset.Ai.ReinforceCityBaseScore, progress, into,
+                    endCheck: garrison is not null ? OriginalWalkEndCheck.City : OriginalWalkEndCheck.None);
             }
             else
             {
