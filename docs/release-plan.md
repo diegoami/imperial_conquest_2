@@ -376,6 +376,8 @@ Historical coastline/relief and dated occupation ranges are approximations;
 automated stability and headless geometry do not imply human visual acceptance.
 The names-only #1359 and generated-name export exceptions remain explicit.
 
+The [v0.9.0 long-run evidence](investigations/original-ai-control-and-support.md#long-run-execution-evidence-at-v090), [research `dbe3616`](https://github.com/diegoami/imperial-conquest-2-research/blob/dbe3616/docs/reports/2026-11-02-longrun-v090-ai-gaps.md), identifies a spent-move land-swing fallback gap ([#1723](https://github.com/diegoami/imperial_conquest_2/issues/1723)) and an adjacent mercenary-run siege outcome gap ([#1724](https://github.com/diegoami/imperial_conquest_2/issues/1724)). Matching first decisions did not establish executed endpoints. The siege mechanism, fleet hunt distributions and Alexandria port endpoint remain unresolved; storm-draw difftest labels establish no regression. These Wine observations add no release allocation or acceptance gate, do not replace the published/reviewed `88c1989b` receipt, and do not satisfy deferred native-original/Windows acceptance. Improved-only reachable tiers and the stronger Improved general’s v0.10 allocation are unchanged.
+
 ## 3. Tag and GitHub Release conventions
 
 ### 3.1 Naming and placement — **DECIDED**
