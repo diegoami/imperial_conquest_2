@@ -1,12 +1,15 @@
 namespace IC2.Engine.Movement;
 
+/// <summary>Transient opt-in for measured Faithful F31C walk callers; never a saved order.</summary>
+public enum OriginalWalkEndCheck { None, City, Army }
+
 /// <summary>
 /// How many times a move order calls the walker, set by whoever builds the order and never inferred by
 /// the handler from seat control.
 /// </summary>
 public enum MoveWalkPolicy
 {
-    /// <summary>One walk toward the destination: every order the AI builds, and the default.</summary>
+    /// <summary>One walk toward the destination: the default for explicit CLI and designed AI orders.</summary>
     Single,
 
     /// <summary>

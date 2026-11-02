@@ -16,9 +16,13 @@ public static partial class ClassicalArmyNavigation
     public readonly record struct WaypointChoice(GridPoint? Point, string Kind, int? NodeId = null);
 
     public static bool Applies(AiView view) =>
-        view.World.Id == "classical-mediterranean"
-        && view.World.Width == 320 && view.World.Height == 140
-        && view.Ruleset.Flags.AiEconomy == AiEconomyModel.Original;
+        Applies(view.World, view.Ruleset);
+
+    // Contact checks need only policy identity, not another decoded terrain view.
+    internal static bool Applies(World world, Ruleset ruleset) =>
+        world.Id == "classical-mediterranean"
+        && world.Width == 320 && world.Height == 140
+        && ruleset.Flags.AiEconomy == AiEconomyModel.Original;
 
     /// <summary>CA30: last strict-interior region and the coordinate-side split bit.</summary>
     public static Geography Classify(int x, int y)

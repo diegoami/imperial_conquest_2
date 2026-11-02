@@ -86,6 +86,7 @@ public sealed class MoveArmyCommandHandler : ICommandHandler<MoveArmyCommand>
         }
 
         var continuationTarget = new GridPoint(command.TargetX ?? command.X, command.TargetY ?? command.Y);
+        var contactTarget = continuationTarget; // A ferry approach must not become a different combat target.
         if (originalTransport && army.IsEmbarked)
             return Ai.OriginalArmyTransport.Carried(army, continuationTarget, context);
         if (originalTransport && new GridPoint(army.X, army.Y) != continuationTarget
@@ -171,6 +172,7 @@ public sealed class MoveArmyCommandHandler : ICommandHandler<MoveArmyCommand>
         var walk = WalkFrom(from, army.Moves);
         var movesAfter = MovesAfter(walk);
         CommandOutcome? transportOutcome = null;
+        var contactReady = false;
 
         // T238 (#1585): a human order walks once more, on a fresh line from where the first walk ended,
         // when it ended short with moves left (TUnitMap_MoveHumanArmy). The two walks are one route.
@@ -191,6 +193,7 @@ public sealed class MoveArmyCommandHandler : ICommandHandler<MoveArmyCommand>
         {
             var target = continuationTarget;
             var movesBefore = army.Moves;
+            var lineGoal = destination;
 
             // The original routines read the live map, where the marching army's marker stands on its cell.
             Ai.AiView ViewAt(GridPoint cell) => new(
@@ -202,6 +205,17 @@ public sealed class MoveArmyCommandHandler : ICommandHandler<MoveArmyCommand>
                 context.Ruleset, world, army.Nation);
             while (true)
             {
+                // #1724: D734 checks its hostile target before DBA8 sees an
+                // unchanged budget and sends the army on a fallback swing.
+                // Only measured callers opt in. Do not resolve combat inside a
+                // movement handler: the AI dispatch seam preserves tactical pauses.
+                if (originalTransport && lineGoal == contactTarget && target == contactTarget
+                    && Ai.OriginalArmyWalkContact.Find(state, context.Ruleset, world, command.IssuingNationId,
+                        army.Id, contactTarget, command.EndCheck, walk.FinalPosition, movesAfter) is not null)
+                {
+                    contactReady = true;
+                    break;
+                }
                 if (movesAfter == movesBefore && movesAfter > 0)
                 {
                     var here = walk.FinalPosition;
@@ -268,6 +282,7 @@ public sealed class MoveArmyCommandHandler : ICommandHandler<MoveArmyCommand>
                 var level = WalkTo(at, aim, movesAfter);
                 walk = walk.Then(level);
                 movesAfter = MovesAfter(level);
+                lineGoal = aim;
             }
         }
 
@@ -289,6 +304,9 @@ public sealed class MoveArmyCommandHandler : ICommandHandler<MoveArmyCommand>
 
         context.Events.Publish(new ArmyMoved(
             army.Id, army.Nation, from.X, from.Y, finalPosition.X, finalPosition.Y, walk.MovesSpent));
+        if (contactReady)
+            context.Events.Publish(new Ai.OriginalArmyWalkContactReached(army.Id,
+                contactTarget.X, contactTarget.Y, command.EndCheck));
 
         if (transportOutcome is { } transported) return transported;
 

@@ -147,8 +147,17 @@ public sealed class FaithfulArmyOrderTests
         rules = rules with { Ai = rules.Ai with { MaxActionsPerTurn = 1 } };
         var result = Run(state, rules, world);
         Assert.True(result.Outcome.HitActionCap);
-        Assert.Equal("z-first", Assert.IsType<MoveArmyCommand>(Assert.Single(result.Trace.Commands)).ArmyId);
+        // #1724: a measured walk includes its end contact, just as existing
+        // declare/attack candidates and E84C continuations contain subcommands.
+        // The cap must still prevent a second chosen action or a later army.
+        Assert.Collection(result.Trace.Commands,
+            c => Assert.Equal("z-first", Assert.IsType<MoveArmyCommand>(c).ArmyId),
+            c => Assert.Equal("z-first", Assert.IsType<AttackArmyCommand>(c).AttackerArmyId));
+        Assert.Single(result.Outcome.Log, l => l.StartsWith("chose [", StringComparison.Ordinal));
         Assert.Equal(0, result.Outcome.CommandsRejected);
+        var two = Run(state, rules with { Ai = rules.Ai with { MaxActionsPerTurn = 2 } }, world);
+        Assert.Contains(two.Trace.Commands.OfType<AttackArmyCommand>(), c => c.AttackerArmyId == "a-later");
+        Assert.Equal(2, two.Outcome.Log.Count(l => l.StartsWith("chose [", StringComparison.Ordinal)));
     }
 
     [Fact]

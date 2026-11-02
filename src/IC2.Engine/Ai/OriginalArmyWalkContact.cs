@@ -1,0 +1,53 @@
+using IC2.Engine.Battle.Commands;
+using IC2.Engine.Core;
+using IC2.Engine.Model;
+using IC2.Engine.Movement;
+
+namespace IC2.Engine.Ai;
+
+/// <summary>The walker reached D734's hostile-target check, before DBA8's no-progress fallback.</summary>
+[DomainEvent("ai.original-walk-contact")]
+public sealed record OriginalArmyWalkContactReached(string ArmyId, int TargetX, int TargetY,
+    OriginalWalkEndCheck EndCheck) : DomainEvent;
+
+/// <summary>
+/// #1724, research07965cd: five city contacts (F4C7/F43F), one army contact (F409).
+/// Other callers, neutral-city behavior and human/Improved movement are not extended.
+/// </summary>
+internal static class OriginalArmyWalkContact
+{
+    internal static ICommand? Find(GameState state, Ruleset ruleset, World world, string nationId,
+        string armyId, GridPoint target, OriginalWalkEndCheck kind, GridPoint? at = null, int? moves = null)
+    {
+        if (kind == OriginalWalkEndCheck.None || state.NationById(nationId)?.Control != SeatControl.Ai
+            || !ClassicalArmyNavigation.Applies(world, ruleset)
+            || (uint)target.X >= (uint)world.Width || (uint)target.Y >= (uint)world.Height
+            || state.ArmyById(armyId) is not { IsEmbarked: false, CoveredTileCode: not null } army
+            || army.Nation != nationId) return null;
+        var here = at ?? new GridPoint(army.X, army.Y);
+        var remaining = moves ?? army.Moves;
+        if (remaining <= 0 || AiView.Distance(here.X, here.Y, target.X, target.Y) != 1) return null;
+        // A fleet marker is not a city/army target in the original's live map.
+        if (state.Fleets.Any(f => !f.IsUnderConstruction && f.X == target.X && f.Y == target.Y)) return null;
+        var live = army with { X = here.X, Y = here.Y, Moves = remaining };
+        var projected = at is null && moves is null ? state : state with
+            { Armies = ValueList.From(state.Armies.Select(a => a.Id == armyId ? live : a)) };
+        if (kind == OriginalWalkEndCheck.City)
+        {
+            var city = state.Cities.FirstOrDefault(c => c.X == target.X && c.Y == target.Y);
+            if (city is null || state.Armies.Any(a => !a.IsEmbarked && a.CoveredTileCode is not null
+                    && a.X == target.X && a.Y == target.Y)) return null;
+            var siege = new BesiegeCityCommand(nationId, armyId, city.Id);
+            return AttackLegality.IsLegal(projected, ruleset, siege) ? siege : null;
+        }
+        if (kind == OriginalWalkEndCheck.Army)
+        {
+            var enemy = state.Armies.FirstOrDefault(a => a.Id != armyId && !a.IsEmbarked && a.CoveredTileCode is not null
+                && a.X == target.X && a.Y == target.Y);
+            if (enemy is null) return null;
+            var attack = new AttackArmyCommand(nationId, armyId, enemy.Id);
+            return AttackLegality.IsLegal(projected, ruleset, attack) ? attack : null;
+        }
+        return null;
+    }
+}

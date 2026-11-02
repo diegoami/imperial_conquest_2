@@ -75,10 +75,13 @@ public sealed class OriginalMercenaryContinuationTests
         var (state, rules, world) = Fixture(faithful, chase);
         var result = Run(state, rules, world);
         Assert.Equal(faithful ? 2 : 1, result.Trace.Moves.Count);
+        Assert.Equal(IC2.Engine.Movement.OriginalWalkEndCheck.None, result.Trace.Moves[0].EndCheck);
         Assert.Equal((236, 80), (result.Trace.Moves[0].TargetX ?? result.Trace.Moves[0].X, result.Trace.Moves[0].TargetY ?? result.Trace.Moves[0].Y));
         if (faithful)
         {
             var second = result.Trace.Moves[1];
+            Assert.Equal(chase ? IC2.Engine.Movement.OriginalWalkEndCheck.None : IC2.Engine.Movement.OriginalWalkEndCheck.City,
+                second.EndCheck); // F4C7 is measured; E84C's own run and F47C city contact are not.
             Assert.Equal((chase ? 243 : 240, 85), (second.TargetX, second.TargetY));
             var afterRun = result.Trace.Before[1].ArmyById("actor")!;
             Assert.Equal((235, 80, 3), (afterRun.X, afterRun.Y, afterRun.Moves));
