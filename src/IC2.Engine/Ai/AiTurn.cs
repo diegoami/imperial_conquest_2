@@ -1,5 +1,6 @@
 using IC2.Engine.Battle.Commands;
 using IC2.Engine.Core;
+using IC2.Engine.Economy;
 using IC2.Engine.Model;
 using IC2.Engine.Movement;
 using IC2.Engine.Movement.Commands;
@@ -327,24 +328,20 @@ public static partial class AiTurn
                 execution = execution with { State = state, Rejected = execution.Rejected + followup.Rejected };
             }
 
-            // T156 (issue #925) Done-when 3: the original's garrison fallback
-            // (FUN_0044ebe8). When the chosen command was accepted but that army's tile is unchanged --
-            // compared directly, before and after the command, not through
-            // AiSubstantiveState.AreEquivalent's whole-state comparison -- the driver runs the fallback
-            // for that army, whether or not the command changed something else (a supply, a treasury).
-            // An army that moved takes no fallback; an army whose command was rejected was never on the
-            // hook for one; an army with no moves left (an attack zeroes them) takes none either, since
-            // a MoveArmyCommand would only be refused. The fallback is one more command, so it feeds the
-            // same counters as any other command this loop processed.
+            // #1723, research dbe3616: faithful F31C calls FUN_0044AAB4 after
+            // execution, and falls back only at the recomputed full allowance.
+            // An out-and-back swing (or earlier spending) has acted even though
+            // its tile is unchanged. Keep T156's tile policy for designed worlds;
+            // rejected/deleted/zero-move guards and command counters stay intact.
             if (execution.Issued > 0
                 && execution.Rejected == 0
                 && beforeArmy is { } beforeTile
                 && subjectId is { } armyId
                 && state.ArmyById(armyId) is { } afterTile
                 && afterTile.Moves > 0
-                && !(ClassicalArmyNavigation.Applies(view) && beforeTile.IsEmbarked && afterTile.Moves < beforeTile.Moves)
-                && beforeTile.X == afterTile.X
-                && beforeTile.Y == afterTile.Y)
+                && (ClassicalArmyNavigation.Applies(view)
+                    ? afterTile.Moves == SupplyMoraleRule.MovesForActionCheck(afterTile, ruleset)
+                    : beforeTile.X == afterTile.X && beforeTile.Y == afterTile.Y))
             {
                 RunGarrisonFallback(view, armyId, ruleset, commands, events, ref state, log,
                     ref issued, ref rejected, ref mismatches, marched, boxedInLogged);
@@ -462,9 +459,9 @@ public static partial class AiTurn
 
     /// <summary>
     /// T156 (issue #925) Done-when 3: the original's garrison fallback
-    /// (<c>FUN_0044ebe8</c>). When the chosen command was accepted but that army's tile is unchanged --
-    /// directly, not via <see cref="AiSubstantiveState.AreEquivalent"/>'s whole-state comparison -- the
-    /// driver runs the fallback for that army: if some own army (the army itself included, on the
+    /// (<c>FUN_0044ebe8</c>). The caller gates Faithful by AAB4's full move allowance
+    /// (#1723); designed/custom navigation retains T156's unchanged-tile gate. If
+    /// some own army (the army itself included, on the
     /// report's "if *some own army*" reading) is already within
     /// <see cref="AiWeightsRules.GarrisonFallbackCapitalDistance"/> tiles of the capital, head for the
     /// nearest city of any owner; otherwise head for the capital. The fallback is one more command

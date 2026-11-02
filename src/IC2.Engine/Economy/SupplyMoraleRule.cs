@@ -28,6 +28,22 @@ namespace IC2.Engine.Economy;
 /// </remarks>
 public static class SupplyMoraleRule
 {
+    /// <summary>
+    /// FUN_0044AAB4's reference allowance for the "has acted" query, shared by
+    /// faithful AI and End-turn warnings. Deliberately retains the original's
+    /// supplies * troops / numerator expression, which differs from the weekly
+    /// tick's percentage calculation. This is a query, never a move reset.
+    /// </summary>
+    public static int MovesForActionCheck(ArmyState army, Ruleset ruleset)
+    {
+        var troops = Math.Max(1, army.TotalTroops);
+        var moves = BaseMoves(troops, ruleset);
+        var supplyTest = (long)army.SupplyTons * troops / ruleset.Economy.SupplyPercentNumerator;
+        if (supplyTest < ruleset.Economy.SupplyMorale.DecayThresholdPercent)
+            moves -= ruleset.Economy.SupplyMorale.MovesPenaltyOnDecay;
+        return moves;
+    }
+
     /// <summary>The outcome of applying one turn's supply→morale rule to one army.</summary>
     /// <param name="SupplyTonsAfterConsumption">The army's supply stock after this turn's consumption.</param>
     /// <param name="SupplyPercent">The supply percentage the rule below was decided from.</param>

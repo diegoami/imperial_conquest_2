@@ -131,7 +131,7 @@ public static class EndTurnWarnings
     private static bool IsChecked(ArmyState army, Ruleset ruleset)
     {
         return ruleset.Flags.EndTurnWarningScope == EndTurnWarningScope.EveryUnit
-            || army.Moves == RecomputedArmyMoves(army, ruleset);
+            || army.Moves == SupplyMoraleRule.MovesForActionCheck(army, ruleset);
     }
 
     private static bool IsChecked(FleetState fleet, ArmyState? carriedArmy, Ruleset ruleset)
@@ -154,19 +154,6 @@ public static class EndTurnWarnings
             fleet.ConditionPercent,
             ruleset);
         return fleet.Moves == fullMoves;
-    }
-
-    private static int RecomputedArmyMoves(ArmyState army, Ruleset ruleset)
-    {
-        var troops = Math.Max(1, army.TotalTroops);
-        var moves = SupplyMoraleRule.BaseMoves(troops, ruleset);
-        var supplyTest = (long)army.SupplyTons * troops / ruleset.Economy.SupplyPercentNumerator;
-        if (supplyTest < ruleset.Economy.SupplyMorale.DecayThresholdPercent)
-        {
-            moves -= ruleset.Economy.SupplyMorale.MovesPenaltyOnDecay;
-        }
-
-        return moves;
     }
 
     private static bool NeedsArmySupplies(ArmyState army, Ruleset ruleset)

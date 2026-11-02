@@ -106,6 +106,56 @@ public sealed class AiGarrisonFallbackTests
         AiArmyTargetTree.GarrisonFallback(
             new AiView(state, Ruleset, AiScriptedStates.World, Us), state.ArmyById(ArmyId)!, state)!.Value;
 
+    private sealed class ReturningWalkDispatch(ICommandDispatch inner, bool swing) : ICommandDispatch
+    {
+        public ArmyState? BeforeWalk { get; private set; }
+        public ArmyState? AfterWalk { get; private set; }
+        public CommandResult Dispatch(GameState state, ICommand command) => Dispatch(state, command, NullEventSink.Instance);
+        public CommandResult Dispatch(GameState state, ICommand command, IEventSink events)
+        {
+            if (BeforeWalk is not null || command is not MoveArmyCommand { ArmyId: ArmyId })
+                return inner.Dispatch(state, command, events);
+            BeforeWalk = state.ArmyById(ArmyId)!;
+            // Real accepted move handlers consume the budget; the driver sees an
+            // out-and-back route, not a fabricated remaining-moves field.
+            var first = inner.Dispatch(state, new MoveArmyCommand(Us, ArmyId, swing ? 4 : 3, 3), events);
+            Assert.True(first.IsAccepted);
+            var result = swing ? inner.Dispatch(first.State, new MoveArmyCommand(Us, ArmyId, 3, 3), events) : first;
+            Assert.True(result.IsAccepted);
+            AfterWalk = result.State.ArmyById(ArmyId)!;
+            return result;
+        }
+    }
+
+    [Theory]
+    [InlineData(true, 10, true, false)]
+    [InlineData(false, 10, true, true)]
+    [InlineData(true, 8, false, false)]
+    [InlineData(true, 10, false, true)]
+    [InlineData(false, 8, false, true)]
+    public void Faithful_fallback_uses_full_budget_not_endpoint_or_latest_command_delta(
+        bool faithful, int moves, bool swing, bool fallback)
+    {
+        var rules = Ruleset with { Flags = Ruleset.Flags with
+            { AiEconomy = faithful ? AiEconomyModel.Original : AiEconomyModel.Designed } };
+        var world = AiScriptedStates.World with { Id = "classical-mediterranean", Width = 320, Height = 140,
+            Terrain = new(TerrainEncoding.RunLength, ValueList.Of(new TerrainRun(2, 320 * 140))) };
+        var state = Build();
+        state = state with { Armies = ValueList.Of(state.ArmyById(ArmyId)! with { Moves = moves }) };
+        var sink = new RecordingEventSink();
+        var dispatch = new ReturningWalkDispatch(
+            new CommandDispatcher(SystemRegistry.FromEngineAssembly(), rules, world, sink), swing);
+        var outcome = AiTurn.Run(state, rules, world, dispatch, SplitMix64Rng.ForStream(1UL, "ai.turn"), sink);
+        Assert.NotNull(dispatch.BeforeWalk);
+        Assert.NotNull(dispatch.AfterWalk);
+        Assert.Equal((3, 3), (dispatch.AfterWalk.X, dispatch.AfterWalk.Y));
+        if (swing) Assert.True(dispatch.AfterWalk.Moves < dispatch.BeforeWalk.Moves);
+        else Assert.Equal(dispatch.BeforeWalk.Moves, dispatch.AfterWalk.Moves);
+        Assert.Equal(fallback, outcome.Log.Any(l => l.Contains("garrison fallback moved", StringComparison.Ordinal)));
+        if (!fallback) Assert.Equal(dispatch.AfterWalk, outcome.State.ArmyById(ArmyId));
+        Assert.Equal(0, outcome.CommandsRejected);
+    }
+
     [Fact]
     public void The_tree_without_interference_moves_the_army_to_the_resupply_city_and_takes_no_fallback()
     {

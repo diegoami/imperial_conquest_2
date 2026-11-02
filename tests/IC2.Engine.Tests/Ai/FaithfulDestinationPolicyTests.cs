@@ -238,18 +238,27 @@ public sealed class FaithfulDestinationPolicyTests
     }
 
     [Fact]
-    public void Post_execution_garrison_fallback_also_uses_original_continuation()
+    public void Spent_move_swing_keeps_original_continuation_without_a_second_fallback_march()
     {
-        var actor = Actor(20);
+        // #1723: this previously asserted two marches, encoding the exact
+        // tile-equality defect. Start at a real full allowance, not 20 moves.
+        var actor = Actor(10) with { SupplyTons = 1000 };
         var view = View(true, actor, [City("cap", 229, 79)]);
         var events = new RecordingEventSink();
         var trace = new Trace(new CommandDispatcher(SystemRegistry.FromEngineAssembly(), view.Ruleset, view.World, events));
         var turn = AiTurn.Run(view.State, view.Ruleset, view.World, trace, SplitMix64Rng.ForStream(1, "policy-turn"), events);
         var moves = trace.Moves.Where(c => c.ArmyId == actor.Id).ToArray();
-        Assert.Equal(2, moves.Length);
+        Assert.Single(moves);
         Assert.All(moves, c => Assert.Equal((229, 79, MoveWalkPolicy.AiContinuation), (c.TargetX ?? c.X, c.TargetY ?? c.Y, c.Walk)));
         var end = turn.State.ArmyById(actor.Id)!;
-        Assert.Equal((230, 80, 6), (end.X, end.Y, end.Moves));
+        var direct = new CommandDispatcher(SystemRegistry.FromEngineAssembly(), view.Ruleset, view.World, NullEventSink.Instance)
+            .Dispatch(view.State, moves[0]);
+        Assert.True(direct.IsAccepted);
+        var expected = direct.State.ArmyById(actor.Id)!;
+        Assert.Equal((expected.X, expected.Y, expected.Moves), (end.X, end.Y, end.Moves));
+        Assert.Equal((actor.X, actor.Y), (end.X, end.Y));
+        Assert.InRange(end.Moves, 1, actor.Moves - 1);
+        Assert.DoesNotContain(turn.Log, s => s.Contains("garrison fallback", StringComparison.Ordinal));
         Assert.Equal(0, turn.CommandsRejected);
         var accepted = events.Events.OfType<OriginalArmyMarchDispatched>().ToArray();
         Assert.Equal(moves.Length, accepted.Length);
