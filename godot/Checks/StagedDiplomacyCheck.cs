@@ -18,6 +18,7 @@ public partial class StagedDiplomacyCheck : Node
             CommitMixed();
             CommitWarsInDisplayedOrder();
             RefusalKeepsPlan();
+            ReplaceTradeWithoutReopening();
             Stale();
         }
         catch (Exception ex) { GD.PrintErr($"StagedDiplomacyCheck: {ex}"); _ok = false; }
@@ -25,7 +26,7 @@ public partial class StagedDiplomacyCheck : Node
         CheckExit.Quit(this, _ok ? 0 : 1);
     }
 
-    private static GameSession Build(bool capped = false, bool noPacts = false)
+    private static GameSession Build(bool capped = false, bool noPacts = false, bool latePartner = false)
     {
         var data = GameDataContext.Repository.Resolve("classical-mediterranean");
         var initial = new GameSession(data.World, data.Ruleset, data.Scenario, seedOverride: 42, humanSeatNationId: "rome");
@@ -39,7 +40,9 @@ public partial class StagedDiplomacyCheck : Node
                 foreach (var b in state.Nations.Where(b => b.Id != a.Id))
                     relations = relations.WithRelation(a.Id, b.Id, codes.Peace);
         if (capped)
-            foreach (var nation in state.Nations.Where(n => n.Id != "rome" && n.Id != "media").Take(3))
+            foreach (var nation in state.Nations.Where(n => latePartner
+                         ? n.Id is "carthage" or "seleucid" or "thracia"
+                         : n.Id != "rome" && n.Id != "media").Take(3))
                 relations = relations.WithRelation("rome", nation.Id, codes.Trade);
         state = state with { Relations = relations, PendingOffer = new PendingDiplomaticOffer("media", codes.Trade) };
         return new GameSession(data.World, data.Ruleset, data.Scenario,
@@ -159,6 +162,48 @@ public partial class StagedDiplomacyCheck : Node
         Press(screen.CancelButton);
         Check(ReferenceEquals(session.State, before), "Cancel also discards a valid prefix after refusal");
         Remove(screen);
+    }
+
+    private void ReplaceTradeWithoutReopening()
+    {
+        foreach (var (id, name) in new[] { ("carthage", "Carthage"), ("thracia", "Thracia") })
+        {
+            var session = Build(capped: true, latePartner: true);
+            var control = Build(capped: true, latePartner: true);
+            var before = session.State;
+            var notifications = 0;
+            var published = 0;
+            session.EventsPublished += _ => published++;
+            var screen = Open(session);
+            screen.CommandIssued += _ => notifications++;
+            Press(screen.AcceptOfferButton!);
+            Check(screen.FeedbackLabel.Visible && screen.FeedbackLabel.Text.Contains("End trade")
+                  && screen.AcceptOfferButton is { Disabled: false }, "full slots explain how to replace a partner and retain the offer");
+            Press(RowButton(screen, name, "End trade"));
+            Check(screen.RelationshipSummary.Text.Contains("Trading (2/3)")
+                  && screen.PendingOfferLabel!.Text.Contains("slot available", StringComparison.OrdinalIgnoreCase),
+                "ending " + name + " immediately previews a free slot and the next step");
+            Press(screen.AcceptOfferButton!);
+            Check(screen.RelationshipSummary.Text.Contains("Trading (3/3)")
+                  && screen.Grid.GetChildren().OfType<Label>().Any(l => l.Text == "TRADING (pending)"),
+                "replacement offer stages without reopening, regardless of partner row order: " + name);
+            Check(ReferenceEquals(before, session.State) && published == 0,
+                "replacement remains private until OK: " + name);
+            control.Submit("make-peace " + id); control.Submit("accept-offer");
+            Press(screen.OkButton);
+            Check(session.State == control.State && notifications == 1 && published == 1,
+                "one OK commits cancellation and replacement once, matching normal commands: " + name);
+            Remove(screen);
+
+            session = Build(capped: true, latePartner: true);
+            before = session.State;
+            screen = Open(session);
+            Press(RowButton(screen, name, "End trade")); Press(screen.AcceptOfferButton!);
+            Press(screen.CancelButton);
+            Check(ReferenceEquals(before, session.State) && session.State.PendingOffer is not null,
+                "Cancel keeps all original partners and the incoming offer: " + name);
+            Remove(screen);
+        }
     }
 
     private void Stale()

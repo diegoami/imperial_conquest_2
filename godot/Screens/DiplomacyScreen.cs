@@ -199,6 +199,14 @@ public partial class DiplomacyScreen : Control
             : alreadyActive ? $"{(trade ? "Trade" : "Alliance")} with {proposer} is already active."
             : $"{proposer} offers {kind} to {WorkingState.NationById(active)?.Name ?? active}.", AppTheme.Body, UiKit.TextColor);
         PendingOfferLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        if (trade && valid && !alreadyActive
+            && WorkingState.Relations.Get(active, offer.ProposingNationId) == Session.Ruleset.Diplomacy.StateCodes.Peace)
+        {
+            var count = TradePartnerCap.CurrentPartners(WorkingState, Session.Ruleset, active, active).Count;
+            PendingOfferLabel.Text += count < Session.Ruleset.Diplomacy.MaxTradePartners
+                ? " Trade slot available: accept this offer, then press OK to apply your changes."
+                : " All trade slots are occupied. Choose End trade for a partner, then accept this offer and press OK.";
+        }
         _content.AddChild(PendingOfferLabel);
         AcceptOfferButton = UiKit.MakeButton($"Accept {kind} offer", () => Choose(offer.ProposingNationId, "accept-offer"));
         AcceptOfferButton.Disabled = alreadyActive || !valid;
@@ -247,12 +255,18 @@ public partial class DiplomacyScreen : Control
         var choices = new Dictionary<string, string>(_choices, StringComparer.Ordinal);
         if (commandLine is null) choices.Remove(targetId);
         else choices[targetId] = commandLine;
-        var plan = _openingState.Nations.Where(n => choices.ContainsKey(n.Id)).Select(n => choices[n.Id]);
+        // #1720: freeing an existing trade slot is a dependency of its replacement,
+        // even when the replacement nation appears earlier in the grid. Keep all
+        // other choices (notably noncommuting wars) in displayed nation order.
+        var plan = _openingState.Nations.Where(n => choices.ContainsKey(n.Id))
+            .OrderBy(n => choices[n.Id] == $"make-peace {n.Id}"
+                          && _openingState.Relations.Get(_openingState.ActiveNationId, n.Id) == Session.Ruleset.Diplomacy.StateCodes.Trade ? 0 : 1)
+            .Select(n => choices[n.Id]);
         var result = _draft.ReplacePlan(plan);
         _feedback = result.Accepted ? "Pending changes updated. Press OK to apply, or Cancel to discard."
             : CommandOutcomeWording.Apply(CommandOutcomeText.OutcomeBlock(result.Output.Lines));
         if (result.Output.Lines.Any(line => line.Contains("rejected (diplomacy.trade-cap-reached)", StringComparison.Ordinal)))
-            _feedback += "\nUse End trade to end an existing agreement first.";
+            _feedback += "\nChoose End trade for an existing partner, then accept the offer here. Press OK to apply both changes.";
         if (result.Accepted)
         {
             _choices.Clear();

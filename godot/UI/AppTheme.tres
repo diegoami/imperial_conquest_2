@@ -1,4 +1,4 @@
-[gd_resource type="Theme" load_steps=12 format=3]
+[gd_resource type="Theme" load_steps=16 format=3]
 
 [ext_resource type="FontFile" path="res://Assets/Fonts/Cinzel/Cinzel-wght.ttf" id="1"]
 [ext_resource type="FontFile" path="res://Assets/Fonts/SourceSans3/SourceSans3-wght.ttf" id="2"]
@@ -24,6 +24,79 @@ content_margin_right = 7.0
 content_margin_top = 7.0
 content_margin_bottom = 7.0
 bg_color = Color(0.172549, 0.145098, 0.105882, 1.0)
+
+; #1721: explicit action affordance, following the owner's Parchment request.
+; Separate resources preserve flat disabled controls and existing dropdown/panel styles.
+; Existing palette roles remap through Appearance; explicit margins preserve layout.
+[sub_resource type="StyleBoxFlat" id="ActionButton"]
+content_margin_left = 7.0
+content_margin_right = 7.0
+content_margin_top = 7.0
+content_margin_bottom = 7.0
+bg_color = Color(0.172549, 0.145098, 0.105882, 1.0)
+border_width_left = 1
+border_width_right = 1
+border_width_top = 1
+border_width_bottom = 3
+border_color = Color(0.721569, 0.670588, 0.556863, 1.0)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_left = 3
+corner_radius_bottom_right = 3
+shadow_color = Color(0, 0, 0, 0.18)
+shadow_size = 2
+shadow_offset = Vector2(0, 1)
+
+[sub_resource type="StyleBoxFlat" id="ActionHover"]
+content_margin_left = 7.0
+content_margin_right = 7.0
+content_margin_top = 7.0
+content_margin_bottom = 7.0
+bg_color = Color(0.117647, 0.098039, 0.070588, 1.0)
+border_width_left = 1
+border_width_right = 1
+border_width_top = 1
+border_width_bottom = 3
+border_color = Color(0.85098, 0.647059, 0.356863, 1.0)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_left = 3
+corner_radius_bottom_right = 3
+shadow_color = Color(0, 0, 0, 0.18)
+shadow_size = 2
+shadow_offset = Vector2(0, 1)
+
+[sub_resource type="StyleBoxFlat" id="ActionPressed"]
+content_margin_left = 7.0
+content_margin_right = 7.0
+content_margin_top = 7.0
+content_margin_bottom = 7.0
+bg_color = Color(0.172549, 0.145098, 0.105882, 1.0)
+border_width_left = 1
+border_width_right = 1
+border_width_top = 3
+border_width_bottom = 1
+border_color = Color(0.85098, 0.647059, 0.356863, 1.0)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_left = 3
+corner_radius_bottom_right = 3
+
+[sub_resource type="StyleBoxFlat" id="ActionFocus"]
+content_margin_left = 7.0
+content_margin_right = 7.0
+content_margin_top = 7.0
+content_margin_bottom = 7.0
+draw_center = false
+border_width_left = 2
+border_width_right = 2
+border_width_top = 2
+border_width_bottom = 2
+border_color = Color(0.85098, 0.647059, 0.356863, 1.0)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_left = 3
+corner_radius_bottom_right = 3
 
 [sub_resource type="StyleBoxFlat" id="Dropdown"]
 content_margin_left = 7.0
@@ -170,14 +243,16 @@ Button/fonts/font = SubResource("Display")
 Button/font_sizes/font_size = 13
 Button/colors/font_color = Color(0.929412, 0.890196, 0.8, 1.0)
 Button/colors/font_hover_color = Color(0.929412, 0.890196, 0.8, 1.0)
-Button/colors/font_pressed_color = Color(0.85098, 0.647059, 0.356863, 1.0)
-Button/colors/font_focus_color = Color(0.85098, 0.647059, 0.356863, 1.0)
+Button/colors/font_pressed_color = Color(0.929412, 0.890196, 0.8, 1.0)
+Button/colors/font_hover_pressed_color = Color(0.929412, 0.890196, 0.8, 1.0)
+Button/colors/font_focus_color = Color(0.929412, 0.890196, 0.8, 1.0)
 Button/colors/font_disabled_color = Color(0.721569, 0.670588, 0.556863, 1.0)
-Button/styles/normal = SubResource("Button")
-Button/styles/hover = SubResource("Raised")
-Button/styles/pressed = SubResource("Raised")
+Button/styles/normal = SubResource("ActionButton")
+Button/styles/hover = SubResource("ActionHover")
+Button/styles/pressed = SubResource("ActionPressed")
+Button/styles/hover_pressed = SubResource("ActionPressed")
 Button/styles/disabled = SubResource("Button")
-Button/styles/focus = SubResource("Focus")
+Button/styles/focus = SubResource("ActionFocus")
 OptionButton/fonts/font = SubResource("Display")
 OptionButton/font_sizes/font_size = 13
 OptionButton/colors/font_color = Color(0.929412, 0.890196, 0.8, 1.0)
