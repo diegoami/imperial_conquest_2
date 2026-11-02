@@ -15,9 +15,10 @@ namespace IC2.Engine.Movement.Commands;
 /// <param name="TargetX">T239: the march's target column (the city or army the AI chose), which
 /// <see cref="MoveWalkPolicy.AiContinuation"/> keeps walking toward; <c>(X, Y)</c> may be a waypoint on the way.</param>
 /// <param name="TargetY">T239: the march's target row.</param>
+/// <param name="EndCheck">#1724: only the measured Faithful city/army callers request hostile target contact.</param>
 public sealed record MoveArmyCommand(
     string IssuingNationId, string ArmyId, int X, int Y, MoveWalkPolicy Walk = MoveWalkPolicy.Single,
-    int? TargetX = null, int? TargetY = null) : ICommand
+    int? TargetX = null, int? TargetY = null, OriginalWalkEndCheck EndCheck = OriginalWalkEndCheck.None) : ICommand
 {
     /// <inheritdoc/>
     public string Kind => "movement.move-army";

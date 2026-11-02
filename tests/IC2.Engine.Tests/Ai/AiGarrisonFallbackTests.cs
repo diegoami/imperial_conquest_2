@@ -199,6 +199,8 @@ public sealed class AiGarrisonFallbackTests
         Assert.Contains(outcome.Log, line => line.Contains("garrison fallback moved", StringComparison.Ordinal));
         var army = outcome.State.ArmyById(ArmyId)!;
         Assert.NotEqual((3, 3), (army.X, army.Y));
+        Assert.NotEqual(expected, (army.X, army.Y)); // The occupied goal is not the endpoint.
+        Assert.Contains($"garrison fallback moved {ArmyId} to ({army.X}, {army.Y})", outcome.Log);
         Assert.Equal(0, outcome.CommandsRejected);
     }
 

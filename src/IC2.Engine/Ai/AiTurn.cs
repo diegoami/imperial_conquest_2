@@ -290,7 +290,7 @@ public static partial class AiTurn
             var before = state;
             var subjectId = chosen.SubjectId;
             var beforeArmy = subjectId is { } sid ? state.ArmyById(sid) : null;
-            var execution = Execute(state, ruleset, commands, events, chosen, log);
+            var execution = Execute(state, ruleset, world, commands, events, chosen, log);
             state = execution.State;
             armyOrder?.Dispatched(subjectId);
             if (chosen.Kind == "ai-swap-trade-partner") tradeSwaps?.Dispatched(execution.Rejected > 0);
@@ -320,12 +320,18 @@ public static partial class AiTurn
             {
                 var beforeContinuation = state;
                 var followup = RunMercenaryContinuation(state, ruleset, world, nationId, continuingArmyId,
-                    continuation, commands, events, log);
+                    continuation, chosen.OriginalMercenaryContinuationEndCheck, commands, events, log);
                 state = followup.State;
                 if (!AiSubstantiveState.AreEquivalent(beforeContinuation, state)) issued += followup.Issued;
                 rejected += followup.Rejected;
                 mismatches += followup.Mismatches;
                 execution = execution with { State = state, Rejected = execution.Rejected + followup.Rejected };
+            }
+            if (commands is IAiBattleInterruption { ArmyPhaseInterrupted: true })
+            {
+                log.Add("army phase interrupted after mercenary continuation; retaining the fleet pass");
+                hitCap = false;
+                break;
             }
 
             // #1723, research dbe3616: faithful F31C calls FUN_0044AAB4 after
@@ -430,7 +436,8 @@ public static partial class AiTurn
     private readonly record struct ExecutionResult(GameState State, int Issued, int Rejected, int Mismatches);
 
     private static ExecutionResult RunMercenaryContinuation(GameState state, Ruleset ruleset, World world,
-        string nationId, string armyId, GridPoint target, ICommandDispatch commands, IEventSink events, List<string> log)
+        string nationId, string armyId, GridPoint target, OriginalWalkEndCheck endCheck,
+        ICommandDispatch commands, IEventSink events, List<string> log)
     {
         if (state.ArmyById(armyId) is not { } army) return new(state, 0, 0, 0);
         var view = new AiView(state, ruleset, world, nationId);
@@ -452,8 +459,8 @@ public static partial class AiTurn
             return new(state, 0, 0, 0);
         }
         log.Add(Inv("original mercenary continuation {0} toward ({1}, {2})", armyId, target.X, target.Y));
-        return Execute(state, ruleset, commands, events,
-            AiCandidate.Single(AiPhase.Military, AiCandidate.ApproachKind, command, ruleset.Ai.MinimumActionScore,
+        return Execute(state, ruleset, world, commands, events,
+            AiCandidate.Single(AiPhase.Military, AiCandidate.ApproachKind, command with { EndCheck = endCheck }, ruleset.Ai.MinimumActionScore,
                 "original E84C continuation", armyId), log);
     }
 
@@ -522,7 +529,7 @@ public static partial class AiTurn
             armyId);
 
         var before = state;
-        var execution = Execute(state, ruleset, commands, events, candidate, log);
+        var execution = Execute(state, ruleset, view.World, commands, events, candidate, log);
         state = execution.State;
 
         if (!AiSubstantiveState.AreEquivalent(before, state))
@@ -536,18 +543,17 @@ public static partial class AiTurn
         if (execution.Issued > 0)
         {
             marched.Add(armyId);
-            log.Add(Inv(
-                "{0} moved {1} to ({2}, {3})",
-                tierLabel ?? "garrison fallback",
-                armyId,
-                target.X,
-                target.Y));
+            if (state.ArmyById(armyId) is { } ended)
+                log.Add(Inv("{0} moved {1} to ({2}, {3})", tierLabel ?? "garrison fallback", armyId, ended.X, ended.Y));
+            else
+                log.Add(Inv("{0}: {1} no longer exists", tierLabel ?? "garrison fallback", armyId));
         }
     }
 
     private static ExecutionResult Execute(
         GameState state,
         Ruleset ruleset,
+        World world,
         ICommandDispatch commands,
         IEventSink events,
         AiCandidate candidate,
@@ -587,6 +593,22 @@ public static partial class AiTurn
                     before.X, before.Y, march.X, march.Y, march.TargetX ?? march.X, march.TargetY ?? march.Y));
             state = result.State;
             log.Add(Inv("  issued {0}", command.Kind));
+            if (command is MoveArmyCommand { Walk: MoveWalkPolicy.AiContinuation, EndCheck: not OriginalWalkEndCheck.None } marchContact
+                && result.Events.OfType<OriginalArmyWalkContactReached>().FirstOrDefault() is { } contact
+                && contact.ArmyId == marchContact.ArmyId
+                && contact.EndCheck == marchContact.EndCheck
+                && contact.TargetX == (marchContact.TargetX ?? marchContact.X)
+                && contact.TargetY == (marchContact.TargetY ?? marchContact.Y)
+                && OriginalArmyWalkContact.Find(state, ruleset, world, marchContact.IssuingNationId,
+                    contact.ArmyId, new(contact.TargetX, contact.TargetY), contact.EndCheck) is { } attack)
+            {
+                log.Add(Inv("original walk end contact {0} at ({1}, {2})", contact.ArmyId, contact.TargetX, contact.TargetY));
+                var followup = Execute(state, ruleset, world, commands, events,
+                    AiCandidate.Single(AiPhase.Military, attack.Kind, attack, candidate.Score, "original D734 end check", contact.ArmyId), log);
+                state = followup.State; issued += followup.Issued;
+                rejected += followup.Rejected; mismatches += followup.Mismatches;
+                if (followup.Rejected > 0 || commands is IAiBattleInterruption { ArmyPhaseInterrupted: true }) break;
+            }
         }
 
         return new ExecutionResult(state, issued, rejected, mismatches);

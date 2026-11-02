@@ -425,7 +425,9 @@ public static class AiMilitaryPhase
                             AiArmyTargetTree.Continuation.ChaseArmy when decision.TargetArmy is { } a => new(a.X, a.Y),
                             _ => null,
                         };
-                        into[^1] = into[^1] with { OriginalMercenaryContinuation = continuation };
+                        into[^1] = into[^1] with { OriginalMercenaryContinuation = continuation,
+                            OriginalMercenaryContinuationEndCheck = decision.After == AiArmyTargetTree.Continuation.MarchAtCityTarget
+                                ? OriginalWalkEndCheck.City : OriginalWalkEndCheck.None };
                     }
                     break;
                 }
@@ -436,7 +438,8 @@ public static class AiMilitaryPhase
                         if (mayMarch && decision.TargetCity is { } cityTarget)
                         {
                             AddMarchCandidate(view, army, cityTarget.X, cityTarget.Y, AiCandidate.ApproachKind,
-                                "march at the enemy-city target", view.Ruleset.Ai.ReinforceCityBaseScore, progress, into);
+                                "march at the enemy-city target", view.Ruleset.Ai.ReinforceCityBaseScore, progress, into,
+                                endCheck: OriginalWalkEndCheck.City);
                         }
 
                         break;
@@ -579,7 +582,8 @@ public static class AiMilitaryPhase
         if (mayMarch)
         {
             AddMarchCandidate(view, army, targetCity.X, targetCity.Y, AiCandidate.ApproachKind,
-                "approach target city", view.Ruleset.Ai.ApproachCityBaseScore, progress, into);
+                "approach target city", view.Ruleset.Ai.ApproachCityBaseScore, progress, into,
+                endCheck: OriginalWalkEndCheck.City);
         }
     }
 
@@ -650,7 +654,8 @@ public static class AiMilitaryPhase
             // behaviour and is the do-not-change-the-rules correction.
             AddMarchCandidate(view, army, x, y, AiCandidate.ApproachKind,
                 why, view.Ruleset.Ai.ApproachCityBaseScore, progress, into,
-                target: new GridPoint(targetArmy.X, targetArmy.Y));
+                target: new GridPoint(targetArmy.X, targetArmy.Y),
+                endCheck: originalTargetTreeRoute ? OriginalWalkEndCheck.Army : OriginalWalkEndCheck.None);
         }
     }
 
@@ -669,7 +674,8 @@ public static class AiMilitaryPhase
         long baseScore,
         long progress,
         List<AiCandidate> into,
-        GridPoint? target = null)
+        GridPoint? target = null,
+        OriginalWalkEndCheck endCheck = OriginalWalkEndCheck.None)
     {
         // T239 (#1592): a faithful march (the original's classical navigation) keeps walking toward the
         // target the tree chose, as FUN_0044dba8 does; (x, y) may be a waypoint. T247 also
@@ -679,6 +685,7 @@ public static class AiMilitaryPhase
         var command = AiArmyTargetTree.MarchCommand(view, army, aimedAt,
             target is null ? null : new GridPoint(x, y));
         if (command is null) return;
+        if (continues) command = command with { EndCheck = endCheck };
         // The march must also make progress this turn: a first step dearer than the army's moves would
         // be accepted and park the army with its moves zeroed (Sol's R1 on PR #933). Not proposing it
         // lets the caller's fallback chain (garrison, then the emergency move) take over.

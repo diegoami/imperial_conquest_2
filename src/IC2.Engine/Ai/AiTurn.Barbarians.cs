@@ -45,7 +45,7 @@ public static partial class AiTurn
             if (chosen.IsMarch && chosen.SubjectId is { } subject) marched.Add(subject);
             log.Add(chosen.Rationale);
             var before = state;
-            var result = Execute(state, ruleset, commands, events, chosen, log);
+            var result = Execute(state, ruleset, world, commands, events, chosen, log);
             state = result.State;
             if (!AiSubstantiveState.AreEquivalent(before, state)) issued += result.Issued;
             rejected += result.Rejected;
