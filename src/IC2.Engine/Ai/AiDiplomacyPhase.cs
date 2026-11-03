@@ -72,9 +72,10 @@ public static class AiDiplomacyPhase
     /// </param>
     /// <param name="into">The collecting list.</param>
     /// <param name="includeTradeSwaps">False when the caller supplies Faithful's seat-local ordered pass.</param>
+    /// <param name="firstSweepWarLeaders">Original AI's initial scan, retained across war/alliance writes.</param>
     /// <exception cref="ArgumentNullException">Any argument is null.</exception>
     public static void Propose(AiView view, AiPersonalityProfile personality, IRng rng, List<AiCandidate> into,
-        bool includeTradeSwaps = true)
+        bool includeTradeSwaps = true, IReadOnlySet<string>? firstSweepWarLeaders = null)
     {
         ArgumentNullException.ThrowIfNull(view);
         ArgumentNullException.ThrowIfNull(personality);
@@ -91,7 +92,7 @@ public static class AiDiplomacyPhase
         // remains the post-battle treaty, which needs the human's own Yes (T88 Owns:
         // InstantBattleResolver's peace-treaty trigger and GameSession's accept/refuse).
         ProposeOwnAlliance(view, rng, into);
-        ProposeOwnTrade(view, into);
+        ProposeOwnTrade(view, into, firstSweepWarLeaders);
         if (includeTradeSwaps) ProposeOwnTradeSwap(view, into);
     }
 
@@ -174,11 +175,11 @@ public static class AiDiplomacyPhase
     /// above <see cref="Model.AiWeightsRules.OwnTradeSwapScore"/>, so the relative ordering against a
     /// swap candidate is unaffected.
     /// </remarks>
-    private static void ProposeOwnTrade(AiView view, List<AiCandidate> into)
+    private static void ProposeOwnTrade(AiView view, List<AiCandidate> into, IReadOnlySet<string>? firstSweepWarLeaders)
     {
         var rank = 0;
         var partners = view.Ruleset.Flags.AiEconomy == AiEconomyModel.Original
-            ? AiOwnDiplomacyRule.OriginalTradePartners(view.State, view.Ruleset, view.World, view.NationId)
+            ? AiOwnDiplomacyRule.OriginalTradePartners(view.State, view.Ruleset, view.World, view.NationId, firstSweepWarLeaders)
             : AiOwnDiplomacyRule.EligibleTradePartners(view.State, view.Ruleset, view.NationId);
         foreach (var partnerId in partners)
         {

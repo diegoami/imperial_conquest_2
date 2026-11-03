@@ -1,5 +1,6 @@
 using IC2.Engine.Battle.Commands;
 using IC2.Engine.Core;
+using IC2.Engine.Diplomacy;
 using IC2.Engine.Economy;
 using IC2.Engine.Model;
 using IC2.Engine.Movement;
@@ -226,6 +227,7 @@ public static partial class AiTurn
         var marched = new List<string>();
         var tradeSwaps = ruleset.Flags.AiEconomy == AiEconomyModel.Original
             ? new OriginalTradeSwapPass() : null;
+        IReadOnlySet<string>? firstSweepWarLeaders = null;
 
         // T60 Done-when 1: one siege-gate sample per turn, taken on the first proposal pass only. Later
         // passes see the same standing adjacencies again, so feeding them in too would count situations
@@ -267,7 +269,14 @@ public static partial class AiTurn
             // already receives above, so AiDiplomacyPhase's own Random(20) alliance roll is drawn from
             // the identical turn-stable stream as AiMilitaryPhase's Random(10) war roll -- see
             // AiDiplomacyPhase.ProposeOwnAlliance's own remarks for why that stability matters.
-            AiDiplomacyPhase.Propose(view, personality, rng, candidates, includeTradeSwaps: tradeSwaps is null);
+            // The original's scan precedes its war/alliance writes. Preserve those scan results across
+            // the scored driver's higher-priority declaration: becoming busy must not erase D3's
+            // skipped leaders. Only the exclusion set is retained; trade legality/caps remain live.
+            if (ruleset.Flags.AiEconomy == AiEconomyModel.Original)
+                firstSweepWarLeaders ??= AiOwnDiplomacyRule.WarTargetLeaders(view.State, ruleset, world, nationId)
+                    .ToHashSet(StringComparer.Ordinal);
+            AiDiplomacyPhase.Propose(view, personality, rng, candidates, includeTradeSwaps: tradeSwaps is null,
+                firstSweepWarLeaders: firstSweepWarLeaders);
             tradeSwaps?.Propose(view, candidates);
 
             var chosen = Select(candidates, rng, ruleset);

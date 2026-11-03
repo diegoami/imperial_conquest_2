@@ -40,16 +40,33 @@ public sealed class FaithfulFreshTradeTests
         }
     }
 
-    private static (AiTurnOutcome Outcome, Trace Trace) Run(GameState state, Ruleset rules, World world, ulong seed = 1)
+    private static (AiTurnOutcome Outcome, Trace Trace) Run(GameState state, Ruleset rules, World world, ulong seed = 1,
+        bool warRollHits = false)
     {
         // Isolate trade order from the independently covered chance of declaring war. Keep the real
         // named-stream RNG and verify the miss rather than changing diplomacy parameters or dispatch.
-        Assert.False(SplitMix64Rng.ForStream(seed, "ai.turn").ForStream($"ai.ownDiplomacy.warRoll:me:{state.Calendar.TurnIndex}")
+        Assert.Equal(warRollHits, SplitMix64Rng.ForStream(seed, "ai.turn").ForStream($"ai.ownDiplomacy.warRoll:me:{state.Calendar.TurnIndex}")
             .NextChance(1, rules.Diplomacy.AiOwnDiplomacy.WarDeclareRollDenominator));
         var trace = new Trace(new CommandDispatcher(SystemRegistry.FromEngineAssembly(), rules, world, NullEventSink.Instance));
         var result = AiTurn.Run(state, rules, world, trace, SplitMix64Rng.ForStream(seed, "ai.turn"), NullEventSink.Instance);
         Assert.Equal(0, result.CommandsRejected); Assert.Equal(0, result.ProjectionMismatches);
         return (result, trace);
+    }
+
+    [Fact]
+    public void War_roll_hit_does_not_erase_the_first_sweep_exclusions()
+    {
+        var (state, rules, world) = Fixture();
+        var result = Run(state, rules, world, seed: 16, warRollHits: true);
+        Assert.Equal(rules.Diplomacy.StateCodes.War, result.Outcome.State.Relations.Get("me", "y-leader"));
+        Assert.Equal(new[] { "x-trade", "b-trade", "a-trade" }, result.Trace.Trades);
+        Assert.Equal(rules.Diplomacy.StateCodes.Peace, result.Outcome.State.Relations.Get("me", "z-leader"));
+        Assert.Equal(3, AiOwnDiplomacyRule.TradeCount(result.Outcome.State, rules, "me"));
+        // A separate invocation starts busy and has no excluded leaders. Free one trade slot in a
+        // controlled later state: z is now the first legal choice, proving the old set cannot leak.
+        var later = result.Outcome.State with { Relations = result.Outcome.State.Relations
+            .WithRelation("me", "x-trade", rules.Diplomacy.StateCodes.Peace) };
+        Assert.Equal(new[] { "z-leader" }, Run(later, rules, world).Trace.Trades);
     }
 
     [Theory]

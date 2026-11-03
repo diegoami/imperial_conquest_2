@@ -183,7 +183,7 @@ public static class AiOwnDiplomacyRule
 
     // Loop 1's strict running maximum: each update takes the war branch rather than the trade branch.
     // Share the actual war predicate so trade ordering cannot drift on busy/protection/neighbour ties.
-    private static IReadOnlyList<string> WarTargetLeaders(GameState state, Ruleset ruleset, World world, string meId)
+    internal static IReadOnlyList<string> WarTargetLeaders(GameState state, Ruleset ruleset, World world, string meId)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(ruleset);
@@ -371,11 +371,12 @@ public static class AiOwnDiplomacyRule
     /// those nations if capacity remains. Preserve table order within each sweep; callers requery
     /// live eligibility after dispatch. No roll, state mutation or permanently excluded target.
     /// </summary>
-    public static IReadOnlyList<string> OriginalTradePartners(GameState state, Ruleset ruleset, World world, string meId)
+    public static IReadOnlyList<string> OriginalTradePartners(GameState state, Ruleset ruleset, World world, string meId,
+        IReadOnlySet<string>? firstSweepWarLeaders = null)
     {
         var eligible = EligibleTradePartners(state, ruleset, meId);
         if (eligible.Count == 0) return eligible;
-        var leaders = WarTargetLeaders(state, ruleset, world, meId).ToHashSet(StringComparer.Ordinal);
+        var leaders = firstSweepWarLeaders ?? WarTargetLeaders(state, ruleset, world, meId).ToHashSet(StringComparer.Ordinal);
         return eligible.Where(id => !leaders.Contains(id)).Concat(eligible.Where(leaders.Contains)).ToArray();
     }
 
