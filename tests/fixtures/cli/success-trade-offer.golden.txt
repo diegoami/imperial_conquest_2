@@ -356,7 +356,7 @@ Media (media) takes its turn: 1 order issued.
 Thracia (thracia) takes its turn: 1 order issued.
 Rome (rome) takes its turn: 1 order issued.
 Carthage (carthage) takes its turn: 2 orders issued.
-Seleucid (seleucid) takes its turn: 7 orders issued.
+Seleucid (seleucid) takes its turn: 6 orders issued.
 Ptolemaic (ptolemaic) takes its turn: 3 orders issued.
 Now: Week 7, Summer 270 BC. Active seat: Macedonia (macedonia).
 News:
@@ -416,7 +416,6 @@ Galatia (galatia) takes its turn: 0 orders issued.
 Armenia (armenia) takes its turn: 0 orders issued.
 Media (media) takes its turn: 1 order issued.
 Thracia (thracia) takes its turn: 1 order issued.
-  Weather: rough-sea-painted (week 9).
 Rome (rome) takes its turn: 1 order issued.
 Carthage (carthage) takes its turn: 2 orders issued.
 Seleucid (seleucid) takes its turn: 6 orders issued.
@@ -444,12 +443,11 @@ Thracia (thracia) takes its turn: 1 order issued.
   Weather: rough-sea-painted (week 11).
 Rome (rome) takes its turn: 2 orders issued.
 Carthage (carthage) takes its turn: 1 order issued.
-Seleucid (seleucid) takes its turn: 13 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 16 orders issued.
+Seleucid (seleucid) takes its turn: 14 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 17 orders issued.
 Now: Week 1, Autumn 270 BC. Active seat: Macedonia (macedonia).
 News:
   Macedonia finishes a new fleet at Amphipolis.
-  Bithynia depose their leader Diogenes.
    
   Week  1      Autumn      270BC
   Amisus   (Bithynia)  falls to Seleucid.
@@ -477,10 +475,10 @@ Macedonia (macedonia) ends its turn.
 Numidia (numidia) takes its turn: 0 orders issued.
 Gaul (gaul) takes its turn: 0 orders issued.
 Greece (greece) takes its turn: 0 orders issued.
-Celtiberia (celtiberia) takes its turn: 8 orders issued.
+Celtiberia (celtiberia) takes its turn: 9 orders issued.
 Illyria (illyria) takes its turn: 0 orders issued.
 Dacia (dacia) takes its turn: 0 orders issued.
-Bithynia (bithynia) takes its turn: 8 orders issued.
+Bithynia (bithynia) takes its turn: 6 orders issued.
 Galatia (galatia) takes its turn: 7 orders issued.
 Armenia (armenia) takes its turn: 6 orders issued.
 Media (media) takes its turn: 1 order issued.
@@ -500,7 +498,7 @@ Macedonia (macedonia) ends its turn.
 Numidia (numidia) takes its turn: 0 orders issued.
 Gaul (gaul) takes its turn: 0 orders issued.
 Greece (greece) takes its turn: 0 orders issued.
-Celtiberia (celtiberia) takes its turn: 4 orders issued.
+Celtiberia (celtiberia) takes its turn: 5 orders issued.
 Illyria (illyria) takes its turn: 0 orders issued.
 Dacia (dacia) takes its turn: 0 orders issued.
 Bithynia (bithynia) takes its turn: 3 orders issued.
@@ -508,11 +506,10 @@ Galatia (galatia) takes its turn: 6 orders issued.
 Armenia (armenia) takes its turn: 3 orders issued.
 Media (media) takes its turn: 1 order issued.
 Thracia (thracia) takes its turn: 1 order issued.
-  Weather: rough-sea-painted (week 3).
 Rome (rome) takes its turn: 1 order issued.
-Carthage (carthage) takes its turn: 10 orders issued.
-Seleucid (seleucid) takes its turn: 19 orders issued.
-Ptolemaic (ptolemaic) takes its turn: 6 orders issued.
+Carthage (carthage) takes its turn: 7 orders issued.
+Seleucid (seleucid) takes its turn: 18 orders issued.
+Ptolemaic (ptolemaic) takes its turn: 5 orders issued.
 Now: Week 5, Autumn 270 BC. Active seat: Macedonia (macedonia).
 News:
    
