@@ -376,7 +376,7 @@ public static class AiArmyTargetTree
             if (isOwn)
             {
                 if (distance < nearestOwnDistance
-                    || (distance == nearestOwnDistance && string.CompareOrdinal(city.Id, nearestOwn!.Id) < 0))
+                    || (!faithful && distance == nearestOwnDistance && string.CompareOrdinal(city.Id, nearestOwn!.Id) < 0))
                 {
                     nearestOwn = city;
                     nearestOwnDistance = distance;
@@ -406,10 +406,10 @@ public static class AiArmyTargetTree
                 score = -distance + (faithful ? -rules.ResupplyForeignBonus : rules.ResupplyForeignBonus);
             }
 
-            // Equal scores break by city id ascending, never by distance (the amended Hazards: "every
-            // tie breaks by city id ascending"; Sol's R2 on PR #933). Distance is already in the score.
+            // F670 replaces only on a strict improvement: Original keeps city-table order on a tie
+            // (research bc8d720, Ptolemaic positions §3). Improved retains its designed ordinal-ID tie.
             if (score > bestScore
-                || (score == bestScore && string.CompareOrdinal(city.Id, best!.Id) < 0))
+                || (!faithful && score == bestScore && string.CompareOrdinal(city.Id, best!.Id) < 0))
             {
                 best = city;
                 bestScore = score;

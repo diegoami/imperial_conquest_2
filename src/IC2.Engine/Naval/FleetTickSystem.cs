@@ -78,11 +78,11 @@ public sealed class FleetTickSystem : IGameSystem
 
                 var buildCity = fleet.BuildCityId is { } buildCityId ? state.CityById(buildCityId) : null;
                 var launchPoint = buildCity is not null
-                    ? CoastalCity.FirstAdjacentSeaTile(buildCity, context.World)
+                    ? CoastalCity.LaunchTile(buildCity, context.World, ruleset)
                     : null;
 
                 // N9 (first review): a build city that no longer resolves, or that no longer has an
-                // adjacent sea tile, must not launch the fleet at a fabricated "?" city name or at the
+                // eligible launch tile, must not launch the fleet at a fabricated "?" city name or at the
                 // stored (0, 0) sentinel -- both are unguarded fallbacks masquerading as success. Neither
                 // is reachable today (nothing in the shipped engine removes a city or its terrain), but
                 // this is the defensible failure mode if it ever became one: stall in construction,

@@ -22,8 +22,8 @@ namespace IC2.Engine.Naval;
 /// occupies a sea tile: <see cref="Naval.FleetTickSystem"/> and <see cref="Naval.Commands.MoveFleetCommandHandler"/>
 /// price cells through <see cref="TileType.PassableByFleets"/>, which a city's own land tile never
 /// satisfies, so a fleet that could only ever sit on its build city's tile could never be represented by
-/// the same terrain-passability rule its own movement uses. <see cref="FirstAdjacentSeaTile"/> is the one
-/// place that resolves it.
+/// the same terrain-passability rule its own movement uses. <see cref="LaunchTile"/> resolves the launch
+/// destination; adjacent coastal eligibility remains a separate query.
 /// </para>
 /// </remarks>
 public static class CoastalCity
@@ -35,7 +35,7 @@ public static class CoastalCity
     /// <summary>
     /// The first sea tile adjacent to <paramref name="city"/>, scanning its eight neighbours in a fixed,
     /// deterministic order (row-major, north-west first) — or <see langword="null"/> if the city is not
-    /// coastal. This is where a fleet built at this city actually launches onto the map.
+    /// coastal. Used for coastal eligibility and for launch placement outside Classical Faithful.
     /// </summary>
     /// <exception cref="ArgumentNullException"><paramref name="city"/> or <paramref name="world"/> is null.</exception>
     public static GridPoint? FirstAdjacentSeaTile(CityState city, World world)
@@ -69,6 +69,44 @@ public static class CoastalCity
             }
         }
 
+        return null;
+    }
+
+    /// <summary>
+    /// A050's launch destination. Classical Faithful uses FUN_0044939c mode 0: the last sea cell
+    /// in x-outer/y-inner order in the first successful square radius, including radius zero.
+    /// Research bc8d720, Ptolemaic positions §4: the excluded region is geographic, not occupancy.
+    /// Other worlds/policies retain their adjacent row-major-first placement. No other caller of
+    /// the original helper (landing, routing or splitting) is changed by this launch-only query.
+    /// </summary>
+    public static GridPoint? LaunchTile(CityState city, World world, Ruleset ruleset)
+    {
+        ArgumentNullException.ThrowIfNull(city);
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(ruleset);
+        if (!Ai.ClassicalArmyNavigation.Applies(world, ruleset))
+            return FirstAdjacentSeaTile(city, world);
+
+        var cells = world.Terrain.Decode(world.Width, world.Height);
+        var maxRadius = Math.Max(Math.Max(city.X, world.Width - 1 - city.X),
+            Math.Max(city.Y, world.Height - 1 - city.Y));
+        for (var radius = 0; radius <= maxRadius; radius++)
+        {
+            GridPoint? last = null;
+            var minX = Math.Max(0, city.X - radius);
+            var maxX = Math.Min(world.Width - 1, city.X + radius);
+            var minY = Math.Max(0, city.Y - radius);
+            var maxY = Math.Min(world.Height - 1, city.Y + radius);
+            for (var x = minX; x <= maxX; x++)
+            {
+                for (var y = minY; y <= maxY; y++)
+                {
+                    if (x >= 248 || (x >= 214 && y >= 99)) continue;
+                    if (cells[y * world.Width + x] is 0 or 1) last = new GridPoint(x, y);
+                }
+            }
+            if (last is not null) return last;
+        }
         return null;
     }
 
