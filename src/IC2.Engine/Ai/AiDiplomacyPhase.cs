@@ -165,10 +165,11 @@ public static class AiDiplomacyPhase
     /// <see cref="Model.AiWeightsRules.OwnTradeScore"/> used to leave that choice to
     /// <c>AiTurn.Select</c>'s own exact-tie break, a draw from the seat's stream -- with more than one
     /// eligible partner this picked a random one, not the nation-order-first one the original always
-    /// does. Each successive partner in <see cref="AiOwnDiplomacyRule.EligibleTradePartners"/>' own
-    /// stable <see cref="GameState.Nations"/> order is now scored one point lower than the last, so the
-    /// first one in that order always wins outright -- no tie, so no draw -- reproducing the original's
-    /// index order without touching <c>AiTurn.Select</c> itself (outside this task's Owns list). The
+    /// does. Each successive partner is scored one point lower than the last, so the first wins
+    /// outright without a tie draw. T274 supplies Original AI's two-sweep order through
+    /// <see cref="AiOwnDiplomacyRule.OriginalTradePartners"/>: non-leading nations first, then
+    /// still-eligible skipped leaders, in table order within each sweep. Improved retains its
+    /// single table-order scan. This does not change <c>AiTurn.Select</c> or war/alliance priorities. The
     /// largest step this can ever take (one fewer than the world's own nation count) stays comfortably
     /// above <see cref="Model.AiWeightsRules.OwnTradeSwapScore"/>, so the relative ordering against a
     /// swap candidate is unaffected.
@@ -176,7 +177,10 @@ public static class AiDiplomacyPhase
     private static void ProposeOwnTrade(AiView view, List<AiCandidate> into)
     {
         var rank = 0;
-        foreach (var partnerId in AiOwnDiplomacyRule.EligibleTradePartners(view.State, view.Ruleset, view.NationId))
+        var partners = view.Ruleset.Flags.AiEconomy == AiEconomyModel.Original
+            ? AiOwnDiplomacyRule.OriginalTradePartners(view.State, view.Ruleset, view.World, view.NationId)
+            : AiOwnDiplomacyRule.EligibleTradePartners(view.State, view.Ruleset, view.NationId);
+        foreach (var partnerId in partners)
         {
             into.Add(AiCandidate.Single(
                 AiPhase.Diplomacy,

@@ -58,7 +58,7 @@ public sealed class FaithfulWalkEndContactTests
     }
 
     [Fact]
-    public void Adjacent_mercenary_city_continuation_besieges_before_the_no_progress_fallback()
+    public void Adjacent_city_target_without_an_offer_besieges_before_the_no_progress_fallback()
     {
         var (view, actor) = Fixture();
         var decision = AiArmyTargetTree.Decide(view, actor, true);
@@ -103,16 +103,62 @@ public sealed class FaithfulWalkEndContactTests
         actor = actor with { Units = ValueList.Of(F.Unit("light_infantry", 60000)), Moves = 9 };
         var state = view.State with { Armies = ValueList.Of(actor), Cities = ValueList.From(view.State.Cities.Select(c =>
             c.Id == "target" ? c with { X = 236 } : c)) };
-        view = new(state, view.Ruleset, view.World, "north");
+        // E41C support runs before the live tree and may change its score. Keep this fixture on the
+        // AttackCity arm even after preparation; the default thresholds were actually taking F4C7.
+        // One scored action prevents a later greedy siege from hiding a lost walk end check.
+        var rules = view.Ruleset with { Ai = view.Ruleset.Ai with { CityScoreThreshold = 1, MaxActionsPerTurn = 1 } };
+        view = new(state, rules, view.World, "north");
         Assert.Equal(AiArmyTargetTree.Kind.AttackCity, AiArmyTargetTree.Decide(view, actor, true).Selected);
         var run = Run(view);
         var march = Assert.Single(run.Trace.Calls, c => c.Command is MoveArmyCommand);
         var siege = Assert.Single(run.Trace.Calls, c => c.Command is BesiegeCityCommand);
+        Assert.Contains(run.Outcome.Log, l => l.Contains("approach target city", StringComparison.Ordinal));
+        Assert.Equal(AiArmyTargetTree.Kind.AttackCity, AiArmyTargetTree.Decide(
+            new(march.Before, rules, view.World, "north"), march.Before.ArmyById(actor.Id)!, true).Selected);
         Assert.Equal(run.Trace.Calls.IndexOf(march) + 1, run.Trace.Calls.IndexOf(siege));
         var at = siege.Before.ArmyById(actor.Id)!;
         Assert.NotEqual((actor.X, actor.Y), (at.X, at.Y));
         Assert.Equal(1, AiView.Distance(at.X, at.Y, 236, 80)); Assert.True(at.Moves > 0);
         Assert.Equal(0, siege.Result.State.ArmyById(actor.Id)!.Moves);
+        Assert.Equal(0, run.Outcome.CommandsRejected); Assert.Equal(0, run.Outcome.ProjectionMismatches);
+    }
+
+    [Fact]
+    public void Actual_offer_run_then_mercenary_continuation_dispatches_a_siege_from_its_arrival_tile()
+    {
+        var (view, actor) = Fixture(moves: 9);
+        // Declared branch fixture, as in OriginalMercenaryContinuationTests: keep F31C on its weak
+        // target arm while leaving the independent F4C7 continuation threshold and real moves intact.
+        var rules = view.Ruleset with { Ai = view.Ruleset.Ai with
+            { CityScoreThreshold = 100000, ArmyScoreThreshold = 100000, MaxActionsPerTurn = 1 } };
+        actor = actor with { Units = ValueList.Of(F.Unit("light_infantry", 50000)) };
+        var state = view.State with { Armies = ValueList.Of(actor),
+            Cities = ValueList.From(view.State.Cities.Select(c => c.Id == "target" ? c with
+                { X = 237, PopulationThousands = 1, FortificationCode = 75 } : c)
+                .Append(F.City("offer", "Offer", 236, 80, "north", "north", 80, 75, 10, 10, 0))),
+            MercenaryPool = ValueList.Of(new MercenaryPoolSlot(0, 236, 80, 1, "light_infantry", 1000, 6)) };
+        view = new(state, rules, view.World, "north");
+        var decision = AiArmyTargetTree.Decide(view, actor, true);
+        Assert.Equal(AiArmyTargetTree.Kind.MercenaryRun, decision.Selected);
+        Assert.Equal(AiArmyTargetTree.Continuation.MarchAtCityTarget, decision.After);
+        var run = Run(view);
+        var walks = run.Trace.Calls.Where(c => c.Command is MoveArmyCommand).ToArray();
+        Assert.Equal(2, walks.Length);
+        var offer = Assert.IsType<MoveArmyCommand>(walks[0].Command);
+        var continuation = Assert.IsType<MoveArmyCommand>(walks[1].Command);
+        Assert.Equal((236, 80), (offer.TargetX, offer.TargetY));
+        Assert.Equal((237, 80), (continuation.TargetX, continuation.TargetY));
+        Assert.Empty(walks[0].Result.Events.OfType<OriginalArmyWalkContactReached>());
+        Assert.Contains(run.Outcome.Log, l => l.Contains("original mercenary continuation actor", StringComparison.Ordinal));
+        var siege = Assert.Single(run.Trace.Calls, c => c.Command is BesiegeCityCommand);
+        Assert.Single(walks[1].Result.Events.OfType<OriginalArmyWalkContactReached>());
+        Assert.Equal(run.Trace.Calls.IndexOf(walks[1]) + 1, run.Trace.Calls.IndexOf(siege));
+        var at = siege.Before.ArmyById(actor.Id)!;
+        Assert.Equal(1, AiView.Distance(at.X, at.Y, 237, 80)); Assert.True(at.Moves > 0);
+        Assert.True(siege.Result.IsAccepted);
+        Assert.Equal(0, siege.Result.State.ArmyById(actor.Id)!.Moves);
+        Assert.True(siege.Result.State.ArmyById(actor.Id)!.TotalTroops < actor.TotalTroops);
+        Assert.True(siege.Result.State.CityById("target")!.Loyalty < state.CityById("target")!.Loyalty);
         Assert.Equal(0, run.Outcome.CommandsRejected); Assert.Equal(0, run.Outcome.ProjectionMismatches);
     }
 
