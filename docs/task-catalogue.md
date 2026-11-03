@@ -102,3 +102,5 @@ Open and recent tasks only. Merged tasks (T01–T191 and others) are in their cl
 - [T261](tasks/T261.md) — Clear battle feedback; distinguish siege and peace
 - [T262](tasks/T262.md) — Fleet Split in Two
 - [T274](tasks/T274.md) — Faithful trade sweep ordering
+
+- [T275](tasks/T275.md) — Faithful resupply ties and fleet launch placement
