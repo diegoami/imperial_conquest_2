@@ -19,9 +19,11 @@ public sealed partial class AiArmyTargetTreeScorerTests
     {
         var army = Supplicant();
         // Equal distances; neither is a capital. Stock selects the primary or fallback path.
+        // The two policies have opposite stock predicates, so exercise both paths under each.
+        var stock = fallback == original ? 0 : 20;
         var cities = new[] {
-            City("z-first", Us, 13, 10, supply: fallback ? 0 : 20),
-            City("a-second", Us, 10, 13, supply: fallback ? 0 : 20),
+            City("z-first", Us, 13, 10, supply: stock),
+            City("a-second", Us, 10, 13, supply: stock),
         };
         if (reverse) Array.Reverse(cities);
         var view = FaithfulResupplyView(cities, army);
