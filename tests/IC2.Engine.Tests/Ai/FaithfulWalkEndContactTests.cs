@@ -2,6 +2,7 @@ using IC2.Engine.Ai;
 using IC2.Engine.Battle;
 using IC2.Engine.Battle.Commands;
 using IC2.Engine.Core;
+using IC2.Engine.Economy;
 using IC2.Engine.Model;
 using IC2.Engine.Movement;
 using IC2.Engine.Movement.Commands;
@@ -333,6 +334,37 @@ public sealed class FaithfulWalkEndContactTests
         Assert.Equal(0, siege.Result.State.ArmyById(actor.Id)!.Moves);
         Assert.True(siege.Result.State.CityById("target")!.Loyalty < view.State.CityById("target")!.Loyalty);
         Assert.True(siege.Result.State.ArmyById(actor.Id)!.TotalTroops < actor.TotalTroops);
+        Assert.Equal(0, run.Outcome.CommandsRejected); Assert.Equal(0, run.Outcome.ProjectionMismatches);
+    }
+
+    [Theory]
+    [InlineData("faithful", 19300, 1000, 8, 10, false)]
+    [InlineData("faithful", 19300, 1000, 11, 10, false)]
+    [InlineData("faithful", 19300, 1000, 10, 10, true)]
+    [InlineData("faithful", 100, 1, 8, 9, false)]
+    [InlineData("faithful", 100, 1, 9, 9, true)]
+    [InlineData("improved", 19300, 1000, 8, 10, true)]
+    [InlineData("custom", 19300, 1000, 8, 10, true)]
+    public void No_command_garrison_requires_the_full_action_check_budget_only_in_Classical_Faithful(
+        string mode, int troops, int supplies, int moves, int fullBudget, bool expectFallback)
+    {
+        var view = GarrisonFixture(mode);
+        var actor = view.State.ArmyById("actor")! with
+            { Units = ValueList.Of(F.Unit("light_infantry", troops)), SupplyTons = supplies, Moves = moves };
+        view = new(view.State with { Armies = ValueList.From(view.State.Armies.Select(a => a.Id == actor.Id ? actor : a)) },
+            view.Ruleset, view.World, "north");
+        Assert.Equal(fullBudget, SupplyMoraleRule.MovesForActionCheck(actor, view.Ruleset));
+        var decision = AiArmyTargetTree.Decide(view, actor, true);
+        Assert.Equal(AiArmyTargetTree.Kind.MercenaryRun, decision.Selected);
+        Assert.Equal(AiArmyTargetTree.Continuation.None, decision.After);
+        var run = Run(view);
+        Assert.Equal(expectFallback, run.Trace.Calls.Any(c => c.Command is MoveArmyCommand m && m.ArmyId == actor.Id));
+        if (!expectFallback)
+        {
+            Assert.DoesNotContain(run.Trace.Calls, c => c.Command is BesiegeCityCommand b && b.AttackerArmyId == actor.Id);
+            var after = run.Outcome.State.ArmyById(actor.Id)!;
+            Assert.Equal((actor.X, actor.Y, moves, troops), (after.X, after.Y, after.Moves, after.TotalTroops));
+        }
         Assert.Equal(0, run.Outcome.CommandsRejected); Assert.Equal(0, run.Outcome.ProjectionMismatches);
     }
 

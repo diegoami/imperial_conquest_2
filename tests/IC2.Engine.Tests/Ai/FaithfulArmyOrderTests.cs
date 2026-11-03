@@ -1,6 +1,7 @@
 using IC2.Engine.Ai;
 using IC2.Engine.Battle.Commands;
 using IC2.Engine.Core;
+using IC2.Engine.Economy;
 using IC2.Engine.Model;
 using IC2.Engine.Movement.Commands;
 using IC2.Engine.Tests.Battle.Commands;
@@ -88,8 +89,10 @@ public sealed class FaithfulArmyOrderTests
     public void A_later_army_reads_the_target_destroyed_by_the_earlier_army()
     {
         var (state, rules, world) = Fixture(true);
+        // #1739: once the enemy is gone, this later army needs its full allowance to qualify for
+        // no-command garrison fallback. Keep proving a real new destination, not an obsolete target.
         state = state with { Armies = ValueList.From(state.Armies.Where(a => a.Id != "target-later")
-            .Select(a => a.Id == "a-later" ? a with { X = 228 } : a)) };
+            .Select(a => a.Id == "a-later" ? a with { X = 228, Moves = SupplyMoraleRule.MovesForActionCheck(a, rules) } : a)) };
         var result = Run(state, rules, world);
         var attack = Assert.Single(result.Trace.Commands.OfType<AttackArmyCommand>());
         Assert.Equal(("z-first", "target-first"), (attack.AttackerArmyId, attack.TargetArmyId));

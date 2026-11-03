@@ -2,6 +2,7 @@ using IC2.Engine.Battle.Commands;
 using IC2.Engine.Core;
 using IC2.Engine.Diplomacy;
 using IC2.Engine.Diplomacy.Commands;
+using IC2.Engine.Economy;
 using IC2.Engine.Model;
 using IC2.Engine.Movement;
 using IC2.Engine.Movement.Commands;
@@ -479,15 +480,17 @@ public static class AiMilitaryPhase
         // has its own candidate rationale; it must not inherit a rejected attack's decision record.
         var originalActionOffered = into.Count > candidatesBefore;
 
-        // The original's tree always ends in an action for an army with moves: when the chosen branch
-        // produced no executable command (nothing proposable to march at, an adjacent target whose
-        // attack is not legal), the garrison fallback (FUN_0044ebe8) picks the destination. The
+        // When the chosen branch produced no executable command, F31C permits the original garrison
+        // fallback only at AAB4's full allowance (#1739, research570aff8). Remaining moves alone do
+        // not mean the army has not acted. Reuse the same query as the post-execution gate. The
         // post-execution fallback in AiTurn covers an accepted command that moved nothing; this covers
         // the army that never got a command at all. Hazards' three-tier fallback (reachable garrison
         // candidates first, then the emergency move the walker can actually reach, then "stay put"
         // with the log message) handles the case the review proved: an army boxed in by obstacles
         // behind both the resupply and the garrison destination.
-        if (mayMarch && into.Count == candidatesBefore)
+        if (mayMarch && into.Count == candidatesBefore
+            && (!ClassicalArmyNavigation.Applies(view)
+                || army.Moves == SupplyMoraleRule.MovesForActionCheck(army, view.Ruleset)))
         {
             var garrison = AiArmyTargetTree.GarrisonFallback(view, army, view.State);
             var fallbackDest = garrison ?? (ClassicalArmyNavigation.Applies(view) ? null
