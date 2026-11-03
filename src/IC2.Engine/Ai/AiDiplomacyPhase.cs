@@ -72,9 +72,10 @@ public static class AiDiplomacyPhase
     /// </param>
     /// <param name="into">The collecting list.</param>
     /// <param name="includeTradeSwaps">False when the caller supplies Faithful's seat-local ordered pass.</param>
+    /// <param name="firstSweepWarLeaders">Original AI's initial scan, retained across war/alliance writes.</param>
     /// <exception cref="ArgumentNullException">Any argument is null.</exception>
     public static void Propose(AiView view, AiPersonalityProfile personality, IRng rng, List<AiCandidate> into,
-        bool includeTradeSwaps = true)
+        bool includeTradeSwaps = true, IReadOnlySet<string>? firstSweepWarLeaders = null)
     {
         ArgumentNullException.ThrowIfNull(view);
         ArgumentNullException.ThrowIfNull(personality);
@@ -91,7 +92,7 @@ public static class AiDiplomacyPhase
         // remains the post-battle treaty, which needs the human's own Yes (T88 Owns:
         // InstantBattleResolver's peace-treaty trigger and GameSession's accept/refuse).
         ProposeOwnAlliance(view, rng, into);
-        ProposeOwnTrade(view, into);
+        ProposeOwnTrade(view, into, firstSweepWarLeaders);
         if (includeTradeSwaps) ProposeOwnTradeSwap(view, into);
     }
 
@@ -165,18 +166,22 @@ public static class AiDiplomacyPhase
     /// <see cref="Model.AiWeightsRules.OwnTradeScore"/> used to leave that choice to
     /// <c>AiTurn.Select</c>'s own exact-tie break, a draw from the seat's stream -- with more than one
     /// eligible partner this picked a random one, not the nation-order-first one the original always
-    /// does. Each successive partner in <see cref="AiOwnDiplomacyRule.EligibleTradePartners"/>' own
-    /// stable <see cref="GameState.Nations"/> order is now scored one point lower than the last, so the
-    /// first one in that order always wins outright -- no tie, so no draw -- reproducing the original's
-    /// index order without touching <c>AiTurn.Select</c> itself (outside this task's Owns list). The
+    /// does. Each successive partner is scored one point lower than the last, so the first wins
+    /// outright without a tie draw. T274 supplies Original AI's two-sweep order through
+    /// <see cref="AiOwnDiplomacyRule.OriginalTradePartners"/>: non-leading nations first, then
+    /// still-eligible skipped leaders, in table order within each sweep. Improved retains its
+    /// single table-order scan. This does not change <c>AiTurn.Select</c> or war/alliance priorities. The
     /// largest step this can ever take (one fewer than the world's own nation count) stays comfortably
     /// above <see cref="Model.AiWeightsRules.OwnTradeSwapScore"/>, so the relative ordering against a
     /// swap candidate is unaffected.
     /// </remarks>
-    private static void ProposeOwnTrade(AiView view, List<AiCandidate> into)
+    private static void ProposeOwnTrade(AiView view, List<AiCandidate> into, IReadOnlySet<string>? firstSweepWarLeaders)
     {
         var rank = 0;
-        foreach (var partnerId in AiOwnDiplomacyRule.EligibleTradePartners(view.State, view.Ruleset, view.NationId))
+        var partners = view.Ruleset.Flags.AiEconomy == AiEconomyModel.Original
+            ? AiOwnDiplomacyRule.OriginalTradePartners(view.State, view.Ruleset, view.World, view.NationId, firstSweepWarLeaders)
+            : AiOwnDiplomacyRule.EligibleTradePartners(view.State, view.Ruleset, view.NationId);
+        foreach (var partnerId in partners)
         {
             into.Add(AiCandidate.Single(
                 AiPhase.Diplomacy,

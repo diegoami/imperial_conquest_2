@@ -13,6 +13,12 @@ namespace IC2.Engine.Diplomacy;
 /// </summary>
 /// <remarks>
 /// <para>
+/// T274 corrects the fresh-trade ordering in the historical scored-driver adaptation below.
+/// <see cref="OriginalTradePartners"/> shares the war search's running leaders and preserves the
+/// two trade sweeps without introducing saved pass state or changing war/alliance priorities.
+/// This bounded ordering correction does not claim to reproduce the complete monolithic call.
+/// </para>
+/// <para>
 /// <strong>Why this is split from the original's one monolithic call.</strong> The original runs the
 /// whole busy/war/alliance/trade sequence as a single atomic pass with the two random draws at fixed
 /// points inside it. This engine's AI is a greedy "propose every candidate, score them, take the best,
@@ -173,6 +179,11 @@ public static class AiOwnDiplomacyRule
     /// <see cref="IsBusy"/> or no candidate clears the bar.
     /// </summary>
     public static string? BestWarTarget(GameState state, Ruleset ruleset, World world, string meId)
+        => WarTargetLeaders(state, ruleset, world, meId).LastOrDefault();
+
+    // Loop 1's strict running maximum: each update takes the war branch rather than the trade branch.
+    // Share the actual war predicate so trade ordering cannot drift on busy/protection/neighbour ties.
+    internal static IReadOnlyList<string> WarTargetLeaders(GameState state, Ruleset ruleset, World world, string meId)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(ruleset);
@@ -180,20 +191,20 @@ public static class AiOwnDiplomacyRule
 
         if (IsBusy(state, ruleset, meId))
         {
-            return null;
+            return Array.Empty<string>();
         }
 
         var me = state.NationById(meId);
         if (me is null)
         {
-            return null;
+            return Array.Empty<string>();
         }
 
         var rule = ruleset.Diplomacy.AiOwnDiplomacy;
         var warCode = ruleset.Diplomacy.StateCodes.War;
         var myPower = Power(me, ruleset);
 
-        string? best = null;
+        var leaders = new List<string>();
         long bestRatio = rule.WarTargetRatioBase;
 
         foreach (var candidate in state.Nations)
@@ -225,11 +236,11 @@ public static class AiOwnDiplomacyRule
             if (ratio > bestRatio)
             {
                 bestRatio = ratio;
-                best = candidate.Id;
+                leaders.Add(candidate.Id);
             }
         }
 
-        return best;
+        return leaders;
     }
 
     /// <summary>
@@ -308,10 +319,8 @@ public static class AiOwnDiplomacyRule
     }
 
     /// <summary>
-    /// Every nation currently eligible to trade directly with <paramref name="meId"/> (report §1a's own
-    /// two trade sweeps, which this collapses into one deterministic scan since nothing here
-    /// distinguishes "was a war-target candidate this pass" the way the original's loop order does — see
-    /// this type's own remarks): at peace with <paramref name="meId"/>, alive, AI-controlled, and both
+    /// Every nation currently eligible to trade directly with <paramref name="meId"/>: at peace,
+    /// alive, AI-controlled, and both
     /// sides under <see cref="DiplomacyRules.MaxTradePartners"/>, in <see cref="GameState.Nations"/>'
     /// own order. <see cref="TradeCount"/> for <paramref name="meId"/> is read once; a caller offering
     /// more than one of these as separate candidates in the same proposal pass should re-check the cap
@@ -354,6 +363,21 @@ public static class AiOwnDiplomacyRule
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// T274 / research 264098b §1a: FUN_0044FB7C's first trade sweep excludes every running war
+    /// leader via its if/else-if, even if the war roll will miss. Its later sweep may trade with
+    /// those nations if capacity remains. Preserve table order within each sweep; callers requery
+    /// live eligibility after dispatch. No roll, state mutation or permanently excluded target.
+    /// </summary>
+    public static IReadOnlyList<string> OriginalTradePartners(GameState state, Ruleset ruleset, World world, string meId,
+        IReadOnlySet<string>? firstSweepWarLeaders = null)
+    {
+        var eligible = EligibleTradePartners(state, ruleset, meId);
+        if (eligible.Count == 0) return eligible;
+        var leaders = firstSweepWarLeaders ?? WarTargetLeaders(state, ruleset, world, meId).ToHashSet(StringComparer.Ordinal);
+        return eligible.Where(id => !leaders.Contains(id)).Concat(eligible.Where(leaders.Contains)).ToArray();
     }
 
     /// <summary>
