@@ -16,6 +16,21 @@ namespace IC2.Engine.Tests.Ui;
 public sealed class NewGameSelectionTests
 {
     [Fact]
+    public void Explicit_observer_choice_ignores_human_ticks_without_changing_the_ruleset()
+    {
+        var selection = new NewGameSelection { HumanNationId = "rome", ObserverMode = true };
+        var session = GameSessionFactory.CreateSession(Repository, selection);
+        Assert.True(session.IsObserverMode);
+        Assert.All(session.State.Nations, n => Assert.Equal(SeatControl.Ai, n.Control));
+        Assert.Equal(0, session.State.Calendar.TurnIndex);
+        Assert.Equal("classical-faithful", session.Ruleset.Id);
+        selection.HumanNationIds.Clear();
+        Assert.True(GameSessionFactory.CreateSession(Repository, selection).IsObserverMode);
+        selection.ObserverMode = false;
+        Assert.Throws<ArgumentException>(() => GameSessionFactory.CreateSession(Repository, selection));
+    }
+
+    [Fact]
     public void Leader_preview_matches_the_campaign_draw_without_advancing_a_turn()
     {
         var resolved = Repository.Resolve("classical-mediterranean");

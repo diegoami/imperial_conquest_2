@@ -20,6 +20,8 @@ public sealed record SeatOption(string NationId, string DisplayName);
 /// </summary>
 public sealed class NewGameSelection
 {
+    /// <summary>T278: an explicit opt-in, distinct from clearing every Human checkbox.</summary>
+    public bool ObserverMode { get; set; }
     /// <summary><c>docs/tasks/T24.md</c> Scope: "Classical Faithful is the default highlight."</summary>
     public RulesetPreset RulesetPreset
     {
@@ -127,14 +129,14 @@ public static class GameSessionFactory
     /// </summary>
     public static GameSession CreateSession(GameDataRepository repository, NewGameSelection selection)
     {
-        if (selection.HumanNationIds.Count == 0)
+        if (!selection.ObserverMode && selection.HumanNationIds.Count == 0)
         {
             throw new ArgumentException("New Game needs at least one human nation.", nameof(selection));
         }
 
         var resolved = ResolveSelectedScenario(repository, selection);
         var scenario = resolved.Scenario;
-        var humans = selection.HumanNationIds;
+        IReadOnlyList<string> humans = selection.ObserverMode ? Array.Empty<string>() : selection.HumanNationIds;
 
         // #719: every seat a person ticked is human, every other one AI (with the chosen personality, if any).
         scenario = scenario with
@@ -160,6 +162,8 @@ public static class GameSessionFactory
                 pair => pair.Value.Trim()[..Math.Min(pair.Value.Trim().Length, NewGameSelection.MaxLeaderNameLength)],
                 StringComparer.Ordinal))
         {
+            // All-AI battles resolve automatically through their existing path. Keep the
+            // human preference ready for an observer who later takes control.
             HumanBattles = HumanBattleMode.Tactical,
         };
     }

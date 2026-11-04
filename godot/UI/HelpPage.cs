@@ -76,12 +76,17 @@ public partial class HelpPage : Control
 
         AddSection(column, "Menus");
         AddLine(column, "File: start a new game, open or save one, or leave this game.");
-        AddLine(column, "Game: end the current turn, or open Settings.");
+        AddLine(column, "Game: end the current turn, open Settings, or observe the campaign.");
         AddLine(column, "Strategy: news, international relations, taxation, the balance sheet, unit recruitment and fleet building.");
         AddLine(column, "Nations: choose a nation to view its status, or view all nations.");
         AddLine(column, "Area map: show cities, capitals, armies, fleets or mercenaries on the overview, or find a city.");
         AddLine(column, "Unit map: give army, fleet or city orders, or cancel the selection.");
         AddLine(column, "Help: this page, the tooltip hints, and the about box.");
+
+        AddSection(column, "Observer mode (experimental)");
+        AddLine(column, "Choose Observer in New Game, or Game > Observe campaign in a strategic game. All nations are computer controlled; observation starts paused.");
+        AddLine(column, "Play continues automatically. Pause stops between nation turns; Next round stops at the next campaign date. Latest battles opens reports when you choose.");
+        AddLine(column, "While paused, choose a surviving nation and Take control to join its next turn. Nations ahead of it play normally first. Saved observer campaigns reopen paused.");
 
         AddSection(column, "Where the rules come from");
         AddLine(column, "The 'classical-faithful' ruleset is built from the original game's own data and the project's research reports.");

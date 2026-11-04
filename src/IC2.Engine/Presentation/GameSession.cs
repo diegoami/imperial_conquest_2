@@ -1705,6 +1705,15 @@ public sealed partial class GameSession
             case "end":
                 lines.AddRange(HandleEnd());
                 break;
+            case "observe":
+                lines.AddRange(HandleObserve());
+                break;
+            case "observer-step":
+                lines.AddRange(HandleObserverStep());
+                break;
+            case "take-control":
+                lines.AddRange(HandleTakeControl(tokens));
+                break;
             case "save":
                 lines.AddRange(HandleSave(trimmed));
                 break;

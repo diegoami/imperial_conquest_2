@@ -35,6 +35,7 @@ public sealed class GameCommandTableTests
         // Game (§1.2), minus New player / New nation / Abdicate
         ("Game", null, "End turn"),
         ("Game", null, "Settings"),
+        ("Game", null, "Observe campaign (experimental)"), // T278 owner-designed observer entry.
         // Strategy (§1.3)
         ("Strategy", null, "News"),
         ("Strategy", null, "International relations"),
