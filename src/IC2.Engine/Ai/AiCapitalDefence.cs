@@ -76,6 +76,10 @@ public static class AiCapitalDefence
         var dispatches = 0;
         var issued = 0;
         var rejected = 0;
+        // EFC8 has no pending-battle exit. The retained tactical gate stages further
+        // human attacks, so later responders can still walk against the live threat.
+        var continuePending = ClassicalArmyNavigation.Applies(view)
+            && commands is IAiBattleInterruption { RetainPartialAiPass: true };
         foreach (var armyId in responders)
         {
             if (dispatches >= threats.Count + 2) break;
@@ -107,7 +111,7 @@ public static class AiCapitalDefence
             }
             if (!AiSubstantiveState.AreEquivalent(state, result.State)) issued++;
             state = result.State;
-            if (commands is IAiBattleInterruption { ArmyPhaseInterrupted: true })
+            if (!continuePending && commands is IAiBattleInterruption { ArmyPhaseInterrupted: true })
             {
                 if (command is AttackArmyCommand pending)
                     log.Add(Inv("capital defence attack: {0} against {1}", pending.AttackerArmyId, pending.TargetArmyId));
@@ -134,7 +138,7 @@ public static class AiCapitalDefence
             if (!AiSubstantiveState.AreEquivalent(state, fought.State)) issued++;
             state = fought.State;
             log.Add(Inv("capital defence attack: {0} against {1}", armyId, threat.Id));
-            if (commands is IAiBattleInterruption { ArmyPhaseInterrupted: true }) break;
+            if (!continuePending && commands is IAiBattleInterruption { ArmyPhaseInterrupted: true }) break;
         }
         return new(state, dispatches, issued, rejected);
     }

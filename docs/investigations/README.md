@@ -24,3 +24,5 @@ A new investigation gets a row here when it lands: in the doc claims applied aft
 See the [released v0.9.2 AI follow-ups](original-ai-control-and-support.md#released-v092-recheck-and-november-4-follow-ups) for live-map launch, bounded failed-search/garrison suppression, embarked mercenary-offer targeting and the per-turn seed correction to port comparisons. These are Wine/code findings with explicit attribution limits.
 
 See the [released v0.9.3 recheck](original-ai-control-and-support.md#released-v093-recheck-cross-class-search-boundary) for measured launch/build-city/embarked-offer improvements, the cross-class no-fleet failed-search gap (#1758), and the corrected Seleucid replay omission. Adjacent embark is code-only; native Windows and global-RNG parity remain unproved.
+
+[T277 correction boundaries](original-ai-control-and-support.md#t277-correction-boundaries) cover initial cross-class failed-search signalling and continued capital defence during pending tactical battles, with instant resolution preserved. Comprehensive ALL-AI coverage remains the separate research audit #195.

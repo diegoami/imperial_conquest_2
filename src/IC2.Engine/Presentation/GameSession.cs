@@ -2340,7 +2340,12 @@ public sealed partial class GameSession
 
             if (RetainPartialAiPass)
             {
-                if (PendingBattle is not null) throw new InvalidOperationException("An AI pass already has a pending field battle.");
+                // Capital defence continues while its first human battle is pending.
+                // Keep that battle and its participants intact. A later human attack
+                // is re-evaluated by the existing fresh same-seat pass after completion,
+                // rather than opened or instant-resolved on top of the first one.
+                if (PendingBattle is not null)
+                    return CommandResult.Accepted(state, command.Kind, ValueList<DomainEvent>.Empty);
                 AtAttack = state;
                 PendingAttack = attack;
                 PendingBattle = TacticalBattleSession.Open(state, attack.AttackerArmyId, attack.TargetArmyId,

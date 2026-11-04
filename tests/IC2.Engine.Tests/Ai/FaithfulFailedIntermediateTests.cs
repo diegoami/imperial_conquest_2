@@ -147,6 +147,40 @@ public sealed class FaithfulFailedIntermediateTests
         }
     }
 
+    [Fact]
+    public void Cross_class_offer_without_a_ferry_suppresses_the_real_immediate_garrison_walk()
+    {
+        var f = Fixture();
+        var actor = f.State.Armies[0] with { X = 193, Y = 96 };
+        var state = f.State with { Armies = ValueList.Of(actor),
+            Cities = ValueList.From(f.State.Cities.Select(c => c.Id switch {
+                "home" => c with { X = 193, Y = 97 },
+                "offer" => c with { X = 192, Y = 77 }, _ => c })),
+            MercenaryPool = ValueList.Of(new MercenaryPoolSlot(0, 192, 77, 1, "light_infantry", 1000, 6)) };
+        var cells = Enumerable.Repeat(2, 320 * 140).ToArray();
+        cells[78 * 320 + 192] = 0;
+        var world = f.World with { Terrain = new(TerrainEncoding.RunLength,
+            ValueList.From(cells.Select(c => new TerrainRun(c, 1)))) };
+        var view = new AiView(state, f.Rules, world, "north");
+        Assert.NotEqual(ClassicalArmyNavigation.Classify(193, 96), ClassicalArmyNavigation.Classify(192, 77));
+        Assert.False(ClassicalArmyNavigation.DirectLine(view, new(193, 96), new(192, 77)));
+        Assert.Equal("offer", AiArmyTargetTree.MercenaryRunDestination(view, actor)!.Id);
+        var sink = new RecordingEventSink();
+        var trace = new Trace(new CommandDispatcher(SystemRegistry.FromEngineAssembly(), f.Rules, world, sink));
+        var result = AiTurn.Run(state, f.Rules, world, trace, SplitMix64Rng.ForStream(1, "cross-class"), sink);
+        Assert.Equal(2, trace.Moves.Count);
+        Assert.Equal((192, 77), (trace.Moves[0].TargetX, trace.Moves[0].TargetY));
+        Assert.Equal((193, 97), (trace.Moves[1].TargetX, trace.Moves[1].TargetY));
+        Assert.True(trace.Moves[1].InheritFailedIntermediate);
+        Assert.Single(sink.Events.OfType<OriginalArmyIntermediateSearchFailed>());
+        var after = result.State.ArmyById(actor.Id)!;
+        Assert.Equal((193, 96, 10), (after.X, after.Y, after.Moves));
+        Assert.Equal(0, result.CommandsRejected);
+        var fresh = trace.Dispatch(result.State, trace.Moves[1] with { InheritFailedIntermediate = false });
+        Assert.True(fresh.IsAccepted);
+        Assert.True(fresh.State.ArmyById(actor.Id)!.Moves < 10);
+    }
+
     private sealed class Trace(ICommandDispatch inner) : ICommandDispatch
     {
         public List<MoveArmyCommand> Moves { get; } = [];

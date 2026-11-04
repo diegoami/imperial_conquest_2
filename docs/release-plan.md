@@ -441,6 +441,19 @@ Outside scope: capital-defence staging #1741, human #600 acceptance, appearance 
 
 The [post-release v0.9.3 evidence](investigations/original-ai-control-and-support.md#released-v093-recheck-cross-class-search-boundary), research `5b0fc90`, supports the measured C1/C3/C4 outcomes but identifies missing cross-class failed-search signalling within C2 ([#1758](https://github.com/diegoami/imperial_conquest_2/issues/1758)): both measured cases have no qualifying fleet; adjacent embark is code-only. This later evidence does not rewrite the release claims or historical review verdict, establish native Windows acceptance, or allocate a follow-up release.
 
+### 2.17 v0.9.4: Faithful transport and capital defence
+
+Owner scope, 2026-11-04: [milestone 24](https://github.com/diegoami/imperial_conquest_2/milestone/24), [T277](tasks/T277.md)/#1760. Promise: correct cross-class failed-search signalling and continue the capital-defence pass while a human tactical battle remains pending.
+
+| Claim | Expected behavior and proof entry points |
+| --- | --- |
+| C1 — Cross-class search | Classical Faithful initial no-qualifying-fleet and adjacent-embark outcomes publish the transient DB38 failure signal. Preserve embark links/costs, successful distant routing, recursive-frame boundaries, and immediate same-army direct garrison inheritance without leakage. Proof: FaithfulFailedIntermediateTests and OriginalArmyTransportTests; both no-fleet AI dispatch and adjacent embark regressions fail before the correction. No unmeasured nonadjacent failure rule is added. |
+| C2 — Pending capital defence | Later responders still select live threats and move before the first pending tactical battle is presented. Further human attacks cannot replace or resolve over that battle; the existing fresh same-seat pass re-evaluates them after completion. Keep retained movement/fleet work, no support or seat/calendar advance before battle completion, and safe sequential battles. Proof: CapitalDefenceTacticalGateTests through real GameSession, existing AI-phase battle and retained-fleet regressions. Instant battles retain current resolved-result behavior by owner decision. |
+| C3 — Compatibility and controls | Save models/envelopes, campaign data, shipped presets and goldens remain unchanged. Existing instant/AI-threat death, Improved/custom, command/CLI, tactical Undo and save guards pass; exact-head engine/data/Godot CI passes with skips disclosed. |
+| C4 — Delivery | A self-contained Windows review ZIP and installer identify the exact candidate. Verify checksums, copied-layout headless execution with SDK roots unset, and missing-terrain refusal with exact restoration. Disclose existing warnings and any untested installer lifecycle/native-original acceptance. Independent owner-started milestone review precedes tagging. |
+
+Outside scope: comprehensive ALL-AI audit [research #195](https://github.com/diegoami/imperial-conquest-2-research/issues/195), observer mode #1757, human Build fleet #600, original look #1740, stronger Improved general v0.10, new scenarios, speculative stack/global-RNG behavior and native-original Windows/whole-campaign parity. Original runtime evidence for these corrections is Wine-only; adjacent embark failure signalling is code-confirmed only.
+
 ## 3. Tag and GitHub Release conventions
 
 ### 3.1 Naming and placement — **DECIDED**
