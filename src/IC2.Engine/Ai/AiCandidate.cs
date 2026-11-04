@@ -66,6 +66,7 @@ public sealed record AiCandidate(
     // the proposal/dispatch, never a saved travel order or a second greedy proposal.
     internal GridPoint? OriginalMercenaryContinuation { get; init; }
     internal OriginalWalkEndCheck OriginalMercenaryContinuationEndCheck { get; init; }
+    internal bool OriginalMercenaryRun { get; init; }
 
     /// <summary>The label a march candidate carries, and the one <see cref="AiTurn"/> rations per army.</summary>
     public const string ApproachKind = "approach";

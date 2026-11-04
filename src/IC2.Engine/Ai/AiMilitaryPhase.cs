@@ -360,6 +360,8 @@ public static class AiMilitaryPhase
             {
                 AiArmyTargetTree.Kind.AttackCity when decision.TargetCity is { } c => new GridPoint(c.X, c.Y),
                 AiArmyTargetTree.Kind.AttackArmy when decision.TargetArmy is { } a => new GridPoint(a.X, a.Y),
+                AiArmyTargetTree.Kind.MercenaryRun when AiArmyTargetTree.MercenaryRunDestination(view, army) is { } offer
+                    => new GridPoint(offer.X, offer.Y),
                 AiArmyTargetTree.Kind.MercenaryRun when decision.After == AiArmyTargetTree.Continuation.MarchAtCityTarget
                     && decision.TargetCity is { } c => new GridPoint(c.X, c.Y),
                 _ when decision.Resupply?.City is { } c => new GridPoint(c.X, c.Y),
@@ -426,7 +428,7 @@ public static class AiMilitaryPhase
                             AiArmyTargetTree.Continuation.ChaseArmy when decision.TargetArmy is { } a => new(a.X, a.Y),
                             _ => null,
                         };
-                        into[^1] = into[^1] with { OriginalMercenaryContinuation = continuation,
+                        into[^1] = into[^1] with { OriginalMercenaryRun = true, OriginalMercenaryContinuation = continuation,
                             OriginalMercenaryContinuationEndCheck = decision.After == AiArmyTargetTree.Continuation.MarchAtCityTarget
                                 ? OriginalWalkEndCheck.City : OriginalWalkEndCheck.None };
                     }

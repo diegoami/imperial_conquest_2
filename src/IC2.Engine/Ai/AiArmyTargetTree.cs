@@ -999,8 +999,10 @@ public static class AiArmyTargetTree
             {
                 if (!ClassicalArmyNavigation.DirectLine(view, origin, target))
                 {
-                    if (ClassicalArmyNavigation.Intermediate(view, origin, target).Point is not { } point) return null;
-                    aim = point;
+                    // A failed DB38 is an executed no-op, not an absent E84C command: its immediate
+                    // same-army garrison walk can inherit suppression (#1749). The handler validates
+                    // the failed search and reports that transient result to the AI dispatcher.
+                    if (ClassicalArmyNavigation.Intermediate(view, origin, target).Point is { } point) aim = point;
                 }
             }
             catch (NotSupportedException) { return null; } // Keep undefined original graph/stack contexts bounded.

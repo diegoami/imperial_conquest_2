@@ -425,6 +425,20 @@ Owner scope, 2026-11-03: [milestone 22](https://github.com/diegoami/imperial_con
 
 The v0.9.1 review's C4 remains historically PARTLY MET; later regression coverage does not rewrite its verdict. Original behavior for #1732 is code-confirmed; the cited long-run sample did not observe that defect. No new original-game experiment is required by either issue.
 
+### 2.16 v0.9.3: Faithful AI execution follow-ups
+
+Owner scope, 2026-11-04: [milestone 23](https://github.com/diegoami/imperial_conquest_2/milestone/23), [T276](tasks/T276.md)/#1752. Promise: correct the measured live-map launch, failed-intermediate walk, embarked-offer target and Classical Faithful AI build-city discrepancies identified after v0.9.2. Labels own completion; the previous release's historical verdict is unchanged.
+
+| Claim | Expected behavior and proof entry points |
+| --- | --- |
+| C1 — Live launch map | Classical Faithful completion skips city, army and launched-fleet markers, including earlier completions in the same table pass. Expanding-ring order, east exclusion, safe retry and non-classical placement remain covered through real FleetTickSystem execution. #1748, FaithfulFleetLaunchTests. |
+| C2 — Bounded walk suppression | A failed intermediate search performs no swing/recursion. Only the immediate same-army E84C-to-EBE8 direct-path garrison walk inherits suppression; fresh commands, other armies/seats and intermediate-path garrisons do not inherit it. Real AI dispatch discriminates failure from normal continuation, without saved/global stack state. #1749, FaithfulFailedIntermediateTests. |
+| C3 — Embarked offer | An embarked Classical Faithful MercenaryRun chooses its live offer destination before the existing no-offer continuation/home fallbacks; real transport dispatch sees the chosen target. Preserve hiring, general fleet routes and other decisions/policies. #1750, OriginalMercenaryContinuationTests. |
+| C4 — AI build selector | Classical Faithful AI excludes eastern ports and retains city-table ties, with live port and any-nation construction checks. Human/custom/Improved selection retains its prior behavior; #600's human case remains open. FaithfulFleetBuildSelectorTests and FleetBuildCityTests. |
+| C5 — Compatibility and boundary | Save models/envelopes, shipped data and presets remain unchanged. Relevant regression suites and exact-head engine/data/Godot CI pass; report skips and causally attribute any golden changes. Each correction has a failing-before/passing-after regression. Independent owner-started milestone review precedes any tag. |
+
+Outside scope: capital-defence staging #1741, human #600 acceptance, appearance #1740, hygiene #1747, stronger general v0.10, unmeasured stack behavior, new scenarios and native-original Windows/global RNG/whole-campaign parity. Research evidence is promoted Wine/code evidence; no new original experiment is required to implement these bounded corrections.
+
 ## 3. Tag and GitHub Release conventions
 
 ### 3.1 Naming and placement — **DECIDED**

@@ -75,39 +75,22 @@ public static class CoastalCity
     /// <summary>
     /// A050's launch destination. Classical Faithful uses FUN_0044939c mode 0: the last sea cell
     /// in x-outer/y-inner order in the first successful square radius, including radius zero.
-    /// Research bc8d720, Ptolemaic positions §4: the excluded region is geographic, not occupancy.
+    /// Research b288cac: codes are live map codes; occupancy and eastern exclusion both apply.
     /// Other worlds/policies retain their adjacent row-major-first placement. No other caller of
     /// the original helper (landing, routing or splitting) is changed by this launch-only query.
     /// </summary>
-    public static GridPoint? LaunchTile(CityState city, World world, Ruleset ruleset)
+    public static GridPoint? LaunchTile(GameState state, CityState city, World world, Ruleset ruleset)
     {
+        ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(city);
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(ruleset);
         if (!Ai.ClassicalArmyNavigation.Applies(world, ruleset))
             return FirstAdjacentSeaTile(city, world);
 
-        var cells = world.Terrain.Decode(world.Width, world.Height);
-        var maxRadius = Math.Max(Math.Max(city.X, world.Width - 1 - city.X),
-            Math.Max(city.Y, world.Height - 1 - city.Y));
-        for (var radius = 0; radius <= maxRadius; radius++)
-        {
-            GridPoint? last = null;
-            var minX = Math.Max(0, city.X - radius);
-            var maxX = Math.Min(world.Width - 1, city.X + radius);
-            var minY = Math.Max(0, city.Y - radius);
-            var maxY = Math.Min(world.Height - 1, city.Y + radius);
-            for (var x = minX; x <= maxX; x++)
-            {
-                for (var y = minY; y <= maxY; y++)
-                {
-                    if (x >= 248 || (x >= 214 && y >= 99)) continue;
-                    if (cells[y * world.Width + x] is 0 or 1) last = new GridPoint(x, y);
-                }
-            }
-            if (last is not null) return last;
-        }
-        return null;
+        // The original mode-0 helper reads the live map, including unit/city markers.
+        return Ai.ClassicalFleetNavigation.ReplaceLandTarget(new Ai.AiView(state, ruleset, world, city.Owner),
+            new GridPoint(city.X, city.Y));
     }
 
     /// <summary>
@@ -168,13 +151,13 @@ public static class CoastalCity
     /// free. The original chooses the city itself, and the manual's Rome sequence is Caere, Antium,
     /// Tarquinii, Pisae, Neapolis, Ariminum, the sea-touching cities nearest first
     /// (<c>2026-10-09-fleet-build-city-nearest-capital.md</c>, research <c>c36b255</c>; T241, #918).
-    /// The Build fleet dialog and the AI's <c>AiFaithfulEconomy.ChoosePort</c> (<c>FUN_004496e0</c>) both
-    /// use it.
+    /// The Build fleet dialog and non-classical AI use it. Classical Faithful AI's
+    /// <c>AiFaithfulEconomy.ChoosePort</c> separately applies the measured live-port/eastern-zone query.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <strong>Ties</strong> go to the lower city id, ordinal: [designed], the AI's existing rule. The
-    /// original's tie-break is not established.
+    /// <strong>Ties</strong> go to the lower city id, ordinal: [designed], the legacy selector's rule.
+    /// The original AI's table ties are separately implemented; the human caller is not broadened.
     /// </para>
     /// <para>
     /// <strong>No capital</strong> (no <see cref="NationState.CapitalCityId"/>, or one not in the state):

@@ -300,6 +300,7 @@ public static partial class AiTurn
             var subjectId = chosen.SubjectId;
             var beforeArmy = subjectId is { } sid ? state.ArmyById(sid) : null;
             var execution = Execute(state, ruleset, world, commands, events, chosen, log);
+            var inheritFailedIntermediate = chosen.OriginalMercenaryRun && execution.FailedIntermediateSearch;
             state = execution.State;
             armyOrder?.Dispatched(subjectId);
             if (chosen.Kind == "ai-swap-trade-partner") tradeSwaps?.Dispatched(execution.Rejected > 0);
@@ -327,6 +328,8 @@ public static partial class AiTurn
             if (execution.Rejected == 0 && chosen.OriginalMercenaryContinuation is { } continuation
                 && subjectId is { } continuingArmyId)
             {
+                // F31C's own continuation is a different frame, outside the measured E84C/EBE8 carry.
+                inheritFailedIntermediate = false;
                 var beforeContinuation = state;
                 var followup = RunMercenaryContinuation(state, ruleset, world, nationId, continuingArmyId,
                     continuation, chosen.OriginalMercenaryContinuationEndCheck, commands, events, log);
@@ -359,7 +362,7 @@ public static partial class AiTurn
                     : beforeTile.X == afterTile.X && beforeTile.Y == afterTile.Y))
             {
                 RunGarrisonFallback(view, armyId, ruleset, commands, events, ref state, log,
-                    ref issued, ref rejected, ref mismatches, marched, boxedInLogged);
+                    ref issued, ref rejected, ref mismatches, marched, boxedInLogged, inheritFailedIntermediate);
             }
 
             if (AiSubstantiveState.AreEquivalent(before, state))
@@ -442,7 +445,8 @@ public static partial class AiTurn
         return tied.Count == 1 ? tied[0] : tied[rng.NextInt(tied.Count)];
     }
 
-    private readonly record struct ExecutionResult(GameState State, int Issued, int Rejected, int Mismatches);
+    private readonly record struct ExecutionResult(GameState State, int Issued, int Rejected, int Mismatches,
+        bool FailedIntermediateSearch = false);
 
     private static ExecutionResult RunMercenaryContinuation(GameState state, Ruleset ruleset, World world,
         string nationId, string armyId, GridPoint target, OriginalWalkEndCheck endCheck,
@@ -496,7 +500,8 @@ public static partial class AiTurn
         ref int rejected,
         ref int mismatches,
         List<string> marched,
-        HashSet<string> boxedInLogged)
+        HashSet<string> boxedInLogged,
+        bool inheritFailedIntermediate = false)
     {
         view = new AiView(state, ruleset, view.World, view.NationId);
         var army = state.ArmyById(armyId)!;
@@ -530,7 +535,8 @@ public static partial class AiTurn
         var command = AiArmyTargetTree.MarchCommand(view, army, new(target.X, target.Y));
         if (command is null) return;
         // Research46f1b20: EBE8's walk at 0x44ECD6 is another measured D734 city caller.
-        if (faithful) command = command with { EndCheck = OriginalWalkEndCheck.City };
+        if (faithful) command = command with { EndCheck = OriginalWalkEndCheck.City,
+            InheritFailedIntermediate = inheritFailedIntermediate };
         var candidate = AiCandidate.Single(
             AiPhase.Military,
             AiCandidate.ApproachKind,
@@ -573,6 +579,7 @@ public static partial class AiTurn
         var issued = 0;
         var rejected = 0;
         var mismatches = 0;
+        var failedIntermediateSearch = false;
 
         foreach (var command in candidate.Commands)
         {
@@ -603,6 +610,9 @@ public static partial class AiTurn
                 events.Publish(new OriginalArmyMarchDispatched(march.ArmyId, march.IssuingNationId,
                     before.X, before.Y, march.X, march.Y, march.TargetX ?? march.X, march.TargetY ?? march.Y));
             state = result.State;
+            if (command is MoveArmyCommand walkResult)
+                failedIntermediateSearch = result.Events.OfType<OriginalArmyIntermediateSearchFailed>()
+                    .Any(e => e.ArmyId == walkResult.ArmyId);
             log.Add(Inv("  issued {0}", command.Kind));
             if (command is MoveArmyCommand { Walk: MoveWalkPolicy.AiContinuation, EndCheck: not OriginalWalkEndCheck.None } marchContact
                 && result.Events.OfType<OriginalArmyWalkContactReached>().FirstOrDefault() is { } contact
@@ -622,7 +632,7 @@ public static partial class AiTurn
             }
         }
 
-        return new ExecutionResult(state, issued, rejected, mismatches);
+        return new ExecutionResult(state, issued, rejected, mismatches, failedIntermediateSearch);
     }
 
     /// <summary>
