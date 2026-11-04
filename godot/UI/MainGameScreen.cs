@@ -76,6 +76,7 @@ public partial class MainGameScreen : Control
     {
         StrategicTravel.Advance(delta);
         AdvanceObserver();
+        RefreshStrategicUndoControl();
     }
 
     public override void _Input(InputEvent @event)
@@ -340,6 +341,7 @@ public partial class MainGameScreen : Control
         };
         root.AddChild(Toolbar);
         BuildObserverControls(root);
+        BuildStrategicUndoControl();
 
         // T112: the Unit map's context strip — the selected unit's own group, shown below the main
         // toolbar. It is hidden while nothing (or a foreign unit) is selected.
@@ -574,6 +576,7 @@ public partial class MainGameScreen : Control
         if (Session.OpenTacticalBattle is not null) ShowNextOverlay();
         else RevealLatestNewsIfReady();
         if (StartAtCapital) FocusInitialCapital();
+        InitializeStrategicUndo();
     }
 
     private async void FocusInitialCapital()
@@ -2034,6 +2037,7 @@ public partial class MainGameScreen : Control
     /// </summary>
     private DialogEditResult CommitFromDialog(DialogCommandDraft draft, string? finalCommand)
     {
+        using var action = Session.BeginStrategicUndoAction();
         if (Session.IsObserverMode && (draft.HasChanges || finalCommand is not null)) return new(false,
             new SessionOutput(new[] { "Observer mode: take control of a nation to issue orders." }, false));
         if (!AllowStrategicInput()) return new(false,
@@ -2049,6 +2053,7 @@ public partial class MainGameScreen : Control
 
     private IReadOnlyList<string> SubmitFromDialog(string line)
     {
+        using var action = Session.BeginStrategicUndoAction();
         if (!AllowStrategicInput()) return Array.Empty<string>();
         var lines = AppDiagnostics.Submit(Session, line, "dialog").Lines;
         OnDialogCommandIssued(lines);
@@ -2174,6 +2179,7 @@ public partial class MainGameScreen : Control
 
     private void SubmitConfirmedEndTurn()
     {
+        Session.ClearStrategicUndo();
         var summaries = new[] { RunAutoMobilize(), RunArmyTravelTargets(),
                 RunRetreatSupplyPlans(), RunArmyAutoSupport(), RunFleetAutoSupport() }
             .Where(s => !string.IsNullOrEmpty(s)).ToArray();
@@ -2781,7 +2787,13 @@ public partial class MainGameScreen : Control
     /// </summary>
     public IReadOnlyList<string> SubmitForCheck(string commandLine)
     {
+        if (commandLine.Trim().Equals("undo", StringComparison.OrdinalIgnoreCase))
+        {
+            var undone = PerformStrategicUndo();
+            return new[] { undone ? "Your last strategic action was undone." : "No strategic action can be undone." };
+        }
         if (!AllowStrategicInput()) return Array.Empty<string>();
+        using var action = Session.BeginStrategicUndoAction();
         var lines = AppDiagnostics.Submit(Session, commandLine, "check").Lines;
         OnCommandIssued(lines);
         return lines;
@@ -3112,6 +3124,7 @@ public partial class MainGameScreen : Control
     /// </remarks>
     public override void _UnhandledInput(InputEvent @event)
     {
+        if (HandleStrategicUndoKey(@event)) return;
         if (ActiveOverlay is not null)
         {
             return;
@@ -3157,6 +3170,12 @@ public partial class MainGameScreen : Control
 
     public override void _ExitTree()
     {
+        Session.StrategicCheckpointCaptured -= CaptureStrategicView;
+        Session.StrategicCheckpointDiscarded -= DiscardStrategicView;
+        Session.StrategicCheckpointRestored -= RestoreStrategicView;
+        Session.StrategicUndoCleared -= ClearStrategicViews;
+        ClearStrategicViews();
+        Session.ClearStrategicUndo();
         ObserverPlayback.Pause();
         _closing = true;
         StrategicTravel.Changed -= RefreshTravelDisplay;
@@ -3350,7 +3369,8 @@ public partial class MainGameScreen : Control
     /// </summary>
     private void ShowPeaceOfferOverlay(PendingPeaceOffer offer)
     {
-        var screen = new PeaceOfferScreen { Model = PeaceOfferViewModel.FromOffer(offer) };
+        var screen = new PeaceOfferScreen { Model = PeaceOfferViewModel.FromOffer(offer), CanUndoStrategic = Session.CanUndoStrategic };
+        screen.UndoRequested += () => PerformStrategicUndo();
         screen.Answered += command =>
         {
             CloseOverlay(screen);

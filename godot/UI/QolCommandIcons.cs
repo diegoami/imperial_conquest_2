@@ -43,6 +43,7 @@ public static class QolCommandIcons
         // supplies and a return arrow; rally variants share a standard and base.
         var artwork = name switch
         {
+            "undo" => "<path d='M12 5L4 12L12 19M5 12H20C31 12 31 28 19 28H13'/>",
             "split" => "<circle cx='16' cy='4' r='2'/><path d='M16 6V10H7V13M16 10H25V13M4 11L7 14L10 11M22 11L25 14L28 11'/><path d='M2 17H12V23Q12 27 7 30Q2 27 2 23ZM20 17H30V23Q30 27 25 30Q20 27 20 23Z' fill='white' fill-opacity='.16'/>",
             "travel" => "<circle cx='5' cy='27' r='2'/><path d='M7 27H12V17H23V5M18 10L23 5L28 10'/>",
             "recover" => "<path d='M3 16C3 8 9 4 17 4M13 1L17 4L13 7M10 16L20 8L30 16M13 15V28H27V15'/><path d='M18 21H25V28H18ZM21.5 21V28M18 23H25' fill='white' fill-opacity='.16'/>",

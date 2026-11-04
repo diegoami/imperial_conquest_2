@@ -15,6 +15,7 @@ public sealed partial class GameSession
         if (_pendingPeaceTreatyOffers.Count > 0 || State.PendingOffer is not null)
             return ["Resolve pending offers before entering observer mode."];
         if (IsObserverMode) return ["Observer mode is already active."];
+        ClearStrategicUndo();
         State = State with { Nations = ValueList.From(State.Nations.Select(n => n with { Control = SeatControl.Ai })) };
         _humanSeatNationId = null;
         _isWatchMode = true;
@@ -41,6 +42,7 @@ public sealed partial class GameSession
         if (tokens.Length != 2 || State.NationById(tokens[1]) is not { Eliminated: false } nation
             || nation.Id == Scenario.Barbarians?.NationId)
             return ["Choose a surviving playable nation to control."];
+        ClearStrategicUndo();
         State = State with { Nations = ValueList.From(State.Nations.Select(n => n with {
             Control = n.Id == nation.Id ? SeatControl.Human : SeatControl.Ai })) };
         _humanSeatNationId = nation.Id;

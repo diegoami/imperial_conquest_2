@@ -173,4 +173,47 @@ public sealed class StrategicUndoTests
         session.StrategicUndo();
         Assert.Equal(0, session.StrategicUndoCount);
     }
+
+    [Fact]
+    public void Undoing_support_restores_resources_but_keeps_the_runtime_global_preference()
+    {
+        var session = Session();
+        var before = session.State;
+        session.ConfigureHumanSupport(new IC2.Engine.Economy.HumanSupportOptions { SupplyArmies = true });
+        Assert.NotEqual(before, session.State);
+        Assert.True(session.CanUndoStrategic);
+        session.StrategicUndo();
+        Assert.Equal(before, session.State);
+        Assert.True(session.HumanSupport!.SupplyArmies);
+    }
+
+    [Fact]
+    public void Undo_restores_a_peace_offer_answer_then_the_whole_initiating_battle()
+    {
+        var f = IC2.Engine.Tests.Core.CoreTestbed.Toy;
+        var reserve = new StartingArmy("south-reserve", "south", 0, 5, 1, 0, 0, 5,
+            ValueList.Of(new UnitSlot(0, "heavy_infantry", 480000, 5, "Reserve")));
+        var world = f.World with { StartingArmies = ValueList.From(f.World.StartingArmies.Select(a => a.Id switch {
+            "north-army-1" => a with { Units = ValueList.Of(new UnitSlot(0, "heavy_infantry", 6000, 6, "Guards")) },
+            "south-army-1" => a with { X = 4, Y = 2, Units = ValueList.Of(new UnitSlot(0, "light_infantry", 15000, 6, "Foot")) },
+            _ => a }).Append(reserve)) };
+        var rules = f.Ruleset with { Combat = f.Ruleset.Combat with {
+            AutoPeaceChanceNumerator = f.Ruleset.Combat.AutoPeaceChanceDenominator,
+            AutoPeaceLoserUnityThreshold = -1, AutoPeaceLoserCityThreshold = 0 } };
+        var session = new GameSession(world, rules, f.Scenario);
+        session.Submit("declare-war south");
+        session.StrategicUndoEnabled = true;
+        var before = session.State;
+        session.Submit("attack-army north-army-1 south-army-1");
+        Assert.True(session.HasPendingPeaceOffers);
+        var afterBattle = session.State;
+        session.Submit("peace-no");
+        Assert.False(session.HasPendingPeaceOffers);
+        session.StrategicUndo();
+        Assert.True(session.HasPendingPeaceOffers);
+        Assert.Equal(afterBattle, session.State);
+        session.StrategicUndo();
+        Assert.False(session.HasPendingPeaceOffers);
+        Assert.Equal(before, session.State);
+    }
 }

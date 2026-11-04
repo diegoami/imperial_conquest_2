@@ -20,6 +20,8 @@ public partial class PeaceOfferScreen : Control
 
     /// <summary>Raised with the answer's command line (<c>peace-yes</c> or <c>peace-no</c>).</summary>
     public event Action<string>? Answered;
+    public bool CanUndoStrategic { get; init; }
+    public event Action? UndoRequested;
 
     /// <summary>Exposed for <c>godot/Checks/PeaceOfferCheck.cs</c> to assert the rendered text.</summary>
     public Label TitleLabel { get; private set; } = null!;
@@ -57,5 +59,7 @@ public partial class PeaceOfferScreen : Control
             _buttons.Add(button);
             content.AddChild(button);
         }
+        if (CanUndoStrategic)
+            content.AddChild(UiKit.MakeButton("Undo strategic action (Ctrl+Z)", () => UndoRequested?.Invoke()));
     }
 }

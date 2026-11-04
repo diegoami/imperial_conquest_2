@@ -114,6 +114,11 @@ public partial class GameMenuBar : HBoxContainer
         return true;
     }
 
+    public void SetCommandEnabled(string commandId, bool enabled)
+    {
+        if (_items.TryGetValue(commandId, out var item)) item.Popup.SetItemDisabled(item.Index, !enabled);
+    }
+
     /// <summary>
     /// Turns every item tooltip and every menu-button tooltip on or off, and moves the **Show hints**
     /// check mark with them (T100 Done-when 6; the original toggles all three together, audit §1.7).

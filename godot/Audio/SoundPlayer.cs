@@ -119,6 +119,17 @@ public sealed partial class SoundPlayer : Node
         }
     }
 
+    /// <summary>Undo invalidates queued sounds as well as visible movement, without changing audio preferences.</summary>
+    public void ResetAfterUndo()
+    {
+        _stepQueue.Clear();
+        if (_stepTimer is not null && GodotObject.IsInstanceValid(_stepTimer)) _stepTimer.Timeout -= StepTick;
+        _stepTimer = null;
+        ClearTactical("strategic-undo");
+        foreach (var player in _players.Values) player.Stop();
+        _currentlyPlaying.Clear();
+    }
+
     /// <summary>Every displayed exchange queues, including identical adjacent keys. Never restarts a clip.</summary>
     public void PlayTactical(string key) => PlayTactical(new TacticalAudioCue("check", _tacticalSequence + 1, key));
 

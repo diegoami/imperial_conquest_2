@@ -61,6 +61,12 @@ public partial class ContextPanel : Control
     public int TextZoomStepForCheck => _textZoomStep;
     public ScrollContainer ScrollForCheck => _scroll;
     private Selection _selection = Selection.None();
+    internal object CaptureUndoView() => _selection;
+    internal void RestoreUndoView(object checkpoint)
+    {
+        if (checkpoint is Selection selection) _selection = selection;
+        Refresh();
+    }
     private string? _viewedNationId;
     private bool _viewedNationSet;
 

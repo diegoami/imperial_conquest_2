@@ -255,6 +255,19 @@ public partial class GameMapView : Control
     // #1010: the original frames an inspected foreign marker too (promoted selection1010 report).
     // Inspection is presentation, not command selection; never feed it into MapClickRules.
     private (MapEntityKind Kind, string Id)? _inspectionFocus;
+    private sealed record UndoSelection(string? City, string? Army, string? Fleet,
+        (MapEntityKind Kind, string Id)? Inspection);
+    internal object CaptureUndoSelection() => new UndoSelection(_selectedCityId, _selectedArmyId, _selectedFleetId, _inspectionFocus);
+    internal void RestoreUndoSelection(object checkpoint)
+    {
+        if (checkpoint is not UndoSelection selection) return;
+        _selectedCityId = selection.City; _selectedArmyId = selection.Army; _selectedFleetId = selection.Fleet;
+        _inspectionFocus = selection.Inspection;
+        _clearSelectionOnArrival = false;
+        _pendingMove = null; _pendingConfirmedAttack = null;
+        CancelTravelTargetPick();
+        QueueRedraw();
+    }
 
     private MapClickOutcome? _pendingConfirmedAttack;
     private bool _fittedOnce;
@@ -1394,6 +1407,7 @@ public partial class GameMapView : Control
             return;
         }
 
+        using var action = _session.BeginStrategicUndoAction();
         var lines = AppDiagnostics.Submit(_session, orderLine, "map").Lines;
         CommandIssued?.Invoke(lines);
         QueueRedraw();

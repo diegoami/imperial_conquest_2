@@ -46,6 +46,14 @@ namespace IC2.Slice.Screens;
 /// </remarks>
 public sealed class BattleReportRouter
 {
+    public sealed record Checkpoint(IReadOnlyDictionary<string, IReadOnlyList<BattleResult>> Held);
+    public Checkpoint Capture() => new(_held.ToDictionary(p => p.Key,
+        p => (IReadOnlyList<BattleResult>)p.Value.ToArray(), StringComparer.Ordinal));
+    public void Restore(Checkpoint checkpoint)
+    {
+        _held.Clear();
+        foreach (var pair in checkpoint.Held) _held.Add(pair.Key, pair.Value.ToList());
+    }
     /// <summary>
     /// The battles held for each seat, in the order fought, awaiting that seat's own turn start. Never a
     /// seat that is not currently human: <see cref="Route"/> drops a departed seat's list before it can
