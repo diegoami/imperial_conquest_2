@@ -57,7 +57,11 @@ public partial class DialogEscCheck : Control
     {
         Size = GetViewport().GetVisibleRect().Size;
         var data = GameDataContext.Repository.Resolve("classical-mediterranean");
-        var session = new GameSession(data.World, data.Ruleset, data.Scenario);
+        // T278 makes all-AI campaigns explicit read-only observers. Exercise the
+        // original player-order dialogs as a human, keeping every Escape assertion.
+        var session = new GameSession(data.World, data.Ruleset, data.Scenario,
+            seedOverride: 1, humanSeatNationId: "rome");
+        Check(!session.IsObserverMode, "Escape fixture has a human seat for player-order dialogs");
         _mainGame = new MainGameScreen { Session = session, RepositoryRoot = GameDataContext.RepositoryRoot };
         _mainGame.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(_mainGame);
