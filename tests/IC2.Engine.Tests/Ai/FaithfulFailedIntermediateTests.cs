@@ -118,21 +118,33 @@ public sealed class FaithfulFailedIntermediateTests
     {
         var f = Fixture();
         var cells = Enumerable.Repeat(2, 320 * 140).ToArray();
-        for (var y = 79; y <= 81; y++) cells[y * 320 + 233] = 0;
+        // Put the original group-1 waypoint (221,94) within two moves. The old fixture's
+        // distant waypoint exhausted all ten moves, masking an incorrect inherited break.
+        cells[92 * 320 + 222] = 0;
         var world = f.World with { Terrain = new(TerrainEncoding.RunLength, ValueList.From(cells.Select(c => new TerrainRun(c,1)))) };
         var rules = faithful ? f.Rules : f.Rules with { Flags = f.Rules.Flags with { AiEconomy = AiEconomyModel.Designed } };
-        var view = new AiView(f.State, rules, world, "north");
-        var actor = f.State.Armies[0];
-        var target = new GridPoint(235,80);
+        var actor = f.State.Armies[0] with { X = 219, Y = 92 };
+        var state = f.State with { Armies = ValueList.Of(actor) };
+        var view = new AiView(state, rules, world, "north");
+        var target = new GridPoint(224,92);
         Assert.False(ClassicalArmyNavigation.DirectLine(view, new(actor.X,actor.Y), target));
         Assert.NotNull(ClassicalArmyNavigation.Intermediate(view, new(actor.X,actor.Y), target).Point);
         var command = AiArmyTargetTree.MarchCommand(view, actor, target)!;
         var dispatch = new CommandDispatcher(SystemRegistry.FromEngineAssembly(), rules, world, NullEventSink.Instance);
-        var plain = dispatch.Dispatch(f.State, command);
-        var inherited = dispatch.Dispatch(f.State, command with { InheritFailedIntermediate = true });
+        var plain = dispatch.Dispatch(state, command);
+        var inherited = dispatch.Dispatch(state, command with { InheritFailedIntermediate = true });
         Assert.True(plain.IsAccepted);
         Assert.Equal(plain.State, inherited.State);
-        Assert.NotEqual(f.State.Armies, plain.State.Armies);
+        Assert.NotEqual(state.Armies, plain.State.Armies);
+        Assert.True(plain.State.Armies[0].Moves > 0);
+        if (faithful)
+        {
+            Assert.Equal((221,94), (command.X, command.Y));
+            var firstLeg = dispatch.Dispatch(state, command with { Walk = MoveWalkPolicy.Single });
+            Assert.True(firstLeg.IsAccepted);
+            Assert.Equal((221,94,8), (firstLeg.State.Armies[0].X, firstLeg.State.Armies[0].Y, firstLeg.State.Armies[0].Moves));
+            Assert.Equal((224,92,5), (plain.State.Armies[0].X, plain.State.Armies[0].Y, plain.State.Armies[0].Moves));
+        }
     }
 
     private sealed class Trace(ICommandDispatch inner) : ICommandDispatch
