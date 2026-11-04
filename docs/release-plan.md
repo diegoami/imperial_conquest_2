@@ -454,6 +454,20 @@ Owner scope, 2026-11-04: [milestone 24](https://github.com/diegoami/imperial_con
 
 Outside scope: comprehensive ALL-AI audit [research #195](https://github.com/diegoami/imperial-conquest-2-research/issues/195), observer mode #1757, human Build fleet #600, original look #1740, stronger Improved general v0.10, new scenarios, speculative stack/global-RNG behavior and native-original Windows/whole-campaign parity. Original runtime evidence for these corrections is Wine-only; adjacent embark failure signalling is code-confirmed only.
 
+### 2.18 v0.10.0: observer mode, Undo and map orders
+
+Owner scope, 2026-11-04: [milestone 25](https://github.com/diegoami/imperial_conquest_2/milestone/25), T278–T281 (#1764–#1767), implementing #1757/#1503/#1501/#1502. These are designed usability features, not new claims of original behavior. The stronger Improved computer general belongs to v0.11 (#1362/#1363). Promoted ALL-AI audit findings are triaged separately; the audit itself is not claimed complete by this release.
+
+| Claim | Promise and proof entry points |
+| --- | --- |
+| C1 — Observation | Explicit opt-in New Game and safe loaded-game observer entry use existing all-AI rules, with automatic battle resolution, map/report inspection, pause/resume and one calendar-round stepping. Step between atomic nation turns so pause/leave/modal boundaries do not leave a background loop. Save/load preserves controller state and resumes paused. Prove exact state/RNG equivalence with the existing watch path and real factory/session/Godot controls. Nation takeover awaits the owner's separate decision before its implementation contract changes. T278. |
+| C2 — Strategic Undo | Repeatedly undo the current human strategic turn's state-changing actions, including metadata, RNG and approved combat transitions, with clear button/shortcut/history state and no rerolls. Preserve opponent/hotseat/end-turn boundaries, save compatibility and unrelated display preferences; cancel stale presentation/audio. History lifetime and completed-battle boundary are explicit owner decisions required before implementing T279, not permission to silently shrink its full-turn scope. |
+| C3 — Travel clicks | An ordinary distant destination click moves now, remembers any remainder and draws a selected-army destination circle. Later confirmed End turns continue safely using existing movement legality. Click-again cancels; remove the separate target-setting workflow. Prove city arrival, no implicit war/attack/embark, interruption, replacement, save/load, hotseat and Undo. Danger radius/clear-versus-pause and click interaction require owner decisions before T280. |
+| C4 — Rally feedback | Distinct visible army/fleet rally symbols and per-nation/campaign settings remain accurate at map zooms, including co-located targets. Preserve new-army-only mobilization behavior; explicitly define fleet destinations and first post-launch movement before T281. Prove launch timing, overrides, persistence, stale-target handling, no double movement and Undo. |
+| C5 — Boundaries and delivery | Preserve original game rules, existing human campaigns, save schema/legacy loading and original-SAV format/metadata-omission reporting. New QOL follows experimental opt-in policy. Meaningful regressions, solution/Godot builds, full exact-head CI and self-contained Windows package checks pass; independent milestone review precedes any tag. |
+
+Observer controls, strategic Undo, persistent travel and rally markers are owner-approved exceptions to the manual's UI. Consult manual chapters 1–3 and the relevant army/fleet chapters before changing those existing actions; keep ordinary selection, End turn and inspection behavior intact. No whole-AI/global-RNG/native-original parity, new scenario, stronger tactical general or combat rebalance is promised by this scope.
+
 ## 3. Tag and GitHub Release conventions
 
 ### 3.1 Naming and placement — **DECIDED**
