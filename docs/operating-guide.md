@@ -62,7 +62,7 @@ produced the published ZIP and installer. Consult GitHub labels/milestones for
 current work; this receipt does not replace them. The release notes retain the
 pre-existing Windows headless audio-check limitation (#1718), deferred original
 Windows acceptance (T184–T186/#1355), and stronger Improved Computer general's
-v0.10 allocation (#1362/#1363). Do not turn installation or automated package
+earlier v0.10 allocation (#1362/#1363), moved by the owner to v0.11 on 2026-11-04. Do not turn installation or automated package
 checks into a claim that those deferred acceptance checks were performed.
 
 ### Campaign selection
