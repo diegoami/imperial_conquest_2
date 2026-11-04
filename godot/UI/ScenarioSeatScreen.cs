@@ -38,6 +38,7 @@ public partial class ScenarioSeatScreen : Control
     private HSlider _aggressionSlider = null!;
     private HSlider _expansionSlider = null!;
     private HSlider _loyaltySlider = null!;
+    public CheckBox ObserverChoice { get; private set; } = null!;
 
     public override void _Ready()
     {
@@ -78,6 +79,11 @@ public partial class ScenarioSeatScreen : Control
         column.AddChild(UiKit.MakeLabel("Players:", AppTheme.Header, UiKit.TextColor));
         _playersLine = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.MutedTextColor);
         column.AddChild(_playersLine);
+        ObserverChoice = new CheckBox { Name = "ObserverMode", Text = "Observer mode (experimental)",
+            ButtonPressed = Selection.ObserverMode,
+            TooltipText = "Watch all nations played by the computer. Automatic battles; starts paused." };
+        ObserverChoice.Toggled += _ => RefreshPlayers();
+        column.AddChild(ObserverChoice);
 
         var scroll = new ScrollContainer
         {
@@ -149,7 +155,8 @@ public partial class ScenarioSeatScreen : Control
 
     /// <summary>#719: the nations ticked Human, in seat order.</summary>
     public IReadOnlyList<string> HumanNationIds =>
-        _seatOptions.Select(o => o.NationId).Where(id => _humanBoxes.TryGetValue(id, out var box) && box.ButtonPressed).ToList();
+        ObserverChoice.ButtonPressed ? Array.Empty<string>() :
+            _seatOptions.Select(o => o.NationId).Where(id => _humanBoxes.TryGetValue(id, out var box) && box.ButtonPressed).ToList();
 
     /// <summary>#719: whether Start Game can be pressed (at least one human).</summary>
     public bool CanStart => !_startButton.Disabled;
@@ -168,12 +175,13 @@ public partial class ScenarioSeatScreen : Control
     {
         foreach (var (nationId, box) in _humanBoxes)
         {
-            _leaderEdits[nationId].Editable = box.ButtonPressed;
+            box.Disabled = ObserverChoice.ButtonPressed;
+            _leaderEdits[nationId].Editable = box.ButtonPressed && !ObserverChoice.ButtonPressed;
         }
 
         var count = HumanNationIds.Count;
-        _startButton.Disabled = count == 0;
-        _playersLine.Text = count switch
+        _startButton.Disabled = count == 0 && !ObserverChoice.ButtonPressed;
+        _playersLine.Text = ObserverChoice.ButtonPressed ? "Observer: every nation is computer controlled; starts paused." : count switch
         {
             0 => "Tick at least one nation a person plays.",
             1 => "One player; the computer plays every other nation.",
@@ -211,11 +219,12 @@ public partial class ScenarioSeatScreen : Control
     private void OnStartPressed()
     {
         var humans = HumanNationIds;
-        if (humans.Count == 0)
+        if (humans.Count == 0 && !ObserverChoice.ButtonPressed)
         {
             return;
         }
 
+        Selection.ObserverMode = ObserverChoice.ButtonPressed;
         Selection.HumanNationIds.Clear();
         Selection.HumanNationIds.AddRange(humans);
         Selection.LeaderNames.Clear();

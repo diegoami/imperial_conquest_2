@@ -1114,6 +1114,18 @@ public partial class GameMapView : Control
 
         var context = BuildClickContext(button, x, y, screenPosition);
         LastClickContextForCheck = context;
+        if (_session.IsObserverMode)
+        {
+            // Observation permits inspection of every nation, never a move/attack/transport order.
+            if (context.Target is { } target)
+            {
+                if (button == MapClickButton.Right) UnitListRequested?.Invoke(target.Kind, target.Id);
+                else FocusAsSelection(target.Kind, target.Id);
+            }
+            else ClearSelection();
+            QueueRedraw();
+            return;
+        }
         if (TravelTargetPickArmed)
         {
             if (button == MapClickButton.Right) CancelTravelTargetPick();

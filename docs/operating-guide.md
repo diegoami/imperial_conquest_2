@@ -77,6 +77,22 @@ all numerical setup are explicit abstractions. See the
 Campaigns with barbarians use native JSON saves; original-SAV export refuses
 the unsupported role rather than silently discarding it.
 
+## Observer campaigns
+
+Select **Observer mode (experimental)** on New Game's player screen, or choose
+**Game → Observe campaign** from a strategic campaign after resolving battles
+and offers. Observation starts paused with all nations computer controlled.
+**Play**, **Pause** and **Next round** use the existing AI and turn rules; the
+next-round control stops at the next calendar advance. You can inspect the map,
+nations, news and latest battles without automatic result dialogs interrupting.
+Opening a dialog or leaving the screen pauses progression.
+
+While paused, choose a surviving non-barbarian nation and **Take control** to
+join its next turn. Intervening nations play normally and ordinary turn-start
+rules apply. Saving preserves the campaign's controller assignments; loading an
+observer campaign starts paused. These controls are owner-designed extensions,
+not evidence of an original observer mode. See [T278](tasks/T278.md).
+
 ## Original-game UI reference (private)
 
 The research-authored **original Imperial Conquest 2 v1.01 user manual** is the reference for original UI workflows. Its October 2026 source is `diegoami/ic2-conquest#133`; the private folder's `README.txt` identifies the edition and contents. Consult the relevant sections **and screenshots before GUI implementation or audit**. Later owner decisions, measured research corrections and deliberate Faithful/Improved policies must be cited specifically when they differ from the manual; a code comment or a narrow exception is not approval for a generally different screen.

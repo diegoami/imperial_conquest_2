@@ -72,7 +72,11 @@ public partial class MainGameScreen : Control
     private string _displayViewer = string.Empty;
     private HBoxContainer _travelControls = null!;
 
-    public override void _Process(double delta) => StrategicTravel.Advance(delta);
+    public override void _Process(double delta)
+    {
+        StrategicTravel.Advance(delta);
+        AdvanceObserver();
+    }
 
     public override void _Input(InputEvent @event)
     {
@@ -107,6 +111,14 @@ public partial class MainGameScreen : Control
     {
         CommandTable.Bind(id, () =>
         {
+            if (id.StartsWith("file.", StringComparison.Ordinal) || id == "game.settings") ObserverPlayback.Pause();
+            if (Session.IsObserverMode && (id.StartsWith("unit_map.", StringComparison.Ordinal)
+                    && id != "unit_map.cancel_selection"
+                    || id is "strategy.taxation" or "strategy.recruit_unit" or "strategy.build_fleet"))
+            {
+                ShowScreenMessage("Observer mode: take control of a nation to issue orders.");
+                return;
+            }
             if (id == "unit_map.cancel_selection") { SkipTravelAndClearSelection(); return; }
             if (id is "file.close" or "game.settings" || id.StartsWith("help.", StringComparison.Ordinal)
                 || id is "file.save" or "file.save_as" || AllowStrategicInput())
@@ -327,6 +339,7 @@ public partial class MainGameScreen : Control
             AssetLoader = assetLoader,
         };
         root.AddChild(Toolbar);
+        BuildObserverControls(root);
 
         // T112: the Unit map's context strip — the selected unit's own group, shown below the main
         // toolbar. It is hidden while nothing (or a foreign unit) is selected.
@@ -642,6 +655,7 @@ public partial class MainGameScreen : Control
 
         // Game: the one command, the same handler the old top-bar button called.
         BindStrategicCommand("game.end_turn", OnEndTurnPressed);
+        BindStrategicCommand("game.observe", ConfirmObserverEntry);
 
         // Strategy: News and International relations are the two whose screens already exist; the
         // other four (Taxation, Balance sheet, Recruit unit, Build fleet) open T109's dialogs.
@@ -1708,6 +1722,7 @@ public partial class MainGameScreen : Control
     /// <summary>The selected fleet when it is the active seat's own, or <see langword="null"/>.</summary>
     private FleetState? OwnSelectedFleet()
     {
+        if (Session.IsObserverMode) return null;
         if (_selectedFleetId is null)
         {
             return null;
@@ -1723,6 +1738,7 @@ public partial class MainGameScreen : Control
     /// <summary>The selected city when it is the active seat's own, or <see langword="null"/>.</summary>
     private CityState? OwnSelectedCity()
     {
+        if (Session.IsObserverMode) return null;
         if (_selectedCityId is null)
         {
             return null;
@@ -1742,6 +1758,13 @@ public partial class MainGameScreen : Control
     /// </summary>
     private void UpdateCommandStrip()
     {
+        if (Session.IsObserverMode)
+        {
+            _commandStrip.SetSelection(UnitStripSelection.None);
+            _retreatSupplyRow.Visible = false;
+            _rallyPointRow.Visible = false;
+            return;
+        }
         var selection = UnitStripSelection.None;
         if (_selectedArmyId is { } armyId && DisplayState.ArmyById(armyId) is { } army
             && string.Equals(army.Nation, DisplayState.ActiveNationId, StringComparison.Ordinal))
@@ -1976,6 +1999,7 @@ public partial class MainGameScreen : Control
     /// or missing army disables T111's entries.</summary>
     private ArmyState? OwnSelectedArmy()
     {
+        if (Session.IsObserverMode) return null;
         var army = SelectedArmyOrCarried();
         return army is not null
             && string.Equals(army.Nation, Session.State.ActiveNationId, StringComparison.Ordinal)
@@ -2010,6 +2034,8 @@ public partial class MainGameScreen : Control
     /// </summary>
     private DialogEditResult CommitFromDialog(DialogCommandDraft draft, string? finalCommand)
     {
+        if (Session.IsObserverMode && (draft.HasChanges || finalCommand is not null)) return new(false,
+            new SessionOutput(new[] { "Observer mode: take control of a nation to issue orders." }, false));
         if (!AllowStrategicInput()) return new(false,
             new SessionOutput(new[] { "Wait for the current transition to finish." }, false));
         if (!draft.HasChanges && finalCommand is null) return draft.Commit();
@@ -2124,6 +2150,7 @@ public partial class MainGameScreen : Control
     private void OnEndTurnPressed()
     {
         if (!AllowStrategicInput()) return;
+        if (Session.IsObserverMode) { ObserverNextRound(); return; }
         var warnings = EndTurnWarnings.For(
             Session.State,
             Session.World,
@@ -2783,11 +2810,11 @@ public partial class MainGameScreen : Control
         // never a news line and changes no relation. The Accept Offer button stays the way to accept.
         foreach (var domainEvent in events)
         {
-            if (domainEvent is Engine.Diplomacy.PendingDiplomaticOfferAnnounced announced)
+            if (!Session.IsObserverMode && domainEvent is Engine.Diplomacy.PendingDiplomaticOfferAnnounced announced)
             {
                 _pendingOfferNotices.Enqueue(announced.DialogText);
             }
-            else if (domainEvent is Engine.Recruitment.Commands.RecruitMobilized
+            else if (!Session.IsObserverMode && domainEvent is Engine.Recruitment.Commands.RecruitMobilized
                      { ArmyWasCreated: true } mobilized)
             {
                 AssignRallyPointToNewArmy(mobilized);
@@ -2834,7 +2861,7 @@ public partial class MainGameScreen : Control
 
     private void OnCommandIssued(IReadOnlyList<string> lines)
     {
-        if (!_runningArmyTravel && !_runningRetreatSupply && lines.FirstOrDefault() is { } command)
+        if (!Session.IsObserverMode && !_runningArmyTravel && !_runningRetreatSupply && lines.FirstOrDefault() is { } command)
         {
             var parts = command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length >= 3 && parts[0] == ">"
@@ -2962,8 +2989,8 @@ public partial class MainGameScreen : Control
         var activeId = Session.State.ActiveNationId;
         // A suspended AI lap is still being viewed by the human who ended the turn.
         // Advance viewer only at an actual human handoff, or in the existing no-human watch mode.
-        if (Session.State.NationById(activeId)?.Control == SeatControl.Human
-            || !Session.State.Nations.Any(n => n.Control == SeatControl.Human)) _displayViewer = activeId;
+        if (!Session.IsObserverMode && (Session.State.NationById(activeId)?.Control == SeatControl.Human
+            || !Session.State.Nations.Any(n => n.Control == SeatControl.Human))) _displayViewer = activeId;
         var turnIndex = Session.State.Calendar.TurnIndex;
         var turnStarted = turnIndex != _lastKnownTurnIndex;
         if (turnStarted) AppDiagnostics.Mark(DiagnosticEvent.Turn, "main", turnIndex, activeId);
@@ -2977,7 +3004,7 @@ public partial class MainGameScreen : Control
             }
             // Only re-view when it actually differs: an unconditional SetViewedNation on every "end"
             // would clear a Find-a-city highlight chosen this turn for a view that did not change.
-            if (!string.Equals(ViewedNationId, _displayViewer, StringComparison.Ordinal))
+            if (!Session.IsObserverMode && !string.Equals(ViewedNationId, _displayViewer, StringComparison.Ordinal))
             {
                 SetViewedNation(_displayViewer);
             }
@@ -2993,6 +3020,13 @@ public partial class MainGameScreen : Control
         if (_newsLog.Visible)
         {
             _newsLog.Refresh();
+        }
+
+        if (Session.IsObserverMode)
+        {
+            RememberObserverReports(retained.Battles);
+            RefreshObserverControls();
+            return; // AI observation never waits for automatic battle-result dialogs.
         }
 
         // T25 (plan #474): every BattleResult this Submit call produced -- a human attack/siege, or any AI
@@ -3123,6 +3157,7 @@ public partial class MainGameScreen : Control
 
     public override void _ExitTree()
     {
+        ObserverPlayback.Pause();
         _closing = true;
         StrategicTravel.Changed -= RefreshTravelDisplay;
         StrategicTravel.BoundaryCompleted -= OnStrategicBoundaryCompleted;
@@ -3513,6 +3548,7 @@ public partial class MainGameScreen : Control
 
     private void ShowOverlay(Control overlay)
     {
+        ObserverPlayback.Pause();
         AppDiagnostics.Detail(DiagnosticEvent.Overlay, overlay.GetType().Name);
         if (ActiveOverlay is { } previous)
         {
