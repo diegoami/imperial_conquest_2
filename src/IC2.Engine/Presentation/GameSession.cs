@@ -1019,6 +1019,7 @@ public sealed partial class GameSession
     private void ResumeFrom(SaveGame save)
     {
         ArgumentNullException.ThrowIfNull(save);
+        ClearStrategicUndo();
 
         _strategicTimeline.Reset();
         LastStrategicTimeline = StrategicTravelBatch.Empty;
@@ -1356,12 +1357,14 @@ public sealed partial class GameSession
 
     public void SetArmyTravelTarget(ArmyTravelTarget target)
     {
+        using var action = BeginStrategicUndoAction();
         ArmyTravelTargets = ValueList.From(ArmyTravelTargets
             .Where(existing => existing.ArmyId != target.ArmyId).Append(target));
     }
 
     public bool ClearArmyTravelTarget(string armyId)
     {
+        using var action = BeginStrategicUndoAction();
         if (TravelTargetFor(armyId) is null) return false;
         ArmyTravelTargets = ValueList.From(ArmyTravelTargets.Where(target => target.ArmyId != armyId));
         return true;
@@ -1375,6 +1378,7 @@ public sealed partial class GameSession
 
     public void SetRetreatSupplyPlan(RetreatSupplyPlan plan)
     {
+        using var action = BeginStrategicUndoAction();
         ArgumentNullException.ThrowIfNull(plan);
         if (!plan.IsFleet && TravelTargetFor(plan.UnitId) is not null)
             throw new InvalidOperationException("Confirm replacement of the army's fixed travel target first.");
@@ -1385,6 +1389,7 @@ public sealed partial class GameSession
 
     public bool ClearRetreatSupplyPlan(string unitId, bool isFleet)
     {
+        using var action = BeginStrategicUndoAction();
         if (RetreatSupplyPlanFor(unitId, isFleet) is null) return false;
         RetreatSupplyPlans = ValueList.From(RetreatSupplyPlans
             .Where(plan => plan.UnitId != unitId || plan.IsFleet != isFleet));
@@ -1399,6 +1404,7 @@ public sealed partial class GameSession
 
     public void SetRallyPoint(NationRallyPoint rallyPoint)
     {
+        using var action = BeginStrategicUndoAction();
         ArgumentNullException.ThrowIfNull(rallyPoint);
         NationRallyPoints = ValueList.From(NationRallyPoints
             .Where(existing => existing.NationId != rallyPoint.NationId).Append(rallyPoint));
@@ -1406,6 +1412,7 @@ public sealed partial class GameSession
 
     public bool ClearRallyPoint(string nationId)
     {
+        using var action = BeginStrategicUndoAction();
         if (RallyPointFor(nationId) is null) return false;
         NationRallyPoints = ValueList.From(NationRallyPoints
             .Where(point => point.NationId != nationId));
@@ -1496,6 +1503,7 @@ public sealed partial class GameSession
     public SessionOutput Submit(string rawLine)
     {
         ArgumentNullException.ThrowIfNull(rawLine);
+        using var strategicAction = StrategicUndoForCommand(rawLine);
         LastDialogCommandResult = null;
         LastStrategicTimeline = StrategicTravelBatch.Empty;
         _strategicTimeline.BeginSubmit(_humanSeatNationId ?? State.ActiveNationId);
@@ -1556,7 +1564,7 @@ public sealed partial class GameSession
         // "status" or "news" would even be showing. ShouldExit was already true on whichever earlier call
         // first set _gameOver (Submit's own final "shouldExit || _gameOver"); this is only reached at all
         // if the caller submits again anyway.
-        if (_gameOver)
+        if (_gameOver && !(trimmed.Equals("undo", StringComparison.OrdinalIgnoreCase) && CanUndoStrategic))
         {
             lines.Add("The game is over. No further commands are accepted.");
             lines.Add(string.Empty);
@@ -1587,6 +1595,9 @@ public sealed partial class GameSession
                 break;
             case "status":
                 lines.AddRange(RenderStatusCommand(tokens));
+                break;
+            case "undo":
+                lines.AddRange(UndoStrategicAction());
                 break;
             case "armies":
                 lines.AddRange(RenderArmiesCommand(tokens));
@@ -2035,6 +2046,7 @@ public sealed partial class GameSession
     /// </summary>
     private IReadOnlyList<string> HandleEnd()
     {
+        ClearStrategicUndo();
         var lines = new List<string>();
 
         // Rework round 2, R1: only the offered human's own end lapses their offer -- State.ActiveNationId

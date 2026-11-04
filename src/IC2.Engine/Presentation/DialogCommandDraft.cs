@@ -142,6 +142,7 @@ public sealed partial class GameSession
 
     internal DialogEditResult CommitDialog(DialogCommandDraft draft, GameState expected, IReadOnlyList<string> commands)
     {
+        using var action = BeginStrategicUndoAction();
         if (State != expected) return DialogCommandDraft.Refuse("The campaign changed. Reopen the dialog to edit its current state.");
         if (DialogEditUnavailable is { } unavailable) return DialogCommandDraft.Refuse(unavailable);
         if (commands.Count == 0)
