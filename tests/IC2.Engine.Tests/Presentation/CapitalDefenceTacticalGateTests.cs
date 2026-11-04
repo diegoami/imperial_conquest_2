@@ -9,10 +9,12 @@ namespace IC2.Engine.Tests.Presentation;
 public sealed class CapitalDefenceTacticalGateTests
 {
     [Theory]
-    [InlineData(false, false)]
-    [InlineData(true, false)]
-    [InlineData(true, true)]
-    public void Pending_battle_keeps_later_capital_responders_live_without_opening_a_second_battle(bool adjacent, bool anotherThreat)
+    [InlineData(false, false, false)]
+    [InlineData(true, false, false)]
+    [InlineData(true, true, false)]
+    [InlineData(false, false, true)]
+    public void Pending_battle_keeps_later_capital_responders_live_without_opening_a_second_battle(
+        bool adjacent, bool anotherThreat, bool walkFirst)
     {
         var toy = TacticalSessionTestbed.Toy;
         var laterX = adjacent ? 98 : 85;
@@ -25,7 +27,7 @@ public sealed class CapitalDefenceTacticalGateTests
             StartingArmies = ValueList.Of(
                 TacticalSessionTestbed.Army("north-threat", "north", 99, 39, 68,
                     TacticalSessionTestbed.Unit("light_infantry", 400)),
-                TacticalSessionTestbed.Army("south-first", "south", 100, 39, 59,
+                TacticalSessionTestbed.Army("south-first", "south", walkFirst ? 103 : 100, 39, 59,
                     TacticalSessionTestbed.Unit("heavy_infantry", 25000)),
                 TacticalSessionTestbed.Army("south-later", "south", laterX, anotherThreat ? 36 : 39, 59,
                     TacticalSessionTestbed.Unit("heavy_infantry", 25000)) with { Money = 77 }),
@@ -59,8 +61,7 @@ public sealed class CapitalDefenceTacticalGateTests
             Assert.Equal(before.ArmyById(later.Id), later); // Further human attack is deferred, not resolved.
         else
         {
-            Assert.True(later.X > laterX);
-            Assert.True(later.Moves < before.ArmyById(later.Id)!.Moves);
+            Assert.Equal((90, 39, 0), (later.X, later.Y, later.Moves));
         }
         var closed = session.Submit("battle general on");
         Assert.NotNull(closed.EndedBattleReport);
