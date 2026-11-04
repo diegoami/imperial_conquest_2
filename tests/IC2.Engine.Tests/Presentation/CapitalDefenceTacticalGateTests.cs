@@ -8,6 +8,81 @@ namespace IC2.Engine.Tests.Presentation;
 
 public sealed class CapitalDefenceTacticalGateTests
 {
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(true, false, false)]
+    [InlineData(true, true, false)]
+    [InlineData(false, false, true)]
+    public void Pending_battle_keeps_later_capital_responders_live_without_opening_a_second_battle(
+        bool adjacent, bool anotherThreat, bool walkFirst)
+    {
+        var toy = TacticalSessionTestbed.Toy;
+        var laterX = adjacent ? 98 : 85;
+        var world = toy.World with {
+            Id = "classical-mediterranean", Width = 320, Height = 140,
+            Terrain = new(TerrainEncoding.RunLength, ValueList.Of(new TerrainRun(2, 320 * 140))),
+            Cities = ValueList.From(toy.World.Cities.Where(c => c.Id is "arx" or "meridia").Select(c => c with {
+                X = c.Owner == "south" ? 100 : 90, Y = 40, FortificationCode = 100 })),
+            StartingFleets = ValueList<StartingFleet>.Empty,
+            StartingArmies = ValueList.Of(
+                TacticalSessionTestbed.Army("north-threat", "north", 99, 39, 68,
+                    TacticalSessionTestbed.Unit("light_infantry", 400)),
+                TacticalSessionTestbed.Army("south-first", "south", walkFirst ? 103 : 100, 39, 59,
+                    TacticalSessionTestbed.Unit("heavy_infantry", 25000)),
+                TacticalSessionTestbed.Army("south-later", "south", laterX, anotherThreat ? 36 : 39, 59,
+                    TacticalSessionTestbed.Unit("heavy_infantry", 25000)) with { Money = 77 }),
+        };
+        if (anotherThreat)
+            world = world with { StartingArmies = ValueList.From(world.StartingArmies.Append(
+                TacticalSessionTestbed.Army("north-other", "north", 97, 36, 68,
+                    TacticalSessionTestbed.Unit("light_infantry", 400)))) };
+        var rules = toy.Ruleset with { Flags = toy.Ruleset.Flags with { AiEconomy = AiEconomyModel.Original } };
+        var session = new GameSession(world, rules, toy.Scenario with { WorldId = world.Id })
+            { HumanBattles = HumanBattleMode.Tactical };
+        Assert.Contains(session.Submit("declare-war south").Lines, l => l.Contains("accepted", StringComparison.Ordinal));
+        var before = session.State;
+        var events = new List<DomainEvent>();
+        session.EventsPublished += batch => events.AddRange(batch);
+        var opened = session.Submit("end");
+        Assert.NotNull(opened.OpenBattleView);
+        Assert.Equal(("south-first", "north-threat"),
+            (opened.OpenBattleView!.AttackerArmyId, opened.OpenBattleView.DefenderArmyId));
+        Assert.Empty(opened.Battles);
+        Assert.Null(opened.EndedBattleReport);
+        Assert.NotNull(session.State.ArmyById("north-threat"));
+        Assert.Equal("south", session.State.ActiveNationId);
+        Assert.Equal(before.Calendar, session.State.Calendar);
+        var pass = Assert.Single(events.OfType<AiTurnDecided>(), e => e.NationId == "south");
+        Assert.Contains(pass.Lines, l => l.StartsWith("capital defence: south-later", StringComparison.Ordinal));
+        Assert.Equal(0, pass.CommandsRejected);
+        var later = session.State.ArmyById("south-later")!;
+        Assert.Equal(77, later.Money); // No ordinary army support before the pending battle.
+        if (adjacent)
+            Assert.Equal(before.ArmyById(later.Id), later); // Further human attack is deferred, not resolved.
+        else
+        {
+            Assert.Equal((90, 39, 0), (later.X, later.Y, later.Moves));
+        }
+        var closed = session.Submit("battle general on");
+        Assert.NotNull(closed.EndedBattleReport);
+        if (anotherThreat)
+        {
+            Assert.NotNull(closed.OpenBattleView);
+            Assert.Equal(("south-later", "north-other"),
+                (closed.OpenBattleView!.AttackerArmyId, closed.OpenBattleView.DefenderArmyId));
+            Assert.Equal("south", session.State.ActiveNationId);
+            Assert.Equal(before.Calendar, session.State.Calendar);
+            closed = session.Submit("battle general on");
+            Assert.NotNull(closed.EndedBattleReport);
+        }
+        Assert.Null(closed.OpenBattleView);
+        Assert.Equal("north", session.State.ActiveNationId);
+        Assert.Equal(before.Calendar.TurnIndex + 1, session.State.Calendar.TurnIndex);
+        Assert.All(events.OfType<AiTurnDecided>(), turn => Assert.Equal(0, turn.CommandsRejected));
+        if (!adjacent)
+            Assert.True(session.State.ArmyById(later.Id)!.X >= later.X); // Write-back retained the completed defence walk.
+    }
+
     [Fact]
     public void A_capital_defence_attack_retains_the_partial_pass_then_restarts_the_same_AI_seat()
     {

@@ -106,3 +106,5 @@ Open and recent tasks only. Merged tasks (T01–T191 and others) are in their cl
 - [T275](tasks/T275.md) — Faithful resupply ties and fleet launch placement
 
 - [T276](tasks/T276.md) — Faithful AI execution follow-ups after v0.9.2
+
+- [T277](tasks/T277.md) — Faithful transport failure and pending capital defence

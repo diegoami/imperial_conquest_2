@@ -95,7 +95,7 @@ public sealed class MoveArmyCommandHandler : ICommandHandler<MoveArmyCommand>
             && Ai.ClassicalArmyNavigation.Classify(army.X, army.Y)
                 != Ai.ClassicalArmyNavigation.Classify(continuationTarget.X, continuationTarget.Y))
         {
-            var ferry = Ai.OriginalArmyTransport.Ferry(army, context, out var approach);
+            var ferry = Ai.OriginalArmyTransport.Ferry(army, context, out var approach, initialSearch: true);
             if (ferry is { } result) return result;
             if (approach is { } point) destination = continuationTarget = point;
         }

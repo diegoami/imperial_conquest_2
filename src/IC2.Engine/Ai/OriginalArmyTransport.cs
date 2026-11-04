@@ -54,7 +54,8 @@ internal static class OriginalArmyTransport
         });
     }
 
-    internal static CommandOutcome? Ferry(ArmyState army, CommandContext context, out GridPoint? approach)
+    internal static CommandOutcome? Ferry(ArmyState army, CommandContext context, out GridPoint? approach,
+        bool initialSearch = false)
     {
         approach = null;
         var view = new AiView(context.State, context.Ruleset, context.World, army.Nation);
@@ -62,6 +63,11 @@ internal static class OriginalArmyTransport
         var order = (Movement.Commands.MoveArmyCommand)context.Command;
         context.Events.Publish(new OriginalArmyTransportAttempted(army.Id, army.Nation, army.X, army.Y,
             order.TargetX ?? order.X, order.TargetY ?? order.Y, fleet?.Id));
+        // DB38 initializes its out word to -1 before D9A8. No qualifying fleet and
+        // adjacent embark leave it there. Only the initial frame exports the bounded
+        // E84C-to-EBE8 signal; recursive calls must not invent a deeper-frame carry.
+        if (initialSearch && (fleet is null || AiView.Distance(army.X, army.Y, fleet.X, fleet.Y) == 1))
+            context.Events.Publish(new OriginalArmyIntermediateSearchFailed(army.Id));
         if (fleet is null) return CommandOutcome.Accept(context.State);
         if (AiView.Distance(army.X, army.Y, fleet.X, fleet.Y) == 1)
         {

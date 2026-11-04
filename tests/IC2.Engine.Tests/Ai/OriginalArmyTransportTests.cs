@@ -53,6 +53,7 @@ public sealed class OriginalArmyTransportTests
         Assert.Equal((100, 40, 6), (army.X, army.Y, army.Moves));
         Assert.Equal(f.State.Fleets, result.State.Fleets);
         Assert.Equal(new OriginalFleetRouteRequested("ship", 101, 40), Assert.Single(f.Events.Events.OfType<OriginalFleetRouteRequested>()));
+        Assert.Empty(result.Events.OfType<OriginalArmyIntermediateSearchFailed>());
     }
 
     [Fact]
@@ -75,6 +76,46 @@ public sealed class OriginalArmyTransportTests
         Assert.Equal((101, 40, 0, "ship"), (army.X, army.Y, army.Moves, army.AboardFleetId));
         Assert.Equal((0, "army"), (result.State.FleetById("ship")!.Moves, result.State.FleetById("ship")!.CarriedArmyId));
         Assert.Empty(f.Events.Events.OfType<OriginalFleetRouteRequested>());
+        Assert.Single(result.Events.OfType<OriginalArmyIntermediateSearchFailed>());
+    }
+
+    [Theory]
+    [InlineData("absent")]
+    [InlineData("loaded")]
+    [InlineData("immobile")]
+    [InlineData("building")]
+    [InlineData("foreign")]
+    public void Initial_cross_class_search_without_a_qualifying_fleet_exports_failure(string kind)
+    {
+        var f = Setup(98, 105);
+        var fleet = f.State.Fleets[0];
+        fleet = kind switch {
+            "loaded" => fleet with { CarriedArmyId = "cargo" },
+            "immobile" => fleet with { Moves = 0 },
+            "building" => fleet with { ConstructionTicksRemaining = 3, BuildCityId = "port" },
+            "foreign" => fleet with { Nation = "rome" }, _ => fleet };
+        var state = f.State with { Fleets = kind == "absent" ? ValueList<FleetState>.Empty : ValueList.Of(fleet) };
+        var result = f.Dispatch.Dispatch(state, Travel(120, 90));
+        Assert.True(result.IsAccepted);
+        Assert.Equal(state with { RandomSeed = result.State.RandomSeed }, result.State);
+        Assert.Single(result.Events.OfType<OriginalArmyIntermediateSearchFailed>());
+        Assert.Empty(result.Events.OfType<OriginalFleetRouteRequested>());
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Other_policies_do_not_publish_original_transport_failure(bool customWorld)
+    {
+        var f = Setup(98, 105);
+        var world = customWorld ? f.World with { Id = "custom" } : f.World;
+        var rules = customWorld ? f.Rules : f.Rules with { Flags = f.Rules.Flags with { AiEconomy = AiEconomyModel.Designed } };
+        var state = f.State with { Fleets = ValueList<FleetState>.Empty };
+        var dispatch = new CommandDispatcher(SystemRegistry.FromEngineAssembly(), rules, world, NullEventSink.Instance);
+        var result = dispatch.Dispatch(state, Travel(120, 90));
+        Assert.True(result.IsAccepted);
+        Assert.Empty(result.Events.OfType<OriginalArmyIntermediateSearchFailed>());
+        Assert.Empty(result.Events.OfType<OriginalArmyTransportAttempted>());
     }
 
     [Fact]
@@ -87,6 +128,7 @@ public sealed class OriginalArmyTransportTests
         Assert.Equal(6, result.State.ArmyById("army")!.Moves);
         Assert.Equal(f.State.Fleets, result.State.Fleets);
         Assert.Equal(new GridPoint(100, 40), routes.For("ship"));
+        Assert.Empty(result.Events.OfType<OriginalArmyIntermediateSearchFailed>());
         var nextSeat = new OriginalFleetRoutes();
         Assert.Null(nextSeat.For("ship"));
         Assert.DoesNotContain(typeof(FleetState).GetProperties(), p => p.Name.Contains("Route", StringComparison.Ordinal));
