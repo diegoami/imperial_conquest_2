@@ -1185,6 +1185,7 @@ public partial class MainGameScreen : Control
         _areaMapView.SetHintsEnabled(_hintsEnabled);
         _commandStrip.SetHintsEnabled(_hintsEnabled);
         UpdateCommandStrip();
+        RefreshStrategicUndoControl();
     }
 
     /// <summary>

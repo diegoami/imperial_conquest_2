@@ -69,6 +69,7 @@ public partial class MainGameScreen
     private void RefreshStrategicUndoControl()
     {
         if (StrategicUndoButton is null) return;
+        UiKit.SetHint(StrategicUndoButton, "Undo strategic action (experimental, Ctrl+Z)", _hintsEnabled);
         var allowed = !_closing && Session.CanUndoStrategic
             && (ActiveOverlay is null || ActiveOverlay is PeaceOfferScreen);
         StrategicUndoButton.Visible = !Session.IsObserverMode;
