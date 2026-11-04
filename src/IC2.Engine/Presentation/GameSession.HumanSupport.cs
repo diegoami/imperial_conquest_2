@@ -41,6 +41,7 @@ public sealed partial class GameSession
     {
         options = options?.Enabled == true ? options : null;
         if (Equals(HumanSupport, options)) return EmptyHumanSupport();
+        using var action = BeginStrategicUndoAction();
         HumanSupport = options;
         _dispatcher.HumanSupport = options;
         ResetHumanSupportTurn();
