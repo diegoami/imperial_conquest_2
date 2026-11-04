@@ -43,6 +43,28 @@ public sealed class OriginalMercenaryContinuationTests
         Assert.Equal(state.MercenaryPool, result.State.MercenaryPool);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Embarked_offer_walk_retains_the_selected_city_or_army_continuation(bool chase)
+    {
+        var (state, rules, world) = Fixture(true, chase);
+        rules = rules with { Ai = rules.Ai with { MaxActionsPerTurn = 1 } };
+        var actor = state.Armies[0] with { AboardFleetId = "carrier", CoveredTileCode = null };
+        var game = AiTestbed.Classical;
+        var carrier = GameStateFactory.CreateInitial(game.World, game.Ruleset, game.Scenario).Fleets[0] with {
+            Id = "carrier", Nation = "north", X = actor.X, Y = actor.Y, CarriedArmyId = actor.Id,
+            ConstructionTicksRemaining = null, Moves = 10, CoveredTileCode = 0,
+        };
+        state = state with { Armies = ValueList.From(state.Armies.Select(a => a.Id == actor.Id ? actor : a)), Fleets = ValueList.Of(carrier) };
+        var result = Run(state, rules, world);
+        Assert.Equal(2, result.Trace.Moves.Count);
+        Assert.Equal((236,80), (result.Trace.Moves[0].TargetX, result.Trace.Moves[0].TargetY));
+        Assert.Equal((chase ? 243 : 240,85), (result.Trace.Moves[1].TargetX, result.Trace.Moves[1].TargetY));
+        Assert.All(result.Trace.Moves, c => Assert.False(c.InheritFailedIntermediate));
+        Assert.Equal(0, result.Outcome.CommandsRejected);
+    }
+
     private static (GameState State, Ruleset Rules, World World) Fixture(bool faithful, bool chase, int moves = 8,
         bool noContinuation = false)
     {

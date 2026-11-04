@@ -144,7 +144,8 @@ public sealed class MoveArmyCommandHandler : ICommandHandler<MoveArmyCommand>
 
         var from = new GridPoint(army.X, army.Y);
         var inheritFailedIntermediate = false;
-        if (originalTransport && from != continuationTarget)
+        if (originalTransport && continuationTarget == contactTarget && from != continuationTarget
+            && (command.InheritFailedIntermediate || destination == continuationTarget))
         {
             var initialView = new Ai.AiView(state, context.Ruleset, world, army.Nation);
             var direct = Ai.ClassicalArmyNavigation.DirectLine(initialView, from, continuationTarget);
