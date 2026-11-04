@@ -108,3 +108,8 @@ Open and recent tasks only. Merged tasks (T01–T191 and others) are in their cl
 - [T276](tasks/T276.md) — Faithful AI execution follow-ups after v0.9.2
 
 - [T277](tasks/T277.md) — Faithful transport failure and pending capital defence
+
+- [T278](tasks/T278.md) — Observer campaign controls
+- [T279](tasks/T279.md) — Strategic current-turn Undo
+- [T280](tasks/T280.md) — Persistent ordinary-click travel
+- [T281](tasks/T281.md) — Army and fleet rally map feedback
