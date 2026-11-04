@@ -439,6 +439,8 @@ Owner scope, 2026-11-04: [milestone 23](https://github.com/diegoami/imperial_con
 
 Outside scope: capital-defence staging #1741, human #600 acceptance, appearance #1740, hygiene #1747, stronger general v0.10, unmeasured stack behavior, new scenarios and native-original Windows/global RNG/whole-campaign parity. Research evidence is promoted Wine/code evidence; no new original experiment is required to implement these bounded corrections.
 
+The [post-release v0.9.3 evidence](investigations/original-ai-control-and-support.md#released-v093-recheck-cross-class-search-boundary), research `5b0fc90`, supports the measured C1/C3/C4 outcomes but identifies missing cross-class failed-search signalling within C2 ([#1758](https://github.com/diegoami/imperial_conquest_2/issues/1758)): both measured cases have no qualifying fleet; adjacent embark is code-only. This later evidence does not rewrite the release claims or historical review verdict, establish native Windows acceptance, or allocate a follow-up release.
+
 ## 3. Tag and GitHub Release conventions
 
 ### 3.1 Naming and placement — **DECIDED**
