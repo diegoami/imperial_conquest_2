@@ -14,7 +14,7 @@ public sealed class FaithfulFleetLaunchTests
         { 10,10, [(9,11,0), (11,9,0)], 11,9 }, // Column-major last, not row-major last.
         { 10,10, [(9,9,0), (12,12,0)], 9,9 }, // First radius, not last globally.
         { 10,10, [(8,11,0), (12,10,0)], 12,10 }, // Beyond adjacent tiles.
-        { 10,10, [(10,10,0), (11,11,0)], 10,10 }, // Radius zero.
+        { 10,10, [(10,10,0), (11,11,0)], 11,11 }, // City marker covers radius zero.
         { 0,0, [(0,1,0), (1,0,0)], 1,0 }, // Clamped corner.
         { 319,139, [(213,98,0)], 213,98 }, // Excluded edge, distant valid ring.
         { 10,10, [(11,10,1)], 11,10 }, // Both sea codes.
@@ -64,16 +64,42 @@ public sealed class FaithfulFleetLaunchTests
     }
 
     [Fact]
-    public void Launch_selection_does_not_treat_an_existing_fleet_as_a_region_exclusion()
+    public void Launch_skips_an_existing_fleets_live_marker()
     {
         var result = Complete(37,84, [(36,83,0), (37,83,0)], occupied: true);
-        Assert.Equal((37,83), (result.State.FleetById("new")!.X, result.State.FleetById("new")!.Y));
+        Assert.Equal((36,83), (result.State.FleetById("new")!.X, result.State.FleetById("new")!.Y));
         Assert.NotNull(result.State.FleetById("existing"));
+    }
+
+    [Fact]
+    public void Successive_completions_see_the_previous_launch_in_fleet_table_order()
+    {
+        var result = Complete(37,84, [(36,83,0), (37,83,0)], secondOrder: true);
+        Assert.Equal((37,83), (result.State.FleetById("new")!.X, result.State.FleetById("new")!.Y));
+        Assert.Equal((36,83), (result.State.FleetById("second")!.X, result.State.FleetById("second")!.Y));
+        Assert.Equal(2, result.Events.OfType<FleetFinished>().Count());
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void City_and_army_markers_also_cover_sea_terrain(bool cityMarker)
+    {
+        var result = Complete(37,84, [(36,83,0), (37,83,0)], cityMarker: cityMarker, armyMarker: !cityMarker);
+        Assert.Equal((36,83), (result.State.FleetById("new")!.X, result.State.FleetById("new")!.Y));
+    }
+
+    [Fact]
+    public void Improved_keeps_its_previous_terrain_only_launch()
+    {
+        var result = Complete(37,84, [(37,83,0)], original: false, occupied: true);
+        Assert.Equal((37,83), (result.State.FleetById("new")!.X, result.State.FleetById("new")!.Y));
     }
 
     private static (GameState State, IReadOnlyList<DomainEvent> Events) Complete(
         int x, int y, (int X, int Y, int Code)[] sea, bool original = true,
-        bool customWorld = false, int width = 320, int height = 140, bool occupied = false)
+        bool customWorld = false, int width = 320, int height = 140, bool occupied = false, bool secondOrder = false,
+        bool cityMarker = false, bool armyMarker = false)
     {
         var cells = Enumerable.Repeat(2, width * height).ToArray();
         foreach (var tile in sea) cells[tile.Y * width + tile.X] = tile.Code;
@@ -92,11 +118,12 @@ public sealed class FaithfulFleetLaunchTests
         var fleet = new FleetState("new", city.Owner, 0, 0, 0, 10, 0, 50, 100,
             rules.Naval.ConstructionTickStep, city.Id, null, null);
         state = state with {
-            Cities = ValueList.Of(city), Armies = ValueList<ArmyState>.Empty,
+            Cities = cityMarker ? ValueList.Of(city, city with { Id = "marker", X = 37, Y = 83 }) : ValueList.Of(city),
+            Armies = armyMarker ? ValueList.Of(state.Armies[0] with { X = 37, Y = 83, CoveredTileCode = 0 }) : ValueList<ArmyState>.Empty,
             Fleets = occupied ? ValueList.Of(fleet, fleet with {
                 Id = "existing", X = 37, Y = 83, ConstructionTicksRemaining = null,
                 ConditionPercent = 100, SupplyTons = 1000,
-            }) : ValueList.Of(fleet),
+            }) : secondOrder ? ValueList.Of(fleet, fleet with { Id = "second" }) : ValueList.Of(fleet),
         };
         var sink = new RecordingEventSink();
         var coordinator = new TurnCoordinator(SystemRegistry.FromAssemblies(

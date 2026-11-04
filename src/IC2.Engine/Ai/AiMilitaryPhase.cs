@@ -356,10 +356,13 @@ public static class AiMilitaryPhase
         if (army.IsEmbarked && ClassicalArmyNavigation.Applies(view))
         {
             if (!mayMarch) return;
+            var offer = decision.Selected == AiArmyTargetTree.Kind.MercenaryRun
+                ? AiArmyTargetTree.MercenaryRunDestination(view, army) : null;
             var target = decision.Selected switch
             {
                 AiArmyTargetTree.Kind.AttackCity when decision.TargetCity is { } c => new GridPoint(c.X, c.Y),
                 AiArmyTargetTree.Kind.AttackArmy when decision.TargetArmy is { } a => new GridPoint(a.X, a.Y),
+                AiArmyTargetTree.Kind.MercenaryRun when offer is not null => new GridPoint(offer.X, offer.Y),
                 AiArmyTargetTree.Kind.MercenaryRun when decision.After == AiArmyTargetTree.Continuation.MarchAtCityTarget
                     && decision.TargetCity is { } c => new GridPoint(c.X, c.Y),
                 _ when decision.Resupply?.City is { } c => new GridPoint(c.X, c.Y),
@@ -368,6 +371,8 @@ public static class AiMilitaryPhase
             if (target is { } point)
                 AddMarchCandidate(view, army, point.X, point.Y, AiCandidate.ApproachKind, "request carried-army landing",
                     view.Ruleset.Ai.ApproachCityBaseScore, progress, into);
+            if (offer is not null && into.Count > candidatesBefore)
+                into[^1] = RetainMercenaryContinuation(into[^1], decision);
             if (into.Count > candidatesBefore) AiArmyTargetTree.LogDecision(decisionRecord);
             return;
         }
@@ -420,15 +425,7 @@ public static class AiMilitaryPhase
                         "mercenary run", view.Ruleset.Ai.ApproachCityBaseScore, progress, into);
                     if (ClassicalArmyNavigation.Applies(view) && into.Count > beforeRun)
                     {
-                        GridPoint? continuation = decision.After switch
-                        {
-                            AiArmyTargetTree.Continuation.MarchAtCityTarget when decision.TargetCity is { } c => new(c.X, c.Y),
-                            AiArmyTargetTree.Continuation.ChaseArmy when decision.TargetArmy is { } a => new(a.X, a.Y),
-                            _ => null,
-                        };
-                        into[^1] = into[^1] with { OriginalMercenaryContinuation = continuation,
-                            OriginalMercenaryContinuationEndCheck = decision.After == AiArmyTargetTree.Continuation.MarchAtCityTarget
-                                ? OriginalWalkEndCheck.City : OriginalWalkEndCheck.None };
+                        into[^1] = RetainMercenaryContinuation(into[^1], decision);
                     }
                     break;
                 }
@@ -662,6 +659,19 @@ public static class AiMilitaryPhase
                 endCheck: originalTargetTreeRoute ? OriginalWalkEndCheck.Army : OriginalWalkEndCheck.None);
         }
     }
+
+    /// <summary>Retain F31C's selected continuation across the E84C run, on land or aboard a fleet.</summary>
+    private static AiCandidate RetainMercenaryContinuation(AiCandidate candidate, AiArmyTargetTree.Decision decision) =>
+        candidate with {
+            OriginalMercenaryRun = true,
+            OriginalMercenaryContinuation = decision.After switch {
+                AiArmyTargetTree.Continuation.MarchAtCityTarget when decision.TargetCity is { } c => new(c.X,c.Y),
+                AiArmyTargetTree.Continuation.ChaseArmy when decision.TargetArmy is { } a => new(a.X,a.Y),
+                _ => null,
+            },
+            OriginalMercenaryContinuationEndCheck = decision.After == AiArmyTargetTree.Continuation.MarchAtCityTarget
+                ? OriginalWalkEndCheck.City : OriginalWalkEndCheck.None,
+        };
 
     /// <summary>
     /// A <see cref="Movement.Commands.MoveArmyCommand"/> candidate toward the chosen destination, subject to

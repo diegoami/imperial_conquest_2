@@ -134,7 +134,7 @@ public sealed class FleetBuildCityTests
 
         Assert.Equal("caere", CoastalCity.FleetBuildCity(state, session.World, rome)!.Id);
         Assert.Equal("antium", CoastalCity.FleetBuildCity(state, session.World, rome, busyWhenAnyNationBuilds: true)!.Id);
-        Assert.Equal("antium", AiFaithfulEconomy.ChoosePort(state, session.World, rome)!.Id);
+        Assert.Equal("antium", AiFaithfulEconomy.ChoosePort(state, session.World, rome, session.Ruleset)!.Id);
     }
 
     /// <summary>
@@ -145,10 +145,10 @@ public sealed class FleetBuildCityTests
     /// world-order choice would give Pisae and Maronea.
     /// </summary>
     [Fact]
-    public void The_AIs_port_choices_are_unchanged()
+    public void The_legacy_AI_selector_is_unchanged_outside_classical_faithful()
     {
         var session = Session("rome");
-        var world = session.World;
+        var world = session.World with { Id = "custom" };
         var sequences = new Dictionary<string, List<string>>();
         foreach (var start in session.State.Nations)
         {
@@ -158,7 +158,7 @@ public sealed class FleetBuildCityTests
             {
                 var nation = state.NationById(start.Id)!;
                 var expected = ChoosePortBeforeT241(state, world, nation);
-                var actual = AiFaithfulEconomy.ChoosePort(state, world, nation);
+                var actual = AiFaithfulEconomy.ChoosePort(state, world, nation, session.Ruleset);
                 Assert.Equal(expected?.Id, actual?.Id);
                 if (actual is null)
                 {
@@ -182,7 +182,7 @@ public sealed class FleetBuildCityTests
         Assert.Empty(sequences["dacia"]);
 
         var noCapital = session.State.NationById("rome")! with { CapitalCityId = null };
-        Assert.Null(AiFaithfulEconomy.ChoosePort(session.State, world, noCapital));
+        Assert.Null(AiFaithfulEconomy.ChoosePort(session.State, world, noCapital, session.Ruleset));
     }
 
     /// <summary><c>AiFaithfulEconomy.ChoosePort</c> exactly as it was before T241, the AI-unchanged reference.</summary>

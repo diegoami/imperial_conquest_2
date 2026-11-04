@@ -10,6 +10,61 @@ namespace IC2.Engine.Tests.Ai;
 
 public sealed class OriginalMercenaryContinuationTests
 {
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Embarked_run_targets_the_offer_before_its_home_fallback(bool hasOffer)
+    {
+        var (state, rules, world) = Fixture(true, false, noContinuation: true);
+        var actor = state.Armies[0] with { X = 230, Y = 80, AboardFleetId = "carrier", CoveredTileCode = null };
+        var game = AiTestbed.Classical;
+        var carrier = GameStateFactory.CreateInitial(game.World, game.Ruleset, game.Scenario).Fleets[0] with {
+            Id = "carrier", Nation = "north", X = actor.X, Y = actor.Y, CarriedArmyId = actor.Id,
+            ConstructionTicksRemaining = null, Moves = 10, CoveredTileCode = 0,
+        };
+        state = state with { Armies = ValueList.Of(actor), Fleets = ValueList.Of(carrier),
+            Cities = ValueList.From(state.Cities.Select(c => c.Id == "home" ? c with { X = 230, Y = 78, SupplyTons = 5000 } : c)),
+            MercenaryPool = hasOffer ? state.MercenaryPool : ValueList<MercenaryPoolSlot>.Empty };
+        var view = new AiView(state, rules, world, "north");
+        Assert.Equal("home", AiArmyTargetTree.ScoreResupplyCity(view, actor, true).City!.Id);
+        Assert.Equal(AiArmyTargetTree.Kind.MercenaryRun, AiArmyTargetTree.DecideUnlogged(view, actor, true, out _).Selected);
+        var candidates = new List<AiCandidate>();
+        AiMilitaryPhase.Propose(view, AiPersonalityProfile.For(view.Nation, rules),
+            SplitMix64Rng.ForStream(1, "embarked"), [], candidates);
+        var move = Assert.Single(candidates.SelectMany(c => c.Commands).OfType<MoveArmyCommand>());
+        var expected = hasOffer ? state.Cities[1] : AiArmyTargetTree.ScoreResupplyCity(view, actor, true).City!;
+        Assert.Equal((expected.X, expected.Y), (move.TargetX, move.TargetY));
+        // Real carried-army dispatch receives the selected target; hiring is not performed here.
+        var sink = new RecordingEventSink();
+        var result = new CommandDispatcher(SystemRegistry.FromEngineAssembly(), rules, world, sink).Dispatch(state, move);
+        Assert.True(result.IsAccepted);
+        var attempt = Assert.Single(result.Events.OfType<OriginalArmyTransportAttempted>());
+        Assert.Equal((expected.X, expected.Y), (attempt.TargetX, attempt.TargetY));
+        Assert.Equal(state.MercenaryPool, result.State.MercenaryPool);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Embarked_offer_walk_retains_the_selected_city_or_army_continuation(bool chase)
+    {
+        var (state, rules, world) = Fixture(true, chase);
+        rules = rules with { Ai = rules.Ai with { MaxActionsPerTurn = 1 } };
+        var actor = state.Armies[0] with { AboardFleetId = "carrier", CoveredTileCode = null };
+        var game = AiTestbed.Classical;
+        var carrier = GameStateFactory.CreateInitial(game.World, game.Ruleset, game.Scenario).Fleets[0] with {
+            Id = "carrier", Nation = "north", X = actor.X, Y = actor.Y, CarriedArmyId = actor.Id,
+            ConstructionTicksRemaining = null, Moves = 10, CoveredTileCode = 0,
+        };
+        state = state with { Armies = ValueList.From(state.Armies.Select(a => a.Id == actor.Id ? actor : a)), Fleets = ValueList.Of(carrier) };
+        var result = Run(state, rules, world);
+        Assert.Equal(2, result.Trace.Moves.Count);
+        Assert.Equal((236,80), (result.Trace.Moves[0].TargetX, result.Trace.Moves[0].TargetY));
+        Assert.Equal((chase ? 243 : 240,85), (result.Trace.Moves[1].TargetX, result.Trace.Moves[1].TargetY));
+        Assert.All(result.Trace.Moves, c => Assert.False(c.InheritFailedIntermediate));
+        Assert.Equal(0, result.Outcome.CommandsRejected);
+    }
+
     private static (GameState State, Ruleset Rules, World World) Fixture(bool faithful, bool chase, int moves = 8,
         bool noContinuation = false)
     {
@@ -39,6 +94,25 @@ public sealed class OriginalMercenaryContinuationTests
             ? AiArmyTargetTree.Continuation.MarchAtCityTarget : AiArmyTargetTree.Continuation.DefendResupplyCity;
         Assert.True(expected == decision.After, $"{decision}; city={AiArmyTargetTree.ScoreCityTarget(new(state, rules, world, "north"), actor)}");
         return (state, rules, world);
+    }
+
+    [Fact]
+    public void Failed_offer_search_does_not_suppress_the_F31C_city_continuation()
+    {
+        var (state, rules, world) = Fixture(true, false);
+        var cells = world.Terrain.Decode(world.Width, world.Height);
+        for (var dx = -1; dx <= 1; dx++) for (var dy = -1; dy <= 1; dy++)
+            if (dx != 0 || dy != 0) cells[(80 + dy) * 320 + 236 + dx] = 0;
+        world = world with { Terrain = new(TerrainEncoding.RunLength, ValueList.From(cells.Select(c => new TerrainRun(c,1)))) };
+        var view = new AiView(state, rules, world, "north");
+        Assert.Null(ClassicalArmyNavigation.Intermediate(view, new(230,80), new(236,80)).Point);
+        var result = Run(state, rules, world);
+        Assert.True(result.Trace.Moves.Count >= 2);
+        Assert.Equal((236,80), (result.Trace.Moves[0].TargetX, result.Trace.Moves[0].TargetY));
+        Assert.Equal((240,85), (result.Trace.Moves[1].TargetX, result.Trace.Moves[1].TargetY));
+        Assert.False(result.Trace.Moves[1].InheritFailedIntermediate);
+        Assert.Contains(result.Sink.Events, e => e is OriginalArmyIntermediateSearchFailed);
+        Assert.True(result.Outcome.State.ArmyById("actor")!.Moves < state.Armies[0].Moves);
     }
 
     private sealed class Trace(ICommandDispatch inner, bool refuse = false, int refuseAt = 1) : ICommandDispatch

@@ -20,6 +20,10 @@ public sealed record MoveArmyCommand(
     string IssuingNationId, string ArmyId, int X, int Y, MoveWalkPolicy Walk = MoveWalkPolicy.Single,
     int? TargetX = null, int? TargetY = null, OriginalWalkEndCheck EndCheck = OriginalWalkEndCheck.None) : ICommand
 {
+    /// <summary>#1749: only the immediate EBE8 direct walk after a failed same-army E84C search
+    /// inherits suppression. Transient metadata, never saved state or a new constructor/CLI argument.</summary>
+    public bool InheritFailedIntermediate { get; init; }
+
     /// <inheritdoc/>
     public string Kind => "movement.move-army";
 }

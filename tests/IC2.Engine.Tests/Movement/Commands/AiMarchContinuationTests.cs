@@ -153,8 +153,9 @@ public sealed class AiMarchContinuationTests
 
     /// <summary>
     /// An intermediate lookup with no point ends the order: inside a sea ring at Chebyshev distance 2 around
-    /// (60,100), clear of the classical waypoints, the first walk stops at (61,100), no waypoint is visible from
-    /// there and no local fallback exists, so no further level runs and no fallback move is charged.
+    /// (60,100), clear of the classical waypoints, an explicit first aim (61,100) consumes one move.
+    /// No waypoint is visible from there and no local fallback exists, so no further level runs or charge.
+    /// An initial failed search, before any walk, is covered separately by FaithfulFailedIntermediateTests.
     /// </summary>
     [Fact]
     public void A_level_with_no_intermediate_point_ends_the_order()
@@ -173,7 +174,8 @@ public sealed class AiMarchContinuationTests
 
         var (state, dispatcher) = Setup(8, sea: ring, blockers: false, origin: new GridPoint(60, 100));
 
-        var army = dispatcher.Dispatch(state, March(66, 100)).State.ArmyById(Army)!;
+        var army = dispatcher.Dispatch(state, new MoveArmyCommand("rome", Army, 61, 100,
+            MoveWalkPolicy.AiContinuation, 66, 100)).State.ArmyById(Army)!;
 
         Assert.Equal((61, 100, 7), (army.X, army.Y, army.Moves));
     }

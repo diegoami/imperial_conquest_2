@@ -143,6 +143,21 @@ public sealed class MoveArmyCommandHandler : ICommandHandler<MoveArmyCommand>
         }
 
         var from = new GridPoint(army.X, army.Y);
+        var inheritFailedIntermediate = false;
+        if (originalTransport && continuationTarget == contactTarget && from != continuationTarget
+            && (command.InheritFailedIntermediate || destination == continuationTarget))
+        {
+            var initialView = new Ai.AiView(state, context.Ruleset, world, army.Nation);
+            var direct = Ai.ClassicalArmyNavigation.DirectLine(initialView, from, continuationTarget);
+            inheritFailedIntermediate = command.InheritFailedIntermediate && direct;
+            if (!direct && Ai.ClassicalArmyNavigation.Classify(from.X, from.Y)
+                    == Ai.ClassicalArmyNavigation.Classify(continuationTarget.X, continuationTarget.Y)
+                && Ai.ClassicalArmyNavigation.Intermediate(initialView, from, continuationTarget).Point is null)
+            {
+                context.Events.Publish(new Ai.OriginalArmyIntermediateSearchFailed(army.Id));
+                return CommandOutcome.Accept(state);
+            }
+        }
         void EnteredCell(GridPoint point, int remaining)
         {
             if (context.IssuingNation.Control != SeatControl.Human
@@ -216,6 +231,7 @@ public sealed class MoveArmyCommandHandler : ICommandHandler<MoveArmyCommand>
                     contactReady = true;
                     break;
                 }
+                if (inheritFailedIntermediate) break;
                 if (movesAfter == movesBefore && movesAfter > 0)
                 {
                     var here = walk.FinalPosition;
@@ -270,6 +286,8 @@ public sealed class MoveArmyCommandHandler : ICommandHandler<MoveArmyCommand>
                     }
                     else
                     {
+                        // A deeper recursive frame's failed search ends that level, but is not the
+                        // measured top-level E84C frame that the following EBE8 call reuses.
                         break;
                     }
                 }

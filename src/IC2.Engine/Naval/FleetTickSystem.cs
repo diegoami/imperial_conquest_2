@@ -69,8 +69,9 @@ public sealed class FleetTickSystem : IGameSystem
         var destroyedArmyIds = new HashSet<string>(StringComparer.Ordinal);
         var updatedArmies = new Dictionary<string, ArmyState>(StringComparer.Ordinal);
 
-        foreach (var fleet in state.Fleets)
+        for (var fleetIndex = 0; fleetIndex < state.Fleets.Count; fleetIndex++)
         {
+            var fleet = state.Fleets[fleetIndex];
             if (fleet.IsUnderConstruction)
             {
                 var supplyAfterConsumption = Math.Max(0, fleet.SupplyTons - fleet.Ships);
@@ -78,7 +79,8 @@ public sealed class FleetTickSystem : IGameSystem
 
                 var buildCity = fleet.BuildCityId is { } buildCityId ? state.CityById(buildCityId) : null;
                 var launchPoint = buildCity is not null
-                    ? CoastalCity.LaunchTile(buildCity, context.World, ruleset)
+                    ? CoastalCity.LaunchTile(state with { Fleets = ValueList.From(updatedFleets.Concat(state.Fleets.Skip(fleetIndex))) },
+                        buildCity, context.World, ruleset)
                     : null;
 
                 // N9 (first review): a build city that no longer resolves, or that no longer has an

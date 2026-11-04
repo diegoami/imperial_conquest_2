@@ -599,7 +599,7 @@ public static class AiFaithfulEconomy
             return (state, 0, 0);
         }
 
-        var port = ChoosePort(state, world, nation);
+        var port = ChoosePort(state, world, nation, ruleset);
         if (port is null)
         {
             return (state, 0, 0);
@@ -623,23 +623,34 @@ public static class AiFaithfulEconomy
     }
 
     /// <summary>
-    /// <c>FUN_004496e0</c>: the own city <see cref="CoastalCity.IsCoastal"/> accepts (a sea cell in its 3x3),
-    /// nearest the capital by Chebyshev distance, that hosts no construction order already. No test that the
-    /// water cell is free is made: the report gives no predicate for the decompile's "free".
-    /// Equal distances: the lower city id (ordinal) wins. [designed]: the report names no loop order or
-    /// tie rule for FUN_004496e0 (searched 2026-10-07-strategic-ai-turn.md and
-    /// 2026-10-09-fleet-build-city-nearest-capital.md, which did not play a tie). Since T241 the rule is
-    /// <see cref="CoastalCity.FleetBuildCity"/>, shared with the human's Build fleet, with this method's
-    /// any-nation free test (<c>busyWhenAnyNationBuilds</c>) and its refusal to choose without a capital.
+    /// FUN_004496e0: Classical Faithful uses live ports outside the eastern zone, nearest the capital,
+    /// retaining the first city record on ties (research b288cac). Other worlds/policies retain the
+    /// T241 selector. The human Build fleet caller is separate; any-nation construction blocks both.
     /// </summary>
-    public static CityState? ChoosePort(GameState state, World world, NationState nation)
+    public static CityState? ChoosePort(GameState state, World world, NationState nation, Ruleset ruleset)
     {
         if (nation.CapitalCityId is not { } id || state.CityById(id) is null)
         {
             return null;
         }
 
-        return CoastalCity.FleetBuildCity(state, world, nation, busyWhenAnyNationBuilds: true);
+        if (!ClassicalArmyNavigation.Applies(world, ruleset))
+            return CoastalCity.FleetBuildCity(state, world, nation, busyWhenAnyNationBuilds: true);
+
+        var view = new AiView(state, ruleset, world, nation.Id);
+        var capital = state.CityById(id)!;
+        CityState? best = null;
+        var bestDistance = 1000;
+        foreach (var city in state.Cities)
+        {
+            if (city.Owner != nation.Id || !OriginalFleetPort.IsPort(view, new(city.X, city.Y))
+                || state.Fleets.Any(f => f.IsUnderConstruction && f.BuildCityId == city.Id)) continue;
+            var distance = AiView.Distance(city.X, city.Y, capital.X, capital.Y);
+            if (distance >= bestDistance) continue;
+            best = city;
+            bestDistance = distance;
+        }
+        return best;
     }
 
     /// <summary>
