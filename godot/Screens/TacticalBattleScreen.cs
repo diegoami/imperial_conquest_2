@@ -265,7 +265,8 @@ public partial class TacticalBattleScreen : Control
         }
         UndoButton = UiKit.MakeButton("Undo", UndoLastAction, BattleBodySize);
         UndoButton.Name = "TacticalUndo";
-        UndoButton.TooltipText = "Experimental: undo actions in your current tactical turn (Ctrl+Z).";
+        QolCommandIcons.Apply(UndoButton, "undo", "Experimental: undo actions in your current tactical turn (Ctrl+Z).");
+        UndoButton.CustomMinimumSize = new Vector2(44, 36);
         toolbar.AddChild(UndoButton);
         UndoButton.Visible = ObserverReplay is null;
         if (ObserverReplay is not null) BuildObserverReplayControls(toolbar);
