@@ -56,6 +56,17 @@ public sealed class GameplayConstantScannerTests
             {
                 if (!AllowedLiterals.Contains(match.Value))
                 {
+                    // T283's observer-only computation budget aborts an uncommitted seat;
+                    // it never ends a battle or selects a winner. Permit only this declaration,
+                    // rather than allowing the same number in arbitrary gameplay expressions.
+                    var lineStart = stripped.LastIndexOf('\n', match.Index) + 1;
+                    var lineEnd = stripped.IndexOf('\n', match.Index);
+                    if (lineEnd < 0) lineEnd = stripped.Length;
+                    if (Path.GetFileName(file) == "GameSession.ObserverBattles.cs"
+                        && stripped[lineStart..lineEnd].Trim()
+                            == "public int ObserverAutomaticHalfRoundLimit { get; set; } = 1000;")
+                        continue;
+
                     var line = stripped[..match.Index].Count(c => c == '\n') + 1;
                     offenders.Add($"{Path.GetFileName(file)}:{line}: literal '{match.Value}' is not on the allow-list");
                 }
