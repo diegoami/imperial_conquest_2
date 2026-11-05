@@ -20,6 +20,9 @@ namespace IC2.Slice.Screens;
 public partial class DiplomacyScreen : Control
 {
     public required GameSession Session { get; init; }
+    public string? ObservedNationId { get; init; }
+    public OptionButton? ObserverPerspectiveChoice { get; private set; }
+    private string? _observerPerspective;
 
     /// <summary>Raised once after OK applies the final choices, so <see cref="MainGameScreen"/> can refresh the
     /// map/news the same way it does for <see cref="ContextPanel"/> and <see cref="GameMapView"/>.</summary>
@@ -64,6 +67,11 @@ public partial class DiplomacyScreen : Control
         _content = content;
 
         content.AddChild(UiKit.MakeLabel("International Relations", AppTheme.Header, UiKit.AccentColor));
+        if (Session.IsObserverMode)
+        {
+            BuildObserverView(content);
+            return;
+        }
         var nation = WorkingState.NationById(WorkingState.ActiveNationId);
         content.AddChild(UiKit.MakeLabel($"Your nation: {nation?.Name ?? WorkingState.ActiveNationId}", AppTheme.Body, UiKit.TextColor));
         content.AddChild(UiKit.MakeLabel("Changes stay pending until OK. Cancel discards them.", AppTheme.Body, UiKit.MutedTextColor));
@@ -120,6 +128,40 @@ public partial class DiplomacyScreen : Control
     private const float ReservedHeight = 450f;
 
     private const float MinimumGridHeight = 120f;
+
+    private void BuildObserverView(VBoxContainer content)
+    {
+        var nations = WorkingState.Nations.Where(n => WorkingState.Relations.IndexOf(n.Id) >= 0).ToArray();
+        _observerPerspective ??= nations.Any(n => n.Id == ObservedNationId) ? ObservedNationId : WorkingState.ActiveNationId;
+        content.AddChild(UiKit.MakeLabel("Observing · read-only", AppTheme.Body, UiKit.TextColor));
+        ObserverPerspectiveChoice = new OptionButton();
+        foreach (var nation in nations) ObserverPerspectiveChoice.AddItem(nation.Name);
+        ObserverPerspectiveChoice.Select(Array.FindIndex(nations, n => n.Id == _observerPerspective));
+        ObserverPerspectiveChoice.ItemSelected += index => { _observerPerspective = nations[(int)index].Id; Rebuild(); };
+        content.AddChild(ObserverPerspectiveChoice);
+        var rows = DiplomacyGridViewModel.BuildRows(WorkingState, Session.Ruleset, _observerPerspective!);
+        string Names(DiplomaticStatus status) => string.Join(", ", rows.Where(r => r.Status == status).Select(r => r.NationName)) is { Length: > 0 } names ? names : "none";
+        var partners = TradePartnerCap.CurrentPartners(WorkingState, Session.Ruleset, _observerPerspective!, _observerPerspective!);
+        var partnerNames = partners.Count == 0 ? "none" : string.Join(", ", partners.Select(id => WorkingState.NationById(id)?.Name ?? id));
+        RelationshipSummary = UiKit.MakeLabel($"At war with: {Names(DiplomaticStatus.War)}\nTrading ({partners.Count}/{Session.Ruleset.Diplomacy.MaxTradePartners}): {partnerNames}", AppTheme.Body, UiKit.TextColor);
+        RelationshipSummary.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        content.AddChild(RelationshipSummary);
+        Grid = new GridContainer { Columns = 2 };
+        Grid.AddChild(UiKit.MakeLabel("Nation"));
+        Grid.AddChild(UiKit.MakeLabel("Relation"));
+        foreach (var row in rows)
+        {
+            Grid.AddChild(UiKit.MakeLabel(row.NationName));
+            Grid.AddChild(UiKit.MakeLabel(row.StatusCaption));
+        }
+        var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(0, MinimumGridHeight),
+            SizeFlagsVertical = SizeFlags.ExpandFill };
+        scroll.AddChild(Grid);
+        content.AddChild(scroll);
+        scroll.CustomMinimumSize = new Vector2(0, Math.Min(Math.Max(MinimumGridHeight, GetViewportRect().Size.Y - ReservedHeight), Grid.GetCombinedMinimumSize().Y));
+        OkButton = UiKit.MakeButton("Close", Close);
+        content.AddChild(OkButton);
+    }
 
     public override void _UnhandledInput(InputEvent @event)
     {
@@ -229,6 +271,7 @@ public partial class DiplomacyScreen : Control
     /// </summary>
     private void ConfirmDeclareWar(string targetId)
     {
+        if (Session.IsObserverMode) return;
         var prompt = new ConfirmPrompt
         {
             Question = DiplomacyGridViewModel.WarDeclarationQuestion(WorkingState, Session.Ruleset, WorkingState.ActiveNationId, targetId),
@@ -252,6 +295,7 @@ public partial class DiplomacyScreen : Control
 
     private void Choose(string targetId, string? commandLine)
     {
+        if (Session.IsObserverMode) return;
         var choices = new Dictionary<string, string>(_choices, StringComparer.Ordinal);
         if (commandLine is null) choices.Remove(targetId);
         else choices[targetId] = commandLine;
@@ -277,6 +321,7 @@ public partial class DiplomacyScreen : Control
 
     private void Commit()
     {
+        if (Session.IsObserverMode) { Close(); return; }
         var command = string.Join("; ", _draft.Commands);
         var result = AppDiagnostics.Operation(DiagnosticEvent.Command, "diplomacy", () => _draft.Commit(),
             command: command, turn: Session.State.Calendar.TurnIndex,

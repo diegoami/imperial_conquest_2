@@ -590,7 +590,9 @@ public partial class MainGameScreen : Control
 
         // T110 [designed]: a new game starts with the active seat's nation viewed, and a turn's start
         // follows the new active seat (OnCommandIssued). This also paints the panel's first contents.
-        SetViewedNation(Session.State.ActiveNationId);
+        var watched = SettingsScreen.Current.WatchedNationsFor(Session.World.Id);
+        SetViewedNation(Session.IsObserverMode && watched is { Count: 1 } && Session.State.NationById(watched[0]) is not null
+            ? watched[0] : Session.State.ActiveNationId);
         RefreshTopBar();
 
         // T127: a loaded game that holds an open tactical battle reopens the battle screen at once.
@@ -3560,7 +3562,7 @@ public partial class MainGameScreen : Control
     public void OpenDiplomacyScreen()
     {
         if (!AllowStrategicInput()) return;
-        var screen = new DiplomacyScreen { Session = Session };
+        var screen = new DiplomacyScreen { Session = Session, ObservedNationId = ViewedNationId };
         screen.CommandIssued += OnDialogCommandIssued;
         screen.Closed += () => CloseOverlay(screen);
         ShowOverlay(screen);
@@ -3631,6 +3633,6 @@ public partial class MainGameScreen : Control
         var season = Session.Ruleset.NewsLog.SeasonNames[calendar.SeasonIndex];
         _calendarLabel.Text = $"Week {calendar.Week}, {season}, {calendar.YearBc} BC (turn {calendar.TurnIndex})";
         var nation = DisplayState.NationById(DisplayState.ActiveNationId);
-        _activeNationLabel.Text = $"Playing: {nation?.Name ?? DisplayState.ActiveNationId}";
+        _activeNationLabel.Text = $"{(Session.IsObserverMode ? "AI turn" : "Playing")}: {nation?.Name ?? DisplayState.ActiveNationId}";
     }
 }
