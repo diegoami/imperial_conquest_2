@@ -79,19 +79,13 @@ the unsupported role rather than silently discarding it.
 
 ## Observer campaigns
 
-Select **Observer mode (experimental)** on New Game's player screen, or choose
-**Game → Observe campaign** from a strategic campaign after resolving battles
-and offers. Observation starts paused with all nations computer controlled.
-**Play**, **Pause** and **Next round** use the existing AI and turn rules; the
-next-round control stops at the next calendar advance. You can inspect the map,
-nations, news and latest battles without automatic result dialogs interrupting.
-Opening a dialog or leaving the screen pauses progression.
+Select **Observer mode (experimental)** in New Game, or **Game → Observe campaign** after resolving existing battles/offers. Starts paused with all nations computer controlled. **Watch civilizations…** selects one or more nations separately from the takeover picker; All watches everyone and None fast-forwards all activity. Watch choices are remembered per world. **Follow moves** follows watched routes; turn it off to keep camera control.
 
-While paused, choose a surviving non-barbarian nation and **Take control** to
-join its next turn. Intervening nations play normally and ordinary turn-start
-rules apply. Saving preserves the campaign's controller assignments; loading an
-observer campaign starts paused. These controls are owner-designed extensions,
-not evidence of an original observer mode. See [T278](tasks/T278.md).
+The **Speed** selector applies to map and battle playback (0.25x–8x, default 0.5x). **Pause/Play** or Space pauses/resumes presentation and future nation turns. **Next round** finishes the next calendar round and its visible activity, including after a pause/resume. **Skip current activity** finishes presentation without playing another turn while paused. Finish/skip the current activity before changing watched nations, battle policy or taking control.
+
+**Battles: tactical (experimental)** uses the existing tactical rules and both computer generals for every AI field battle. A fight involving either watched nation shows the actual board, moves and exchanges; unwatched fights use the same tactical resolution without animation. Read-only board clicks inspect units; the list buttons, pause, speed and Skip remain available. Siege/naval encounters use their existing labelled result reports. **Battles: quick results** retains original-style instant AI resolution. Tactical and instant policies can produce different survivors and later campaign events; changing the watch list or playback speed never changes results within a policy. Normal human play and default headless/CLI watch remain unchanged; `--observer-battles tactical` explicitly enables the tactical policy on the CLI.
+
+**Latest battles** opens the most recent encounter reports. A surviving non-barbarian nation can be taken over while paused at a safe boundary, joining its next normal turn. Saving preserves the authoritative campaign/controller assignments; loading resumes paused, without old presentation frames. Speed, watch choices and battle-policy preferences are UI settings outside native/original save formats. See [T278](tasks/T278.md) and its owner-approved [T283 extension](tasks/T283.md). The original manual has no observer mode; these controls and the tactical observer policy are designed conveniences.
 
 ## Original-game UI reference (private)
 

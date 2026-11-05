@@ -23,6 +23,38 @@ namespace IC2.Engine.Tests.Presentation;
 /// </remarks>
 public sealed class CliProcessTests
 {
+    [Theory]
+    [InlineData("instant")]
+    [InlineData("tactical")]
+    public void Observer_battle_policy_is_explicit_in_the_real_headless_CLI(string mode)
+    {
+        var cli = FindCliDll();
+        Assert.NotNull(cli);
+        var path = Path.Combine(Path.GetTempPath(), "ic2-observer-cli-" + Guid.NewGuid().ToString("N") + ".txt");
+        try
+        {
+            File.WriteAllText(path, "observe\nstatus\nquit\n");
+            using var process = StartCli(cli!, $"--observer-battles {mode} --script \"{path}\"");
+            var output = process.StandardOutput.ReadToEnd(); var errors = process.StandardError.ReadToEnd(); process.WaitForExit();
+            Assert.Equal(0, process.ExitCode);
+            Assert.Contains($"Observer battle policy: {mode}", errors, StringComparison.Ordinal);
+            Assert.Contains("Observer mode:", output, StringComparison.Ordinal);
+        }
+        finally { if (File.Exists(path)) File.Delete(path); }
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("invalid")]
+    public void Observer_battle_policy_refuses_a_missing_or_unknown_value(string value)
+    {
+        var cli = FindCliDll(); Assert.NotNull(cli);
+        using var process = StartCli(cli!, "--observer-battles " + value);
+        var output = process.StandardOutput.ReadToEnd(); var errors = process.StandardError.ReadToEnd(); process.WaitForExit();
+        Assert.NotEqual(0, process.ExitCode);
+        Assert.Contains("--observer-battles requires instant or tactical.", errors, StringComparison.Ordinal);
+        Assert.Empty(output);
+    }
     [Fact]
     public void A_missing_script_file_prints_a_friendly_message_and_exits_non_zero()
     {

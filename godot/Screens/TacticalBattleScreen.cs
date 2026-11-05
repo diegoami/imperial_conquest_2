@@ -170,13 +170,14 @@ public partial class TacticalBattleScreen : Control
 
     public override void _Ready()
     {
-        Session.TacticalUndoEnabled = true;
+        if (ObserverReplay is null) Session.TacticalUndoEnabled = true;
         _view = InitialView;
-        _display = BattleDisplay.For(InitialView, Session.State, Session.Ruleset, Session.World);
+        _display = BattleDisplay.For(InitialView, ObserverReplay?.AtAttack ?? Session.State, Session.Ruleset, Session.World);
         _bottomSide = !InitialView.ComputerControlled[0] ? 0
             : !InitialView.ComputerControlled[1] ? 1
             : InitialView.SideToMove;
         _perspective = InitialView.ComputerControlled[0] && !InitialView.ComputerControlled[1] ? 1 : 0;
+        if (ObserverReplay is not null) _bottomSide = _perspective = Math.Clamp(ObserverPerspectiveSide, 0, 1);
         _snapshot = new TacticalPresentationSnapshot(InitialView, _display.BoardWidth, _display.BoardHeight, false,
             ValueList<int>.Empty, ValueList<int>.Empty);
         _playback.PresentationChanged += () =>
@@ -257,6 +258,7 @@ public partial class TacticalBattleScreen : Control
             }
 
             var captured = id;
+            if (ObserverReplay is not null) button.CustomMinimumSize = new Vector2(32, 32);
             button.Pressed += () => PressToolbarButton(captured);
             _buttons[id] = button;
             toolbar.AddChild(button);
@@ -265,6 +267,8 @@ public partial class TacticalBattleScreen : Control
         UndoButton.Name = "TacticalUndo";
         UndoButton.TooltipText = "Experimental: undo actions in your current tactical turn (Ctrl+Z).";
         toolbar.AddChild(UndoButton);
+        UndoButton.Visible = ObserverReplay is null;
+        if (ObserverReplay is not null) BuildObserverReplayControls(toolbar);
 
         _board = new BoardView
         {
@@ -295,6 +299,7 @@ public partial class TacticalBattleScreen : Control
         saveRow.AddChild(UiKit.MakeButton("Save", () => SaveRequested?.Invoke(), AppTheme.Button));
         saveRow.AddChild(UiKit.MakeButton("Save As...", () => SaveAsRequested?.Invoke(), AppTheme.Button));
         right.AddChild(saveRow);
+        saveRow.Visible = ObserverReplay is null;
 
         // A click on the side panel during a computer-played half-round turns Computer general off (the entry).
         var panelBox = UiKit.MakePanel(UiKit.PanelColor);
@@ -352,7 +357,11 @@ public partial class TacticalBattleScreen : Control
             .Where(frame => frame.After.View.AttackerArmyId == InitialView.AttackerArmyId
                 && frame.After.View.DefenderArmyId == InitialView.DefenderArmyId).ToArray();
         _battleId = opening.LastOrDefault()?.BattleId;
-        _playback.Begin(opening.Where(frame => frame.BattleId == _battleId).OrderBy(frame => frame.FrameId), Refresh);
+        _playback.Begin(opening.Where(frame => frame.BattleId == _battleId).OrderBy(frame => frame.FrameId), () =>
+        {
+            Refresh();
+            if (ObserverReplay is not null) _observerReplayComplete = true;
+        });
     }
 
     /// <summary>
@@ -365,6 +374,11 @@ public partial class TacticalBattleScreen : Control
     /// <param name="right">Whether it is the right button.</param>
     public void ClickCell(int x, int y, bool right = false)
     {
+        if (ObserverReplay is not null)
+        {
+            InspectedSlot = Model.SlotAt(x, y); SelectedSlot = -1; Refresh();
+            return;
+        }
         // A board click during the playback of the player's own order (a placement, a walk) ends that
         // playback and then acts, so the next unit can be picked at once instead of the click being lost.
         // The computer's half-round replays still end only through the side panel.
@@ -435,6 +449,15 @@ public partial class TacticalBattleScreen : Control
     /// <param name="id">The button.</param>
     public void PressToolbarButton(string id)
     {
+        if (ObserverReplay is not null)
+        {
+            if (id == "unit_moves") ToggleUnitList(ListKind.UnitMoves);
+            else if (id == "friendly_units") ToggleUnitList(ListKind.Friendly);
+            else if (id == "enemy_units") ToggleUnitList(ListKind.Enemy);
+            else if (id == "change_pauses") OpenPausesDialog();
+            else if (id == "cancel_selection") { SelectedSlot = InspectedSlot = -1; Refresh(); }
+            return;
+        }
         if (id == "undo") { UndoLastAction(); return; }
         if (_dialogKind == DialogKind.None && Model is not null && IsActiveListButton(id))
         {
@@ -519,12 +542,20 @@ public partial class TacticalBattleScreen : Control
     /// the clock without waiting for real time.
     /// </summary>
     /// <param name="seconds">The time passed.</param>
-    public void AdvancePlayback(double seconds) => _playback.Advance(seconds);
+    public void AdvancePlayback(double seconds)
+    {
+        if (ObserverReplay is not null && ObserverPaused?.Invoke() == true) return;
+        _playback.Advance(seconds);
+    }
 
     /// <summary>Skips only waits; every frame and typed exchange still enters once.</summary>
     public void SkipPlayback() { RecordPlaybackBoundary(DiagnosticEvent.Skip); _playback.Finish(); }
 
-    public override void _Process(double delta) => AdvancePlayback(delta);
+    public override void _Process(double delta)
+    {
+        if (ObserverReplay is null) AdvancePlayback(delta);
+        else AdvanceObserverReplay(delta);
+    }
 
     public override void _ExitTree()
     {
@@ -537,6 +568,7 @@ public partial class TacticalBattleScreen : Control
     /// </summary>
     public void PanelClicked()
     {
+        if (ObserverReplay is not null) return;
         if (!IsPlayingBack)
         {
             return;
@@ -599,6 +631,7 @@ public partial class TacticalBattleScreen : Control
 
     private void Send(Func<GameSession, SessionOutput> order, string diagnosticCommand)
     {
+        if (ObserverReplay is not null) return;
         var output = AppDiagnostics.Operation(DiagnosticEvent.BattleCommand, "tactical", () => order(Session), command: diagnosticCommand, turn: Session.State.Calendar.TurnIndex, success: output => DiagnosticJournal.CommandSucceeded(output.Lines), nation: Session.State.ActiveNationId);
         SetPlaybackPauses();
         if (output.TacticalRewound)
@@ -665,7 +698,7 @@ public partial class TacticalBattleScreen : Control
 
     private void Refresh()
     {
-        UndoButton.Disabled = IsPlayingBack || _dialogKind != DialogKind.None || !Session.CanUndoTactical;
+        UndoButton.Disabled = ObserverReplay is not null || IsPlayingBack || _dialogKind != DialogKind.None || !Session.CanUndoTactical;
         _display = _display with { PanelColorHex = "#" + UiKit.PanelColor.ToHtml(false) };
         Model = TacticalBattleViewModel.FromSnapshot(_snapshot, _display, SelectedSlot, _playback.CurrentFrame,
             _playback.CurrentExchange, _playback.PreviousExchange, _perspective, _playback.ResolvingHalfRound,
@@ -681,7 +714,8 @@ public partial class TacticalBattleScreen : Control
         _selectedTitle.Text = InspectedSlot >= 0 ? "Unit details" : "Selected unit";
         PanelLabel.Text = string.Join("\n", panelLines);
         ExchangeLabel.Text = string.Join("\n", Model.CurrentExchangePresentation.RichLines);
-        var exchangeVisible = Model.CurrentExchangePresentation.PlainLines.Count > 0;
+        var exchangeVisible = Model.CurrentExchangePresentation.PlainLines.Count > 0
+            && !(ObserverReplay is not null && InspectedSlot >= 0);
         PlannedExchangeLabel.Text = string.Join("\n", Model.PlannedExchangePresentation.RichLines);
         PlannedExchangeLabel.TooltipText = string.Join("\n", Model.PlannedExchangeLines);
         PlannedExchangeTitle.Visible = PlannedExchangeLabel.Visible = !exchangeVisible && Model.PlannedTargetSlot >= 0;
@@ -700,6 +734,12 @@ public partial class TacticalBattleScreen : Control
         foreach (var button in Model.Buttons)
         {
             _buttons[button.Id].Disabled = !button.Enabled && !IsActiveListButton(button.Id);
+            if (ObserverReplay is not null)
+            {
+                var allowed = button.Id is "unit_moves" or "friendly_units" or "enemy_units" or "change_pauses" or "cancel_selection";
+                _buttons[button.Id].Visible = allowed;
+                _buttons[button.Id].Disabled = !allowed;
+            }
         }
 
         RebuildList();

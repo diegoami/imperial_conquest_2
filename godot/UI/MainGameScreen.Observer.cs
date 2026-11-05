@@ -18,7 +18,6 @@ public partial class MainGameScreen
     public Button ObserverReportsButton => _observerReportsButton;
     private Label _observerStatus = null!;
     private readonly List<string> _observerNationIds = new();
-    private IReadOnlyList<BattleResult> _observerReports = Array.Empty<BattleResult>();
 
     private void BuildObserverControls(VBoxContainer root)
     {
@@ -43,26 +42,31 @@ public partial class MainGameScreen
         ObserverTakeControlButton.TooltipText = "Join this nation's next turn. Nations ahead of it play normally first.";
         ObserverControls.AddChild(ObserverTakeControlButton);
         root.AddChild(ObserverControls);
+        BuildObserverPlaybackControls(root);
         RefreshObserverControls();
     }
 
     public void ObserverPlay()
     {
-        if (!Session.IsObserverMode || ActiveOverlay is not null) return;
-        ObserverPlayback.Play();
+        if (!Session.IsObserverMode || ActiveOverlay is not null && !IsAutomaticObserverOverlay) return;
+        var resumeRound = _observerManuallyPaused && ObserverPlayback.StopAtTurn is not null;
+        _observerManuallyPaused = false;
+        if (resumeRound) ObserverPlayback.Resume(); else ObserverPlayback.Play();
         RefreshObserverControls();
     }
 
     public void ObserverPause()
     {
-        ObserverPlayback.Pause();
+        _observerManuallyPaused = true;
+        ObserverPlayback.Suspend();
         RefreshObserverControls();
     }
 
     public void ObserverNextRound()
     {
-        if (!Session.IsObserverMode || ActiveOverlay is not null) return;
-        ObserverPlayback.NextRound(Session);
+        if (!Session.IsObserverMode || ActiveOverlay is not null && !IsAutomaticObserverOverlay) return;
+        _observerManuallyPaused = false;
+        ObserverPlayback.NextRound(Session, DisplayState.Calendar.TurnIndex);
         RefreshObserverControls();
     }
 
@@ -78,9 +82,9 @@ public partial class MainGameScreen
     private void AdvanceObserver()
     {
         if (_closing || ObserverControls is null) return;
-        if (ActiveOverlay is not null) ObserverPlayback.Pause();
+        if (ActiveOverlay is not null && !IsAutomaticObserverOverlay) ObserverPause();
         if (!Session.IsObserverMode) ObserverPlayback.Pause();
-        if (ObserverPlayback.IsRunning && ActiveOverlay is null && !StrategicTravel.IsActive)
+        if (ObserverPlayback.IsRunning && ActiveOverlay is null && !StrategicTravel.IsActive && _observerEncounterQueue.Count == 0)
         {
             try
             {
@@ -100,14 +104,18 @@ public partial class MainGameScreen
     {
         if (ObserverControls is null) return;
         ObserverControls.Visible = Session.IsObserverMode;
-        if (!Session.IsObserverMode) return;
+        ObserverViewControls.Visible = Session.IsObserverMode;
+        if (!Session.IsObserverMode) { _observerConfigured = false; return; }
+        ConfigureObserverPlayback();
         var running = ObserverPlayback.IsRunning;
-        _observerStatus.Text = $"Observer · {(running ? "playing" : ObserverPlayback.StopReason is null ? "paused" : "stopped")} · {Session.State.NationById(Session.State.ActiveNationId)?.Name}";
-        _observerStatus.TooltipText = ObserverPlayback.StopReason ?? "Pause between nation turns; Next round stops at the next date.";
+        var showing = StrategicTravel.CurrentRoute?.OwnerId ?? StrategicTravel.CurrentStep?.Before.ActiveNationId ?? Session.State.ActiveNationId;
+        var action = _observerManuallyPaused ? "paused" : running ? "playing" : StrategicTravel.IsActive || IsAutomaticObserverOverlay ? "finishing round" : "paused";
+        _observerStatus.Text = $"Observer · {action} · {Session.State.NationById(showing)?.Name}";
+        _observerStatus.TooltipText = ObserverPlayback.StopReason ?? "Space pauses or resumes playback. Finish or skip current activity before changing watched nations or taking control.";
         ObserverPlayButton.Disabled = running;
         ObserverPauseButton.Disabled = !running;
         ObserverRoundButton.Disabled = running;
-        _observerReportsButton.Disabled = _observerReports.Count == 0;
+        _observerReportsButton.Disabled = _observerLatestEncounters.Count == 0;
         var choices = Session.State.Nations.Where(n => !n.Eliminated && n.Id != Session.Scenario.Barbarians?.NationId)
             .OrderBy(n => n.Name, StringComparer.Ordinal).ToArray();
         if (!_observerNationIds.SequenceEqual(choices.Select(n => n.Id)))
@@ -120,18 +128,15 @@ public partial class MainGameScreen
         }
         ObserverNationChoice.Disabled = running;
         ObserverTakeControlButton.Disabled = running || StrategicTravel.IsActive || _observerNationIds.Count == 0;
+        RefreshObserverPlaybackControls();
     }
 
-    private void RememberObserverReports(IReadOnlyList<BattleResult> reports)
-    {
-        if (reports.Count > 0) _observerReports = reports.ToArray();
-    }
+    private void RememberObserverReports(SessionOutput output) => RememberObserverEncounters(output);
 
     private void ShowObserverReports()
     {
         ObserverPause();
-        foreach (var report in _observerReports) _pendingBattleOverlays.Enqueue(report);
-        ShowNextOverlay();
+        ShowObserverHistory();
     }
 
     private void ConfirmObserverEntry()

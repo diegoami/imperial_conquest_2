@@ -9,29 +9,33 @@ namespace IC2.Engine.Tests.Presentation;
 
 public sealed class ObserverTacticalTests
 {
-    private static GameSession Build(bool tactical = true, bool capture = true)
+    private static GameSession Build(bool tactical = true, bool capture = true, bool faithful = false)
     {
         var toy = TacticalSessionTestbed.Toy;
-        var world = toy.World with { Width = 20, Height = 15,
-            Terrain = new(TerrainEncoding.RunLength, ValueList.Of(new TerrainRun(2, 20 * 15))),
+        var rules = faithful ? toy.Ruleset with { Flags = toy.Ruleset.Flags with { AiEconomy = AiEconomyModel.Original } } : toy.Ruleset;
+        var width = faithful ? 320 : 20; var height = faithful ? 140 : 15;
+        var world = toy.World with { Id = faithful ? "classical-mediterranean" : toy.World.Id, Width = width, Height = height,
+            Terrain = new(TerrainEncoding.RunLength, ValueList.Of(new TerrainRun(2, width * height))),
             StartingFleets = ValueList<StartingFleet>.Empty,
             StartingArmies = ValueList.Of(
                 TacticalSessionTestbed.Army("north-army-1", "north", 3, 3, 68,
                     TacticalSessionTestbed.Unit("heavy_infantry", 20000, 6, "Strong")),
                 TacticalSessionTestbed.Army("south-army-1", "south", 4, 3, 60,
                     TacticalSessionTestbed.Unit("light_infantry", 1000, 6, "Weak"))) };
-        var scenario = toy.Scenario with { Seats = ValueList.From(toy.Scenario.Seats.Select(s => s with { Control = SeatControl.Ai })) };
-        var initial = new GameSession(world, toy.Ruleset, scenario, seedOverride: 42);
-        var state = initial.State with { Relations = initial.State.Relations.WithRelation("north", "south", toy.Ruleset.Diplomacy.StateCodes.War) };
-        return new GameSession(world, toy.Ruleset, scenario, new SaveGame(state.SchemaVersion, "observer", "observer",
+        var scenario = toy.Scenario with { WorldId = world.Id, Seats = ValueList.From(toy.Scenario.Seats.Select(s => s with { Control = SeatControl.Ai })) };
+        var initial = new GameSession(world, rules, scenario, seedOverride: 42);
+        var state = initial.State with { Relations = initial.State.Relations.WithRelation("north", "south", rules.Diplomacy.StateCodes.War) };
+        return new GameSession(world, rules, scenario, new SaveGame(state.SchemaVersion, "observer", "observer",
             state.ScenarioId, state.WorldId, state.RulesetId, state))
         { ObserverTacticalBattles = tactical, CaptureObserverBattle = (_, _) => capture };
     }
 
-    [Fact]
-    public void Full_tactical_observation_uses_both_generals_and_continues_one_AI_pass()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Full_tactical_observation_uses_both_generals_and_continues_one_AI_pass(bool faithful)
     {
-        var session = Build();
+        var session = Build(faithful: faithful);
         var events = new List<DomainEvent>();
         session.EventsPublished += events.AddRange;
         var output = session.Submit("observer-step");
@@ -39,6 +43,7 @@ public sealed class ObserverTacticalTests
         Assert.NotEmpty(replay.Frames);
         Assert.All(replay.Frames, frame => Assert.All(frame.After.View.ComputerControlled, Assert.True));
         Assert.Contains(replay.Frames, f => f.Kind == TacticalFrameKind.Terminal);
+        Assert.Contains(replay.Frames, f => f.Event is TacticalShotEvent or TacticalMeleeEvent);
         Assert.True(replay.Frames[^1].After.View.IsOver);
         Assert.True(replay.Report.ExchangeLog.Count > 0);
         Assert.Null(session.OpenTacticalBattle);
@@ -84,12 +89,27 @@ public sealed class ObserverTacticalTests
     public void Legacy_instant_watch_stays_explicit_and_has_no_tactical_replay()
     {
         var plain = Build(tactical: false);
-        var instant = Build(); instant.ObserverTacticalBattles = false;
+        var state = plain.State;
+        var instant = new GameSession(plain.World, plain.Ruleset, plain.Scenario,
+            new SaveGame(state.SchemaVersion, "legacy", "Legacy", state.ScenarioId, state.WorldId, state.RulesetId, state));
+        Assert.False(instant.ObserverTacticalBattles);
         var a = plain.Submit("observer-step"); var b = instant.Submit("observer-step");
         Assert.Equal(plain.State, instant.State);
         Assert.Equal(a.Lines, b.Lines);
         Assert.Empty(a.ObserverBattles);
         Assert.NotEmpty(a.Battles);
+    }
+
+    [Fact]
+    public void Observer_tactical_policy_does_not_replace_normal_human_instant_battles_after_takeover()
+    {
+        var session = Build();
+        session.Submit("take-control north");
+        Assert.False(session.IsObserverMode);
+        var output = session.Submit("attack-army north-army-1 south-army-1");
+        Assert.Empty(output.ObserverBattles);
+        Assert.NotEmpty(output.Battles);
+        Assert.Null(session.OpenTacticalBattle);
     }
 
     [Fact]

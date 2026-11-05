@@ -74,13 +74,21 @@ public partial class MainGameScreen : Control
 
     public override void _Process(double delta)
     {
-        StrategicTravel.Advance(delta);
+        if (!Session.IsObserverMode || !_observerManuallyPaused)
+            StrategicTravel.Advance(delta * (Session.IsObserverMode ? ObserverSpeed : 1));
+        AdvanceObserverPresentation(delta);
         AdvanceObserver();
         RefreshStrategicUndoControl();
     }
 
     public override void _Input(InputEvent @event)
     {
+        if (Session.IsObserverMode && @event is InputEventKey { Pressed: true, Echo: false, Keycode: Key.Space }
+            && GetViewport().GuiGetFocusOwner() is not LineEdit and not TextEdit
+            && (ActiveOverlay is null || IsAutomaticObserverOverlay))
+        {
+            ToggleObserverPlayback(); GetViewport().SetInputAsHandled(); return;
+        }
         if (_mapView is not null && _mapView.TravelTargetPickArmed
             && @event is InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape })
         {
@@ -99,7 +107,11 @@ public partial class MainGameScreen : Control
     private void ReconcileDisplaySelection() =>
         _mapView.ReconcileSelection(_selectedArmyId, _selectedFleetId, _selectedCityId);
 
-    private void OnStrategicBoundaryCompleted(StrategicTravelStep step) => ReconcileDisplaySelection();
+    private void OnStrategicBoundaryCompleted(StrategicTravelStep step)
+    {
+        ReconcileDisplaySelection();
+        ObserverBoundaryCompleted(step);
+    }
 
     private bool AllowStrategicInput()
     {
@@ -147,7 +159,7 @@ public partial class MainGameScreen : Control
         if (_closing || _contextPanel is null || _areaMapView is null) return;
         _mapView.Refresh(); _contextPanel.Refresh(); _areaMapView.Refresh();
         RefreshTopBar(); UpdateCommandStrip();
-        _travelControls.Visible = StrategicTravel.IsActive;
+        _travelControls.Visible = StrategicTravel.IsActive && !Session.IsObserverMode;
     }
 
 
@@ -392,7 +404,7 @@ public partial class MainGameScreen : Control
         {
             SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill,
             DisplayStateSource = () => DisplayState, TravelPlayback = StrategicTravel,
-            StrategicInputAllowed = AllowStrategicInput,
+            StrategicInputAllowed = () => !_closing && (Session.IsObserverMode || AllowStrategicInput()),
         };
         body.AddChild(_mapView);
         _mapView.AddChild(_orderNotice);
@@ -559,7 +571,11 @@ public partial class MainGameScreen : Control
 
         _contextPanel.DisplayStateSource = () => DisplayState;
         _areaMapView.DisplayStateSource = () => DisplayState;
-        StrategicTravel.IntersectsViewport = _mapView.RouteIntersectsViewport;
+        StrategicTravel.IntersectsViewport = route => Session.IsObserverMode && SettingsScreen.Current.ObserverFollowMoves
+            && ObserverWatches(route.OwnerId) || _mapView.RouteIntersectsViewport(route);
+        StrategicTravel.PlayRoute = route => !Session.IsObserverMode || ObserverWatches(route.OwnerId);
+        StrategicTravel.RouteStarted += ObserverRouteStarted;
+        StrategicTravel.CellEntered += ObserverCellEntered;
         StrategicTravel.Changed += RefreshTravelDisplay;
         StrategicTravel.BoundaryCompleted += OnStrategicBoundaryCompleted;
         _mapView.Attach(Session, RepositoryRoot);
@@ -2816,7 +2832,8 @@ public partial class MainGameScreen : Control
         }
 
         _soundPlayer.Muted = !SettingsScreen.SoundEnabled;
-        var cues = Audio.SoundCues.ForEvents(events, Session.State, Session.LastTacticalTimeline);
+        var audible = FilterObserverBattleAudio(events);
+        var cues = Audio.SoundCues.ForEvents(audible, Session.State, Session.LastTacticalTimeline);
         _soundPlayer.Play(cues);
     }
 
@@ -2872,13 +2889,14 @@ public partial class MainGameScreen : Control
             }
         }
         var exact = _tacticalCompletionRouting ?? new SessionOutput(lines, false, Session.LastBattles, Session.LastSeatFalls)
-        { TacticalTimeline = Session.LastTacticalTimeline, StrategicTimeline = Session.LastStrategicTimeline };
+        { TacticalTimeline = Session.LastTacticalTimeline, StrategicTimeline = Session.LastStrategicTimeline, ObserverBattles = Session.LastObserverBattles };
         _tacticalCompletionRouting = null;
         Session.ConsumeStrategicTimeline();
         // Save/help callbacks may replace Last*, but cannot replace the retained movement completion.
         if (StrategicTravel.IsActive) { CommandIssued?.Invoke(lines); return; }
         if (Session.OpenTacticalBattle is not null)
             _nextTacticalOpening = _nextTacticalOpening.Concat(exact.TacticalTimeline).Distinct().ToArray();
+        PrepareObserverPresentation(exact);
         var batch = exact.StrategicTimeline;
         if (batch.Steps.Count > 0)
         {
@@ -3017,7 +3035,7 @@ public partial class MainGameScreen : Control
 
         if (Session.IsObserverMode)
         {
-            RememberObserverReports(retained.Battles);
+            RememberObserverReports(retained);
             RefreshObserverControls();
             return; // AI observation never waits for automatic battle-result dialogs.
         }
@@ -3159,6 +3177,7 @@ public partial class MainGameScreen : Control
         Session.ClearStrategicUndo();
         ObserverPlayback.Pause();
         _closing = true;
+        CancelObserverPresentation();
         StrategicTravel.Changed -= RefreshTravelDisplay;
         StrategicTravel.BoundaryCompleted -= OnStrategicBoundaryCompleted;
         StrategicTravel.Close();
@@ -3549,7 +3568,7 @@ public partial class MainGameScreen : Control
 
     private void ShowOverlay(Control overlay)
     {
-        ObserverPlayback.Pause();
+        if (!_openingObserverOverlay) ObserverPause();
         AppDiagnostics.Detail(DiagnosticEvent.Overlay, overlay.GetType().Name);
         if (ActiveOverlay is { } previous)
         {

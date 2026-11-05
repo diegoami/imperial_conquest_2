@@ -24,7 +24,7 @@ public sealed class StrategicTravelPlayback
     public double CellSeconds { get; set; } = CandidateCellSeconds;
     public bool Paused { get; set; }
     public bool Fast { get; set; }
-    public bool IsActive => _step is not null || _steps.Count > 0;
+    public bool IsActive => _step is not null || _steps.Count > 0 || _completed is not null;
     public bool CommandsAllowed => !_closed && !IsActive;
     public GameState? DisplayState => _display;
     public GameState Resolve(GameState live, string viewer) => _display ?? ForViewer(live, viewer);
@@ -44,6 +44,8 @@ public sealed class StrategicTravelPlayback
 
     /// <summary>False consumes a wholly offscreen route immediately; camera remains user-owned.</summary>
     public Func<StrategicTravelObservation, bool>? IntersectsViewport { get; set; }
+    public Func<StrategicTravelObservation, bool>? PlayRoute { get; set; }
+    public event Action<StrategicTravelObservation>? RouteStarted;
 
     public bool Begin(StrategicTravelBatch batch, string viewer, Action completed, bool retainArrival = false)
     {
@@ -65,9 +67,10 @@ public sealed class StrategicTravelPlayback
         var remaining = double.IsFinite(seconds) ? Math.Max(0, seconds) * (Fast ? 4 : 1) : 0;
         while (IsActive)
         {
+            if (Paused) return;
             if (_route is null) { Prepare(); continue; }
             var duration = double.IsFinite(CellSeconds) ? Math.Max(0, CellSeconds) : CandidateCellSeconds;
-            if (IntersectsViewport?.Invoke(_route) == false) duration = 0;
+            if (PlayRoute?.Invoke(_route) == false || IntersectsViewport?.Invoke(_route) == false) duration = 0;
             var needed = Math.Max(0, duration - _elapsed);
             if (remaining + 1e-12 < needed)
             {
@@ -140,6 +143,7 @@ public sealed class StrategicTravelPlayback
     {
         while (!_closed)
         {
+            if (Paused && !_draining) return;
             if (_step is null)
             {
                 if (!_steps.TryDequeue(out _step))
@@ -163,6 +167,7 @@ public sealed class StrategicTravelPlayback
                 if (route.EnteredCells.Count == 0 || !_step.MarkersBefore.Any(m =>
                     m.Kind == route.Kind && m.EntityId == route.EntityId && m.Visible)) continue;
                 _route = route; _cellIndex = 0; _elapsed = 0;
+                RouteStarted?.Invoke(route);
                 Changed?.Invoke();
                 return;
             }

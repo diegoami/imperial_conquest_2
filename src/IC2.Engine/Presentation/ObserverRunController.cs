@@ -14,10 +14,10 @@ public sealed class ObserverRunController
         StopReason = null;
     }
 
-    public void NextRound(GameSession session)
+    public void NextRound(GameSession session, int? displayedTurn = null)
     {
         Play();
-        StopAtTurn = session.State.Calendar.TurnIndex + 1;
+        StopAtTurn = (displayedTurn ?? session.State.Calendar.TurnIndex) + 1;
     }
 
     public void Pause()
@@ -26,10 +26,15 @@ public sealed class ObserverRunController
         StopAtTurn = null;
     }
 
+    /// <summary>Pause presentation without losing an in-flight Next round boundary.</summary>
+    public void Suspend() => IsRunning = false;
+    public void Resume() { IsRunning = true; StopReason = null; }
+
     public SessionOutput? Advance(GameSession session)
     {
         if (!IsRunning) return null;
         if (!session.IsObserverMode) { Pause(); return null; }
+        if (StopAtTurn is { } already && session.State.Calendar.TurnIndex >= already) { Pause(); return null; }
         var before = session.State;
         var output = session.Submit("observer-step");
         var after = session.State;
@@ -38,7 +43,7 @@ public sealed class ObserverRunController
             Pause();
             StopReason = "Observation stopped: no further nation turn is available.";
         }
-        else if (StopAtTurn is { } turn && after.Calendar.TurnIndex >= turn) Pause();
+        else if (StopAtTurn is { } turn && after.Calendar.TurnIndex >= turn) Suspend();
         return output;
     }
 }
