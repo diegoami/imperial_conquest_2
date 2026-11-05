@@ -34,7 +34,6 @@ move mac-sac-1 151 31
 end
 move mac-sac-1 151 31
 end
-accept-offer
 mobilize 2 mac-recruit-0
 mobilize 2 mac-recruit-1
 join-units mac-marines 1 2
@@ -52,6 +51,7 @@ disband-unit mac-marines 1
 split-unit mac-marines 0 1200
 split-army mac-marines mac-merc 2 supply=45 money=80
 end
+accept-offer
 move mac-merc 140 47
 move mac-merc 141 48
 hire-mercenary mac-merc 25
