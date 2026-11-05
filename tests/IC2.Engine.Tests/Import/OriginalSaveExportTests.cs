@@ -193,9 +193,11 @@ public sealed class OriginalSaveExportTests
     public void A_game_played_for_24_turns_exports_every_turn_and_imports_back_unchanged()
     {
         var session = new GameSession(RealGameData.World, RealGameData.Ruleset, RealGameData.Scenario, seedOverride: 7, humanSeatNationId: "rome");
+        var exportedTurns = new List<int>();
         for (var turn = 0; turn < 24; turn++)
         {
             var state = session.State;
+            exportedTurns.Add(state.Calendar.TurnIndex);
             var bytes = OriginalSaveCodec.Encode(Export(state));
             OriginalSaveLayout.Validate(bytes);
             Assert.Equal(state.Armies.Select(a => a.Moves), OriginalSaveCodec.Decode(bytes).Armies.Select(a => a.Moves));
@@ -207,7 +209,10 @@ public sealed class OriginalSaveExportTests
             session.Submit("end");
         }
 
-        Assert.True(session.State.Calendar.TurnIndex >= 24);
+        // Cover 24 distinct exported turns, not an unused 25th state: a legitimate
+        // defeat during the final End turn may finish before the next round tick.
+        // An earlier game end must still fail rather than repeatedly export one state.
+        Assert.Equal(Enumerable.Range(0, 24), exportedTurns);
     }
 
     /// <summary>Every field the original format holds, compared native → SAV → native.</summary>
