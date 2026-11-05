@@ -81,6 +81,8 @@ the unsupported role rather than silently discarding it.
 
 ## Unit selection and battles
 
+The top-right date begins with the campaign-wide **Turn** counter, followed by season, week and year. Turn continues across seasons and years; it advances after every nation has acted. Seasonal weeks repeat. Suggested new save names use the same turn counter; saving an existing file retains its filename.
+
 Unit lists use ordinary click for one selection, Ctrl-click to toggle additional rows, and Shift-click for a range. Blue highlighting remains visible when you move focus to an action button. In recruitment, **Recruit unit** sits beside the order cost above the training queue; **Mobilize** and **Disband** act on the selected queue rows below it.
 
 The battle summary spans the top of the screen. The information column begins alongside the battlefield and scrolls when its contents are long; current and planned exchange lines have additional spacing.

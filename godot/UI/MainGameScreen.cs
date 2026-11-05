@@ -625,6 +625,7 @@ public partial class MainGameScreen : Control
 
         _calendarLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         _calendarLabel.Name = "CampaignDate";
+        _calendarLabel.TooltipText = "Campaign turns continue across seasons and years. One turn completes after every nation has acted; seasonal weeks repeat.";
         row.AddChild(_calendarLabel);
 
         _activeNationLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.AccentColor);
@@ -3631,7 +3632,7 @@ public partial class MainGameScreen : Control
     {
         var calendar = DisplayState.Calendar;
         var season = Session.Ruleset.NewsLog.SeasonNames[calendar.SeasonIndex];
-        _calendarLabel.Text = $"Week {calendar.Week}, {season}, {calendar.YearBc} BC (turn {calendar.TurnIndex})";
+        _calendarLabel.Text = $"Turn {calendar.TurnIndex} · {season} · Week {calendar.Week} · {calendar.YearBc} BC";
         var nation = DisplayState.NationById(DisplayState.ActiveNationId);
         _activeNationLabel.Text = $"{(Session.IsObserverMode ? "AI turn" : "Playing")}: {nation?.Name ?? DisplayState.ActiveNationId}";
     }
