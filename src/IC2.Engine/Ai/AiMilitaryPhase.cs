@@ -76,6 +76,7 @@ public static class AiMilitaryPhase
     /// its moves oscillating); an army that has marched is still offered the attack its target allows.
     /// </param>
     /// <param name="into">The collecting list.</param>
+    /// <param name="includeOwnWar">False after Faithful FA20 already completed its own diplomacy phase.</param>
     /// <param name="siegeGates">
     /// Optional diagnostics. When supplied, <see cref="ProposeArmyTree"/> records what the tree selected
     /// into it — see <see cref="AiSiegeGateTally"/> for why that measurement exists and why it
@@ -94,17 +95,17 @@ public static class AiMilitaryPhase
         IReadOnlyList<string> armiesAlreadyMarched,
         List<AiCandidate> into,
         AiSiegeGateTally? siegeGates = null,
-        ICollection<string>? boxedIn = null)
-        => ProposeCore(view, personality, rng, armiesAlreadyMarched, into, siegeGates, boxedIn, null);
+        ICollection<string>? boxedIn = null, bool includeOwnWar = true)
+        => ProposeCore(view, personality, rng, armiesAlreadyMarched, into, siegeGates, boxedIn, null, includeOwnWar: includeOwnWar);
 
     internal static AiView ProposeInOriginalArmyOrder(AiView view, AiPersonalityProfile personality, IRng rng,
         IReadOnlyList<string> armiesAlreadyMarched, List<AiCandidate> into, AiSiegeGateTally siegeGates,
-        ICollection<string> boxedIn, OriginalArmyOrder armyOrder, Func<AiView, ArmyState, AiView>? prepare = null)
-        => ProposeCore(view, personality, rng, armiesAlreadyMarched, into, siegeGates, boxedIn, armyOrder, prepare);
+        ICollection<string> boxedIn, OriginalArmyOrder armyOrder, Func<AiView, ArmyState, AiView>? prepare = null, bool includeOwnWar = true)
+        => ProposeCore(view, personality, rng, armiesAlreadyMarched, into, siegeGates, boxedIn, armyOrder, prepare, includeOwnWar);
 
     private static AiView ProposeCore(AiView view, AiPersonalityProfile personality, IRng rng,
         IReadOnlyList<string> armiesAlreadyMarched, List<AiCandidate> into, AiSiegeGateTally? siegeGates,
-        ICollection<string>? boxedIn, OriginalArmyOrder? armyOrder, Func<AiView, ArmyState, AiView>? prepare = null)
+        ICollection<string>? boxedIn, OriginalArmyOrder? armyOrder, Func<AiView, ArmyState, AiView>? prepare = null, bool includeOwnWar = true)
     {
         ArgumentNullException.ThrowIfNull(view);
         ArgumentNullException.ThrowIfNull(personality);
@@ -115,7 +116,7 @@ public static class AiMilitaryPhase
         var requiredRatio = AiView.RequiredAttackRatioPermille(personality.AggressionPermille, view.Ruleset);
         var progress = view.VictoryProgressPermille();
 
-        ProposeOwnWarDeclaration(view, rng, into);
+        if (includeOwnWar) ProposeOwnWarDeclaration(view, rng, into);
 
         if (armyOrder is not null)
         {
@@ -168,8 +169,8 @@ public static class AiMilitaryPhase
     /// <para>
     /// <strong>Given the very highest score of any candidate this AI can offer, deliberately.</strong>
     /// The original's own routine runs this decision <em>before</em> its military phase, once, as one
-    /// atomic step; this engine's greedy "propose everything, score it, take the best, look again" loop
-    /// (<see cref="AiTurn"/>) has no equivalent single atomic pass to put it in. A war declaration
+    /// atomic step. T282 supplies Faithful's dedicated pre-economy phase. The designed engine's greedy
+    /// "propose everything, score it, take the best, look again" loop still uses the priorities below. A war declaration
     /// therefore has to outscore every attack, siege, march, recruitment and trade candidate this AI
     /// could otherwise offer the same turn, so that — whenever the roll says to declare — it is chosen
     /// on the very first action it is offered, before any other candidate involving the same target
@@ -189,7 +190,7 @@ public static class AiMilitaryPhase
     /// this runs before the roll is acted on or the target stops being eligible.
     /// </para>
     /// </remarks>
-    private static void ProposeOwnWarDeclaration(AiView view, IRng rng, List<AiCandidate> into)
+    internal static void ProposeOwnWarDeclaration(AiView view, IRng rng, List<AiCandidate> into)
     {
         var target = AiOwnDiplomacyRule.BestWarTarget(view.State, view.Ruleset, view.World, view.NationId);
         if (target is null)

@@ -14,8 +14,8 @@ namespace IC2.Engine.Tests.Presentation;
 /// <remarks>
 /// <para>
 /// <strong>Four independent cases.</strong> T192 retains a corrected new-game Macedonia/seed3
-/// prefix in <c>success.txt</c>; B (<c>success-trade-offer.txt</c>) accepts its naturally pending Gaul
-/// trade at turn 8 (#1723), then replays every later command. The peace answer and the
+/// prefix in <c>success.txt</c>; B (<c>success-trade-offer.txt</c>) accepts its naturally pending Numidia
+/// trade at turn 9 (T282), then replays every later command. The peace answer and the
 /// marine group live in <c>success-treaty-load.txt</c>, resumed from one native port save taken on the
 /// corrected A path (#1012; see below). Fleet remains
 /// a fresh <c>toy-3city</c> case. Every case has nonempty golden equality, fresh-session/load
@@ -370,19 +370,19 @@ public sealed class SuccessScriptTests
     }
 
     [Fact]
-    public void The_trade_case_answers_a_naturally_pending_Gaul_trade_on_the_same_fixed_seed()
+    public void The_trade_case_answers_a_naturally_pending_Numidia_trade_on_the_same_fixed_seed()
     {
         var session = NewSuccessSession();
         var lines = File.ReadAllLines(SuccessTradeOfferScriptPath);
         var answer = Array.IndexOf(lines, "accept-offer");
         Assert.True(answer > 0);
         RunTranscript(session, lines.Take(answer));
-        Assert.Equal(8, session.State.Calendar.TurnIndex);
-        Assert.Equal(new IC2.Engine.Model.PendingDiplomaticOffer("gaul", Classical.Ruleset.Diplomacy.StateCodes.Trade),
+        Assert.Equal(9, session.State.Calendar.TurnIndex);
+        Assert.Equal(new IC2.Engine.Model.PendingDiplomaticOffer("numidia", Classical.Ruleset.Diplomacy.StateCodes.Trade),
             session.State.PendingOffer);
         var reply = session.Submit(lines[answer]);
         Assert.Contains(reply.Lines, line => line == "diplomacy.accept-pending-offer accepted.");
-        Assert.Equal(Classical.Ruleset.Diplomacy.StateCodes.Trade, session.State.Relations.Get("macedonia", "gaul"));
+        Assert.Equal(Classical.Ruleset.Diplomacy.StateCodes.Trade, session.State.Relations.Get("macedonia", "numidia"));
     }
 
     [Fact]
@@ -598,6 +598,11 @@ quit
         // still at turn 8: keep the same answer position, seed and all own commands.
         trade.Remove("accept-offer");
         trade.Insert(trade.IndexOf("mobilize 2 mac-recruit-0"), "accept-offer");
+        // T282 corrects phase/support timing. On the same seed and exact player-command
+        // lineage, the next natural offer is Numidia at turn 9. Move only the answer;
+        // every preparation/suffix command and the loaded treaty case stay intact.
+        trade.Remove("accept-offer");
+        trade.Insert(trade.IndexOf("split-army mac-marines mac-merc 2 supply=45 money=80") + 2, "accept-offer");
         // #1012: the loaded case resumes before the mac-detached attack (original58), whose lost battle
         // is offered peace, then runs original79's answer and the marine group (original77, 78, 80-87).
         var treaty = new[] { "move mac-detached 155 26", original[57], original[78], original[76], original[77] }

@@ -88,7 +88,7 @@ The [released v0.9.3 recheck](docs/investigations/original-ai-control-and-suppor
 
 The [SAV compatibility evidence](docs/game-design.md#original-save-compatibility--confirmed-format-designed-policy) distinguishes the current canonical writer policy from bounded callback/lifecycle/canary findings. Those findings add no owner-JSON conversion or native Windows acceptance, and leave GUI indirect calls and unexercised states open.
 
-The [November 5 all-AI evidence evaluation](docs/investigations/original-ai-control-and-support.md#november-5-all-ai-audit-evidence) distinguishes measured v0.9.4 improvements and diplomacy draws from phase/support timing, mobilisation, build-city and walk-end support gaps. The research coverage matrix is not a whole-AI parity claim; original runtime evidence remains Wine-only, and the owner's Instant and observer designs remain explicit exceptions.
+The [November 5 all-AI evidence evaluation](docs/investigations/original-ai-control-and-support.md#november-5-all-ai-audit-evidence) distinguishes measured v0.9.4 improvements and diplomacy draws from the phase/support timing, mobilisation, build-city and walk-end support corrections scoped by T282. The research coverage matrix is not a whole-AI parity claim; original runtime evidence remains Wine-only, and the owner's Instant and observer designs remain explicit exceptions.
 
 ## The research-inspector tools (`IC2.Inspect`)
 

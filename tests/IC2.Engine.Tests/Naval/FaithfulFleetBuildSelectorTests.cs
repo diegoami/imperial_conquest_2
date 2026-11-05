@@ -52,18 +52,34 @@ public sealed class FaithfulFleetBuildSelectorTests
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public void AI_port_checks_live_sea_and_any_nations_construction(bool seaOccupied)
+    public void AI_port_checks_live_sea_and_own_construction(bool seaOccupied)
     {
         var f = Fixture(100,40);
         var city = f.State.Cities[0];
-        var fleet = new FleetState("marker", "foreign", 100,41,0,10,100,1000,100,
+        var fleet = new FleetState("marker", seaOccupied ? "foreign" : f.Nation.Id, 100,41,0,10,100,1000,100,
             seaOccupied ? null : 5, city.Id, null, 0);
         var fleets = seaOccupied
             ? Enumerable.Range(98,5).Select(x => fleet with { Id = "marker-" + x, X = x })
             : new[] { fleet };
         var state = f.State with { Fleets = ValueList.From(fleets) };
         Assert.Null(AiFaithfulEconomy.ChoosePort(state, f.World, f.Nation, f.Rules));
-        Assert.NotNull(CoastalCity.FleetBuildCity(state, f.World, f.Nation));
+        Assert.Equal(seaOccupied, CoastalCity.FleetBuildCity(state, f.World, f.Nation) is not null);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Foreign_construction_does_not_reserve_a_faithful_AI_build_city(bool ownConstruction)
+    {
+        var f = Fixture(100, 40);
+        var city = f.State.Cities[0];
+        var fleet = new FleetState("building", ownConstruction ? f.Nation.Id : "foreign", 0, 0, 0, 10,
+            100, 0, 0, 5, city.Id, null, null);
+        var state = f.State with { Fleets = ValueList.Of(fleet) };
+        Assert.Equal(ownConstruction ? null : city.Id,
+            AiFaithfulEconomy.ChoosePort(state, f.World, f.Nation, f.Rules)?.Id);
+        var designed = f.Rules with { Flags = f.Rules.Flags with { AiEconomy = AiEconomyModel.Designed } };
+        Assert.Null(AiFaithfulEconomy.ChoosePort(state, f.World, f.Nation, designed));
     }
 
     private static (GameState State, World World, NationState Nation, Ruleset Rules) Fixture(int x, int y)

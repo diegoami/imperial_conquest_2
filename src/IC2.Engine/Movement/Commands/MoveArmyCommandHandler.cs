@@ -220,6 +220,14 @@ public sealed class MoveArmyCommandHandler : ICommandHandler<MoveArmyCommand>
                 context.Ruleset, world, army.Nation);
             while (true)
             {
+                if (originalTransport)
+                {
+                    // Each D734 leg services its own live non-hostile city target,
+                    // before DBA8's no-progress fallback. Combat opt-ins stay separate.
+                    state = Ai.OriginalArmyWalkContact.Resupply(state, context.Ruleset, world,
+                        command.IssuingNationId, army.Id, lineGoal, walk.FinalPosition, movesAfter);
+                    army = state.ArmyById(army.Id)!;
+                }
                 // #1724: D734 checks its hostile target before DBA8 sees an
                 // unchanged budget and sends the army on a fallback swing.
                 // Only measured callers opt in. Do not resolve combat inside a

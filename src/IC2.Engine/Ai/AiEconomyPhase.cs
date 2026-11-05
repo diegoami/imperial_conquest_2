@@ -171,8 +171,9 @@ public static class AiEconomyPhase
             }
 
             // T67 (#304): "under siege" is the hostile-army-adjacent predicate (FUN_004497cc), not a stored flag.
-            // This restraint is the AI's own [designed] one (the original's FUN_004504f4 has no such test).
-            if (view.IsThreatened(city))
+            // Original FUN_004504f4 has no hostile-adjacent veto (#1773).
+            // Keep the designed restraint without applying it to Faithful mobilisation.
+            if (view.Ruleset.Flags.AiEconomy != AiEconomyModel.Original && view.IsThreatened(city))
             {
                 continue;
             }

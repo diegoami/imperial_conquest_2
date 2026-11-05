@@ -58,6 +58,91 @@ public sealed class FaithfulWalkEndContactTests
         return (AiTurn.Run(view.State, view.Ruleset, view.World, trace, SplitMix64Rng.ForStream(1, "ai.turn"), sink), trace, sink);
     }
 
+    [Theory]
+    [InlineData(4)]
+    [InlineData(8)]
+    public void Non_hostile_city_tail_supplies_on_arrival_even_with_zero_moves_and_no_combat_opt_in(int moves)
+    {
+        var (view, actor) = Fixture(x: 230, moves: moves);
+        actor = actor with { SupplyTons = 0, Money = 200, Units = ValueList.Of(F.Unit("light_infantry", 10000)) };
+        var state = view.State with { Armies = ValueList.Of(actor), Cities = ValueList.From(view.State.Cities.Select(c =>
+            c.Id == "target" ? c with { X = 235, Owner = "north", SupplyTons = 1000 } : c)) };
+        var result = new CommandDispatcher(SystemRegistry.FromEngineAssembly(), view.Ruleset, view.World, NullEventSink.Instance)
+            .Dispatch(state, new MoveArmyCommand("north", actor.Id, 235, 80, MoveWalkPolicy.AiContinuation, 235, 80));
+        Assert.True(result.IsAccepted, result.Rejection?.ToString());
+        var after = result.State.ArmyById(actor.Id)!;
+        Assert.Equal((234, 80), (after.X, after.Y));
+        Assert.Equal(moves - 4, after.Moves);
+        Assert.Equal(100, after.SupplyTons);
+        Assert.Equal(700, after.Money);
+        Assert.Equal(900, result.State.CityById("target")!.SupplyTons);
+        Assert.Equal(state.NationById("north")!.Treasury - 500, result.State.NationById("north")!.Treasury);
+        Assert.Empty(result.Events.OfType<BattleResolved>());
+        Assert.Empty(result.Events.OfType<OriginalArmyWalkContactReached>());
+    }
+
+    [Fact]
+    public void Empty_own_city_tail_still_normalizes_the_army_purse()
+    {
+        var (view, actor) = Fixture(x: 230);
+        actor = actor with { SupplyTons = 0, Money = 0 };
+        var state = view.State with { Armies = ValueList.Of(actor), Cities = ValueList.From(view.State.Cities.Select(c =>
+            c.Id == "target" ? c with { X = 235, Owner = "north", SupplyTons = 0 } : c)) };
+        var result = new CommandDispatcher(SystemRegistry.FromEngineAssembly(), view.Ruleset, view.World, NullEventSink.Instance)
+            .Dispatch(state, new MoveArmyCommand("north", actor.Id, 235, 80, MoveWalkPolicy.AiContinuation, 235, 80));
+        Assert.True(result.IsAccepted);
+        Assert.Equal(0, result.State.ArmyById(actor.Id)!.SupplyTons);
+        Assert.Equal(500, result.State.ArmyById(actor.Id)!.Money);
+        Assert.Equal(state.NationById("north")!.Treasury - 500, result.State.NationById("north")!.Treasury);
+    }
+
+    [Fact]
+    public void Non_hostile_foreign_tail_buys_from_the_live_owner_without_purse_hygiene()
+    {
+        var (view, actor) = Fixture(x: 230);
+        actor = actor with { SupplyTons = 0, Money = 200, Units = ValueList.Of(F.Unit("light_infantry", 10000)) };
+        var state = view.State with { Armies = ValueList.Of(actor),
+            Relations = view.State.Relations.WithRelation("north", "south", view.Ruleset.Diplomacy.StateCodes.Peace),
+            Cities = ValueList.From(view.State.Cities.Select(c => c.Id == "target" ? c with { X = 235, SupplyTons = 1000 } : c)) };
+        var result = new CommandDispatcher(SystemRegistry.FromEngineAssembly(), view.Ruleset, view.World, NullEventSink.Instance)
+            .Dispatch(state, new MoveArmyCommand("north", actor.Id, 235, 80, MoveWalkPolicy.AiContinuation, 235, 80));
+        Assert.True(result.IsAccepted);
+        Assert.Equal((40, 192), (result.State.ArmyById(actor.Id)!.SupplyTons, result.State.ArmyById(actor.Id)!.Money));
+        Assert.Equal(960, result.State.CityById("target")!.SupplyTons);
+        Assert.Equal(state.NationById("south")!.Treasury + 8, result.State.NationById("south")!.Treasury);
+        Assert.Equal(state.NationById("north")!.Treasury, result.State.NationById("north")!.Treasury);
+        Assert.Empty(result.Events.OfType<BattleResolved>());
+    }
+
+    [Theory]
+    [InlineData("human")]
+    [InlineData("improved")]
+    [InlineData("custom")]
+    [InlineData("army-marker")]
+    [InlineData("fleet-marker")]
+    [InlineData("not-adjacent")]
+    [InlineData("war")]
+    public void Resupply_tail_preserves_policy_live_map_and_hostility_guards(string mode)
+    {
+        var (view, actor) = Fixture(x: 230, moves: mode == "not-adjacent" ? 1 : 8);
+        actor = actor with { SupplyTons = 0, Money = 200 };
+        var state = view.State with { Armies = ValueList.Of(actor), Cities = ValueList.From(view.State.Cities.Select(c =>
+            c.Id == "target" ? c with { X = 235, Owner = mode == "war" ? "south" : "north", SupplyTons = 1000 } : c)) };
+        var rules = view.Ruleset;
+        var world = view.World;
+        if (mode == "human") state = state with { Nations = ValueList.From(state.Nations.Select(n => n.Id == "north" ? n with { Control = SeatControl.Human } : n)) };
+        if (mode == "improved") rules = rules with { Flags = rules.Flags with { AiEconomy = AiEconomyModel.Designed } };
+        if (mode == "custom") world = world with { Id = "custom" };
+        if (mode == "army-marker") state = state with { Armies = ValueList.Of(actor, actor with { Id = "cover", X = 235 }) };
+        if (mode == "fleet-marker") state = state with { Fleets = ValueList.Of(new FleetState("cover", "north", 235, 80, 0, 10, 100, 0, 0, null, null, null, 0)) };
+        var result = new CommandDispatcher(SystemRegistry.FromEngineAssembly(), rules, world, NullEventSink.Instance)
+            .Dispatch(state, new MoveArmyCommand("north", actor.Id, 235, 80, MoveWalkPolicy.AiContinuation, 235, 80));
+        Assert.True(result.IsAccepted, result.Rejection?.ToString());
+        Assert.Equal((0, 200), (result.State.ArmyById(actor.Id)!.SupplyTons, result.State.ArmyById(actor.Id)!.Money));
+        Assert.Equal(state.CityById("target"), result.State.CityById("target"));
+        Assert.Empty(result.Events.OfType<BattleResolved>());
+    }
+
     [Fact]
     public void Adjacent_city_target_without_an_offer_besieges_before_the_no_progress_fallback()
     {
@@ -403,7 +488,16 @@ public sealed class FaithfulWalkEndContactTests
         var run = Run(view);
         Assert.Empty(run.Sink.Events.OfType<OriginalArmyWalkContactReached>());
         Assert.DoesNotContain(run.Trace.Calls, c => c.Command is BesiegeCityCommand);
-        Assert.Equal(view.State.CityById("target"), run.Outcome.State.CityById("target"));
+        var before = view.State.CityById("target")!;
+        var after = run.Outcome.State.CityById("target")!;
+        if (mode == "friendly")
+        {
+            // C23 services a friendly city; it still must not besiege or damage it.
+            Assert.Equal(before with { SupplyTons = after.SupplyTons }, after);
+            Assert.Equal(656, after.SupplyTons - before.SupplyTons); // 1000 carried, 344 capacity.
+            Assert.Equal(344, run.Outcome.State.ArmyById("actor")!.SupplyTons);
+        }
+        else Assert.Equal(before, after);
         Assert.Equal(0, run.Outcome.CommandsRejected); Assert.Equal(0, run.Outcome.ProjectionMismatches);
     }
 }

@@ -437,6 +437,30 @@ public sealed class AiEconomyPhaseMobilizationTests
         return candidates;
     }
 
+    [Fact]
+    public void Faithful_mobilizes_beside_an_enemy_when_original_gates_and_placement_pass()
+    {
+        var state = BattleCommandTestbed.AtWar(OneSlotState(Recruitment.MobilizationMinStateCodeAiSeat), Acting, Other);
+        var home = state.CityById(HomeCityId)!;
+        state = state with { Armies = ValueList.Of(CaptureFixtures.Army("enemy", Other,
+            home.X + 1, home.Y, 60, CaptureFixtures.Unit("light_infantry", 10000)),
+            CaptureFixtures.Army("nearby", Acting, home.X - 5, home.Y, 60, CaptureFixtures.Unit("light_infantry", 100))) };
+        var rules = AiScriptedStates.Ruleset with { Flags = AiScriptedStates.Ruleset.Flags with { AiEconomy = AiEconomyModel.Original } };
+        var view = new AiView(state, rules, OpenWorld, Acting);
+        Assert.True(view.IsThreatened(home));
+        var candidates = new List<AiCandidate>();
+        AiEconomyPhase.Propose(view, AiPersonalityProfile.For(state.NationById(Acting)!, rules), candidates);
+        var candidate = Assert.Single(candidates, c => c.Kind == "mobilize");
+        var command = Assert.IsType<MobilizeRecruitSlotCommand>(Assert.Single(candidate.Commands));
+        var result = new IC2.Engine.Core.CommandDispatcher(IC2.Engine.Core.SystemRegistry.FromEngineAssembly(), rules, OpenWorld,
+            IC2.Engine.Core.NullEventSink.Instance).Dispatch(AiScriptedStates.WithActiveSeat(state, Acting), command);
+        Assert.True(result.IsAccepted, result.Rejection?.ToString());
+        Assert.Empty(result.State.NationById(Acting)!.RecruitmentSlots);
+        Assert.Equal(1100, result.State.Armies.Where(a => a.Nation == Acting).Sum(a => a.TotalTroops));
+        Assert.Contains(result.State.ArmyById("nearby")!.Units, u => u.Troops == 1000);
+        Assert.DoesNotContain(Propose(state), c => c.Kind == "mobilize"); // Designed restraint remains.
+    }
+
     private static GameState OneSlotState(int stateCode, int treasury = Treasury) =>
         StateWith(
             new List<RecruitmentSlot> { new(HomeCityId, "light_infantry", 1000, stateCode) },
