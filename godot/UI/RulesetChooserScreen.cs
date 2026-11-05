@@ -3,18 +3,12 @@ using Godot;
 namespace IC2.Slice.UI;
 
 /// <summary>
-/// New Game's first and most prominent screen — <c>docs/tasks/T24.md</c> Scope and
-/// <c>docs/game-design.md</c> §"User interface" item 1: a two-card <c>Classical Faithful</c> vs
-/// <c>Improved</c> picker, shown before scenario or seat selection, each card carrying a short
-/// plain-language summary of what it changes (<see cref="RulesetPresets"/>), <c>Classical Faithful</c>
-/// pre-highlighted as the default.
+/// New Game's compact campaign list and selected-entry description. The owner replaced the
+/// original oversized card layout on 2026-11-05; scenario/ruleset content and default stay the same.
 /// </summary>
 /// <remarks>
-/// <c>docs/tasks/T24.md</c> Done-when 4 checks this screen directly (not only its Godot-free model): both
-/// cards must render as equally-weighted, labelled options, and the pre-selected default must be
-/// <c>Classical Faithful</c>. <see cref="CardButtons"/> and <see cref="SelectedPreset"/> are exposed
-/// (rather than kept private) exactly so <c>godot/Checks/RulesetFlowCheck.cs</c> can assert on the real
-/// scene tree this class builds, not a hand-maintained mirror of it.
+/// Legacy Card-named accessors still expose the actual row controls to the existing flow checks.
+/// Classical Faithful and Improved retain equal prominence and the same default selection.
 /// </remarks>
 public partial class RulesetChooserScreen : Control
 {
@@ -41,6 +35,10 @@ public partial class RulesetChooserScreen : Control
     public Dictionary<string, Button> ScenarioCardButtons { get; } = new(StringComparer.Ordinal);
 
     private readonly List<(RulesetCard Card, Button Button)> _cards = new();
+    private ScrollContainer _listScroll = null!;
+    private VBoxContainer _description = null!;
+    public ScrollContainer ScenarioListScroll => _listScroll;
+    public Button ContinueButton => _continueButton;
 
     private Button _continueButton = null!;
 
@@ -73,23 +71,39 @@ public partial class RulesetChooserScreen : Control
         backButton.CustomMinimumSize = new Vector2(90, 34);
         header.AddChild(backButton);
 
-        var title = UiKit.MakeLabel("New Game — Choose a Ruleset", AppTheme.Header, UiKit.AccentColor);
+        var title = UiKit.MakeLabel("New Game — Choose a Scenario", AppTheme.Header, UiKit.AccentColor);
         header.AddChild(title);
 
-        var cardScroll = new ScrollContainer
+        var body = new HBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
+        body.AddThemeConstantOverride("separation", AppTheme.DialogGap);
+        column.AddChild(body);
+        _listScroll = new ScrollContainer
         {
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
             SizeFlagsVertical = SizeFlags.ExpandFill,
+            FollowFocus = true,
         };
-        column.AddChild(cardScroll);
-        var cards = new HFlowContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        cards.AddThemeConstantOverride("h_separation", AppTheme.DialogGap);
-        cards.AddThemeConstantOverride("v_separation", AppTheme.DialogGap);
-        cardScroll.AddChild(cards);
+        body.AddChild(_listScroll);
+        var rows = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        rows.AddThemeConstantOverride("separation", AppTheme.TableRowGap);
+        _listScroll.AddChild(rows);
+
+        var descriptionPanel = new PanelContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        body.AddChild(descriptionPanel);
+        var descriptionScroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        var descriptionMargin = new MarginContainer();
+        foreach (var edge in new[] { "left", "right", "top", "bottom" })
+            descriptionMargin.AddThemeConstantOverride("margin_" + edge, AppTheme.PanelMarginSide);
+        descriptionPanel.AddChild(descriptionMargin);
+        descriptionMargin.AddChild(descriptionScroll);
+        _description = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _description.AddThemeConstantOverride("separation", AppTheme.DialogGap);
+        descriptionScroll.AddChild(_description);
 
         foreach (var card in RulesetPresets.CardsFor(GameDataContext.Repository))
         {
-            cards.AddChild(BuildCard(card));
+            rows.AddChild(BuildCard(card));
         }
 
         _continueButton = UiKit.MakeButton("Continue", OnContinuePressed, AppTheme.Button);
@@ -100,25 +114,31 @@ public partial class RulesetChooserScreen : Control
     }
 
     /// <summary>
-    /// One card: a <see cref="Button"/> so the whole card is clickable, wrapping its own title and
-    /// summary lines. <strong>Equally weighted</strong> (Done-when 4): both cards get the same
-    /// <see cref="Control.SizeFlagsHorizontal"/> stretch (<see cref="SizeFlags.ExpandFill"/>, ratio 1)
-    /// and the same <see cref="Control.CustomMinimumSize"/>, so neither is laid out larger or more
-    /// prominent than the other — the only visual difference between them is which one currently carries
-    /// <see cref="UiKit.SelectedBorderColor"/> (<see cref="HighlightSelectedCard"/>).
+    /// A compact single-line row. Summaries appear only in the selected entry's description pane.
     /// </summary>
     private Control BuildCard(RulesetCard card)
     {
         var button = new Button
         {
             ToggleMode = true,
-            CustomMinimumSize = new Vector2(420, 360),
+            CustomMinimumSize = new Vector2(0, 44),
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
             SizeFlagsStretchRatio = 1f,
             ClipText = false,
         };
         button.AddThemeConstantOverride("h_separation", AppTheme.DialogGap);
         button.Pressed += () => SelectCard(card);
+        button.FocusEntered += () => { SelectCard(card); _listScroll.EnsureControlVisible(button); };
+        button.GuiInput += input =>
+        {
+            if (input is not InputEventKey { Pressed: true } key) return;
+            var index = _cards.FindIndex(row => row.Button == button);
+            var next = key.Keycode switch { Key.Up => index - 1, Key.Down => index + 1,
+                Key.Home => 0, Key.End => _cards.Count - 1, _ => -1 };
+            if (next < 0 || next >= _cards.Count) return;
+            _cards[next].Button.GrabFocus();
+            button.AcceptEvent();
+        };
         _cards.Add((card, button));
         if (card.Preset == RulesetPreset.Listed)
         {
@@ -137,31 +157,26 @@ public partial class RulesetChooserScreen : Control
         margin.SetAnchorsPreset(LayoutPreset.FullRect);
         margin.AddThemeConstantOverride("margin_left", AppTheme.PanelMarginSide);
         margin.AddThemeConstantOverride("margin_right", AppTheme.PanelMarginSide);
-        margin.AddThemeConstantOverride("margin_top", AppTheme.PanelMarginSide);
-        margin.AddThemeConstantOverride("margin_bottom", AppTheme.PanelMarginSide);
+        margin.AddThemeConstantOverride("margin_top", 4);
+        margin.AddThemeConstantOverride("margin_bottom", 4);
         button.AddChild(margin);
 
         var content = new VBoxContainer();
         content.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         margin.AddChild(content);
 
-        var name = UiKit.MakeLabel(card.DisplayName, AppTheme.Header, UiKit.TextColor);
-        name.HorizontalAlignment = HorizontalAlignment.Center;
-        name.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        var name = UiKit.MakeLabel(card.DisplayName, AppTheme.Body, UiKit.TextColor);
+        name.VerticalAlignment = VerticalAlignment.Center;
+        name.SizeFlagsVertical = SizeFlags.ExpandFill;
+        name.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+        name.ClipText = true;
+        name.MouseFilter = MouseFilterEnum.Ignore;
+        button.TooltipText = card.DisplayName;
+        button.AccessibilityName = card.DisplayName;
         content.AddChild(name);
         if (card.Preset != RulesetPreset.Listed)
         {
             CardTitleLabels[card.Preset] = name;
-        }
-
-        // #1288: the player's words on the card; the exact ruleset paths are each line's tooltip.
-        for (var i = 0; i < card.PlayerSummary.Count; i++)
-        {
-            var label = UiKit.MakeLabel("• " + card.PlayerSummary[i], AppTheme.Body, UiKit.MutedTextColor);
-            label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-            label.TooltipText = i < card.Summary.Count ? card.Summary[i] : string.Empty;
-            label.MouseFilter = Control.MouseFilterEnum.Pass;
-            content.AddChild(label);
         }
 
         return button;
@@ -197,18 +212,29 @@ public partial class RulesetChooserScreen : Control
                 BorderWidthRight = 3,
                 BorderWidthTop = 3,
                 BorderWidthBottom = 3,
-                CornerRadiusTopLeft = 10,
-                CornerRadiusTopRight = 10,
-                CornerRadiusBottomLeft = 10,
-                CornerRadiusBottomRight = 10,
+                CornerRadiusTopLeft = 4,
+                CornerRadiusTopRight = 4,
+                CornerRadiusBottomLeft = 4,
+                CornerRadiusBottomRight = 4,
                 ContentMarginLeft = 16,
                 ContentMarginRight = 16,
-                ContentMarginTop = 14,
-                ContentMarginBottom = 14,
+                ContentMarginTop = 4,
+                ContentMarginBottom = 4,
             };
             button.AddThemeStyleboxOverride("normal", style);
             button.AddThemeStyleboxOverride("hover", style);
             button.AddThemeStyleboxOverride("pressed", style);
+        }
+        foreach (var child in _description.GetChildren()) { _description.RemoveChild(child); child.QueueFree(); }
+        var title = UiKit.MakeLabel(SelectedCard.DisplayName, AppTheme.Header, UiKit.AccentColor);
+        title.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _description.AddChild(title);
+        for (var i = 0; i < SelectedCard.PlayerSummary.Count; i++)
+        {
+            var label = UiKit.MakeLabel("• " + SelectedCard.PlayerSummary[i], AppTheme.Body, UiKit.TextColor);
+            label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            label.TooltipText = i < SelectedCard.Summary.Count ? SelectedCard.Summary[i] : string.Empty;
+            _description.AddChild(label);
         }
     }
 

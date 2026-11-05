@@ -65,6 +65,7 @@ public static class Appearance
         var map = RoleMap(AppliedColors, colors);
         if (map.Count == 0)
         {
+            ApplyListSelection(AppTheme.Current);
             return;
         }
 
@@ -88,7 +89,20 @@ public static class Appearance
 
         RetintTree(map, root, seen);
         AppliedColors = colors;
+        ApplyListSelection(theme);
         root.PropagateNotification((int)Control.NotificationThemeChanged);
+    }
+
+    private static void ApplyListSelection(Theme theme)
+    {
+        // Blue highlighting stays distinct from Parchment's brown/gold
+        // palette, including when the list loses focus to an action button.
+        var light = AppTheme.Color("panel").Luminance > 0.5f;
+        var selected = new StyleBoxFlat { BgColor = new Color(light ? "#284F73" : "#B5D3ED"), BorderColor = new Color("#83BAEB"),
+            BorderWidthLeft = 2, BorderWidthRight = 2, BorderWidthTop = 1, BorderWidthBottom = 1 };
+        theme.SetStylebox("selected", "ItemList", selected);
+        theme.SetStylebox("selected_focus", "ItemList", selected);
+        theme.SetColor("font_selected_color", "ItemList", light ? Colors.White : new Color("#14293B"));
     }
 
     private static void RetintTree(Dictionary<Color, Color> map, Node node, HashSet<ulong> seen)

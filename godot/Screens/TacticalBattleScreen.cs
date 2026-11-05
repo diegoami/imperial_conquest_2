@@ -218,9 +218,11 @@ public partial class TacticalBattleScreen : Control
 
         AddChild(margin);
 
-        var row = new HBoxContainer();
+        var layout = new VBoxContainer();
+        layout.AddThemeConstantOverride("separation", AppTheme.DialogGap);
+        margin.AddChild(layout);
+        var row = new HBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
         row.AddThemeConstantOverride("separation", AppTheme.DialogGap);
-        margin.AddChild(row);
 
         var left = new VBoxContainer();
         left.AddThemeConstantOverride("separation", AppTheme.DialogGap);
@@ -228,20 +230,23 @@ public partial class TacticalBattleScreen : Control
 
         CaptionLabel = UiKit.MakeLabel(string.Empty, BattleHeaderSize, UiKit.AccentColor);
         CaptionLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        CaptionLabel.CustomMinimumSize = new Vector2(CellPixels * 14, 0);
-        left.AddChild(CaptionLabel);
+        layout.AddChild(CaptionLabel);
+        var status = new HBoxContainer();
+        status.AddThemeConstantOverride("separation", AppTheme.DialogGap);
+        layout.AddChild(status);
         PhaseLabel = UiKit.MakeLabel(string.Empty, BattleBodySize, UiKit.AccentColor);
         PhaseLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        PhaseLabel.CustomMinimumSize = new Vector2(CellPixels * 14, 0);
-        left.AddChild(PhaseLabel);
+        PhaseLabel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        status.AddChild(PhaseLabel);
         ControllerLabel = UiKit.MakeLabel(string.Empty, BattleBodySize, UiKit.AccentColor);
         ControllerLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        ControllerLabel.CustomMinimumSize = new Vector2(CellPixels * 14, 0);
-        left.AddChild(ControllerLabel);
+        ControllerLabel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        ControllerLabel.HorizontalAlignment = HorizontalAlignment.Right;
+        status.AddChild(ControllerLabel);
 
         var toolbar = new HBoxContainer();
         toolbar.AddThemeConstantOverride("separation", AppTheme.DialogGap);
-        left.AddChild(toolbar);
+        layout.AddChild(toolbar);
         for (var i = 0; i < BattleAssetKeys.ToolbarButtons.Count; i++)
         {
             var id = BattleAssetKeys.ToolbarButtons[i];
@@ -270,9 +275,11 @@ public partial class TacticalBattleScreen : Control
         toolbar.AddChild(UndoButton);
         UndoButton.Visible = ObserverReplay is null;
         if (ObserverReplay is not null) BuildObserverReplayControls(toolbar);
+        layout.AddChild(row);
 
         _board = new BoardView
         {
+            Name = "Battlefield",
             Host = this,
             CustomMinimumSize = new Vector2(CellPixels * 14, CellPixels * 12),
             TextureFilter = TextureFilterEnum.Nearest,
@@ -291,15 +298,20 @@ public partial class TacticalBattleScreen : Control
         footer.AddChild(_minimap);
         footer.AddChild(UiKit.MakeLabel("○ Acting unit\n◇ Target\n□ Selected", BattleNoteSize, UiKit.TextColor));
 
-        var right = new VBoxContainer { CustomMinimumSize = new Vector2(380, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        var informationScroll = new ScrollContainer { Name = "BattleInformation",
+            CustomMinimumSize = new Vector2(380, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        row.AddChild(informationScroll);
+        var right = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
         right.AddThemeConstantOverride("separation", AppTheme.DialogGap);
-        row.AddChild(right);
+        informationScroll.AddChild(right);
 
         var saveRow = new HBoxContainer();
         saveRow.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         saveRow.AddChild(UiKit.MakeButton("Save", () => SaveRequested?.Invoke(), AppTheme.Button));
         saveRow.AddChild(UiKit.MakeButton("Save As...", () => SaveAsRequested?.Invoke(), AppTheme.Button));
-        right.AddChild(saveRow);
+        toolbar.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill });
+        toolbar.AddChild(saveRow);
         saveRow.Visible = ObserverReplay is null;
 
         // A click on the side panel during a computer-played half-round turns Computer general off (the entry).
@@ -322,6 +334,7 @@ public partial class TacticalBattleScreen : Control
             ScrollActive = false, AutowrapMode = TextServer.AutowrapMode.WordSmart, MouseFilter = MouseFilterEnum.Ignore };
         PlannedExchangeLabel.AddThemeFontOverride("normal_font", AppTheme.BodyFont);
         PlannedExchangeLabel.AddThemeFontSizeOverride("normal_font_size", BattleBodySize);
+        PlannedExchangeLabel.AddThemeConstantOverride("line_separation", 4);
         PlannedExchangeLabel.AddThemeColorOverride("default_color", UiKit.TextColor);
         panelColumn.AddChild(PlannedExchangeLabel);
         ActorLabel = UiKit.MakeLabel(string.Empty, BattleNoteSize, ActingCueColor);
@@ -334,6 +347,7 @@ public partial class TacticalBattleScreen : Control
             ScrollActive = false, AutowrapMode = TextServer.AutowrapMode.WordSmart };
         ExchangeLabel.AddThemeFontOverride("normal_font", AppTheme.BodyFont);
         ExchangeLabel.AddThemeFontSizeOverride("normal_font_size", BattleBodySize);
+        ExchangeLabel.AddThemeConstantOverride("line_separation", 4);
         ExchangeLabel.AddThemeColorOverride("default_color", UiKit.TextColor);
         ExchangeLabel.AddThemeColorOverride("font_outline_color", new Color(0.04f, 0.04f, 0.04f));
         ExchangeLabel.AddThemeConstantOverride("outline_size", LightPanel ? 0 : 2);
@@ -845,7 +859,7 @@ public partial class TacticalBattleScreen : Control
 
     private void OnPanelInput(InputEvent @event)
     {
-        if (@event is InputEventMouseButton { Pressed: true })
+        if (@event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left or MouseButton.Right })
         {
             PanelClicked();
         }

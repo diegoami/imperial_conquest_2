@@ -229,22 +229,31 @@ public partial class RecruitUnitDialog : Control
         _costLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         _selectionLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         column.AddChild(_selectionLabel);
-        column.AddChild(_costLabel);
+        var recruitRow = new HBoxContainer();
+        recruitRow.AddThemeConstantOverride("separation", AppTheme.DialogGap);
+        column.AddChild(recruitRow);
+        _costLabel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        recruitRow.AddChild(_costLabel);
+        _recruitButton = UiKit.MakeButton("Recruit unit", SubmitRecruit);
+        recruitRow.AddChild(_recruitButton);
 
         column.AddChild(new HSeparator());
         _trainingHeading = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.MutedTextColor);
         column.AddChild(_trainingHeading);
 
         _trainingList = new ItemList { SelectMode = ItemList.SelectModeEnum.Multi, CustomMinimumSize = new Vector2(0, 140),
-            TooltipText = "Ready is the minimum readiness. Waiting can improve quality; mobilizing ends training." };
-        _trainingList.MultiSelected += (index, selected) =>
+            TooltipText = "Click to select one unit; Ctrl-click toggles units; Shift-click selects a range.\nReady is the minimum readiness. Waiting can improve quality; mobilizing ends training." };
+        _trainingList.MultiSelected += (_, _) =>
         {
-            if (index >= 0 && index < _trainingRows.Count)
+            // Native single selection silently clears other rows. Read the complete
+            // selection and never rebuild the widget inside its input signal.
+            _selectedSlotIndices.Clear();
+            foreach (var index in _trainingList.GetSelectedItems())
             {
-                var slot = _trainingRows[(int)index].SlotIndex;
-                if (selected) _selectedSlotIndices.Add(slot); else _selectedSlotIndices.Remove(slot);
+                if (index >= 0 && index < _trainingRows.Count)
+                    _selectedSlotIndices.Add(_trainingRows[index].SlotIndex);
             }
-            Refresh();
+            RefreshSelectedTraining();
         };
         column.AddChild(_trainingList);
         _trainingLocationLabel = UiKit.MakeLabel(string.Empty, AppTheme.Note, UiKit.TextColor);
@@ -255,8 +264,6 @@ public partial class RecruitUnitDialog : Control
         var actionRow = new HBoxContainer();
         actionRow.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(actionRow);
-        _recruitButton = UiKit.MakeButton("Recruit unit", SubmitRecruit);
-        actionRow.AddChild(_recruitButton);
         _mobilizeButton = UiKit.MakeButton("Mobilize", SubmitMobilize);
         actionRow.AddChild(_mobilizeButton);
         _disbandButton = UiKit.MakeButton("Disband", SubmitDisband);
@@ -332,6 +339,16 @@ public partial class RecruitUnitDialog : Control
             + $"  ·  quarterly: {_model.QuarterlyCostFor(troops, _selectedUnitTypeId).ToString(System.Globalization.CultureInfo.InvariantCulture)}";
 
         RefreshTrainingList();
+        RefreshSelectedTraining();
+
+        // T155: use the engine's capital-or-threshold eligibility rule.
+        var recruitRefusal = _model.RecruitRefusalReasonAt(SelectedCityIdForCheck);
+        _recruitButton.Disabled = recruitRefusal is not null;
+        _recruitButton.TooltipText = recruitRefusal ?? string.Empty;
+    }
+
+    private void RefreshSelectedTraining()
+    {
         var selectedRows = _trainingRows.Where(row => _selectedSlotIndices.Contains(row.SlotIndex)).ToArray();
         var selectedRow = selectedRows.FirstOrDefault();
         _trainingLocationLabel.Visible = selectedRow is not null;
@@ -357,12 +374,6 @@ public partial class RecruitUnitDialog : Control
         _mobilizeButton.TooltipText = selectedRows.Any(row => !row.IsReady) ? "Every selected unit must be ready; no units will be mobilized." : string.Empty;
         _disbandButton.Disabled = !RecruitUnitDialogModel.MayDisband(selectedRow);
 
-        // T155 (#515): Recruit is offered only in a town the order accepts — the engine's own
-        // capital-or-threshold rule (RecruitUnit's raw word), with its reason on the button for the
-        // towns the list still shows (units in training) where a new order would be refused.
-        var recruitRefusal = _model.RecruitRefusalReasonAt(SelectedCityIdForCheck);
-        _recruitButton.Disabled = recruitRefusal is not null;
-        _recruitButton.TooltipText = recruitRefusal ?? string.Empty;
     }
 
     /// <summary>Fills the dropdown: All cities when it is listed (T162), then the listed towns.

@@ -67,6 +67,8 @@ checks into a claim that those deferred acceptance checks were performed.
 
 ### Campaign selection
 
+New Game uses a compact scrollable list. Select a scenario or ruleset to read its description beside the list, then choose **Continue**. The arrow keys and Home/End navigate the list; the description and scenario list scroll separately.
+
 New Game includes Italy 500 BC, an opt-in Italy variant with barbarian arrivals,
 and Near East openings around 1350 BC and 750 BC. The historical campaigns use
 the existing five troop roles with period names/art; chariots are gameplay
@@ -76,6 +78,12 @@ all numerical setup are explicit abstractions. See the
 [reproducible source/authoring guide](../tools/NearEast/README.md).
 Campaigns with barbarians use native JSON saves; original-SAV export refuses
 the unsupported role rather than silently discarding it.
+
+## Unit selection and battles
+
+Unit lists use ordinary click for one selection, Ctrl-click to toggle additional rows, and Shift-click for a range. Blue highlighting remains visible when you move focus to an action button. In recruitment, **Recruit unit** sits beside the order cost above the training queue; **Mobilize** and **Disband** act on the selected queue rows below it.
+
+The battle summary spans the top of the screen. The information column begins alongside the battlefield and scrolls when its contents are long; current and planned exchange lines have additional spacing.
 
 ## Observer campaigns
 
