@@ -8,7 +8,7 @@ public sealed partial class GameSession
 {
     private sealed record StrategicCheckpoint(long Id, int Generation, string Nation, int Turn,
         GameState Campaign, ValueList<ArmyTravelTarget> Targets, ValueList<RetreatSupplyPlan> Recovery,
-        ValueList<NationRallyPoint> Rally, IReadOnlyList<NewsEntry>? NewsBaseline,
+        ValueList<NationRallyPoint> Rally, ValueList<FleetRallyOrder> FleetOrders, IReadOnlyList<NewsEntry>? NewsBaseline,
         Dictionary<string, PendingPeaceTreatyOffer> Peace, Dictionary<string, int> FallTreasuries,
         bool GameOver, bool SeatLost, GameWon? Win, string? SupportNation, int SupportTurn);
 
@@ -54,7 +54,7 @@ public sealed partial class GameSession
         _strategicGroupDepth = 1;
         _strategicGroupBefore = new(++_strategicCheckpointId, _strategicUndoGeneration,
             State.ActiveNationId, State.Calendar.TurnIndex, State, ArmyTravelTargets, RetreatSupplyPlans,
-            NationRallyPoints, _pendingNewsBaseline?.ToArray(), new(_pendingPeaceTreatyOffers, StringComparer.Ordinal),
+            NationRallyPoints, FleetRallyOrders, _pendingNewsBaseline?.ToArray(), new(_pendingPeaceTreatyOffers, StringComparer.Ordinal),
             new(_pendingFallTreasuries, StringComparer.Ordinal), _gameOver, _seatLost, _scenarioWin,
             _lastHumanSupportNation, _lastHumanSupportTurn);
         NotifyStrategic(StrategicCheckpointCaptured, _strategicGroupBefore.Id);
@@ -78,7 +78,7 @@ public sealed partial class GameSession
 
     private bool Unchanged(StrategicCheckpoint entry) => State == entry.Campaign
         && ArmyTravelTargets.SequenceEqual(entry.Targets) && RetreatSupplyPlans.SequenceEqual(entry.Recovery)
-        && NationRallyPoints.SequenceEqual(entry.Rally) && _gameOver == entry.GameOver && _seatLost == entry.SeatLost
+        && NationRallyPoints.SequenceEqual(entry.Rally) && FleetRallyOrders.SequenceEqual(entry.FleetOrders) && _gameOver == entry.GameOver && _seatLost == entry.SeatLost
         && Equals(_scenarioWin, entry.Win) && SamePairs(_pendingPeaceTreatyOffers, entry.Peace)
         && SamePairs(_pendingFallTreasuries, entry.FallTreasuries);
 
@@ -115,6 +115,7 @@ public sealed partial class GameSession
         ArmyTravelTargets = entry.Targets;
         RetreatSupplyPlans = entry.Recovery;
         NationRallyPoints = entry.Rally;
+        FleetRallyOrders = entry.FleetOrders;
         _pendingNewsBaseline = entry.NewsBaseline;
         _pendingPeaceTreatyOffers.Clear();
         foreach (var pair in entry.Peace) _pendingPeaceTreatyOffers.Add(pair.Key, pair.Value);

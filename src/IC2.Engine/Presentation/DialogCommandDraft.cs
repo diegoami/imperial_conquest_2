@@ -128,6 +128,7 @@ public sealed partial class GameSession
         ArmyTravelTargets = source.ArmyTravelTargets;
         RetreatSupplyPlans = source.RetreatSupplyPlans;
         NationRallyPoints = source.NationRallyPoints;
+        FleetRallyOrders = source.FleetRallyOrders;
         _pendingNewsBaseline = source._pendingNewsBaseline?.ToArray();
         if (!includePending) return;
         _pendingPrelude = source._pendingPrelude?.ToList();
@@ -171,6 +172,7 @@ public sealed partial class GameSession
         ArmyTravelTargets = trial.ArmyTravelTargets;
         RetreatSupplyPlans = trial.RetreatSupplyPlans;
         NationRallyPoints = trial.NationRallyPoints;
+        FleetRallyOrders = trial.FleetRallyOrders;
         _pendingPrelude = trial._pendingPrelude;
         _pendingNewsBaseline = trial._pendingNewsBaseline;
         _pendingPeaceTreatyOffers.Clear();

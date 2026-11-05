@@ -14,6 +14,10 @@ namespace IC2.Engine.Naval;
 [DomainEvent("fleet.finished", NewsWorthy = true)]
 public sealed record FleetFinished(string Nation, string CityName) : DomainEvent;
 
+/// <summary>Identity for campaign automation; no news, rule change or automatic movement.</summary>
+[DomainEvent("naval.fleet-launched")]
+public sealed record FleetLaunched(string FleetId, string NationId) : DomainEvent;
+
 /// <summary>
 /// A launched fleet's condition fell below <see cref="Model.NavalRules.DeathConditionThreshold"/> during
 /// the storm pass and it was destroyed — <c>docs/task-catalogue.md</c> "T14 Naval" Done-when 13. Matches

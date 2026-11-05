@@ -47,6 +47,7 @@ public static class QolCommandIcons
             "travel" => "<circle cx='5' cy='27' r='2'/><path d='M7 27H12V17H23V5M18 10L23 5L28 10'/>",
             "recover" => "<path d='M3 16C3 8 9 4 17 4M13 1L17 4L13 7M10 16L20 8L30 16M13 15V28H27V15'/><path d='M18 21H25V28H18ZM21.5 21V28M18 23H25' fill='white' fill-opacity='.16'/>",
             "rally" => "<ellipse cx='9' cy='28' rx='6' ry='2'/><path d='M9 27V2M10 4H28L24 10L28 16H10M15 5V15' fill='white' fill-opacity='.16'/>",
+            "fleet_rally" => "<path d='M16 2V24M17 4H29L26 9L29 14H17M8 18H24L27 24H5ZM2 28Q6 24 10 28Q14 32 18 28Q22 24 30 28'/>",
             "rally_clear" => "<path d='M8 29V2M9 4H27L23 10L27 16H9M18 21L28 30M28 21L18 30' fill='white' fill-opacity='.16'/>",
             _ => throw new ArgumentOutOfRangeException(nameof(name)),
         };

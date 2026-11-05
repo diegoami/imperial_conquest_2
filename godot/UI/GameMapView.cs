@@ -177,10 +177,12 @@ public partial class GameMapView : Control
     public event Action? TravelTargetPickCancelled;
     public bool TravelTargetPickArmed { get; private set; }
 
-    public void ArmTravelTargetPick()
+    private bool _pickingFleetRally;
+    public void ArmTravelTargetPick(bool isFleet = false)
     {
         _pendingMove = null;
         TravelTargetPickArmed = true;
+        _pickingFleetRally = isFleet;
         TravelTargetPickChanged?.Invoke();
         QueueRedraw();
     }
@@ -1186,17 +1188,25 @@ public partial class GameMapView : Control
     private void TryPickTravelTarget(MapClickContext context)
     {
         if (!TravelTargetPickArmed) return;
+        if (_pickingFleetRally && FindCityAt(context.X, context.Y) is { } port)
+        {
+            CompleteTravelTargetPick();
+            TravelTargetPicked?.Invoke(context.X, context.Y, port.Id);
+            return;
+        }
         if (context.Target is { Kind: MapEntityKind.City } city)
         {
             CompleteTravelTargetPick();
             TravelTargetPicked?.Invoke(context.X, context.Y, city.Id);
         }
-        else if (context.Target is null && context.TileIsLand)
+        else if (_pickingFleetRally ? context.TileIsSea : context.Target is null && context.TileIsLand)
         {
             CompleteTravelTargetPick();
             TravelTargetPicked?.Invoke(context.X, context.Y, null);
         }
-        else HintRequested?.Invoke("Choose an open land cell or city target; right-click to cancel.");
+        else HintRequested?.Invoke(_pickingFleetRally
+            ? "Choose sea or an owned coastal city; right-click to cancel."
+            : "Choose an open land cell or city target; right-click to cancel.");
     }
 
     /// <summary>Exercises the same target-pick decision as a map click in a headless check.</summary>
@@ -1656,6 +1666,7 @@ public partial class GameMapView : Control
         PlaceSelectionFrame(markers, tileSize);
         DrawPendingMove(tileSize);
         DrawTravelTarget(tileSize);
+        DrawRallyPoints(tileSize);
     }
 
     /// <summary>

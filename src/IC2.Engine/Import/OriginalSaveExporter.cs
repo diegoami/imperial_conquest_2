@@ -76,7 +76,8 @@ public static class OriginalSaveExporter
             state.ScenarioId, state.WorldId, state.RulesetId, state,
             ArmyTravelTargets: session.ArmyTravelTargets.Count == 0 ? null : session.ArmyTravelTargets,
             RetreatSupplyPlans: session.RetreatSupplyPlans.Count == 0 ? null : session.RetreatSupplyPlans,
-            NationRallyPoints: session.NationRallyPoints.Count == 0 ? null : session.NationRallyPoints);
+            NationRallyPoints: session.NationRallyPoints.Count == 0 ? null : session.NationRallyPoints,
+            FleetRallyOrders: session.FleetRallyOrders.Count == 0 ? null : session.FleetRallyOrders);
     }
 
     /// <summary>Maps <paramref name="save"/> to a document, or throws <see cref="OriginalSaveExportException"/>
@@ -318,6 +319,8 @@ public static class OriginalSaveExporter
             omitted.Add("ArmyTravelTargets: campaign route plans cannot be encoded in the original save");
         if (save.RetreatSupplyPlans is { Count: > 0 })
             omitted.Add("RetreatSupplyPlans: per-unit recovery modes cannot be encoded in the original save");
+        if (save.FleetRallyOrders is { Count: > 0 })
+            omitted.Add("FleetRallyOrders: campaign fleet rally journeys cannot be encoded in the original save");
         if (save.NationRallyPoints is { Count: > 0 })
             omitted.Add("NationRallyPoints: campaign rally settings cannot be encoded in the original save");
         return new OriginalSaveExportResult(document, new OriginalSaveExportReport(aliases, omitted));
