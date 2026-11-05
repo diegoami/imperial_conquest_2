@@ -169,8 +169,8 @@ public static class AiMilitaryPhase
     /// <para>
     /// <strong>Given the very highest score of any candidate this AI can offer, deliberately.</strong>
     /// The original's own routine runs this decision <em>before</em> its military phase, once, as one
-    /// atomic step; this engine's greedy "propose everything, score it, take the best, look again" loop
-    /// (<see cref="AiTurn"/>) has no equivalent single atomic pass to put it in. A war declaration
+    /// atomic step. T282 supplies Faithful's dedicated pre-economy phase. The designed engine's greedy
+    /// "propose everything, score it, take the best, look again" loop still uses the priorities below. A war declaration
     /// therefore has to outscore every attack, siege, march, recruitment and trade candidate this AI
     /// could otherwise offer the same turn, so that — whenever the roll says to declare — it is chosen
     /// on the very first action it is offered, before any other candidate involving the same target

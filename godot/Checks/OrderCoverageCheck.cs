@@ -14,7 +14,7 @@ namespace IC2.Slice.Checks;
 /// <remarks>
 /// <para>
 /// <strong>Reuses the four golden-tested cases.</strong> Corrected <c>success.txt</c> is the
-/// new-game Macedonia prefix; <c>success-trade-offer.txt</c> accepts its actual original-end22 trade.
+/// new-game Macedonia prefix; <c>success-trade-offer.txt</c> accepts its natural Numidia trade at turn 9 (T282).
 /// <c>success-treaty-load.txt</c> resumes the same validated native save as the CLI/xUnit case,
 /// then executes its real battle, immediate treaty answer and unchanged marine group.
 /// <c>success-fleet.txt</c> supplies <c>attack-fleet</c> from its own fresh toy session. All lines
