@@ -12,6 +12,41 @@ namespace IC2.Engine.Tests.Ui;
 
 public sealed class StrategicTravelPlaybackTests
 {
+    [Fact]
+    public void Observer_route_filter_skips_only_pacing_and_keeps_every_paid_cell()
+    {
+        var session = StrategicTravelObservationTests.Session();
+        var output = session.Submit("move a 5 2");
+        var expected = output.StrategicTimeline.Steps.SelectMany(s => s.Routes).SelectMany(r => r.EnteredCells).ToArray();
+        var playback = new StrategicTravelPlayback { CellSeconds = 100, PlayRoute = _ => false };
+        var cells = new List<GridPoint>(); var completed = 0;
+        playback.CellEntered += (_, cell) => cells.Add(cell);
+        playback.Begin(output.StrategicTimeline, "north", () => completed++);
+        Assert.Equal(expected, cells);
+        Assert.Equal(1, completed);
+        Assert.False(playback.IsActive);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Observer_battle_barrier_holds_the_final_completion_and_resumes_once(bool skip)
+    {
+        var session = StrategicTravelObservationTests.Session();
+        var state = session.State;
+        var step = new StrategicTravelStep(1, 1, 1, StrategicTravelStepKind.BattleCompletion, "observer:battle", "north",
+            state, state, ValueList<StrategicMarkerSnapshot>.Empty, ValueList<StrategicMarkerSnapshot>.Empty,
+            ValueList<StrategicTravelObservation>.Empty, ValueList<DomainEvent>.Empty);
+        var playback = new StrategicTravelPlayback();
+        var boundaries = 0; var completed = 0;
+        playback.BoundaryCompleted += _ => { boundaries++; playback.Paused = true; };
+        playback.Begin(new(1, ValueList.Of(step)), "north", () => completed++);
+        Assert.True(playback.IsActive); Assert.Equal(1, boundaries); Assert.Equal(0, completed);
+        playback.Advance(100); Assert.Equal(0, completed);
+        if (skip) playback.Skip(); else { playback.Paused = false; playback.Advance(0); }
+        Assert.False(playback.IsActive); Assert.Equal(1, boundaries); Assert.Equal(1, completed);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

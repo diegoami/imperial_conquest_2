@@ -15,9 +15,14 @@ public partial class ObserverModeCheck : Control
     private MainGameScreen _main = null!;
     private GameSession _reference = null!;
     private GameState _paused = null!;
+    private UserSettings? _preferences;
 
     public override void _Ready()
     {
+        _preferences = SettingsScreen.Current;
+        // Retain the legacy Instant observer controls as a separate compatibility
+        // case. Watched tactical playback has its own real-input check.
+        SettingsScreen.Commit(new UserSettings { ObserverTacticalBattles = false });
         _plan.Add((0, () => {
             _selection.SelectedCard = RulesetPresets.CardForScenario(GameDataContext.Repository.Resolve("toy-3city"));
             _seats = new ScenarioSeatScreen { Selection = _selection };
@@ -125,5 +130,10 @@ public partial class ObserverModeCheck : Control
     {
         if (condition) GD.Print("PASS: " + message);
         else { _ok = false; GD.PrintErr("FAIL: " + message); }
+    }
+
+    public override void _ExitTree()
+    {
+        if (_preferences is not null) SettingsScreen.Commit(_preferences);
     }
 }

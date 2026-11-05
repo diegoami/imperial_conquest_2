@@ -40,6 +40,10 @@ public sealed record SessionOutput(
     [System.Text.Json.Serialization.JsonIgnore]
     public StrategicTravelBatch StrategicTimeline { get; init; } = StrategicTravelBatch.Empty;
 
+    [System.Text.Json.Serialization.JsonIgnore]
+    public IC2.Engine.Model.ValueList<ObserverBattleReplay> ObserverBattles { get; init; }
+        = IC2.Engine.Model.ValueList<ObserverBattleReplay>.Empty;
+
     /// <summary>See this record's own <c>Battles</c> parameter doc. Never <see langword="null"/>.</summary>
     public IReadOnlyList<BattleResult> Battles { get; init; } = Battles ?? Array.Empty<BattleResult>();
 

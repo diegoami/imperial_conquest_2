@@ -5,6 +5,9 @@ using IC2.Slice.Screens;
 
 namespace IC2.Slice.UI;
 
+/// <summary>Null nations means All; an empty list deliberately watches none. UI preferences only.</summary>
+public sealed record ObserverWatchPreference(string WorldId, ValueList<string>? Nations);
+
 /// <summary>
 /// The player's global settings, remembered across launches in <c>user://settings.json</c>.
 /// Display settings never change rules; T207's opt-in automation issues ordinary player commands
@@ -13,6 +16,19 @@ namespace IC2.Slice.UI;
 /// </summary>
 public sealed record UserSettings
 {
+    public int ObserverSpeedPercent { get; init; } = 50;
+    public bool ObserverFollowMoves { get; init; } = true;
+    public bool ObserverTacticalBattles { get; init; } = true;
+    public ValueList<ObserverWatchPreference> ObserverWatchPreferences { get; init; } = ValueList<ObserverWatchPreference>.Empty;
+
+    public ValueList<string>? WatchedNationsFor(string world) =>
+        ObserverWatchPreferences.LastOrDefault(p => p.WorldId == world)?.Nations;
+
+    public UserSettings WithWatchedNations(string world, IEnumerable<string>? nations) => this with
+    {
+        ObserverWatchPreferences = ValueList.From(ObserverWatchPreferences.Where(p => p.WorldId != world)
+            .Append(new(world, nations is null ? null : ValueList.From(nations.Distinct(StringComparer.Ordinal)))))
+    };
     /// <summary>The settings file's schema; a file with another number is read as far as it matches.</summary>
     public const int CurrentSchema = 3;
 
@@ -151,6 +167,10 @@ public sealed record UserSettings
     public UserSettings Normalized() => this with
     {
         Schema = CurrentSchema,
+        ObserverSpeedPercent = Math.Clamp(ObserverSpeedPercent, 25, 800),
+        ObserverWatchPreferences = ValueList.From((ObserverWatchPreferences ?? ValueList<ObserverWatchPreference>.Empty)
+            .Where(p => p is not null && !string.IsNullOrWhiteSpace(p.WorldId)).GroupBy(p => p.WorldId)
+            .Select(g => g.Last())),
         PackId = string.IsNullOrWhiteSpace(PackId) ? null : PackId.Trim(),
         VolumePercent = Math.Clamp(VolumePercent, 0, 100),
         BattleShotDelaySeconds = BattlePauses.SnapShot(BattleShotDelaySeconds),

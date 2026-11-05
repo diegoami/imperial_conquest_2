@@ -10,9 +10,9 @@ namespace IC2.Cli;
 
 /// <summary>
 /// A thin console wrapper around <see cref="GameSession"/> — <c>docs/task-catalogue.md</c> "T41 Thin CLI
-/// demo on the toy world (a walking skeleton)". Holds no game rule and no parsing beyond its own eight
+/// demo on the toy world (a walking skeleton)". Holds no game rule and no parsing beyond its own
 /// arguments (<c>--script</c>, <c>--seed</c>, <c>--turn-order</c> <c>fixed|shuffle</c>, <c>--scenario</c>,
-/// <c>--ruleset</c>, <c>--seat</c>, <c>--load</c>, <c>--human-battles</c> <c>instant|tactical</c>): every
+/// <c>--ruleset</c>, <c>--seat</c>, <c>--load</c>, <c>--human-battles</c> and <c>--observer-battles</c> <c>instant|tactical</c>): every
 /// command line it reads is handed to <see cref="GameSession.Submit"/> verbatim, and every line it prints
 /// to standard output is exactly what that call returned.
 /// </summary>
@@ -97,6 +97,8 @@ internal static class Program
         string? loadPath = null;
         NewGameTurnOrderPolicy? turnOrderOverride = null;
         var humanBattles = HumanBattleMode.Instant;
+        var observerTactical = false;
+        var observerPolicySpecified = false;
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -136,6 +138,19 @@ internal static class Program
 
                     i++;
                     turnOrderOverride = parsedOrder;
+                    break;
+
+                case "--observer-battles":
+                    if (i + 1 >= args.Length
+                        || !Enum.TryParse<HumanBattleMode>(args[i + 1], ignoreCase: true, out var observerMode)
+                        || !Enum.IsDefined(observerMode))
+                    {
+                        Console.Error.WriteLine("--observer-battles requires instant or tactical.");
+                        return 1;
+                    }
+                    i++;
+                    observerTactical = observerMode == HumanBattleMode.Tactical;
+                    observerPolicySpecified = true;
                     break;
 
                 case "--human-battles":
@@ -289,9 +304,19 @@ internal static class Program
             return 1;
         }
 
+        session.ObserverTacticalBattles = observerTactical;
+        if (observerPolicySpecified)
+            Console.Error.WriteLine(observerTactical ? "Observer battle policy: tactical (experimental)." : "Observer battle policy: instant.");
+
         foreach (var inputLine in ReadLines(scriptPath))
         {
-            var output = session.Submit(inputLine);
+            SessionOutput output;
+            try { output = session.Submit(inputLine); }
+            catch (IC2.Engine.Battle.Tactical.TacticalAutomationLimitException ex)
+            {
+                Console.Error.WriteLine($"Observation stopped: {ex.Message}");
+                return 1;
+            }
             foreach (var text in output.Lines)
             {
                 Console.WriteLine(text);

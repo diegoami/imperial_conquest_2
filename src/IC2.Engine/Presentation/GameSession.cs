@@ -1508,6 +1508,8 @@ public sealed partial class GameSession
         using var strategicAction = StrategicUndoForCommand(rawLine);
         LastDialogCommandResult = null;
         LastStrategicTimeline = StrategicTravelBatch.Empty;
+        LastObserverBattles = ValueList<ObserverBattleReplay>.Empty;
+        _observerBattlesThisCall.Clear();
         _strategicTimeline.BeginSubmit(_humanSeatNationId ?? State.ActiveNationId);
         SessionOutput output;
         try
@@ -1517,6 +1519,7 @@ public sealed partial class GameSession
         catch
         {
             _strategicTimeline.Rollback();
+            _observerBattlesThisCall.Clear();
             throw;
         }
         var batch = _strategicTimeline.Complete(State, _lap is not null, output.ShouldExit);
@@ -1524,7 +1527,8 @@ public sealed partial class GameSession
         if (StrategicTimelinePublished is { } subscribers)
             foreach (Action<StrategicTravelBatch> subscriber in subscribers.GetInvocationList())
                 try { subscriber(batch); } catch { /* Presentation subscribers cannot affect execution. */ }
-        return output with { StrategicTimeline = batch };
+        LastObserverBattles = output.ObserverBattles;
+        return output with { StrategicTimeline = batch, ObserverBattles = LastObserverBattles };
     }
 
     private SessionOutput SubmitCore(string rawLine)
@@ -2222,10 +2226,13 @@ public sealed partial class GameSession
                 return LapStep.Suspended;
             }
         }
-        else
+        else if (IsObserverMode && ObserverTacticalBattles)
         {
-            result = _coordinator.RunTurn(State);
+            var automatic = new TurnCoordinator(_registry, Ruleset, World, NullEventSink.Instance,
+                new ObserverBattleDispatch(this, _dispatcher), Scenario) { StrategicObserver = _strategicTimeline };
+            result = automatic.RunTurn(State);
         }
+        else result = _coordinator.RunTurn(State);
 
         _strategicTimeline.EndAttempt(completed: true);
         State = result.State;

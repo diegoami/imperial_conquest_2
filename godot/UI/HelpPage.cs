@@ -85,7 +85,9 @@ public partial class HelpPage : Control
 
         AddSection(column, "Observer mode (experimental)");
         AddLine(column, "Choose Observer in New Game, or Game > Observe campaign in a strategic game. All nations are computer controlled; observation starts paused.");
-        AddLine(column, "Play continues automatically. Pause stops between nation turns; Next round stops at the next campaign date. Latest battles opens reports when you choose.");
+        AddLine(column, "Choose one or more nations with Watch civilizations. Follow moves follows their map movement; unwatched activity fast-forwards. Speed applies to map and battle playback. Pause/Play or Space pauses the display and future turns; Next round finishes the next date and its visible activity.");
+        AddLine(column, "Full tactical observation (experimental) uses both computer generals for watched and unwatched field battles, showing the board only for watched participants. Quick results keeps instant AI battles. Outcomes can differ between policies; watch selection and speed never change them. Normal human play is unchanged.");
+        AddLine(column, "In a watched battle, click units to inspect them; Pause, speed and Skip control the replay without giving orders. Siege/naval fights show their existing reports. Skip current activity clears presentation without taking a new turn while paused. Finish current activity before changing watch selection or taking control.");
         AddLine(column, "While paused, choose a surviving nation and Take control to join its next turn. Nations ahead of it play normally first. Saved observer campaigns reopen paused.");
 
         AddSection(column, "Strategic Undo (experimental)");

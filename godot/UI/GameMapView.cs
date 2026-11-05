@@ -1214,7 +1214,7 @@ public partial class GameMapView : Control
 
     private MapClickContext BuildClickContext(MapClickButton button, int x, int y, Vector2 screenPosition)
     {
-        var state = _session!.State;
+        var state = _session!.IsObserverMode ? DisplayState : _session.State;
         var world = _session.World;
 
         var marker = StrategicMarkerGeometry.Pick(VisibleStrategicMarkers(state), screenPosition.X, screenPosition.Y,
@@ -1559,8 +1559,8 @@ public partial class GameMapView : Control
         QueueRedraw();
     }
 
-    private CityState? FindCityAt(int x, int y) =>
-        _session?.State.Cities.FirstOrDefault(c => c.X == x && c.Y == y);
+    private CityState? FindCityAt(int x, int y) => _session is null ? null
+        : (_session.IsObserverMode ? DisplayState : _session.State).Cities.FirstOrDefault(c => c.X == x && c.Y == y);
 
     // One visible set for picking and drawing; hidden cargo/building fleets cannot intercept input.
     private IEnumerable<StrategicMarker> VisibleStrategicMarkers(GameState? state = null)
