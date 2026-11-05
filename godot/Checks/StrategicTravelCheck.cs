@@ -391,10 +391,14 @@ public partial class StrategicTravelCheck : Node
         var synthetic = new SessionOutput(Array.Empty<string>(), false)
         { StrategicTimeline = new(10000, ValueList.Of(foreign)) };
         main.ContextPanel.ShowArmy("a");
+        // The prior route was deliberately paused before Skip. T283 preserves that
+        // pause across batches so a paused observer cannot consume the next boundary.
+        // Start this independent projection probe, then pause its prepared route.
+        main.StrategicTravel.Paused = false;
         main.PresentOutputForCheck(synthetic); main.StrategicTravel.Paused = true;
         main.ContextPanel.Refresh(); main.AreaMapView.Refresh(); main.MapView.Refresh();
         await Frames();
-        Require(main.ContextPanel.DisplayState.ActiveNationId == "north" && main.StrategicTravel.CurrentStep!.Before.ActiveNationId == "south",
+        Require(main.ContextPanel.DisplayState.ActiveNationId == "north" && main.StrategicTravel.CurrentStep?.Before.ActiveNationId == "south",
             "foreign AI simulation identity never becomes information viewer");
         Require(Labels(main.ContextPanel).Any(t => t.Contains("withheld", StringComparison.OrdinalIgnoreCase))
             && Labels(main.ContextPanel).All(t => !t.Contains("12345", StringComparison.Ordinal)),
