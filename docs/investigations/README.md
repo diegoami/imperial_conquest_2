@@ -26,3 +26,5 @@ See the [released v0.9.2 AI follow-ups](original-ai-control-and-support.md#relea
 See the [released v0.9.3 recheck](original-ai-control-and-support.md#released-v093-recheck-cross-class-search-boundary) for measured launch/build-city/embarked-offer improvements, the cross-class no-fleet failed-search gap (#1758), and the corrected Seleucid replay omission. Adjacent embark is code-only; native Windows and global-RNG parity remain unproved.
 
 [T277 correction boundaries](original-ai-control-and-support.md#t277-correction-boundaries) cover initial cross-class failed-search signalling and continued capital defence during pending tactical battles, with instant resolution preserved. Comprehensive ALL-AI coverage remains the separate research audit #195.
+
+[November 5 audit evaluation](original-ai-control-and-support.md#november-5-all-ai-audit-evidence) records the v0.9.4 recheck, the phase/support/mobilisation/build-city/walk-tail rules and their limits, final diplomacy-draw/contact attribution, the Instant replay decision boundary and unidentified late fleet-route writers. The 229-row research inventory is a coverage map, not a blanket parity verdict.

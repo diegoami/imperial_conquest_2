@@ -123,6 +123,10 @@ the research repo's `docs/evidence-index.md` maps each to its release. Ask the u
 dirties `godot/project.godot` (`pwsh scripts/check-godot-churn.ps1` reverts benign churn). Packaging needs the 4.7.2 mono export
 templates ([packaging.md](packaging.md)); the installer needs Inno Setup 6.
 
+### Private decompilation
+
+The owner's source of truth is `gdrive:IC2/decompilation/`; point `IC2_DECOMPILE` at a local directory containing `all_app_functions.txt`. Windows `%LOCALAPPDATA%\ReTools\` and WSL `~/ic2-decompile/` are caches. The dump, symbol tables and scripts remain private; never commit or publish them. See research's [environment guide at `18da3a3`](https://github.com/diegoami/imperial-conquest-2-research/blob/18da3a3/docs/environment.md#dependencies-and-validation) for restoration, hash pin and the Ghidra-project distinction. The former desktop-era §1.3 link is obsolete; losing that pointer did not mean the decompilation was unavailable.
+
 ## Working rules
 
 - A question is not a request to edit files. Answer it, propose a fix, wait.
@@ -136,3 +140,5 @@ For strategic-AI comparisons, use the [decision evidence and limits](investigati
 The [released v0.9.3 recheck](investigations/original-ai-control-and-support.md#released-v093-recheck-cross-class-search-boundary) confirms live-map launch, the Caspian AI build-city correction and embarked-offer landing in the measured Wine replays. T276 covered same-class failed searches only. T277 extends the initial signal to no-ferry and adjacent-embark cases and continues capital defence while a tactical battle is pending (#1758/#1741); instant resolution remains unchanged. Adjacent-fleet failure signalling is code-confirmed but unmeasured. Human Build fleet #600 remains separate; no native Windows or general RNG parity is established.
 
 For SAV export, the [current compatibility evidence](game-design.md#original-save-compatibility--confirmed-format-designed-policy) separates canonical native-state encoding from identity preservation. The October 31 callback, lifecycle and canary studies are bounded static/emulation evidence, with no original save written or Windows run. Preserve the existing export gates and named #1191/#1193–#1195 ownership; GUI indirect calls, unexercised state paths and native acceptance remain distinct gaps.
+
+The [November 5 all-AI evidence](investigations/original-ai-control-and-support.md#november-5-all-ai-audit-evidence) separates confirmed phase/support/mobilisation/build-city/walk-tail discrepancies from measured diplomacy draws, already-correct contact callers and unidentified fleet-route writers. The v0.9.4 replay checks endpoints, not complete state; Instant replay remains an owner decision rather than an automatic consequence of the research proposal. Use the individual final reports over the preliminary coverage matrix; native Windows parity remains unproved.
