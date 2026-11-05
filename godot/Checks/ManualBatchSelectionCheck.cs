@@ -76,8 +76,10 @@ public partial class ManualBatchSelectionCheck : Node
     {
         var s = Build(); var before = s.State; var d = Recruit(s); var events = 0; s.EventsPublished += _ => events++;
         Check(d.TrainingListForCheck.SelectMode == ItemList.SelectModeEnum.Multi, "recruitment queue supports multiple selected regiments");
-        // A real Ctrl-selection signal retains stable slots across the in-place refresh.
+        // Native input updates the widget before emitting its selection notification.
+        d.TrainingListForCheck.Select(2);
         d.TrainingListForCheck.EmitSignal(ItemList.SignalName.MultiSelected, 2L, true);
+        d.TrainingListForCheck.Select(3, false);
         d.TrainingListForCheck.EmitSignal(ItemList.SignalName.MultiSelected, 3L, true);
         d.MobilizeForCheck();
         Check(ReferenceEquals(s.State, before) && events == 0 && d.ReplyForCheck.Length > 0
