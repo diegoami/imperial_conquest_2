@@ -9,7 +9,7 @@ namespace IC2.Engine.Tests.Presentation;
 
 public sealed class FleetRallyTests
 {
-    private static GameSession Build(bool construction = false)
+    private static GameSession Build(bool construction = false, int launchMoves = 12)
     {
         var data = CoreTestbed.Toy;
         var initial = new GameSession(data.World, data.Ruleset, data.Scenario, humanSeatNationId: "north");
@@ -18,7 +18,7 @@ public sealed class FleetRallyTests
         var world = data.World with { Width = 40, Height = 40,
             Terrain = new TerrainGrid(TerrainEncoding.RunLength, ValueList.From(cells.Select(c => new TerrainRun(c, 1)))) };
         var fleet = initial.State.Fleets.First() with { Id = "new-fleet", Nation = "north", X = 0, Y = 0,
-            Moves = 12, ConstructionTicksRemaining = construction ? 1 : null, BuildCityId = "arx", CarriedArmyId = null,
+            Moves = launchMoves, ConstructionTicksRemaining = construction ? 1 : null, BuildCityId = "arx", CarriedArmyId = null,
             SupplyTons = 500, ConditionPercent = 100 };
         var state = initial.State with { Armies = ValueList<ArmyState>.Empty, Fleets = ValueList.Of(fleet),
             Nations = ValueList.From(initial.State.Nations.Select(n => n with { Control = SeatControl.Human })) };
@@ -26,20 +26,24 @@ public sealed class FleetRallyTests
             state.ScenarioId, state.WorldId, state.RulesetId, state));
     }
 
-    [Fact]
-    public void Real_launch_binds_only_new_human_fleets_without_moving_or_drawing_rng()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(12)]
+    public void Real_launch_binds_only_new_human_fleets_without_moving_or_drawing_rng(int launchMoves)
     {
-        var session = Build(construction: true);
-        var control = Build(construction: true);
+        var session = Build(construction: true, launchMoves);
+        var control = Build(construction: true, launchMoves);
         session.SetRallyPoint(new("north", 30, 30, IsFleet: true));
         session.Submit("end"); session.Submit("end");
         control.Submit("end"); control.Submit("end");
         Assert.Equal(control.State, session.State);
         var launched = session.State.FleetById("new-fleet")!;
         Assert.False(launched.IsUnderConstruction);
-        Assert.Equal(12, launched.Moves);
+        Assert.Equal(launchMoves, launched.Moves);
         Assert.NotEqual((30, 30), (launched.X, launched.Y));
         Assert.Equal(new FleetRallyOrder("new-fleet", "north", 30, 30), Assert.Single(session.FleetRallyOrders));
+        Assert.Equal(launchMoves == 0, FleetRallyPlanner.ForOrder(session.State, session.World,
+            session.Ruleset, session.FleetRallyOrders[0]).WaitForMoves);
         Assert.Empty(control.FleetRallyOrders);
         var old = Build();
         old.SetRallyPoint(new("north", 30, 30, IsFleet: true));
