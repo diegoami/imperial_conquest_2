@@ -137,10 +137,21 @@ public static partial class AiTurn
 
         var issued = 0;
         var rejected = 0;
+        var mismatches = 0;
         var fleetRoutes = new OriginalFleetRoutes();
         events = fleetRoutes.Capture(events); // Accepted army requests live only inside this seat invocation.
-        var retainedPass = commands is IAiBattleInterruption { RetainPartialAiPass: true };
+        var originalDiplomacy = ruleset.Flags.AiEconomy == AiEconomyModel.Original;
         var originalFleets = ClassicalFleetNavigation.Applies(new AiView(state, ruleset, world, nationId));
+
+        // FA20 runs own diplomacy before FFBC, so a same-seat war is already
+        // visible to mobilisation, capital defence and support (#1771).
+        if (originalDiplomacy)
+        {
+            var diplomacy = RunFaithfulDiplomacy(state, ruleset, world, commands, events, rng, nationId, log);
+            state = diplomacy.State; issued += diplomacy.Issued;
+            rejected += diplomacy.Rejected;
+            mismatches += diplomacy.Mismatches;
+        }
 
         // T157 (#926): the original's economy phase runs once, before everything the army and fleet
         // phases do (FUN_0044fa20's order), so it reads the treasury and armies as the turn starts, ahead of the
@@ -183,7 +194,7 @@ public static partial class AiTurn
             moneyAtTurnStart[army.Id] = army.Money;
         }
 
-        var mercenary = retainedPass ? new AiMercenaryHirePass.Result(state, 0, 0)
+        var mercenary = armyOrder is not null ? new AiMercenaryHirePass.Result(state, 0, 0)
             : AiMercenaryHirePass.Run(state, ruleset, nationId, moneyAtTurnStart);
         state = mercenary.State;
 
@@ -212,7 +223,7 @@ public static partial class AiTurn
                 mercenary.TalentsPaid + fleetResupply.TalentsPaid));
             log.Add(mercenary.Describe());
         }
-        if (!retainedPass) LogSupport();
+        if (armyOrder is null) LogSupport();
         AiView PrepareArmy(AiView current, ArmyState army)
         {
             var next = AiMercenaryHirePass.RunArmy(current.State, ruleset, nationId, army.Id);
@@ -222,12 +233,8 @@ public static partial class AiTurn
             return new(next.State, ruleset, world, nationId);
         }
 
-        var mismatches = 0;
         var hitCap = true;
         var marched = new List<string>();
-        var tradeSwaps = ruleset.Flags.AiEconomy == AiEconomyModel.Original
-            ? new OriginalTradeSwapPass() : null;
-        IReadOnlySet<string>? firstSweepWarLeaders = null;
 
         // T60 Done-when 1: one siege-gate sample per turn, taken on the first proposal pass only. Later
         // passes see the same standing adjacencies again, so feeding them in too would count situations
@@ -244,11 +251,11 @@ public static partial class AiTurn
             var candidates = new List<AiCandidate>();
             var boxedIn = new List<string>();
             if (armyOrder is null)
-                AiMilitaryPhase.Propose(view, personality, rng, marched, candidates, action == 0 ? siegeGates : null, boxedIn);
+                AiMilitaryPhase.Propose(view, personality, rng, marched, candidates, action == 0 ? siegeGates : null, boxedIn, includeOwnWar: !originalDiplomacy);
             else
             {
                 view = AiMilitaryPhase.ProposeInOriginalArmyOrder(view, personality, rng, marched, candidates,
-                    siegeGates, boxedIn, armyOrder, retainedPass ? PrepareArmy : null);
+                    siegeGates, boxedIn, armyOrder, PrepareArmy, includeOwnWar: !originalDiplomacy);
                 state = view.State;
             }
             foreach (var boxedArmyId in boxedIn)
@@ -265,19 +272,8 @@ public static partial class AiTurn
             {
                 AiEconomyPhase.Propose(view, personality, candidates);
             }
-            // T82 (#359, bug #357, Owns amendment PR #378): the same seat-turn IRng AiMilitaryPhase
-            // already receives above, so AiDiplomacyPhase's own Random(20) alliance roll is drawn from
-            // the identical turn-stable stream as AiMilitaryPhase's Random(10) war roll -- see
-            // AiDiplomacyPhase.ProposeOwnAlliance's own remarks for why that stability matters.
-            // The original's scan precedes its war/alliance writes. Preserve those scan results across
-            // the scored driver's higher-priority declaration: becoming busy must not erase D3's
-            // skipped leaders. Only the exclusion set is retained; trade legality/caps remain live.
-            if (ruleset.Flags.AiEconomy == AiEconomyModel.Original)
-                firstSweepWarLeaders ??= AiOwnDiplomacyRule.WarTargetLeaders(view.State, ruleset, world, nationId)
-                    .ToHashSet(StringComparer.Ordinal);
-            AiDiplomacyPhase.Propose(view, personality, rng, candidates, includeTradeSwaps: tradeSwaps is null,
-                firstSweepWarLeaders: firstSweepWarLeaders);
-            tradeSwaps?.Propose(view, candidates);
+            if (!originalDiplomacy)
+                AiDiplomacyPhase.Propose(view, personality, rng, candidates);
 
             var chosen = Select(candidates, rng, ruleset);
             if (chosen is null)
@@ -303,7 +299,6 @@ public static partial class AiTurn
             var inheritFailedIntermediate = chosen.OriginalMercenaryRun && execution.FailedIntermediateSearch;
             state = execution.State;
             armyOrder?.Dispatched(subjectId);
-            if (chosen.Kind == "ai-swap-trade-partner") tradeSwaps?.Dispatched(execution.Rejected > 0);
             var changed = !AiSubstantiveState.AreEquivalent(before, state);
             if (changed)
             {
@@ -385,7 +380,7 @@ public static partial class AiTurn
             }
         }
 
-        if (retainedPass) LogSupport();
+        if (armyOrder is not null) LogSupport();
         if (originalFleets)
         {
             var fleets = OriginalFleetPhase.Run(state, ruleset, world, nationId, fleetRoutes, commands, events, rng, log);
@@ -417,6 +412,40 @@ public static partial class AiTurn
     /// picks means the same thing on every run. A single-element tie takes no draw at all, so the number
     /// of draws a turn makes depends only on how many exact ties it saw.
     /// </remarks>
+    private static ExecutionResult RunFaithfulDiplomacy(GameState state, Ruleset ruleset, World world,
+        ICommandDispatch commands, IEventSink events, IRng rng, string nationId, List<string> log)
+    {
+        var leaders = AiOwnDiplomacyRule.WarTargetLeaders(state, ruleset, world, nationId).ToHashSet(StringComparer.Ordinal);
+        var swaps = new OriginalTradeSwapPass();
+        var issued = 0;
+        var rejected = 0;
+        var mismatches = 0;
+        // Direct trades consume partner capacity; the closing swap cursor advances
+        // monotonically through the nation table. Never repeat this phase after armies.
+        while (true)
+        {
+            var view = new AiView(state, ruleset, world, nationId);
+            var candidates = new List<AiCandidate>();
+            AiMilitaryPhase.ProposeOwnWarDeclaration(view, rng, candidates);
+            AiDiplomacyPhase.Propose(view, AiPersonalityProfile.For(view.Nation, ruleset), rng, candidates,
+                includeTradeSwaps: false, firstSweepWarLeaders: leaders);
+            swaps.Propose(view, candidates);
+            var chosen = Select(candidates, rng, ruleset);
+            if (chosen is null) break;
+            log.Add(Inv("chose [{0}/{1}] score {2} of {3} candidates -- {4}",
+                chosen.Phase, chosen.Kind, chosen.Score, candidates.Count, chosen.Rationale));
+            var before = state;
+            var execution = Execute(state, ruleset, world, commands, events, chosen, log);
+            state = execution.State;
+            rejected += execution.Rejected; mismatches += execution.Mismatches;
+            if (chosen.Kind == "ai-swap-trade-partner") swaps.Dispatched(execution.Rejected > 0);
+            if (!AiSubstantiveState.AreEquivalent(before, state)) issued += execution.Issued;
+            else break;
+            if (execution.Rejected > 0 || execution.Mismatches > 0) break;
+        }
+        return new(state, issued, rejected, mismatches);
+    }
+
     private static AiCandidate? Select(List<AiCandidate> candidates, IRng rng, Ruleset ruleset)
     {
         var bestScore = long.MinValue;
