@@ -625,7 +625,8 @@ public static class AiFaithfulEconomy
     /// <summary>
     /// FUN_004496e0: Classical Faithful uses live ports outside the eastern zone, nearest the capital,
     /// retaining the first city record on ties (research b288cac). Other worlds/policies retain the
-    /// T241 selector. The human Build fleet caller is separate; any-nation construction blocks both.
+    /// T241 selector. The original busy test considers the acting nation's construction only (#1774).
+    /// The human and non-classical selectors remain separate.
     /// </summary>
     public static CityState? ChoosePort(GameState state, World world, NationState nation, Ruleset ruleset)
     {
@@ -644,7 +645,7 @@ public static class AiFaithfulEconomy
         foreach (var city in state.Cities)
         {
             if (city.Owner != nation.Id || !OriginalFleetPort.IsPort(view, new(city.X, city.Y))
-                || state.Fleets.Any(f => f.IsUnderConstruction && f.BuildCityId == city.Id)) continue;
+                || state.Fleets.Any(f => f.Nation == nation.Id && f.IsUnderConstruction && f.BuildCityId == city.Id)) continue;
             var distance = AiView.Distance(city.X, city.Y, capital.X, capital.Y);
             if (distance >= bestDistance) continue;
             best = city;

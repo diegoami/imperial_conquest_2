@@ -15,7 +15,7 @@ namespace IC2.Engine.Tests.Naval;
 /// (<c>2026-10-09-fleet-build-city-nearest-capital.md</c>, research <c>c36b255</c>); before T241 the
 /// clone took the first free coastal city in world order, Pisae. Ties go to the lower city id [designed];
 /// no capital falls back to world order; the AI's <see cref="AiFaithfulEconomy.ChoosePort"/> keeps its
-/// own any-nation free test and its port choices.
+/// own selector; T282 corrects its Classical Faithful construction test to own-nation only.
 /// </summary>
 public sealed class FleetBuildCityTests
 {
@@ -120,10 +120,10 @@ public sealed class FleetBuildCityTests
 
     /// <summary>
     /// The free test: by default only the nation's own fleet under construction makes a city busy (T237);
-    /// with <c>busyWhenAnyNationBuilds</c> a foreign one does too, the AI's test.
+    /// with <c>busyWhenAnyNationBuilds</c> a foreign one does too, retained for legacy/non-classical AI callers.
     /// </summary>
     [Fact]
-    public void A_foreign_fleet_under_construction_makes_the_port_busy_only_for_the_AIs_test()
+    public void Foreign_construction_blocks_the_legacy_helper_but_not_faithful_AI_or_human_selection()
     {
         var session = Session("rome");
         var state = session.State with
@@ -134,7 +134,7 @@ public sealed class FleetBuildCityTests
 
         Assert.Equal("caere", CoastalCity.FleetBuildCity(state, session.World, rome)!.Id);
         Assert.Equal("antium", CoastalCity.FleetBuildCity(state, session.World, rome, busyWhenAnyNationBuilds: true)!.Id);
-        Assert.Equal("antium", AiFaithfulEconomy.ChoosePort(state, session.World, rome, session.Ruleset)!.Id);
+        Assert.Equal("caere", AiFaithfulEconomy.ChoosePort(state, session.World, rome, session.Ruleset)!.Id);
     }
 
     /// <summary>
