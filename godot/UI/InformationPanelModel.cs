@@ -454,7 +454,7 @@ public static class InformationPanelModel
 
     /// <summary>The own-fleet panel's lines (F01–F08), with F09 (the embarked army) when applicable.</summary>
     public static IReadOnlyList<InformationPanelLine> OwnFleet(
-        GameState state, World world, Ruleset ruleset, FleetState fleet)
+        GameState state, World world, Ruleset ruleset, FleetState fleet, bool revealCarriedArmy = false)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(ruleset);
@@ -462,7 +462,7 @@ public static class InformationPanelModel
 
         var lines = new List<InformationPanelLine>();
         AddFleetHeaderAndFacts(state, world, ruleset, fleet, includeFacts: true, lines);
-        AddFleetArmyBlock(state, world, ruleset, fleet, lines);
+        AddFleetArmyBlock(state, world, ruleset, fleet, lines, revealCarriedArmy);
         return lines;
     }
 
@@ -532,7 +532,7 @@ public static class InformationPanelModel
     }
 
     private static void AddFleetArmyBlock(
-        GameState state, World world, Ruleset ruleset, FleetState fleet, List<InformationPanelLine> lines)
+        GameState state, World world, Ruleset ruleset, FleetState fleet, List<InformationPanelLine> lines, bool revealCarriedArmy = false)
     {
         if (fleet.CarriedArmyId is not { } armyId || state.ArmyById(armyId) is not { } army)
         {
@@ -548,8 +548,8 @@ public static class InformationPanelModel
         // withhold Supply, Morale, Money, unit count and upkeep just like a foreign army on land
         // (R2 of the R1 review: the active seat is the only viewer the panel knows; otherwise
         // Rome's view of a Carthaginian fleet exposes the embarked army's facts, which the
-        // original does not).
-        var isOwn = string.Equals(army.Nation, state.ActiveNationId, StringComparison.Ordinal);
+        // original does not). Explicit read-only observation can reveal the carried army too.
+        var isOwn = revealCarriedArmy || string.Equals(army.Nation, state.ActiveNationId, StringComparison.Ordinal);
         var armyLines = isOwn
             ? OwnArmyFromSupplyOn(state, world, ruleset, army)
             : ForeignArmyFromSupplyOn(state, world, ruleset, army);

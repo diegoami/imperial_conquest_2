@@ -100,7 +100,9 @@ public partial class MainGameScreen
         dialog.Confirmed += selected =>
         {
             SettingsScreen.Commit(SettingsScreen.Current.WithWatchedNations(Session.World.Id, selected));
-            CloseOverlay(dialog); RefreshObserverControls();
+            CloseOverlay(dialog);
+            if (selected is { Count: 1 }) SetViewedNation(selected[0]);
+            RefreshObserverControls();
         };
         dialog.Cancelled += () => CloseOverlay(dialog);
         ShowOverlay(dialog);

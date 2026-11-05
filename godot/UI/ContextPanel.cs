@@ -18,6 +18,7 @@ namespace IC2.Slice.UI;
 /// (<see cref="GameState.ActiveNationId"/>), never against the nation selected for viewing from
 /// the Nations menu: selecting Carthage while Rome is the active seat shows Carthage's panel and
 /// Carthage's cities as foreign.
+/// Explicit observer mode instead reveals all inspected facts, without granting any orders.
 /// <list type="bullet">
 /// <item><description><strong>The tax rate is shown, not set here.</strong> <see cref="NationState.TaxRatePercent"/>
 /// is set by Strategy → Taxation (T103's <c>set-tax</c>, T109's dialog); this panel only shows it (bug #608).</description></item>
@@ -317,7 +318,7 @@ public partial class ContextPanel : Control
         Heading("Nation Overview");
         Fact(nation.Name);
         _viewedNationLines = NationStatusModel.Build(
-            DisplayState, Session.Ruleset, viewed, viewerNationId: DisplayState.ActiveNationId);
+            DisplayState, Session.Ruleset, viewed, viewerNationId: Session.IsObserverMode ? viewed : DisplayState.ActiveNationId);
         foreach (var line in _viewedNationLines)
         {
             var color = line.IsRed ? ConqueredRowColor : UiKit.TextColor;
@@ -341,7 +342,7 @@ public partial class ContextPanel : Control
 
     private void BuildCityPanel(CityState city)
     {
-        var viewer = DisplayState.ActiveNationId;
+        var viewer = Session.IsObserverMode ? city.Owner : DisplayState.ActiveNationId;
         var lines = InformationPanelModel.City(DisplayState, Session.World, Session.Ruleset, city, viewer);
         var cityHeading = $"City — {city.Name}";
         Heading(cityHeading);
@@ -379,6 +380,7 @@ public partial class ContextPanel : Control
 
         // T109's Recruit section is stubbed as already removed: the merge order reconciles
         // when T109 lands, and this branch renders nothing in its place.
+        if (Session.IsObserverMode) { Note("Observer mode · read-only."); return; }
         if (!string.Equals(city.Owner, DisplayState.ActiveNationId, StringComparison.Ordinal))
         {
             Note("Only the active seat's own cities can be ordered.");
@@ -403,7 +405,7 @@ public partial class ContextPanel : Control
 
     private void BuildArmyPanel(ArmyState army)
     {
-        var isOwn = string.Equals(army.Nation, DisplayState.ActiveNationId, StringComparison.Ordinal);
+        var isOwn = Session.IsObserverMode || string.Equals(army.Nation, DisplayState.ActiveNationId, StringComparison.Ordinal);
         var lines = isOwn
             ? InformationPanelModel.OwnArmy(DisplayState, Session.World, Session.Ruleset, army)
             : InformationPanelModel.ForeignArmy(DisplayState, Session.World, Session.Ruleset, army);
@@ -427,6 +429,7 @@ public partial class ContextPanel : Control
             }
         }
 
+        if (Session.IsObserverMode) { Note("Observer mode · read-only."); return; }
         if (!isOwn)
         {
             // T99's withholding: the four facts above are already "withheld" captions; this is the
@@ -442,9 +445,9 @@ public partial class ContextPanel : Control
 
     private void BuildFleetPanel(FleetState fleet)
     {
-        var isOwn = string.Equals(fleet.Nation, DisplayState.ActiveNationId, StringComparison.Ordinal);
+        var isOwn = Session.IsObserverMode || string.Equals(fleet.Nation, DisplayState.ActiveNationId, StringComparison.Ordinal);
         var lines = isOwn
-            ? InformationPanelModel.OwnFleet(DisplayState, Session.World, Session.Ruleset, fleet)
+            ? InformationPanelModel.OwnFleet(DisplayState, Session.World, Session.Ruleset, fleet, revealCarriedArmy: Session.IsObserverMode)
             : InformationPanelModel.ForeignFleet(DisplayState, Session.World, Session.Ruleset, fleet);
 
         Heading("Fleet");
@@ -468,6 +471,7 @@ public partial class ContextPanel : Control
             }
         }
 
+        if (Session.IsObserverMode) { Note("Observer mode · read-only."); return; }
         if (!isOwn)
         {
             Note("Only the active seat's own fleets can be ordered.");

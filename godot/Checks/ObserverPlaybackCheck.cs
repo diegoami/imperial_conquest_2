@@ -45,6 +45,7 @@ public partial class ObserverPlaybackCheck : Control
         try
         {
             SettingsScreen.Commit(new UserSettings());
+            await CheckObserverInspection();
             var session = Build(); var reference = Build(); reference.CaptureObserverBattle = (_, _) => false;
             var main = AddMain(session);
             await Frames();
@@ -143,6 +144,85 @@ public partial class ObserverPlaybackCheck : Control
         await Frames();
         GD.Print($"ObserverPlaybackCheck: exiting with code {(_ok ? 0 : 1)}.");
         CheckExit.Quit(this, _ok ? 0 : 1);
+    }
+
+    private async Task CheckObserverInspection()
+    {
+        var original = Build(distant: true);
+        var other = original.State.Nations.First(n => n.Id != original.State.ActiveNationId).Id;
+        var army = original.State.Armies.First(a => a.Nation == other) with { Money = 12345 };
+        var state = original.State with {
+            Armies = ValueList.From(original.State.Armies.Select(a => a.Id == army.Id ? army : a)),
+            Fleets = ValueList.Of(new FleetState("inspection-fleet", other, 0, 0, 3, 30, 87, 100, 6789, null, null, army.Id, 0)) };
+        var session = new GameSession(original.World, original.Ruleset, original.Scenario,
+            new SaveGame(state.SchemaVersion, "observer-inspection", "Observer inspection",
+                state.ScenarioId, state.WorldId, state.RulesetId, state));
+        var main = AddMain(session);
+        await Frames();
+        var before = session.State;
+        main.ObserverWatchButton.EmitSignal(BaseButton.SignalName.Pressed);
+        var chooser = (ObserverWatchDialog)main.ActiveOverlay!;
+        chooser.SetAll(false); chooser.Choices[other].ButtonPressed = true; chooser.Confirm();
+        Check(main.ViewedNationId == other && main.ContextPanel.StatusNationIdForCheck == other,
+            "watching one civilization selects its inspection perspective, not the active AI seat");
+        Check(Labels(main.ContextPanel).Contains($"Treasury: {InformationWords.Grouped(state.NationById(other)!.Treasury)} talents")
+            && Labels(main.ContextPanel).Contains($"Mobilized: {state.NationById(other)!.MobilizedPercent}%"),
+            "observer nation information includes treasury and mobilization");
+        main.OpenDiplomacyScreen();
+        var relations = (DiplomacyScreen)main.ActiveOverlay!;
+        var choice = relations.ObserverPerspectiveChoice;
+        Check(choice is not null && choice.GetItemText(choice.Selected) == state.NationById(other)!.Name,
+            "International relations opens for the watched civilization, not the active AI seat");
+        Check(Labels(relations.Grid).Contains(state.NationById(state.ActiveNationId)!.Name)
+            && !Labels(relations.Grid).Contains(state.NationById(other)!.Name),
+            "relation rows are relative to the watched nation, excluding its own row");
+        Check(relations.Grid.GetChildren().All(n => n is not Button) && relations.AcceptOfferButton is null
+            && Labels(relations).Contains("Observing · read-only"), "observer diplomacy has no treaty actions or pending-offer acceptance");
+        if (choice is not null)
+        {
+            var index = choice.Selected == 0 ? 1 : 0;
+            var expected = choice.GetItemText(index);
+            choice.EmitSignal(OptionButton.SignalName.ItemSelected, index);
+            Check(relations.ObserverPerspectiveChoice!.GetItemText(relations.ObserverPerspectiveChoice.Selected) == expected,
+                "observer can inspect another civilization's relations without taking control");
+        }
+        relations.Close();
+        main.ContextPanel.ShowArmy(army.Id);
+        Check(Labels(main.ContextPanel).Contains("Money: 12,345 talents")
+            && Labels(main.ContextPanel).All(t => !t.Contains("withheld", StringComparison.OrdinalIgnoreCase)),
+            "observer sees the non-active army's full information");
+        main.ContextPanel.ShowFleet("inspection-fleet");
+        Check(Labels(main.ContextPanel).Contains("Money: 12,345 talents")
+            && Labels(main.ContextPanel).Contains("Repair: 87%"), "observer sees fleet and embarked-army facts");
+        var city = state.Cities.First(c => c.Owner == other);
+        main.ContextPanel.ShowCity(city.Id);
+        Check(Labels(main.ContextPanel).Any(t => t.StartsWith("Supply: ", StringComparison.Ordinal) && t.EndsWith(" tons", StringComparison.Ordinal)),
+            "observer sees non-active city supplies");
+        Check(session.State == before && session.IsObserverMode,
+            "inspection preserves campaign state, random seed and AI control");
+        RemoveChild(main); main.QueueFree(); _main = null; await Frames();
+        // The remembered single watch choice also applies when opening another campaign.
+        var loaded = AddMain(session); await Frames();
+        Check(loaded.ViewedNationId == other, "remembered watch selection initializes inspection perspective");
+        RemoveChild(loaded); loaded.QueueFree(); _main = null; await Frames();
+        session.Submit($"take-control {state.ActiveNationId}");
+        Check(!session.IsObserverMode, "control case returns to ordinary human play");
+        var human = AddMain(session); await Frames();
+        human.SetViewedNation(other);
+        Check(Labels(human.ContextPanel).Contains("Treasury:") && Labels(human.ContextPanel).Contains("Mobilized:"),
+            "viewing another nation during human play still withholds its private figures");
+        human.ContextPanel.ShowArmy(army.Id);
+        Check(Labels(human.ContextPanel).Contains("Money: withheld"), "ordinary human play retains foreign-army secrecy");
+        human.ContextPanel.ShowFleet("inspection-fleet");
+        Check(Labels(human.ContextPanel).Contains("Money: withheld"), "ordinary human play retains carried-army secrecy");
+        RemoveChild(human); human.QueueFree(); _main = null; await Frames();
+        SettingsScreen.Commit(new UserSettings());
+    }
+
+    private static IEnumerable<string> Labels(Node root)
+    {
+        if (root is Label label) yield return label.Text;
+        foreach (var child in root.GetChildren()) foreach (var text in Labels(child)) yield return text;
     }
 
     private async Task Until(Func<bool> condition)
