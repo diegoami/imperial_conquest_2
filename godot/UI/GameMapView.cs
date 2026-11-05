@@ -163,6 +163,14 @@ public partial class GameMapView : Control
     /// <summary>#1280 F2: a one-line hint for the screen's message line (a marked move destination).</summary>
     public event Action<string>? HintRequested;
 
+    // Owner-designed persistent movement (T280). Keep the normal map submission path so
+    // diagnostics, movement presentation and strategic Undo see the same command.
+    public event Action<ArmyTravelTarget, Action<string>>? ArmyTravelRequested;
+    public Func<bool>? RememberArmyDestinations { get; set; }
+    public event Action? ArmyTravelCancelled;
+    public ArmyTravelTarget? SelectedTravelTarget => _selectedArmyId is { } id
+        ? _session?.TravelTargetFor(id) : null;
+
     /// <summary>A fixed land cell or city picked for the selected army's campaign target.</summary>
     public event Action<int, int, string?>? TravelTargetPicked;
     public event Action? TravelTargetPickChanged;
@@ -1049,6 +1057,7 @@ public partial class GameMapView : Control
                 AcceptEvent();
                 break;
             case InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true } pressed:
+                _doubleClick = pressed.DoubleClick;
                 _dragging = true;
                 _dragMoved = false;
                 _pressPosition = pressed.Position;
@@ -1058,7 +1067,15 @@ public partial class GameMapView : Control
                 _dragging = false;
                 if (!_dragMoved)
                 {
-                    HandleClick(released.Position, MapClickButton.Left);
+                    if (_doubleClick && _session is not null)
+                    {
+                        var cell = (released.Position - _pan) / (_zoom * BaseTileSize);
+                        var inspected = BuildClickContext(MapClickButton.Left, Mathf.FloorToInt(cell.X),
+                            Mathf.FloorToInt(cell.Y), released.Position);
+                        if (InputAllowed && inspected.Target is { } hit)
+                            UnitListRequested?.Invoke(hit.Kind, hit.Id);
+                    }
+                    else HandleClick(released.Position, MapClickButton.Left);
                 }
 
                 AcceptEvent();
@@ -1145,7 +1162,20 @@ public partial class GameMapView : Control
             else TryPickTravelTarget(context);
             return;
         }
-        var outcome = MapClickRules.Resolve(context);
+        if (button == MapClickButton.Left && context.Target is { Kind: MapEntityKind.Army } own
+            && own.Id == _selectedArmyId && SelectedTravelTarget is not null)
+        {
+            ArmyTravelCancelled?.Invoke();
+            QueueRedraw();
+            return;
+        }
+        var outcome = RememberArmyDestinations?.Invoke() == true && ArmyTravelRequested is not null && button == MapClickButton.Left
+            && context.Selection is { Kind: MapEntityKind.Army } selected
+            && _session.State.ArmyById(selected.Id) is { IsEmbarked: false } army
+            && army.Nation == context.ActiveNationId
+            && context.Target is { Kind: MapEntityKind.City } && context.Distance > 1
+            ? MapClickOutcome.MoveArmy(selected.Id, context.X, context.Y)
+            : MapClickRules.Resolve(context);
         ApplyOutcome(outcome);
         QueueRedraw();
     }
@@ -1371,7 +1401,18 @@ public partial class GameMapView : Control
     private void SubmitMoveOrder(MapClickOutcome outcome, MapEntityKind moverKind)
     {
         var moverId = moverKind == MapEntityKind.Army ? _selectedArmyId : _selectedFleetId;
-        SubmitMapOrder(outcome.OrderLine!);
+        if (moverKind == MapEntityKind.Army && RememberArmyDestinations?.Invoke() == true && ArmyTravelRequested is not null
+            && _session!.State.ArmyById(moverId!) is { IsEmbarked: false } army
+            && army.Nation == _session.State.ActiveNationId
+            && TryDestination(outcome.OrderLine, out var x, out var y))
+        {
+            ArmyTravelRequested.Invoke(new ArmyTravelTarget(army.Id, army.Nation, x, y,
+                FindCityAt(x, y)?.Id), SubmitMapOrder);
+            // Only metadata changed: keep the exhausted selection so its circle and
+            // click-again cancellation remain available without a reselection.
+            if (army.Moves <= 0) return;
+        }
+        else SubmitMapOrder(outcome.OrderLine!);
         if (TravelPlayback?.IsActive == true) return;
 
         if (moverId is null)
@@ -1614,6 +1655,7 @@ public partial class GameMapView : Control
         if (!ClassicSelectionFrame) DrawSelectedStrategicFeedback(markers, tileSize);
         PlaceSelectionFrame(markers, tileSize);
         DrawPendingMove(tileSize);
+        DrawTravelTarget(tileSize);
     }
 
     /// <summary>
@@ -1732,6 +1774,19 @@ public partial class GameMapView : Control
         var radius = Mathf.Max(4f, tileSize * 0.45f);
         DrawArc(center, radius, 0, Mathf.Tau, 32, new Color(0, 0, 0, 0.8f), Mathf.Max(2f, tileSize * 0.16f));
         DrawArc(center, radius, 0, Mathf.Tau, 32, Colors.White, Mathf.Max(1f, tileSize * 0.08f));
+    }
+
+    private bool _doubleClick;
+
+    private void DrawTravelTarget(float tileSize)
+    {
+        if (SelectedTravelTarget is not { } target) return;
+        var center = TileCenter(target.X, target.Y, tileSize);
+        var radius = Mathf.Max(4f, tileSize * 0.38f);
+        DrawArc(center, radius, 0, Mathf.Tau, 40, Colors.Black, 4f);
+        DrawArc(center, radius, 0, Mathf.Tau, 40, Colors.White, 2f);
+        DrawCircle(center, 2f, Colors.Black);
+        DrawCircle(center, 1f, Colors.White);
     }
 
     /// <summary>The destination tile of a <c>move</c> / <c>move-fleet</c> order line (its last two tokens).</summary>

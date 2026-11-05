@@ -428,8 +428,19 @@ public partial class EndTurnBoxCheck : Control
         }
     }
 
+    private static void ClickTravelTile(MainGameScreen main, int x, int y)
+    {
+        var position = main.MapView.TileCenterForCheck(x, y);
+        main.MapView._GuiInput(new InputEventMouseButton { ButtonIndex = MouseButton.Left,
+            Position = position, Pressed = true });
+        main.MapView._GuiInput(new InputEventMouseButton { ButtonIndex = MouseButton.Left,
+            Position = position, Pressed = false });
+    }
+
     private void CheckArmyTravelTargetControls()
     {
+        var preferences = SettingsScreen.Current;
+        SettingsScreen.Commit(preferences with { RememberArmyDestinations = true });
         var session = BuildSession(warning: true);
         var army = session.State.ArmyById("north-land-warning")!;
         var destination = FreeLandNeighbour(session, army);
@@ -439,31 +450,23 @@ public partial class EndTurnBoxCheck : Control
             var commands = 0;
             mainGame.CommandIssued += _ => commands++;
             mainGame.SelectArmyForCheck(army.Id);
-            mainGame.MenuBar.PressItemForCheck("unit_map.army_set_target");
-            Check(mainGame.MapView.TravelTargetPickArmed, "Set travel target arms a map click");
-            mainGame.MapView.PickTravelTargetForCheck(new MapClickContext(
-                MapClickButton.Left, destination.X, destination.Y, true, false,
-                new MapClickTarget(MapEntityKind.Army, "another-army", "south"),
-                new MapClickSelection(MapEntityKind.Army, army.Id, army.Moves), 1, 0, 0, "north"));
-            Check(mainGame.MapView.TravelTargetPickArmed && session.TravelTargetFor(army.Id) is null,
-                "an army marker cannot become a travel target");
-            mainGame.MapView.PickTravelTargetForCheck(new MapClickContext(
-                MapClickButton.Left, destination.X, destination.Y, true, false, null,
-                new MapClickSelection(MapEntityKind.Army, army.Id, army.Moves), 1, 0, 0, "north"));
+            ClickTravelTile(mainGame, destination.X, destination.Y);
             Check(session.TravelTargetFor(army.Id) is { } target
                   && target.X == destination.X && target.Y == destination.Y && commands == 0,
-                "an open land click saves a fixed target without a game command");
-            mainGame.MenuBar.PressItemForCheck("unit_map.army_cancel_target");
+                "an ordinary click remembers an exhausted army's destination without a move");
+            Check(mainGame.MapView.SelectedTravelTarget == session.TravelTargetFor(army.Id)
+                  && !mainGame.MapView.TravelTargetPickArmed,
+                "the selected army has its destination circle without a separate pick mode");
+            ClickTravelTile(mainGame, army.X, army.Y);
             Check(session.TravelTargetFor(army.Id) is null && commands == 0,
-                "Cancel travel target clears the plan without a game command");
-            var city = session.State.Cities.First();
-            mainGame.MenuBar.PressItemForCheck("unit_map.army_set_target");
-            mainGame.MapView.PickTravelTargetForCheck(new MapClickContext(
-                MapClickButton.Left, city.X, city.Y, true, false,
-                new MapClickTarget(MapEntityKind.City, city.Id, city.Owner),
-                new MapClickSelection(MapEntityKind.Army, army.Id, army.Moves), 1, 0, 0, "north"));
+                "clicking the selected army cancels its order without a command");
+            ClickTravelTile(mainGame, destination.X, destination.Y);
+            Check(session.TravelTargetFor(army.Id) is not null,
+                "cancellation retains selection for the next destination click");
+            var city = session.State.Cities.First(c => Math.Max(Math.Abs(c.X - army.X), Math.Abs(c.Y - army.Y)) > 1);
+            ClickTravelTile(mainGame, city.X, city.Y);
             Check(session.TravelTargetFor(army.Id)?.CityId == city.Id && commands == 0,
-                "a city click saves its fixed city ID without an attack or game command");
+                "a distant city click replaces the remembered target without an attack");
             var path = Path.Combine(Path.GetTempPath(), $"ic2-army-travel-check-{Guid.NewGuid():N}.json");
             try
             {
@@ -471,14 +474,14 @@ public partial class EndTurnBoxCheck : Control
                 var loaded = SaveManager.LoadFile(path, session.World, session.Ruleset);
                 var reopened = new GameSession(session.World, session.Ruleset, session.Scenario, loaded);
                 Check(reopened.TravelTargetFor(army.Id) == session.TravelTargetFor(army.Id),
-                    "the real Save As path persists a campaign target for reopening");
+                    "real Save As preserves a click-created travel order");
                 mainGame.SubmitForCheck($"move {army.Id} {destination.X} {destination.Y}");
                 Check(session.TravelTargetFor(army.Id) is null,
-                    "a manual move attempt cancels that army's target");
+                    "an explicit manual command cancels the old target");
             }
             finally { if (File.Exists(path)) File.Delete(path); }
         }
-        finally { RemoveMainGame(mainGame); }
+        finally { RemoveMainGame(mainGame); SettingsScreen.Commit(preferences); }
     }
 
     private static (int X, int Y) FreeLandNeighbour(GameSession session, ArmyState army)
@@ -576,7 +579,7 @@ public partial class EndTurnBoxCheck : Control
                 "rally point is a compact toolbar icon");
             Check(mainGame.MenuBar.GetParent().FindChild("CampaignDate", true, false) is Label,
                 "the campaign date shares the menu row");
-            Check(new[] { "unit_map.army_split_two", "unit_map.army_set_target" }.All(id =>
+            Check(new[] { "unit_map.army_split_two" }.All(id =>
                     mainGame.CommandStrip.ButtonFor(id) is { Icon: not null, Text.Length: 0 } button && button.TooltipText.Length > 0),
                 "quick split and travel target are icons with readable tooltips");
             mainGame.RetreatSupplyButtonForCheck.EmitSignal(Button.SignalName.Pressed);

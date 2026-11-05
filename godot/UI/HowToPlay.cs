@@ -34,6 +34,7 @@ public static class HowToPlay
         {
             "Zoom the main map with the mouse wheel, including over the overview map. Drag to pan; hovering a marker names it. Ctrl+wheel over the details panel resizes its text.",
             "With a unit selected, left-click a tile to move there. Terrain costs moves: forest 2, mountains and rivers 4, rough sea 3, everything else 1. A unit stays selected while it has moves left.",
+            "Enable Remember unfinished army destinations in Settings → Experimental QOL to keep a journey for later confirmed End turns, even with no moves left. A circle marks the destination when the army is selected. Click that selected army again to cancel, or double-click it to inspect its units. An at-war army or fleet within ten tiles cancels the remembered order; travel never attacks automatically. Disabling the preference stops creating new orders; existing saved orders keep running.",
             "A click on empty ground always moves the selected unit. To avoid a mis-click marching an army away, turn on Settings → Map → \"Confirm moves with a second click\", or press Esc to drop the selection first.",
             "To carry an army by sea, move it onto your own fleet next to it; sail the fleet, then click a land tile beside it to land.",
             "Set one rally point for your nation from the game screen. Newly created armies from manual or automatic mobilization receive a saved travel target; a unit added to an existing army does not redirect it.",

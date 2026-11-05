@@ -53,12 +53,5 @@ public static class ArmyTravelPlanner
     }
 
     public static bool HasHostileContact(GameState state, Ruleset ruleset, ArmyState army)
-    {
-        bool AtWar(string other) => other != army.Nation
-            && state.Relations.Get(army.Nation, other) == ruleset.Diplomacy.StateCodes.War;
-        return state.Armies.Any(other => other.CoveredTileCode is not null && AtWar(other.Nation)
-                && Math.Max(Math.Abs(other.X - army.X), Math.Abs(other.Y - army.Y)) <= 1)
-            || state.Cities.Any(city => AtWar(city.Owner)
-                && Math.Max(Math.Abs(city.X - army.X), Math.Abs(city.Y - army.Y)) <= 1);
-    }
+        => RetreatSupplyPlanner.Danger(state, ruleset, army.Nation, army.X, army.Y) is not null;
 }

@@ -390,6 +390,11 @@ public partial class SettingsScreen : Control
         // #1280 F2: a near-miss on a marker must not march an army away unasked.
         var confirm = new CheckBox { Text = "Confirm moves with a second click", ButtonPressed = Current.ConfirmMoves };
         confirm.Toggled += on => Commit(Current with { ConfirmMoves = on });
+        var travel = new CheckBox { Name = "RememberArmyDestinations",
+            Text = "Remember unfinished army destinations", ButtonPressed = Current.RememberArmyDestinations };
+        travel.TooltipText = "Destination clicks move now and remember the remainder for later End turns. Existing campaign orders continue when this is off.";
+        travel.Toggled += on => Commit(Current with { RememberArmyDestinations = on });
+        Row(column, "Army travel").AddChild(travel);
         Row(column, "Moving").AddChild(confirm);
         column.AddChild(UiKit.MakeLabel("On: the first click marks the destination, a second click on it moves. Off: the original's one-click move.", AppTheme.Note, UiKit.MutedTextColor));
     }

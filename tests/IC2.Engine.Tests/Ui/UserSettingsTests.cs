@@ -100,6 +100,7 @@ public sealed class UserSettingsTests : IDisposable
         Assert.False(settings.Fullscreen);
         Assert.True(settings.ShowOtherBattleReports);
         Assert.False(settings.ConfirmMoves);
+        Assert.False(settings.RememberArmyDestinations);
         Assert.False(settings.AutoSupplyArmies);
         Assert.False(settings.AutoFundArmies);
         Assert.False(settings.AutoSupplyFleets);
@@ -122,7 +123,7 @@ public sealed class UserSettingsTests : IDisposable
         var saved = new UserSettings
         {
             PackId = "placeholder", SoundEnabled = false, VolumePercent = 40, ColorScheme = "dark",
-            Font = "garamond", TextScalePercent = 125, Fullscreen = true, ShowOtherBattleReports = false, ConfirmMoves = true,
+            Font = "garamond", TextScalePercent = 125, Fullscreen = true, ShowOtherBattleReports = false, ConfirmMoves = true, RememberArmyDestinations = true,
             MapStyle = "painted", AutoSupplyArmies = true, AutoFundArmies = true,
             AutoSupplyTargetPercent = 75, AutoPurseTargetTalents = 800, AutoTreasuryReserveTalents = 2_500,
             AutoSupplyFleets = true, AutoFundFleets = true, AutoRepairFleets = true,

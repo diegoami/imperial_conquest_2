@@ -81,33 +81,39 @@ public sealed class ArmyTravelPlannerTests
     [Theory]
     [InlineData(false, 1, true, true)]
     [InlineData(true, 1, true, true)]
-    [InlineData(false, 2, true, false)]
-    [InlineData(true, 2, true, false)]
+    [InlineData(false, 10, true, true)]
+    [InlineData(true, 10, true, true)]
+    [InlineData(false, 11, true, false)]
+    [InlineData(true, 11, true, false)]
     [InlineData(false, 1, false, false)]
     [InlineData(true, 1, false, false)]
-    public void Travel_stops_only_for_nearby_hostile_army_or_city(bool cityContact, int distance,
-        bool atWar, bool shouldStop)
+    public void Travel_cancels_for_at_war_armies_or_launched_fleets_within_ten_tiles(bool fleetContact,
+        int distance, bool atWar, bool shouldStop)
     {
         var (session, original) = Setup();
         var army = original with { X = 10, Y = 10, Moves = 8, CoveredTileCode = 2, AboardFleetId = null };
-        var world = session.World with { Width = 32, Height = 32,
-            Terrain = new TerrainGrid(TerrainEncoding.RunLength, ValueList.Of(new TerrainRun(2, 32 * 32))) };
+        var world = session.World with { Width = 40, Height = 40,
+            Terrain = new TerrainGrid(TerrainEncoding.RunLength, ValueList.Of(new TerrainRun(2, 40 * 40))) };
         var enemy = army with { Id = "contact", Nation = "seleucid", X = 10 + distance };
-        var city = session.State.Cities[0] with { Owner = "seleucid", X = 10 + distance, Y = 10 };
+        var fleet = session.State.Fleets[0] with { Nation = "seleucid", X = 10 + distance, Y = 10,
+            ConstructionTicksRemaining = null, CarriedArmyId = null };
         var state = session.State with
         {
-            Armies = cityContact ? ValueList.Of(army) : ValueList.Of(army, enemy),
-            Cities = cityContact ? ValueList.Of(city) : ValueList<CityState>.Empty,
+            Armies = fleetContact ? ValueList.Of(army) : ValueList.Of(army, enemy),
+            Fleets = fleetContact ? ValueList.Of(fleet) : ValueList<FleetState>.Empty,
+            Cities = ValueList<CityState>.Empty,
             Relations = session.State.Relations.WithRelation("rome", "seleucid", atWar
                 ? session.Ruleset.Diplomacy.StateCodes.War : session.Ruleset.Diplomacy.StateCodes.Peace),
         };
-        var target = new ArmyTravelTarget(army.Id, army.Nation, 20, 20);
+        var target = new ArmyTravelTarget(army.Id, army.Nation, 25, 25);
         var decision = ArmyTravelPlanner.ForTarget(state, world, session.Ruleset, target);
-
         Assert.Equal(shouldStop ? "hostile contact" : null, decision.Reason);
-        Assert.Equal(shouldStop ? null : $"move {army.Id} 20 20", decision.CommandLine);
+        Assert.Equal(shouldStop ? null : $"move {army.Id} 25 25", decision.CommandLine);
         Assert.False(decision.WaitForMoves);
         Assert.False(decision.Arrived);
+        if (fleetContact && atWar && distance == 1)
+            Assert.NotNull(ArmyTravelPlanner.ForTarget(state with { Fleets = ValueList.Of(fleet with {
+                ConstructionTicksRemaining = 3 }) }, world, session.Ruleset, target).CommandLine);
     }
 
     [Theory]

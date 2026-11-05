@@ -11,14 +11,14 @@ namespace IC2.Engine.Tests.Ui;
 public sealed class UnitCommandStripTests
 {
     [Fact]
-    public void An_own_army_shows_the_army_buttons_and_travel_target_then_cancel()
+    public void An_own_army_shows_the_army_buttons_and_quick_split_then_cancel()
     {
         var commands = UnitCommandStripLayout.CommandsFor(UnitStripSelection.OwnArmy);
 
-        Assert.Equal(10, commands.Count);
-        Assert.Equal(UnitCommandStripLayout.ArmyCommands, commands.Take(9).ToArray());
+        Assert.Equal(9, commands.Count);
+        Assert.Equal(UnitCommandStripLayout.ArmyCommands, commands.Take(8).ToArray());
         Assert.Equal("unit_map.army_split_two", commands[4]);
-        Assert.Equal("unit_map.army_set_target", commands[5]);
+        Assert.DoesNotContain("unit_map.army_set_target", commands);
         Assert.Equal(UnitCommandStripLayout.CancelCommandId, commands[^1]);
     }
 
@@ -48,9 +48,9 @@ public sealed class UnitCommandStripTests
     {
         var commands = UnitCommandStripLayout.CommandsFor(UnitStripSelection.OwnFleetCarryingArmy);
 
-        Assert.Equal(17, commands.Count);
+        Assert.Equal(16, commands.Count);
         Assert.Equal(UnitCommandStripLayout.FleetCommands, commands.Take(7).ToArray());
-        Assert.Equal(UnitCommandStripLayout.ArmyCommands, commands.Skip(7).Take(9).ToArray());
+        Assert.Equal(UnitCommandStripLayout.ArmyCommands, commands.Skip(7).Take(8).ToArray());
         Assert.Equal(UnitCommandStripLayout.CancelCommandId, commands[^1]);
     }
 
@@ -70,9 +70,9 @@ public sealed class UnitCommandStripTests
             id => Assert.NotNull(GameCommandTable.RowById(id)));
         Assert.NotNull(GameCommandTable.RowById(UnitCommandStripLayout.CancelCommandId));
 
-        // The original controls plus army/fleet Quick Split and Set travel target.
+        // The original controls plus army/fleet Quick Split without a separate travel action.
         Assert.Equal(
-            18,
+            17,
             UnitCommandStripLayout.ArmyCommands.Count + UnitCommandStripLayout.FleetCommands.Count
             + UnitCommandStripLayout.CityCommands.Count + 1);
     }

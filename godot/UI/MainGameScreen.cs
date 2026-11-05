@@ -124,7 +124,7 @@ public partial class MainGameScreen : Control
             if (id is "file.close" or "game.settings" || id.StartsWith("help.", StringComparison.Ordinal)
                 || id is "file.save" or "file.save_as" || AllowStrategicInput())
             {
-                if (id != "unit_map.army_set_target" && _mapView.TravelTargetPickArmed)
+                if (_mapView.TravelTargetPickArmed)
                 {
                     _mapView.CancelTravelTargetPick();
                     UpdateCommandStrip();
@@ -537,6 +537,9 @@ public partial class MainGameScreen : Control
         _mapView.AttackConfirmationRequested += ShowAttackPrompt;
         _mapView.HintRequested += ShowScreenMessage;
         _mapView.TravelTargetPicked += HandlePickedMapTarget;
+        _mapView.ArmyTravelRequested += IssueArmyTravel;
+        _mapView.RememberArmyDestinations = () => SettingsScreen.Current.RememberArmyDestinations;
+        _mapView.ArmyTravelCancelled += CancelArmyTravelTarget;
         _mapView.TravelTargetPickChanged += UpdateCommandStrip;
         _mapView.TravelTargetPickCancelled += () =>
         {
@@ -682,8 +685,6 @@ public partial class MainGameScreen : Control
         BindStrategicCommand("unit_map.army_transfer_unit", OpenArmyTransferDialog);
         BindStrategicCommand("unit_map.army_split", OpenSplitArmyDialog);
         BindStrategicCommand("unit_map.army_split_two", () => OpenSplitArmyDialog(suggestBalanced: true));
-        BindStrategicCommand("unit_map.army_set_target", ArmArmyTravelTarget);
-        BindStrategicCommand("unit_map.army_cancel_target", CancelArmyTravelTarget);
         BindStrategicCommand("unit_map.army_join", JoinArmiesFromMenu);
         BindStrategicCommand("unit_map.army_change_units", OpenChangeUnitsDialog);
         BindStrategicCommand("unit_map.army_disband", ConfirmDisbandArmy);
@@ -1797,9 +1798,7 @@ public partial class MainGameScreen : Control
         _travelTargetStatus = _mapView.TravelTargetPickArmed
             ? "Travel target: click an open land cell or city; right-click or Esc to cancel."
             : target is null ? string.Empty
-            : $"Travel target for {target.ArmyId}: {(target.CityId is null ? $"cell ({target.X}, {target.Y})" : $"city {target.CityId}")} · {remaining} cells away. Use Army → Cancel travel target to stop.";
-        if (_commandStrip.ButtonFor("unit_map.army_set_target") is { } travelButton)
-            UiKit.SetHint(travelButton, "Set travel target" + (string.IsNullOrEmpty(_travelTargetStatus) ? "" : "\n" + _travelTargetStatus), _hintsEnabled);
+            : $"Travel target for {target.ArmyId}: {(target.CityId is null ? $"cell ({target.X}, {target.Y})" : $"city {target.CityId}")} · {remaining} cells away. Click the selected army again to cancel.";
 
         var selectedArmy = OwnSelectedArmy();
         var selectedFleet = selectedArmy is null || selectedArmy.IsEmbarked ? OwnSelectedFleet() : null;
@@ -1900,7 +1899,7 @@ public partial class MainGameScreen : Control
             ShowScreenMessage($"Rally point set for new {nationId} armies.");
             return;
         }
-        SetPickedArmyTravelTarget(x, y, cityId);
+
     }
 
     private void ToggleRetreatSupplyMode()
@@ -1945,48 +1944,6 @@ public partial class MainGameScreen : Control
             return;
         }
         Enable();
-    }
-
-    private void ArmArmyTravelTarget()
-    {
-        var army = OwnSelectedArmy();
-        if (army is null || army.IsEmbarked)
-        {
-            ShowScreenMessage("Select one of your unembarked armies first.");
-            return;
-        }
-        _mapView.ArmTravelTargetPick();
-        UpdateCommandStrip();
-        ShowScreenMessage("Click an open land cell or city to set this army's travel target.");
-    }
-
-    private void SetPickedArmyTravelTarget(int x, int y, string? cityId)
-    {
-        var army = OwnSelectedArmy();
-        if (army is null || army.IsEmbarked) return;
-        void SetTarget()
-        {
-            Session.SetArmyTravelTarget(new ArmyTravelTarget(army.Id, army.Nation, x, y, cityId));
-            UpdateCommandStrip();
-            ShowScreenMessage($"Travel target set for {army.Id}.");
-        }
-        if (Session.RetreatSupplyPlanFor(army.Id, isFleet: false) is null)
-        {
-            SetTarget();
-            return;
-        }
-        var prompt = new ConfirmPrompt
-        {
-            Question = $"Replace {army.Id}'s Retreat and supply mode with a fixed travel target?",
-        };
-        prompt.Confirmed += () =>
-        {
-            CloseOverlay(prompt);
-            Session.ClearRetreatSupplyPlan(army.Id, isFleet: false);
-            SetTarget();
-        };
-        prompt.Refused += () => CloseOverlay(prompt);
-        ShowOverlay(prompt);
     }
 
     private void CancelArmyTravelTarget()
