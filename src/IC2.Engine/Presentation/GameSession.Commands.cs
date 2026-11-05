@@ -381,9 +381,11 @@ public sealed partial class GameSession
         var timeline = IC2.Engine.Model.ValueList.From(_pendingTacticalTimeline);
         _pendingTacticalTimeline.Clear();
         LastTacticalTimeline = timeline;
+        LastObserverBattles = ValueList.From(_observerBattlesThisCall);
         var rewound = _tacticalRewound;
         _tacticalRewound = false;
-        return output with { OpenBattleView = _battle?.View(), EndedBattleReport = report, TacticalTimeline = timeline, TacticalRewound = rewound };
+        return output with { OpenBattleView = _battle?.View(), EndedBattleReport = report, TacticalTimeline = timeline,
+            TacticalRewound = rewound, ObserverBattles = LastObserverBattles };
     }
 
     private static IReadOnlyList<string> RefuseWhileBattleOpen(string verb) =>

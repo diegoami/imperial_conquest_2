@@ -264,7 +264,8 @@ public sealed class TacticalBattleSession
     /// <param name="opened">The game with the attacker's moves spent and the computer side's army changed.</param>
     /// <returns>The open battle.</returns>
     public static TacticalBattleSession Open(
-        GameState game, string attackerArmyId, string defenderArmyId, Ruleset ruleset, out GameState opened, string? battleId = null)
+        GameState game, string attackerArmyId, string defenderArmyId, Ruleset ruleset, out GameState opened, string? battleId = null,
+        bool captureTimeline = true, int? automaticHalfRoundLimit = null)
     {
         ArgumentNullException.ThrowIfNull(game);
         ArgumentNullException.ThrowIfNull(ruleset);
@@ -277,7 +278,7 @@ public sealed class TacticalBattleSession
         var context = TacticalContext.From(ruleset);
         var timeline = new TacticalBattleTimeline(context,
             battleId ?? StreamKey(attackerArmyId, defenderArmyId, game.Calendar.TurnIndex), attacker.Nation, defender.Nation);
-        context.Observer = timeline.Observe;
+        context.Observer = captureTimeline ? timeline.Observe : null;
         var rng = SplitMix64Rng.ForStream(game.RandomSeed, StreamKey(attackerArmyId, defenderArmyId, game.Calendar.TurnIndex));
         var draws = new RngBattleDraws(rng);
 
@@ -289,9 +290,9 @@ public sealed class TacticalBattleSession
         };
 
         var start = TacticalCopyIn.Start(spent, attackerArmyId, defenderArmyId, context, draws);
-        var battle = TacticalDriver.Run(start.Battle, context, draws, new ComputerGeneral());
+        var battle = TacticalDriver.Run(start.Battle, context, draws, new ComputerGeneral(), automaticHalfRoundLimit);
 
-        timeline.Observe(battle, null, new TacticalCaptureBoundary(TacticalFrameKind.Reconciliation));
+        if (captureTimeline) timeline.Observe(battle, null, new TacticalCaptureBoundary(TacticalFrameKind.Reconciliation));
         opened = start.Game;
         return new TacticalBattleSession(context, battle, rng, attacker.Nation, defender.Nation) { _timeline = timeline };
     }

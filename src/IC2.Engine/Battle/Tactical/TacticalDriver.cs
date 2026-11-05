@@ -1,5 +1,9 @@
 namespace IC2.Engine.Battle.Tactical;
 
+/// <summary>A bounded observer computation stopped without inventing a battle outcome.</summary>
+public sealed class TacticalAutomationLimitException(int limit)
+    : InvalidOperationException($"Automatic tactical battle exceeded {limit} half-rounds; no battle result was applied.");
+
 /// <summary>
 /// The computer general: plays a computer-driven side's placement (<c>FUN_004381A4</c>) and movement
 /// (<c>FUN_0043A31C</c>) half-rounds. T124 implements it; this task calls it through this seam and tests
@@ -54,15 +58,21 @@ public static class TacticalDriver
 {
     /// <summary>Runs the computer-driven half-rounds until a human must act or the battle is over.</summary>
     public static TacticalBattleState Run(
-        TacticalBattleState state, TacticalContext context, IBattleDraws draws, ITacticalGeneral general)
+        TacticalBattleState state, TacticalContext context, IBattleDraws draws, ITacticalGeneral general,
+        int? automaticHalfRoundLimit = null)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(draws);
         ArgumentNullException.ThrowIfNull(general);
 
+        var played = 0;
         while (!state.IsOver && state.IsComputerDriven(state.SideToMove))
         {
+            // Optional presentation resource budget, never a combat cap or forced outcome.
+            // Normal human/general callers retain the original unbounded behavior.
+            if (automaticHalfRoundLimit is { } limit && played++ >= limit)
+                throw new TacticalAutomationLimitException(limit);
             state = state.Placed
                 ? general.Move(state, context, draws)
                 : general.Place(state, context, draws);

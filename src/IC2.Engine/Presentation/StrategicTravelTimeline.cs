@@ -127,9 +127,9 @@ internal sealed class StrategicTravelTimeline : IStrategicObservationRecorder
     }
 
     internal void Battle(ICommand command, GameState before, GameState after, bool completed,
-        IEnumerable<DomainEvent>? events = null)
+        IEnumerable<DomainEvent>? events = null, string? identity = null)
     {
-        Guard(() => Record(new(command.Kind, command,
+        Guard(() => Record(new(identity ?? command.Kind, command,
             completed ? StrategicTravelStepKind.BattleCompletion : StrategicTravelStepKind.BattleOpening,
             before, after, ValueList<StrategicTravelObservation>.Empty,
             events is null ? ValueList<DomainEvent>.Empty : ValueList.From(events), 0)));
