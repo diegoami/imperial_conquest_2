@@ -10,7 +10,7 @@ public enum UnitStripSelection
     /// <summary>No selection, or a foreign unit — the strip shows nothing.</summary>
     None,
 
-    /// <summary>An own army: original Army buttons, Quick Split, Set travel target and Cancel selection.</summary>
+    /// <summary>An own army: original Army buttons, Quick Split and Cancel selection.</summary>
     OwnArmy,
 
     /// <summary>An own fleet: original Fleet buttons, Quick Split and Cancel selection.</summary>
@@ -32,7 +32,7 @@ public enum UnitStripSelection
 /// <remarks>
 /// <para>
 /// The shape is <c>[derived: code, TUnitMap_AllButtonsOff, ArmyButtonsOn, FleetButtonsOn,
-/// CityButtonsOn]</c>: <strong>7 original army buttons</strong>, plus Quick Split and Set travel target,
+/// CityButtonsOn]</c>: <strong>7 original army buttons</strong>, plus Quick Split,
 /// <strong>6 fleet buttons</strong> and
 /// <strong>1 city button</strong>, one per Unit-map submenu entry; only the selected unit's group is
 /// shown; and a fleet carrying an army shows both groups, the fleet buttons first. Nothing is shown for
@@ -46,7 +46,7 @@ public enum UnitStripSelection
 /// </remarks>
 public static class UnitCommandStripLayout
 {
-    /// <summary>The original Army rows and the designed Quick Split and Set travel target actions.</summary>
+    /// <summary>The original Army rows and the designed Quick Split action.</summary>
     public static readonly IReadOnlyList<string> ArmyCommands = new[]
     {
         "unit_map.army_supply",
@@ -54,7 +54,6 @@ public static class UnitCommandStripLayout
         "unit_map.army_transfer_unit",
         "unit_map.army_split",
         "unit_map.army_split_two",
-        "unit_map.army_set_target",
         "unit_map.army_join",
         "unit_map.army_change_units",
         "unit_map.army_disband",

@@ -125,6 +125,8 @@ templates ([packaging.md](packaging.md)); the installer needs Inno Setup 6.
 
 ## Working rules
 
+For persistent army journeys, enable **Remember unfinished army destinations** under Settings → Experimental QOL (show that tab from the main Settings page). Ordinary destination clicks move now and retain an unfinished target for later confirmed End turns; exhausted armies can remember a target too. A selected army shows its destination circle. Click that selected army again to cancel, or double-click to inspect its units. An at-war army or launched fleet within ten tiles cancels automation; it never attacks, declares war or embarks automatically. Turning the preference off stops new journey creation without deleting saved orders. Strategic Undo restores the movement and associated order together; global preferences remain unchanged.
+
 - A question is not a request to edit files. Answer it, propose a fix, wait.
 - Upstream defects go through the bug list; design decisions are the user's.
 - A rule question this repository needs answered from the original (a decompile, a live run) is delegated as an issue in [`diegoami/imperial-conquest-2-research`](https://github.com/diegoami/imperial-conquest-2-research/issues), linked from the issue it blocks; it is not investigated here.
