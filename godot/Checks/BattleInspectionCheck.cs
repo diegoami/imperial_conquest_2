@@ -9,10 +9,12 @@ namespace IC2.Slice.Checks;
 public partial class BattleInspectionCheck : Node
 {
     private bool _ok = true;
-    public override void _Ready()
+    public override async void _Ready()
     {
         try
         {
+            GetTree().Root.Size = new Vector2I(1500, 850);
+            GetTree().Root.ContentScaleSize = new Vector2I(1500, 850);
             var data = GameDataContext.Repository.Resolve("toy-3city");
             StartingArmy Army(string id, string nation, int x, params UnitSlot[] units) =>
                 new(id, nation, x, 2, 68, 100, 100, 8, ValueList.Of(units));
@@ -28,6 +30,18 @@ public partial class BattleInspectionCheck : Node
             main.SubmitForCheck("attack-army inspect-a inspect-b");
             var screen = (TacticalBattleScreen)main.ActiveOverlay!;
             screen.SkipPlayback();
+            for (var i = 0; i < 6; i++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            var board = screen.FindChild("Battlefield", true, false) as Control;
+            var information = screen.FindChild("BattleInformation", true, false) as ScrollContainer;
+            Check(board is not null && information is not null
+                && Mathf.Abs(board.GlobalPosition.Y - information.GlobalPosition.Y) <= 1,
+                "battlefield and scrollable information column share a top baseline");
+            Check(board is not null && screen.CaptionLabel.Size.X > board.Size.X
+                && screen.PhaseLabel.GlobalPosition.X < screen.ControllerLabel.GlobalPosition.X
+                && screen.CaptionLabel.GetGlobalRect().End.Y <= board.GlobalPosition.Y,
+                "battle caption spans the top and status text is distributed horizontally");
+            Check(screen.ExchangeLabel.GetThemeConstant("line_separation") > 0,
+                "current exchange lines have additional reading space");
             var before = session.State;
             var battle = session.OpenTacticalBattle;
             var enemy = screen.Model.View.Slots[20];

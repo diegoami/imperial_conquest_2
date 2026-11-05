@@ -15,6 +15,12 @@ public partial class ParchmentControlsCheck : Node
             foreach (var scheme in ColorSchemes.All)
             {
                 SettingsScreen.Commit(new UserSettings { ColorScheme = scheme.Id }, GetTree().Root);
+                var selectedStyle = (StyleBoxFlat)AppTheme.Current.GetStylebox("selected", "ItemList");
+                var focusedStyle = (StyleBoxFlat)AppTheme.Current.GetStylebox("selected_focus", "ItemList");
+                Check(Contrast(selectedStyle.BgColor, UiKit.PanelColorRaised) >= 3
+                    && Contrast(AppTheme.Current.GetColor("font_selected_color", "ItemList"), selectedStyle.BgColor) >= 7
+                    && focusedStyle.BgColor == selectedStyle.BgColor,
+                    scheme.Id + ": item-list selection is distinct, readable and retained when focus changes");
                 var settings = new SettingsScreen { InGame = true, Size = GetViewport().GetVisibleRect().Size };
                 AddChild(settings);
                 var note = settings.FindChildren("*", "Label", true, false).OfType<Label>()

@@ -17,6 +17,7 @@ public partial class NewGameScenarioCheck : Control
 {
     private const string ScenarioId = "example-tiny-duel";
     private const int SettleFrames = 6;
+    private const int ExtraScenarios = 32;
 
     private readonly string _dataRoot = Path.Combine(Path.GetTempPath(), "ic2-t200-" + Guid.NewGuid().ToString("N"));
     private readonly List<(int WaitFrames, Action Run)> _plan = new();
@@ -36,6 +37,8 @@ public partial class NewGameScenarioCheck : Control
         GameDataContext.UseRepositoryForCheck(_repository);
 
         _plan.Add((0, ShowChooser));
+        _plan.Add((SettleFrames, CheckListNavigation));
+        _plan.Add((SettleFrames, CheckLastRowVisible));
         _plan.Add((SettleFrames, CheckChooserAndStart));
         _plan.Add((SettleFrames, () => CheckNationRows("new game")));
         _plan.Add((1, SaveAndResume));
@@ -88,11 +91,23 @@ public partial class NewGameScenarioCheck : Control
         var scenario = JsonNode.Parse(File.ReadAllText(Path.Combine(shipped, "scenarios", ScenarioId + ".json")))!.AsObject();
         scenario["listed"] = true;
         File.WriteAllText(Path.Combine(_dataRoot, "scenarios", ScenarioId + ".json"), scenario.ToJsonString());
+        for (var i = 0; i < ExtraScenarios; i++)
+        {
+            var extra = (JsonObject)scenario.DeepClone();
+            var id = $"zz-list-scenario-{i:D2}";
+            extra["id"] = id;
+            extra["name"] = $"Additional scenario {i:D2} with a long title that should fit one compact row";
+            File.WriteAllText(Path.Combine(_dataRoot, "scenarios", id + ".json"), extra.ToJsonString());
+        }
         return GameDataRepository.Load(_dataRoot);
     }
 
     private void ShowChooser()
     {
+        GetTree().Root.Size = new Vector2I(1024, 768);
+        GetTree().Root.ContentScaleSize = new Vector2I(1024, 768);
+        SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        Size = new Vector2(1024, 768);
         _chooser = new RulesetChooserScreen();
         _chooser.SetAnchorsPreset(LayoutPreset.FullRect);
         _chooser.Continued += card => _continuedCard = card;
@@ -103,7 +118,7 @@ public partial class NewGameScenarioCheck : Control
     {
         Check(_chooser.CardButtons.Count == 2, $"both preset cards still render (found {_chooser.CardButtons.Count})");
         Check(_chooser.ScenarioCardButtons.ContainsKey(ScenarioId), $"the listed scenario '{ScenarioId}' has a card");
-        Check(_chooser.ScenarioCardButtons.Count == 1, $"only the listed scenario gets a card (found {_chooser.ScenarioCardButtons.Count})");
+        Check(_chooser.ScenarioCardButtons.Count == ExtraScenarios + 1, $"every listed scenario gets a row (found {_chooser.ScenarioCardButtons.Count})");
 
         var card = RulesetPresets.CardsFor(_repository).Single(c => c.ScenarioId == ScenarioId);
         _chooser.SelectCard(card);
@@ -115,6 +130,30 @@ public partial class NewGameScenarioCheck : Control
         var resolved = _repository.Resolve(ScenarioId);
         var selection = new NewGameSelection { SelectedCard = _continuedCard!, HumanNationId = resolved.Scenario.Seats[0].Nation };
         ShowGame(GameSessionFactory.CreateSession(_repository, selection));
+    }
+
+    private void CheckListNavigation()
+    {
+        var rows = _chooser.CardButtons.Values.Concat(_chooser.ScenarioCardButtons.Values).ToArray();
+        Check(rows.All(b => b.Size.Y <= 64), "35 choices remain compact single-line rows instead of oversized cards");
+        var last = _chooser.ScenarioCardButtons[$"zz-list-scenario-{ExtraScenarios - 1:D2}"];
+        last.GrabFocus();
+        last.EmitSignal(Control.SignalName.GuiInput, new InputEventKey { Pressed = true, Keycode = Key.Home });
+        Check(_chooser.SelectedPreset == RulesetPreset.ClassicalFaithful, "Home selects the first list entry");
+        _chooser.CardButtons[RulesetPreset.ClassicalFaithful].EmitSignal(Control.SignalName.GuiInput,
+            new InputEventKey { Pressed = true, Keycode = Key.End });
+        Check(_chooser.SelectedCard.ScenarioId == $"zz-list-scenario-{ExtraScenarios - 1:D2}",
+            "End selects the last scenario through the production keyboard handler");
+    }
+
+    private void CheckLastRowVisible()
+    {
+        var last = _chooser.ScenarioCardButtons[_chooser.SelectedCard.ScenarioId].GetGlobalRect();
+        var scroll = _chooser.ScenarioListScroll.GetGlobalRect();
+        Check(last.Position.Y >= scroll.Position.Y - 1 && last.End.Y <= scroll.End.Y + 1,
+            $"keyboard selection scrolls the last scenario fully into view (row {last}, list {scroll}, offset {_chooser.ScenarioListScroll.ScrollVertical})");
+        var viewport = GetViewportRect();
+        Check(viewport.Encloses(_chooser.ContinueButton.GetGlobalRect()), "Continue stays visible with a large scenario catalogue");
     }
 
     private void ShowGame(GameSession session)
