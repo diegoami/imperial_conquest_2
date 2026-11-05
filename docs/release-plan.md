@@ -468,6 +468,8 @@ Owner scope, 2026-11-04: [milestone 25](https://github.com/diegoami/imperial_con
 
 Observer controls, strategic Undo, persistent travel and rally markers are owner-approved exceptions to the manual's UI. Consult manual chapters 1–3 and the relevant army/fleet chapters before changing those existing actions; keep ordinary selection, End turn and inspection behavior intact. No whole-AI/global-RNG/native-original parity, new scenario, stronger tactical general or combat rebalance is promised by this scope.
 
+The [November 5 audit evaluation](investigations/original-ai-control-and-support.md#november-5-all-ai-audit-evidence) supplies bounded v0.9.4 replays and separate Faithful AI discrepancies. It does not add them to this milestone automatically or authorize the proposed Instant seat-replay change over the existing owner decision. Observer/watch reuses the engine's AI, including its documented remaining differences; comparison against that existing path proves the observer boundary, not parity with the original.
+
 ## 3. Tag and GitHub Release conventions
 
 ### 3.1 Naming and placement — **DECIDED**
