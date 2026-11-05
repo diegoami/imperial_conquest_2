@@ -174,6 +174,8 @@ public partial class MainGameScreen : Control
     public string RetreatSupplyStatusForCheck => _retreatSupplyLabel.Text;
     public Button RallyPointSetButtonForCheck => _rallyPointSetButton;
     public Button RallyPointClearButtonForCheck => _rallyPointClearButton;
+    public Button FleetRallyPointSetButtonForCheck => _fleetRallySetButton;
+    public Button FleetRallyPointClearButtonForCheck => _fleetRallyClearButton;
 
     /// <summary>T110: the overview mini-map, with its highlight layer. Exposed so
     /// <c>godot/Checks/NationsAreaMapCheck.cs</c> can read the highlight set.</summary>
@@ -377,6 +379,7 @@ public partial class MainGameScreen : Control
         _rallyPointClearButton.Pressed += ClearNationRallyPoint;
         _rallyPointRow.AddChild(_rallyPointClearButton);
         Toolbar.ExtraActions.AddChild(_rallyPointRow);
+        BuildFleetRallyControls();
 
         // A plain HBoxContainer, not HSplitContainer: SplitContainer's own split_offset sign convention
         // left the context panel with no visible width at all (T24's first pass) -- simpler and
@@ -1825,48 +1828,56 @@ public partial class MainGameScreen : Control
         UiKit.SetHint(_rallyPointSetButton, (rally is null ? "Set rally point" : "Change rally point") + "\n" + _rallyPointLabel.Text, _hintsEnabled);
         UiKit.SetHint(_rallyPointClearButton, "Clear rally point", _hintsEnabled);
         _rallyPointClearButton.Visible = rally is not null;
+        RefreshFleetRallyControls();
+        _mapView.QueueRedraw();
     }
 
-    private void ArmNationRallyPointPick()
+    private void ArmNationRallyPointPick() => ArmNationRallyPointPick(isFleet: false);
+
+    private void ArmNationRallyPointPick(bool isFleet)
     {
         if (Session.State.NationById(Session.State.ActiveNationId)?.Control != SeatControl.Human)
         {
             ShowScreenMessage("Only the active human nation can set its rally point.");
             return;
         }
-        if (Session.RallyPointFor(Session.State.ActiveNationId) is { } existing)
+        if (Session.RallyPointFor(Session.State.ActiveNationId, isFleet) is { } existing)
         {
             var prompt = new ConfirmPrompt
             {
-                Question = $"Replace {existing.NationId}'s rally point?"
+                Question = $"Replace {existing.NationId}'s {(isFleet ? "fleet" : "army")} rally point?"
             };
             prompt.Confirmed += () =>
             {
                 CloseOverlay(prompt);
-                BeginNationRallyPointPick();
+                BeginNationRallyPointPick(isFleet);
             };
             prompt.Refused += () => CloseOverlay(prompt);
             ShowOverlay(prompt);
             return;
         }
-        BeginNationRallyPointPick();
+        BeginNationRallyPointPick(isFleet);
     }
 
-    private void BeginNationRallyPointPick()
+    private void BeginNationRallyPointPick(bool isFleet)
     {
         _rallyPointPickNationId = Session.State.ActiveNationId;
-        _mapView.ArmTravelTargetPick();
+        _rallyPointPickIsFleet = isFleet;
+        _mapView.ArmTravelTargetPick(isFleet);
         UpdateCommandStrip();
-        ShowScreenMessage("Click an open land cell or your city for newly mobilized armies.");
+        ShowScreenMessage(isFleet ? "Click sea or an owned coastal city for newly launched fleets."
+            : "Click an open land cell or your city for newly mobilized armies.");
     }
 
-    private void ClearNationRallyPoint()
+    private void ClearNationRallyPoint() => ClearNationRallyPoint(isFleet: false);
+
+    private void ClearNationRallyPoint(bool isFleet)
     {
         _mapView.CancelTravelTargetPick();
         _rallyPointPickNationId = null;
         var nationId = Session.State.ActiveNationId;
-        ShowScreenMessage(Session.ClearRallyPoint(nationId)
-            ? $"Rally point cleared for future {nationId} mobilizations."
+        ShowScreenMessage(Session.ClearRallyPoint(nationId, isFleet)
+            ? $"{(isFleet ? "Fleet" : "Army")} rally point cleared for future {nationId} {(isFleet ? "launches" : "mobilizations")}."
             : $"{nationId} has no rally point.");
         UpdateCommandStrip();
     }
@@ -1876,6 +1887,11 @@ public partial class MainGameScreen : Control
         if (_rallyPointPickNationId is { } nationId)
         {
             _rallyPointPickNationId = null;
+            if (_rallyPointPickIsFleet)
+            {
+                SetFleetRallyPoint(nationId, x, y, cityId);
+                return;
+            }
             var city = cityId is null ? null : Session.State.CityById(cityId);
             if (cityId is not null && (city is null || city.Owner != nationId))
             {
@@ -1922,6 +1938,8 @@ public partial class MainGameScreen : Control
 
         void Enable()
         {
+            using var action = Session.BeginStrategicUndoAction();
+            if (isFleet) Session.ClearFleetRallyOrder(unitId);
             Session.SetRetreatSupplyPlan(new RetreatSupplyPlan(unitId, Session.State.ActiveNationId, isFleet));
             UpdateCommandStrip();
             ShowScreenMessage($"Retreat and supply enabled for {unitId}; it will act before End turn.");
@@ -1936,6 +1954,7 @@ public partial class MainGameScreen : Control
             prompt.Confirmed += () =>
             {
                 CloseOverlay(prompt);
+                using var action = Session.BeginStrategicUndoAction();
                 Session.ClearArmyTravelTarget(unitId);
                 Enable();
             };
@@ -2138,7 +2157,7 @@ public partial class MainGameScreen : Control
     private void SubmitConfirmedEndTurn()
     {
         Session.ClearStrategicUndo();
-        var summaries = new[] { RunAutoMobilize(), RunArmyTravelTargets(),
+        var summaries = new[] { RunAutoMobilize(), RunArmyTravelTargets(), RunFleetRallyOrders(),
                 RunRetreatSupplyPlans(), RunArmyAutoSupport(), RunFleetAutoSupport() }
             .Where(s => !string.IsNullOrEmpty(s)).ToArray();
         SubmitForCheck("end");
@@ -2831,7 +2850,7 @@ public partial class MainGameScreen : Control
 
     private void OnCommandIssued(IReadOnlyList<string> lines)
     {
-        if (!Session.IsObserverMode && !_runningArmyTravel && !_runningRetreatSupply && lines.FirstOrDefault() is { } command)
+        if (!Session.IsObserverMode && !_runningArmyTravel && !_runningFleetRally && !_runningRetreatSupply && lines.FirstOrDefault() is { } command)
         {
             var parts = command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length >= 3 && parts[0] == ">"
@@ -2839,12 +2858,16 @@ public partial class MainGameScreen : Control
             {
                 Session.ClearArmyTravelTarget(parts[2]);
                 Session.ClearRetreatSupplyPlan(parts[2], isFleet: false);
+                if (parts[1] == "embark-army" && parts.Length >= 4)
+                    Session.ClearFleetRallyOrder(parts[3]);
                 UpdateCommandStrip();
             }
             else if (parts.Length >= 3 && parts[0] == ">"
-                     && parts[1] is "move-fleet" or "attack-fleet" or "scuttle-fleet" or "split-fleet")
+                     && parts[1] is "move-fleet" or "attack-fleet" or "scuttle-fleet" or "split-fleet" or "join-fleets")
             {
                 Session.ClearRetreatSupplyPlan(parts[2], isFleet: true);
+                Session.ClearFleetRallyOrder(parts[2]);
+                if (parts[1] == "join-fleets" && parts.Length >= 4) Session.ClearFleetRallyOrder(parts[3]);
                 UpdateCommandStrip();
             }
         }

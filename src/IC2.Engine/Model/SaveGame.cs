@@ -46,7 +46,8 @@ public sealed record SaveGame(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? FirstEndNewsOwed = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ValueList<ArmyTravelTarget>? ArmyTravelTargets = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ValueList<RetreatSupplyPlan>? RetreatSupplyPlans = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ValueList<NationRallyPoint>? NationRallyPoints = null) : IVersionedDocument;
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ValueList<NationRallyPoint>? NationRallyPoints = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ValueList<FleetRallyOrder>? FleetRallyOrders = null) : IVersionedDocument;
 
 /// <summary>A fixed destination chosen for an army in this campaign's native JSON save.</summary>
 public sealed record ArmyTravelTarget(string ArmyId, string NationId, int X, int Y,
@@ -55,8 +56,12 @@ public sealed record ArmyTravelTarget(string ArmyId, string NationId, int X, int
 /// <summary>One unit's optional campaign-local Retreat and supply mode, absent from older native saves.</summary>
 public sealed record RetreatSupplyPlan(string UnitId, string NationId, bool IsFleet, string? DestinationCityId = null);
 
-/// <summary>One fixed rally location per nation in this campaign's native JSON save.</summary>
-public sealed record NationRallyPoint(string NationId, int X, int Y, string? CityId = null);
+/// <summary>One fixed rally location per nation and unit kind; legacy entries are army points.</summary>
+public sealed record NationRallyPoint(string NationId, int X, int Y, string? CityId = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool IsFleet = false);
+
+/// <summary>A newly launched fleet's campaign-local journey, followed before a later human End turn.</summary>
+public sealed record FleetRallyOrder(string FleetId, string NationId, int X, int Y, string? CityId = null);
 
 /// <summary>
 /// An open tactical battle as a save holds it: the original's battle block (<c>2026-10-04-decompiled-tactical-battle-rules.md</c>

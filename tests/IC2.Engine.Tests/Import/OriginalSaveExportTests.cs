@@ -140,6 +140,14 @@ public sealed class OriginalSaveExportTests
         Assert.Contains(withRecovery.Report.Omitted,
             item => item.StartsWith("RetreatSupplyPlans", StringComparison.Ordinal));
         Assert.Single(session.RetreatSupplyPlans);
+
+        session.SetRallyPoint(new NationRallyPoint("rome", 10, 10, IsFleet: true));
+        session.SetFleetRallyOrder(new FleetRallyOrder("test-fleet", "rome", 10, 10));
+        var withFleetRally = OriginalSaveExporter.ToDocument(session, Ui);
+        Assert.Equal(OriginalSaveCodec.Encode(live.Document), OriginalSaveCodec.Encode(withFleetRally.Document));
+        Assert.Contains(withFleetRally.Report.Omitted, item => item.StartsWith("FleetRallyOrders", StringComparison.Ordinal));
+        Assert.Contains(withFleetRally.Report.Omitted, item => item.StartsWith("NationRallyPoints", StringComparison.Ordinal));
+        Assert.Single(session.FleetRallyOrders);
     }
 
     [Fact]

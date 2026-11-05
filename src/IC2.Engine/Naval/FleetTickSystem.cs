@@ -103,6 +103,7 @@ public sealed class FleetTickSystem : IGameSystem
                     updatedFleets.Add(launched);
 
                     context.Events.Publish(new FleetFinished(NationDisplayName(state, fleet.Nation), buildCity.Name));
+                    context.Events.Publish(new FleetLaunched(fleet.Id, fleet.Nation));
                 }
                 else
                 {

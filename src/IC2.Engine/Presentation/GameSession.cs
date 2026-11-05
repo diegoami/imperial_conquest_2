@@ -491,6 +491,7 @@ public sealed partial class GameSession
 
         var snapshot = _eventsThisCall.ToArray();
         _eventsThisCall.Clear();
+        BindLaunchedFleetRallies(snapshot);
         EventsPublished?.Invoke(snapshot);
         return snapshot;
     }
@@ -1027,6 +1028,7 @@ public sealed partial class GameSession
         ArmyTravelTargets = save.ArmyTravelTargets ?? ValueList<ArmyTravelTarget>.Empty;
         RetreatSupplyPlans = save.RetreatSupplyPlans ?? ValueList<RetreatSupplyPlan>.Empty;
         NationRallyPoints = save.NationRallyPoints ?? ValueList<NationRallyPoint>.Empty;
+        FleetRallyOrders = save.FleetRallyOrders ?? ValueList<FleetRallyOrder>.Empty;
 
         var humanNationIds = State.Nations
             .Where(n => n.Control == SeatControl.Human)
@@ -1396,26 +1398,26 @@ public sealed partial class GameSession
         return true;
     }
 
-    /// <summary>One optional fixed rally location for each nation in this campaign.</summary>
+    /// <summary>One optional fixed rally location per nation and army/fleet kind in this campaign.</summary>
     public ValueList<NationRallyPoint> NationRallyPoints { get; private set; } = ValueList<NationRallyPoint>.Empty;
 
-    public NationRallyPoint? RallyPointFor(string nationId) =>
-        NationRallyPoints.FirstOrDefault(point => point.NationId == nationId);
+    public NationRallyPoint? RallyPointFor(string nationId, bool isFleet = false) =>
+        NationRallyPoints.FirstOrDefault(point => point.NationId == nationId && point.IsFleet == isFleet);
 
     public void SetRallyPoint(NationRallyPoint rallyPoint)
     {
         using var action = BeginStrategicUndoAction();
         ArgumentNullException.ThrowIfNull(rallyPoint);
         NationRallyPoints = ValueList.From(NationRallyPoints
-            .Where(existing => existing.NationId != rallyPoint.NationId).Append(rallyPoint));
+            .Where(existing => existing.NationId != rallyPoint.NationId || existing.IsFleet != rallyPoint.IsFleet).Append(rallyPoint));
     }
 
-    public bool ClearRallyPoint(string nationId)
+    public bool ClearRallyPoint(string nationId, bool isFleet = false)
     {
         using var action = BeginStrategicUndoAction();
-        if (RallyPointFor(nationId) is null) return false;
+        if (RallyPointFor(nationId, isFleet) is null) return false;
         NationRallyPoints = ValueList.From(NationRallyPoints
-            .Where(point => point.NationId != nationId));
+            .Where(point => point.NationId != nationId || point.IsFleet != isFleet));
         return true;
     }
 
