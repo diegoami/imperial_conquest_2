@@ -195,6 +195,7 @@ public sealed class GameCommandTable
 
             // ---- Game (audit §1.2); the three seat commands are out (T100 Scope) ----
             new("game.end_turn", "Game", null, "End turn", "ui.command.end_turn.icon", null, Wired: true),
+            new("game.undo", "Game", null, "Undo (experimental)", null, "Ctrl+Z", Wired: true),
             new("game.observe", "Game", null, "Observe campaign (experimental)", null, null, Wired: true),
             new("game.settings", "Game", null, "Settings", null, null, Wired: true), // #1293
 

@@ -115,6 +115,17 @@ public sealed class StrategicTravelPlayback
         IntersectsViewport = null;
     }
 
+    /// <summary>Drop stale presentation without invoking its completion or changing playback preferences.</summary>
+    public void ResetAfterUndo()
+    {
+        if (_closed) return;
+        _steps.Clear();
+        _step = null; _route = null; _display = null; _completed = null; _viewer = null;
+        _retainArrival = false; _draining = false;
+        _lastBatch = 0; _routeIndex = 0; _cellIndex = 0; _elapsed = 0;
+        Changed?.Invoke();
+    }
+
     /// <summary>Fractional centre only; every information view uses the last fully entered cell.</summary>
     public (double X, double Y)? Position(TravelMarkerKind kind, string id)
     {

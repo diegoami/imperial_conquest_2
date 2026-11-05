@@ -88,6 +88,10 @@ public partial class HelpPage : Control
         AddLine(column, "Play continues automatically. Pause stops between nation turns; Next round stops at the next campaign date. Latest battles opens reports when you choose.");
         AddLine(column, "While paused, choose a surviving nation and Take control to join its next turn. Nations ahead of it play normally first. Saved observer campaigns reopen paused.");
 
+        AddSection(column, "Strategic Undo (experimental)");
+        AddLine(column, "Use the Undo toolbar button, Game > Undo, or Ctrl+Z to undo actions in your current strategic turn, including battles you initiated. Repeating an action preserves its random outcome.");
+        AddLine(column, "History resets when you load or confirm End turn; opponent turns cannot be undone. Global Settings stay unchanged. Tactical Undo remains limited to your own tactical turn.");
+
         AddSection(column, "Where the rules come from");
         AddLine(column, "The 'classical-faithful' ruleset is built from the original game's own data and the project's research reports.");
         AddLine(column, "The 'improved' preset is a designed variant of that ruleset, not a reconstruction.");
