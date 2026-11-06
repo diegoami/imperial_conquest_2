@@ -493,6 +493,19 @@ Manual references: original chapter 1/M01_04 has leader assignment but no scenar
 
 **Outside this patch:** stronger Improved Computer general, GitHub Pages/browser play and optional original-assets loading belong to v0.11 planning (#1362/#1363/#1797/#1798). #1740's original-look investigation, #1747's packaging newline hygiene, stored AI fleet routes, the comprehensive ALL-AI audit and previously owner-deferred native-original SAV/battle acceptance remain separate. Preserve the existing #1359 naming-material exception; no original assets or private owner files enter the review payload. No broader original parity, original-game audibility, screenshot acceptance or installer lifecycle is promised by a headless check.
 
+### 2.20 Planned v0.10.2: illustrated action icons
+
+Owner scope, 2026-11-06: [milestone 27](https://github.com/diegoami/imperial_conquest_2/milestone/27), [T284 / #1805](tasks/T284.md). **Promise: playback, battle-report and QOL action bars use a coherent illustrated icon family instead of oversized text or plain monochrome symbols, with the same actions and save compatibility.** The owner requests Gemini image generation through OpenRouter, following the established authored-asset workflow.
+
+| Claim | Proof / acceptance |
+| --- | --- |
+| C1 — Complete icon family | Inventory Pause/resume, Skip, battle reports, Next round, Watch civilizations, Take control, Undo, army/fleet Split, Retreat and supply, army/fleet rally and clear actions; map each active control to a recognizable colored icon. Record other text-only/monochrome action dispositions without expanding their behavior. |
+| C2 — Readability and access | Inspect actual-size 24/32px theme/state sheets for Parchment, Dark, High contrast and Slate. Preserve colors, transparency, hover/pressed/focus/disabled feedback, useful tooltips, accessible names and shortcuts; Play/Pause imagery follows the current action. |
+| C3 — Authoring and delivery | Explicit scoped Gemini/OpenRouter generation, private credentials, prompt/model/raw-hash provenance and reproducible offline normalization; no unrelated art replacement, original media or model calls in CI. The copied self-contained Windows package loads every new icon using authored assets alone. |
+| C4 — Behavioral boundary | Existing action callbacks, pause/skip/report policies, campaign/RNG, settings and saves remain unchanged. Relevant real-control scenes, solution/Godot builds, churn guard and exact-head CI pass. Freeze for owner-started independent review before tagging. |
+
+This patch adds icon artwork and presentation only. v0.11's browser/original-assets and Improved-general work remain separate. The private manual defines original toolbar meanings; these observer/QOL controls and their presentation are explicitly owner-designed.
+
 ## 3. Tag and GitHub Release conventions
 
 ### 3.1 Naming and placement — **DECIDED**
