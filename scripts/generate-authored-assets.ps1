@@ -20,6 +20,10 @@ six strategic placeholders using --pack-dir assets/packs/placeholder and six --k
 Requires Python 3 with Pillow on PATH (Pillow is a generator-time dependency
 only, not a build or CI dependency).
 
+T284 colored action icons use --ui-icons-gemini with explicit ui.action.* keys;
+--all is refused in this mode. --reconform uses the saved/provenance-checked
+sources offline. --ui-icons-gemini --self-check uses synthetic/stubbed routes.
+
 .EXAMPLE
 ./scripts/generate-authored-assets.ps1                    # dry run: prompts, counts, models, cost
 ./scripts/generate-authored-assets.ps1 --key army.tier1.icon   # preserves authored strategic candidate

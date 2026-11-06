@@ -16,7 +16,7 @@ public partial class MainGameScreen
         QolCommandIcons.Apply(_fleetRallySetButton, "fleet_rally", "Set fleet rally point (experimental)");
         _fleetRallySetButton.Pressed += () => ArmNationRallyPointPick(isFleet: true);
         _fleetRallyClearButton = new Button { FocusMode = FocusModeEnum.None };
-        QolCommandIcons.Apply(_fleetRallyClearButton, "rally_clear", "Clear fleet rally point");
+        QolCommandIcons.Apply(_fleetRallyClearButton, "fleet_rally_clear", "Clear fleet rally point");
         _fleetRallyClearButton.Pressed += () => ClearNationRallyPoint(isFleet: true);
         _fleetRallyRow.AddChild(_fleetRallySetButton); _fleetRallyRow.AddChild(_fleetRallyClearButton);
         Toolbar.ExtraActions.AddChild(_fleetRallyRow);

@@ -1,0 +1,15 @@
+{
+  "key": "ui.action.rally",
+  "requestedModel": "google/gemini-2.5-flash-image",
+  "returnedModel": "google/gemini-2.5-flash-image",
+  "prompt": "Use case: stylized-concept.\nAsset type: a single finished full-color action icon for an ancient Mediterranean strategy game's toolbar.\nCreate exactly ONE centered icon, square composition. It must be instantly recognizable when reduced to 24 or 32 pixels.\nStyle: polished illustrated game icon, hand-painted bronze relief and clean blue/red enamel, broad simple forms, restrained highlights, crisp dark outlines. Attractive and dimensional, not monochrome, not a thin line drawing, not photorealistic. Match a coherent family of classic strategy-game pictograms.\nPalette: warm golden bronze, deep blue, muted red, ivory highlights and dark brown outline. No magenta in the subject.\nBackdrop: perfectly flat pure magenta RGB(255,0,255) for precise background removal. No checkerboard, no card, no frame, no base tile, no background shadows, no scenery. Keep all silhouette edges comfortably inside the image.\nComposition: large bold silhouette, generous clear margin around the icon, centered, minimal tiny detail; no captions, no letters, no numerals, no watermark or logo. Render a square high-resolution source, not pixel-art grid noise.\n\nSubject: A bold red rally pennant on a short bronze pole with a small golden shield at its foot.",
+  "rawSha256": "9727d3600f9aa810b9c0872d4f42e60d480a12530be78e768f48e62945fa21aa",
+  "conformanceVersion": 3,
+  "usage": {
+    "cost": 0.0387807,
+    "prompt_tokens": 269,
+    "completion_tokens": 1290
+  },
+  "outputPath": "ui/actions/rally.png",
+  "outputSha256": "bf2cc1e7f02acf55a0d6ce625740bda1fab1ca968ad078d1f3a7e5272158a2b3"
+}

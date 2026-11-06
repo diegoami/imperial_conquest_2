@@ -1,0 +1,280 @@
+{
+  "provider": "OpenRouter",
+  "model": "google/gemini-2.5-flash-image",
+  "conformanceVersion": 3,
+  "accepted": [
+    {
+      "name": "play",
+      "caption": "Play / resume",
+      "raw": "generated-sources/ui-actions/play.png",
+      "key": "ui.action.play",
+      "requestedModel": "google/gemini-2.5-flash-image",
+      "returnedModel": "google/gemini-2.5-flash-image",
+      "prompt": "Use case: stylized-concept.\nAsset type: a single finished full-color action icon for an ancient Mediterranean strategy game's toolbar.\nCreate exactly ONE centered icon, square composition. It must be instantly recognizable when reduced to 24 or 32 pixels.\nStyle: polished illustrated game icon, hand-painted bronze relief and clean blue/red enamel, broad simple forms, restrained highlights, crisp dark outlines. Attractive and dimensional, not monochrome, not a thin line drawing, not photorealistic. Match a coherent family of classic strategy-game pictograms.\nPalette: warm golden bronze, deep blue, muted red, ivory highlights and dark brown outline. No magenta in the subject.\nBackdrop: perfectly flat pure magenta RGB(255,0,255) for precise background removal. No checkerboard, no card, no frame, no base tile, no background shadows, no scenery. Keep all silhouette edges comfortably inside the image.\nComposition: large bold silhouette, generous clear margin around the icon, centered, minimal tiny detail; no captions, no letters, no numerals, no watermark or logo. Render a square high-resolution source, not pixel-art grid noise.\n\nSubject: A single bold right-pointing play triangle, blue enamel inside a thick warm bronze rim.",
+      "rawSha256": "54685d99e2a5c88af8d58c06a6b837777fca908e9ccb89b91cdef60e250aa327",
+      "conformanceVersion": 3,
+      "usage": {
+        "cost": 0.0387801,
+        "prompt_tokens": 267,
+        "completion_tokens": 1290
+      },
+      "outputPath": "ui/actions/play.png",
+      "outputSha256": "3d0ed88510167e1e8ef106160c607135a58379c9be76849f7cd445ab67b163cf"
+    },
+    {
+      "name": "pause",
+      "caption": "Pause",
+      "raw": "generated-sources/ui-actions/pause.png",
+      "key": "ui.action.pause",
+      "requestedModel": "google/gemini-2.5-flash-image",
+      "returnedModel": "google/gemini-2.5-flash-image",
+      "prompt": "Use case: stylized-concept.\nAsset type: a single finished full-color action icon for an ancient Mediterranean strategy game's toolbar.\nCreate exactly ONE centered icon, square composition. It must be instantly recognizable when reduced to 24 or 32 pixels.\nStyle: polished illustrated game icon, hand-painted bronze relief and clean blue/red enamel, broad simple forms, restrained highlights, crisp dark outlines. Attractive and dimensional, not monochrome, not a thin line drawing, not photorealistic. Match a coherent family of classic strategy-game pictograms.\nPalette: warm golden bronze, deep blue, muted red, ivory highlights and dark brown outline. No magenta in the subject.\nBackdrop: perfectly flat pure magenta RGB(255,0,255) for precise background removal. No checkerboard, no card, no frame, no base tile, no background shadows, no scenery. Keep all silhouette edges comfortably inside the image.\nComposition: large bold silhouette, generous clear margin around the icon, centered, minimal tiny detail; no captions, no letters, no numerals, no watermark or logo. Render a square high-resolution source, not pixel-art grid noise.\n\nSubject: Two broad parallel upright pause bars, polished golden bronze with blue enamel insets.",
+      "rawSha256": "73c74abea754f593951097c685119f8fcacc97fad787b5ce0f38ab6fb1b3f383",
+      "conformanceVersion": 3,
+      "usage": {
+        "cost": 0.0387795,
+        "prompt_tokens": 265,
+        "completion_tokens": 1290
+      },
+      "outputPath": "ui/actions/pause.png",
+      "outputSha256": "a6833383ec3ea460256eed1582089d5b11858097894c02fc061d83b2581e7bd5"
+    },
+    {
+      "name": "skip",
+      "caption": "Skip current activity",
+      "raw": "generated-sources/ui-actions/skip.png",
+      "key": "ui.action.skip",
+      "requestedModel": "google/gemini-2.5-flash-image",
+      "returnedModel": "google/gemini-2.5-flash-image",
+      "prompt": "Use case: stylized-concept.\nAsset type: a single finished full-color action icon for an ancient Mediterranean strategy game's toolbar.\nCreate exactly ONE centered icon, square composition. It must be instantly recognizable when reduced to 24 or 32 pixels.\nStyle: polished illustrated game icon, hand-painted bronze relief and clean blue/red enamel, broad simple forms, restrained highlights, crisp dark outlines. Attractive and dimensional, not monochrome, not a thin line drawing, not photorealistic. Match a coherent family of classic strategy-game pictograms.\nPalette: warm golden bronze, deep blue, muted red, ivory highlights and dark brown outline. No magenta in the subject.\nBackdrop: perfectly flat pure magenta RGB(255,0,255) for precise background removal. No checkerboard, no card, no frame, no base tile, no background shadows, no scenery. Keep all silhouette edges comfortably inside the image.\nComposition: large bold silhouette, generous clear margin around the icon, centered, minimal tiny detail; no captions, no letters, no numerals, no watermark or logo. Render a square high-resolution source, not pixel-art grid noise.\n\nSubject: Two bold right-pointing blue enamel chevrons with a short bronze vertical end bar; the familiar skip-to-end symbol.",
+      "rawSha256": "907bb924364e0aaa2bc2d2cd427da02f40b6cd5b9602ab98b4de2b3bfc77a522",
+      "conformanceVersion": 3,
+      "usage": {
+        "cost": 0.0387828,
+        "prompt_tokens": 276,
+        "completion_tokens": 1290
+      },
+      "outputPath": "ui/actions/skip.png",
+      "outputSha256": "b4a25fb0a1a5a5f3f31044d683db48021576465e89540216556fb1cba2740919"
+    },
+    {
+      "name": "battle_reports",
+      "caption": "Battle reports",
+      "raw": "generated-sources/ui-actions/battle_reports.png",
+      "key": "ui.action.battle_reports",
+      "requestedModel": "google/gemini-2.5-flash-image",
+      "returnedModel": "google/gemini-2.5-flash-image",
+      "prompt": "Use case: stylized-concept.\nAsset type: a single finished full-color action icon for an ancient Mediterranean strategy game's toolbar.\nCreate exactly ONE centered icon, square composition. It must be instantly recognizable when reduced to 24 or 32 pixels.\nStyle: polished illustrated game icon, hand-painted bronze relief and clean blue/red enamel, broad simple forms, restrained highlights, crisp dark outlines. Attractive and dimensional, not monochrome, not a thin line drawing, not photorealistic. Match a coherent family of classic strategy-game pictograms.\nPalette: warm golden bronze, deep blue, muted red, ivory highlights and dark brown outline. No magenta in the subject.\nBackdrop: perfectly flat pure magenta RGB(255,0,255) for precise background removal. No checkerboard, no card, no frame, no base tile, no background shadows, no scenery. Keep all silhouette edges comfortably inside the image.\nComposition: large bold silhouette, generous clear margin around the icon, centered, minimal tiny detail; no captions, no letters, no numerals, no watermark or logo. Render a square high-resolution source, not pixel-art grid noise.\n\nSubject: A small ivory report scroll with two short crossed bronze swords and red/blue grips, clearly a battle report.",
+      "rawSha256": "a54dd9fa9db186ea3581be7afcf83ed37eb49a4731eb4a6d561c8c3623660cd1",
+      "conformanceVersion": 3,
+      "usage": {
+        "cost": 0.0387813,
+        "prompt_tokens": 271,
+        "completion_tokens": 1290
+      },
+      "outputPath": "ui/actions/battle_reports.png",
+      "outputSha256": "8cc4076d5849cafd2e5830e2dfad2198a0a4c66c53b48dca3a2cc5ac77766d0b"
+    },
+    {
+      "name": "next_round",
+      "caption": "Next round",
+      "raw": "generated-sources/ui-actions/next_round.png",
+      "key": "ui.action.next_round",
+      "requestedModel": "google/gemini-2.5-flash-image",
+      "returnedModel": "google/gemini-2.5-flash-image",
+      "prompt": "Use case: stylized-concept.\nAsset type: a single finished full-color action icon for an ancient Mediterranean strategy game's toolbar.\nCreate exactly ONE centered icon, square composition. It must be instantly recognizable when reduced to 24 or 32 pixels.\nStyle: polished illustrated game icon, hand-painted bronze relief and clean blue/red enamel, broad simple forms, restrained highlights, crisp dark outlines. Attractive and dimensional, not monochrome, not a thin line drawing, not photorealistic. Match a coherent family of classic strategy-game pictograms.\nPalette: warm golden bronze, deep blue, muted red, ivory highlights and dark brown outline. No magenta in the subject.\nBackdrop: perfectly flat pure magenta RGB(255,0,255) for precise background removal. No checkerboard, no card, no frame, no base tile, no background shadows, no scenery. Keep all silhouette edges comfortably inside the image.\nComposition: large bold silhouette, generous clear margin around the icon, centered, minimal tiny detail; no captions, no letters, no numerals, no watermark or logo. Render a square high-resolution source, not pixel-art grid noise.\n\nSubject: A large bold golden hourglass enclosed by ONE thick C-shaped blue enamel arrow, filling a compact square silhouette. Only the hourglass and circular arrow themselves: absolutely no square, no tile, no box or rectangular frame; pure magenta must surround the free-standing symbol.",
+      "rawSha256": "3524b89ce99fe47ec652d226489fd9950cef6ed145e5435645aa3fba9f236511",
+      "conformanceVersion": 3,
+      "usage": {
+        "cost": 0.0387906,
+        "prompt_tokens": 302,
+        "completion_tokens": 1290
+      },
+      "outputPath": "ui/actions/next_round.png",
+      "outputSha256": "a5a34433cb970e25e60aa4802ee5b001d3e49d39eca2bb5eb92b39c9727a2fab"
+    },
+    {
+      "name": "watch",
+      "caption": "Watch civilizations",
+      "raw": "generated-sources/ui-actions/watch.png",
+      "key": "ui.action.watch",
+      "requestedModel": "google/gemini-2.5-flash-image",
+      "returnedModel": "google/gemini-2.5-flash-image",
+      "prompt": "Use case: stylized-concept.\nAsset type: a single finished full-color action icon for an ancient Mediterranean strategy game's toolbar.\nCreate exactly ONE centered icon, square composition. It must be instantly recognizable when reduced to 24 or 32 pixels.\nStyle: polished illustrated game icon, hand-painted bronze relief and clean blue/red enamel, broad simple forms, restrained highlights, crisp dark outlines. Attractive and dimensional, not monochrome, not a thin line drawing, not photorealistic. Match a coherent family of classic strategy-game pictograms.\nPalette: warm golden bronze, deep blue, muted red, ivory highlights and dark brown outline. No magenta in the subject.\nBackdrop: perfectly flat pure magenta RGB(255,0,255) for precise background removal. No checkerboard, no card, no frame, no base tile, no background shadows, no scenery. Keep all silhouette edges comfortably inside the image.\nComposition: large bold silhouette, generous clear margin around the icon, centered, minimal tiny detail; no captions, no letters, no numerals, no watermark or logo. Render a square high-resolution source, not pixel-art grid noise.\n\nSubject: One clear blue and ivory eye above a tiny red military banner, signaling watch nations.",
+      "rawSha256": "e1136e2e7209cfb1248da8694aff506f7393ebb20151fe0646dc2bfc84b29bfb",
+      "conformanceVersion": 3,
+      "usage": {
+        "cost": 0.0387798,
+        "prompt_tokens": 266,
+        "completion_tokens": 1290
+      },
+      "outputPath": "ui/actions/watch.png",
+      "outputSha256": "b74fe0dc886aee50c79ee34b3f94e80b7ca4f33e6706b9ec7ef9a3da82650143"
+    },
+    {
+      "name": "take_control",
+      "caption": "Take control",
+      "raw": "generated-sources/ui-actions/take_control.png",
+      "key": "ui.action.take_control",
+      "requestedModel": "google/gemini-2.5-flash-image",
+      "returnedModel": "google/gemini-2.5-flash-image",
+      "prompt": "Use case: stylized-concept.\nAsset type: a single finished full-color action icon for an ancient Mediterranean strategy game's toolbar.\nCreate exactly ONE centered icon, square composition. It must be instantly recognizable when reduced to 24 or 32 pixels.\nStyle: polished illustrated game icon, hand-painted bronze relief and clean blue/red enamel, broad simple forms, restrained highlights, crisp dark outlines. Attractive and dimensional, not monochrome, not a thin line drawing, not photorealistic. Match a coherent family of classic strategy-game pictograms.\nPalette: warm golden bronze, deep blue, muted red, ivory highlights and dark brown outline. No magenta in the subject.\nBackdrop: perfectly flat pure magenta RGB(255,0,255) for precise background removal. No checkerboard, no card, no frame, no base tile, no background shadows, no scenery. Keep all silhouette edges comfortably inside the image.\nComposition: large bold silhouette, generous clear margin around the icon, centered, minimal tiny detail; no captions, no letters, no numerals, no watermark or logo. Render a square high-resolution source, not pixel-art grid noise.\n\nSubject: A simple upright bronze gauntlet hand holding a short red command pennant, signaling take command.",
+      "rawSha256": "5836c7e536f31784069a0c3d9837ce6bfc5356799436c3188b35ac21cc1a35b2",
+      "conformanceVersion": 3,
+      "usage": {
+        "cost": 0.0387804,
+        "prompt_tokens": 268,
+        "completion_tokens": 1290
+      },
+      "outputPath": "ui/actions/take_control.png",
+      "outputSha256": "d8a98e877d1a7549175f636bc65a817888dd7fa5f3c44923b6ab5a199aee885a"
+    },
+    {
+      "name": "undo",
+      "caption": "Undo",
+      "raw": "generated-sources/ui-actions/undo.png",
+      "key": "ui.action.undo",
+      "requestedModel": "google/gemini-2.5-flash-image",
+      "returnedModel": "google/gemini-2.5-flash-image",
+      "prompt": "Use case: stylized-concept.\nAsset type: a single finished full-color action icon for an ancient Mediterranean strategy game's toolbar.\nCreate exactly ONE centered icon, square composition. It must be instantly recognizable when reduced to 24 or 32 pixels.\nStyle: polished illustrated game icon, hand-painted bronze relief and clean blue/red enamel, broad simple forms, restrained highlights, crisp dark outlines. Attractive and dimensional, not monochrome, not a thin line drawing, not photorealistic. Match a coherent family of classic strategy-game pictograms.\nPalette: warm golden bronze, deep blue, muted red, ivory highlights and dark brown outline. No magenta in the subject.\nBackdrop: perfectly flat pure magenta RGB(255,0,255) for precise background removal. No checkerboard, no card, no frame, no base tile, no background shadows, no scenery. Keep all silhouette edges comfortably inside the image.\nComposition: large bold silhouette, generous clear margin around the icon, centered, minimal tiny detail; no captions, no letters, no numerals, no watermark or logo. Render a square high-resolution source, not pixel-art grid noise.\n\nSubject: One broad backward-curving blue arrow with a bronze rim, the familiar left-pointing Undo symbol.",
+      "rawSha256": "9cce238b07e1d0c25ae51a67c9dbdad82fc2924b2021b4948833f81ad11a89c1",
+      "conformanceVersion": 3,
+      "usage": {
+        "cost": 0.038781,
+        "prompt_tokens": 270,
+        "completion_tokens": 1290
+      },
+      "outputPath": "ui/actions/undo.png",
+      "outputSha256": "5076e3d560c7e65ed16494274de278c41d7271f920f4ce55a530c68dfe5f331a"
+    },
+    {
+      "name": "split",
+      "caption": "Split army in two",
+      "raw": "generated-sources/ui-actions/split.png",
+      "key": "ui.action.split",
+      "requestedModel": "google/gemini-2.5-flash-image",
+      "returnedModel": "google/gemini-2.5-flash-image",
+      "prompt": "Use case: stylized-concept.\nAsset type: a single finished full-color action icon for an ancient Mediterranean strategy game's toolbar.\nCreate exactly ONE centered icon, square composition. It must be instantly recognizable when reduced to 24 or 32 pixels.\nStyle: polished illustrated game icon, hand-painted bronze relief and clean blue/red enamel, broad simple forms, restrained highlights, crisp dark outlines. Attractive and dimensional, not monochrome, not a thin line drawing, not photorealistic. Match a coherent family of classic strategy-game pictograms.\nPalette: warm golden bronze, deep blue, muted red, ivory highlights and dark brown outline. No magenta in the subject.\nBackdrop: perfectly flat pure magenta RGB(255,0,255) for precise background removal. No checkerboard, no card, no frame, no base tile, no background shadows, no scenery. Keep all silhouette edges comfortably inside the image.\nComposition: large bold silhouette, generous clear margin around the icon, centered, minimal tiny detail; no captions, no letters, no numerals, no watermark or logo. Render a square high-resolution source, not pixel-art grid noise.\n\nSubject: One short golden branching arrow above two stout shields, one red and one blue, clearly dividing a formation in two.",
+      "rawSha256": "2825e756a49c00b5621cabf75fe89f43b43f7028a78886ed6d4dda8178531daf",
+      "conformanceVersion": 3,
+      "usage": {
+        "cost": 0.0387816,
+        "prompt_tokens": 272,
+        "completion_tokens": 1290
+      },
+      "outputPath": "ui/actions/split.png",
+      "outputSha256": "cd86d87eb8e5daffe4678347c45cc4f7ee258ea2e49cce17a21ae016fd3be69c"
+    },
+    {
+      "name": "fleet_split",
+      "caption": "Split fleet in two",
+      "raw": "generated-sources/ui-actions/fleet_split.png",
+      "key": "ui.action.fleet_split",
+      "requestedModel": "google/gemini-2.5-flash-image",
+      "returnedModel": "google/gemini-2.5-flash-image",
+      "prompt": "Use case: stylized-concept.\nAsset type: a single finished full-color action icon for an ancient Mediterranean strategy game's toolbar.\nCreate exactly ONE centered icon, square composition. It must be instantly recognizable when reduced to 24 or 32 pixels.\nStyle: polished illustrated game icon, hand-painted bronze relief and clean blue/red enamel, broad simple forms, restrained highlights, crisp dark outlines. Attractive and dimensional, not monochrome, not a thin line drawing, not photorealistic. Match a coherent family of classic strategy-game pictograms.\nPalette: warm golden bronze, deep blue, muted red, ivory highlights and dark brown outline. No magenta in the subject.\nBackdrop: perfectly flat pure magenta RGB(255,0,255) for precise background removal. No checkerboard, no card, no frame, no base tile, no background shadows, no scenery. Keep all silhouette edges comfortably inside the image.\nComposition: large bold silhouette, generous clear margin around the icon, centered, minimal tiny detail; no captions, no letters, no numerals, no watermark or logo. Render a square high-resolution source, not pixel-art grid noise.\n\nSubject: A single BOLD golden ANCHOR with TWO short THICK branching arrows above it: one red arrow pointing upper-left and one blue arrow pointing upper-right. The anchor and arrows themselves form the entire free-standing pictogram. NO ships, NO picture, NO plaque, NO enclosing shape. Pure magenta directly around all outside edges. Simple broad clear shapes for a fleet-split action.",
+      "rawSha256": "c212fd9530b8e491913e6c5a475c487d46decfcde20a71999f4764b36e4255cf",
+      "conformanceVersion": 3,
+      "usage": {
+        "cost": 0.0387984,
+        "prompt_tokens": 328,
+        "completion_tokens": 1290
+      },
+      "outputPath": "ui/actions/fleet_split.png",
+      "outputSha256": "34ef673e5a95c0b01dc0f7fa259ff15b3c71fa8e633842b6ea28aabe7db613e1"
+    },
+    {
+      "name": "recover",
+      "caption": "Retreat and supply",
+      "raw": "generated-sources/ui-actions/recover.png",
+      "key": "ui.action.recover",
+      "requestedModel": "google/gemini-2.5-flash-image",
+      "returnedModel": "google/gemini-2.5-flash-image",
+      "prompt": "Use case: stylized-concept.\nAsset type: a single finished full-color action icon for an ancient Mediterranean strategy game's toolbar.\nCreate exactly ONE centered icon, square composition. It must be instantly recognizable when reduced to 24 or 32 pixels.\nStyle: polished illustrated game icon, hand-painted bronze relief and clean blue/red enamel, broad simple forms, restrained highlights, crisp dark outlines. Attractive and dimensional, not monochrome, not a thin line drawing, not photorealistic. Match a coherent family of classic strategy-game pictograms.\nPalette: warm golden bronze, deep blue, muted red, ivory highlights and dark brown outline. No magenta in the subject.\nBackdrop: perfectly flat pure magenta RGB(255,0,255) for precise background removal. No checkerboard, no card, no frame, no base tile, no background shadows, no scenery. Keep all silhouette edges comfortably inside the image.\nComposition: large bold silhouette, generous clear margin around the icon, centered, minimal tiny detail; no captions, no letters, no numerals, no watermark or logo. Render a square high-resolution source, not pixel-art grid noise.\n\nSubject: A short backward-curving blue arrow beside a small fortified town and a golden grain sack; a simple recover-and-supply emblem.",
+      "rawSha256": "72c9660b784e2e3e852de48b58b6b2eba221a9207e7e33815cb9acc5d4452807",
+      "conformanceVersion": 3,
+      "usage": {
+        "cost": 0.0387831,
+        "prompt_tokens": 277,
+        "completion_tokens": 1290
+      },
+      "outputPath": "ui/actions/recover.png",
+      "outputSha256": "aed7174ebed5aee70e845836e38f0fa9246e350c719acc953e2bcc0aeb6d3dbc"
+    },
+    {
+      "name": "rally",
+      "caption": "Army rally point",
+      "raw": "generated-sources/ui-actions/rally.png",
+      "key": "ui.action.rally",
+      "requestedModel": "google/gemini-2.5-flash-image",
+      "returnedModel": "google/gemini-2.5-flash-image",
+      "prompt": "Use case: stylized-concept.\nAsset type: a single finished full-color action icon for an ancient Mediterranean strategy game's toolbar.\nCreate exactly ONE centered icon, square composition. It must be instantly recognizable when reduced to 24 or 32 pixels.\nStyle: polished illustrated game icon, hand-painted bronze relief and clean blue/red enamel, broad simple forms, restrained highlights, crisp dark outlines. Attractive and dimensional, not monochrome, not a thin line drawing, not photorealistic. Match a coherent family of classic strategy-game pictograms.\nPalette: warm golden bronze, deep blue, muted red, ivory highlights and dark brown outline. No magenta in the subject.\nBackdrop: perfectly flat pure magenta RGB(255,0,255) for precise background removal. No checkerboard, no card, no frame, no base tile, no background shadows, no scenery. Keep all silhouette edges comfortably inside the image.\nComposition: large bold silhouette, generous clear margin around the icon, centered, minimal tiny detail; no captions, no letters, no numerals, no watermark or logo. Render a square high-resolution source, not pixel-art grid noise.\n\nSubject: A bold red rally pennant on a short bronze pole with a small golden shield at its foot.",
+      "rawSha256": "9727d3600f9aa810b9c0872d4f42e60d480a12530be78e768f48e62945fa21aa",
+      "conformanceVersion": 3,
+      "usage": {
+        "cost": 0.0387807,
+        "prompt_tokens": 269,
+        "completion_tokens": 1290
+      },
+      "outputPath": "ui/actions/rally.png",
+      "outputSha256": "bf2cc1e7f02acf55a0d6ce625740bda1fab1ca968ad078d1f3a7e5272158a2b3"
+    },
+    {
+      "name": "fleet_rally",
+      "caption": "Fleet rally point",
+      "raw": "generated-sources/ui-actions/fleet_rally.png",
+      "key": "ui.action.fleet_rally",
+      "requestedModel": "google/gemini-2.5-flash-image",
+      "returnedModel": "google/gemini-2.5-flash-image",
+      "prompt": "Use case: stylized-concept.\nAsset type: a single finished full-color action icon for an ancient Mediterranean strategy game's toolbar.\nCreate exactly ONE centered icon, square composition. It must be instantly recognizable when reduced to 24 or 32 pixels.\nStyle: polished illustrated game icon, hand-painted bronze relief and clean blue/red enamel, broad simple forms, restrained highlights, crisp dark outlines. Attractive and dimensional, not monochrome, not a thin line drawing, not photorealistic. Match a coherent family of classic strategy-game pictograms.\nPalette: warm golden bronze, deep blue, muted red, ivory highlights and dark brown outline. No magenta in the subject.\nBackdrop: perfectly flat pure magenta RGB(255,0,255) for precise background removal. No checkerboard, no card, no frame, no base tile, no background shadows, no scenery. Keep all silhouette edges comfortably inside the image.\nComposition: large bold silhouette, generous clear margin around the icon, centered, minimal tiny detail; no captions, no letters, no numerals, no watermark or logo. Render a square high-resolution source, not pixel-art grid noise.\n\nSubject: A bold blue rally pennant on a bronze pole combined with a clear golden anchor.",
+      "rawSha256": "b0a5e5970c02eb2f5cb32816c3c30739434d8d984fada50329c7940311e3e844",
+      "conformanceVersion": 3,
+      "usage": {
+        "cost": 0.0387798,
+        "prompt_tokens": 266,
+        "completion_tokens": 1290
+      },
+      "outputPath": "ui/actions/fleet_rally.png",
+      "outputSha256": "627edc356913f5990513666ff89d0841ca074e87421346f94af3b4ef4ba122ef"
+    },
+    {
+      "name": "rally_clear",
+      "caption": "Clear army rally point",
+      "raw": "generated-sources/ui-actions/rally_clear.png",
+      "key": "ui.action.rally_clear",
+      "requestedModel": "google/gemini-2.5-flash-image",
+      "returnedModel": "google/gemini-2.5-flash-image",
+      "prompt": "Use case: stylized-concept.\nAsset type: a single finished full-color action icon for an ancient Mediterranean strategy game's toolbar.\nCreate exactly ONE centered icon, square composition. It must be instantly recognizable when reduced to 24 or 32 pixels.\nStyle: polished illustrated game icon, hand-painted bronze relief and clean blue/red enamel, broad simple forms, restrained highlights, crisp dark outlines. Attractive and dimensional, not monochrome, not a thin line drawing, not photorealistic. Match a coherent family of classic strategy-game pictograms.\nPalette: warm golden bronze, deep blue, muted red, ivory highlights and dark brown outline. No magenta in the subject.\nBackdrop: perfectly flat pure magenta RGB(255,0,255) for precise background removal. No checkerboard, no card, no frame, no base tile, no background shadows, no scenery. Keep all silhouette edges comfortably inside the image.\nComposition: large bold silhouette, generous clear margin around the icon, centered, minimal tiny detail; no captions, no letters, no numerals, no watermark or logo. Render a square high-resolution source, not pixel-art grid noise.\n\nSubject: A small red rally pennant and bronze shield with a conspicuous ivory-and-red X badge in its lower corner.",
+      "rawSha256": "f424d9ddc0976838e9f596f9dd9ef46b3a07968baebf9059c6668f771c25ea67",
+      "conformanceVersion": 3,
+      "usage": {
+        "cost": 0.0387819,
+        "prompt_tokens": 273,
+        "completion_tokens": 1290
+      },
+      "outputPath": "ui/actions/rally_clear.png",
+      "outputSha256": "f1525047aeba8bb461539f6cb2be85ec96c083722c3cad8bfeb746697149b897"
+    },
+    {
+      "name": "fleet_rally_clear",
+      "caption": "Clear fleet rally point",
+      "raw": "generated-sources/ui-actions/fleet_rally_clear.png",
+      "key": "ui.action.fleet_rally_clear",
+      "requestedModel": "google/gemini-2.5-flash-image",
+      "returnedModel": "google/gemini-2.5-flash-image",
+      "prompt": "Use case: stylized-concept.\nAsset type: a single finished full-color action icon for an ancient Mediterranean strategy game's toolbar.\nCreate exactly ONE centered icon, square composition. It must be instantly recognizable when reduced to 24 or 32 pixels.\nStyle: polished illustrated game icon, hand-painted bronze relief and clean blue/red enamel, broad simple forms, restrained highlights, crisp dark outlines. Attractive and dimensional, not monochrome, not a thin line drawing, not photorealistic. Match a coherent family of classic strategy-game pictograms.\nPalette: warm golden bronze, deep blue, muted red, ivory highlights and dark brown outline. No magenta in the subject.\nBackdrop: perfectly flat pure magenta RGB(255,0,255) for precise background removal. No checkerboard, no card, no frame, no base tile, no background shadows, no scenery. Keep all silhouette edges comfortably inside the image.\nComposition: large bold silhouette, generous clear margin around the icon, centered, minimal tiny detail; no captions, no letters, no numerals, no watermark or logo. Render a square high-resolution source, not pixel-art grid noise.\n\nSubject: A blue rally pennant and golden anchor with a conspicuous ivory-and-red X badge in its lower corner.",
+      "rawSha256": "20a2c74c969142ae4a4c57c02eeba0ffed9591bf02bdea0920b62f612f7321de",
+      "conformanceVersion": 3,
+      "usage": {
+        "cost": 0.0387816,
+        "prompt_tokens": 272,
+        "completion_tokens": 1290
+      },
+      "outputPath": "ui/actions/fleet_rally_clear.png",
+      "outputSha256": "97222a1fa7271c3be81cbd57714ea60eb47696ce17d25051835fd2fc4481e591"
+    }
+  ],
+  "generatedRequests": 18,
+  "reportedTotalCostUsd": 0.6981657,
+  "references": "Text prompts only; no original-game images or media supplied."
+}

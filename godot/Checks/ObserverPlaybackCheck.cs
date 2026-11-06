@@ -52,6 +52,10 @@ public partial class ObserverPlaybackCheck : Control
             Check(main.ObserverBattleChoice.Selected == 1 && main.ObserverSpeedChoice.GetItemId(main.ObserverSpeedChoice.Selected) == 50,
                 "observer starts paused with explicit experimental tactical policy and readable 0.5x speed");
             var unchanged = session.State;
+            Check(new[] { main.ObserverPlayButton, main.ObserverPauseButton, main.ObserverRoundButton,
+                main.ObserverReportsButton, main.ObserverSkipButton, main.ObserverWatchButton, main.ObserverTakeControlButton }
+                .All(b => QolCommandIcons.IsIllustrated(b.Icon) && b.AccessibilityName.Length > 0),
+                "observer action bars use illustrated icons with accessible names");
             main.ObserverWatchButton.EmitSignal(BaseButton.SignalName.Pressed);
             Check(main.ActiveOverlay is ObserverWatchDialog, "Watch civilizations opens a distinct multi-selection dialog");
             if (main.ActiveOverlay is ObserverWatchDialog chooser)
@@ -74,6 +78,9 @@ public partial class ObserverPlaybackCheck : Control
             await Frames();
             Check(main.ObserverPresentationPaused && board.DisplayedFrame?.FrameId == frame && session.State == frozen,
                 "real Space pauses battle presentation and future simulation");
+            Check(board.ObserverPauseButton.Icon?.ResourceName == "ui.action.play" && board.ObserverPauseButton.Text.Length == 0
+                && board.ObserverSkipButton.Icon?.ResourceName == "ui.action.skip",
+                "paused tactical replay offers the illustrated Resume action and Skip icon");
             // The initial copy-in frame may precede the first painted placement.
             // Resume the actual display clock until a unit is visible, then inspect it paused.
             board.ObserverPauseButton.EmitSignal(BaseButton.SignalName.Pressed);

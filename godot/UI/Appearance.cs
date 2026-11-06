@@ -131,6 +131,8 @@ public static class Appearance
             }
 
             control.QueueRedraw();
+            if (control is Button button && QolCommandIcons.IsIllustrated(button.Icon))
+                QolCommandIcons.ApplyTint(button);
         }
 
         foreach (var child in node.GetChildren(includeInternal: true))

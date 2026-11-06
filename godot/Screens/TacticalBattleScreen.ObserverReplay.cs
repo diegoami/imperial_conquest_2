@@ -22,11 +22,12 @@ public partial class TacticalBattleScreen
     private void BuildObserverReplayControls(HBoxContainer controls)
     {
         ObserverPauseButton = UiKit.MakeButton("Pause", () => ObserverPauseRequested?.Invoke());
+        QolCommandIcons.Apply(ObserverPauseButton, "pause", "Pause battle playback (Space)");
         controls.AddChild(ObserverPauseButton);
         ObserverSpeedChoice = ObserverPlaybackControls.SpeedChoice();
         controls.AddChild(ObserverSpeedChoice);
         ObserverSkipButton = UiKit.MakeButton("Skip", () => ObserverSkipRequested?.Invoke());
-        ObserverSkipButton.TooltipText = "Skip battle playback";
+        QolCommandIcons.Apply(ObserverSkipButton, "skip", "Skip battle playback");
         controls.AddChild(ObserverSkipButton);
     }
 
@@ -34,7 +35,8 @@ public partial class TacticalBattleScreen
     {
         var paused = ObserverPaused?.Invoke() == true || _dialogKind != DialogKind.None;
         ObserverPlaybackControls.Synchronize(ObserverSpeedChoice);
-        ObserverPauseButton.Text = paused ? "Play" : "Pause";
+        QolCommandIcons.Apply(ObserverPauseButton, paused ? "play" : "pause",
+            paused ? "Resume battle playback (Space)" : "Pause battle playback (Space)");
         if (paused || _observerReplayFinished) return;
         var rate = ObserverRate?.Invoke() ?? 1;
         if (!_observerReplayComplete) AdvancePlayback(delta * rate);
