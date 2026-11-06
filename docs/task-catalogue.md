@@ -113,3 +113,4 @@ Open and recent tasks only. Merged tasks (T01–T191 and others) are in their cl
 - [T279](tasks/T279.md) — Strategic current-turn Undo
 - [T280](tasks/T280.md) — Persistent ordinary-click travel
 - [T281](tasks/T281.md) — Army and fleet rally map feedback
+- [T284](tasks/T284.md) — Illustrated action icons
