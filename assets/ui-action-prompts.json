@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "style": "Use case: stylized-concept.\nAsset type: a single finished full-color action icon for an ancient Mediterranean strategy game's toolbar.\nCreate exactly ONE centered icon, square composition. It must be instantly recognizable when reduced to 24 or 32 pixels.\nStyle: polished illustrated game icon, hand-painted bronze relief and clean blue/red enamel, broad simple forms, restrained highlights, crisp dark outlines. Attractive and dimensional, not monochrome, not a thin line drawing, not photorealistic. Match a coherent family of classic strategy-game pictograms.\nPalette: warm golden bronze, deep blue, muted red, ivory highlights and dark brown outline. No magenta in the subject.\nBackdrop: perfectly flat pure magenta RGB(255,0,255) for precise background removal. No checkerboard, no card, no frame, no base tile, no background shadows, no scenery. Keep all silhouette edges comfortably inside the image.\nComposition: large bold silhouette, generous clear margin around the icon, centered, minimal tiny detail; no captions, no letters, no numerals, no watermark or logo. Render a square high-resolution source, not pixel-art grid noise.\n",
+  "icons": [
+    {
+      "name": "play",
+      "caption": "Play / resume",
+      "subject": "A single bold right-pointing play triangle, blue enamel inside a thick warm bronze rim."
+    },
+    {
+      "name": "pause",
+      "caption": "Pause",
+      "subject": "Two broad parallel upright pause bars, polished golden bronze with blue enamel insets."
+    },
+    {
+      "name": "skip",
+      "caption": "Skip current activity",
+      "subject": "Two bold right-pointing blue enamel chevrons with a short bronze vertical end bar; the familiar skip-to-end symbol."
+    },
+    {
+      "name": "battle_reports",
+      "caption": "Battle reports",
+      "subject": "A small ivory report scroll with two short crossed bronze swords and red/blue grips, clearly a battle report."
+    },
+    {
+      "name": "next_round",
+      "caption": "Next round",
+      "subject": "A large bold golden hourglass enclosed by ONE thick C-shaped blue enamel arrow, filling a compact square silhouette. Only the hourglass and circular arrow themselves: absolutely no square, no tile, no box or rectangular frame; pure magenta must surround the free-standing symbol."
+    },
+    {
+      "name": "watch",
+      "caption": "Watch civilizations",
+      "subject": "One clear blue and ivory eye above a tiny red military banner, signaling watch nations."
+    },
+    {
+      "name": "take_control",
+      "caption": "Take control",
+      "subject": "A simple upright bronze gauntlet hand holding a short red command pennant, signaling take command."
+    },
+    {
+      "name": "undo",
+      "caption": "Undo",
+      "subject": "One broad backward-curving blue arrow with a bronze rim, the familiar left-pointing Undo symbol."
+    },
+    {
+      "name": "split",
+      "caption": "Split army in two",
+      "subject": "One short golden branching arrow above two stout shields, one red and one blue, clearly dividing a formation in two."
+    },
+    {
+      "name": "fleet_split",
+      "caption": "Split fleet in two",
+      "subject": "A single BOLD golden ANCHOR with TWO short THICK branching arrows above it: one red arrow pointing upper-left and one blue arrow pointing upper-right. The anchor and arrows themselves form the entire free-standing pictogram. NO ships, NO picture, NO plaque, NO enclosing shape. Pure magenta directly around all outside edges. Simple broad clear shapes for a fleet-split action."
+    },
+    {
+      "name": "recover",
+      "caption": "Retreat and supply",
+      "subject": "A short backward-curving blue arrow beside a small fortified town and a golden grain sack; a simple recover-and-supply emblem."
+    },
+    {
+      "name": "rally",
+      "caption": "Army rally point",
+      "subject": "A bold red rally pennant on a short bronze pole with a small golden shield at its foot."
+    },
+    {
+      "name": "fleet_rally",
+      "caption": "Fleet rally point",
+      "subject": "A bold blue rally pennant on a bronze pole combined with a clear golden anchor."
+    },
+    {
+      "name": "rally_clear",
+      "caption": "Clear army rally point",
+      "subject": "A small red rally pennant and bronze shield with a conspicuous ivory-and-red X badge in its lower corner."
+    },
+    {
+      "name": "fleet_rally_clear",
+      "caption": "Clear fleet rally point",
+      "subject": "A blue rally pennant and golden anchor with a conspicuous ivory-and-red X badge in its lower corner."
+    }
+  ]
+}

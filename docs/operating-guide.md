@@ -99,6 +99,8 @@ Selecting one watched civilization also selects its inspection perspective. For 
 
 **Latest battles** opens the most recent encounter reports. A surviving non-barbarian nation can be taken over while paused at a safe boundary, joining its next normal turn. Saving preserves the authoritative campaign/controller assignments; loading resumes paused, without old presentation frames. Speed, watch choices and battle-policy preferences are UI settings outside native/original save formats. See [T278](tasks/T278.md) and its owner-approved [T283 extension](tasks/T283.md). The original manual has no observer mode; these controls and the tactical observer policy are designed conveniences.
 
+The action bars use illustrated icons for Play/Pause, Skip, latest battle reports, Next round, watched civilizations and takeover. Hover for the action name; the watched-civilization count stays visible. Tactical replay shows Play while paused and Pause while running. Army/fleet split, recovery, rally/clear and Undo share the same illustrated family; artwork changes no action or history policy. See the [icon legend](../artifacts/ui-icons/v0.10.2/README.md).
+
 ## Original-game UI reference (private)
 
 The research-authored **original Imperial Conquest 2 v1.01 user manual** is the reference for original UI workflows. Its October 2026 source is `diegoami/ic2-conquest#133`; the private folder's `README.txt` identifies the edition and contents. Consult the relevant sections **and screenshots before GUI implementation or audit**. Later owner decisions, measured research corrections and deliberate Faithful/Improved policies must be cited specifically when they differ from the manual; a code comment or a narrow exception is not approval for a generally different screen.

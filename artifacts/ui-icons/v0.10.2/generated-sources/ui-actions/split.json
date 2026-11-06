@@ -1,0 +1,15 @@
+{
+  "key": "ui.action.split",
+  "requestedModel": "google/gemini-2.5-flash-image",
+  "returnedModel": "google/gemini-2.5-flash-image",
+  "prompt": "Use case: stylized-concept.\nAsset type: a single finished full-color action icon for an ancient Mediterranean strategy game's toolbar.\nCreate exactly ONE centered icon, square composition. It must be instantly recognizable when reduced to 24 or 32 pixels.\nStyle: polished illustrated game icon, hand-painted bronze relief and clean blue/red enamel, broad simple forms, restrained highlights, crisp dark outlines. Attractive and dimensional, not monochrome, not a thin line drawing, not photorealistic. Match a coherent family of classic strategy-game pictograms.\nPalette: warm golden bronze, deep blue, muted red, ivory highlights and dark brown outline. No magenta in the subject.\nBackdrop: perfectly flat pure magenta RGB(255,0,255) for precise background removal. No checkerboard, no card, no frame, no base tile, no background shadows, no scenery. Keep all silhouette edges comfortably inside the image.\nComposition: large bold silhouette, generous clear margin around the icon, centered, minimal tiny detail; no captions, no letters, no numerals, no watermark or logo. Render a square high-resolution source, not pixel-art grid noise.\n\nSubject: One short golden branching arrow above two stout shields, one red and one blue, clearly dividing a formation in two.",
+  "rawSha256": "2825e756a49c00b5621cabf75fe89f43b43f7028a78886ed6d4dda8178531daf",
+  "conformanceVersion": 3,
+  "usage": {
+    "cost": 0.0387816,
+    "prompt_tokens": 272,
+    "completion_tokens": 1290
+  },
+  "outputPath": "ui/actions/split.png",
+  "outputSha256": "cd86d87eb8e5daffe4678347c45cc4f7ee258ea2e49cce17a21ae016fd3be69c"
+}

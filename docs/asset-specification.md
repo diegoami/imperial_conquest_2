@@ -956,6 +956,14 @@ what it actually shows.
 
 ---
 
+### 4.8 Illustrated action controls (T284)
+
+Renderer-owned `ui.action.*` keys in the authored manifest cover observer playback/report controls and QOL actions. They use 32×32 RGBA PNG with transparent padding; the runtime samples a copy to 24px, preserves its colors across themes and fades disabled alpha. Existing engine `ui.command.*`, strategic and battle BMP files retain their format and bytes. Menus and dialog choices retain meaningful text; the watch-action icon keeps its numeric selection count.
+
+The owner requests Gemini through OpenRouter for this family. `scripts/generate-authored-assets.py --ui-icons-gemini` is dry-run by default; explicit repeated `--key ui.action.<name>` selects billable work and `--all` is rejected. `--reconform --raw artifacts/ui-icons/v0.10.2/generated-sources` processes the archived images offline with provenance/hash checks. `--self-check` exercises normalization and scoped routes with synthetic images and stubbed network. No model request belongs in CI or the running game.
+
+See [the artwork ledger and sheets](../artifacts/ui-icons/v0.10.2/README.md) for control mapping, actual model/prompt/raw hashes and retained revisions. `UnitActionIconsCheck` checks actual Godot decoding, alpha, color diversity, live palette changes and accessibility, and writes the loaded-texture/theme-state composite. `ObserverPlaybackCheck` covers action icons and stateful Play/Pause imagery along the existing no-reroll playback path. These checks establish asset availability and behavioral boundaries; they do not replace visible play acceptance.
+
 ## 5. The drift test
 
 `tests/IC2.Engine.Tests/Assets/AssetSpecificationCoverageTests.cs` (new file, this task's Owns list)
