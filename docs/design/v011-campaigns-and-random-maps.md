@@ -36,6 +36,14 @@ Initial orientation, not the final scenario bibliographies:
 - [Met: Hellenistic age](https://www.metmuseum.org/essays/art-of-the-hellenistic-age-and-the-hellenistic-tradition), [Livius: Ipsus](https://www.livius.org/articles/battle/ipsus).
 - [National Archaeological Museum: Classical period](https://www.namuseum.gr/en/collection/klasiki-periodos/), [Dickinson: Second Punic War](https://dcc.dickinson.edu/nepos-hannibal/second-punic-war), [Osprey: Pyrrhus](https://www.ospreypublishing.com/us/army-of-pyrrhus-of-epirus-9781472833488/).
 
+## Campaign-selection background and advice
+
+Owner addition, 2026-11-07 ([#1811](https://github.com/diegoami/imperial_conquest_2/issues/1811)): **all historical campaigns**, including existing shipped ones, show background and playable-power recommendations when selected in New Game. Use the description panel beside the compact campaign list. Summarize the period/situation and principal powers, then identify suggested playable choices with a short reason such as a more secure opening, naval focus, expansion opportunity or demanding position.
+
+Historical claims require sources in maintained scenario briefs and explicit uncertainty/abstractions. Gameplay recommendations must refer to the actual starting setup and available playable IDs; historical success alone does not establish an easy or balanced campaign. Record play-validation evidence and label provisional advice where it remains untested. Use authored scenario metadata rather than screen-specific prose; validate coverage and stale/missing recommended IDs as rosters change.
+
+Keep the panel concise, scrollable and keyboard accessible across themes/DPI, preserving Continue, default seats, nation selection and observer behavior. Actual selection must update the panel without changing campaign/RNG state. Fictional random maps may explain geography and strategic choices but receive no fabricated historical narrative. Toy/development scenarios do not need historical background.
+
 ## Fictional regional geography
 
 The owner requests five regional composition types, not maps of the actual regions. These recipes are proposed ways to express that character with existing terrain. They do not imply new climate, altitude, weather or combat simulation.

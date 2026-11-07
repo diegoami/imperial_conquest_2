@@ -260,6 +260,8 @@ Original assets are an opt-in local source with the authored assets as fallback.
 
 Owner extension, 2026-11-07: [eleven historical scenarios #1808](https://github.com/diegoami/imperial_conquest_2/issues/1808), two each for Persia, India, China and the Diadochi era, plus whole-Mediterranean starts in 431, 280 (Pyrrhus) and 218 BC; and [a first seeded random-map option #1809](https://github.com/diegoami/imperial_conquest_2/issues/1809) with fictional Mediterranean, Middle East, Central/South Asia, India and China composition types. The [campaign/map scope](design/v011-campaigns-and-random-maps.md) distinguishes approved historical starts from proposed geography recipes/preview flow and records the reviewed extractor pin, Python/.NET runtime decision and ownership boundary. These extend the existing general/web/asset scope. Detailed sourced briefs and measurable implementation contracts precede coding; no original media ships.
 
+The same owner extension requires New Game's selection panel to show historical background, principal powers and recommended playable nations with reasons for every historical campaign, including the existing ones. Historical context and gameplay advice remain distinct; recommendation IDs and advice must agree with the scenario setup and play-validation evidence. The campaign/map scope defines content, scrolling/access and validation boundaries.
+
 The owner's v0.9.0 scope is instead the two historical Near East campaigns
 around 1350 BC and 750 BC (#1681/#1682), barbarians including Italy (#1683),
 own-turn tactical Undo (#1674), fleet Split in Two and the recorded playtest
