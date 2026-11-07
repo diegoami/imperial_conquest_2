@@ -8,7 +8,7 @@ The family sheet and native theme/state sheet were visually inspected at their s
 
 The existing season-boundary scenario now loads global turn 73 / Summer week 11, then ends the round to global turn 74 / Autumn week 1. It requires the real `CampaignDate` label to lead with the global turn in both states and retains seasonal date checks. Production code and save naming are unchanged.
 
-Two temporary mutations to `MainGameScreen.RefreshCalendarAndStatus`'s label assignment were built and run separately:
+Two temporary mutations to `MainGameScreen`'s date-label assignment were built and run separately:
 
 1. Remove `Turn {calendar.TurnIndex} · `: `HumanTurnNewsCheck` exits 1, failing the loaded/global-turn assertion and the post-boundary assertion.
 2. Replace `calendar.TurnIndex` in that prefix with `calendar.Week`: the same regression fails and exits 1.
