@@ -1486,7 +1486,7 @@ def call_image_model(config: dict, prompt: str) -> tuple:
         ) from error
 
     usage = document.get("usage") or {}
-    if config.get("strategic_provenance"):
+    if config.get("strategic_provenance") or config.get("image_provenance"):
         usage = dict(usage, returned_model=document.get("model"), response_id=document.get("id"))
     choices = document.get("choices") or []
     if not choices:
@@ -2200,6 +2200,18 @@ def strategic_route_check():
     return 0
 
 
+def load_ui_icon_author():
+    spec = importlib.util.spec_from_file_location("ui_action_icons", os.path.join(REPO_ROOT, "scripts", "ui-action-icons.py"))
+    module = importlib.util.module_from_spec(spec)
+    previous = sys.dont_write_bytecode
+    try:
+        sys.dont_write_bytecode = True
+        spec.loader.exec_module(module)
+    finally:
+        sys.dont_write_bytecode = previous
+    return module
+
+
 def main(argv: list | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="generate-authored-assets.py",
@@ -2208,6 +2220,7 @@ def main(argv: list | None = None) -> int:
     )
     parser.add_argument("--strategic-route-check", action="store_true", help="offline scratch route/conformance/preservation regressions")
     parser.add_argument("--strategic-gemini", action="store_true", help="explicit six-key Gemini candidates; --reconform uses hashed Gemini raws, ordinary native paths preserve authored six")
+    parser.add_argument("--ui-icons-gemini", action="store_true", help="T284 scoped colored UI icons; explicit ui.action.* keys only, --reconform offline, no --all")
     parser.add_argument("--dry-run", action="store_true",
                         help="force a dry run even with --key/--all (the default without "
                              "them)")
@@ -2242,6 +2255,21 @@ def main(argv: list | None = None) -> int:
                              "from (default: rendered/authored-raw, git-ignored)")
     args = parser.parse_args(argv)
 
+    if args.ui_icons_gemini:
+        author = load_ui_icon_author()
+        if args.self_check:
+            errors = author.self_check() + author.route_check()
+            for error in errors: print("FAIL:", error)
+            print("UI icon offline self-check:", "PASS" if not errors else "FAIL")
+            return 1 if errors else 0
+        from types import SimpleNamespace
+        try:
+            return author.run(args, SimpleNamespace(load_config=load_config, fetch_models=fetch_models,
+                call_image_model=call_image_model, bmp_bytes=bmp_bytes, per_image_estimate=per_image_estimate))
+        except (ValueError, OSError) as error:
+            print("error:", error, file=sys.stderr)
+            return 2
+
     if args.strategic_route_check:
         return strategic_route_check()
 
@@ -2261,7 +2289,8 @@ def main(argv: list | None = None) -> int:
         selection = list(entries)
 
     if args.self_check:
-        return 1 if self_check() else 0
+        author = load_ui_icon_author()
+        return 1 if self_check() + author.self_check() + author.route_check() else 0
 
     if args.strategic_gemini:
         try:

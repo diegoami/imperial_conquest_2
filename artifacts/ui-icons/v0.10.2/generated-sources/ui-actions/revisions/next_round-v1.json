@@ -1,0 +1,15 @@
+{
+  "key": "ui.action.next_round",
+  "requestedModel": "google/gemini-2.5-flash-image",
+  "returnedModel": "google/gemini-2.5-flash-image",
+  "prompt": "Use case: stylized-concept.\nAsset type: a single finished full-color action icon for an ancient Mediterranean strategy game's toolbar.\nCreate exactly ONE centered icon, square composition. It must be instantly recognizable when reduced to 24 or 32 pixels.\nStyle: polished illustrated game icon, hand-painted bronze relief and clean blue/red enamel, broad simple forms, restrained highlights, crisp dark outlines. Attractive and dimensional, not monochrome, not a thin line drawing, not photorealistic. Match a coherent family of classic strategy-game pictograms.\nPalette: warm golden bronze, deep blue, muted red, ivory highlights and dark brown outline. No magenta in the subject.\nBackdrop: perfectly flat pure magenta RGB(255,0,255) for precise background removal. No checkerboard, no card, no frame, no base tile, no background shadows, no scenery. Keep all silhouette edges comfortably inside the image.\nComposition: large bold silhouette, generous clear margin around the icon, centered, minimal tiny detail; no captions, no letters, no numerals, no watermark or logo. Render a square high-resolution source, not pixel-art grid noise.\n\nSubject: One broad curved blue arrow around a simple golden hourglass, signaling advance one round.",
+  "rawSha256": "2e4242ab440e8fc7edf9788b04291081aa2c7461522f461a068325b92c380abc",
+  "conformanceVersion": 2,
+  "usage": {
+    "cost": 0.038847,
+    "prompt_tokens": 265,
+    "completion_tokens": 1317
+  },
+  "outputPath": "ui/actions/next_round.png",
+  "outputSha256": "a001fb3e77a4a3b6b755ebb713617f1fa32dd9cc4450f3a1e4b66b30814703ef"
+}

@@ -507,8 +507,9 @@ Owner scope, 2026-11-06: [milestone 27](https://github.com/diegoami/imperial_con
 | C2 — Readability and access | Inspect actual-size 24/32px theme/state sheets for Parchment, Dark, High contrast and Slate. Preserve colors, transparency, hover/pressed/focus/disabled feedback, useful tooltips, accessible names and shortcuts; Play/Pause imagery follows the current action. |
 | C3 — Authoring and delivery | Explicit scoped Gemini/OpenRouter generation, private credentials, prompt/model/raw-hash provenance and reproducible offline normalization; no unrelated art replacement, original media or model calls in CI. The copied self-contained Windows package loads every new icon using authored assets alone. |
 | C4 — Behavioral boundary | Existing action callbacks, pause/skip/report policies, campaign/RNG, settings and saves remain unchanged. Relevant real-control scenes, solution/Godot builds, churn guard and exact-head CI pass. Freeze for owner-started independent review before tagging. |
+| C5 — Campaign-turn regression protection | Owner addition, 2026-11-07: [#1804](https://github.com/diegoami/imperial_conquest_2/issues/1804). `HumanTurnNewsCheck` verifies the actual top-right label leads with the campaign-wide turn before and after a season boundary, with turn and week deliberately different. Removing the counter or substituting seasonal week must fail the check; current calendar and save-name behavior stays unchanged. |
 
-This patch adds icon artwork and presentation only. v0.11's browser/original-assets and Improved-general work remain separate. The private manual defines original toolbar meanings; these observer/QOL controls and their presentation are explicitly owner-designed.
+This patch adds icon artwork/presentation and the owner-requested campaign-turn regression coverage. v0.11's browser/original-assets and Improved-general work remain separate. The private manual defines original toolbar meanings; these observer/QOL controls and their presentation are explicitly owner-designed.
 
 ## 3. Tag and GitHub Release conventions
 

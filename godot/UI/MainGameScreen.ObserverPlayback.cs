@@ -37,6 +37,7 @@ public partial class MainGameScreen
         ObserverViewControls = new HBoxContainer { Name = "ObserverViewControls", Visible = Session.IsObserverMode };
         ObserverViewControls.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         ObserverWatchButton = UiKit.MakeButton("Watch civilizations…", OpenObserverWatchChooser);
+        QolCommandIcons.Apply(ObserverWatchButton, "watch", "Watch civilizations");
         ObserverViewControls.AddChild(ObserverWatchButton);
         ObserverViewControls.AddChild(UiKit.MakeLabel("Speed", AppTheme.Note, UiKit.TextColor));
         ObserverSpeedChoice = ObserverPlaybackControls.SpeedChoice();
@@ -57,6 +58,7 @@ public partial class MainGameScreen
         };
         ObserverViewControls.AddChild(ObserverBattleChoice);
         ObserverSkipButton = UiKit.MakeButton("Skip current activity", SkipObserverActivity);
+        QolCommandIcons.Apply(ObserverSkipButton, "skip", "Skip current activity");
         ObserverViewControls.AddChild(ObserverSkipButton);
         root.AddChild(ObserverViewControls);
     }
@@ -85,7 +87,8 @@ public partial class MainGameScreen
         ObserverFollowChoice.SetPressedNoSignal(SettingsScreen.Current.ObserverFollowMoves);
         ObserverPlaybackControls.Synchronize(ObserverSpeedChoice);
         var watched = Session.State.Nations.Count(n => ObserverWatches(n.Id));
-        ObserverWatchButton.Text = $"Watch civilizations… ({watched})";
+        QolCommandIcons.Apply(ObserverWatchButton, "watch", $"Watch civilizations ({watched})");
+        if (QolCommandIcons.IsIllustrated(ObserverWatchButton.Icon)) ObserverWatchButton.Text = watched.ToString();
         ObserverSkipButton.Disabled = !StrategicTravel.IsActive && !IsAutomaticObserverOverlay;
         ObserverPlayButton.Disabled = ObserverPlayback.IsRunning && !_observerManuallyPaused;
         ObserverPauseButton.Disabled = _observerManuallyPaused || !ObserverPlayback.IsRunning && !StrategicTravel.IsActive && !IsAutomaticObserverOverlay;

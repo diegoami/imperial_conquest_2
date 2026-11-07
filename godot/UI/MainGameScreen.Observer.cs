@@ -31,6 +31,10 @@ public partial class MainGameScreen
         ObserverRoundButton = UiKit.MakeButton("Next round", ObserverNextRound, AppTheme.Button);
         ObserverRoundButton.TooltipText = "Advance to the next campaign date, then pause.";
         _observerReportsButton = UiKit.MakeButton("Latest battles", ShowObserverReports, AppTheme.Button);
+        QolCommandIcons.Apply(ObserverPlayButton, "play", "Play observer campaign");
+        QolCommandIcons.Apply(ObserverPauseButton, "pause", "Pause observer campaign (Space)");
+        QolCommandIcons.Apply(ObserverRoundButton, "next_round", "Advance to the next campaign date, then pause");
+        QolCommandIcons.Apply(_observerReportsButton, "battle_reports", "Latest battles");
         foreach (var button in new[] { ObserverPlayButton, ObserverPauseButton, ObserverRoundButton, _observerReportsButton })
             ObserverControls.AddChild(button);
         ObserverNationChoice = new OptionButton { Name = "ObserverNationChoice" };
@@ -40,6 +44,7 @@ public partial class MainGameScreen
                 ObserverTakeControl(_observerNationIds[ObserverNationChoice.Selected]);
         }, AppTheme.Button);
         ObserverTakeControlButton.TooltipText = "Join this nation's next turn. Nations ahead of it play normally first.";
+        QolCommandIcons.Apply(ObserverTakeControlButton, "take_control", "Take control of the chosen nation at its next turn");
         ObserverControls.AddChild(ObserverTakeControlButton);
         root.AddChild(ObserverControls);
         BuildObserverPlaybackControls(root);

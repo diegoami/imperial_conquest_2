@@ -1,0 +1,15 @@
+{
+  "key": "ui.action.undo",
+  "requestedModel": "google/gemini-2.5-flash-image",
+  "returnedModel": "google/gemini-2.5-flash-image",
+  "prompt": "Use case: stylized-concept.\nAsset type: a single finished full-color action icon for an ancient Mediterranean strategy game's toolbar.\nCreate exactly ONE centered icon, square composition. It must be instantly recognizable when reduced to 24 or 32 pixels.\nStyle: polished illustrated game icon, hand-painted bronze relief and clean blue/red enamel, broad simple forms, restrained highlights, crisp dark outlines. Attractive and dimensional, not monochrome, not a thin line drawing, not photorealistic. Match a coherent family of classic strategy-game pictograms.\nPalette: warm golden bronze, deep blue, muted red, ivory highlights and dark brown outline. No magenta in the subject.\nBackdrop: perfectly flat pure magenta RGB(255,0,255) for precise background removal. No checkerboard, no card, no frame, no base tile, no background shadows, no scenery. Keep all silhouette edges comfortably inside the image.\nComposition: large bold silhouette, generous clear margin around the icon, centered, minimal tiny detail; no captions, no letters, no numerals, no watermark or logo. Render a square high-resolution source, not pixel-art grid noise.\n\nSubject: One broad backward-curving blue arrow with a bronze rim, the familiar left-pointing Undo symbol.",
+  "rawSha256": "9cce238b07e1d0c25ae51a67c9dbdad82fc2924b2021b4948833f81ad11a89c1",
+  "conformanceVersion": 3,
+  "usage": {
+    "cost": 0.038781,
+    "prompt_tokens": 270,
+    "completion_tokens": 1290
+  },
+  "outputPath": "ui/actions/undo.png",
+  "outputSha256": "5076e3d560c7e65ed16494274de278c41d7271f920f4ce55a530c68dfe5f331a"
+}
