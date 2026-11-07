@@ -46,3 +46,5 @@ The new renderer-owned `ui.action.*` family lives in the authored pack manifest,
 `QolCommandIcons` resolves authored images through the existing pack loader, caches them, samples a copy to 24px and marks the resulting texture with its logical key. It keeps illustration tint white and only fades disabled alpha. `Appearance` reapplies that neutral tint after palette remapping, because the High contrast palette's white text role would otherwise recolor illustrated buttons during a theme switch. Repeated Play/Pause refreshes skip unchanged icon/caption assignments to avoid rebuilding theme overrides each frame.
 
 The native state sheet composites loaded textures with the actual theme/button tint colors; it is not a windowed screenshot. The family sheet uses the stored 32px output and an enlarged view for visual inspection. New generation is not required to resume the work: all paid masters and targeted revisions are retained, and normalization is offline.
+
+The resumed visual pass, copied-package checks and owner-added campaign-turn regression/mutation evidence are recorded in [verification.md](verification.md). Independent milestone review remains separate.

@@ -24,14 +24,15 @@ public partial class HumanTurnNewsCheck : Node
         CheckExit.Quit(this, _ok ? 0 : 1);
     }
 
-    private static GameSession Build(bool hotseat, int season = 0, int week = 1)
+    private static GameSession Build(bool hotseat, int season = 0, int week = 1, int? turnIndex = null)
     {
         var data = GameDataContext.Repository.Resolve("toy-3city");
         var initial = new GameSession(data.World, data.Ruleset, data.Scenario, seedOverride: 1, humanSeatNationId: "north");
         var log = NewsLog.Empty;
         for (var i = 0; i < 40; i++) log = log.Append(new NewsEntry($"Report {i}\n  Detail {i}"), data.Ruleset.NewsLog);
         var state = initial.State with {
-            Calendar = initial.State.Calendar with { SeasonIndex = season, Week = week },
+            Calendar = initial.State.Calendar with { SeasonIndex = season, Week = week,
+                TurnIndex = turnIndex ?? initial.State.Calendar.TurnIndex },
             NewsLog = log,
             Armies = ValueList.From(initial.State.Armies.Where(a => a.Nation == "north")),
             Fleets = ValueList.From(initial.State.Fleets.Where(f => f.Nation == "north")),
@@ -125,11 +126,15 @@ public partial class HumanTurnNewsCheck : Node
 
     private async Task DateAndLayout()
     {
-        var session = Build(false, season: 1, week: 11);
+        // A loaded campaign's global turn must not be mistaken for its repeating seasonal week.
+        var session = Build(false, season: 1, week: 11, turnIndex: 73);
         var main = AddMain(session);
         await Settle();
         var date = main.FindChildren("CampaignDate", "Label", true, false).OfType<Label>().Single();
         Check(date.Text.Contains("Summer", StringComparison.Ordinal), "loaded summer appears in top-right date");
+        Check(date.Text.StartsWith("Turn 73 · ", StringComparison.Ordinal)
+            && date.Text.Contains("Week 11", StringComparison.Ordinal),
+            "loaded date leads with global turn 73 while seasonal week is 11");
         var text = Text(main);
         var rect = text.GetGlobalRect();
         var panelRect = main.NewsLog.GetGlobalRect();
@@ -143,6 +148,11 @@ public partial class HumanTurnNewsCheck : Node
         main.SubmitForCheck("end");
         await Settle();
         Check(date.Text.Contains("Autumn", StringComparison.Ordinal), "season updates when a turn crosses the boundary");
+        Check(session.State.Calendar.TurnIndex == 74 && session.State.Calendar.Week == 1,
+            "season boundary advances the global turn and resets only seasonal week");
+        Check(date.Text.StartsWith("Turn 74 · ", StringComparison.Ordinal)
+            && date.Text.Contains("Week 1 ·", StringComparison.Ordinal),
+            "date still leads with global turn 74 after seasonal week resets to 1");
         RemoveChild(main); main.QueueFree();
         await Settle();
     }

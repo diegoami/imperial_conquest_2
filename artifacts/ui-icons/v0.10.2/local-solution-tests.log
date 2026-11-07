@@ -1,0 +1,9 @@
+Test run for C:\Users\diego\projects\imperial_conquest_2\tests\IC2.Data.Tests\bin\Debug\net10.0\IC2.Data.Tests.dll (.NETCoreApp,Version=v10.0)
+Test run for C:\Users\diego\projects\imperial_conquest_2\tests\IC2.Engine.Tests\bin\Debug\net10.0\IC2.Engine.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:03.36]     IC2.Data.Tests.CorpusFixtures.CorpusOutcomeGeneratorTests.The_committed_fixture_matches_a_fresh_regeneration_over_the_configured_corpus [FAIL]
+
+Failed!  - Failed:     1, Passed:  1034, Skipped:     5, Total:  1040, Duration: 22 s - IC2.Data.Tests.dll (net10.0)
+
+Passed!  - Failed:     0, Passed:  7171, Skipped:    38, Total:  7209, Duration: 1 m 49 s - IC2.Engine.Tests.dll (net10.0)

@@ -1,0 +1,13 @@
+Godot Engine v4.7.2.stable.mono.official.ed1daf0bf - https://godotengine.org
+
+PASS: explicit Save As keeps the player's chosen filename
+PASS: actual Save As menu route is wired
+PASS: actual Save As proposes ptolemeans_7.json
+PASS: actual Save As menu route is wired
+PASS: actual Save As proposes ptolemeans_7_2.json
+PASS: ordinary Save writes back to its explicit path without overwriting a suggested-name collision
+PASS: suggesting and saving changes no campaign state or RNG
+PASS: actual Save As menu route is wired
+PASS: actual Save As proposes ptolemeans_7_2.json
+PASS: loaded game preserves writeback while Save As proposes concise nation/turn naming
+SaveNamingCheck: exiting with code 0.

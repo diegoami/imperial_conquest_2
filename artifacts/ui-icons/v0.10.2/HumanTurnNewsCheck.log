@@ -1,0 +1,29 @@
+Godot Engine v4.7.2.stable.mono.official.ed1daf0bf - https://godotengine.org
+
+PASS: human view shows the latest reports
+PASS: newest entry is first without reversing its multiline detail
+PASS: report view opens at the newest top
+PASS: initial presentation changes no state/RNG and publishes no command events
+PASS: ordinary commands respect dismissal within the current turn
+PASS: human view shows the latest reports
+PASS: newest entry is first without reversing its multiline detail
+PASS: report view opens at the newest top
+PASS: the same human seat begins a new round after AI play
+PASS: dismissal survives the next human turn
+PASS: human view shows the latest reports
+PASS: newest entry is first without reversing its multiline detail
+PASS: report view opens at the newest top
+PASS: human seat change first shows the existing handoff curtain
+PASS: incoming reports are not exposed before handoff acknowledgement
+PASS: human view shows the latest reports
+PASS: newest entry is first without reversing its multiline detail
+PASS: report view opens at the newest top
+PASS: dismissal survives acknowledged hotseat handoff
+PASS: loaded summer appears in top-right date
+PASS: loaded date leads with global turn 73 while seasonal week is 11
+PASS: news text viewport fits inside the actual panel including the bottom line
+PASS: long wrapped news scrolls fully to its last entry
+PASS: season updates when a turn crosses the boundary
+PASS: season boundary advances the global turn and resets only seasonal week
+PASS: date still leads with global turn 74 after seasonal week resets to 1
+HumanTurnNewsCheck: exiting with code 0.
