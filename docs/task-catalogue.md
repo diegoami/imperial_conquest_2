@@ -110,6 +110,7 @@ Open and recent tasks only. Merged tasks (T01–T191 and others) are in their cl
 - [T277](tasks/T277.md) — Faithful transport failure and pending capital defence
 
 - [T278](tasks/T278.md) — Observer campaign controls
+- [T285](tasks/T285.md) — Immediate Classical observer launch and continuous showcase (v0.11)
 - [T279](tasks/T279.md) — Strategic current-turn Undo
 - [T280](tasks/T280.md) — Persistent ordinary-click travel
 - [T281](tasks/T281.md) — Army and fleet rally map feedback
