@@ -1,5 +1,8 @@
 # Observer showcase
 
+Start with [Producing and finding observer videos](../../docs/observer-recordings.md)
+for the exact pilot folder, recording commands, recovery and archive locations.
+
 The owner narrowed first publication to **one full-campaign YouTube pilot** on
 lynxsupercluster, in a separate Open Imperial Conquest playlist. Pages excerpts
 must link to that matching completed video; no invented/pending YouTube URL is
