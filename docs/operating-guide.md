@@ -76,6 +76,7 @@ proxies, not a separate combat model. Regional centres, political groupings and
 all numerical setup are explicit abstractions. See the
 [historical brief](design/near-east-campaigns.md) and
 [reproducible source/authoring guide](../tools/NearEast/README.md).
+Authored campaigns and random maps follow the [terrain-authoring rule](design/terrain-authoring.md): forest-coded lower hills, mountains for severe relief and deliberate usable plain passes through ranges, with existing movement costs retained.
 Campaigns with barbarians use native JSON saves; original-SAV export refuses
 the unsupported role rather than silently discarding it.
 

@@ -17,6 +17,7 @@ cross-family review) is frozen on the `local` branch and is **not** in force her
 8. **Research-repo work** (`imperial-conquest-2-research`): commit and push without asking.
 9. **At session start**, check the triage queue (`gh issue list --label triage:needed --state open`; if GraphQL is blocked, the REST form in [docs/cloud-mode.md](docs/cloud-mode.md#github-from-the-cloud-rest-only)) and anything `status:in-progress`, and tell the user where things stand.
 10. **Use the manual before GUI work.** Read the relevant original-game manual sections and screenshots through [the operating-guide entry point](docs/operating-guide.md#original-game-ui-reference-private). Cite the expected behavior and any specifically approved exception; do not infer permission for a different screen from a narrow convenience change. Find and record discrepancies proactively before asking the owner to rediscover them through playtesting.
+11. **Author hills and passes deliberately.** For authored historical/random maps, reserve mountains for severe high relief, use forest terrain as the hill/foothill metaphor, and create usable plain passes through ranges. Follow [the owner's terrain-authoring rule](docs/design/terrain-authoring.md); correct tile placement rather than changing movement penalties.
 
 ## Token economy
 
