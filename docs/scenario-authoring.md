@@ -1,5 +1,10 @@
 # Scenario Authoring
 
+Historical campaigns offered in New Game also need a sourced selection guide. See
+[campaign guidance](campaign-guides.md#authoring-and-future-coverage) for the sidecar fields,
+playable-nation validation, provisional advice and maintained historical briefs. Fictional
+generated presets describe geography without inventing history; development fixtures may omit guidance.
+
 This document is a complete reference for every field in the three file kinds that compose a scenario: `World`, `Ruleset`, and `Scenario`. Use it to author custom scenarios for Imperial Conquest 2.
 
 A scenario is the moddable, shareable unit of gameplay. It consists of:

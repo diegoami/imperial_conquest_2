@@ -48,15 +48,6 @@ public partial class MainGameScreen : Control
     /// </summary>
     private const string SavesDirectory = "user://saves";
 
-    /// <summary>
-    /// T96: how many lines of the last command's outcome the label shows — its <em>last</em> lines, not
-    /// its first (see <see cref="UpdateLastCommandLinesSkipped"/>), with the full block in the tooltip.
-    /// Three lines are also the label's explicit minimum height: a Godot <see cref="Label"/> with
-    /// autowrap plus clipping or an overrun behaviour reports a minimum size of (1, 1), so without the
-    /// floor the root VBox lays it out 1&#160;px tall and it shows nothing (bug #484's symptom again;
-    /// PR #521's re-review measured it as R1-B1).
-    /// </summary>
-    private const int LastCommandVisibleLineCount = 3;
 
     /// <summary>Exposed (rather than kept private) so <c>godot/Checks/ScreenshotTour.cs</c> can drive a
     /// selection and open the news log for the visual sign-off screenshot without simulating clicks.</summary>
@@ -224,7 +215,7 @@ public partial class MainGameScreen : Control
     /// or "no provider" line. Distinct from a command's own outcome (it is not a command), so the
     /// headless check can read it without a <see cref="CommandIssued"/> firing.
     /// </summary>
-    public string LastMessageForCheck => _lastCommandLabel.Text;
+    public string LastMessageForCheck => CommandLog.LatestResult;
 
     private bool _hintsEnabled = true;
 
@@ -250,7 +241,8 @@ public partial class MainGameScreen : Control
     private ContextPanel _contextPanel = null!;
     private NewsLogPanel _newsLog = null!;
     private bool _latestNewsPending;
-    private Label _lastCommandLabel = null!;
+    public CommandHistoryPanel CommandLog { get; private set; } = null!;
+    public StrategicPanels Panels { get; private set; } = null!;
 
     // #1286: a refused order's message over the map; dialogs show their own reply instead.
     private readonly OrderNotice _orderNotice = new();
@@ -426,9 +418,16 @@ public partial class MainGameScreen : Control
         _sidePanelButton.Pressed += ToggleSidePanel;
         body.AddChild(_sidePanelButton);
 
-        var sideColumn = new VBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
+        var sideColumn = new StrategicPanels { SizeFlagsVertical = SizeFlags.ExpandFill,
+            CustomMinimumSize = new Vector2(340, 0) };
+        Panels = sideColumn;
         _sideColumn = sideColumn;
         body.AddChild(sideColumn);
+        // Kept outside the hideable column so every panel can always be reopened.
+        root.AddChild(sideColumn.Toggles);
+        root.MoveChild(sideColumn.Toggles, root.GetChildren().IndexOf(body));
+        sideColumn.Changed += ApplySidePanelState;
+        sideColumn.OpenRequested += () => _sidePanelToggle.Set(true);
         ApplySidePanelState();
 
         // T132 (R3): every live screen follows the shared state; _ExitTree unsubscribes.
@@ -441,8 +440,10 @@ public partial class MainGameScreen : Control
             AssetLoader = assetLoader,
             SizeFlagsHorizontal = SizeFlags.ShrinkCenter,
         };
-        sideColumn.AddChild(_areaMapView.BuildStrip());
-        sideColumn.AddChild(_areaMapView);
+        var overview = new VBoxContainer();
+        overview.AddChild(_areaMapView.BuildStrip());
+        overview.AddChild(_areaMapView);
+        sideColumn.AddPanel("Overview", "Overview map", overview, 2f, scroll: true);
 
         _contextPanel = new ContextPanel
         {
@@ -452,42 +453,18 @@ public partial class MainGameScreen : Control
             CustomMinimumSize = new Vector2(340, 0),
             SizeFlagsVertical = SizeFlags.ExpandFill,
         };
-        sideColumn.AddChild(_contextPanel);
+        sideColumn.AddPanel("Object", "Selected object", _contextPanel, 1.6f);
 
-        // Fix #484 (review N1): a command's whole own outcome can carry a long rejection reason or a
-        // Save path. Wrapping at word boundaries, a three-line ceiling with an ellipsis, and the full
-        // text in the tooltip keep a long result from widening this full-rect root or pushing the
-        // context panel off-screen.
-        _lastCommandLabel = UiKit.MakeLabel(string.Empty, AppTheme.Note, UiKit.TextColor);
-        _lastCommandLabel.Visible = false;
-        _lastCommandLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _lastCommandLabel.MaxLinesVisible = LastCommandVisibleLineCount;
-        _lastCommandLabel.ClipText = true;
-        _lastCommandLabel.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
-        root.AddChild(_lastCommandLabel);
+        CommandLog = new CommandHistoryPanel { ViewerKey = () => Session.IsObserverMode ? "observer" : _displayViewer };
 
-        // T96 (R1-B1): the wrap/clip/overrun combination above reports a (1, 1) minimum size, so the
-        // root VBox used to lay the label out 1 px tall with zero visible lines -- #484's own symptom.
-        // Three lines' height from the label's own theme font is the floor that keeps it visible. The
-        // pitch is the glyph height plus the Label theme's own "line_spacing" constant (3 in Godot's
-        // default theme): Label.GetLineHeight() returns only the former, and a floor of three glyph
-        // heights lays out three lines but lets GetVisibleLineCount() count just two. The explicit size
-        // also keeps the block's last-lines view (below) from ever collapsing.
-        var lineSpacing = _lastCommandLabel.GetThemeConstant("line_spacing");
-        // T169: negative spacing compacts gaps, but the floor still needs three glyph heights
-        // for GetVisibleLineCount() to retain the final Now: Week line.
-        var linePitch = _lastCommandLabel.GetLineHeight() + Mathf.Max(0, lineSpacing);
-        _lastCommandLabel.CustomMinimumSize = new Vector2(
-            0, Mathf.Ceil(LastCommandVisibleLineCount * linePitch));
-
-        // T96 (B1 as displayed): the label shows the block's *last* lines, so an end's
-        // "Now: Week …, Active seat: …" footer is what the player sees rather than the first AI-turn
-        // lines. LinesSkipped is recomputed on every command and whenever a layout pass changes the
-        // label's width (which is what decides how many lines the text wraps to).
-        _lastCommandLabel.Resized += ScheduleLastCommandLinesSkipped;
-
-        _newsLog = new NewsLogPanel { Session = Session, CustomMinimumSize = new Vector2(0, 200) };
-        root.AddChild(_newsLog);
+        _newsLog = new NewsLogPanel { Session = Session, ShowHeader = false };
+        sideColumn.AddPanel("News", "News", _newsLog, 1.2f, change: open =>
+        {
+            if (open) _newsLog.ShowLatest(); else _newsLog.Dismiss();
+        });
+        _newsLog.VisibilityChanged += () => sideColumn.Synchronize("News", _newsLog.Visible);
+        sideColumn.Synchronize("News", _newsLog.Visible);
+        sideColumn.AddPanel("Log", "Log", CommandLog, 1.2f);
 
         _mapView.CitySelected += id =>
         {
@@ -651,7 +628,7 @@ public partial class MainGameScreen : Control
         //
         // Fix #537: a Save's confirmation carries the whole user:// path; as a plain label it set the
         // row's -- and so the root's -- minimum width to ~1730px, past the viewport, cropping the
-        // context panel. It now ellipsizes like _lastCommandLabel (clip + TrimEllipsis, full text in
+        // context panel. It ellipsizes (clip + TrimEllipsis, full text in
         // the tooltip) and expands into the free space the spacer leaves, so it is clipped to the bar
         // rather than collapsing to its near-zero clipped minimum.
         _saveConfirmationLabel = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.MutedTextColor);
@@ -2105,10 +2082,7 @@ public partial class MainGameScreen : Control
     /// <summary>Shows a screen-level message without issuing a command — see <see cref="LastMessageForCheck"/>.</summary>
     private void ShowScreenMessage(string message)
     {
-        _lastCommandLabel.Text = message;
-        _lastCommandLabel.Visible = !string.IsNullOrWhiteSpace(message);
-        _lastCommandLabel.TooltipText = message;
-        ScheduleLastCommandLinesSkipped();
+        CommandLog.AppendResult(message);
     }
 
     private void ShowHelpPage()
@@ -2621,7 +2595,7 @@ public partial class MainGameScreen : Control
     /// <remarks>
     /// Calls <see cref="GameSession.Submit"/> directly, then <see cref="OnCommandIssued"/>, rather than
     /// going through <see cref="SubmitForCheck"/> alone: <see cref="OnCommandIssued"/>'s own
-    /// <see cref="_lastCommandLabel"/> update now shows the command's whole own outcome (fix #484's
+    /// <see cref="CommandLog"/> update now shows the command's whole own outcome (fix #484's
     /// <see cref="CommandOutcomeText.OutcomeBlock"/>), and this method additionally writes that same
     /// outcome — <c>"Saved to '...'."</c> or a refusal — into <see cref="_saveConfirmationLabel"/>, the
     /// dedicated label next to the top bar's Save button that T95 owns outright.
@@ -2718,19 +2692,8 @@ public partial class MainGameScreen : Control
     /// </summary>
     public string? LastSavedPath { get; private set; }
 
-    /// <summary>
-    /// The text the shared last-command label (<see cref="_lastCommandLabel"/>, under the map and the
-    /// side column) currently carries: fix #484's <see cref="CommandOutcomeText.OutcomeBlock"/> of the most
-    /// recent <see cref="GameSession.Submit"/> call — the order's own acceptance or refusal lines (a
-    /// composed declaration of war included), or an <c>end</c> round's closing summary up to its news.
-    /// The label displays its last <see cref="LastCommandVisibleLineCount"/> wrapped lines and keeps the
-    /// whole block in its tooltip; this property is the whole block, so a check that wants what is
-    /// visible reads the label's own <see cref="Label.LinesSkipped"/> and <see cref="Label.GetVisibleLineCount"/>.
-    /// Exposed for the same reason
-    /// <see cref="LastSavedPath"/> is: <c>godot/Checks/CommandFeedbackCheck.cs</c> reads the real label
-    /// after driving real commands, rather than re-deriving its text from a second copy of the rule.
-    /// </summary>
-    public string LastCommandText => _lastCommandLabel.Text;
+    /// <summary>The latest result block, independently of the bounded scrollable history.</summary>
+    public string LastCommandText => CommandLog.LatestResult;
 
     /// <summary>
     /// T95's own Save confirmation label's text, kept by fix #484 as its own dedicated slot even though
@@ -2983,10 +2946,7 @@ public partial class MainGameScreen : Control
 
         _newsEntriesBeforeCommand = Session.State.NewsLog.Slots;
 
-        _lastCommandLabel.Text = outcome;
-        _lastCommandLabel.Visible = !string.IsNullOrWhiteSpace(outcome);
-        _lastCommandLabel.TooltipText = outcome;
-        ScheduleLastCommandLinesSkipped();
+        CommandLog.AppendResult(outcome);
         ShowRefusalNotice(lines);
 
         // T127: the battle screen covers the map, so it shows the engine's answer itself (a refused Save during an
@@ -3007,6 +2967,7 @@ public partial class MainGameScreen : Control
         // Advance viewer only at an actual human handoff, or in the existing no-human watch mode.
         if (!Session.IsObserverMode && (Session.State.NationById(activeId)?.Control == SeatControl.Human
             || !Session.State.Nations.Any(n => n.Control == SeatControl.Human))) _displayViewer = activeId;
+        CommandLog.SynchronizeViewer();
         var turnIndex = Session.State.Calendar.TurnIndex;
         var turnStarted = turnIndex != _lastKnownTurnIndex;
         if (turnStarted) AppDiagnostics.Mark(DiagnosticEvent.Turn, "main", turnIndex, activeId);
@@ -3203,37 +3164,11 @@ public partial class MainGameScreen : Control
 
     private void ApplySidePanelState()
     {
-        _sideColumn.Visible = _sidePanelToggle.IsShown;
-        _sidePanelButton.Text = _sidePanelToggle.Caption;
-        _sidePanelButton.TooltipText = _sidePanelToggle.Tooltip;
-    }
-
-    /// <summary>
-    /// T96 (B1 as displayed): keeps the label's window on the <em>last</em> <see
-    /// cref="LastCommandVisibleLineCount"/> lines of its wrapped text. <see cref="Label.MaxLinesVisible"/>
-    /// alone caps how many lines are drawn but draws the <em>first</em> ones, which hid an <c>end</c>'s
-    /// <c>Now: Week …</c> footer; <see cref="Label.LinesSkipped"/> drops the lines above the tail.
-    /// <see cref="Label.GetLineCount"/> shapes the text at the label's current width, so this runs after
-    /// every text change and on every resize: a command issued before the first layout pass is
-    /// recomputed once the label gets its real width.
-    /// </summary>
-    private void ScheduleLastCommandLinesSkipped()
-    {
-        UpdateLastCommandLinesSkipped();
-        // A collapsed label initially shapes at zero/narrow width. Recount after
-        // the container/label layout has settled so an old wrapped offset cannot
-        // hide the first ordinary message when the strip becomes visible again.
-        Callable.From(() =>
-        {
-            if (!_closing && GodotObject.IsInstanceValid(this) && IsInsideTree()
-                && GodotObject.IsInstanceValid(_lastCommandLabel)) UpdateLastCommandLinesSkipped();
-        }).CallDeferred();
-    }
-
-    private void UpdateLastCommandLinesSkipped()
-    {
-        var lineCount = _lastCommandLabel.GetLineCount();
-        _lastCommandLabel.LinesSkipped = Mathf.Max(0, lineCount - LastCommandVisibleLineCount);
+        _sideColumn.Visible = _sidePanelToggle.IsShown && (Panels?.AnyOpen ?? true);
+        _sidePanelButton.Text = _sideColumn.Visible ? SidePanelToggle.HideCaption : SidePanelToggle.ShowCaption;
+        _sidePanelButton.TooltipText = Panels is { AnyOpen: false }
+            ? "Choose a panel from the toggle strip above the map."
+            : _sidePanelToggle.Tooltip;
     }
 
     private void ShowNextOverlay()

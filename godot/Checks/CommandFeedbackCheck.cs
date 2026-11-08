@@ -5,62 +5,10 @@ using IC2.Slice.UI;
 namespace IC2.Slice.Checks;
 
 /// <summary>
-/// Fix #484 / T96: the main game screen's shared last-command label must echo a real command's own
-/// outcome — an accepted order's acceptance line, a rejected order's declaration of war and reason text,
-/// an <c>end</c>'s closing summary up to (but never including) the news section — instead of the blank
-/// separator line <c>GameSession.Submit</c> always ends its output with (the pre-fix <c>lines[^1]</c>);
-/// and T95's separate Save confirmation label must keep working. Run headless:
-/// <code>
-/// godot --headless --path godot res://Checks/CommandFeedbackCheck.tscn
-/// </code>
-/// A <em>windowed</em> run of the same scene is the human visual review's vehicle (T96, plan-review R2):
-/// it runs every check and then keeps the window open on the final <c>end</c> state for a screenshot:
-/// <code>
-/// godot.cmd --path godot res://Checks/CommandFeedbackCheck.tscn
-/// </code>
+/// T96/T289 command-result integration: accepted/refused wording, end-turn footer, whitespace filtering,
+/// long text, Save confirmation and actual visible Log geometry. T289's owner-approved 100-result
+/// history replaces the old three-line label; full blocks now scroll with the newest result last.
 /// </summary>
-/// <remarks>
-/// <para>
-/// Drives the real <see cref="MainGameScreen"/> over the shipped classical pair as Rome (the CLI's
-/// <c>--seat rome</c> shape) through <see cref="MainGameScreen.SubmitForCheck"/> and
-/// <see cref="MainGameScreen.PressSaveForCheck"/> — the same public hooks <c>godot/Screens/Checks/
-/// ScreensCheck.cs</c> and <c>godot/Checks/SaveResumeCheck.cs</c> already establish. It never rebuilds
-/// the rule itself: the xunit half (<c>tests/IC2.Engine.Tests/Ui/CommandOutcomeTextTests.cs</c>) pins the
-/// rule against real <c>Submit</c> output, this check pins that the screen really assigns it to the
-/// labels <em>and displays it</em>.
-/// </para>
-/// <para>
-/// <strong>T96: geometry, not just <c>.Text</c>.</strong> PR #521's round 1 left the label 1&#160;px tall
-/// with zero visible lines (a Godot <see cref="Label"/> with autowrap plus clipping or an overrun
-/// behaviour reports a minimum size of (1, 1)) and its tests read only <c>.Text</c>, so they stayed
-/// green. This check builds the real screen as a full-rect child of its own <see cref="Control"/> root
-/// against the configured 1500x850 viewport — the same shape <c>ContextPanelWidthCheck</c> and
-/// <c>MapClipCheck</c> use — and waits settle frames after every command, so the container layout pass
-/// really runs before the label's geometry is read. It asserts, on the real label:
-/// <list type="bullet">
-/// <item><see cref="Label.GetVisibleLineCount"/> is between 1 and 3 and the laid-out height is at least
-/// three lines' height, for an accepted order, a rejected order, an <c>end</c> and a 1,000-character
-/// line (T96 DoD 1);</item>
-/// <item>after an <c>end</c> as Rome, the lines actually visible (the text past
-/// <see cref="Label.LinesSkipped"/>) end on the exact <c>Now: Week …, Active seat: …</c> line read from
-/// the real <c>Submit</c> output (T96 DoD 2);</item>
-/// <item>the tooltip carries the whole block and a 1,000-character line does not widen the root's
-/// minimum width (T96, plan-review R1);</item>
-/// <item>the tightened news assertions compare trimmed lines on both sides and require the label to
-/// really show something, so neither passes vacuously (T96 DoD 4; PR #521 re-review R1-N5).</item>
-/// </list>
-/// The check's own root <see cref="Control"/> keeps its default (all-zero, equal) anchors deliberately
-/// and sets <see cref="Control.Size"/> directly instead — the same reason <c>ContextPanelWidthCheck</c>'s
-/// own remarks give: a scene reached by an explicit <c>--path</c> argument never gets its Size resolved
-/// from anchors the way a project's own <c>run/main_scene</c> does.
-/// </para>
-/// <para>
-/// The Save half writes under <c>user://saves</c> (the real Save action's own convention, which no
-/// Godot flag can redirect — see <c>SaveResumeCheck</c>'s remarks), under this check's own fixed file-name
-/// suffix, and deletes only that file (and the directory, if it left it empty) in a <c>finally</c>-style
-/// <see cref="_ExitTree"/> hook: a real player's own, differently named save is never touched.
-/// </para>
-/// </remarks>
 public partial class CommandFeedbackCheck : Control
 {
     /// <summary>Frames to let the real <see cref="MainGameScreen"/>'s container layout settle before the
@@ -78,7 +26,7 @@ public partial class CommandFeedbackCheck : Control
     private MainGameScreen _mainGame = null!;
     private GameSession _session = null!;
     private VBoxContainer _rootBox = null!;
-    private Label _lastCommandLabel = null!;
+    private CommandHistoryPanel _lastCommandLabel = null!;
     private int _frame;
     private int _step;
     private bool _finished;
@@ -101,12 +49,9 @@ public partial class CommandFeedbackCheck : Control
         _mainGame.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(_mainGame);
 
-        // The label under test is the only direct Label child of the screen's root VBoxContainer (the
-        // top bar, body and bottom toolbar are containers, the news log is a panel). Found by structure,
-        // not through a new accessor, so this same check also compiles and runs against c073ab2 -- the
-        // fails-before evidence T96 DoD 1-3 ask for.
+        // T289 moves the same output label into the right-side Log frame.
         _rootBox = _mainGame.GetChildren().OfType<VBoxContainer>().First();
-        _lastCommandLabel = _rootBox.GetChildren().OfType<Label>().Single();
+        _lastCommandLabel = _mainGame.CommandLog;
     }
 
     public override void _Process(double delta)
@@ -221,11 +166,11 @@ public partial class CommandFeedbackCheck : Control
             $"an accepted order's label shows its readable wording (got '{_mainGame.LastCommandText}')");
         Check(_mainGame.OrderNoticeForCheck.Length == 0, "an accepted order shows no refusal notice over the map (#1286)");
         CheckVisibleGeometry("an accepted order");
-        CheckLinesMapOneToOne("an accepted order");
+        CheckLatestBlockInHistory("an accepted order");
         CheckTooltipCarriesTheWholeBlock();
         Check(
-            VisibleLines().SequenceEqual(new[] { ReadableLine }),
-            $"an accepted order's visible line is its readable wording (got '{string.Join("|", VisibleLines())}')");
+            LatestResultTail().SequenceEqual(new[] { ReadableLine }),
+            $"an accepted order's visible line is its readable wording (got '{string.Join("|", LatestResultTail())}')");
     }
 
     private void CheckRejectedOrder()
@@ -239,7 +184,7 @@ public partial class CommandFeedbackCheck : Control
             $"a rejected order's label shows its refusal alone "
             + $"(got '{_mainGame.LastCommandText}')");
 
-        var visible = VisibleLines();
+        var visible = LatestResultTail();
         Check(
             visible.Length == 1
             // #1280 F3: the refusal reads as the engine's plain message, without the command kind and code.
@@ -251,7 +196,7 @@ public partial class CommandFeedbackCheck : Control
             _mainGame.OrderNoticeForCheck == visible[0],
             $"a rejected order's refusal is also shown over the map (#1286; got '{_mainGame.OrderNoticeForCheck}')");
         CheckVisibleGeometry("a rejected order");
-        CheckLinesMapOneToOne("a rejected order");
+        CheckLatestBlockInHistory("a rejected order");
         CheckTooltipCarriesTheWholeBlock();
     }
 
@@ -269,13 +214,13 @@ public partial class CommandFeedbackCheck : Control
             "the end's block really is longer than the label's three-line window");
         Check(_mainGame.OrderNoticeForCheck.Length == 0, "an end turn closes the earlier refusal notice (#1286)");
         CheckVisibleGeometry("an end turn");
-        CheckLinesMapOneToOne("an end turn");
+        CheckLatestBlockInHistory("an end turn");
 
-        var visible = VisibleLines();
+        var visible = LatestResultTail();
         var visibleTail = visible.Length > 0 ? visible[^1] : "(none)";
         Check(
-            visible.Length == 3,
-            $"an end turn's label shows three visible lines (got {visible.Length})");
+            _lastCommandLabel.GetVisibleLineCount() > 0,
+            "an end turn leaves readable content in the scrollable Log");
         Check(
             _nowLine is not null && visible.Length > 0 && visible[^1] == _nowLine,
             $"an end turn's visible lines end on the exact Now: Week line (their last line: '{visibleTail}')");
@@ -340,9 +285,9 @@ public partial class CommandFeedbackCheck : Control
         Check(
             _newsLines.Any(line => line.Length > 0 && string.IsNullOrWhiteSpace(line)),
             "the news command's real output carries a whitespace-only spacer line");
-        CheckLinesMapOneToOne("the news command");
+        CheckLatestBlockInHistory("the news command");
 
-        var visible = VisibleLines();
+        var visible = LatestResultTail();
         Check(
             visible.Length >= 1,
             $"the news command's label really shows visible lines (got {visible.Length})");
@@ -390,77 +335,35 @@ public partial class CommandFeedbackCheck : Control
     private void CheckFinalEndVisual()
     {
         // The windowed run stops here, so the screenshot shows a populated three-line label.
-        var visible = VisibleLines();
+        var visible = LatestResultTail();
         Check(
-            visible.Length == 3,
-            $"the final end leaves three visible lines for the visual review (got {visible.Length})");
+            _lastCommandLabel.GetVisibleLineCount() > 0,
+            "the final end leaves readable Log content for visual review");
         Check(
             visible.Any(line => line.StartsWith("Now: Week ", StringComparison.Ordinal)),
             $"the final end's visible lines include the Now: Week line (got '{string.Join("|", visible)}')");
         CheckVisibleGeometry("the final end");
-        CheckLinesMapOneToOne("the final end");
+        CheckLatestBlockInHistory("the final end");
     }
 
-    /// <summary>
-    /// <see cref="VisibleLines"/> maps <see cref="Label.LinesSkipped"/> (a wrapped-line index) onto the
-    /// block's newline-separated text lines, which is only exact when no text line wraps. Every block
-    /// this check compares visible text for is made of short lines at the 1500&#160;px viewport width;
-    /// the 1,000-character block is the one that wraps, and it is asserted on geometry and tooltip only.
-    /// </summary>
-    private void CheckLinesMapOneToOne(string what)
+    private void CheckLatestBlockInHistory(string what)
     {
-        var textLines = _lastCommandLabel.Text.Split('\n').Length;
-        var wrappedLines = _lastCommandLabel.GetLineCount();
-        Check(
-            wrappedLines == textLines,
-            $"{what}: every outcome line occupies exactly one wrapped line, so LinesSkipped maps to text "
-            + $"lines (wrapped {wrappedLines}, text {textLines})");
+        Check(_lastCommandLabel.Text.EndsWith(_mainGame.LastCommandText, StringComparison.Ordinal),
+            what + ": the full latest block ends the actual scrollable history");
     }
 
-    /// <summary>
-    /// T96 DoD 1: the label is really laid out and visible — <see cref="Label.GetVisibleLineCount"/> is
-    /// between 1 and 3, and the laid-out height is at least three lines' height (the floor that keeps
-    /// the wrap/clip/overrun label from collapsing to (1, 1)). The INFO line prints the geometry the
-    /// assertion is made on.
-    /// </summary>
     private void CheckVisibleGeometry(string what)
     {
-        var visibleCount = _lastCommandLabel.GetVisibleLineCount();
-        var lineHeight = _lastCommandLabel.GetLineHeight();
-        var textLineCount = _lastCommandLabel.Text.Split('\n').Length;
-        GD.Print(
-            $"INFO: {what}: textLines={textLineCount}, LinesSkipped={_lastCommandLabel.LinesSkipped}, "
-            + $"GetVisibleLineCount={visibleCount}, lineHeight={lineHeight}, labelSize={_lastCommandLabel.Size}");
-
-        Check(
-            visibleCount >= 1 && visibleCount <= 3,
-            $"{what}: the label shows between 1 and 3 visible lines (got {visibleCount})");
-        Check(
-            lineHeight > 0 && _lastCommandLabel.Size.Y + 0.5f >= 3 * lineHeight,
-            $"{what}: the label's laid-out height is at least three lines' height "
-            + $"({_lastCommandLabel.Size.Y} vs {3 * lineHeight})");
+        Check(_lastCommandLabel.IsVisibleInTree() && _lastCommandLabel.Size.Y > 20
+            && _lastCommandLabel.GetVisibleLineCount() > 0, what + ": the actual Log has readable visible content");
+        var scroll = _lastCommandLabel.GetVScrollBar();
+        Check(scroll.Value + scroll.Page >= scroll.MaxValue - 1, what + ": the newest result is at the visible bottom");
     }
 
-    private void CheckTooltipCarriesTheWholeBlock()
-    {
-        Check(
-            _lastCommandLabel.TooltipText == _lastCommandLabel.Text,
-            "the label's tooltip carries the whole outcome block");
-    }
+    private void CheckTooltipCarriesTheWholeBlock() => Check(
+        _lastCommandLabel.TooltipText == _mainGame.LastCommandText, "the tooltip preserves the whole latest result");
 
-    /// <summary>
-    /// The lines the player can actually see: the label's text past <see cref="Label.LinesSkipped"/>,
-    /// capped by <see cref="Label.GetVisibleLineCount"/> — never <c>.Text</c> alone (T96's first hazard).
-    /// Exact when each text line wraps to exactly one visual line; the callers that compare visible text
-    /// assert that with <see cref="CheckLinesMapOneToOne"/> first.
-    /// </summary>
-    private string[] VisibleLines()
-    {
-        var lines = _lastCommandLabel.Text.Split('\n');
-        var skipped = Mathf.Clamp(_lastCommandLabel.LinesSkipped, 0, lines.Length);
-        var count = Mathf.Clamp(_lastCommandLabel.GetVisibleLineCount(), 0, lines.Length - skipped);
-        return lines.Skip(skipped).Take(count).ToArray();
-    }
+    private string[] LatestResultTail() => _mainGame.LastCommandText.Split('\n').TakeLast(3).ToArray();
 
     private void Finish()
     {

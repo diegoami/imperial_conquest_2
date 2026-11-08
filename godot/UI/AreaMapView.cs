@@ -195,8 +195,8 @@ public partial class AreaMapView : Control
     public Control BuildStrip()
     {
         var grid = new GridContainer { Columns = StripColumns, SizeFlagsHorizontal = SizeFlags.ShrinkCenter };
-        grid.AddThemeConstantOverride("h_separation", AppTheme.DialogGap);
-        grid.AddThemeConstantOverride("v_separation", AppTheme.TableRowGap);
+        grid.AddThemeConstantOverride("h_separation", 2);
+        grid.AddThemeConstantOverride("v_separation", 2);
 
         foreach (var id in StripOrder)
         {
@@ -383,6 +383,7 @@ public partial class AreaMapView : Control
             button.Text = row.Caption;
         }
 
+        if (button.Icon is not null) CompactToolbar.Apply(button);
         var commandId = row.Id;
         button.Pressed += () => Table.TryInvoke(commandId);
         return button;

@@ -1,4 +1,5 @@
 using Godot;
+using IC2.Engine.Serialization;
 
 namespace IC2.Slice.UI;
 
@@ -37,6 +38,9 @@ public partial class RulesetChooserScreen : Control
     private readonly List<(RulesetCard Card, Button Button)> _cards = new();
     private ScrollContainer _listScroll = null!;
     private VBoxContainer _description = null!;
+    private CampaignGuideCatalog _guides = null!;
+    private ScrollContainer _descriptionScroll = null!;
+    public ScrollContainer DescriptionScroll => _descriptionScroll;
     public ScrollContainer ScenarioListScroll => _listScroll;
     public Button ContinueButton => _continueButton;
 
@@ -44,6 +48,7 @@ public partial class RulesetChooserScreen : Control
 
     public override void _Ready()
     {
+        _guides = CampaignGuideCatalog.Load(GameDataContext.Repository);
         UiKit.ApplyBackground(this, UiKit.Background);
 
         var root = new VBoxContainer();
@@ -91,7 +96,8 @@ public partial class RulesetChooserScreen : Control
 
         var descriptionPanel = new PanelContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         body.AddChild(descriptionPanel);
-        var descriptionScroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        var descriptionScroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FollowFocus = true };
+        _descriptionScroll = descriptionScroll;
         var descriptionMargin = new MarginContainer();
         foreach (var edge in new[] { "left", "right", "top", "bottom" })
             descriptionMargin.AddThemeConstantOverride("margin_" + edge, AppTheme.PanelMarginSide);
@@ -229,6 +235,7 @@ public partial class RulesetChooserScreen : Control
         var title = UiKit.MakeLabel(SelectedCard.DisplayName, AppTheme.Header, UiKit.AccentColor);
         title.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _description.AddChild(title);
+        if (_guides.ForScenario(SelectedCard.ScenarioId) is { } guide) AddGuide(guide);
         for (var i = 0; i < SelectedCard.PlayerSummary.Count; i++)
         {
             var label = UiKit.MakeLabel("• " + SelectedCard.PlayerSummary[i], AppTheme.Body, UiKit.TextColor);
@@ -236,6 +243,46 @@ public partial class RulesetChooserScreen : Control
             label.TooltipText = i < SelectedCard.Summary.Count ? SelectedCard.Summary[i] : string.Empty;
             _description.AddChild(label);
         }
+        _descriptionScroll.ScrollVertical = 0;
+    }
+
+    private void AddGuide(CampaignGuide guide)
+    {
+        void Paragraph(string text, int size = 0, Color? color = null)
+        {
+            var label = UiKit.MakeLabel(text, size, color);
+            label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            _description.AddChild(label);
+        }
+        Paragraph((guide.Kind == "historical" ? "Historical background — " : "Geography — ") + guide.Period, AppTheme.Header, UiKit.AccentColor);
+        Paragraph(guide.Background);
+        Paragraph(guide.Abstractions, AppTheme.Note, UiKit.MutedTextColor);
+        Paragraph("Choosing a power", AppTheme.Header, UiKit.AccentColor);
+        Paragraph(guide.Validation, AppTheme.Note, UiKit.MutedTextColor);
+        var resolved = GameDataContext.Repository.Resolve(SelectedCard.ScenarioId);
+        foreach (var power in guide.Powers.OrderByDescending(p => p.Suggested))
+        {
+            var name = resolved.World.NationById(power.NationId)!.Name;
+            Paragraph($"{(power.Suggested ? "Suggested: " : string.Empty)}{name} · {power.Focus}", AppTheme.Body, UiKit.AccentColor);
+            var cities = resolved.World.Cities.Count(c => c.Owner == power.NationId);
+            var armies = resolved.World.StartingArmies.Count(a => a.Nation == power.NationId);
+            var fleets = resolved.World.StartingFleets.Count(f => f.Nation == power.NationId);
+            Paragraph($"Opening: {cities} {(cities == 1 ? "city" : "cities")} · {armies} {(armies == 1 ? "army" : "armies")} · {fleets} {(fleets == 1 ? "fleet" : "fleets")}", AppTheme.Note, UiKit.MutedTextColor);
+            Paragraph(power.Advice);
+        }
+        if (guide.Sources.Length > 0)
+        {
+            Paragraph("Historical sources", AppTheme.Header, UiKit.AccentColor);
+            foreach (var source in guide.Sources)
+            {
+                var link = UiKit.MakeButton(source.Title, () => OS.ShellOpen(source.Url), AppTheme.Note);
+                link.ClipText = true;
+                link.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+                UiKit.SetHint(link, source.Title + "\n" + source.Url, true);
+                _description.AddChild(link);
+            }
+        }
+        Paragraph("Campaign rules", AppTheme.Header, UiKit.AccentColor);
     }
 
     private void OnContinuePressed() => ConfirmSelection();
