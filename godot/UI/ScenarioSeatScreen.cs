@@ -38,6 +38,9 @@ public partial class ScenarioSeatScreen : Control
     private HSlider _aggressionSlider = null!;
     private HSlider _expansionSlider = null!;
     private HSlider _loyaltySlider = null!;
+    private GridContainer _body = null!;
+    private VBoxContainer _roster = null!;
+    private PanelContainer _setup = null!;
     public CheckBox ObserverChoice { get; private set; } = null!;
 
     public override void _Ready()
@@ -68,32 +71,61 @@ public partial class ScenarioSeatScreen : Control
         backButton.CustomMinimumSize = new Vector2(90, 34);
         header.AddChild(backButton);
 
-        header.AddChild(UiKit.MakeLabel(
-            $"New Game — {Selection.SelectedCard.DisplayName}", AppTheme.Header, UiKit.AccentColor));
+        var title = UiKit.MakeLabel($"New Game — {Selection.SelectedCard.DisplayName}", AppTheme.Header, UiKit.AccentColor);
+        title.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        title.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        header.AddChild(title);
         column.AddChild(UiKit.MakeLabel($"Scenario: {resolved.Scenario.Name}", AppTheme.Body, UiKit.MutedTextColor));
         column.AddChild(UiKit.MakeLabel($"World: {resolved.World.Id} · {_seatOptions.Count} nations", AppTheme.Body, UiKit.MutedTextColor));
 
         column.AddChild(new HSeparator());
         // #719: the original's "Human and computer leaders" form: a Human tick and an editable leader's name per
         // nation; computer nations' names are greyed. Two or more humans play hotseat.
-        column.AddChild(UiKit.MakeLabel("Players:", AppTheme.Header, UiKit.TextColor));
+        _body = new GridContainer { Columns = 2, SizeFlagsVertical = SizeFlags.ExpandFill };
+        _body.AddThemeConstantOverride("h_separation", AppTheme.PanelGap);
+        _body.AddThemeConstantOverride("v_separation", AppTheme.DialogGap);
+        column.AddChild(_body);
+        _roster = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
+        _body.AddChild(_roster);
+        _roster.AddChild(UiKit.MakeLabel("Players", AppTheme.Header, UiKit.TextColor));
         _playersLine = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.MutedTextColor);
-        column.AddChild(_playersLine);
+        _playersLine.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _roster.AddChild(_playersLine);
+        _setup = UiKit.MakePanel(UiKit.PanelColor);
+        _setup.Name = "SetupPanel";
+        _setup.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _setup.SizeFlagsVertical = SizeFlags.ExpandFill;
+        _setup.SizeFlagsStretchRatio = 0.65f;
+        _body.AddChild(_setup);
+        var actions = new VBoxContainer();
+        actions.AddThemeConstantOverride("separation", AppTheme.DialogGap);
+        _setup.AddChild(actions);
+        _startButton = UiKit.MakeButton("Start Game", OnStartPressed, AppTheme.Header);
+        _startButton.Name = "StartGame";
+        _startButton.CustomMinimumSize = new Vector2(0, 48);
+        _startButton.AddThemeColorOverride("font_color", UiKit.AccentColor);
+        actions.AddChild(_startButton);
+        var settingsScroll = new ScrollContainer { Name = "SettingsScroll", SizeFlagsVertical = SizeFlags.ExpandFill,
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        actions.AddChild(settingsScroll);
+        var settings = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        settings.AddThemeConstantOverride("separation", AppTheme.DialogGap);
+        settingsScroll.AddChild(settings);
         ObserverChoice = new CheckBox { Name = "ObserverMode", Text = "Observer mode (experimental)",
             ButtonPressed = Selection.ObserverMode,
             TooltipText = "Watch all nations played by the computer. Automatic battles; starts paused." };
         ObserverChoice.Toggled += _ => RefreshPlayers();
-        column.AddChild(ObserverChoice);
+        settings.AddChild(ObserverChoice);
 
         var scroll = new ScrollContainer
         {
-            CustomMinimumSize = new Vector2(0, 420),
+            Name = "PlayerScroll",
             SizeFlagsVertical = SizeFlags.ExpandFill,
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
         };
-        column.AddChild(scroll);
-        var grid = new GridContainer { Columns = 3 };
-        grid.AddThemeConstantOverride("h_separation", AppTheme.DialogGap * 2);
+        _roster.AddChild(scroll);
+        var grid = new GridContainer { Columns = 3, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        grid.AddThemeConstantOverride("h_separation", AppTheme.DialogGap);
         grid.AddThemeConstantOverride("v_separation", 4);
         scroll.AddChild(grid);
         foreach (var heading in new[] { "Nation", "Human", "Leader's name" })
@@ -111,7 +143,9 @@ public partial class ScenarioSeatScreen : Control
         {
             var nationId = option.NationId;
             var name = UiKit.MakeLabel(option.DisplayName, AppTheme.Body, UiKit.TextColor);
-            name.CustomMinimumSize = new Vector2(200, 0);
+            name.CustomMinimumSize = new Vector2(90, 0);
+            name.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            name.AutowrapMode = TextServer.AutowrapMode.WordSmart;
             grid.AddChild(name);
 
             var human = new CheckBox { Name = $"Human_{nationId}", ButtonPressed = humansAtStart.Contains(nationId) };
@@ -132,25 +166,34 @@ public partial class ScenarioSeatScreen : Control
                 Text = _drawnNames[nationId],
                 PlaceholderText = _drawnNames[nationId],
                 MaxLength = NewGameSelection.MaxLeaderNameLength,
-                CustomMinimumSize = new Vector2(260, 0),
+                CustomMinimumSize = new Vector2(120, 0),
+                SizeFlagsHorizontal = SizeFlags.ExpandFill,
             };
             grid.AddChild(leader);
             _leaderEdits[nationId] = leader;
         }
 
-        column.AddChild(new HSeparator());
-        column.AddChild(UiKit.MakeLabel(
-            "AI personality (applies to every computer nation):", AppTheme.Header, UiKit.TextColor));
-
-        _aggressionSlider = AddPersonalitySlider(column, "Aggression");
-        _expansionSlider = AddPersonalitySlider(column, "Expansion drive");
-        _loyaltySlider = AddPersonalitySlider(column, "Loyalty to alliances");
-
-        column.AddChild(new Control { CustomMinimumSize = new Vector2(0, 12) });
-        _startButton = UiKit.MakeButton("Start Game", OnStartPressed, AppTheme.Button);
-        _startButton.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
-        column.AddChild(_startButton);
+        settings.AddChild(new HSeparator());
+        var personalityTitle = UiKit.MakeLabel("AI personality", AppTheme.Header, UiKit.TextColor);
+        settings.AddChild(personalityTitle);
+        var explanation = UiKit.MakeLabel("Applies to every computer nation.", AppTheme.Body, UiKit.MutedTextColor);
+        explanation.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        settings.AddChild(explanation);
+        _aggressionSlider = AddPersonalitySlider(settings, "Aggression");
+        _expansionSlider = AddPersonalitySlider(settings, "Expansion drive");
+        _loyaltySlider = AddPersonalitySlider(settings, "Loyalty to alliances");
+        Resized += UpdateLayout;
+        UpdateLayout();
         RefreshPlayers();
+    }
+
+    private void UpdateLayout()
+    {
+        // Stack the action area first when two readable columns no longer fit.
+        var narrow = Size.X < 950;
+        _body.Columns = narrow ? 1 : 2;
+        _setup.CustomMinimumSize = new Vector2(narrow ? 0 : 330, 0);
+        _body.MoveChild(narrow ? _setup : _roster, 0);
     }
 
     /// <summary>#719: the nations ticked Human, in seat order.</summary>
@@ -191,12 +234,11 @@ public partial class ScenarioSeatScreen : Control
 
     private HSlider AddPersonalitySlider(VBoxContainer column, string label)
     {
-        var row = new HBoxContainer();
+        var row = new VBoxContainer();
         row.AddThemeConstantOverride("separation", AppTheme.DialogGap);
         column.AddChild(row);
 
         var caption = UiKit.MakeLabel(label, AppTheme.Body, UiKit.MutedTextColor);
-        caption.CustomMinimumSize = new Vector2(180, 0);
         row.AddChild(caption);
 
         var slider = new HSlider
@@ -205,7 +247,8 @@ public partial class ScenarioSeatScreen : Control
             MaxValue = 1.0,
             Step = 0.05,
             Value = 0.5,
-            CustomMinimumSize = new Vector2(220, 0),
+            Name = label.Replace(" ", ""),
+            CustomMinimumSize = new Vector2(0, 24),
         };
         row.AddChild(slider);
         return slider;
