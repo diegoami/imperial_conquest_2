@@ -33,8 +33,8 @@ YouTube video first only**, on lynxsupercluster in a separate Open Imperial Conq
 Pages uses excerpts linked to that full campaign and to the repository/releases. No recurring
 uploads before pilot review. Keep ai-player's GeoClick queues and uploader records untouched.
 The recording guide and `artifacts/observer/v0.11/full-campaign-verification.json` locate the
-verified full MP4 and private archive. **The owner uploads the master by hand** (the browser tools cap uploads at 10 MB; the master is ~4 GB), then gives
-the video ID; the session writes the receipt and publishes Pages. Read the PR's remaining acceptance;
+verified full MP4 and private archive. The pilot **is uploaded** (receipt `artifacts/observer/v0.11/youtube-receipt.json`); remaining: public excerpt
+media and Pages (`docs/observer-recordings.md`, owner go-ahead for the public release). Read the PR's remaining acceptance;
 never create a second upload to resolve an uncertain upload identity.
 
 ## Token economy
