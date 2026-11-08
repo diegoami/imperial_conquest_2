@@ -249,11 +249,11 @@ public partial class SupplyArmyCheck : Control
 
     private void CheckOrdinaryFeedbackAfterSupply()
     {
-        var label = (Label)_mainGame.FindChild("LastCommandResult", true, false);
+        var label = _mainGame.CommandLog;
         Check(label.Visible && label.GetVisibleLineCount() > 0,
             "ordinary feedback becomes readable after the resource strip was collapsed");
-        Check(label.LinesSkipped <= Math.Max(0, label.GetLineCount() - 1),
-            "post-layout feedback offset does not skip every line");
+        Check(label.Text.EndsWith(_mainGame.LastCommandText, StringComparison.Ordinal),
+            "the latest ordinary result ends the scrollable history");
     }
 
     private void CloseFirstDialog()
