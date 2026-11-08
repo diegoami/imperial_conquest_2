@@ -82,7 +82,7 @@ public partial class HumanTurnNewsCheck : Node
         await Settle();
         Latest(main);
         Check(session.State == before && events == 0, "initial presentation changes no state/RNG and publishes no command events");
-        main.NewsLog.FindChildren("*", "Button", true, false).OfType<Button>().Single(b => b.Text == "Dismiss")
+        ((Button)main.Panels.Frame("News").FindChild("NewsClose", true, false))
             .EmitSignal(Button.SignalName.Pressed);
         main.SubmitForCheck("status");
         Check(!main.NewsLog.Visible, "ordinary commands respect dismissal within the current turn");

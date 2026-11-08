@@ -14,6 +14,7 @@ namespace IC2.Slice.UI;
 public partial class NewsLogPanel : Control
 {
     public required GameSession Session { get; init; }
+    public bool ShowHeader { get; init; } = true;
 
     public bool DismissedByPlayer { get; private set; }
 
@@ -33,11 +34,14 @@ public partial class NewsLogPanel : Control
         column.AddThemeConstantOverride("separation", AppTheme.PanelGap);
         panel.AddChild(column);
 
-        var header = new HBoxContainer();
-        header.AddThemeConstantOverride("separation", AppTheme.PanelGap);
-        column.AddChild(header);
-        header.AddChild(UiKit.MakeLabel("News", AppTheme.Header, UiKit.AccentColor));
-        header.AddChild(UiKit.MakeButton("Dismiss", Dismiss, AppTheme.Button));
+        if (ShowHeader)
+        {
+            var header = new HBoxContainer();
+            header.AddThemeConstantOverride("separation", AppTheme.PanelGap);
+            column.AddChild(header);
+            header.AddChild(UiKit.MakeLabel("News", AppTheme.Header, UiKit.AccentColor));
+            header.AddChild(UiKit.MakeButton("Dismiss", Dismiss, AppTheme.Button));
+        }
 
         _text = new RichTextLabel
         {

@@ -251,6 +251,7 @@ public partial class MainGameScreen : Control
     private NewsLogPanel _newsLog = null!;
     private bool _latestNewsPending;
     private Label _lastCommandLabel = null!;
+    public StrategicPanels Panels { get; private set; } = null!;
 
     // #1286: a refused order's message over the map; dialogs show their own reply instead.
     private readonly OrderNotice _orderNotice = new();
@@ -426,9 +427,16 @@ public partial class MainGameScreen : Control
         _sidePanelButton.Pressed += ToggleSidePanel;
         body.AddChild(_sidePanelButton);
 
-        var sideColumn = new VBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
+        var sideColumn = new StrategicPanels { SizeFlagsVertical = SizeFlags.ExpandFill,
+            CustomMinimumSize = new Vector2(340, 0) };
+        Panels = sideColumn;
         _sideColumn = sideColumn;
         body.AddChild(sideColumn);
+        // Kept outside the hideable column so every panel can always be reopened.
+        root.AddChild(sideColumn.Toggles);
+        root.MoveChild(sideColumn.Toggles, root.GetChildren().IndexOf(body));
+        sideColumn.Changed += ApplySidePanelState;
+        sideColumn.OpenRequested += () => _sidePanelToggle.Set(true);
         ApplySidePanelState();
 
         // T132 (R3): every live screen follows the shared state; _ExitTree unsubscribes.
@@ -441,8 +449,10 @@ public partial class MainGameScreen : Control
             AssetLoader = assetLoader,
             SizeFlagsHorizontal = SizeFlags.ShrinkCenter,
         };
-        sideColumn.AddChild(_areaMapView.BuildStrip());
-        sideColumn.AddChild(_areaMapView);
+        var overview = new VBoxContainer();
+        overview.AddChild(_areaMapView.BuildStrip());
+        overview.AddChild(_areaMapView);
+        sideColumn.AddPanel("Overview", "Overview map", overview, 2f, scroll: true);
 
         _contextPanel = new ContextPanel
         {
@@ -452,19 +462,19 @@ public partial class MainGameScreen : Control
             CustomMinimumSize = new Vector2(340, 0),
             SizeFlagsVertical = SizeFlags.ExpandFill,
         };
-        sideColumn.AddChild(_contextPanel);
+        sideColumn.AddPanel("Object", "Selected object", _contextPanel, 1.6f);
 
         // Fix #484 (review N1): a command's whole own outcome can carry a long rejection reason or a
         // Save path. Wrapping at word boundaries, a three-line ceiling with an ellipsis, and the full
         // text in the tooltip keep a long result from widening this full-rect root or pushing the
         // context panel off-screen.
         _lastCommandLabel = UiKit.MakeLabel(string.Empty, AppTheme.Note, UiKit.TextColor);
+        _lastCommandLabel.Name = "LastCommandResult";
         _lastCommandLabel.Visible = false;
         _lastCommandLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _lastCommandLabel.MaxLinesVisible = LastCommandVisibleLineCount;
         _lastCommandLabel.ClipText = true;
         _lastCommandLabel.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
-        root.AddChild(_lastCommandLabel);
 
         // T96 (R1-B1): the wrap/clip/overrun combination above reports a (1, 1) minimum size, so the
         // root VBox used to lay the label out 1 px tall with zero visible lines -- #484's own symptom.
@@ -486,8 +496,14 @@ public partial class MainGameScreen : Control
         // label's width (which is what decides how many lines the text wraps to).
         _lastCommandLabel.Resized += ScheduleLastCommandLinesSkipped;
 
-        _newsLog = new NewsLogPanel { Session = Session, CustomMinimumSize = new Vector2(0, 200) };
-        root.AddChild(_newsLog);
+        _newsLog = new NewsLogPanel { Session = Session, ShowHeader = false };
+        sideColumn.AddPanel("News", "News", _newsLog, 1.2f, change: open =>
+        {
+            if (open) _newsLog.ShowLatest(); else _newsLog.Dismiss();
+        });
+        _newsLog.VisibilityChanged += () => sideColumn.Synchronize("News", _newsLog.Visible);
+        sideColumn.Synchronize("News", _newsLog.Visible);
+        sideColumn.AddPanel("Log", "Log", _lastCommandLabel, 0.7f, scroll: true);
 
         _mapView.CitySelected += id =>
         {
@@ -3203,9 +3219,11 @@ public partial class MainGameScreen : Control
 
     private void ApplySidePanelState()
     {
-        _sideColumn.Visible = _sidePanelToggle.IsShown;
-        _sidePanelButton.Text = _sidePanelToggle.Caption;
-        _sidePanelButton.TooltipText = _sidePanelToggle.Tooltip;
+        _sideColumn.Visible = _sidePanelToggle.IsShown && (Panels?.AnyOpen ?? true);
+        _sidePanelButton.Text = _sideColumn.Visible ? SidePanelToggle.HideCaption : SidePanelToggle.ShowCaption;
+        _sidePanelButton.TooltipText = Panels is { AnyOpen: false }
+            ? "Choose a panel from the toggle strip above the map."
+            : _sidePanelToggle.Tooltip;
     }
 
     /// <summary>
@@ -3234,6 +3252,7 @@ public partial class MainGameScreen : Control
     {
         var lineCount = _lastCommandLabel.GetLineCount();
         _lastCommandLabel.LinesSkipped = Mathf.Max(0, lineCount - LastCommandVisibleLineCount);
+        if (_lastCommandLabel.GetParent() is ScrollContainer scroll) scroll.ScrollVertical = int.MaxValue;
     }
 
     private void ShowNextOverlay()

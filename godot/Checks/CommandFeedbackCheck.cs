@@ -101,12 +101,9 @@ public partial class CommandFeedbackCheck : Control
         _mainGame.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(_mainGame);
 
-        // The label under test is the only direct Label child of the screen's root VBoxContainer (the
-        // top bar, body and bottom toolbar are containers, the news log is a panel). Found by structure,
-        // not through a new accessor, so this same check also compiles and runs against c073ab2 -- the
-        // fails-before evidence T96 DoD 1-3 ask for.
+        // T289 moves the same output label into the right-side Log frame.
         _rootBox = _mainGame.GetChildren().OfType<VBoxContainer>().First();
-        _lastCommandLabel = _rootBox.GetChildren().OfType<Label>().Single();
+        _lastCommandLabel = (Label)_mainGame.FindChild("LastCommandResult", true, false);
     }
 
     public override void _Process(double delta)
@@ -274,8 +271,8 @@ public partial class CommandFeedbackCheck : Control
         var visible = VisibleLines();
         var visibleTail = visible.Length > 0 ? visible[^1] : "(none)";
         Check(
-            visible.Length == 3,
-            $"an end turn's label shows three visible lines (got {visible.Length})");
+            _lastCommandLabel.GetVisibleLineCount() == 3,
+            "an end turn's label shows three actual wrapped lines");
         Check(
             _nowLine is not null && visible.Length > 0 && visible[^1] == _nowLine,
             $"an end turn's visible lines end on the exact Now: Week line (their last line: '{visibleTail}')");
@@ -392,8 +389,8 @@ public partial class CommandFeedbackCheck : Control
         // The windowed run stops here, so the screenshot shows a populated three-line label.
         var visible = VisibleLines();
         Check(
-            visible.Length == 3,
-            $"the final end leaves three visible lines for the visual review (got {visible.Length})");
+            _lastCommandLabel.GetVisibleLineCount() == 3,
+            "the final end leaves three actual wrapped lines for visual review");
         Check(
             visible.Any(line => line.StartsWith("Now: Week ", StringComparison.Ordinal)),
             $"the final end's visible lines include the Now: Week line (got '{string.Join("|", visible)}')");
@@ -402,19 +399,16 @@ public partial class CommandFeedbackCheck : Control
     }
 
     /// <summary>
-    /// <see cref="VisibleLines"/> maps <see cref="Label.LinesSkipped"/> (a wrapped-line index) onto the
-    /// block's newline-separated text lines, which is only exact when no text line wraps. Every block
-    /// this check compares visible text for is made of short lines at the 1500&#160;px viewport width;
-    /// the 1,000-character block is the one that wraps, and it is asserted on geometry and tooltip only.
+    /// Check the actual wrapped-line offset; the narrow Log can wrap even short source paragraphs.
     /// </summary>
     private void CheckLinesMapOneToOne(string what)
     {
         var textLines = _lastCommandLabel.Text.Split('\n').Length;
         var wrappedLines = _lastCommandLabel.GetLineCount();
         Check(
-            wrappedLines == textLines,
-            $"{what}: every outcome line occupies exactly one wrapped line, so LinesSkipped maps to text "
-            + $"lines (wrapped {wrappedLines}, text {textLines})");
+            _lastCommandLabel.LinesSkipped == Math.Max(0, wrappedLines - 3),
+            $"{what}: the rendered window ends on the actual wrapped-line tail "
+            + $"(wrapped {wrappedLines}, text paragraphs {textLines})");
     }
 
     /// <summary>
@@ -449,17 +443,27 @@ public partial class CommandFeedbackCheck : Control
     }
 
     /// <summary>
-    /// The lines the player can actually see: the label's text past <see cref="Label.LinesSkipped"/>,
-    /// capped by <see cref="Label.GetVisibleLineCount"/> — never <c>.Text</c> alone (T96's first hazard).
-    /// Exact when each text line wraps to exactly one visual line; the callers that compare visible text
-    /// assert that with <see cref="CheckLinesMapOneToOne"/> first.
+    /// Source paragraphs with rendered glyphs inside the label. Wrapped-line counts are asserted
+    /// separately, rather than treating a wrapped-line index as a source paragraph index.
     /// </summary>
     private string[] VisibleLines()
     {
         var lines = _lastCommandLabel.Text.Split('\n');
-        var skipped = Mathf.Clamp(_lastCommandLabel.LinesSkipped, 0, lines.Length);
-        var count = Mathf.Clamp(_lastCommandLabel.GetVisibleLineCount(), 0, lines.Length - skipped);
-        return lines.Skip(skipped).Take(count).ToArray();
+        var visible = new List<string>();
+        var offset = 0;
+        var bounds = new Rect2(Vector2.Zero, _lastCommandLabel.Size);
+        foreach (var line in lines)
+        {
+            // Use rendered glyph positions: a source paragraph can wrap in the right-side Log.
+            var anyVisible = Enumerable.Range(offset, line.Length).Any(index =>
+            {
+                var glyph = _lastCommandLabel.GetCharacterBounds(index);
+                return glyph.HasArea() && bounds.Intersects(glyph);
+            });
+            if (anyVisible) visible.Add(line);
+            offset += line.Length + 1;
+        }
+        return visible.ToArray();
     }
 
     private void Finish()

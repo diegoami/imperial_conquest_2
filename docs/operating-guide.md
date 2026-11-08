@@ -82,6 +82,13 @@ the unsupported role rather than silently discarding it.
 
 ## Unit selection and battles
 
+The strategic screen's **Overview map**, **Selected object**, **News** and **Log** toggle strip
+shows or hides each right-side panel. Each panel also has a close button. The strip remains
+available when all panels are hidden; hiding all gives the width back to the map. F12 hides
+or shows the whole column while preserving the selected combination. Opening a panel from
+the strip reveals the column. News close retains its existing dismissal behavior. Log keeps
+the latest command result, its three-line tail and full-text tooltip; it adds no history.
+
 The top-right date begins with the campaign-wide **Turn** counter, followed by season, week and year. Turn continues across seasons and years; it advances after every nation has acted. Seasonal weeks repeat. Suggested new save names use the same turn counter; saving an existing file retains its filename.
 
 Unit lists use ordinary click for one selection, Ctrl-click to toggle additional rows, and Shift-click for a range. Blue highlighting remains visible when you move focus to an action button. In recruitment, **Recruit unit** sits beside the order cost above the training queue; **Mobilize** and **Disband** act on the selected queue rows below it.
