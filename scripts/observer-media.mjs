@@ -21,6 +21,24 @@ export function verifyFrameTimes(frames,seconds) {
   }
   return video.length;
 }
+export function verifyNativeCapture(probe,log,seconds) {
+  const stream=verifyCaptureProbe(probe);
+  // Theora represents repeated still frames with zero-byte duplicate packets;
+  // ffprobe's decoded-image count can omit these. Validate the 30 Hz granule
+  // duration plus Movie Maker's frame counter, then strictly decode the MP4s.
+  // https://www.theora.org/doc/Theora.pdf §7.11; libtheora TH_DUPFRAME.
+  if(stream.codec_name!=='theora'||Math.abs(Number(stream.duration)-seconds)>0.00002
+      || !log.includes(`${seconds*fps} frames at ${fps} FPS`))throw Error('Native capture frame budget/duration is unproved');
+  let previous=-1;
+  for(const frame of probe.frames.filter(f=>f.media_type==='video')){
+    const time=Number(frame.best_effort_timestamp_time),tick=time*fps;
+    if(!Number.isFinite(time)||time<0||time<=previous||time>=seconds||Math.abs(tick-Math.round(tick))>0.0006)
+      throw Error('Native decoded images do not lie on the captured 30 Hz timeline');
+    previous=time;
+  }
+  if(previous<0)throw Error('Native capture has no decodable images');
+  return stream;
+}
 export function sha256(file) { return createHash('sha256').update(readFileSync(file)).digest('hex'); }
 export function seedValue(value) {
   if (!/^\d+$/.test(String(value))) throw Error('Seed must be an unsigned 64-bit integer');
@@ -42,7 +60,7 @@ export function rotation(scenarios, week) {
 export function eventsFrom(log, prefix) {
   return log.split(/\r?\n/).filter(line => line.startsWith(prefix + ' ')).map(line => JSON.parse(line.slice(prefix.length + 1)));
 }
-export function verifyProbe(probe, seconds) {
+export function verifyVideoMetadata(probe, seconds) {
   const video = probe.streams.find(s => s.codec_type === 'video');
   const audio = probe.streams.find(s => s.codec_type === 'audio');
   verifyCaptureProbe(probe);
@@ -53,8 +71,10 @@ export function verifyProbe(probe, seconds) {
     throw Error('Expected stereo 48 kHz AAC game-audio track');
   if (Math.abs(Number(probe.format.duration) - seconds) > 0.15) throw Error('Recording duration does not match frame budget');
   if (Number(probe.format.size) > seconds * 2_000_000) throw Error('Recording exceeds delivery size budget');
-  verifyFrameTimes(probe.frames,seconds);
   return video;
+}
+export function verifyProbe(probe,seconds) {
+  const video=verifyVideoMetadata(probe,seconds);verifyFrameTimes(probe.frames,seconds);return video;
 }
 export function mediaUrl(name) {
   if (!/^[a-zA-Z0-9._-]+$/.test(name)) throw Error('Invalid media asset name');

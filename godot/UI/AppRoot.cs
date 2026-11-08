@@ -33,6 +33,14 @@ public partial class AppRoot : Control
             AppDiagnostics.DirectoryOverride = System.IO.Path.Combine(recording, "diagnostics");
             SettingsScreen.SettingsPath = null;
             SettingsScreen.Commit(new UserSettings { PackId = "authored", Fullscreen = false }, this);
+            // Movie framebuffer and logical UI must agree; a 1500px logical window
+            // inside a 1920px movie otherwise crops the existing wide toolbar.
+            if (DisplayServer.GetName() != "headless")
+            {
+                GetWindow().ContentScaleSize = new Vector2I(1920, 1080);
+                GetWindow().ContentScaleFactor = 1;
+                GetWindow().Size = new Vector2I(1920, 1080);
+            }
         }
         // Bug #919: the window's close button must not quit an open game unasked; the close request
         // arrives as NotificationWMCloseRequest and HandleCloseRequest decides.
@@ -53,7 +61,7 @@ public partial class AppRoot : Control
         {
             try
             {
-                if (launch.Observe) { StartObserverCampaign(launch.Loop, launch.ScenarioId, launch.Seed, launch.RecordingDirectory); return; }
+                if (launch.Observe) { StartObserverCampaign(launch.Loop, launch.ScenarioId, launch.Seed, launch.RecordingDirectory, launch.CompleteCampaign); return; }
             }
             catch (ArgumentException ex)
             {
@@ -67,7 +75,7 @@ public partial class AppRoot : Control
 
     private ulong? _lastObserverSeed;
 
-    public void StartObserverCampaign(bool loop, string? scenarioId = null, ulong? seedOverride = null, string? recordingDirectory = null)
+    public void StartObserverCampaign(bool loop, string? scenarioId = null, ulong? seedOverride = null, string? recordingDirectory = null, bool completeCampaign = false)
     {
         var seed = seedOverride ?? (ulong)Random.Shared.NextInt64();
         if (seedOverride is null && seed == _lastObserverSeed) seed++;
@@ -80,6 +88,13 @@ public partial class AppRoot : Control
             AutoStartObserver = true, StartObserverLoop = loop, ObserverRecordingDirectory = recordingDirectory,
             ObserverViewpointSeed = recordingDirectory is null ? null : unchecked((int)seed ^ (int)(seed >> 32)) };
         WireObserverRestart(screen);
+        if (completeCampaign) screen.ObserverCampaignFinished += ending => {
+            GD.Print("OBSERVER_END " + System.Text.Json.JsonSerializer.Serialize(new {
+                scenarioId=session.Scenario.Id, seed=seed.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ending, turn=session.State.Calendar.TurnIndex, yearBc=session.State.Calendar.YearBc,
+                frame=Godot.Engine.GetProcessFrames() }));
+            GetTree().Quit();
+        };
         SwapTo(screen);
         GD.Print($"Observer launch: {session.Scenario.Id}, loop={loop}, seed={seed}.");
         if (recordingDirectory is not null)

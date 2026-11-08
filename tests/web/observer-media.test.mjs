@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {seedValue,rotation,eventsFrom,verifyProbe,verifyCaptureProbe,verifyFrameTimes,mediaUrl} from '../../scripts/observer-media.mjs';
-import {validateManifest,nextClip} from '../../web/observer/playlist.mjs';
+import {seedValue,rotation,eventsFrom,verifyProbe,verifyCaptureProbe,verifyFrameTimes,verifyNativeCapture,mediaUrl} from '../../scripts/observer-media.mjs';
+import {validateManifest,nextClip,youtubeCampaignUrl} from '../../web/observer/playlist.mjs';
 
 test('64-bit recording seeds do not lose precision through JavaScript numbers',()=>{
   assert.equal(String(seedValue('18446744073709551615')),'18446744073709551615');
@@ -29,7 +29,8 @@ test('delivery inspection rejects the wrong codec, truncated capture and unreada
     const bad=probe();change(bad);assert.throws(()=>verifyProbe(bad,180));
   }
 });
-const clip=id=>({id,title:'Classical Mediterranean',scenarioId:'classical-mediterranean',seed:'18446744073709551615',sourceCommit:'a'.repeat(40),recordedAt:'2026-11-08T12:00:00Z',durationSeconds:180,excerpt:true,src:mediaUrl(id+'.mp4'),poster:mediaUrl(id+'.jpg')});
+const clip=id=>({id,title:'Classical Mediterranean',scenarioId:'classical-mediterranean',seed:'18446744073709551615',sourceCommit:'a'.repeat(40),recordedAt:'2026-11-08T12:00:00Z',durationSeconds:180,excerpt:true,src:mediaUrl(id+'.mp4'),poster:mediaUrl(id+'.jpg'),
+  fullCampaign:{completed:true,durationSeconds:3600,youtubeUrl:'https://www.youtube.com/watch?v=AbCdEf12345'}});
 const manifest=()=>({schemaVersion:1,generation:'batch-1',generatedAt:'2026-11-08T12:00:00Z',clips:[clip('a'),clip('b')]});
 test('native resolution and every decoded timestamp establish actual 1080p30',()=>{
   const source=probe();verifyCaptureProbe(source);assert.equal(verifyFrameTimes(source.frames,180),5400);
@@ -38,8 +39,21 @@ test('native resolution and every decoded timestamp establish actual 1080p30',()
   const vfr=probe();vfr.frames[2].best_effort_timestamp_time='0.09';assert.throws(()=>verifyFrameTimes(vfr.frames,180));
   assert.throws(()=>verifyFrameTimes(source.frames.slice(1),180));
 });
+test('Theora duplicate still packets do not falsely reduce logical capture rate',()=>{
+  const source=probe();source.streams[0].codec_name='theora';source.streams[0].duration='180.000000';
+  source.frames=source.frames.filter((_,i)=>i%3===0);
+  verifyNativeCapture(source,'5400 frames at 30 FPS',180);
+  assert.throws(()=>verifyNativeCapture(source,'4320 frames at 24 FPS',180));
+  source.frames[1].best_effort_timestamp_time='0.11';assert.throws(()=>verifyNativeCapture(source,'5400 frames at 30 FPS',180));
+});
 test('playlist advances, wraps, and starts a fresh generation when the prior clip disappears',()=>{
   const value=validateManifest(manifest());assert.equal(nextClip(value,'a').id,'b');assert.equal(nextClip(value,'b').id,'a');assert.equal(nextClip(value,'old-generation').id,'a');
+});
+test('a Pages excerpt requires a completed full-campaign YouTube link',()=>{
+  assert.equal(youtubeCampaignUrl('https://www.youtube.com/watch?v=AbCdEf12345'),'https://www.youtube.com/watch?v=AbCdEf12345');
+  for(const url of ['https://example.com/watch?v=AbCdEf12345','javascript:alert(1)','https://www.youtube.com/watch?v=short','https://www.youtube.com/watch?v=AbCdEf12345&token=private'])assert.throws(()=>youtubeCampaignUrl(url));
+  const missing=manifest();delete missing.clips[0].fullCampaign;assert.throws(()=>validateManifest(missing));
+  const incomplete=manifest();incomplete.clips[0].fullCampaign.completed=false;assert.throws(()=>validateManifest(incomplete));
 });
 test('a failed or unsafe manifest cannot replace a working playlist',()=>{
   const current=manifest();validateManifest(current);

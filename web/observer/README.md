@@ -1,5 +1,14 @@
 # Observer showcase
 
+The owner narrowed first publication to **one full-campaign YouTube pilot** on
+lynxsupercluster, in a separate Open Imperial Conquest playlist. Pages excerpts
+must link to that matching completed video; no invented/pending YouTube URL is
+accepted. Recurring publication is disabled until the owner reviews that pilot.
+Use `scripts/record-full-observer.mjs` to capture one actual campaign through its
+terminal boundary and prepare an unlisted upload request; it performs no upload.
+An exhausted budget is a failure, never a full-campaign claim. Full recordings
+use streamed hashing/timestamp checks rather than whole-video memory buffers.
+
 All new recordings are captured natively at **1920×1080, constant 30 fps**.
 The validator decodes the source and both MP4s, checks every timestamp and requires
 exactly 30 frames per second. The `-youtube.mp4` release asset is the separate

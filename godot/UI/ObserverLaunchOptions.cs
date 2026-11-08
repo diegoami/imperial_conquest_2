@@ -2,18 +2,20 @@ namespace IC2.Slice.UI;
 
 /// <summary>User arguments after Godot's -- separator. Ordinary startup remains menu-driven.</summary>
 public sealed record ObserverLaunchOptions(bool Observe = false, bool Loop = false,
-    string? ScenarioId = null, ulong? Seed = null, string? RecordingDirectory = null)
+    string? ScenarioId = null, ulong? Seed = null, string? RecordingDirectory = null, bool CompleteCampaign = false)
 {
     public static ObserverLaunchOptions Parse(IEnumerable<string> arguments)
     {
         var observe = false;
         var loop = false;
+        var complete = false;
         string? scenario = null, recording = null;
         ulong? seed = null;
         foreach (var argument in arguments)
         {
             if (argument == "--observe") observe = true;
             else if (argument == "--observe-loop") { observe = true; loop = true; }
+            else if (argument == "--observe-complete") complete = true;
             else if (argument.StartsWith("--observe-scenario=", StringComparison.Ordinal))
             {
                 scenario = argument["--observe-scenario=".Length..];
@@ -37,6 +39,7 @@ public sealed record ObserverLaunchOptions(bool Observe = false, bool Loop = fal
         if (!observe && (scenario is not null || seed is not null || recording is not null))
             throw new ArgumentException("Observer scenario/seed/recording options require --observe or --observe-loop.");
         if (recording is not null && !loop) throw new ArgumentException("Recording requires --observe-loop.");
-        return new(observe, loop, scenario, seed, recording);
+        if (complete && recording is null) throw new ArgumentException("--observe-complete requires an observer recording directory.");
+        return new(observe, loop, scenario, seed, recording, complete);
     }
 }

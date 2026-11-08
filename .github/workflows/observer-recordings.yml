@@ -6,8 +6,8 @@ on:
         description: 'Excerpt seconds per scenario (5–180; normal refresh 180)'
         default: '180'
         required: true
-  schedule:
-    - cron: '0 6 * * 1'
+  # Owner 2026-11-08: one YouTube pilot first. Recurring publication stays
+  # disabled until the pilot is reviewed and matching full-campaign links exist.
 permissions:
   contents: write
   pages: write

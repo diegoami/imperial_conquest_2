@@ -42,6 +42,14 @@ public sealed class ContinuousObserverTests
         Assert.Throws<ArgumentException>(() => ObserverLaunchOptions.Parse(["--observe-scenario=near-east-750bc"]));
 
     [Fact]
+    public void Complete_campaign_capture_is_explicit_and_requires_recording_mode()
+    {
+        Assert.Throws<ArgumentException>(() => ObserverLaunchOptions.Parse(["--observe-loop","--observe-complete"]));
+        var directory=Path.GetFullPath(Path.GetTempPath());
+        Assert.True(ObserverLaunchOptions.Parse(["--observe-loop","--observe-recording="+directory,"--observe-complete"]).CompleteCampaign);
+    }
+
+    [Fact]
     public void Viewpoint_survives_turns_and_changes_only_on_elimination_without_campaign_draws()
     {
         var f = TacticalSessionTestbed.Toy;

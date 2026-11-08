@@ -76,6 +76,14 @@ public partial class ObserverLoopCheck : Control
             main._Process(20);
             Check(restarts == 1, "completed campaign requests exactly one restart after resuming");
             RemoveChild(main); main.QueueFree();
+            main = new MainGameScreen { Session = new GameSession(toy.World, toy.Ruleset, scenario),
+                RepositoryRoot = GameDataContext.RepositoryRoot, AutoStartObserver = true, StartObserverLoop = true };
+            var endings = 0; var wrongRestarts = 0;
+            main.ObserverCampaignFinished += ending => { if (ending.Length > 0) endings++; };
+            main.ObserverRestartRequested += () => wrongRestarts++;
+            AddChild(main); main.SetProcess(false); main._Process(4); main._Process(4);
+            Check(endings == 1 && wrongRestarts == 0, "full-campaign capture finishes once at the real ending rather than restarting");
+            RemoveChild(main); main.QueueFree();
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
         }
         catch (Exception ex) { Check(false, ex.ToString()); }

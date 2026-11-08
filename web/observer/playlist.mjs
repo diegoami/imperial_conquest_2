@@ -1,3 +1,9 @@
+export function youtubeCampaignUrl(value) {
+  const url=new URL(value);
+  if(url.origin!=='https://www.youtube.com'||url.pathname!=='/watch'||! /^[a-zA-Z0-9_-]{11}$/.test(url.searchParams.get('v')??'')
+      ||[...url.searchParams.keys()].some(key=>key!=='v')||url.hash)throw Error('Expected a verified full-campaign YouTube watch URL.');
+  return url.href;
+}
 export function validateManifest(value) {
   if (value?.schemaVersion !== 1 || typeof value.generation !== 'string' || !Number.isFinite(Date.parse(value.generatedAt))
       || !Array.isArray(value.clips) || value.clips.length < 1 || value.clips.length > 100) throw Error('Recording playlist is unavailable or invalid.');
@@ -12,6 +18,9 @@ export function validateManifest(value) {
       if (parsed.protocol !== 'https:' || parsed.username || parsed.password) throw Error('Recording URLs must use HTTPS.');
     }
     ids.add(clip.id);
+    if(clip.fullCampaign?.completed!==true||!(clip.fullCampaign.durationSeconds>=clip.durationSeconds))
+      throw Error('Every excerpt must identify its completed full campaign.');
+    youtubeCampaignUrl(clip.fullCampaign.youtubeUrl);
   }
   return value;
 }

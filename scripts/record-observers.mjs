@@ -4,7 +4,7 @@ import {spawnSync} from 'node:child_process';
 import {mkdirSync, readdirSync, writeFileSync, existsSync} from 'node:fs';
 import {resolve, dirname, join} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {fps, freshSeed, seedValue, productionScenarios, rotation, eventsFrom, verifyCaptureProbe, verifyFrameTimes, verifyProbe, sha256, mediaUrl} from './observer-media.mjs';
+import {fps, freshSeed, seedValue, productionScenarios, rotation, eventsFrom, verifyNativeCapture, verifyProbe, sha256, mediaUrl} from './observer-media.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const options = Object.fromEntries(process.argv.slice(2).map(arg => {
@@ -56,7 +56,7 @@ for (const [index, scenarioId] of selected.entries()) {
     const profile = join(folder,'profile'); mkdirSync(profile);
     const source = join(folder,'capture.ogv');
     console.log(`Recording ${scenarioId}, seed ${seed}, ${seconds}s (attempt ${attempt+1}/3)`);
-    const log = run('godot', ['--path',join(root,'godot'),'--windowed','--rendering-method','gl_compatibility',
+    const log = run('godot', ['--path',join(root,'godot'),'--windowed','--resolution','1920x1080','--disable-vsync','--rendering-method','gl_compatibility',
       '--write-movie',source,'--fixed-fps',String(fps),'--quit-after',String(seconds*fps),
       '--log-file',join(profile,'engine.log'),'--','--observe-loop',`--observe-scenario=${scenarioId}`,
       `--observe-seed=${seed}`,`--observe-recording=${profile}`],
@@ -71,8 +71,8 @@ for (const [index, scenarioId] of selected.entries()) {
     if (!campaigns.length || campaigns[0].seed !== String(seed) || campaigns[0].scenarioId !== scenarioId || campaigns.some(c=>c.pack!=='authored'))
       throw Error('Capture lacks matching authored-only provenance');
     if (!routes.length) { console.warn('No watched movement in this excerpt; retrying with a fresh seed.'); continue; }
-    const nativeProbe=inspect(source);verifyFrameTimes(nativeProbe.frames,seconds);
-    const native=verifyCaptureProbe(nativeProbe);
+    const nativeProbe=inspect(source);
+    const native=verifyNativeCapture(nativeProbe,log,seconds);
     const videoName = id+'.mp4', posterName = id+'.jpg', uploadName=id+'-youtube.mp4';
     const videoPath = join(output,videoName), posterPath = join(output,posterName), uploadPath=join(output,uploadName);
     run('ffmpeg',['-hide_banner','-loglevel','error','-n','-i',source,'-c:v','libx264','-crf','23','-preset','fast',
