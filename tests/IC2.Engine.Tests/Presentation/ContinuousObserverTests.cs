@@ -20,6 +20,28 @@ public sealed class ContinuousObserverTests
         Assert.Throws<ArgumentException>(() => ObserverLaunchOptions.Parse(["--observe-looop"]));
 
     [Fact]
+    public void Recording_arguments_preserve_full_seed_and_selected_scenario()
+    {
+        var directory = Path.GetFullPath(Path.GetTempPath());
+        Assert.Equal(new ObserverLaunchOptions(true, true, "near-east-750bc", ulong.MaxValue, directory),
+            ObserverLaunchOptions.Parse(["--observe-loop", "--observe-scenario=near-east-750bc",
+                "--observe-seed=18446744073709551615", "--observe-recording=" + directory]));
+    }
+
+    [Theory]
+    [InlineData("--observe-seed=-1")]
+    [InlineData("--observe-seed=1.2")]
+    [InlineData("--observe-seed=18446744073709551616")]
+    [InlineData("--observe-scenario=")]
+    [InlineData("--observe-recording=relative")]
+    public void Invalid_recording_values_fail_clearly(string argument) =>
+        Assert.Throws<ArgumentException>(() => ObserverLaunchOptions.Parse(["--observe-loop", argument]));
+
+    [Fact]
+    public void Scenario_options_cannot_silently_be_ignored_on_normal_startup() =>
+        Assert.Throws<ArgumentException>(() => ObserverLaunchOptions.Parse(["--observe-scenario=near-east-750bc"]));
+
+    [Fact]
     public void Viewpoint_survives_turns_and_changes_only_on_elimination_without_campaign_draws()
     {
         var f = TacticalSessionTestbed.Toy;

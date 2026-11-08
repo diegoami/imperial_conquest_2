@@ -7,6 +7,8 @@ public partial class MainGameScreen
 {
     public bool AutoStartObserver { get; init; }
     public bool StartObserverLoop { get; init; }
+    public string? ObserverRecordingDirectory { get; init; }
+    public int? ObserverViewpointSeed { get; init; }
     public event Action? ObserverRestartRequested;
     public CheckBox ObserverLoopChoice { get; private set; } = null!;
     private ContinuousObserverPolicy? _observerLoop;
@@ -25,7 +27,7 @@ public partial class MainGameScreen
     public void SetObserverLoop(bool enabled)
     {
         if (!Session.IsObserverMode || !ObserverAtBoundary) return;
-        _observerLoop = enabled ? new ContinuousObserverPolicy() : null;
+        _observerLoop = enabled ? new ContinuousObserverPolicy(ObserverViewpointSeed is { } seed ? new Random(seed).Next : null) : null;
         _observerSeatDelay = 0;
         _observerEndingHold = 0;
         ObserverLoopChoice.SetPressedNoSignal(enabled);
@@ -37,6 +39,9 @@ public partial class MainGameScreen
     {
         var previous = _observerLoop?.WatchedNationId;
         var selected = _observerLoop?.SelectSurvivor(Session.State, Session.Scenario);
+        if (selected is not null && selected != previous && ObserverRecordingDirectory is not null)
+            GD.Print("OBSERVER_VIEW " + System.Text.Json.JsonSerializer.Serialize(new {
+                nationId = selected, turn = Session.State.Calendar.TurnIndex, frame = Godot.Engine.GetProcessFrames() }));
         if (selected is not null && (selected != previous || ViewedNationId != selected)) SetViewedNation(selected);
     }
 

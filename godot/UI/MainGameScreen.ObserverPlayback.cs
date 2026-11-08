@@ -129,6 +129,10 @@ public partial class MainGameScreen
     private void ObserverRouteStarted(StrategicTravelObservation route)
     {
         _observerFollowCurrentRoute = Session.IsObserverMode && ObserverWatches(route.OwnerId);
+        if (_observerFollowCurrentRoute && ObserverRecordingDirectory is not null)
+            GD.Print("OBSERVER_ROUTE " + System.Text.Json.JsonSerializer.Serialize(new {
+                nationId = route.OwnerId, entityId = route.EntityId, turn = Session.State.Calendar.TurnIndex,
+                frame = Godot.Engine.GetProcessFrames() }));
         if (_observerFollowCurrentRoute && (ObserverLoopActive || SettingsScreen.Current.ObserverFollowMoves))
         {
             if (ObserverLoopActive) _mapView.FocusOnCapital(route.Origin.X, route.Origin.Y);

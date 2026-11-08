@@ -1,0 +1,16 @@
+name: Observer web checks
+on:
+  pull_request:
+    paths: ['web/observer/**', 'scripts/*observer*.mjs', 'tests/web/**', '.github/workflows/observer*.yml']
+  push:
+    branches: [main]
+    paths: ['web/observer/**', 'scripts/*observer*.mjs', 'tests/web/**', '.github/workflows/observer*.yml']
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node --test tests/web/observer-media.test.mjs
