@@ -66,6 +66,11 @@ public sealed class GameplayConstantScannerTests
                         && stripped[lineStart..lineEnd].Trim()
                             == "public int ObserverAutomaticHalfRoundLimit { get; set; } = 1000;")
                         continue;
+                    // T289: the owner-approved bound on ephemeral command-result blocks (UI history,
+                    // not a rule). Permit only this declaration.
+                    if (Path.GetFileName(file) == "CommandResultHistory.cs"
+                        && stripped[lineStart..lineEnd].Trim() == "public const int Capacity = 100;")
+                        continue;
 
                     var line = stripped[..match.Index].Count(c => c == '\n') + 1;
                     offenders.Add($"{Path.GetFileName(file)}:{line}: literal '{match.Value}' is not on the allow-list");
