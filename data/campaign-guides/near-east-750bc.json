@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "near-east-750bc",
+  "scenarioIds": ["near-east-750bc"],
+  "kind": "historical",
+  "period": "Near East, around 750 BC",
+  "background": "This is the Neo-Assyrian setting, with Urartu to the north, Babylonia to the south and multiple principalities and coastal communities in the west. Neo-Hittite states belong to this landscape; they are not the earlier Bronze Age Hittite empire. Israel and Judah are separate campaign powers.",
+  "abstractions": "Later Assyrian conquests are not starting borders. Neo-Hittite, Aramean, Phoenician, Greek and Median groupings compress politically diverse communities; the Median seat is not a later united empire. Archaeological centers, approximate chronology and designed starting forces are explained in the maintained Near East brief.",
+  "brief": "docs/campaign-guides.md",
+  "validation": "Provisional recommendations: playable IDs, opening city networks, one army per regular seat and Phoenicia's starting fleet checked. Human difficulty, balance and mountain-crossing routes have not been playtested for this guidance.",
+  "powers": [
+    {"nationId":"assyria","focus":"Mesopotamian land power","advice":"Suggested for a land-focused campaign around the Assyrian city network. One starting army cannot cover every direction; inspect northern and southern routes before choosing the first front.","suggested":true},
+    {"nationId":"phoenicia","focus":"Coastal and naval campaign","advice":"Suggested for coastal holdings and a starting fleet. Transport opens several approaches, while the narrow coastal position makes landing locations and local supply important.","suggested":true,"requiresStartingFleet":true},
+    {"nationId":"egypt","focus":"Southern land base","advice":"A southern alternative with several cities but no starting fleet in this period. Plan around your land connections; do not assume the Bronze Age Egyptian naval opening applies here.","suggested":true},
+    {"nationId":"urartu","focus":"Northern regional power","advice":"A smaller northern city network with terrain-sensitive approaches. Inspect which routes are actually passable under the current movement rules before planning a southern advance.","suggested":false},
+    {"nationId":"judah","focus":"Compact regional position","advice":"A compact city base among neighboring regional powers. Consider a limited first objective and available supply; the small territory makes this a different opening rather than a verified easy start.","suggested":false}
+  ],
+  "sources": [
+    {"title":"ORACC: Countries and peoples of the Neo-Assyrian world","url":"https://oracc.museum.upenn.edu/saao/aebp/essentials/countries/index.html"},
+    {"title":"ORACC: Tabal and Phrygia","url":"https://oracc.museum.upenn.edu/saao/aebp/Essentials/Countries/TabalandPhrygia/index.html"}
+  ]
+}

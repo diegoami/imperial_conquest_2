@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "italy",
+  "scenarioIds": ["italy-500bc", "italy-500bc-barbarians"],
+  "kind": "historical",
+  "period": "Italy and its islands, around 500 BC",
+  "background": "The peninsula is a mosaic of communities rather than a unified Roman Italy. Etruscan cities occupy much of central Italy, while Greek settlements link southern Italy and Sicily to the wider Mediterranean. Rome is one regional power among the campaign's Italian and island rivals.",
+  "abstractions": "Etruscans, Samnites, Magna Graecia and other grouped peoples are playable aggregates, not claims of unified states or exact-year borders. The authoring brief also flags anachronistic northern groupings. Forces and economics are designed. The barbarian variant adds the separately labelled non-playable roaming role.",
+  "brief": "docs/campaign-guides.md",
+  "validation": "Provisional recommendations: opening city holdings, army/fleet availability and selectable seats checked; no human difficulty playtest. Advice does not rate these starts as easy or historically destined to win.",
+  "powers": [
+    {"nationId":"rome","focus":"Central Italian land campaign","advice":"Suggested for a recognizable land-focused start around Roma. Several rival groupings lie nearby; concentrate your opening army and inspect routes before spreading it across the peninsula.","suggested":true},
+    {"nationId":"syracuse","focus":"Island and naval campaign","advice":"Suggested for combining a Sicilian base with a starting fleet. Sea transport offers choices beyond the island but also creates supply and landing commitments.","suggested":true,"requiresStartingFleet":true},
+    {"nationId":"etruria","focus":"Broad central holdings","advice":"Your cities span a broad part of central Italy. This offers multiple approaches and several neighbors to watch; the single Etruscan seat is a gameplay grouping of distinct cities.","suggested":false},
+    {"nationId":"samnites","focus":"Interior campaign","advice":"An inland alternative for players interested in movement through the peninsula's interior. Plan around the terrain and concentrate the opening army rather than treating all owned cities as equally reachable.","suggested":false},
+    {"nationId":"carthage","focus":"Dispersed island holdings","advice":"A starting fleet supports operations among separated island possessions. Suggested as a different naval opening once you are comfortable with embarkation and supply.","suggested":true,"requiresStartingFleet":true}
+  ],
+  "sources": [
+    {"title":"Metropolitan Museum: Etruscan Art","url":"https://www.metmuseum.org/essays/etruscan-art"},
+    {"title":"Metropolitan Museum: Italian Peninsula chronology","url":"https://artistproject.metmuseum.org/toah/ht/04/eust.html"}
+  ]
+}

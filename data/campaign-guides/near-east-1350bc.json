@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "near-east-1350bc",
+  "scenarioIds": ["near-east-1350bc"],
+  "kind": "historical",
+  "period": "Near East, around 1350 BC",
+  "background": "The Late Bronze Age setting brings Egypt, Hatti, Mitanni and Kassite Babylonia into a network of rival courts and regional centers. Amarna letters also connect Egypt with Assyria, Arzawa and Alashiya, while rulers in Syria-Palestine occupy a different diplomatic position.",
+  "abstractions": "The letters establish relationships, not precise borders or equal military strength. The campaign groups Mycenaean palace centers and smaller communities into playable seats. Chronology, regional ownership and some centers are approximate; all opening military and economic quantities are designed.",
+  "brief": "docs/campaign-guides.md",
+  "validation": "Provisional recommendations: the authored opening has one army per regular seat; listed naval choices have a starting fleet. No human difficulty or route playtest is claimed; inspect the current terrain before planning a crossing.",
+  "powers": [
+    {"nationId":"egypt","focus":"River base and sea access","advice":"Suggested for combining the southern Egyptian holdings with a starting fleet. Begin by inspecting the Nile corridor and coastal connections before committing to the northern frontier.","suggested":true,"requiresStartingFleet":true},
+    {"nationId":"hatti","focus":"Anatolian land campaign","advice":"Suggested for a large Anatolian city network and a land-focused opening. One army must serve several possible fronts; terrain and the location of your first objective matter.","suggested":true},
+    {"nationId":"mitanni","focus":"Central frontier","advice":"A central land position between other major powers. Review neighboring capitals and supply routes before choosing a direction; this is a positional challenge, not a measured difficulty grade.","suggested":false},
+    {"nationId":"babylonia","focus":"Mesopotamian land campaign","advice":"An alternative centered on southern Mesopotamian holdings. Start by comparing the city's supply network with the reach of your single opening army.","suggested":false},
+    {"nationId":"alashiya","focus":"Small naval opening","advice":"Suggested for a smaller island-based opening with a fleet. The limited city base makes transport choices central; a smaller roster of holdings does not establish an easier game.","suggested":true,"requiresStartingFleet":true}
+  ],
+  "sources": [
+    {"title":"UCL Digital Egypt: Amarna correspondence","url":"https://www.ucl.ac.uk/museums-static/digitalegypt/amarna/cuneiform2.html"},
+    {"title":"British Museum: Amarna letter EA 23","url":"https://www.britishmuseum.org/collection/object/W_1888-1013-78"}
+  ]
+}
