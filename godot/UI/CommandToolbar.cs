@@ -69,8 +69,9 @@ public partial class CommandToolbar : PanelContainer
 
     public override void _Ready()
     {
-        var row = new HBoxContainer();
-        row.AddThemeConstantOverride("separation", AppTheme.DialogGap);
+        var row = new HFlowContainer();
+        row.AddThemeConstantOverride("h_separation", 2);
+        row.AddThemeConstantOverride("v_separation", 2);
         AddChild(row);
 
         foreach (var commandId in PictorialOrder)
@@ -144,6 +145,7 @@ public partial class CommandToolbar : PanelContainer
             button.Text = row.Caption;
         }
 
+        if (button.Icon is not null) CompactToolbar.Apply(button);
         button.Pressed += () => Table.TryInvoke(row.Id);
         Register(row.Id, row.Caption, button);
         return button;
