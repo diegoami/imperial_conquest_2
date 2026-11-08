@@ -90,6 +90,16 @@ The battle summary spans the top of the screen. The information column begins al
 
 ## Observer campaigns
 
+For immediate Classical Faithful observation, launch the desktop executable with `-- --observe`,
+or `-- --observe-loop` for continuous random-civilization viewing. From source:
+`godot --path godot -- --observe-loop`. Direct launches start playing immediately;
+the ordinary New Game observer choice still starts paused. Continuous loop follows one live
+civilization at 0.5x, frames its moving units locally, switches after elimination, and starts
+a fresh campaign after the authored ending and the last presentation. Pause also freezes the
+ending countdown. Turn off **Continuous loop** at an activity boundary to restore the normal
+observer choices; stored watch/speed/follow preferences are not overwritten. Errors stop
+observation rather than silently recycling the campaign. See [T285](tasks/T285.md).
+
 Select **Observer mode (experimental)** in New Game, or **Game → Observe campaign** after resolving existing battles/offers. Starts paused with all nations computer controlled. **Watch civilizations…** selects one or more nations separately from the takeover picker; All watches everyone and None fast-forwards all activity. Watch choices are remembered per world. **Follow moves** follows watched routes; turn it off to keep camera control.
 
 The **Speed** selector applies to map and battle playback (0.25x–8x, default 0.5x). **Pause/Play** or Space pauses/resumes presentation and future nation turns. **Next round** finishes the next calendar round and its visible activity, including after a pause/resume. **Skip current activity** finishes presentation without playing another turn while paused. Finish/skip the current activity before changing watched nations, battle policy or taking control.

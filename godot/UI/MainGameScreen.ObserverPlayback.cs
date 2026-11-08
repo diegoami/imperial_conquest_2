@@ -19,7 +19,7 @@ public partial class MainGameScreen
     public CheckBox ObserverFollowChoice { get; private set; } = null!;
     public bool ObserverPresentationPaused => _observerManuallyPaused;
     public int ObserverTacticalPresentations { get; private set; }
-    private double ObserverSpeed => SettingsScreen.Current.ObserverSpeedPercent / 100.0;
+    private double ObserverSpeed => ObserverLoopActive ? 0.5 : SettingsScreen.Current.ObserverSpeedPercent / 100.0;
     private bool _observerManuallyPaused = true, _observerConfigured, _openingObserverOverlay, _skippingObserverPresentation;
     private bool _observerFollowCurrentRoute;
     private Control? _observerAutomaticOverlay;
@@ -29,8 +29,8 @@ public partial class MainGameScreen
     private readonly List<ObserverEncounter> _observerLatestEncounters = new();
     private bool IsAutomaticObserverOverlay => ActiveOverlay is not null && ReferenceEquals(ActiveOverlay, _observerAutomaticOverlay);
 
-    public bool ObserverWatches(string nation) => SettingsScreen.Current.WatchedNationsFor(Session.World.Id) is not { } selected
-        || selected.Contains(nation);
+    public bool ObserverWatches(string nation) => ObserverLoopActive ? nation == ObserverLoopNation
+        : SettingsScreen.Current.WatchedNationsFor(Session.World.Id) is not { } selected || selected.Contains(nation);
 
     private void BuildObserverPlaybackControls(VBoxContainer root)
     {
@@ -60,6 +60,10 @@ public partial class MainGameScreen
         ObserverSkipButton = UiKit.MakeButton("Skip current activity", SkipObserverActivity);
         QolCommandIcons.Apply(ObserverSkipButton, "skip", "Skip current activity");
         ObserverViewControls.AddChild(ObserverSkipButton);
+        ObserverLoopChoice = new CheckBox { Name = "ObserverLoop", Text = "Continuous loop",
+            TooltipText = "Watch a random civilization, switch if eliminated, and start a fresh campaign after game end." };
+        ObserverLoopChoice.Toggled += SetObserverLoop;
+        ObserverViewControls.AddChild(ObserverLoopChoice);
         root.AddChild(ObserverViewControls);
     }
 
@@ -81,17 +85,23 @@ public partial class MainGameScreen
         if (!ObserverPlayback.IsRunning && ObserverPlayback.StopAtTurn is { } finished
             && Session.State.Calendar.TurnIndex >= finished && !StrategicTravel.IsActive && ActiveOverlay is null)
             ObserverPlayback.Pause();
-        ObserverWatchButton.Disabled = !CanEditObserverSelection;
+        ObserverWatchButton.Disabled = !CanEditObserverSelection || ObserverLoopActive;
         ObserverBattleChoice.Disabled = !CanEditObserverSelection;
         ObserverBattleChoice.Select(Session.ObserverTacticalBattles ? 1 : 0);
-        ObserverFollowChoice.SetPressedNoSignal(SettingsScreen.Current.ObserverFollowMoves);
+        ObserverFollowChoice.Disabled = ObserverLoopActive;
+        ObserverFollowChoice.SetPressedNoSignal(ObserverLoopActive || SettingsScreen.Current.ObserverFollowMoves);
+        ObserverSpeedChoice.Disabled = ObserverLoopActive;
         ObserverPlaybackControls.Synchronize(ObserverSpeedChoice);
+        if (ObserverLoopActive)
+            for (var i = 0; i < ObserverSpeedChoice.ItemCount; i++)
+                if (ObserverSpeedChoice.GetItemId(i) == 50) ObserverSpeedChoice.Select(i);
         var watched = Session.State.Nations.Count(n => ObserverWatches(n.Id));
         QolCommandIcons.Apply(ObserverWatchButton, "watch", $"Watch civilizations ({watched})");
         if (QolCommandIcons.IsIllustrated(ObserverWatchButton.Icon)) ObserverWatchButton.Text = watched.ToString();
         ObserverSkipButton.Disabled = !StrategicTravel.IsActive && !IsAutomaticObserverOverlay;
         ObserverPlayButton.Disabled = ObserverPlayback.IsRunning && !_observerManuallyPaused;
-        ObserverPauseButton.Disabled = _observerManuallyPaused || !ObserverPlayback.IsRunning && !StrategicTravel.IsActive && !IsAutomaticObserverOverlay;
+        ObserverPauseButton.Disabled = _observerManuallyPaused || !ObserverPlayback.IsRunning && !StrategicTravel.IsActive
+            && !IsAutomaticObserverOverlay && !(ObserverLoopActive && ContinuousObserverPolicy.Ending(Session) is not null);
         ObserverTakeControlButton.Disabled = !CanEditObserverSelection || _observerNationIds.Count == 0;
     }
 
@@ -119,13 +129,16 @@ public partial class MainGameScreen
     private void ObserverRouteStarted(StrategicTravelObservation route)
     {
         _observerFollowCurrentRoute = Session.IsObserverMode && ObserverWatches(route.OwnerId);
-        if (_observerFollowCurrentRoute && SettingsScreen.Current.ObserverFollowMoves)
-            _mapView.CentreOnTile(route.Origin.X, route.Origin.Y);
+        if (_observerFollowCurrentRoute && (ObserverLoopActive || SettingsScreen.Current.ObserverFollowMoves))
+        {
+            if (ObserverLoopActive) _mapView.FocusOnCapital(route.Origin.X, route.Origin.Y);
+            else _mapView.CentreOnTile(route.Origin.X, route.Origin.Y);
+        }
     }
 
     private void ObserverCellEntered(string id, GridPoint cell)
     {
-        if (Session.IsObserverMode && _observerFollowCurrentRoute && SettingsScreen.Current.ObserverFollowMoves)
+        if (Session.IsObserverMode && _observerFollowCurrentRoute && (ObserverLoopActive || SettingsScreen.Current.ObserverFollowMoves))
             _mapView.CentreOnTile(cell.X, cell.Y);
     }
 
