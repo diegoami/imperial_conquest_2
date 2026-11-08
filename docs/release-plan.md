@@ -262,6 +262,8 @@ Owner extension, 2026-11-07: [eleven historical scenarios #1808](https://github.
 
 The same owner extension requires New Game's selection panel to show historical background, principal powers and recommended playable nations with reasons for every historical campaign, including the existing ones. Historical context and gameplay advice remain distinct; recommendation IDs and advice must agree with the scenario setup and play-validation evidence. The campaign/map scope defines content, scrolling/access and validation boundaries.
 
+Owner additions, 2026-11-08: [#1818](https://github.com/diegoami/imperial_conquest_2/issues/1818) moves Overview map, selected army/fleet/town information, News and in-game Log into independently hideable/reopenable right-side panels, with smaller overview-location and top-toolbar icons. The [panel-layout scope](design/v011-panel-layout.md) records the requested behavior and separates proposed persistence/sizing details from approved requirements. [#1814](https://github.com/diegoami/imperial_conquest_2/issues/1814) also requires consistent **Open Imperial Conquest** naming across maintained product references, with upgrade/save compatibility and accurate original-game attribution.
+
 The owner's v0.9.0 scope is instead the two historical Near East campaigns
 around 1350 BC and 750 BC (#1681/#1682), barbarians including Italy (#1683),
 own-turn tactical Undo (#1674), fleet Split in Two and the recorded playtest
