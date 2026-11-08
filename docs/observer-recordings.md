@@ -24,6 +24,15 @@ The encoder writes these files beside it:
 
 An MP4 is ready only after the encoder exits successfully and verification completes; a growing or zero-byte MP4 is not a deliverable. `verified-youtube.mp4` under `rendered/v011-observer/` is a separate **60-second format test**, not the full campaign.
 
+The completed pilot's native/MP4 frame checks, file hashes and archive links are preserved in
+[the full-campaign verification receipt](../artifacts/observer/v0.11/full-campaign-verification.json).
+Its [full MP4 on private Drive](https://drive.google.com/file/d/1MhDqMneKluYfsSPO18SGZHMsmK7HbP_z/view?usp=drivesdk)
+is 4,015,876,479 bytes; the [original OGV](https://drive.google.com/file/d/1kcyibW2U6ZRlrFRLM22uEw2VkB41iJXN/view?usp=drivesdk)
+is 1,249,886,324 bytes. These links retain the folder's private permissions.
+The master/excerpt/poster and JSON provenance archive passed `rclone check` with ten matching
+files and zero differences on 2026-11-08 at 23:34:38 local time; the raw/log archive had its own
+four-file comparison. A Drive archive is separate from YouTube publication.
+
 For new campaigns use a fresh folder such as `rendered/observer/<scenario>-<seed>-<revision>/`. Never overwrite a previous attempt. Keep the raw OGV, masters, logs, provenance and upload receipt together.
 
 ## Capture one full campaign
