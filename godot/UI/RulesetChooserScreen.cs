@@ -267,7 +267,7 @@ public partial class RulesetChooserScreen : Control
             var cities = resolved.World.Cities.Count(c => c.Owner == power.NationId);
             var armies = resolved.World.StartingArmies.Count(a => a.Nation == power.NationId);
             var fleets = resolved.World.StartingFleets.Count(f => f.Nation == power.NationId);
-            Paragraph($"Opening: {cities} cities · {armies} armies · {fleets} fleets", AppTheme.Note, UiKit.MutedTextColor);
+            Paragraph($"Opening: {cities} {(cities == 1 ? "city" : "cities")} · {armies} {(armies == 1 ? "army" : "armies")} · {fleets} {(fleets == 1 ? "fleet" : "fleets")}", AppTheme.Note, UiKit.MutedTextColor);
             Paragraph(power.Advice);
         }
         if (guide.Sources.Length > 0)
