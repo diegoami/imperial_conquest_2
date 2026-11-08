@@ -21,13 +21,11 @@ cross-family review) is frozen on the `local` branch and is **not** in force her
 
 ## v0.11 task entry points
 
-The owner's implementation priority is New Game setup, independent strategic panels and campaign
-background/advice, before further recording polish. Read `docs/design/v011-panel-layout.md` and
-`docs/design/v011-campaigns-and-random-maps.md`; task contracts T288/T289/T290 travel on their task
-branches. PRs [1830](https://github.com/diegoami/imperial_conquest_2/pull/1830),
-[1831](https://github.com/diegoami/imperial_conquest_2/pull/1831) and
-[1832](https://github.com/diegoami/imperial_conquest_2/pull/1832) carry implementation and validation;
-read their current heads/checks and GitHub issue labels rather than inferring status from this file.
+New Game setup (T288), independent right-side panels (T289) and campaign guidance (T290) are
+merged; design context is `docs/design/v011-panel-layout.md` and
+`docs/design/v011-campaigns-and-random-maps.md`. The owner's priority is UI/usability. Open
+candidates: triage issues (`triage:needed`), notably #1822 (Near East passes/hills in forest terrain,
+rule 11). Read GitHub labels, not this file, for status.
 
 Observer delivery is T285/T286/T287, [PR 1829](https://github.com/diegoami/imperial_conquest_2/pull/1829)
 and `docs/observer-recordings.md` on `task/T286-observer-recordings`. The owner authorized **one
@@ -35,7 +33,8 @@ YouTube video first only**, on lynxsupercluster in a separate Open Imperial Conq
 Pages uses excerpts linked to that full campaign and to the repository/releases. No recurring
 uploads before pilot review. Keep ai-player's GeoClick queues and uploader records untouched.
 The recording guide and `artifacts/observer/v0.11/full-campaign-verification.json` locate the
-verified full MP4 and private archive. Read the PR's remaining acceptance before uploading;
+verified full MP4 and private archive. **The owner uploads the master by hand** (the browser tools cap uploads at 10 MB; the master is ~4 GB), then gives
+the video ID; the session writes the receipt and publishes Pages. Read the PR's remaining acceptance;
 never create a second upload to resolve an uncertain upload identity.
 
 ## Token economy
