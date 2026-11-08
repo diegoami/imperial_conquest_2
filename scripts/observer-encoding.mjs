@@ -11,7 +11,7 @@ export function movieFrames(log){
   const frames=Number(matches[0][1]);if(!Number.isSafeInteger(frames)||frames<=0)throw Error('Invalid capture frame count');return frames;
 }
 function run(executable,args,timeout=180000){
-  const result=spawnSync(executable,args,{encoding:'utf8',timeout,maxBuffer:4*1024*1024,windowsHide:true});
+  const result=spawnSync(executable,args,{encoding:'utf8',timeout:Math.ceil(timeout),maxBuffer:4*1024*1024,windowsHide:true});
   if(result.error||result.status!==0)throw Error(`${executable} failed: ${result.error?.message??result.stderr?.slice(-3000)??result.status}`);
   if(result.stderr?.trim())throw Error('Media inspection/encoding reported an error: '+result.stderr.slice(-3000));
   return result.stdout;
