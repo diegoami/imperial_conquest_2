@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "classical",
+  "scenarioIds": ["classical-mediterranean", "example-classical-improved"],
+  "kind": "historical",
+  "period": "Mediterranean, 270 BC",
+  "background": "Rome and Carthage face one another in the western Mediterranean. In the east, the Seleucid, Ptolemaic and Macedonian kingdoms belong to the world created after Alexander's empire fragmented. Smaller kingdoms and Greek communities compete between these larger powers.",
+  "abstractions": "This inherited Classical opening compresses communities and kingdoms into sixteen nations. Starting ownership, leaders, armies and borders are a game setup, not a precise reconstruction of every polity in 270 BC. Faithful and Improved share this setting but use different rules.",
+  "brief": "docs/campaign-guides.md",
+  "validation": "Provisional recommendations: opening cities, armies, fleets and playable seats checked against shipped data; human difficulty and balance have not been playtested.",
+  "powers": [
+    {"nationId":"rome","focus":"Land campaign","advice":"Suggested for a land-focused opening in Italy. You begin with two armies and no fleet; inspect nearby relations and supply before committing to a wider war.","suggested":true},
+    {"nationId":"carthage","focus":"Land and sea","advice":"Suggested for learning fleet transport alongside land operations. A starting fleet connects your dispersed possessions, but protecting several shores requires attention.","suggested":true,"requiresStartingFleet":true},
+    {"nationId":"ptolemaic","focus":"Eastern naval campaign","advice":"Suggested for an eastern land-and-sea campaign. Your opening includes a fleet and a substantial city network; choose a limited first objective rather than defending every frontier at once.","suggested":true,"requiresStartingFleet":true},
+    {"nationId":"seleucid","focus":"Large land realm","advice":"Manage the largest opening city network among these powers, with two armies and no fleet. The broad territory offers several directions of expansion and a long frontier to organize.","suggested":false},
+    {"nationId":"macedonia","focus":"Balkan position","advice":"A regional land campaign among several neighboring powers. Inspect the Balkan routes and existing relations before choosing a front; historical prominence is not a difficulty rating.","suggested":false}
+  ],
+  "sources": [
+    {"title":"Metropolitan Museum: Hellenistic Age","url":"https://www.metmuseum.org/essays/art-of-the-hellenistic-age-and-the-hellenistic-tradition"},
+    {"title":"Livy: Rome and Pyrrhus (surviving summaries)","url":"https://www.livius.org/sources/content/livy/livy-on-pyrrhus/"}
+  ]
+}
