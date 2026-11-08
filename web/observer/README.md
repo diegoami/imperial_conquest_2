@@ -10,8 +10,8 @@ An exhausted budget is a failure, never a full-campaign claim. Full recordings
 use streamed hashing/timestamp checks rather than whole-video memory buffers.
 
 All new recordings are captured natively at **1920×1080, constant 30 fps**.
-The validator decodes the source and both MP4s, checks every timestamp and requires
-exactly 30 frames per second. The `-youtube.mp4` release asset is the separate
+The validator checks the native 30 Hz timeline and Movie Maker frame counter,
+then decodes both MP4s and checks every frame timestamp. The `-youtube.mp4` file is the separate
 H.264 High/CRF18 upload master (48 kHz stereo AAC); the web MP4 is smaller.
 No upscaling is used. YouTube may initially show SD while HD processing completes;
 encoding cannot force a viewer's default playback quality.
@@ -20,27 +20,30 @@ Buildless static HTML/CSS/modules, hosted under the repository's GitHub Pages
 subpath. All media and links are relative or explicit HTTPS; there is no game
 engine, service, credentials or original-game media in the payload.
 
-`scripts/record-observers.mjs` creates a fresh, bounded batch from committed source,
-builds/imports the real Godot client, forces authored-only fresh viewing settings,
-records production scenarios and encodes/decodes/inspects MP4s. It retries idle
-excerpts up to three seeds. `scripts/publish-observers.mjs` verifies hashes and
-provenance before unique uploads to the `observer-media` prerelease, verifies
-public media availability, and assembles a static output directory with the new
-manifest. Previous generations are retained. Failed jobs never deploy a partial
-playlist. This media archive is separate from versioned product releases.
+`scripts/record-full-observer.mjs` captures one production campaign through its
+actual terminal boundary and derives an excerpt from that same recording. It
+forces authored-only fresh settings and records scenario/seed/build/end metadata.
+`scripts/prepare-observer-pilot.mjs` pairs it with a receipt from the sole accepted
+YouTube upload after HD processing is verified. `scripts/publish-observers.mjs`
+verifies the files, uploads only the excerpt/poster/provenance to `observer-media`,
+checks public media, and assembles the Pages payload. The full master belongs on
+YouTube and in the private artifact archive. No full master is uploaded to Pages
+or the public media release. Failed jobs never deploy a partial playlist.
 
-Normal refresh is weekly (Monday 06:00 UTC), also manually dispatchable through
-`Refresh observer recordings`. Each batch includes Classical and a rotating
-historical scenario, with fresh seeds and 180-second excerpts. Job/frame/seed
-retry budgets are bounded. The page refreshes its playlist only between clips;
-an unavailable refresh retains the browser's current collection. After 14 days
-the displayed update date reports a delayed refresh.
+Recurring publication is disabled for the one-pilot review. `Publish observer
+pilot page` is manually dispatched with an already verified generation and
+performs no capture or YouTube upload. Later scenario/seed rotation can be enabled
+after the owner reviews the pilot. The page refreshes metadata between clips;
+an unavailable refresh retains the current collection. After 14 days it reports
+a delayed refresh. `record-observers.mjs` remains a bounded format/renderer QA
+tool; its unpaired excerpts cannot pass the publisher's full-campaign-link gate.
 
-For a local batch, use a new directory (no overwrites):
+For the single pilot, use a new directory and retain the native upload identity:
 
 ```text
-node scripts/record-observers.mjs --out=rendered/observer/example --seconds=180 --seed=42 --scenarios=classical-mediterranean,near-east-750bc
-node scripts/publish-observers.mjs --batch=rendered/observer/example --site=rendered/observer/site
+node scripts/record-full-observer.mjs --out=rendered/observer/pilot --seed=44 --excerpt-seconds=180
+node scripts/prepare-observer-pilot.mjs --pilot=rendered/observer/pilot --receipt=rendered/observer/pilot/youtube-receipt.json
+node scripts/publish-observers.mjs --batch=rendered/observer/pilot --site=rendered/observer/site
 ```
 
 Dependencies: .NET 10, Godot 4.7.2 mono, Node 24, FFmpeg/ffprobe and gh. Linux needs
@@ -62,3 +65,7 @@ player uses standard MP4/native video controls; Safari is a target with no nativ
 Safari acceptance until explicitly tested. The frontend needs no ai-player AI,
 TTS keys or browser-game adapter. Its installed Playwright can run these tests.
 See `docs/design/v011-observer-recordings.md` and T286 for acceptance and limits.
+
+`check-observer-web.mjs --fixture=<local-fixture.json>` exercises the real
+captured MP4 with isolated range-serving routes and an explicit QA banner. That
+is local player/codec evidence only, not public-host or completed-YouTube evidence.

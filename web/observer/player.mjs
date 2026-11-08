@@ -2,10 +2,16 @@ import {validateManifest,nextClip} from './playlist.mjs';
 const $ = id => document.getElementById(id);
 const film=$('film'),status=$('status'),loading=$('loading');
 let manifest,current,hasPlayed=false,failures=0,refreshWarning='';
-const playbackStatus=()=> 'Recorded observer footage. The next campaign plays automatically.'+refreshWarning;
+const playbackStatus=()=> (manifest?.clips.length===1?'This pilot excerpt repeats automatically. Watch the complete campaign on YouTube.':'Recorded observer footage. The next campaign plays automatically.')+refreshWarning;
 const date = value => new Intl.DateTimeFormat(undefined,{year:'numeric',month:'short',day:'numeric'}).format(new Date(value));
 async function fetchManifest(){const response=await fetch('./manifest.json',{cache:'no-store'});if(!response.ok)throw Error('The recording playlist could not be loaded.');return validateManifest(await response.json());}
 function drawPlaylist(){
+  const single=manifest.clips.length===1;
+  $('next').textContent=single?'Replay excerpt ↻':'Next campaign →';
+  $('collection-title').textContent=single?'Pilot recording':'In rotation';
+  $('collection-description').textContent=single
+    ?'This is an excerpt from our first complete observer campaign. Watch the full campaign on YouTube, or download the desktop game to command a civilization yourself.'
+    :'This continuous playlist features recorded observer campaigns across scenarios. Browser controls play the video; download the desktop game to command a civilization yourself.';
   $('playlist').replaceChildren(...manifest.clips.map(clip=>{
     const button=document.createElement('button');button.className='clip';button.type='button';button.dataset.id=clip.id;
     button.setAttribute('aria-pressed',String(clip.id===current?.id));

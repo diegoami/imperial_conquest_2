@@ -51,7 +51,7 @@ test('playlist advances, wraps, and starts a fresh generation when the prior cli
 });
 test('a Pages excerpt requires a completed full-campaign YouTube link',()=>{
   assert.equal(youtubeCampaignUrl('https://www.youtube.com/watch?v=AbCdEf12345'),'https://www.youtube.com/watch?v=AbCdEf12345');
-  for(const url of ['https://example.com/watch?v=AbCdEf12345','javascript:alert(1)','https://www.youtube.com/watch?v=short','https://www.youtube.com/watch?v=AbCdEf12345&token=private'])assert.throws(()=>youtubeCampaignUrl(url));
+  for(const url of ['https://example.com/watch?v=AbCdEf12345','javascript:alert(1)','https://www.youtube.com/watch?v=short','https://www.youtube.com/watch?v=AbCdEf12345&token=private','https://user:secret@www.youtube.com/watch?v=AbCdEf12345','https://www.youtube.com/watch?v=AbCdEf12345&v=ZyxWvu12345'])assert.throws(()=>youtubeCampaignUrl(url));
   const missing=manifest();delete missing.clips[0].fullCampaign;assert.throws(()=>validateManifest(missing));
   const incomplete=manifest();incomplete.clips[0].fullCampaign.completed=false;assert.throws(()=>validateManifest(incomplete));
 });

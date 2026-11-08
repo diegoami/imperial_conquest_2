@@ -1,6 +1,6 @@
 export function youtubeCampaignUrl(value) {
   const url=new URL(value);
-  if(url.origin!=='https://www.youtube.com'||url.pathname!=='/watch'||! /^[a-zA-Z0-9_-]{11}$/.test(url.searchParams.get('v')??'')
+  if(url.origin!=='https://www.youtube.com'||url.username||url.password||url.pathname!=='/watch'||url.searchParams.getAll('v').length!==1||! /^[a-zA-Z0-9_-]{11}$/.test(url.searchParams.get('v')??'')
       ||[...url.searchParams.keys()].some(key=>key!=='v')||url.hash)throw Error('Expected a verified full-campaign YouTube watch URL.');
   return url.href;
 }
