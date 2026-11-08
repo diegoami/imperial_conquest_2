@@ -37,6 +37,11 @@ if (dirty.status !== 0 || dirty.stdout.trim()) throw Error('Commit tracked sourc
 console.log(`Building exact source ${commit}`);
 run('dotnet',['build',join(root,'godot/IC2.MapViewer.csproj'),'--nologo','-v','q','-clp:ErrorsOnly']);
 run('godot',['--headless','--path',join(root,'godot'),'--import']);
+// Godot's importer can rewrite MapViewer whitespace. The repository guard restores
+// only proven benign churn; any remaining tracked change still refuses capture.
+const guard=spawnSync('pwsh',['-NoProfile','-File',join(root,'scripts/check-godot-churn.ps1')],{cwd:root,encoding:'utf8',windowsHide:true});
+if(guard.error||guard.status>1)throw Error('Godot churn guard failed: '+(guard.error?.message??guard.stderr));
+console.log(guard.stdout.trim());
 const imported = spawnSync('git',['status','--porcelain','--untracked-files=no'],{cwd:root,encoding:'utf8'});
 if (imported.status !== 0 || imported.stdout.trim()) throw Error('Resource import changed tracked files; review churn before recording');
 mkdirSync(dirname(output), {recursive:true}); mkdirSync(output);
