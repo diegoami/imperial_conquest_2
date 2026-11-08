@@ -1,0 +1,21 @@
+# Observer recordings and Pages delivery
+
+Owner decision, 2026-11-08: refreshed recordings for v0.11, live browser simulation later. Include available scenarios beyond Classical. The owner offered [ai-player](https://github.com/diegoami/ai-player). Inspection found Playwright browser capture (`src/core/session.mjs`) and FFmpeg export (`src/core/assemble.mjs`); its assembler requires narrated clips, while this Godot observer needs no narration or AI decision adapter. Reuse argument-array FFmpeg invocation and clean-video conventions; capture Godot directly. No ai-player modifications or paid model/TTS calls are necessary.
+
+## Capture and formats
+
+Deliver MP4/H.264, `yuv420p`, fast-start metadata, 30 fps and a validated readable viewport (initial target 1280×720). Game audio, when enabled, becomes AAC. Autoplay starts muted. Optional WebM/VP9/Opus is a second encoding only if measurements justify its cost. AV1, GIF and HLS/DASH are not initial dependencies. [MDN's codec guide](https://developer.mozilla.org/en-US/docs/Web/Media/Guides/Formats/Video_codecs) describes browser/container tradeoffs; actual playback establishes acceptance.
+
+Use Godot's [Movie Maker](https://docs.godotengine.org/en/stable/tutorials/animation/creating_movies.html), a real renderer, fixed FPS and a bounded frame budget. Capture OGV or short AVI, then encode with FFmpeg; AVI has a 4 GB limit. Linux automation uses Xvfb/software rendering, not the dummy headless renderer. Isolate user data and force authored media so local original-asset settings cannot enter footage. Do not record the desktop/private windows. Add observer scenario/seed arguments for reproducible jobs. Record scenario ID/name, initial seed, watched-civilization changes, build SHA, capture date, duration/dimensions, hashes and encoding details.
+
+## Refresh and hosting
+
+Pages holds a small static player, versioned playlist and posters. Large footage belongs in public release assets or a proven media host, never git history. [Pages limits](https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits) include a 1 GB site and 100 GB/month soft bandwidth cap. Prove release-asset redirects/seeking/browser decoding before choosing that transport.
+
+The initial bounded refresh proposal is weekly and manually dispatchable: rotate listed production scenarios, record fresh 2–3 minute excerpts and publish only a validated batch. Label excerpts honestly; they do not claim full-game coverage. The desktop loop itself still runs to completion. Record included scenarios in the manifest; newly delivered scenarios join rotation. Serialize capture, bound job/storage use, preserve prior generations on failure and refresh a browser's playlist only between clips. The owner explicitly requested regular generation; scheduled validated footage publication is authorized, independently of release tagging.
+
+The page has persistent repository and **Download desktop game** links, a large video, scenario/build/recorded-at text, playlist selection and clear loading/error states. Automatically advance/loop with muted autoplay and a visible Play fallback. Native video controls supply pause/seek/volume/fullscreen; respect reduced-motion preferences. The page includes no game engine/orders. A failed refresh retains the last working playlist and reports failure.
+
+## Acceptance
+
+Capture Classical and another shipped historical scenario with the real observer. Inspect moving-unit framing, legibility and representative frames. Verify codec/pixel format/audio/duration with ffprobe, decode files, verify hashes/public media URLs and play/seek/advance in Chromium and Firefox. Record Safari support limits honestly. Check `/imperial_conquest_2/`, persistent links, narrow screens and stale/failed-media feedback. No placeholder footage, fake gameplay or empty playlist counts as acceptance. Record download/startup costs. [T286](../tasks/T286.md)/[#1797](https://github.com/diegoami/imperial_conquest_2/issues/1797) owns delivery; independent milestone review remains before a v0.11 tag.

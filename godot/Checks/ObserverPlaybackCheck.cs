@@ -141,6 +141,30 @@ public partial class ObserverPlaybackCheck : Control
                 "paused map inspection picks the displayed marker without an army order");
             moving.SkipObserverActivity();
             Check(moving.Session.State == live && !moving.StrategicTravel.IsActive, "Skip activity drains presentation while paused without advancing simulation");
+            RemoveChild(moving); moving.QueueFree(); _main = null; await Frames();
+
+            // One eligible observer viewpoint makes this camera check reproducible without
+            // choosing a nation through campaign RNG or depending on Random.Shared's outcome.
+            var source = Build(distant: true);
+            var scenario = source.Scenario with { Seats = ValueList.From(source.Scenario.Seats.Where(s => s.Nation == "north")) };
+            var loopSession = new GameSession(source.World, source.Ruleset, scenario,
+                new SaveGame(source.State.SchemaVersion, "loop-camera", "Loop camera", scenario.Id,
+                    source.World.Id, source.Ruleset.Id, source.State));
+            SettingsScreen.Commit(new UserSettings { ObserverFollowMoves = false, ObserverSpeedPercent = 800 });
+            var loop = AddMain(loopSession); await Frames();
+            loop.SetObserverLoop(true); loop.ObserverNextRound();
+            await Until(() => loop.StrategicTravel.CurrentRoute is not null);
+            loop.ObserverPause();
+            var watchedRoute = loop.StrategicTravel.CurrentRoute;
+            Check(watchedRoute?.OwnerId == "north" && loop.ObserverLoopNation == "north" && loop.MapView.ZoomFactor >= 6,
+                "loop frames an actual watched moving army locally even when stored follow is off");
+            if (watchedRoute is not null)
+                Check(new Rect2(Vector2.Zero, loop.MapView.Size).HasPoint(loop.MapView.TileCenterForCheck(watchedRoute.Origin.X, watchedRoute.Origin.Y)),
+                    "loop camera keeps the moving route origin in the map viewport");
+            var loopLive = loop.Session.State;
+            loop.SkipObserverActivity();
+            Check(loop.Session.State == loopLive && !loop.StrategicTravel.IsActive,
+                "loop pause/skip drains actual movement without an extra simulation turn");
         }
         catch (Exception ex) { Check(false, ex.ToString()); }
         finally

@@ -77,6 +77,7 @@ public partial class MainGameScreen : Control
         if (!Session.IsObserverMode || !_observerManuallyPaused)
             StrategicTravel.Advance(delta * (Session.IsObserverMode ? ObserverSpeed : 1));
         AdvanceObserverPresentation(delta);
+        AdvanceContinuousObserver(delta);
         AdvanceObserver();
         RefreshStrategicUndoControl();
     }
@@ -571,7 +572,7 @@ public partial class MainGameScreen : Control
 
         _contextPanel.DisplayStateSource = () => DisplayState;
         _areaMapView.DisplayStateSource = () => DisplayState;
-        StrategicTravel.IntersectsViewport = route => Session.IsObserverMode && SettingsScreen.Current.ObserverFollowMoves
+        StrategicTravel.IntersectsViewport = route => Session.IsObserverMode && (ObserverLoopActive || SettingsScreen.Current.ObserverFollowMoves)
             && ObserverWatches(route.OwnerId) || _mapView.RouteIntersectsViewport(route);
         StrategicTravel.PlayRoute = route => !Session.IsObserverMode || ObserverWatches(route.OwnerId);
         StrategicTravel.RouteStarted += ObserverRouteStarted;
@@ -601,6 +602,7 @@ public partial class MainGameScreen : Control
         else RevealLatestNewsIfReady();
         if (StartAtCapital) FocusInitialCapital();
         InitializeStrategicUndo();
+        InitializeObserverLaunch();
     }
 
     private async void FocusInitialCapital()

@@ -79,6 +79,7 @@ public partial class MainGameScreen
     {
         if (ObserverPlayback.IsRunning || StrategicTravel.IsActive || ActiveOverlay is not null || !Session.IsObserverMode) return;
         SubmitForCheck($"take-control {nationId}");
+        _observerLoop = null;
         RefreshObserverControls();
     }
 
@@ -87,13 +88,19 @@ public partial class MainGameScreen
     private void AdvanceObserver()
     {
         if (_closing || ObserverControls is null) return;
+        if (ObserverLoopActive && ObserverAtBoundary && ContinuousObserverPolicy.Ending(Session) is not null) return;
         if (ActiveOverlay is not null && !IsAutomaticObserverOverlay) ObserverPause();
         if (!Session.IsObserverMode) ObserverPlayback.Pause();
-        if (ObserverPlayback.IsRunning && ActiveOverlay is null && !StrategicTravel.IsActive && _observerEncounterQueue.Count == 0)
+        if (ObserverPlayback.IsRunning && ActiveOverlay is null && !StrategicTravel.IsActive && _observerEncounterQueue.Count == 0
+            && (!ObserverLoopActive || _observerSeatDelay <= 0))
         {
             try
             {
-                if (ObserverPlayback.Advance(Session) is { } output) OnCommandIssued(output.Lines);
+                if (ObserverPlayback.Advance(Session) is { } output)
+                {
+                    OnCommandIssued(output.Lines);
+                    if (ObserverLoopActive) _observerSeatDelay = 0.5;
+                }
             }
             catch (Exception ex)
             {
@@ -113,7 +120,8 @@ public partial class MainGameScreen
         if (!Session.IsObserverMode) { _observerConfigured = false; return; }
         ConfigureObserverPlayback();
         var running = ObserverPlayback.IsRunning;
-        var showing = StrategicTravel.CurrentRoute?.OwnerId ?? StrategicTravel.CurrentStep?.Before.ActiveNationId ?? Session.State.ActiveNationId;
+        var showing = ObserverLoopNation ?? StrategicTravel.CurrentRoute?.OwnerId
+            ?? StrategicTravel.CurrentStep?.Before.ActiveNationId ?? Session.State.ActiveNationId;
         var action = _observerManuallyPaused ? "paused" : running ? "playing" : StrategicTravel.IsActive || IsAutomaticObserverOverlay ? "finishing round" : "paused";
         _observerStatus.Text = $"Observer · {action} · {Session.State.NationById(showing)?.Name}";
         _observerStatus.TooltipText = ObserverPlayback.StopReason ?? "Space pauses or resumes playback. Finish or skip current activity before changing watched nations or taking control.";
@@ -132,6 +140,7 @@ public partial class MainGameScreen
             if (selected >= 0) ObserverNationChoice.Select(selected);
         }
         ObserverNationChoice.Disabled = running;
+        ObserverLoopChoice.Disabled = !ObserverAtBoundary;
         ObserverTakeControlButton.Disabled = running || StrategicTravel.IsActive || _observerNationIds.Count == 0;
         RefreshObserverPlaybackControls();
     }

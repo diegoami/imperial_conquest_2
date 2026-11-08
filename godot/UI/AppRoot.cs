@@ -38,8 +38,43 @@ public partial class AppRoot : Control
             SettingsScreen.LoadAndApply(ProjectSettings.GlobalizePath("user://settings.json"), this);
         }
 
+        if (GetTree().CurrentScene == this)
+        {
+            try
+            {
+                var launch = ObserverLaunchOptions.Parse(OS.GetCmdlineUserArgs());
+                if (launch.Observe) { StartObserverCampaign(launch.Loop); return; }
+            }
+            catch (ArgumentException ex)
+            {
+                GD.PushError(ex.Message);
+                GetTree().Quit(2);
+                return;
+            }
+        }
         ShowMainMenu();
     }
+
+    private ulong? _lastObserverSeed;
+
+    public void StartObserverCampaign(bool loop, string? scenarioId = null)
+    {
+        var seed = (ulong)Random.Shared.NextInt64();
+        if (seed == _lastObserverSeed) seed++;
+        _lastObserverSeed = seed;
+        var selection = new NewGameSelection { ObserverMode = true };
+        if (scenarioId is not null)
+            selection.SelectedCard = RulesetPresets.CardForScenario(GameDataContext.Repository.Resolve(scenarioId));
+        var session = GameSessionFactory.CreateSession(GameDataContext.Repository, selection, seed);
+        var screen = new MainGameScreen { Session = session, RepositoryRoot = GameDataContext.RepositoryRoot,
+            AutoStartObserver = true, StartObserverLoop = loop };
+        WireObserverRestart(screen);
+        SwapTo(screen);
+        GD.Print($"Observer launch: {session.Scenario.Id}, loop={loop}, seed={seed}.");
+    }
+
+    private void WireObserverRestart(MainGameScreen screen) => screen.ObserverRestartRequested +=
+        () => Callable.From(() => StartObserverCampaign(true, screen.Session.Scenario.Id)).CallDeferred();
 
     public override void _Notification(int what)
     {
@@ -98,6 +133,7 @@ public partial class AppRoot : Control
         {
             var screen = new MainGameScreen { Session = session, RepositoryRoot = GameDataContext.RepositoryRoot,
                 StartAtCapital = true };
+            WireObserverRestart(screen);
             SwapTo(screen);
         };
         SwapTo(flow);
@@ -132,6 +168,7 @@ public partial class AppRoot : Control
                 RepositoryRoot = GameDataContext.RepositoryRoot,
                 OpenedPath = screen.LastLoadedPath,
             };
+            WireObserverRestart(mainScreen);
             SwapTo(mainScreen);
         };
         // Keep the caller alive while choosing a file; Cancel restores that exact screen/session.

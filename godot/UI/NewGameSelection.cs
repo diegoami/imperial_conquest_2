@@ -127,7 +127,7 @@ public static class GameSessionFactory
     /// into every <em>other</em> seat first, the same <c>scenario with { Seats = ... }</c> shape
     /// <see cref="GameSession"/>'s own constructor already uses for the human seat.
     /// </summary>
-    public static GameSession CreateSession(GameDataRepository repository, NewGameSelection selection)
+    public static GameSession CreateSession(GameDataRepository repository, NewGameSelection selection, ulong? seedOverride = null)
     {
         if (!selection.ObserverMode && selection.HumanNationIds.Count == 0)
         {
@@ -156,6 +156,7 @@ public static class GameSessionFactory
             resolved.World,
             resolved.Ruleset,
             scenario,
+            seedOverride: seedOverride,
             humanSeatNationId: humans.Count == 1 ? humans[0] : null,
             leaderNames: selection.LeaderNames.ToDictionary(
                 pair => pair.Key,
