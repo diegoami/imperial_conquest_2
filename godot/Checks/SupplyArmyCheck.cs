@@ -249,8 +249,7 @@ public partial class SupplyArmyCheck : Control
 
     private void CheckOrdinaryFeedbackAfterSupply()
     {
-        var label = _mainGame.GetChildren().OfType<VBoxContainer>().First()
-            .GetChildren().OfType<Label>().Single();
+        var label = (Label)_mainGame.FindChild("LastCommandResult", true, false);
         Check(label.Visible && label.GetVisibleLineCount() > 0,
             "ordinary feedback becomes readable after the resource strip was collapsed");
         Check(label.LinesSkipped <= Math.Max(0, label.GetLineCount() - 1),
