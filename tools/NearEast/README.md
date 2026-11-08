@@ -4,6 +4,8 @@ T273 / #1712: historical openings around 1350 BC and 750 BC, using the existing
 engine. The complete source/abstraction brief is
 [near-east-campaigns.md](../../docs/design/near-east-campaigns.md).
 
+Terrain changes must follow the [owner's hills/mountains/passes rule](../../docs/design/terrain-authoring.md): forest terrain represents lower hills, mountains represent severe high relief, and ranges need deliberate usable plain passes. Apply this to the shared map for both periods; track the existing dense-range correction in [#1822](https://github.com/diegoami/imperial_conquest_2/issues/1822). Rebuild from the authoring script and validate actual cross-range movement, not connectivity alone.
+
 ## Rebuild and validate
 
 Normal rebuild is offline and uses the committed small source subsets:

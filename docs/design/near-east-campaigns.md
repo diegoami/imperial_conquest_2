@@ -125,6 +125,8 @@ within each new ruleset so save loading and AI type references resolve.
 
 ## Map, provenance and implementation acceptance
 
+Owner terrain rule, 2026-11-08: follow [terrain-authoring.md](terrain-authoring.md). Reserve mountains for severe high relief, use forest tiles as lower hills/foothills and create deliberate plain passes across the ranges. A broad continuous mountain wall is not an acceptable shorthand for regional relief. [#1822](https://github.com/diegoami/imperial_conquest_2/issues/1822) scopes the shared-map correction and its route/compatibility validation; this rule changes authoring, not movement penalties.
+
 Use an authored Aegean–Anatolia–Levant–Mesopotamia–Zagros footprint, including
 the Nile approach and sea approaches. The two periods may share coastline and
 terrain while keeping distinct city lists, political ownership and openings.

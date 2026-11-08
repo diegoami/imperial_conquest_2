@@ -4,6 +4,8 @@ Owner decisions, 2026-11-07: add eleven historical scenarios, optional locally s
 
 This records scope and proposals. Detailed scenario briefs and implementation contracts come before implementation; it does not settle unmeasured mechanics or political abstractions.
 
+**Terrain-authoring rule (owner, 2026-11-08):** apply [hills, mountains and plain passes](terrain-authoring.md) throughout historical campaigns and random-map recipes. Forest terrain is the hill/foothill metaphor; reserve mountains for severe relief and provide deliberate plain crossings. Validate practical army routes under existing costs. [#1822](https://github.com/diegoami/imperial_conquest_2/issues/1822) corrects the existing Middle East maps. Recipe terms such as wooded terrain describe a possible presentation, not a requirement that the forest gameplay category denote literal woodland.
+
 ## Historical starts
 
 The owner approved the proposed pairs in principle, then chose both the 431 BC and Pyrrhus starts. There are three Mediterranean campaigns, with two in each other group. The 431 BC opening must cover the whole Mediterranean, not just Greece.
