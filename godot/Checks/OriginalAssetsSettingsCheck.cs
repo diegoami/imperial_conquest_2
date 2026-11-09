@@ -98,6 +98,23 @@ public partial class OriginalAssetsSettingsCheck : Node
         Check(OriginalAssetCache.Status(SettingsScreen.Current).State == IC2.Engine.Assets.OriginalCacheState.SourceMissing,
             "a vanished folder is reported and falls back");
 
+        // Textures: a tile the cache supplies is read from it (an 8x8 PNG here, the authored tile is far larger);
+        // a key it lacks still comes from the authored pack.
+        var tileCache = Path.Combine(scratch, "tile-cache", "original");
+        Directory.CreateDirectory(Path.Combine(tileCache, "terrain"));
+        File.WriteAllBytes(Path.Combine(tileCache, "terrain", "plain.png"), IC2.Engine.Assets.PngEncoder.EncodeRgb(8, 8, new byte[8 * 8 * 3]));
+        File.WriteAllText(Path.Combine(tileCache, "manifest.json"),
+            "{\"schemaVersion\":1,\"name\":\"t\",\"description\":\"t\",\"assets\":{\"terrain.plain.tile\":\"terrain/plain.png\"}}");
+        Directory.CreateDirectory(install);
+        OriginalAssetCache.CacheDirectory = tileCache;
+        SettingsScreen.Commit(SettingsScreen.Current with { OriginalInstallPath = install });
+        var loader = AssetPackTextureLoader.TryLoadPack(GameDataContext.RepositoryRoot, "authored", _ => { });
+        Check(loader?.TryGetTexture(IC2.Engine.Assets.AssetKeys.TerrainPlainTile)?.GetSize() == new Vector2(8, 8), "a tile in the cache is the one the map loads");
+        Check(loader?.TryGetTexture(IC2.Engine.Assets.AssetKeys.TerrainDesertTile)?.GetSize().X > 8, "a tile the cache lacks comes from the authored pack");
+        SettingsScreen.Commit(SettingsScreen.Current with { OriginalInstallPath = null });
+        Check(AssetPackTextureLoader.TryLoadPack(GameDataContext.RepositoryRoot, "authored", _ => { })?.TryGetTexture(IC2.Engine.Assets.AssetKeys.TerrainPlainTile)?.GetSize().X > 8,
+            "with no folder chosen the authored tile is used");
+
         OriginalAssetCache.CacheDirectory = originalCache;
         SettingsScreen.Commit(SettingsScreen.Current with { OriginalInstallPath = null });
     }

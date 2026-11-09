@@ -53,6 +53,7 @@ public static class OriginalAssetPackBuilder
         try
         {
             results.Add(BuildSounds(installDirectory, staging, assets));
+            results.Add(BuildTerrainTiles(installDirectory, staging, assets));
             var manifest = new
             {
                 schemaVersion = 1,
@@ -100,6 +101,75 @@ public static class OriginalAssetPackBuilder
         }
 
         return new OriginalCategoryResult("sounds", found, Sounds.Count, rejected.Count == 0 ? null : string.Join("; ", rejected));
+    }
+
+    /// <summary>Executable's TUnitMap.TerrainList cells 0 to 5 to the six tile keys (research extraction spec, crosswalk).</summary>
+    public static readonly IReadOnlyList<(int Cell, string Key, string File)> TerrainTiles =
+    [
+        (0, AssetKeys.TerrainSeaCalmTile, "terrain/sea_calm.png"), (1, AssetKeys.TerrainSeaRoughTile, "terrain/sea_rough.png"),
+        (2, AssetKeys.TerrainPlainTile, "terrain/plain.png"), (3, AssetKeys.TerrainDesertTile, "terrain/desert.png"),
+        (4, AssetKeys.TerrainForestTile, "terrain/forest.png"), (5, AssetKeys.TerrainMountainTile, "terrain/mountain.png"),
+    ];
+
+    /// <summary>Every key this builder can supply today (sounds and terrain tiles); the status counts against these.</summary>
+    public static IReadOnlyList<string> SupportedKeys { get; } =
+        [.. Sounds.Select(s => s.Key), .. TerrainTiles.Select(t => t.Key)];
+
+    private const long MaxExecutableBytes = 64L * 1024 * 1024;
+
+    /// <summary>
+    /// The six terrain tiles, all or none: the map draws them from one texture array and needs equal sizes, so
+    /// a partial set would be worse than the authored one. Rivers (six shapes behind one key), markers and
+    /// battle pieces need further mapping and are not written.
+    /// </summary>
+    private static OriginalCategoryResult BuildTerrainTiles(string install, string staging, SortedDictionary<string, string> assets)
+    {
+        const string category = "terrain tiles";
+        var total = TerrainTiles.Count;
+        var exe = Directory.Exists(install)
+            ? Directory.EnumerateFiles(install).FirstOrDefault(f => string.Equals(Path.GetFileName(f), "Imperial Conquest 2.exe", StringComparison.OrdinalIgnoreCase))
+            : null;
+        if (exe is null) return new OriginalCategoryResult(category, 0, total, "no 'Imperial Conquest 2.exe' in the installation");
+        if (new FileInfo(exe).Length > MaxExecutableBytes) return new OriginalCategoryResult(category, 0, total, "the executable is too large to read");
+
+        try
+        {
+            var list = ReadUnitMapImageList(File.ReadAllBytes(exe), "TerrainList");
+            if (list is null || list.Count < TerrainTiles.Count)
+                return new OriginalCategoryResult(category, 0, total, "this build of the game has no recognised terrain image list");
+
+            var files = new List<(string Key, string File, byte[] Png)>();
+            foreach (var (cell, key, file) in TerrainTiles)
+                files.Add((key, file, PngEncoder.EncodeRgb(list.CellWidth, list.CellHeight, list.CellRgb(cell))));
+            foreach (var (key, file, png) in files)
+            {
+                var path = Path.Combine(staging, file.Replace('/', Path.DirectorySeparatorChar));
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                File.WriteAllBytes(path, png);
+                assets[key] = file;
+            }
+            return new OriginalCategoryResult(category, total, total, null);
+        }
+        catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return new OriginalCategoryResult(category, 0, total, "this build of the game could not be read (" + ex.GetType().Name + ")");
+        }
+    }
+
+    private static OriginalImageList? ReadUnitMapImageList(byte[] exe, string componentName)
+    {
+        foreach (var (_, data) in PeResources.ReadRcData(exe))
+        {
+            if (data.Length < 4 || data[0] != 'T' || data[1] != 'P' || data[2] != 'F' || data[3] != '0') continue;
+            var form = DelphiComponent.Parse(data);
+            if (form.ClassName != "TUnitMap") continue;
+            var component = form.Find("TImageList", componentName);
+            if (component is null || !component.BinaryProperties.TryGetValue("Bitmap", out var bitmap)) return null;
+            var width = (int)component.IntegerProperties.GetValueOrDefault("Width", 0);
+            var height = (int)component.IntegerProperties.GetValueOrDefault("Height", 0);
+            return OriginalImageList.Parse(bitmap, width, height);
+        }
+        return null;
     }
 
     private static string? FindDirectory(string parent, string name)

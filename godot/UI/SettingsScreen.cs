@@ -425,6 +425,8 @@ public partial class SettingsScreen : Control
         TestSoundStatus = UiKit.MakeLabel(string.Empty, AppTheme.Note, UiKit.MutedTextColor);
         TestSoundStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         column.AddChild(TestSoundStatus);
+
+        BuildOriginalAssets(column);
     }
 
     private void TestSound()
@@ -474,7 +476,6 @@ public partial class SettingsScreen : Control
         var packs = DiscoverPacks();
         if (packs.Count <= 1)
         {
-            BuildOriginalAssets(column);
             return;
         }
 
@@ -498,8 +499,6 @@ public partial class SettingsScreen : Control
         {
             row.AddChild(UiKit.MakeLabel("(applies to the next game started or loaded)", AppTheme.Note, UiKit.MutedTextColor));
         }
-
-        BuildOriginalAssets(column);
     }
 
     public const string OriginalStatusName = "OriginalAssetsStatus";
@@ -512,7 +511,7 @@ public partial class SettingsScreen : Control
     {
         Section(column, "Original assets");
         column.AddChild(UiKit.MakeLabel(
-            "Optional. Point to your own Imperial Conquest installation and the game builds a private copy of its sounds on this computer. Nothing is uploaded, and anything missing keeps the authored version.",
+            "Optional. Point to your own Imperial Conquest installation and the game builds a private copy of its sounds and terrain tiles on this computer. Nothing is uploaded, and anything missing keeps the authored version.",
             AppTheme.Note, UiKit.MutedTextColor));
         var status = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
         status.Name = OriginalStatusName;
