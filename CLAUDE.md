@@ -21,14 +21,18 @@ cross-family review) is frozen on the `local` branch and is **not** in force her
 
 ## v0.11 task entry points
 
-New Game setup (T288), independent right-side panels (T289) and campaign guidance (T290) are
-merged; design context is `docs/design/v011-panel-layout.md` and
-`docs/design/v011-campaigns-and-random-maps.md`. The owner's priority is UI/usability. Open
-candidates: triage issues (`triage:needed`), notably #1822 (Near East passes/hills in forest terrain,
-rule 11). Read GitHub labels, not this file, for status.
+Merged: New Game setup, independent panels, campaign guidance, product naming (T291), Near East
+terrain revision 2 (#1822; the original worlds are frozen for old saves, new games use the `-r2`
+worlds, see `docs/design/near-east-passes.md`) and the observer pilot. Contracts with the owner's
+2026-11-09 decisions: `docs/tasks/T292.md` (original assets), `T293.md` (eleven campaigns),
+`T294.md` (random maps); sub-issues #1837-#1853. Design context:
+`docs/design/v011-campaigns-and-random-maps.md`. **Resume at #1837 (Diadochi 323/301 BC):** the
+brief is approved (`docs/design/diadochi-campaigns.md`); `tools/Diadochi/README.md` lists the weak
+city matches and the next steps. The owner's priority is UI/usability. Read GitHub labels, not this
+file, for status.
 
 Observer delivery is T285/T286/T287, [PR 1829](https://github.com/diegoami/imperial_conquest_2/pull/1829)
-and `docs/observer-recordings.md` on `task/T286-observer-recordings`. The owner authorized **one
+and `docs/observer-recordings.md`. The owner authorized **one
 YouTube video first only**, on lynxsupercluster in a separate Open Imperial Conquest playlist;
 Pages uses excerpts linked to that full campaign and to the repository/releases. No recurring
 uploads before pilot review. Keep ai-player's GeoClick queues and uploader records untouched.
