@@ -1,5 +1,6 @@
 using Godot;
 using IC2.Engine.Assets;
+using IC2.Slice.UI;
 
 namespace IC2.Slice.Assets;
 
@@ -51,10 +52,28 @@ public sealed class AssetPackTextureLoader
     private readonly Dictionary<string, Texture2D?> _textureCache = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Texture2D?> _surfaceCache = new(StringComparer.Ordinal);
 
-    private AssetPackTextureLoader(AssetKeyResolver resolver, string packId)
+    private readonly LayeredAssetPack? _original;
+
+    private AssetPackTextureLoader(AssetKeyResolver resolver, string packId, LayeredAssetPack? original)
     {
         _resolver = resolver;
         PackId = packId;
+        _original = original;
+    }
+
+    /// <summary>
+    /// T292c: a key the local original-assets cache supplies is read from it; everything else comes from the
+    /// selected pack through the usual resolver (and its once-per-key failure report).
+    /// </summary>
+    private bool TryResolveFile(string assetKey, out string fullPath)
+    {
+        if (_original is not null && _original.TryResolve(assetKey, out var fromOriginal))
+        {
+            fullPath = fromOriginal.FullPath;
+            return true;
+        }
+
+        return _resolver.TryResolveFile(assetKey, out fullPath);
     }
 
     /// <summary>
@@ -88,7 +107,14 @@ public sealed class AssetPackTextureLoader
         }
 
         var resolver = new AssetKeyResolver(pack, resolvedDirectory!, onFailure);
-        return new AssetPackTextureLoader(resolver, resolvedPackId!);
+        LayeredAssetPack? original = null;
+        if (OriginalAssetCache.ActiveDirectory(SettingsScreen.Current) is { } cache
+            && AssetPackManifestLoader.TryLoad(Path.Combine(cache, "manifest.json"), out _) is { } cachePack)
+        {
+            original = new LayeredAssetPack(cachePack, cache, OriginalAssetPackBuilder.PackId, cachePack, cache);
+        }
+
+        return new AssetPackTextureLoader(resolver, resolvedPackId!, original);
     }
 
     /// <summary>
@@ -126,7 +152,7 @@ public sealed class AssetPackTextureLoader
         }
 
         Texture2D? texture = null;
-        if (_resolver.TryResolveFile(assetKey, out var fullPath))
+        if (TryResolveFile(assetKey, out var fullPath))
         {
             var image = new Image();
             var error = image.Load(fullPath);
@@ -161,7 +187,7 @@ public sealed class AssetPackTextureLoader
         }
 
         Texture2D? texture = null;
-        if (_resolver.TryResolveFile(assetKey, out var fullPath))
+        if (TryResolveFile(assetKey, out var fullPath))
         {
             var image = new Image();
             if (image.Load(fullPath) == Error.Ok)

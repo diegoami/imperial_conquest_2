@@ -57,7 +57,7 @@ public sealed class OriginalAssetPackBuilderTests : IDisposable
         var output = Path.Combine(_root, "cache", "original");
         var report = OriginalAssetPackBuilder.Build(Install(4), output);
 
-        var sounds = Assert.Single(report.Categories);
+        var sounds = report.Categories.Single(c => c.Category == "sounds");
         Assert.Equal((4, 10), (sounds.Found, sounds.Total));
         var pack = AssetLoader.LoadManifest(Path.Combine(output, "manifest.json"));
         Assert.True(pack.TryResolveAsset(AssetKeys.SfxBattleJavelin, out _));
@@ -71,7 +71,7 @@ public sealed class OriginalAssetPackBuilderTests : IDisposable
         var report = OriginalAssetPackBuilder.Build(Path.Combine(_root, "nowhere"), output);
 
         Assert.False(report.Usable);
-        Assert.Contains("no WAVS folder", report.Categories[0].Note);
+        Assert.Contains("no WAVS folder", report.Categories.Single(c => c.Category == "sounds").Note);
         Assert.Empty(AssetLoader.LoadManifest(Path.Combine(output, "manifest.json")).Assets);
     }
 
@@ -87,8 +87,8 @@ public sealed class OriginalAssetPackBuilderTests : IDisposable
         var report = OriginalAssetPackBuilder.Build(install, output);
 
         Assert.Equal(1, report.KeysWritten);
-        Assert.Contains("SOUND1.WAV", report.Categories[0].Note);
-        Assert.Contains("SOUND2.WAV", report.Categories[0].Note);
+        Assert.Contains("SOUND1.WAV", report.Categories.Single(c => c.Category == "sounds").Note);
+        Assert.Contains("SOUND2.WAV", report.Categories.Single(c => c.Category == "sounds").Note);
     }
 
     [Fact]

@@ -71,7 +71,7 @@ public sealed record OriginalCacheStatus(OriginalCacheState State, int Keys, int
     /// </summary>
     public static OriginalCacheStatus Read(string? sourceDirectory, string cacheDirectory)
     {
-        var wanted = AssetKeys.AllKeys.Count();
+        var wanted = OriginalAssetPackBuilder.SupportedKeys.Count;
         if (string.IsNullOrWhiteSpace(sourceDirectory))
             return new(OriginalCacheState.NotSet, 0, wanted, "No original installation chosen. Using the authored art and sounds.");
         if (!Directory.Exists(sourceDirectory))
@@ -90,7 +90,7 @@ public sealed record OriginalCacheStatus(OriginalCacheState State, int Keys, int
         }
 
         var layered = new LayeredAssetPack(pack, cacheDirectory, OriginalAssetPackBuilder.PackId, pack, cacheDirectory);
-        var keys = layered.OverlayCount(AssetKeys.AllKeys);
+        var keys = layered.OverlayCount(OriginalAssetPackBuilder.SupportedKeys);
         if (keys == 0)
             return new(OriginalCacheState.Empty, 0, wanted, "Nothing usable was found in that folder. Using the authored art and sounds.");
         return keys >= wanted
