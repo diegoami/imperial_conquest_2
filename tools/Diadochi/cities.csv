@@ -92,7 +92,7 @@ pasargadae,922693,Pasargadae,persis,Pasargadae,seleucid,8,false
 rhagae,903104,Rhagai,media,Rhagai,seleucid,10,false
 gabae,902990,Gabai,media,Gabai,seleucid,8,false
 gazaca,884109,Gazaka,media,Gazaka,atropatene,8,true
-tushpa,,Tushpa,armenia,Tushpa,armenia,6,true
+tushpa,874771,Tushpa,armenia,Tushpa,armenia,6,true
 armavir,,Armavir,armenia,Armavir,armenia,5,true
 athens,579885,Athens,athens,Athens,athens,26,false
 megara,570468,Megara,athens,Megara,athens,8,false
@@ -130,15 +130,18 @@ perinthus,511357,Perinthos,thrace,Perinthos,lysimachus,8,false
 sestos,501609,Sestos,thrace,Sestos,lysimachus,6,false
 anshan,922729,Anshan,persis,Anshan,seleucid,4,true
 shushtar,912941,Shushtar,persis,Shushtar,seleucid,4,true
-giyan,609518824,Giyan,media,Giyan,seleucid,4,true
-godin,903035,Godin,media,Godin,seleucid,4,true
-sialk,464208937,Sialk,media,Sialk,seleucid,4,true
-qalaichi,884161,Qalaichi,media,Qalaichi,atropatene,4,true
 hasanlu,874502,Hasanlu,media,Hasanlu,atropatene,4,true
-haftavan,874495,Haftavan,media,Haftavan,atropatene,4,true
-marlik,745058470,Marlik,media,Marlik,atropatene,3,true
 sos_hoyuk,355216649,Sos Hoyuk,armenia,Sos Hoyuk,armenia,4,true
-bozkurt,121192688,Bozkurt,armenia,Bozkurt,armenia,3,true
-kanesh,58129442,Kanesh,cappadocia,Kanesh,cappadocia,4,true
-alisar,650309285,Alisar,cappadocia,Alisar,cappadocia,4,true
 adana,648548,Adana,phrygia,Adana,cilicia,5,false
+piraeus,580062,Peiraieus,athens,Peiraieus,athens,10,false
+eleusis,579920,Eleusis,athens,Eleusis,athens,5,false
+calydon,540699,Kalydon,aetolia,Kalydon,aetolia,5,false
+oiniadai,531016,Oiniadai,aetolia,Oiniadai,aetolia,4,true
+kassope,530922,Kassope,epirus,Kassope,epirus,5,false
+bouthroton,530824,Bouthroton,epirus,Bouthroton,epirus,4,true
+concobar,903054,Konkobar,media,Konkobar,seleucid,5,true
+taoke,922626,Taoke,persis,Taoke,seleucid,4,true
+maragheh,944396034,Maragha,media,Maragha,atropatene,4,true
+zanjan,659929984,Zanjan,media,Zanjan,atropatene,4,true
+cybistra,648614,Kybistra,cappadocia,Kybistra,cappadocia,5,false
+lindos,589913,Lindos,rhodes,Lindos,rhodes,6,false
