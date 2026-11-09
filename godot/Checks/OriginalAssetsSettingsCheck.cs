@@ -121,6 +121,38 @@ public partial class OriginalAssetsSettingsCheck : Node
         Check(AssetPackTextureLoader.TryLoadPack(GameDataContext.RepositoryRoot, "authored", _ => { })?.TryGetTexture(IC2.Engine.Assets.AssetKeys.TerrainPlainTile)?.GetSize().X > 8,
             "choosing Authored switches back to the authored tile while the cache stays built");
         SettingsScreen.Commit(SettingsScreen.Current with { OriginalInstallPath = null });
+
+        // Review F5: the artwork choice is Authored by default, and original town art is for the classical world only.
+        Check(!new UserSettings().UseOriginalAssets, "a fresh settings record uses the authored artwork");
+        var repository = GameDataContext.Repository;
+        Check(GameMapView.OriginalTownOwner(repository.WorldById("classical-mediterranean"), "rome") == 0
+            && GameMapView.OriginalTownOwner(repository.WorldById("classical-mediterranean"), "numidia") == 5,
+            "in the classical world the original owner is the nation's index (Rome 0, Numidia 5)");
+        foreach (var other in new[] { "diadochi-323bc", "diadochi-301bc", "near-east-1350bc-r2", "italy-500bc" })
+        {
+            if (repository.WorldById(other) is { } world)
+            {
+                Check(GameMapView.OriginalTownOwner(world, world.Nations[0].Id) == -1, $"{other} draws no original town art");
+            }
+        }
+
+        // Review F4: a cache file that cannot be decoded falls back to the authored one instead of winning its key.
+        var brokenCache = Path.Combine(scratch, "broken-cache", "original");
+        Directory.CreateDirectory(Path.Combine(brokenCache, "terrain"));
+        Directory.CreateDirectory(Path.Combine(brokenCache, "sfx"));
+        File.WriteAllBytes(Path.Combine(brokenCache, "terrain", "plain.png"), new byte[] { 1, 2, 3, 4 });
+        File.WriteAllBytes(Path.Combine(brokenCache, "sfx", "unit_move.wav"), new byte[] { 1, 2, 3, 4 });
+        File.WriteAllText(Path.Combine(brokenCache, "manifest.json"),
+            "{\"schemaVersion\":1,\"name\":\"t\",\"description\":\"t\",\"assets\":{\"terrain.plain.tile\":\"terrain/plain.png\",\"sfx.unit_move\":\"sfx/unit_move.wav\"}}");
+        OriginalAssetCache.CacheDirectory = brokenCache;
+        Directory.CreateDirectory(install);
+        SettingsScreen.Commit(SettingsScreen.Current with { OriginalInstallPath = install, UseOriginalAssets = true });
+        Check(AssetPackTextureLoader.TryLoadPack(GameDataContext.RepositoryRoot, "authored", _ => { })?.TryGetTexture(IC2.Engine.Assets.AssetKeys.TerrainPlainTile)?.GetSize().X > 8,
+            "a corrupt cached tile falls back to the authored tile");
+        var fallbackPlayer = new Audio.SoundPlayer(Path.Combine(GameDataContext.RepositoryRoot, "assets", "packs", "authored"), brokenCache);
+        AddChild(fallbackPlayer);
+        Check(fallbackPlayer.HasCue(IC2.Engine.Assets.AssetKeys.SfxUnitMove), "a corrupt cached sound falls back to the authored cue");
+        SettingsScreen.Commit(SettingsScreen.Current with { OriginalInstallPath = null, UseOriginalAssets = false });
         Check(AssetPackTextureLoader.TryLoadPack(GameDataContext.RepositoryRoot, "authored", _ => { })?.TryGetTexture(IC2.Engine.Assets.AssetKeys.TerrainPlainTile)?.GetSize().X > 8,
             "with no folder chosen the authored tile is used");
 

@@ -152,7 +152,17 @@ public sealed class AssetPackTextureLoader
         }
 
         Texture2D? texture = null;
-        if (TryResolveFile(assetKey, out var fullPath))
+        // A cache file that cannot be decoded (a truncated copy) falls back to the selected pack, like a missing key.
+        if (_original is not null && _original.TryResolve(assetKey, out var fromOriginal))
+        {
+            var cachedImage = new Image();
+            if (cachedImage.Load(fromOriginal.FullPath) == Error.Ok)
+            {
+                texture = ImageTexture.CreateFromImage(cachedImage);
+            }
+        }
+
+        if (texture is null && _resolver.TryResolveFile(assetKey, out var fullPath))
         {
             var image = new Image();
             var error = image.Load(fullPath);

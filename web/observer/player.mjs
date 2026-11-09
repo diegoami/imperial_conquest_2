@@ -23,9 +23,13 @@ function drawPlaylist(){
   const old=Date.now()-Date.parse(manifest.generatedAt)>14*86400000;
   $('updated').textContent=`Updated ${date(manifest.generatedAt)}${old?' · refresh delayed':''}`;
 }
+// A commit id means nothing to a viewer, so say which game this recording shows. Add a line when a clip is recorded from
+// a release build; an unknown commit keeps the plain build id.
+const BUILD_NOTES={'fa1b19552b66f9476979c77caad9c44219746dcf':'an early v0.11 development build (before the v0.11.0 release; newer releases look different)'};
+function buildNote(commit){return BUILD_NOTES[commit]?`Game build: ${BUILD_NOTES[commit]}`:`Build ${commit.slice(0,8)}`}
 function load(clip,autoplay){
   current=clip;$('title').textContent=clip.title;$('kind').textContent=clip.excerpt?'· excerpt':'· full campaign';
-  $('metadata').textContent=`Recorded ${date(clip.recordedAt)} · Build ${clip.sourceCommit.slice(0,8)} · Seed ${clip.seed}`;
+  $('metadata').textContent=`Recorded ${date(clip.recordedAt)} · ${buildNote(clip.sourceCommit)} · Seed ${clip.seed}`;
   $('full-campaign').href=clip.fullCampaign.youtubeUrl;$('full-campaign').hidden=false;
   film.poster=clip.poster;film.src=clip.src;film.load();loading.textContent='Loading recording…';loading.hidden=false;
   $('retry').hidden=true;$('next').disabled=false;drawPlaylist();status.textContent=playbackStatus();

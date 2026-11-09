@@ -2132,16 +2132,12 @@ public partial class GameMapView : Control
     /// </summary>
     private Texture2D? OriginalTownTile(string authoredKey, string nationId)
     {
-        if (_assetLoader is null || _session?.World is not { Id: "classical-mediterranean" } world)
+        if (_assetLoader is null)
         {
             return null;
         }
 
-        var owner = -1;
-        for (var i = 0; i < world.Nations.Count; i++)
-        {
-            if (string.Equals(world.Nations[i].Id, nationId, StringComparison.Ordinal)) { owner = i; break; }
-        }
+        var owner = OriginalTownOwner(_session?.World, nationId);
 
         var tier = authoredKey switch
         {
@@ -2155,6 +2151,28 @@ public partial class GameMapView : Control
         return owner is < 0 or > 15 || tier < 0
             ? null
             : _assetLoader.TryGetOriginalOnlyTexture(IC2.Engine.Assets.AssetKeys.OriginalTownIcon(tier, owner));
+    }
+
+    /// <summary>
+    /// The original owner number (0 to 15) of <paramref name="nationId"/>, which is the nation's index in the classical
+    /// world, or -1 in every other world: the original's owner pictures follow that world's 16 nations only.
+    /// </summary>
+    internal static int OriginalTownOwner(World? world, string nationId)
+    {
+        if (world is not { Id: "classical-mediterranean" })
+        {
+            return -1;
+        }
+
+        for (var i = 0; i < world.Nations.Count; i++)
+        {
+            if (string.Equals(world.Nations[i].Id, nationId, StringComparison.Ordinal))
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     private static bool IsUnitMarkerKey(string key) =>
