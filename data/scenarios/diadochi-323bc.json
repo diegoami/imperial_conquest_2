@@ -1,0 +1,196 @@
+{
+  "schemaVersion": 1,
+  "id": "diadochi-323bc",
+  "name": "Diadochi, 323 BC",
+  "worldId": "diadochi-323bc",
+  "rulesetId": "diadochi-323bc",
+  "seats": [
+    {
+      "nation": "egypt",
+      "control": "human",
+      "personality": null
+    },
+    {
+      "nation": "macedon",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "royal",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "thrace",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "phrygia",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "cappadocia",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "wanatolia",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "syria",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "media",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "persis",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "athens",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "aetolia",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "epirus",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "rhodes",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "armenia",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "barbarians",
+      "control": "ai",
+      "personality": null
+    }
+  ],
+  "victory": {
+    "type": "totalConquest",
+    "goal": null
+  },
+  "turnLimit": null,
+  "blindHotseat": false,
+  "randomSeed": 323,
+  "listed": false,
+  "barbarians": {
+    "nationId": "barbarians",
+    "arrivalUnits": [
+      {
+        "mercenaryLabel": 0,
+        "unitTypeId": "light_infantry",
+        "troops": 6000,
+        "quality": 6,
+        "name": "Frontier infantry"
+      },
+      {
+        "mercenaryLabel": 0,
+        "unitTypeId": "light_infantry",
+        "troops": 6000,
+        "quality": 6,
+        "name": "Frontier infantry"
+      },
+      {
+        "mercenaryLabel": 0,
+        "unitTypeId": "archers",
+        "troops": 3000,
+        "quality": 6,
+        "name": "Frontier archers"
+      },
+      {
+        "mercenaryLabel": 0,
+        "unitTypeId": "archers",
+        "troops": 3000,
+        "quality": 6,
+        "name": "Frontier archers"
+      }
+    ],
+    "fleetShips": 40,
+    "armyMorale": 70,
+    "chancePercent": 25,
+    "armyCap": 4,
+    "fleetCap": 4
+  },
+  "_provenance": {
+    "_group": "designed: owner-selected historical opening with explicit grouped-polity and regional-centre abstractions; all numerical setup is gameplay balance.",
+    "victory": "designed: existing total conquest and twenty-year horizon.",
+    "barbarians": "designed: approved shared boundary-arrival policy and provisional Italy force, with generic frontier labels."
+  }
+}
