@@ -294,7 +294,7 @@ public sealed partial class SoundPlayer : Node
     /// <see cref="AssetPackTextureLoader"/> reads from). Loads every <c>sfx.*</c> key the manifest
     /// resolves; missing keys are warned once and left silent, never substituted.
     /// </summary>
-    public SoundPlayer(string packDirectory)
+    public SoundPlayer(string packDirectory, string? originalCacheDirectory = null)
     {
         ArgumentNullException.ThrowIfNull(packDirectory);
 
@@ -304,10 +304,10 @@ public sealed partial class SoundPlayer : Node
         _stepTimerParent = new Node { Name = "SoundPlayerStepTimer" };
         AddChild(_stepTimerParent);
 
-        LoadPack(packDirectory);
+        LoadPack(packDirectory, originalCacheDirectory);
     }
 
-    private void LoadPack(string packDirectory)
+    private void LoadPack(string packDirectory, string? originalCacheDirectory)
     {
         var manifestPath = Path.Combine(packDirectory, "manifest.json");
         var pack = AssetPackManifestLoader.TryLoad(manifestPath, out var failure);
@@ -322,6 +322,14 @@ public sealed partial class SoundPlayer : Node
         var resolver = new AssetKeyResolver(
             pack, packDirectory, key => GD.PushWarning($"T149 SoundPlayer: pack cannot resolve '{key}'; that cue is silent."));
 
+        // T292c: keys the local original-assets cache supplies win; everything else stays on the selected pack.
+        LayeredAssetPack? original = null;
+        if (originalCacheDirectory is not null
+            && AssetPackManifestLoader.TryLoad(Path.Combine(originalCacheDirectory, "manifest.json"), out _) is { } originalPack)
+        {
+            original = new LayeredAssetPack(originalPack, originalCacheDirectory, OriginalAssetPackBuilder.PackId, originalPack, originalCacheDirectory);
+        }
+
         foreach (var key in AssetKeys.AllKeys)
         {
             if (!key.StartsWith("sfx.", StringComparison.Ordinal))
@@ -329,7 +337,12 @@ public sealed partial class SoundPlayer : Node
                 continue;
             }
 
-            if (!resolver.TryResolveFile(key, out var fullPath))
+            string fullPath;
+            if (original is not null && original.TryResolve(key, out var fromOriginal))
+            {
+                fullPath = fromOriginal.FullPath;
+            }
+            else if (!resolver.TryResolveFile(key, out fullPath))
             {
                 continue;
             }

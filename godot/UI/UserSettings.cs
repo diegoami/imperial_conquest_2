@@ -43,6 +43,9 @@ public sealed record UserSettings
     /// <summary>The asset pack; <see langword="null"/> keeps the loader's default.</summary>
     public string? PackId { get; init; }
 
+    /// <summary>T292d: the folder of the player's own installation, for the local original-assets cache; never uploaded or logged.</summary>
+    public string? OriginalInstallPath { get; init; }
+
     public bool SoundEnabled { get; init; } = true;
 
     /// <summary>The master volume, 0 to 100.</summary>
@@ -172,6 +175,7 @@ public sealed record UserSettings
             .Where(p => p is not null && !string.IsNullOrWhiteSpace(p.WorldId)).GroupBy(p => p.WorldId)
             .Select(g => g.Last())),
         PackId = string.IsNullOrWhiteSpace(PackId) ? null : PackId.Trim(),
+        OriginalInstallPath = string.IsNullOrWhiteSpace(OriginalInstallPath) ? null : OriginalInstallPath.Trim(),
         VolumePercent = Math.Clamp(VolumePercent, 0, 100),
         BattleShotDelaySeconds = BattlePauses.SnapShot(BattleShotDelaySeconds),
         BattleAttackDelaySeconds = BattlePauses.SnapAttack(BattleAttackDelaySeconds),

@@ -334,7 +334,8 @@ public partial class MainGameScreen : Control
         // lacks plays nothing" stays true when the player changes packs. Created before the
         // subscription below so OnSessionEventsPublished never sees a null player.
         _soundPlayer = new Audio.SoundPlayer(
-            Path.Combine(RepositoryRoot, "assets", "packs", SettingsScreen.SelectedPackId ?? Assets.AssetPackManifestLoader.DefaultPackId));
+            Path.Combine(RepositoryRoot, "assets", "packs", SettingsScreen.SelectedPackId ?? Assets.AssetPackManifestLoader.DefaultPackId),
+            Assets.OriginalAssetCache.ActiveDirectory(SettingsScreen.Current));
         AddChild(_soundPlayer);
         _soundPlayer.SoundEnabled = () => SettingsScreen.SoundEnabled;
         _soundPlayer.Muted = !SettingsScreen.SoundEnabled;

@@ -443,7 +443,8 @@ public partial class SettingsScreen : Control
         try
         {
             var pack = SelectedPackId ?? Assets.AssetPackManifestLoader.DefaultPackId;
-            _testSoundPlayer = new Audio.SoundPlayer(Path.Combine(GameDataContext.RepositoryRoot, "assets", "packs", pack));
+            _testSoundPlayer = new Audio.SoundPlayer(Path.Combine(GameDataContext.RepositoryRoot, "assets", "packs", pack),
+                Assets.OriginalAssetCache.ActiveDirectory(Current));
             _testSoundPlayer.SoundEnabled = () => SoundEnabled;
             AddChild(_testSoundPlayer);
             const string cue = IC2.Engine.Assets.AssetKeys.SfxBattleArrows;
@@ -473,6 +474,7 @@ public partial class SettingsScreen : Control
         var packs = DiscoverPacks();
         if (packs.Count <= 1)
         {
+            BuildOriginalAssets(column);
             return;
         }
 
@@ -496,6 +498,64 @@ public partial class SettingsScreen : Control
         {
             row.AddChild(UiKit.MakeLabel("(applies to the next game started or loaded)", AppTheme.Note, UiKit.MutedTextColor));
         }
+
+        BuildOriginalAssets(column);
+    }
+
+    public const string OriginalStatusName = "OriginalAssetsStatus";
+    public const string OriginalChooseName = "OriginalAssetsChoose";
+    public const string OriginalRebuildName = "OriginalAssetsRebuild";
+    public const string OriginalClearName = "OriginalAssetsClear";
+
+    /// <summary>T292d: optional use of the player's own Imperial Conquest installation; status and three actions.</summary>
+    private void BuildOriginalAssets(VBoxContainer column)
+    {
+        Section(column, "Original assets");
+        column.AddChild(UiKit.MakeLabel(
+            "Optional. Point to your own Imperial Conquest installation and the game builds a private copy of its sounds on this computer. Nothing is uploaded, and anything missing keeps the authored version.",
+            AppTheme.Note, UiKit.MutedTextColor));
+        var status = UiKit.MakeLabel(string.Empty, AppTheme.Body, UiKit.TextColor);
+        status.Name = OriginalStatusName;
+        status.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        var rebuild = UiKit.MakeButton("Rebuild cache", () => { }, AppTheme.Button);
+        var clear = UiKit.MakeButton("Clear cache", () => { }, AppTheme.Button);
+        void Refresh(string? message = null)
+        {
+            var current = Assets.OriginalAssetCache.Status(Current);
+            status.Text = message ?? current.Message;
+            rebuild.Disabled = Current.OriginalInstallPath is null;
+            clear.Disabled = !Directory.Exists(Assets.OriginalAssetCache.CacheDirectory);
+        }
+
+        var dialog = new FileDialog
+        {
+            FileMode = FileDialog.FileModeEnum.OpenDir, Access = FileDialog.AccessEnum.Filesystem,
+            Title = "Choose your Imperial Conquest folder", UseNativeDialog = true, Name = "OriginalAssetsDialog",
+        };
+        dialog.DirSelected += dir =>
+        {
+            Commit(Current with { OriginalInstallPath = dir });
+            Refresh(Assets.OriginalAssetCache.Rebuild(Current));
+            Refresh(status.Text);
+        };
+        column.AddChild(dialog);
+
+        var choose = UiKit.MakeButton("Choose folder...", () => dialog.PopupCenteredRatio(0.6f), AppTheme.Button);
+        choose.Name = OriginalChooseName;
+        rebuild.Name = OriginalRebuildName;
+        clear.Name = OriginalClearName;
+        rebuild.Pressed += () => Refresh(Assets.OriginalAssetCache.Rebuild(Current));
+        clear.Pressed += () => { Refresh(Assets.OriginalAssetCache.Clear()); };
+        var row = Row(column, "Installation");
+        row.AddChild(choose);
+        row.AddChild(rebuild);
+        row.AddChild(clear);
+        column.AddChild(status);
+        if (InGame)
+        {
+            column.AddChild(UiKit.MakeLabel("Applies to the next game started or loaded.", AppTheme.Note, UiKit.MutedTextColor));
+        }
+        Refresh();
     }
 
     private static int IndexOf<T>(IReadOnlyList<T> items, Func<T, bool> match)
