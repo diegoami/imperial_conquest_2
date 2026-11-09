@@ -106,7 +106,7 @@ public sealed class OriginalImageGroupTests : IDisposable
     [Fact]
     public void The_status_counts_every_supported_key()
     {
-        Assert.Equal(10 + 6 + 6 + 6 + 80 + 16, OriginalAssetPackBuilder.SupportedKeys.Count);
+        Assert.Equal(10 + 6 + 6 + 6 + 80 + 16 + 44, OriginalAssetPackBuilder.SupportedKeys.Count);
         Assert.Equal(OriginalAssetPackBuilder.SupportedKeys.Count, OriginalAssetPackBuilder.SupportedKeys.Distinct().Count());
     }
 

@@ -109,6 +109,63 @@ public static class OriginalAssetPackBuilder
 
     private sealed record ImageGroup(string Category, IReadOnlyList<ImageSource> Items);
 
+    /// <summary>One speed-button glyph: the form class and component, and the key it becomes.</summary>
+    private sealed record GlyphSource(string Form, string Component, string Key, string File);
+
+    private const int GlyphScale = 2; // owner decision 2026-11-09: integer 2x, 20x20 to 40x40
+
+    /// <summary>
+    /// The 44 toolbar glyphs, each bound to its command by its OnClick handler (research crosswalk 2026-11-09, section A):
+    /// 9 on TPremierForm, 12 on TAreaMap, 15 on TUnitMap and 8 on TBattleMap.
+    /// </summary>
+    private static readonly IReadOnlyList<GlyphSource> Glyphs =
+    [
+        new("TPremierForm", "sb_Open", "ui.command.open.icon", "ui/open.png"),
+        new("TPremierForm", "sb_Save", "ui.command.save.icon", "ui/save.png"),
+        new("TPremierForm", "sb_Endturn", "ui.command.end_turn.icon", "ui/end_turn.png"),
+        new("TPremierForm", "sb_News", "ui.command.news.icon", "ui/news.png"),
+        new("TPremierForm", "sb_Pols", "ui.command.relations.icon", "ui/relations.png"),
+        new("TPremierForm", "sb_Tax", "ui.command.taxation.icon", "ui/taxation.png"),
+        new("TPremierForm", "sb_Balance", "ui.command.balance_sheet.icon", "ui/balance_sheet.png"),
+        new("TPremierForm", "sb_Newunit", "ui.command.recruit_unit.icon", "ui/recruit_unit.png"),
+        new("TPremierForm", "sb_Newfleet", "ui.command.build_fleet.icon", "ui/build_fleet.png"),
+        new("TAreaMap", "sb_areacits", "ui.command.show_cities.icon", "ui/show_cities.png"),
+        new("TAreaMap", "sb_areacap", "ui.command.show_capital.icon", "ui/show_capital.png"),
+        new("TAreaMap", "sb_areaarms", "ui.command.show_armies.icon", "ui/show_armies.png"),
+        new("TAreaMap", "sb_areaflts", "ui.command.show_fleets.icon", "ui/show_fleets.png"),
+        new("TAreaMap", "sb_areaalln", "ui.command.show_all.icon", "ui/show_all.png"),
+        new("TAreaMap", "sb_areali", "ui.command.show_mercs_light_infantry.icon", "ui/show_mercs_light_infantry.png"),
+        new("TAreaMap", "sb_areahi", "ui.command.show_mercs_heavy_infantry.icon", "ui/show_mercs_heavy_infantry.png"),
+        new("TAreaMap", "sb_areaarch", "ui.command.show_mercs_archers.icon", "ui/show_mercs_archers.png"),
+        new("TAreaMap", "sb_arealc", "ui.command.show_mercs_light_cavalry.icon", "ui/show_mercs_light_cavalry.png"),
+        new("TAreaMap", "sb_areahc", "ui.command.show_mercs_heavy_cavalry.icon", "ui/show_mercs_heavy_cavalry.png"),
+        new("TAreaMap", "sb_areaallm", "ui.command.show_mercs_all.icon", "ui/show_mercs_all.png"),
+        new("TAreaMap", "sb_findcity", "ui.command.find_city.icon", "ui/find_city.png"),
+        new("TUnitMap", "sb_supplyarmy", "ui.command.army_supply.icon", "ui/army_supply.png"),
+        new("TUnitMap", "sb_recruitmercs", "ui.command.army_recruit_mercenaries.icon", "ui/army_recruit_mercenaries.png"),
+        new("TUnitMap", "sb_transferunit", "ui.command.army_transfer_unit.icon", "ui/army_transfer_unit.png"),
+        new("TUnitMap", "sb_splitarmy", "ui.command.army_split.icon", "ui/army_split.png"),
+        new("TUnitMap", "sb_joinarmies", "ui.command.army_join.icon", "ui/army_join.png"),
+        new("TUnitMap", "sb_changeunit", "ui.command.army_change_units.icon", "ui/army_change_units.png"),
+        new("TUnitMap", "sb_disbandarmy", "ui.command.army_disband.icon", "ui/army_disband.png"),
+        new("TUnitMap", "sb_supplyfleet", "ui.command.fleet_supply.icon", "ui/fleet_supply.png"),
+        new("TUnitMap", "sb_repairfleet", "ui.command.fleet_repair.icon", "ui/fleet_repair.png"),
+        new("TUnitMap", "sb_transferships", "ui.command.fleet_transfer_ships.icon", "ui/fleet_transfer_ships.png"),
+        new("TUnitMap", "sb_splitfleet", "ui.command.fleet_split.icon", "ui/fleet_split.png"),
+        new("TUnitMap", "sb_joinfleets", "ui.command.fleet_join.icon", "ui/fleet_join.png"),
+        new("TUnitMap", "sb_scuttle", "ui.command.fleet_scuttle.icon", "ui/fleet_scuttle.png"),
+        new("TUnitMap", "sb_fortifycity", "ui.command.city_fortify.icon", "ui/city_fortify.png"),
+        new("TUnitMap", "sb_cancel", "ui.command.cancel_selection.icon", "ui/cancel_selection.png"),
+        new("TBattleMap", "sb_unitmoves", "battle.toolbar.unit_moves", "battle/toolbar_unit_moves.png"),
+        new("TBattleMap", "sb_friendlyunits", "battle.toolbar.friendly_units", "battle/toolbar_friendly_units.png"),
+        new("TBattleMap", "sb_enemyunits", "battle.toolbar.enemy_units", "battle/toolbar_enemy_units.png"),
+        new("TBattleMap", "sb_cancel", "battle.toolbar.cancel_selection", "battle/toolbar_cancel_selection.png"),
+        new("TBattleMap", "sb_endturn", "battle.toolbar.end_turn", "battle/toolbar_end_turn.png"),
+        new("TBattleMap", "sb_pauses", "battle.toolbar.change_pauses", "battle/toolbar_change_pauses.png"),
+        new("TBattleMap", "sb_compgen", "battle.toolbar.computer_general", "battle/toolbar_computer_general.png"),
+        new("TBattleMap", "sb_surrender", "battle.toolbar.surrender", "battle/toolbar_surrender.png"),
+    ];
+
     private static readonly string[] BattleTypes = ["light_infantry", "heavy_infantry", "archers", "light_cavalry", "heavy_cavalry"];
     private static readonly string[] BattleSizes = ["small", "medium", "large"];
 
@@ -164,7 +221,7 @@ public static class OriginalAssetPackBuilder
 
     /// <summary>Every key this builder can supply today; the status counts against these.</summary>
     public static IReadOnlyList<string> SupportedKeys { get; } =
-        [.. Sounds.Select(s => s.Key), .. ImageGroups.SelectMany(g => g.Items.Select(i => i.Key))];
+        [.. Sounds.Select(s => s.Key), .. ImageGroups.SelectMany(g => g.Items.Select(i => i.Key)), .. Glyphs.Select(g => g.Key)];
 
     private const long MaxExecutableBytes = 64L * 1024 * 1024;
 
@@ -192,6 +249,55 @@ public static class OriginalAssetPackBuilder
             if (resources is null) { yield return new OriginalCategoryResult(group.Category, 0, total, problem); continue; }
             yield return BuildGroup(group, resources, staging, assets);
         }
+
+        yield return resources is null
+            ? new OriginalCategoryResult("toolbar glyphs", 0, Glyphs.Count, problem)
+            : BuildGlyphs(resources, staging, assets);
+    }
+
+    private static OriginalCategoryResult BuildGlyphs(IReadOnlyList<(string Name, byte[] Data)> resources, string staging,
+        SortedDictionary<string, string> assets)
+    {
+        const string category = "toolbar glyphs";
+        var total = Glyphs.Count;
+        try
+        {
+            var forms = new Dictionary<string, DelphiComponent?>();
+            var files = new List<(string Key, string File, byte[] Png)>();
+            foreach (var glyph in Glyphs)
+            {
+                if (!forms.TryGetValue(glyph.Form, out var form))
+                    forms[glyph.Form] = form = FindForm(resources, glyph.Form);
+                var button = form?.Find("TSpeedButton", glyph.Component);
+                if (button is null || !button.BinaryProperties.TryGetValue("Glyph.Data", out var data))
+                    return new OriginalCategoryResult(category, 0, total, "this build of the game has no recognised " + glyph.Component);
+                var decoded = GlyphDecoder.Decode(data, GlyphScale);
+                files.Add((glyph.Key, glyph.File, PngEncoder.EncodeRgba(decoded.Width, decoded.Height, decoded.Rgba)));
+            }
+            foreach (var (key, file, png) in files)
+            {
+                var path = Path.Combine(staging, file.Replace('/', Path.DirectorySeparatorChar));
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                File.WriteAllBytes(path, png);
+                assets[key] = file;
+            }
+            return new OriginalCategoryResult(category, total, total, null);
+        }
+        catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return new OriginalCategoryResult(category, 0, total, "this build of the game could not be read (" + ex.GetType().Name + ")");
+        }
+    }
+
+    private static DelphiComponent? FindForm(IReadOnlyList<(string Name, byte[] Data)> resources, string formClass)
+    {
+        foreach (var (_, data) in resources)
+        {
+            if (data.Length < 4 || data[0] != 'T' || data[1] != 'P' || data[2] != 'F' || data[3] != '0') continue;
+            var form = DelphiComponent.Parse(data);
+            if (form.ClassName == formClass) return form;
+        }
+        return null;
     }
 
     private static OriginalCategoryResult BuildGroup(ImageGroup group, IReadOnlyList<(string Name, byte[] Data)> resources, string staging,
