@@ -55,7 +55,16 @@ public partial class DiadochiScreenshotTour : Control
             case 3: Capture("03-diadochi-323-map"); _app.ShowNewGameFlow(); break;
             case 4: Start("diadochi-301bc"); break;
             case 5: Capture("04-diadochi-301-seats"); ((NewGameFlow)_app.CurrentScreen!).SeatScreen!.ConfirmSeatAndStart(); break;
-            case 6: Capture("05-diadochi-301-map"); CheckExit.Quit(this, 0); break;
+            case 6: Capture("05-diadochi-301-map"); _app.ShowNewGameFlow(); break;
+            case 7:
+                {
+                    var flow = (NewGameFlow)_app.CurrentScreen!;
+                    flow.Chooser!.SelectCard(RulesetPresets.CardFor(RulesetPresets.Default));
+                    flow.Chooser.ConfirmSelection();
+                    break;
+                }
+            case 8: ((NewGameFlow)_app.CurrentScreen!).SeatScreen!.ConfirmSeatAndStart(); break;
+            case 9: Capture("06-classical-map"); CheckExit.Quit(this, 0); break;
         }
         _step++;
     }

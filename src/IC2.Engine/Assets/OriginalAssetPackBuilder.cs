@@ -139,6 +139,12 @@ public static class OriginalAssetPackBuilder
             new("TUnitMap", "TerrainList", 10, AssetKeys.OriginalRiverTiles[4], "terrain/river_sw.png"),
             new("TUnitMap", "TerrainList", 11, AssetKeys.OriginalRiverTiles[5], "terrain/river_nw.png"),
         ]),
+        new("town and capital markers",
+        [
+            .. Enumerable.Range(0, 5).SelectMany(list => Enumerable.Range(0, 16).Select(owner => list == 4
+                ? new ImageSource("TUnitMap", "CapitalsList", owner, AssetKeys.OriginalTownIcon(0, owner), $"city/capital_owner{owner}.png")
+                : new ImageSource("TUnitMap", $"Cities{list + 1}List", owner, AssetKeys.OriginalTownIcon(list + 1, owner), $"city/tier{list + 1}_owner{owner}.png"))),
+        ]),
         new("army and fleet markers",
         [
             new("TUnitMap", "ArmiesList", 0, AssetKeys.ArmyTier1Icon, "army/tier1.png"),

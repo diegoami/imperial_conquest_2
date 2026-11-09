@@ -1864,6 +1864,20 @@ public partial class GameMapView : Control
         // T163: shipped rulesets use thresholds [25, 50, 100] (population in thousands), giving
         // four town tiers; a national capital uses its own marker at any population.
         var key = MapMarkerKeys.CityIcon(DisplayState, city, _session!.Ruleset.MapMarkers);
+        if (OriginalTownTile(key, city.Owner) is { } original)
+        {
+            // The original's own picture for this owner and tier (classical world only), drawn unchanged: its
+            // colours are baked in and are never recoloured (research extraction spec, point 6).
+            var originalRect = new Rect2(center - new Vector2(radius, radius), new Vector2(radius, radius) * 2f);
+            DrawTemplateTile(original, originalRect, background);
+            if (selected)
+            {
+                DrawSelectionRect(originalRect, 2.5f);
+            }
+
+            return;
+        }
+
         var texture = _assetLoader?.TryGetTexture(key);
         if (texture is not null && OwnerTemplate(key, texture, city.Owner) is { } tile)
         {
@@ -2110,6 +2124,37 @@ public partial class GameMapView : Control
 
         _ownerTemplates[(key, nationId)] = result;
         return result;
+    }
+
+    /// <summary>
+    /// The original's picture of a town or capital for <paramref name="nationId"/>, or null when the cache does not
+    /// supply it or the world is not the classical one (the original's owner pictures follow that world's 16 nations).
+    /// </summary>
+    private Texture2D? OriginalTownTile(string authoredKey, string nationId)
+    {
+        if (_assetLoader is null || _session?.World is not { Id: "classical-mediterranean" } world)
+        {
+            return null;
+        }
+
+        var owner = -1;
+        for (var i = 0; i < world.Nations.Count; i++)
+        {
+            if (string.Equals(world.Nations[i].Id, nationId, StringComparison.Ordinal)) { owner = i; break; }
+        }
+
+        var tier = authoredKey switch
+        {
+            IC2.Engine.Assets.AssetKeys.CityCapitalIcon => 0,
+            IC2.Engine.Assets.AssetKeys.CityTier1Icon => 1,
+            IC2.Engine.Assets.AssetKeys.CityTier2Icon => 2,
+            IC2.Engine.Assets.AssetKeys.CityTier3Icon => 3,
+            IC2.Engine.Assets.AssetKeys.CityTier4Icon => 4,
+            _ => -1,
+        };
+        return owner is < 0 or > 15 || tier < 0
+            ? null
+            : _assetLoader.TryGetOriginalOnlyTexture(IC2.Engine.Assets.AssetKeys.OriginalTownIcon(tier, owner));
     }
 
     private static bool IsUnitMarkerKey(string key) =>

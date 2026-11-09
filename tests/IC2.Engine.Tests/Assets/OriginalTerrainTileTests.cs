@@ -145,6 +145,6 @@ public sealed class OriginalTerrainTileTests : IDisposable
         OriginalAssetPackBuilder.Build(Install(), cache);
         var status = OriginalCacheStatus.Read(Path.Combine(_root, "install"), cache);
         Assert.Equal(OriginalCacheState.Partial, status.State); // tiles present, no WAVS folder
-        Assert.Equal((12, 44), (status.Keys, status.Wanted)); // six tiles and six river shapes
+        Assert.Equal((12, 124), (status.Keys, status.Wanted)); // six tiles and six river shapes
     }
 }
