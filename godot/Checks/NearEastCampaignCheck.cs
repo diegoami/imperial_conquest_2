@@ -31,7 +31,7 @@ public partial class NearEastCampaignCheck : Node
                 var state = main.Session.State;
                 var nation = state.NationById(state.ActiveNationId)!;
                 var capital = state.CityById(nation.CapitalCityId!)!;
-                Check(main.Session.World.Id == $"near-east-{year}bc", $"{year}: selected world bootstraps through the real flow");
+                Check(main.Session.World.Id == $"near-east-{year}bc-r2", $"{year}: selected world bootstraps through the real flow");
                 Check(state.Calendar.YearBc == year, $"{year}: correct opening calendar");
                 Check(state.NationById("barbarians") is { IsBarbarian: true, Control: SeatControl.Ai, Eliminated: false },
                     $"{year}: cityless barbarian role is active and non-human");
