@@ -1,0 +1,46 @@
+{
+  "pydna": [
+    {
+      "kind": "contextual-range",
+      "from": -540,
+      "to": -168,
+      "uri": "https://en.wikipedia.org/wiki/Pydna",
+      "certainty": "broad context",
+      "basis": "Overview of the Macedonian coastal town, besieged by Cassander in 316 BC.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "colophon": [
+    {
+      "kind": "contextual-range",
+      "from": -1000,
+      "to": -250,
+      "uri": "https://en.wikipedia.org/wiki/Colophon,_Ionia",
+      "certainty": "broad context",
+      "basis": "Overview of the Ionian city, declining after Lysimachus moved its people to Ephesus around 294 BC.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "thapsacus": [
+    {
+      "kind": "contextual-range",
+      "from": -500,
+      "to": -300,
+      "uri": "https://en.wikipedia.org/wiki/Thapsacus",
+      "certainty": "broad context",
+      "basis": "Overview of the Euphrates crossing used by Alexander in 331 BC.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "armavir": [
+    {
+      "kind": "contextual-range",
+      "from": -331,
+      "to": -200,
+      "uri": "https://en.wikipedia.org/wiki/Armavir_(ancient_city)",
+      "certainty": "broad context",
+      "basis": "Overview of the Orontid-era Armenian capital founded in the later fourth century BC.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ]
+}
