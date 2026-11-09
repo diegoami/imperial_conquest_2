@@ -94,6 +94,20 @@ def paint_ring(grid, ring, value):
                 grid[y][x] = value
 
 
+# World revision (#1822): terrain revision 2 ships as new world ids so saves made on the original
+# terrain keep resolving their own, untouched world files (a save records its WorldId).
+WORLD_REVISION = "-r2"
+CREST_FRACTION = .5
+PASS_RADIUS = .1
+PASSES = [("Cilician Gates (Taurus)", [(34.85, 36.9), (34.75, 37.5), (34.7, 38.2)]),
+          ("Kermanshah-Hamadan road (Zagros)", [(44.6, 34.6), (46.5, 34.5), (48.0, 34.4)]),
+          ("Susa to the plateau (Zagros)", [(48.3, 32.5), (49.5, 33.4), (51.0, 33.9)]),
+          ("Greater Zab to Lake Urmia (Zagros)", [(44.0, 36.2), (45.2, 36.4), (46.3, 36.6)]),
+          ("Upper Tigris to Lake Van (Taurus/Zagros)", [(43.2, 36.4), (43.3, 37.5), (43.4, 38.5)]),
+          ("Tehran to the Caspian (Elburz)", [(51.4, 34.2), (51.5, 35.5), (51.5, 36.9)]),
+          ("Taygetus crossing (Peloponnese)", [(21.7, 37.0), (22.0, 37.0), (22.4, 37.1), (22.6, 37.5), (22.72, 37.63)])]
+
+
 def terrain():
     grid = [[0] * WIDTH for _ in range(HEIGHT)]
     for polygon in GEOGRAPHY["land"]:
@@ -109,13 +123,27 @@ def terrain():
             if grid[y][x] == 0:
                 continue
             lon, lat = centre(x, y)
-            mountainous = any(any(italy.dist_to_segment(lon, lat, a, b) <= radius for a, b in zip(line, line[1:])) for line, radius in ridges)
-            if mountainous:
-                grid[y][x] = 4 if italy.value_noise(x, y, 4, 750) > .62 else 5
+            # Owner rule (docs/design/terrain-authoring.md, #1822): mountain only on the high crest
+            # (the inner CREST_FRACTION of a band); the rest of the band is forest, the lower-hill proxy.
+            ridge_distance = min((italy.dist_to_segment(lon, lat, a, b) / radius for line, radius in ridges
+                                  for a, b in zip(line, line[1:])), default=9)
+            if ridge_distance <= 1:
+                crest = ridge_distance <= CREST_FRACTION and italy.value_noise(x, y, 4, 750) <= .62
+                grid[y][x] = 5 if crest else 4
             elif lat < 32 or (lon > 37 and lat < 35):
                 grid[y][x] = 3
             elif italy.value_noise(x, y, 9, 1350) > .64:
                 grid[y][x] = 4
+    # Plain passes (#1822): continuous corridors across each belt. Pass lines and the corridor width
+    # are authored gameplay abstractions at this map scale, named for the historical route they
+    # approximate; they are not surveyed road geometry.
+    for _name, line in PASSES:
+        for y in range(HEIGHT):
+            for x in range(WIDTH):
+                if grid[y][x] in (4, 5):
+                    lon, lat = centre(x, y)
+                    if any(italy.dist_to_segment(lon, lat, a, b) <= PASS_RADIUS for a, b in zip(line, line[1:])):
+                        grid[y][x] = 2
     # Natural inland water uses the existing navigable-water convention, as in Italy.
     for lake in GEOGRAPHY["lakes"]:
         paint_ring(grid, lake["rings"][0], 0)
@@ -316,8 +344,8 @@ def world_for(year, grid, sites, positions, rules):
     peace = rules["diplomacy"]["stateCodes"]["peace"]
     matrix = [[war if a != b and "barbarians" in (a, b) else peace for b in ids] for a in ids]
     base = json.loads((ROOT / "data/worlds/italy-500bc.json").read_text(encoding="utf-8"))
-    world = dict(schemaVersion=1, id=identity, name=f"Near East, c{year} BC", width=WIDTH, height=HEIGHT,
-        terrain=dict(encoding="base64", runs=None, data=None, dataFile="near-east-1350bc.terrain.b64"),
+    world = dict(schemaVersion=1, id=f"{identity}{WORLD_REVISION}", name=f"Near East, c{year} BC", width=WIDTH, height=HEIGHT,
+        terrain=dict(encoding="base64", runs=None, data=None, dataFile=f"near-east{WORLD_REVISION}.terrain.b64"),
         tileTypes=base["tileTypes"], nations=nations, cities=cities, startingArmies=armies, startingFleets=fleets,
         turnOrder=ids, startingRelations=dict(nationIds=ids, matrix=matrix), weatherCentres=[],
         _provenance={"terrain": "derived: Natural Earth v5.1.2 public-domain coast/rivers/natural lakes, clipped and rasterized by tools/NearEast/build_campaigns.py. "
@@ -328,7 +356,7 @@ def world_for(year, grid, sites, positions, rules):
     role_units = copy.deepcopy(json.loads((ROOT / "data/scenarios/italy-500bc-barbarians.json").read_text(encoding="utf-8"))["barbarians"])
     for u in role_units["arrivalUnits"]:
         u["name"] = "Frontier infantry" if u["unitTypeId"] == "light_infantry" else "Frontier archers"
-    scenario = dict(schemaVersion=1, id=identity, name=world["name"], worldId=identity, rulesetId=identity,
+    scenario = dict(schemaVersion=1, id=identity, name=world["name"], worldId=f"{identity}{WORLD_REVISION}", rulesetId=identity,
         seats=[dict(nation=id, control="human" if i == 0 else "ai", personality=None if i == 0 or id == "barbarians" else dict(aggression=.5, expansionDrive=.5, loyaltyToAlliances=.5)) for i, id in enumerate(ids)],
         victory=dict(type="totalConquest", goal=None), turnLimit=None, blindHotseat=False, randomSeed=year, listed=True,
         barbarians=role_units,
@@ -350,12 +378,12 @@ def main():
     positions = site_positions(grid, sites)
     write_png(HERE / "near-east.png", grid)
     codes = [c for row in grid for c in row]
-    sidecar = ROOT / "data/worlds/near-east-1350bc.terrain.b64"
+    sidecar = ROOT / f"data/worlds/near-east{WORLD_REVISION}.terrain.b64"
     sidecar.write_text(base64.b64encode(struct.pack("<" + "H" * len(codes), *codes)).decode() + "\n", encoding="ascii", newline="\n")
     for year in (1350, 750):
         rules = rules_for(year)
         world, scenario = world_for(year, grid, sites, positions, rules)
-        dump(ROOT / f"data/worlds/near-east-{year}bc.json", world)
+        dump(ROOT / f"data/worlds/near-east-{year}bc{WORLD_REVISION}.json", world)
         dump(ROOT / f"data/rulesets/near-east-{year}bc.json", rules)
         dump(ROOT / f"data/scenarios/near-east-{year}bc.json", scenario)
         print(f"Built {world['name']}: {len(world['nations']) - 1} playable seats, {len(world['cities'])} centres, {len(world['startingArmies'])} armies, {len(world['startingFleets'])} fleets.")

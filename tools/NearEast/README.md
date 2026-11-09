@@ -12,11 +12,11 @@ Normal rebuild is offline and uses the committed small source subsets:
 
 ```powershell
 python -X utf8 tools/NearEast/build_campaigns.py
-dotnet run --project tools/TerrainImport -- import tools/NearEast/near-east.png --world data/worlds/near-east-1350bc.json
+dotnet run --project tools/TerrainImport -- import tools/NearEast/near-east.png --world data/worlds/near-east-1350bc-r2.json
 dotnet test tests/IC2.Engine.Tests --filter FullyQualifiedName~NearEastCampaignTests --nologo -v q
 ```
 
-Both worlds share the generated terrain sidecar. The PNG uses the existing
+Both `-r2` worlds share the generated terrain sidecar `data/worlds/near-east-r2.terrain.b64` (terrain revision 2, #1822). The original `near-east-1350bc`/`near-east-750bc` worlds and their sidecar are frozen so older saves still load; never import into them. The PNG uses the existing
 T201 palette and river rules. Existing campaign documents/IDs are untouched.
 Campaigns run for twenty years under the existing calendar and total-conquest
 condition. Starting forces/economics, source-scale approximations and political
