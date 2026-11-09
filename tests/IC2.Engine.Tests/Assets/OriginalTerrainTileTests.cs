@@ -66,7 +66,7 @@ public sealed class OriginalTerrainTileTests : IDisposable
 
         Assert.Equal((6, 6), (tiles.Found, tiles.Total));
         var pack = AssetLoader.LoadManifest(Path.Combine(output, "manifest.json"));
-        foreach (var (_, key, file) in OriginalAssetPackBuilder.TerrainTiles)
+        foreach (var (key, file) in new[] { ("terrain.sea_calm.tile", "terrain/sea_calm.png"), ("terrain.sea_rough.tile", "terrain/sea_rough.png"), ("terrain.plain.tile", "terrain/plain.png"), ("terrain.desert.tile", "terrain/desert.png"), ("terrain.forest.tile", "terrain/forest.png"), ("terrain.mountain.tile", "terrain/mountain.png") })
         {
             Assert.True(pack.TryResolveAsset(key, out var path), key);
             Assert.Equal(file, path);
@@ -145,6 +145,6 @@ public sealed class OriginalTerrainTileTests : IDisposable
         OriginalAssetPackBuilder.Build(Install(), cache);
         var status = OriginalCacheStatus.Read(Path.Combine(_root, "install"), cache);
         Assert.Equal(OriginalCacheState.Partial, status.State); // tiles present, no WAVS folder
-        Assert.Equal((6, 16), (status.Keys, status.Wanted));
+        Assert.Equal((6, 38), (status.Keys, status.Wanted));
     }
 }

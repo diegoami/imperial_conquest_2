@@ -2067,10 +2067,14 @@ public partial class GameMapView : Control
             image.Convert(Image.Format.Rgba8);
             var corner = image.GetPixel(0, 0);
             var purple = BattleIconTint.PurpleMarker;
-            if (Mathf.RoundToInt(corner.R * 255) == purple.R && Mathf.RoundToInt(corner.G * 255) == purple.G
-                && Mathf.RoundToInt(corner.B * 255) == purple.B)
+            var data = image.GetData();
+            // The authored templates start with the purple field in their corner. The original's army and fleet
+            // templates have a black border there and the purple field inside, so for those keys a mostly purple
+            // image counts too (a single-colour silhouette has none).
+            var purpleCorner = Mathf.RoundToInt(corner.R * 255) == purple.R && Mathf.RoundToInt(corner.G * 255) == purple.G
+                && Mathf.RoundToInt(corner.B * 255) == purple.B;
+            if (purpleCorner || (IsUnitMarkerKey(key) && PurpleShare(data) >= 0.25f))
             {
-                var data = image.GetData();
                 BattleIconTint.Recolour(colors, data, 4);
                 result = ImageTexture.CreateFromImage(
                     Image.CreateFromData(image.GetWidth(), image.GetHeight(), false, Image.Format.Rgba8, data));
@@ -2079,6 +2083,19 @@ public partial class GameMapView : Control
 
         _ownerTemplates[(key, nationId)] = result;
         return result;
+    }
+
+    private static bool IsUnitMarkerKey(string key) =>
+        key.StartsWith("army.", StringComparison.Ordinal) || key.StartsWith("fleet.", StringComparison.Ordinal);
+
+    /// <summary>The share of RGBA pixels that are the template's purple field.</summary>
+    private static float PurpleShare(byte[] rgba)
+    {
+        var purple = BattleIconTint.PurpleMarker;
+        var count = 0;
+        for (var i = 0; i + 3 < rgba.Length; i += 4)
+            if (rgba[i] == purple.R && rgba[i + 1] == purple.G && rgba[i + 2] == purple.B) count++;
+        return rgba.Length < 4 ? 0f : count / (rgba.Length / 4f);
     }
 
     /// <summary>

@@ -28,44 +28,71 @@ internal static class SyntheticExecutable
         return prop.ToArray();
     }
 
-    public static byte[] Form(string cls, string imageList, byte[] bitmap, int cell = 32)
+    /// <summary>A form whose root holds one TImageList per entry: (component name, stored bitmap, cell size).</summary>
+    public static byte[] Form(string cls, params (string Name, byte[] Bitmap, int Cell)[] lists)
     {
         using var ms = new MemoryStream();
         void PStr(string s) { ms.WriteByte((byte)s.Length); ms.Write(Encoding.Latin1.GetBytes(s)); }
         ms.Write("TPF0"u8);
         PStr(cls); PStr("UnitMap"); ms.WriteByte(0);              // no properties
-        PStr("TImageList"); PStr(imageList);
-        PStr("Height"); ms.WriteByte(2); ms.WriteByte((byte)cell);
-        PStr("Width"); ms.WriteByte(2); ms.WriteByte((byte)cell);
-        PStr("Bitmap"); ms.WriteByte(10); ms.Write(BitConverter.GetBytes(bitmap.Length)); ms.Write(bitmap);
-        ms.WriteByte(0); ms.WriteByte(0);                          // end of image list properties and children
+        foreach (var (name, bitmap, cell) in lists)
+        {
+            PStr("TImageList"); PStr(name);
+            PStr("Height"); ms.WriteByte(2); ms.WriteByte((byte)cell);
+            PStr("Width"); ms.WriteByte(2); ms.WriteByte((byte)cell);
+            PStr("Bitmap"); ms.WriteByte(10); ms.Write(BitConverter.GetBytes(bitmap.Length)); ms.Write(bitmap);
+            ms.WriteByte(0); ms.WriteByte(0);                      // end of image list properties and children
+        }
         ms.WriteByte(0);                                           // end of root children
         return ms.ToArray();
     }
 
-    public static byte[] Pe(string resourceName, byte[] data)
+    public static byte[] Form(string cls, string imageList, byte[] bitmap, int cell = 32) => Form(cls, (imageList, bitmap, cell));
+
+    public static byte[] Pe(string resourceName, byte[] data) => Pe([(resourceName, data)]);
+
+    /// <summary>A PE32 file whose .rsrc holds one RCDATA resource per entry.</summary>
+    public static byte[] Pe(IReadOnlyList<(string Name, byte[] Data)> resources)
     {
         const int sectionRaw = 0x200, sectionVa = 0x1000;
-        var file = new byte[sectionRaw + 0x400 + data.Length];
+        var n = resources.Count;
+        var nameDir = 0x18;
+        var langDirs = nameDir + 16 + 8 * n;
+        var dataEntries = langDirs + 24 * n;
+        var names = dataEntries + 16 * n;
+        var nameOffsets = new int[n];
+        var cursor = names;
+        for (var i = 0; i < n; i++) { nameOffsets[i] = cursor; cursor += 2 + resources[i].Name.Length * 2; }
+        cursor = (cursor + 15) & ~15;
+        var dataOffsets = new int[n];
+        for (var i = 0; i < n; i++) { dataOffsets[i] = cursor; cursor += (resources[i].Data.Length + 15) & ~15; }
+        var resourceSize = cursor;
+
+        var file = new byte[sectionRaw + resourceSize];
         void U16(int o, int v) => BitConverter.GetBytes((ushort)v).CopyTo(file, o);
         void U32(int o, uint v) => BitConverter.GetBytes(v).CopyTo(file, o);
         file[0] = (byte)'M'; file[1] = (byte)'Z'; U32(0x3C, 0x40);
         U32(0x40, 0x00004550); U16(0x46, 1); U16(0x54, 224);
         var optional = 0x58; U16(optional, 0x10B);
-        U32(optional + 96 + 16, sectionVa); U32(optional + 96 + 20, 0x400);
+        U32(optional + 96 + 16, sectionVa); U32(optional + 96 + 20, (uint)resourceSize);
         var section = optional + 224;
-        U32(section + 8, (uint)(0x400 + data.Length)); U32(section + 12, sectionVa); U32(section + 16, (uint)(file.Length - sectionRaw)); U32(section + 20, sectionRaw);
+        U32(section + 8, (uint)resourceSize); U32(section + 12, sectionVa); U32(section + 16, (uint)resourceSize); U32(section + 20, sectionRaw);
         var r = sectionRaw;
-        // root: one id entry, type 10 (RCDATA) -> directory at 0x18
-        U16(r + 14, 1); U32(r + 16, 10); U32(r + 20, 0x80000000 | 0x18);
-        // name level at 0x18: one named entry -> directory at 0x30; the name string sits at 0x60
-        U16(r + 0x18 + 12, 1); U32(r + 0x18 + 16, 0x80000000 | 0x60); U32(r + 0x18 + 20, 0x80000000 | 0x30);
-        // language level at 0x30: one id entry -> data entry at 0x48
-        U16(r + 0x30 + 14, 1); U32(r + 0x30 + 16, 0x409); U32(r + 0x30 + 20, 0x48);
-        // data entry at 0x48: RVA and size of the data at 0x100
-        U32(r + 0x48, (uint)(sectionVa + 0x100)); U32(r + 0x4C, (uint)data.Length);
-        U16(r + 0x60, resourceName.Length); Encoding.Unicode.GetBytes(resourceName).CopyTo(file, r + 0x62);
-        data.CopyTo(file, r + 0x100);
+        // root: one id entry, type 10 (RCDATA) -> the name directory
+        U16(r + 14, 1); U32(r + 16, 10); U32(r + 20, (uint)(0x80000000 | (uint)nameDir));
+        // name level: one named entry per resource -> its language directory
+        U16(r + nameDir + 12, n);
+        for (var i = 0; i < n; i++)
+        {
+            U32(r + nameDir + 16 + i * 8, (uint)(0x80000000 | (uint)nameOffsets[i]));
+            U32(r + nameDir + 20 + i * 8, (uint)(0x80000000 | (uint)(langDirs + 24 * i)));
+            // language level: one id entry -> its data entry
+            U16(r + langDirs + 24 * i + 14, 1); U32(r + langDirs + 24 * i + 16, 0x409); U32(r + langDirs + 24 * i + 20, (uint)(dataEntries + 16 * i));
+            U32(r + dataEntries + 16 * i, (uint)(sectionVa + dataOffsets[i])); U32(r + dataEntries + 16 * i + 4, (uint)resources[i].Data.Length);
+            U16(r + nameOffsets[i], resources[i].Name.Length);
+            Encoding.Unicode.GetBytes(resources[i].Name).CopyTo(file, r + nameOffsets[i] + 2);
+            resources[i].Data.CopyTo(file, r + dataOffsets[i]);
+        }
         return file;
     }
 

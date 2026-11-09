@@ -38,3 +38,7 @@ The research extraction spec (`docs/reports/2026-11-07-original-assets218-extrac
 ## Update: remaining categories mapped (research `963c58d`, 2026-11-09)
 
 The #223 crosswalk and the corrected extraction spec settle the source component, index, palette and transparency rule for every remaining image category. The per-category table, the consumer changes and the owner questions are in [original-assets-implementation-plan.md](original-assets-implementation-plan.md). Research #223 is answered there; mask polarity and native composition remain open.
+
+## Update: army and fleet markers, battle pieces (T292b)
+
+Written all-or-none per group from `TUnitMap.ArmiesList` and `FleetsList` (three size bands each) and `TBattleMap.BatMapList` (index 3 x type + size for light infantry, heavy infantry, archers, light cavalry, heavy cavalry; cell 15 is the ground). Measured locally: the army and fleet templates have a **black** corner pixel with the purple field inside (battle pieces a lime dotted frame), so the map's template test now also accepts an army or fleet image that is at least a quarter purple; battle recolouring was already unconditional. Cells are written opaque (masks not used). Towns and capitals (16 owner pictures), the six river shapes and the toolbar glyphs are not yet built.
