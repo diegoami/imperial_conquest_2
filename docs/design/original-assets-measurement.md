@@ -46,3 +46,11 @@ Written all-or-none per group from `TUnitMap.ArmiesList` and `FleetsList` (three
 ## Update: river tiles (T292b, owner decision 2026-11-09)
 
 `TUnitMap.TerrainList` cells 6 to 11 (east-west, north-south, north-east, east-south, south-west, north-west) are written as `terrain.river_ew/ns/ne/es/sw/nw.tile`, all or none. When the local cache supplies all six at the tile size, the Classic tiles style adds them as texture-array layers 6 to 11, river cells (codes 6 to 11) draw them in place of a plain tile, and the blue river stroke is not drawn over them. Without them nothing changes (plain plus stroke). The keys exist only in the cache and are not in `AssetKeys.AllKeys`.
+
+## Update: town and capital markers (T292b, owner decision 2026-11-09: classical world only)
+
+`TUnitMap.Cities1List` to `Cities4List` (population tiers) and `CapitalsList` hold 16 owner pictures each; the cell index is the original owner number, which is the nation's index in the classical world (checked locally: owner 0 is Rome's purple field with white outline and blue fill, 5 is Numidia's teal fill, 15 is Thracia's grey). They are written as 80 cache-only keys (`city.tier<n>.owner<k>.icon`, `city.capital.owner<k>.icon`), all or none, and drawn unchanged (never recoloured) by `GameMapView.OriginalTownTile`, only when the world is `classical-mediterranean`. Every other world keeps the authored town art.
+
+## Update: toolbar glyphs (T292b, owner decision 2026-11-09: integer 2x scale)
+
+The 44 speed-button glyphs (9 `TPremierForm`, 12 `TAreaMap`, 15 `TUnitMap`, 8 `TBattleMap`; research crosswalk 2026-11-09 section A) are read from each `TSpeedButton`'s `Glyph.Data` (length-prefixed 4-bit BMP, 16-colour palette), the bottom-left pixel's palette index is the colour key (every pixel with that index becomes alpha 0), and the 20x20 image is scaled 2x with nearest-neighbour to 40x40 RGBA. They are written under the existing `ui.command.*.icon` and `battle.toolbar.*` keys, all or none. Pressed, disabled and exclusive looks are not stored in the original and stay the remake's. Nation buttons, the All nations button and the Area map toggle have no key and are not built.

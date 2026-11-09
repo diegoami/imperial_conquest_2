@@ -132,6 +132,14 @@ public static class AssetKeys
     /// north-east, east-south, south-west, north-west). They exist only in a local original-assets cache, never in
     /// the authored pack, so they are not in <see cref="AllKeys"/>.
     /// </summary>
+    /// <summary>
+    /// A town marker of the original: the picture for population tier 1 to 4 (<c>Cities1List</c> to <c>Cities4List</c>)
+    /// and original owner 0 to 15, or the capital picture when <paramref name="tier"/> is 0. The original owner is the
+    /// nation's index in the classical world. Cache-only keys, not in <see cref="AllKeys"/>.
+    /// </summary>
+    public static string OriginalTownIcon(int tier, int owner) =>
+        tier == 0 ? $"city.capital.owner{owner}.icon" : $"city.tier{tier}.owner{owner}.icon";
+
     public static readonly IReadOnlyList<string> OriginalRiverTiles =
     [
         "terrain.river_ew.tile", "terrain.river_ns.tile", "terrain.river_ne.tile",

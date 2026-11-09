@@ -225,6 +225,67 @@ public static class BmpDecoder
     }
 }
 
+/// <summary>A speed-button glyph: RGBA, top row first, with the colour key already turned into alpha 0.</summary>
+public sealed record DecodedGlyph(int Width, int Height, byte[] Rgba);
+
+public static class GlyphDecoder
+{
+    /// <summary>
+    /// A TSpeedButton's <c>Glyph.Data</c>: an optional u32 length, then an uncompressed 4-bit BMP with a 16 colour palette.
+    /// The transparent colour is the palette index of the bottom-left pixel, and every pixel with that index becomes
+    /// alpha 0 (research crosswalk 2026-11-09, section B). The result is scaled by the integer <paramref name="scale"/>
+    /// with nearest-neighbour sampling.
+    /// </summary>
+    public static DecodedGlyph Decode(byte[] data, int scale)
+    {
+        if (scale < 1 || scale > 8) throw new ArgumentOutOfRangeException(nameof(scale));
+        var start = data.Length > 6 && data[4] == 'B' && data[5] == 'M' ? 4 : 0;
+        var b = data.AsSpan(start).ToArray();
+        if (b.Length < 54 || b[0] != 'B' || b[1] != 'M') throw new InvalidDataException("not a bitmap");
+        var pixelOffset = (int)PeResources.U32(b, 10);
+        var header = (int)PeResources.U32(b, 14);
+        var width = (int)PeResources.U32(b, 18);
+        var rawHeight = (int)PeResources.U32(b, 22);
+        var bits = PeResources.U16(b, 28);
+        var compression = PeResources.U32(b, 30);
+        var colours = (int)PeResources.U32(b, 46);
+        if (header < 40 || bits != 4 || compression != 0 || width <= 0 || width > 256 || rawHeight == 0 || Math.Abs(rawHeight) > 256)
+            throw new InvalidDataException("unsupported glyph encoding");
+        if (colours == 0) colours = 16;
+        if (colours > 16) throw new InvalidDataException("palette too large");
+        var height = Math.Abs(rawHeight);
+        var paletteOffset = 14 + header;
+        PeResources.Need(b, paletteOffset, colours * 4);
+        var stride = ((width * 4 + 31) / 32) * 4;
+        PeResources.Need(b, pixelOffset, checked(stride * height));
+
+        int Index(int x, int y) // x, y in top-left coordinates
+        {
+            var row = rawHeight > 0 ? height - 1 - y : y;
+            var value = b[pixelOffset + row * stride + x / 2];
+            return (x & 1) == 0 ? value >> 4 : value & 0x0F;
+        }
+
+        var key = Index(0, height - 1); // bottom-left pixel
+        var rgba = new byte[width * scale * height * scale * 4];
+        for (var y = 0; y < height; y++)
+            for (var x = 0; x < width; x++)
+            {
+                var index = Index(x, y);
+                if (index >= colours) throw new InvalidDataException("pixel outside the palette");
+                var entry = paletteOffset + index * 4;
+                for (var dy = 0; dy < scale; dy++)
+                    for (var dx = 0; dx < scale; dx++)
+                    {
+                        var o = (((y * scale + dy) * width * scale) + x * scale + dx) * 4;
+                        rgba[o] = b[entry + 2]; rgba[o + 1] = b[entry + 1]; rgba[o + 2] = b[entry];
+                        rgba[o + 3] = index == key ? (byte)0 : (byte)255;
+                    }
+            }
+        return new DecodedGlyph(width * scale, height * scale, rgba);
+    }
+}
+
 /// <summary>A Delphi TImageList's stored bitmap: <c>[u32 colour-BMP length][u32 image count][colour BMP][mask BMP]</c>.</summary>
 public sealed record OriginalImageList(int CellWidth, int CellHeight, int Count, DecodedBitmap Sheet)
 {
@@ -259,14 +320,19 @@ public sealed record OriginalImageList(int CellWidth, int CellHeight, int Count,
 public static class PngEncoder
 {
     /// <summary>An opaque 8-bit RGB PNG.</summary>
-    public static byte[] EncodeRgb(int width, int height, byte[] rgb)
+    public static byte[] EncodeRgb(int width, int height, byte[] rgb) => Encode(width, height, rgb, 3);
+
+    /// <summary>An 8-bit RGBA PNG.</summary>
+    public static byte[] EncodeRgba(int width, int height, byte[] rgba) => Encode(width, height, rgba, 4);
+
+    private static byte[] Encode(int width, int height, byte[] pixels, int bytesPerPixel)
     {
-        if (rgb.Length != width * height * 3) throw new ArgumentException("pixel data does not match the size");
+        if (pixels.Length != width * height * bytesPerPixel) throw new ArgumentException("pixel data does not match the size");
         using var raw = new MemoryStream();
         for (var y = 0; y < height; y++)
         {
             raw.WriteByte(0);
-            raw.Write(rgb, y * width * 3, width * 3);
+            raw.Write(pixels, y * width * bytesPerPixel, width * bytesPerPixel);
         }
         using var compressed = new MemoryStream();
         using (var z = new ZLibStream(compressed, CompressionLevel.Optimal, leaveOpen: true)) z.Write(raw.GetBuffer(), 0, (int)raw.Length);
@@ -276,7 +342,7 @@ public static class PngEncoder
         var ihdr = new byte[13];
         BinaryPrimitives.WriteUInt32BigEndian(ihdr, (uint)width);
         BinaryPrimitives.WriteUInt32BigEndian(ihdr.AsSpan(4), (uint)height);
-        ihdr[8] = 8; ihdr[9] = 2;
+        ihdr[8] = 8; ihdr[9] = bytesPerPixel == 4 ? (byte)6 : (byte)2;
         Chunk(png, "IHDR", ihdr);
         Chunk(png, "IDAT", compressed.ToArray());
         Chunk(png, "IEND", []);
