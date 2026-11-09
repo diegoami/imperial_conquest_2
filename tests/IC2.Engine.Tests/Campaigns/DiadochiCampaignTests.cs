@@ -233,4 +233,45 @@ public sealed class DiadochiCampaignTests(ITestOutputHelper output)
             Assert.InRange(changed, 0, 60);
         }
     }
+
+    private static readonly IReadOnlyDictionary<int, IReadOnlyDictionary<string, int>> OpeningCityCounts = new Dictionary<int, IReadOnlyDictionary<string, int>>
+    {
+        [323] = new Dictionary<string, int>
+        {
+            ["aetolia"] = 5, ["armenia"] = 3, ["athens"] = 7, ["cappadocia"] = 10, ["egypt"] = 8, ["epirus"] = 4, ["macedon"] = 13, ["media"] = 8,
+            ["persis"] = 6, ["phrygia"] = 15, ["rhodes"] = 9, ["royal"] = 10, ["syria"] = 22, ["thrace"] = 5, ["wanatolia"] = 17,
+        },
+        [301] = new Dictionary<string, int>
+        {
+            ["aetolia"] = 5, ["armenia"] = 3, ["athens"] = 4, ["atropatene"] = 4, ["bithynia"] = 7, ["cappadocia"] = 4, ["cilicia"] = 6,
+            ["demetrius"] = 11, ["egypt"] = 20, ["epirus"] = 4, ["islands"] = 5, ["lysimachus"] = 23, ["macedon"] = 16, ["rhodes"] = 3, ["seleucid"] = 31,
+        },
+    };
+
+    /// <summary>Reviewer finding F2 (v0.11.0): a data edit that thins a seat (the small seats are Armenia, Rhodes, Epirus) must not ship silently.</summary>
+    [Theory]
+    [InlineData(323)]
+    [InlineData(301)]
+    public void Every_seat_opens_with_its_pinned_number_of_cities(int year)
+    {
+        var actual = Resolve(year).World.Cities.GroupBy(c => c.Owner).ToDictionary(g => g.Key, g => g.Count());
+        Assert.Equal(OpeningCityCounts[year].OrderBy(p => p.Key), actual.OrderBy(p => p.Key));
+    }
+
+    /// <summary>Reviewer finding F1 (v0.11.0): Egypt is the default human seat in both openings (owner decision 2026-11-09) and the guide's "default opening" advice names that same seat.</summary>
+    [Theory]
+    [InlineData(323)]
+    [InlineData(301)]
+    public void The_default_human_seat_is_egypt_and_the_guide_agrees(int year)
+    {
+        var r = Resolve(year);
+        Assert.Equal(["egypt"], r.Scenario.Seats.Where(s => s.Control == SeatControl.Human).Select(s => s.Nation).ToArray());
+
+        var guidePath = Path.Combine(TestPaths.DataRoot, "campaign-guides", $"diadochi-{year}bc.json");
+        using var guide = JsonDocument.Parse(File.ReadAllText(guidePath));
+        var named = guide.RootElement.GetProperty("powers").EnumerateArray()
+            .Where(p => p.GetProperty("advice").GetString()!.Contains("default opening", StringComparison.OrdinalIgnoreCase))
+            .Select(p => p.GetProperty("nationId").GetString()!).ToArray();
+        Assert.Equal(["egypt"], named);
+    }
 }

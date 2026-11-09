@@ -12,6 +12,9 @@ from pathlib import Path
 import struct
 import sys
 
+# Owner decision 2026-11-09: Egypt (Ptolemy) is the default human seat in both openings (docs/design/diadochi-campaigns.md).
+DEFAULT_HUMAN_SEAT = "egypt"
+
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 spec = importlib.util.spec_from_file_location("near_east_authoring", ROOT / "tools/NearEast/build_campaigns.py")
@@ -219,7 +222,7 @@ def world_for(year, grid, sites, positions, rules):
     for u in role_units["arrivalUnits"]:
         u["name"] = "Frontier infantry" if u["unitTypeId"] == "light_infantry" else "Frontier archers"
     scenario = dict(schemaVersion=1, id=identity, name=world["name"], worldId=f"{identity}", rulesetId=identity,
-        seats=[dict(nation=id, control="human" if i == 0 else "ai", personality=None if i == 0 or id == "barbarians" else dict(aggression=.5, expansionDrive=.5, loyaltyToAlliances=.5)) for i, id in enumerate(ids)],
+        seats=[dict(nation=id, control="human" if id == DEFAULT_HUMAN_SEAT else "ai", personality=None if id == DEFAULT_HUMAN_SEAT or id == "barbarians" else dict(aggression=.5, expansionDrive=.5, loyaltyToAlliances=.5)) for id in ids],
         victory=dict(type="totalConquest", goal=None), turnLimit=None, blindHotseat=False, randomSeed=year, listed=True,
         barbarians=role_units,
         _provenance={"_group": "designed: owner-selected historical opening with explicit grouped-polity and regional-centre abstractions; all numerical setup is gameplay balance.",

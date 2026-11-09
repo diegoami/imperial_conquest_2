@@ -7,8 +7,12 @@
   "seats": [
     {
       "nation": "seleucid",
-      "control": "human",
-      "personality": null
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
     },
     {
       "nation": "lysimachus",
@@ -21,12 +25,8 @@
     },
     {
       "nation": "egypt",
-      "control": "ai",
-      "personality": {
-        "aggression": 0.5,
-        "expansionDrive": 0.5,
-        "loyaltyToAlliances": 0.5
-      }
+      "control": "human",
+      "personality": null
     },
     {
       "nation": "macedon",
