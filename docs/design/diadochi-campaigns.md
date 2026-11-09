@@ -1,6 +1,6 @@
 # Diadochi campaigns, 323 BC and 301 BC: draft brief for T293.1
 
-**Status: draft for owner approval; no scenario data exists.** Tracks [#1837](https://github.com/diegoami/imperial_conquest_2/issues/1837), part of [#1808](https://github.com/diegoami/imperial_conquest_2/issues/1808). Contract: [T293](../tasks/T293.md). Openings fixed by [v011-campaigns-and-random-maps.md](v011-campaigns-and-random-maps.md#historical-starts): **323 BC** "succession after Alexander" and **301 BC** "the successor balance after Ipsus". Dates establish campaign identity, not proven city ownership, troop counts or diplomacy.
+**Status: brief approved by the owner 2026-11-09; no scenario data exists yet.** Decisions: both seat lists as drafted; the default human seat is **Egypt (Ptolemy) in both openings**; the horizon is **20 years**. Tracks [#1837](https://github.com/diegoami/imperial_conquest_2/issues/1837), part of [#1808](https://github.com/diegoami/imperial_conquest_2/issues/1808). Contract: [T293](../tasks/T293.md). Openings fixed by [v011-campaigns-and-random-maps.md](v011-campaigns-and-random-maps.md#historical-starts): **323 BC** "succession after Alexander" and **301 BC** "the successor balance after Ipsus". Dates establish campaign identity, not proven city ownership, troop counts or diplomacy.
 
 ## Map and engine
 
@@ -67,8 +67,10 @@ After Ipsus (301 BC): Antigonus is dead and his realm is divided; Demetrius surv
 
 Both campaigns selectable with guide entries (T290), valid deterministic data, a viable opening for every playable seat, several rounds of real AI play without stalls or rejections, a cross-range route check, save/load and copied-package launch, and a build script reproducing the data. Each year has its own world file (cities, owners, forces) on the shared revision-2 terrain sidecar, as the Near East pair does.
 
-## Questions for the owner (asked before data is built)
+## Owner decisions, 2026-11-09
 
-1. The two seat lists above, including merges such as Epirus.
-2. Default human seat for each opening.
-3. Whether the 20-year horizon is right, or the longer 40 years that would let a player span the whole wars.
+1. Both seat lists approved as drafted (uncertain holdings stay labelled in the scenario brief).
+2. Default human seat: Egypt in both openings.
+3. Horizon: 20 years, total conquest.
+
+**Next:** the curated city list with dated Pleiades evidence and supplemental chronology for the Hellenistic centres (new `tools/Diadochi/` authoring script on the shared revision-2 terrain), then worlds, rulesets, scenarios, guides and the acceptance checks.
