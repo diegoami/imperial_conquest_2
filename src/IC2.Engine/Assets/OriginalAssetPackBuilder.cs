@@ -53,7 +53,7 @@ public static class OriginalAssetPackBuilder
         try
         {
             results.Add(BuildSounds(installDirectory, staging, assets));
-            results.Add(BuildTerrainTiles(installDirectory, staging, assets));
+            results.AddRange(BuildImages(installDirectory, staging, assets));
             var manifest = new
             {
                 schemaVersion = 1,
@@ -104,44 +104,97 @@ public static class OriginalAssetPackBuilder
         return new OriginalCategoryResult("sounds", found, Sounds.Count, rejected.Count == 0 ? null : string.Join("; ", rejected));
     }
 
-    /// <summary>Executable's TUnitMap.TerrainList cells 0 to 5 to the six tile keys (research extraction spec, crosswalk).</summary>
-    public static readonly IReadOnlyList<(int Cell, string Key, string File)> TerrainTiles =
+    /// <summary>One cell of one image list in the executable and the key and file it becomes.</summary>
+    private sealed record ImageSource(string Form, string List, int Cell, string Key, string File);
+
+    private sealed record ImageGroup(string Category, IReadOnlyList<ImageSource> Items);
+
+    private static readonly string[] BattleTypes = ["light_infantry", "heavy_infantry", "archers", "light_cavalry", "heavy_cavalry"];
+    private static readonly string[] BattleSizes = ["small", "medium", "large"];
+
+    /// <summary>
+    /// What is read from the executable (research extraction spec, crosswalk), each group all or none: the map draws
+    /// the six terrain tiles from one texture array that needs equal sizes, and a half-original set of markers or
+    /// battle pieces would mix two looks. Terrain: TUnitMap.TerrainList cells 0 to 5. Markers: TUnitMap.ArmiesList and
+    /// FleetsList, the three size bands. Battle pieces: TBattleMap.BatMapList, index 3 x type + size for the five types,
+    /// and 15 for the ground. Rivers, towns, capitals, glyphs and the cursor need more mapping and are not written.
+    /// </summary>
+    private static readonly IReadOnlyList<ImageGroup> ImageGroups =
     [
-        (0, AssetKeys.TerrainSeaCalmTile, "terrain/sea_calm.png"), (1, AssetKeys.TerrainSeaRoughTile, "terrain/sea_rough.png"),
-        (2, AssetKeys.TerrainPlainTile, "terrain/plain.png"), (3, AssetKeys.TerrainDesertTile, "terrain/desert.png"),
-        (4, AssetKeys.TerrainForestTile, "terrain/forest.png"), (5, AssetKeys.TerrainMountainTile, "terrain/mountain.png"),
+        new("terrain tiles",
+        [
+            new("TUnitMap", "TerrainList", 0, AssetKeys.TerrainSeaCalmTile, "terrain/sea_calm.png"),
+            new("TUnitMap", "TerrainList", 1, AssetKeys.TerrainSeaRoughTile, "terrain/sea_rough.png"),
+            new("TUnitMap", "TerrainList", 2, AssetKeys.TerrainPlainTile, "terrain/plain.png"),
+            new("TUnitMap", "TerrainList", 3, AssetKeys.TerrainDesertTile, "terrain/desert.png"),
+            new("TUnitMap", "TerrainList", 4, AssetKeys.TerrainForestTile, "terrain/forest.png"),
+            new("TUnitMap", "TerrainList", 5, AssetKeys.TerrainMountainTile, "terrain/mountain.png"),
+        ]),
+        new("army and fleet markers",
+        [
+            new("TUnitMap", "ArmiesList", 0, AssetKeys.ArmyTier1Icon, "army/tier1.png"),
+            new("TUnitMap", "ArmiesList", 1, AssetKeys.ArmyTier2Icon, "army/tier2.png"),
+            new("TUnitMap", "ArmiesList", 2, AssetKeys.ArmyTier3Icon, "army/tier3.png"),
+            new("TUnitMap", "FleetsList", 0, AssetKeys.FleetTier1Icon, "fleet/tier1.png"),
+            new("TUnitMap", "FleetsList", 1, AssetKeys.FleetTier2Icon, "fleet/tier2.png"),
+            new("TUnitMap", "FleetsList", 2, AssetKeys.FleetTier3Icon, "fleet/tier3.png"),
+        ]),
+        new("battle pieces",
+        [
+            .. BattleTypes.SelectMany((type, t) => BattleSizes.Select((size, z) =>
+                new ImageSource("TBattleMap", "BatMapList", 3 * t + z, $"battle.unit.{type}.{size}", $"battle/unit_{type}_{size}.png"))),
+            new("TBattleMap", "BatMapList", 15, "battle.ground", "battle/ground.png"),
+        ]),
     ];
 
-    /// <summary>Every key this builder can supply today (sounds and terrain tiles); the status counts against these.</summary>
+    /// <summary>Every key this builder can supply today; the status counts against these.</summary>
     public static IReadOnlyList<string> SupportedKeys { get; } =
-        [.. Sounds.Select(s => s.Key), .. TerrainTiles.Select(t => t.Key)];
+        [.. Sounds.Select(s => s.Key), .. ImageGroups.SelectMany(g => g.Items.Select(i => i.Key))];
 
     private const long MaxExecutableBytes = 64L * 1024 * 1024;
 
-    /// <summary>
-    /// The six terrain tiles, all or none: the map draws them from one texture array and needs equal sizes, so
-    /// a partial set would be worse than the authored one. Rivers (six shapes behind one key), markers and
-    /// battle pieces need further mapping and are not written.
-    /// </summary>
-    private static OriginalCategoryResult BuildTerrainTiles(string install, string staging, SortedDictionary<string, string> assets)
+    private static IEnumerable<OriginalCategoryResult> BuildImages(string install, string staging, SortedDictionary<string, string> assets)
     {
-        const string category = "terrain tiles";
-        var total = TerrainTiles.Count;
         var exe = Directory.Exists(install)
             ? Directory.EnumerateFiles(install).FirstOrDefault(f => string.Equals(Path.GetFileName(f), "Imperial Conquest 2.exe", StringComparison.OrdinalIgnoreCase))
             : null;
-        if (exe is null) return new OriginalCategoryResult(category, 0, total, "no 'Imperial Conquest 2.exe' in the installation");
-        if (new FileInfo(exe).Length > MaxExecutableBytes) return new OriginalCategoryResult(category, 0, total, "the executable is too large to read");
+        string? problem = null;
+        IReadOnlyList<(string Name, byte[] Data)>? resources = null;
+        if (exe is null) problem = "no 'Imperial Conquest 2.exe' in the installation";
+        else if (new FileInfo(exe).Length > MaxExecutableBytes) problem = "the executable is too large to read";
+        else
+        {
+            try { resources = PeResources.ReadRcData(File.ReadAllBytes(exe)); }
+            catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
+            {
+                problem = "this build of the game could not be read (" + ex.GetType().Name + ")";
+            }
+        }
 
+        foreach (var group in ImageGroups)
+        {
+            var total = group.Items.Count;
+            if (resources is null) { yield return new OriginalCategoryResult(group.Category, 0, total, problem); continue; }
+            yield return BuildGroup(group, resources, staging, assets);
+        }
+    }
+
+    private static OriginalCategoryResult BuildGroup(ImageGroup group, IReadOnlyList<(string Name, byte[] Data)> resources, string staging,
+        SortedDictionary<string, string> assets)
+    {
+        var total = group.Items.Count;
         try
         {
-            var list = ReadUnitMapImageList(File.ReadAllBytes(exe), "TerrainList");
-            if (list is null || list.Count < TerrainTiles.Count)
-                return new OriginalCategoryResult(category, 0, total, "this build of the game has no recognised terrain image list");
-
+            var lists = new Dictionary<(string, string), OriginalImageList?>();
             var files = new List<(string Key, string File, byte[] Png)>();
-            foreach (var (cell, key, file) in TerrainTiles)
-                files.Add((key, file, PngEncoder.EncodeRgb(list.CellWidth, list.CellHeight, list.CellRgb(cell))));
+            foreach (var item in group.Items)
+            {
+                if (!lists.TryGetValue((item.Form, item.List), out var list))
+                    lists[(item.Form, item.List)] = list = ReadImageList(resources, item.Form, item.List);
+                if (list is null || item.Cell >= list.Count)
+                    return new OriginalCategoryResult(group.Category, 0, total, "this build of the game has no recognised " + item.List);
+                files.Add((item.Key, item.File, PngEncoder.EncodeRgb(list.CellWidth, list.CellHeight, list.CellRgb(item.Cell))));
+            }
             foreach (var (key, file, png) in files)
             {
                 var path = Path.Combine(staging, file.Replace('/', Path.DirectorySeparatorChar));
@@ -149,21 +202,21 @@ public static class OriginalAssetPackBuilder
                 File.WriteAllBytes(path, png);
                 assets[key] = file;
             }
-            return new OriginalCategoryResult(category, total, total, null);
+            return new OriginalCategoryResult(group.Category, total, total, null);
         }
         catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException or ArgumentException)
         {
-            return new OriginalCategoryResult(category, 0, total, "this build of the game could not be read (" + ex.GetType().Name + ")");
+            return new OriginalCategoryResult(group.Category, 0, total, "this build of the game could not be read (" + ex.GetType().Name + ")");
         }
     }
 
-    private static OriginalImageList? ReadUnitMapImageList(byte[] exe, string componentName)
+    private static OriginalImageList? ReadImageList(IReadOnlyList<(string Name, byte[] Data)> resources, string formClass, string componentName)
     {
-        foreach (var (_, data) in PeResources.ReadRcData(exe))
+        foreach (var (_, data) in resources)
         {
             if (data.Length < 4 || data[0] != 'T' || data[1] != 'P' || data[2] != 'F' || data[3] != '0') continue;
             var form = DelphiComponent.Parse(data);
-            if (form.ClassName != "TUnitMap") continue;
+            if (form.ClassName != formClass) continue;
             var component = form.Find("TImageList", componentName);
             if (component is null || !component.BinaryProperties.TryGetValue("Bitmap", out var bitmap)) return null;
             var width = (int)component.IntegerProperties.GetValueOrDefault("Width", 0);
