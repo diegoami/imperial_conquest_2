@@ -95,7 +95,7 @@ gazaca,884109,Gazaka,media,Gazaka,atropatene,8,true
 tushpa,,Tushpa,armenia,Tushpa,armenia,6,true
 armavir,,Armavir,armenia,Armavir,armenia,5,true
 athens,579885,Athens,athens,Athens,athens,26,false
-megara,570468,Megara,athens,Megara,demetrius,8,false
+megara,570468,Megara,athens,Megara,athens,8,false
 chalcis,540703,Chalkis,athens,Chalkis,demetrius,10,false
 eretria,579925,Eretria,athens,Eretria,macedon,8,false
 lamia,540902,Lamia,athens,Lamia,macedon,5,false
@@ -128,3 +128,17 @@ lysimacheia,501458,Kardia,thrace,Lysimacheia,lysimachus,8,false
 abdera,501323,Abdera,thrace,Abdera,lysimachus,6,false
 perinthus,511357,Perinthos,thrace,Perinthos,lysimachus,8,false
 sestos,501609,Sestos,thrace,Sestos,lysimachus,6,false
+anshan,922729,Anshan,persis,Anshan,seleucid,4,true
+shushtar,912941,Shushtar,persis,Shushtar,seleucid,4,true
+giyan,609518824,Giyan,media,Giyan,seleucid,4,true
+godin,903035,Godin,media,Godin,seleucid,4,true
+sialk,464208937,Sialk,media,Sialk,seleucid,4,true
+qalaichi,884161,Qalaichi,media,Qalaichi,atropatene,4,true
+hasanlu,874502,Hasanlu,media,Hasanlu,atropatene,4,true
+haftavan,874495,Haftavan,media,Haftavan,atropatene,4,true
+marlik,745058470,Marlik,media,Marlik,atropatene,3,true
+sos_hoyuk,355216649,Sos Hoyuk,armenia,Sos Hoyuk,armenia,4,true
+bozkurt,121192688,Bozkurt,armenia,Bozkurt,armenia,3,true
+kanesh,58129442,Kanesh,cappadocia,Kanesh,cappadocia,4,true
+alisar,650309285,Alisar,cappadocia,Alisar,cappadocia,4,true
+adana,648548,Adana,phrygia,Adana,cilicia,5,false
