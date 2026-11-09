@@ -25,7 +25,7 @@ public sealed class DiadochiCampaignTests(ITestOutputHelper output)
     public void Historical_campaign_resolves_with_dated_centres_valid_seats_and_native_roundtrip(int year, int playable)
     {
         var r = Resolve(year);
-        Assert.False(r.Scenario.Listed, "listed with guide entries in a later step");
+        Assert.True(r.Scenario.Listed);
         Assert.Equal(playable + 1, r.World.Nations.Count);
         Assert.Equal(playable, GameSessionFactory.SeatOptionsFor(r).Count);
         Assert.InRange(r.World.Cities.Count, 100, 180);

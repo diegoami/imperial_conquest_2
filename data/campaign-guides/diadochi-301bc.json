@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "id": "diadochi-301bc",
+  "scenarioIds": [
+    "diadochi-301bc"
+  ],
+  "kind": "historical",
+  "period": "The successor balance after Ipsus, 301 BC",
+  "background": "Antigonus has fallen at Ipsus and his realm is divided among the victors. Seleucus, Lysimachus, Ptolemy and Cassander hold the main kingdoms, while Demetrius survives as a sea power with Cyprus and the Phoenician ports. The opening shows one consistent snapshot, though several holdings were still disputed.",
+  "abstractions": "Coele-Syria, Lycia, Pamphylia, Caria and Cilicia were contested in 301 BC; the game assigns them to one holder each as a design choice. Antioch (founded about 300 BC) is not present. Seats are grouped polities; borders, forces and populations are designed.",
+  "brief": "docs/campaign-guides.md",
+  "validation": "Provisional recommendations: playable IDs, opening city networks, one army per regular seat and starting fleets checked. Human difficulty, balance and mountain-crossing routes have not been playtested for this guidance.",
+  "powers": [
+    {
+      "nationId": "seleucid",
+      "focus": "Largest inland kingdom",
+      "advice": "Suggested for the biggest holdings, from Syria to the plateau. Your reach is wide and your armies few: choose a front before the others combine.",
+      "suggested": true
+    },
+    {
+      "nationId": "egypt",
+      "focus": "Southern river base and fleet",
+      "advice": "Suggested as the default opening: a secure core, a starting fleet and a claim on Coele-Syria. Expanding into the Levant means facing both Demetrius and the Seleucid kingdom.",
+      "suggested": true,
+      "requiresStartingFleet": true
+    },
+    {
+      "nationId": "lysimachus",
+      "focus": "Thrace and Anatolia",
+      "advice": "Suggested for a long chain of cities from the Danube side to the Aegean coast; watch the Straits and the coastal ports that others contest.",
+      "suggested": true
+    },
+    {
+      "nationId": "macedon",
+      "focus": "Macedon and Greece",
+      "advice": "A strong European base with Greek neighbours and a fleet. Aetolia, Epirus and Athens are small seats to subdue or ally with.",
+      "suggested": false
+    },
+    {
+      "nationId": "demetrius",
+      "focus": "Sea power",
+      "advice": "A fleet-centred position on Cyprus, Tyre, Sidon and Aegean bases with few land connections. Transport is essential, and landing places and supply decide every campaign.",
+      "suggested": false,
+      "requiresStartingFleet": true
+    }
+  ],
+  "sources": [
+    {
+      "title": "Metropolitan Museum: Art of the Hellenistic Age and the Hellenistic Tradition",
+      "url": "https://www.metmuseum.org/essays/art-of-the-hellenistic-age-and-the-hellenistic-tradition"
+    },
+    {
+      "title": "Livius: Battle of Ipsus",
+      "url": "https://www.livius.org/articles/battle/ipsus"
+    }
+  ]
+}

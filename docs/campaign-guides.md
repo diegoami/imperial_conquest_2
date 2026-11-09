@@ -34,6 +34,18 @@ Applies to `near-east-750bc`. [ORACC countries and peoples](https://oracc.museum
 
 Suggested openings: Assyria for land operations, Phoenicia for a fleet/coastal opening, Egypt for a southern land base. Urartu and Judah explain smaller regional alternatives. Egypt has no starting fleet in this period. Coast, route and political-grouping advice is provisional, with no human balance or crossing playtest claim.
 
+## `diadochi-323bc`
+
+Applies to `diadochi-323bc`. The setting is the settlement after Alexander's death at Babylon and the Greek revolt that followed; see [Met, art of the Hellenistic age](https://www.metmuseum.org/essays/art-of-the-hellenistic-age-and-the-hellenistic-tradition). The [Diadochi brief](design/diadochi-campaigns.md) records the grouped seats, the dated evidence and the labelled uncertainty. Opening forces and populations are designed.
+
+Suggested openings: Egypt (the default seat, with a fleet), Macedon for a land campaign, Phrygia for an inland base. Royal army and Rhodes explain other positions. No difficulty or route certification is implied.
+
+## `diadochi-301bc`
+
+Applies to `diadochi-301bc`. The setting is the balance after the battle of Ipsus; see [Livius, Ipsus](https://www.livius.org/articles/battle/ipsus). Disputed holdings (Coele-Syria, the southern Anatolian coast, Cilicia) are assigned one holder each as a design choice, as the [Diadochi brief](design/diadochi-campaigns.md) records.
+
+Suggested openings: Seleucid kingdom, Egypt (the default seat) and Thrace and Anatolia. Macedon and Demetrius explain a European base and a fleet-centred position. No difficulty or route certification is implied.
+
 ## Authoring and future coverage
 
 Each guide uses schema version 1: stable guide ID; unique scenario IDs; `historical` or `generated` kind; period/geography caption; background; abstractions; repository brief; validation limits; powers (`nationId`, focus, advice, suggested, optional `requiresStartingFleet`); source title/HTTPS URL pairs. Plain text is English; no markup or translated-resource system is introduced. Keep paragraphs under 900 characters and advice under 600. Localization can replace strings without changing nation/scenario identities.

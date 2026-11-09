@@ -149,7 +149,7 @@
   "turnLimit": null,
   "blindHotseat": false,
   "randomSeed": 323,
-  "listed": false,
+  "listed": true,
   "barbarians": {
     "nationId": "barbarians",
     "arrivalUnits": [

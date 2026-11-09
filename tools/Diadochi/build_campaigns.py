@@ -220,7 +220,7 @@ def world_for(year, grid, sites, positions, rules):
         u["name"] = "Frontier infantry" if u["unitTypeId"] == "light_infantry" else "Frontier archers"
     scenario = dict(schemaVersion=1, id=identity, name=world["name"], worldId=f"{identity}", rulesetId=identity,
         seats=[dict(nation=id, control="human" if i == 0 else "ai", personality=None if i == 0 or id == "barbarians" else dict(aggression=.5, expansionDrive=.5, loyaltyToAlliances=.5)) for i, id in enumerate(ids)],
-        victory=dict(type="totalConquest", goal=None), turnLimit=None, blindHotseat=False, randomSeed=year, listed=False,
+        victory=dict(type="totalConquest", goal=None), turnLimit=None, blindHotseat=False, randomSeed=year, listed=True,
         barbarians=role_units,
         _provenance={"_group": "designed: owner-selected historical opening with explicit grouped-polity and regional-centre abstractions; all numerical setup is gameplay balance.",
             "victory": "designed: existing total conquest and twenty-year horizon.", "barbarians": "designed: approved shared boundary-arrival policy and provisional Italy force, with generic frontier labels."})

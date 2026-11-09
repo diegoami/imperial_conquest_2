@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "id": "diadochi-323bc",
+  "scenarioIds": [
+    "diadochi-323bc"
+  ],
+  "kind": "historical",
+  "period": "Succession after Alexander, 323 BC",
+  "background": "Alexander has died at Babylon and his generals are dividing commands. The Greek cities rise in the Lamian War, and no one yet rules the whole empire. The opening follows the start of the settlement, before the later Triparadisus division of 321 BC.",
+  "abstractions": "Each seat is a grouped command or polity, not a unified state: the Royal army stands for the regent and the kings, Western Anatolia for several satraps, Athens for the Greek allies. The empire's far eastern provinces are off the map. Borders, forces and populations are designed; Seleucus is a general of the Royal army, not a seat.",
+  "brief": "docs/campaign-guides.md",
+  "validation": "Provisional recommendations: playable IDs, opening city networks, one army per regular seat and starting fleets checked. Human difficulty, balance and mountain-crossing routes have not been playtested for this guidance.",
+  "powers": [
+    {
+      "nationId": "egypt",
+      "focus": "Southern river base and fleet",
+      "advice": "Suggested as the default opening: a compact, defensible core with a starting fleet. Cyrene and the Nile cities are far from the Aegean, so decide early whether to expand by land into Syria or by sea.",
+      "suggested": true,
+      "requiresStartingFleet": true
+    },
+    {
+      "nationId": "macedon",
+      "focus": "European land power",
+      "advice": "Suggested for a land campaign from Pella with the largest European holdings. Greek cities to the south are restless, so a first objective near home is safer than a long march into Asia.",
+      "suggested": true
+    },
+    {
+      "nationId": "phrygia",
+      "focus": "Central Anatolian base",
+      "advice": "Suggested for an inland position with roads to the Aegean, Cilicia and Syria. Several neighbours border you; pick one direction before committing the single starting army.",
+      "suggested": true
+    },
+    {
+      "nationId": "royal",
+      "focus": "Mesopotamian core",
+      "advice": "A large inland holding around Babylon with no starting fleet. Strong in cities but exposed on every side; consider securing the river towns before looking west.",
+      "suggested": false
+    },
+    {
+      "nationId": "rhodes",
+      "focus": "Island and trade position",
+      "advice": "A small naval position among the islands and the Carian coast. Fleets matter more than the single army; local supply limits long campaigns.",
+      "suggested": false,
+      "requiresStartingFleet": true
+    }
+  ],
+  "sources": [
+    {
+      "title": "Metropolitan Museum: Art of the Hellenistic Age and the Hellenistic Tradition",
+      "url": "https://www.metmuseum.org/essays/art-of-the-hellenistic-age-and-the-hellenistic-tradition"
+    },
+    {
+      "title": "Livius: Battle of Ipsus",
+      "url": "https://www.livius.org/articles/battle/ipsus"
+    }
+  ]
+}
