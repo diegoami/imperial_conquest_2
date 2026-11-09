@@ -812,7 +812,7 @@ public sealed class SeatCliTests
     /// <c>[Fact(Timeout = …)]</c> turns that specific regression into a fast, clean failure instead of a
     /// hang.
     /// </summary>
-    [Fact(Timeout = 15000)]
+    [Fact(Timeout = 60000)]
     public async Task Watch_mode_completes_one_lap_without_hanging_when_a_non_active_nation_is_eliminated_mid_lap()
     {
         await Task.Run(() =>

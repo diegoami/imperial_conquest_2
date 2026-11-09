@@ -337,17 +337,29 @@ public sealed partial class SoundPlayer : Node
                 continue;
             }
 
-            string fullPath;
+            // A cache file that cannot be decoded (a truncated copy) must not silence the cue: the key falls back to
+            // the selected pack, as a key the cache lacks does.
+            var fullPath = string.Empty;
+            AudioStreamWav? stream = null;
             if (original is not null && original.TryResolve(key, out var fromOriginal))
             {
-                fullPath = fromOriginal.FullPath;
-            }
-            else if (!resolver.TryResolveFile(key, out fullPath))
-            {
-                continue;
+                stream = LoadWavStream(fromOriginal.FullPath);
+                if (stream is null)
+                {
+                    GD.PushWarning($"T149 SoundPlayer: the cached copy of '{key}' is not a loadable WAV; using the selected pack's.");
+                }
             }
 
-            var stream = LoadWavStream(fullPath);
+            if (stream is null)
+            {
+                if (!resolver.TryResolveFile(key, out fullPath))
+                {
+                    continue;
+                }
+
+                stream = LoadWavStream(fullPath);
+            }
+
             if (stream is null)
             {
                 GD.PushWarning($"T149 SoundPlayer: '{fullPath}' is not a loadable WAV; silent.");
