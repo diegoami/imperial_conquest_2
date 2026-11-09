@@ -53,6 +53,7 @@ public sealed class OriginalImageGroupTests : IDisposable
         var report = OriginalAssetPackBuilder.Build(Install(), output);
 
         Assert.Equal((6, 6), Found(report, "terrain tiles"));
+        Assert.Equal((6, 6), Found(report, "river tiles"));
         Assert.Equal((6, 6), Found(report, "army and fleet markers"));
         Assert.Equal((16, 16), Found(report, "battle pieces"));
         var pack = AssetLoader.LoadManifest(Path.Combine(output, "manifest.json"));
@@ -69,6 +70,8 @@ public sealed class OriginalImageGroupTests : IDisposable
         (byte, byte, byte) Pixel(string key) { pack.TryResolveAsset(key, out var path); return FirstPixel(Path.Combine(output, path)); }
 
         // The synthetic sheets paint cell k with palette index k + 1.
+        Assert.Equal(Palette(7), Pixel(IC2.Engine.Assets.AssetKeys.OriginalRiverTiles[0]));  // TerrainList cell 6 (east-west)
+        Assert.Equal(Palette(12), Pixel(IC2.Engine.Assets.AssetKeys.OriginalRiverTiles[5])); // cell 11 (north-west)
         Assert.Equal(Palette(2), Pixel("army.tier2.icon"));                 // ArmiesList cell 1
         Assert.Equal(Palette(3), Pixel("fleet.tier3.icon"));                // FleetsList cell 2
         Assert.Equal(Palette(1), Pixel("battle.unit.light_infantry.small"));   // 3 * 0 + 0
@@ -94,7 +97,7 @@ public sealed class OriginalImageGroupTests : IDisposable
     [Fact]
     public void The_status_counts_every_supported_key()
     {
-        Assert.Equal(10 + 6 + 6 + 16, OriginalAssetPackBuilder.SupportedKeys.Count);
+        Assert.Equal(10 + 6 + 6 + 6 + 16, OriginalAssetPackBuilder.SupportedKeys.Count);
         Assert.Equal(OriginalAssetPackBuilder.SupportedKeys.Count, OriginalAssetPackBuilder.SupportedKeys.Distinct().Count());
     }
 

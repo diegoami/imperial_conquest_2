@@ -259,6 +259,9 @@ public partial class GameMapView : Control
     private ImageTexture? _tileLayersTexture;
     private Texture2DArray? _tileArray;
 
+    /// <summary>True while the tile array carries the original's river shape tiles (so the river stroke is not drawn over them).</summary>
+    private bool _originalRiverTiles;
+
     private string? _selectedCityId;
     private string? _selectedArmyId;
     private string? _selectedFleetId;
@@ -743,10 +746,6 @@ public partial class GameMapView : Control
             return;
         }
 
-        var layers = TerrainSplatMap.BakeTileLayers(_terrainCells);
-        _tileLayersTexture = ImageTexture.CreateFromImage(
-            Image.CreateFromData(_session.World.Width, _session.World.Height, false, Image.Format.R8, layers));
-
         var images = new Godot.Collections.Array<Image>();
         foreach (var key in TerrainSplatMap.TileKeysByLayer)
         {
@@ -761,6 +760,34 @@ public partial class GameMapView : Control
             image.GenerateMipmaps();
             images.Add(image);
         }
+
+        // The original's six river shape tiles, when the local cache supplies all of them at the same size, become
+        // layers 6 to 11 and the river cells draw them instead of a plain with a stroke over it.
+        _originalRiverTiles = false;
+        var riverImages = new List<Image>();
+        foreach (var key in IC2.Engine.Assets.AssetKeys.OriginalRiverTiles)
+        {
+            if (_assetLoader?.TryGetOriginalOnlyTexture(key)?.GetImage() is { } river && river.GetSize() == images[0].GetSize())
+            {
+                river.Convert(Image.Format.Rgba8);
+                river.GenerateMipmaps();
+                riverImages.Add(river);
+            }
+        }
+
+        if (riverImages.Count == IC2.Engine.Assets.AssetKeys.OriginalRiverTiles.Count)
+        {
+            foreach (var river in riverImages)
+            {
+                images.Add(river);
+            }
+
+            _originalRiverTiles = true;
+        }
+
+        var layers = TerrainSplatMap.BakeTileLayers(_terrainCells, _originalRiverTiles);
+        _tileLayersTexture = ImageTexture.CreateFromImage(
+            Image.CreateFromData(_session.World.Width, _session.World.Height, false, Image.Format.R8, layers));
 
         _tileArray = new Texture2DArray();
         _tileArray.CreateFromImages(images);
@@ -901,7 +928,7 @@ public partial class GameMapView : Control
     /// </summary>
     private void DrawRivers(float tileSize)
     {
-        if (_riverChains is null || tileSize < 4f)
+        if (_riverChains is null || tileSize < 4f || (_originalRiverTiles && TilesReady))
         {
             return;
         }

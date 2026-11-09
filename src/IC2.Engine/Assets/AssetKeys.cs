@@ -127,6 +127,17 @@ public static class AssetKeys
     /// <summary>Tile sprite for river terrain.</summary>
     public const string TerrainRiverTile = "terrain.river.tile";
 
+    /// <summary>
+    /// The six river shape tiles of the original, in the order of terrain codes 6 to 11 (east-west, north-south,
+    /// north-east, east-south, south-west, north-west). They exist only in a local original-assets cache, never in
+    /// the authored pack, so they are not in <see cref="AllKeys"/>.
+    /// </summary>
+    public static readonly IReadOnlyList<string> OriginalRiverTiles =
+    [
+        "terrain.river_ew.tile", "terrain.river_ns.tile", "terrain.river_ne.tile",
+        "terrain.river_es.tile", "terrain.river_sw.tile", "terrain.river_nw.tile",
+    ];
+
     /// <summary>Tile sprite for shallow sea terrain.</summary>
     public const string TerrainSeaCalmTile = "terrain.sea_calm.tile";
 

@@ -179,6 +179,31 @@ public sealed class AssetPackTextureLoader
     /// chain those hints sample, which keeps the far zoom calm. Returns <see langword="null"/> for a
     /// missing key or unreadable file, exactly as <see cref="TryGetTexture"/> does.
     /// </summary>
+    /// <summary>
+    /// A texture for a key that only the local original-assets cache can supply (the six river tiles): null when
+    /// the cache is not in use or lacks it. Never reports a missing key, because the authored pack has none.
+    /// </summary>
+    public Texture2D? TryGetOriginalOnlyTexture(string assetKey)
+    {
+        if (_textureCache.TryGetValue(assetKey, out var cached))
+        {
+            return cached;
+        }
+
+        Texture2D? texture = null;
+        if (_original is not null && _original.TryResolve(assetKey, out var found))
+        {
+            var image = new Image();
+            if (image.Load(found.FullPath) == Error.Ok)
+            {
+                texture = ImageTexture.CreateFromImage(image);
+            }
+        }
+
+        _textureCache[assetKey] = texture;
+        return texture;
+    }
+
     public Texture2D? TryGetSurfaceTexture(string assetKey)
     {
         if (_surfaceCache.TryGetValue(assetKey, out var cached))
