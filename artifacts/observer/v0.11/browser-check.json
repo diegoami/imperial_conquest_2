@@ -1,0 +1,12 @@
+{
+  "checkedAt": "2026-11-09",
+  "command": "node scripts/check-observer-web.mjs --url=http://127.0.0.1:18431/imperial_conquest_2/ --playwright-root=<ai-player checkout> --out=rendered/observer-web",
+  "page": "local copy of the assembled pilot payload (not yet deployed to GitHub Pages)",
+  "media": "public observer-media release excerpt (classical-mediterranean-44-fa1b19552b66)",
+  "youtubeVideoId": "Ct3pEIe0QnM",
+  "results": {
+    "chromium": "PASS: public MP4 load, pause, seek, next, automatic wrap, narrow viewport, reduced motion, failed playlist",
+    "firefox": "PASS: 157.0 (Playwright build 1555), same checks"
+  },
+  "notVerified": ["Safari", "the deployed GitHub Pages URL"]
+}
