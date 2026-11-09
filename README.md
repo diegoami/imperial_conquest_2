@@ -1,4 +1,4 @@
-# Imperial Conquest 2 research and reimplementation
+# Open Imperial Conquest
 
 A modern, moddable reimplementation of *Imperial Conquest 2* (1996) — the game design, the build/release plans, and all code. Does **not** contain the game's executables, data, help files, sounds, or saves; supply files from your own installation when using the tools that read them.
 

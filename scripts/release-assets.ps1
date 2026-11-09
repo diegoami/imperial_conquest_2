@@ -9,8 +9,8 @@
     smoke-tests the package headless, zips it and builds the Inno Setup installer, then tests the
     installer (silent install, smoke, silent uninstall). Writes, under the git-ignored
     rendered/release/<tag>/:
-        ImperialConquest2-<tag>-windows-x64.zip           (the ic2 folder at the zip's top)
-        ImperialConquest2-<tag>-windows-x64-setup.exe
+        OpenImperialConquest-<tag>-windows-x64.zip           (the ic2 folder at the zip's top)
+        OpenImperialConquest-<tag>-windows-x64-setup.exe
     and prints each file's path, size and SHA-256. It never touches a Release.
 
     A tag may predate the packaging files. When the tag lacks godot/export_presets.cfg or
@@ -79,8 +79,8 @@ if ($Tag -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') {
 $AppId = '{5B7E2C1A-6F3D-4E8B-9A41-1C2D3E4F5A6B}'
 $UninstallKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\${AppId}_is1"
 
-$ZipName = "ImperialConquest2-$Tag-windows-x64.zip"
-$SetupName = "ImperialConquest2-$Tag-windows-x64-setup.exe"
+$ZipName = "OpenImperialConquest-$Tag-windows-x64.zip"
+$SetupName = "OpenImperialConquest-$Tag-windows-x64-setup.exe"
 $Version = $Tag -replace '^v', ''
 $OutDir = Join-Path $RepoRoot "rendered/release/$Tag"
 
@@ -383,7 +383,7 @@ try {
     $iss = Join-Path $RepoRoot 'installer/ic2.iss'
     if (-not (Test-Path -LiteralPath $iss)) { throw "installer/ic2.iss is missing from $RepoRoot." }
     Write-Step 'building the installer'
-    & $isccExe "/Q" "/DAppVersion=$Version" "/DSourceDir=$icDir" "/DOutputDir=$OutDir" "/FImperialConquest2-$Tag-windows-x64-setup" $iss
+    & $isccExe "/Q" "/DAppVersion=$Version" "/DSourceDir=$icDir" "/DOutputDir=$OutDir" "/FOpenImperialConquest-$Tag-windows-x64-setup" $iss
     if ($LASTEXITCODE -ne 0) { throw "ISCC exited with code $LASTEXITCODE." }
     $setupPath = Join-Path $OutDir $SetupName
     if (-not (Test-Path -LiteralPath $setupPath)) { throw "ISCC produced no $setupPath." }
