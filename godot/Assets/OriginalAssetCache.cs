@@ -17,8 +17,9 @@ public static class OriginalAssetCache
     public static OriginalCacheStatus Status(UserSettings settings) =>
         OriginalCacheStatus.Read(settings.OriginalInstallPath, CacheDirectory);
 
-    /// <summary>The cache directory when it should be layered over the selected pack, otherwise null.</summary>
-    public static string? ActiveDirectory(UserSettings settings) => Status(settings).InUse ? CacheDirectory : null;
+    /// <summary>The cache directory when the player chose the original artwork and the cache can supply it, otherwise null.</summary>
+    public static string? ActiveDirectory(UserSettings settings) =>
+        settings.UseOriginalAssets && Status(settings).InUse ? CacheDirectory : null;
 
     /// <summary>Rebuilds the cache from the chosen folder. Never throws; failure becomes the returned message.</summary>
     public static string Rebuild(UserSettings settings)

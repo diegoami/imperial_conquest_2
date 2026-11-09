@@ -46,6 +46,9 @@ public sealed record UserSettings
     /// <summary>T292d: the folder of the player's own installation, for the local original-assets cache; never uploaded or logged.</summary>
     public string? OriginalInstallPath { get; init; }
 
+    /// <summary>Which artwork the game uses: the authored set (default) or the one built from the player's own installation.</summary>
+    public bool UseOriginalAssets { get; init; }
+
     public bool SoundEnabled { get; init; } = true;
 
     /// <summary>The master volume, 0 to 100.</summary>
