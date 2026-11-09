@@ -13,14 +13,15 @@ public sealed class OriginalAssetPackBuilderTests : IDisposable
         if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
     }
 
-    private static byte[] Wave(ushort format = 1, ushort bits = 16, int samples = 16)
+    private static byte[] Wave(ushort format = 1, ushort bits = 16, int samples = 16, ushort channels = 1, byte fill = 0)
     {
-        var data = new byte[samples * bits / 8];
+        var data = new byte[samples * bits / 8 * channels];
+        Array.Fill(data, fill);
         using var ms = new MemoryStream();
         using var w = new BinaryWriter(ms);
         w.Write("RIFF"u8); w.Write(36 + data.Length); w.Write("WAVE"u8);
-        w.Write("fmt "u8); w.Write(16); w.Write(format); w.Write((ushort)1); w.Write(44100);
-        w.Write(44100 * bits / 8); w.Write((ushort)(bits / 8)); w.Write(bits);
+        w.Write("fmt "u8); w.Write(16); w.Write(format); w.Write(channels); w.Write(44100);
+        w.Write(44100 * bits / 8 * channels); w.Write((ushort)(bits / 8 * channels)); w.Write(bits);
         w.Write("data"u8); w.Write(data.Length); w.Write(data);
         return ms.ToArray();
     }
@@ -89,6 +90,35 @@ public sealed class OriginalAssetPackBuilderTests : IDisposable
         Assert.Equal(1, report.KeysWritten);
         Assert.Contains("SOUND1.WAV", report.Categories.Single(c => c.Category == "sounds").Note);
         Assert.Contains("SOUND2.WAV", report.Categories.Single(c => c.Category == "sounds").Note);
+    }
+
+    [Fact]
+    public void An_8_bit_mono_sound_is_stored_as_the_16_bit_mono_the_player_can_load()
+    {
+        var install = Install(0);
+        File.WriteAllBytes(Path.Combine(install, "WAVS", "SOUND1.WAV"), Wave(bits: 8, samples: 4, fill: 255));
+        var output = Path.Combine(_root, "cache", "original");
+
+        var report = OriginalAssetPackBuilder.Build(install, output);
+
+        Assert.Equal(1, report.KeysWritten);
+        var stored = File.ReadAllBytes(Path.Combine(output, "sfx", "unit_move.wav"));
+        Assert.Equal((ushort)1, BitConverter.ToUInt16(stored, 22));   // mono
+        Assert.Equal((ushort)16, BitConverter.ToUInt16(stored, 34));  // 16-bit
+        Assert.Equal(44100u, BitConverter.ToUInt32(stored, 24));      // rate kept
+        Assert.Equal(8, BitConverter.ToInt32(stored, 40));            // 4 samples, 2 bytes each
+        Assert.Equal((short)(127 << 8), BitConverter.ToInt16(stored, 44)); // unsigned 255 is the loudest positive sample
+    }
+
+    [Fact]
+    public void A_stereo_sound_is_skipped_with_a_reason_so_the_key_keeps_the_authored_sound()
+    {
+        var install = Install(0);
+        File.WriteAllBytes(Path.Combine(install, "WAVS", "SOUND1.WAV"), Wave(channels: 2));
+        var report = OriginalAssetPackBuilder.Build(install, Path.Combine(_root, "cache", "original"));
+
+        Assert.Equal(0, report.KeysWritten);
+        Assert.Contains("SOUND1.WAV is not mono", report.Categories.Single(c => c.Category == "sounds").Note);
     }
 
     [Fact]
