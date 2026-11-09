@@ -179,6 +179,9 @@ public partial class SettingsScreen : Control
         header.AddChild(UiKit.MakeLabel("Changes apply at once and are remembered.", AppTheme.Note, UiKit.MutedTextColor));
 
         Tabs = new TabContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
+        // The tab panel took Godot's default grey, which is dark under every scheme and made the scheme's dark text
+        // (Parchment) nearly unreadable; give it the scheme's own panel colour so text and background always contrast.
+        Tabs.AddThemeStyleboxOverride("panel", new StyleBoxFlat { BgColor = AppTheme.Color("panel") });
         outer.AddChild(Tabs);
         var column = TabColumn(Tabs, "Display & controls");
 
