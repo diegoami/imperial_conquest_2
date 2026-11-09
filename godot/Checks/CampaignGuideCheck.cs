@@ -21,6 +21,8 @@ public partial class CampaignGuideCheck : Control
                 chooser.SetAnchorsPreset(LayoutPreset.FullRect);
                 AddChild(chooser);
                 Check(chooser.SelectedPreset == RulesetPreset.ClassicalFaithful, "Classical remains the default");
+                // CI gives a check scene 900 frames. The guidance text does not depend on the colours, so every scheme checks
+                // the first three cards (fit and colours); the default scheme checks every card, so new campaigns stay covered.
                 foreach (var size in new[] { new Vector2I(1500, 850), new Vector2I(1000, 650) })
                 {
                     Size = size;
@@ -30,7 +32,7 @@ public partial class CampaignGuideCheck : Control
                         GetWindow().Size = size == new Vector2I(1000, 650) ? new Vector2I(1500, 975) : size;
                     }
                     await Settle();
-                    foreach (var card in RulesetPresets.CardsFor(repository))
+                    foreach (var card in scheme.Id == ColorSchemes.DefaultId ? RulesetPresets.CardsFor(repository) : RulesetPresets.CardsFor(repository).Take(3))
                     {
                         var button = card.Preset == RulesetPreset.Listed ? chooser.ScenarioCardButtons[card.ScenarioId] : chooser.CardButtons[card.Preset];
                         button.EmitSignal(BaseButton.SignalName.Pressed);
@@ -75,6 +77,7 @@ public partial class CampaignGuideCheck : Control
             }
         }
         catch (Exception ex) { Check(false, ex.ToString()); }
+        GD.Print($"CampaignGuideCheck: frames {Godot.Engine.GetProcessFrames()}");
         GD.Print($"CampaignGuideCheck: exiting with code {(_ok ? 0 : 1)}.");
         CheckExit.Quit(this, _ok ? 0 : 1);
     }
