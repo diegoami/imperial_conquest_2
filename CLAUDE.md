@@ -19,6 +19,24 @@ cross-family review) is frozen on the `local` branch and is **not** in force her
 10. **Use the manual before GUI work.** Read the relevant original-game manual sections and screenshots through [the operating-guide entry point](docs/operating-guide.md#original-game-ui-reference-private). Cite the expected behavior and any specifically approved exception; do not infer permission for a different screen from a narrow convenience change. Find and record discrepancies proactively before asking the owner to rediscover them through playtesting.
 11. **Author hills and passes deliberately.** For authored historical/random maps, reserve mountains for severe high relief, use forest terrain as the hill/foothill metaphor, and create usable plain passes through ranges. Follow [the owner's terrain-authoring rule](docs/design/terrain-authoring.md); correct tile placement rather than changing movement penalties.
 
+## v0.11 task entry points
+
+New Game setup (T288), independent right-side panels (T289) and campaign guidance (T290) are
+merged; design context is `docs/design/v011-panel-layout.md` and
+`docs/design/v011-campaigns-and-random-maps.md`. The owner's priority is UI/usability. Open
+candidates: triage issues (`triage:needed`), notably #1822 (Near East passes/hills in forest terrain,
+rule 11). Read GitHub labels, not this file, for status.
+
+Observer delivery is T285/T286/T287, [PR 1829](https://github.com/diegoami/imperial_conquest_2/pull/1829)
+and `docs/observer-recordings.md` on `task/T286-observer-recordings`. The owner authorized **one
+YouTube video first only**, on lynxsupercluster in a separate Open Imperial Conquest playlist;
+Pages uses excerpts linked to that full campaign and to the repository/releases. No recurring
+uploads before pilot review. Keep ai-player's GeoClick queues and uploader records untouched.
+The recording guide and `artifacts/observer/v0.11/full-campaign-verification.json` locate the
+verified full MP4 and private archive. The pilot **is uploaded** (receipt `artifacts/observer/v0.11/youtube-receipt.json`); remaining: public excerpt
+media and Pages (`docs/observer-recordings.md`, owner go-ahead for the public release). Read the PR's remaining acceptance;
+never create a second upload to resolve an uncertain upload identity.
+
 ## Token economy
 
 - Never read a large file whole: `docs/task-catalogue.md` is an index (a task is `docs/tasks/T<nn>.md`); use `jq` on `data/worlds/*.json` and `data/rulesets/*.json` (`jq 'del(.cities)'`); never open `*.terrain.b64` or `tests/fixtures/corpus.json`; for the long design docs `grep -n` a heading, then `sed -n`.

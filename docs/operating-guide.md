@@ -100,6 +100,9 @@ The battle summary spans the top of the screen. The information column begins al
 
 ## Observer campaigns
 
+For video file locations, capture commands, format checks, recovery and archiving, see
+[Producing and finding observer videos](observer-recordings.md).
+
 For immediate Classical Faithful observation, launch the desktop executable with `-- --observe`,
 or `-- --observe-loop` for continuous random-civilization viewing. From source:
 `godot --path godot -- --observe-loop`. Direct launches start playing immediately;

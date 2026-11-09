@@ -1,0 +1,30 @@
+{
+  "purpose": "Format proof from a real 60-second moving-army excerpt; not a completed campaign or a YouTube upload",
+  "sourceCommit": "f760d49ee96d9c9f8fccb640bf15cb63c7ea3410",
+  "scenario": "classical-mediterranean",
+  "seed": "44",
+  "nativeWidth": 1920,
+  "nativeHeight": 1080,
+  "nativeLogicalFrames": 1800,
+  "nativeFrameRate": "30/1",
+  "durationSeconds": 60,
+  "theoraDecodedImageChanges": 1011,
+  "web": {
+    "width": 1920,
+    "height": 1080,
+    "decodedFrames": 1800,
+    "constantFpsVerifiedForEveryTimestamp": 30,
+    "bytes": 3219890,
+    "sha256": "434f90a8f47104320ef20f5231a5591b69931cd80bd55cde7e7ac148d1c0c0f5"
+  },
+  "uploadMaster": {
+    "width": 1920,
+    "height": 1080,
+    "decodedFrames": 1800,
+    "constantFpsVerifiedForEveryTimestamp": 30,
+    "codec": "H.264 High, CRF18; stereo AAC 48 kHz",
+    "bytes": 22601930,
+    "sha256": "0aeb98b3394b79eb6d7cd885524c095d83909ee8dfcdd3222d57191966a4f3ce"
+  },
+  "note": "Theora zero-byte duplicate still packets are valid logical frames. Final H.264 MP4 frame count and each timestamp were independently decoded and checked. These private intermediate files remain in rendered/v011-observer; they are not advertised as a full campaign."
+}

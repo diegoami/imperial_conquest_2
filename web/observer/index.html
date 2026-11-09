@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Watch recorded computer-controlled campaigns from Open Imperial Conquest. Download the desktop game to play.">
+  <title>Watch campaigns · Open Imperial Conquest</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <header>
+    <a class="brand" href="./">Open Imperial Conquest<span>Ancient worlds. Unscripted campaigns.</span></a>
+    <nav aria-label="Project links">
+      <a href="https://github.com/diegoami/imperial_conquest_2">View repository <span aria-hidden="true">↗</span></a>
+      <a class="primary" href="https://github.com/diegoami/imperial_conquest_2/releases">Download desktop game <span aria-hidden="true">↗</span></a>
+    </nav>
+  </header>
+  <main>
+    <div class="intro"><p class="eyebrow">The observer collection</p><h1>Watch a world unfold.</h1>
+      <p>Computer-controlled civilizations, recorded from the desktop game. Follow their campaigns across the ancient world.</p></div>
+    <section class="theatre" aria-label="Recorded observer campaigns">
+      <div class="screen"><video id="film" controls muted playsinline preload="metadata" aria-label="Observer campaign recording"></video>
+        <div id="loading" class="loading">Loading recordings…</div></div>
+      <div class="caption"><div><p class="eyebrow">Recorded campaign <span id="kind"></span></p><h2 id="title">Preparing the collection</h2><p id="metadata"></p><a id="full-campaign" class="full-link" hidden target="_blank" rel="noopener noreferrer">Watch full campaign on YouTube ↗</a></div>
+        <button id="next" type="button" disabled>Next campaign <span aria-hidden="true">→</span></button></div>
+      <p id="status" role="status" aria-live="polite">Loading the latest recording playlist.</p>
+      <button id="retry" type="button" hidden>Retry playback</button>
+    </section>
+    <section class="collection" aria-labelledby="collection-title"><div class="section-heading"><h2 id="collection-title">In rotation</h2><p id="updated"></p></div><div id="playlist" class="playlist"></div></section>
+    <div class="about"><p>Watch here. Play on desktop.</p><p id="collection-description">Browser controls play recorded footage; download the desktop release to command a civilization yourself.</p></div>
+  </main>
+  <footer><span>Open Imperial Conquest · Observer recordings</span><a href="https://github.com/diegoami/imperial_conquest_2/releases">Get the game</a><a href="https://github.com/diegoami/imperial_conquest_2">Source &amp; project</a></footer>
+  <noscript><p class="notice">JavaScript is needed for the rotating playlist. <a href="https://github.com/diegoami/imperial_conquest_2/releases">Download the desktop game</a>.</p></noscript>
+  <script type="module" src="./player.mjs"></script>
+</body>
+</html>

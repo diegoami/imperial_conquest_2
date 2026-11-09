@@ -1,0 +1,39 @@
+{
+  "captureSourceCommit": "fa1b19552b66f9476979c77caad9c44219746dcf",
+  "scenarioId": "classical-mediterranean",
+  "seed": "44",
+  "metrics": {
+    "frames": 196808,
+    "seconds": 6560.266666666666,
+    "webFrames": 5400,
+    "webSeconds": 180,
+    "nativeDecodedImages": 63042,
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "webBytes": 9311753,
+    "uploadBytes": 4015876479,
+    "webSha256": "d71a46cf94c78551b06a142659bfd8e4b600981426e9269c941f659d40cc6e0f",
+    "uploadSha256": "f57a5b6744833dc229309176f87e0fafc097c1f4de94b6015fb3b7aaee11eeca",
+    "posterSha256": "b69bc0e0ef6aadbdd450dd9ee80a2ca5d1bf415abc5cfb5360320d24824b14d2"
+  },
+  "ending": {
+    "scenarioId": "classical-mediterranean",
+    "seed": "44",
+    "ending": "Campaign time limit reached",
+    "turn": 480,
+    "yearBc": 250,
+    "frame": 196807
+  },
+  "localFolder": "rendered/observer-pilot/classical-44-fa1b",
+  "archive": {
+    "destination": "gdrive:IC2/artifacts/observer/classical-44-fa1b",
+    "rawMatchingFiles": 4,
+    "encodedAndJsonMatchingFiles": 10,
+    "differences": 0,
+    "fullMp4Url": "https://drive.google.com/file/d/1MhDqMneKluYfsSPO18SGZHMsmK7HbP_z/view?usp=drivesdk",
+    "rawOgvUrl": "https://drive.google.com/file/d/1kcyibW2U6ZRlrFRLM22uEw2VkB41iJXN/view?usp=drivesdk",
+    "shared": false
+  },
+  "scope": "One complete authored-assets campaign and its 180-second excerpt. File/frame/archive verification is not evidence of YouTube upload, HD processing or public Pages acceptance."
+}

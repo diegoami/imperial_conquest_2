@@ -23,6 +23,25 @@ public partial class AppRoot : Control
 
     public override void _Ready()
     {
+        ObserverLaunchOptions launch;
+        try { launch = GetTree().CurrentScene == this ? ObserverLaunchOptions.Parse(OS.GetCmdlineUserArgs()) : new(); }
+        catch (ArgumentException ex) { GD.PushError(ex.Message); GetTree().Quit(2); return; }
+        if (launch.RecordingDirectory is { } recording)
+        {
+            // A recording must never load/migrate/save the owner's preferences or original-asset choice.
+            System.IO.Directory.CreateDirectory(recording);
+            AppDiagnostics.DirectoryOverride = System.IO.Path.Combine(recording, "diagnostics");
+            SettingsScreen.SettingsPath = null;
+            SettingsScreen.Commit(new UserSettings { PackId = "authored", Fullscreen = false }, this);
+            // Movie framebuffer and logical UI must agree; a 1500px logical window
+            // inside a 1920px movie otherwise crops the existing wide toolbar.
+            if (DisplayServer.GetName() != "headless")
+            {
+                GetWindow().ContentScaleSize = new Vector2I(1920, 1080);
+                GetWindow().ContentScaleFactor = 1;
+                GetWindow().Size = new Vector2I(1920, 1080);
+            }
+        }
         // Bug #919: the window's close button must not quit an open game unasked; the close request
         // arrives as NotificationWMCloseRequest and HandleCloseRequest decides.
         AppDiagnostics.Acquire();
@@ -30,7 +49,7 @@ public partial class AppRoot : Control
 
         // #1293: the player's remembered settings, only when this is the running game; a check that
         // hosts an AppRoot keeps the defaults and never writes the player's file.
-        if (GetTree().CurrentScene == this)
+        if (GetTree().CurrentScene == this && launch.RecordingDirectory is null)
         {
             // The rename to "Open Imperial Conquest" moved user://; bring the old folder's saves and settings.
             var userData = OS.GetUserDataDir();
@@ -42,8 +61,7 @@ public partial class AppRoot : Control
         {
             try
             {
-                var launch = ObserverLaunchOptions.Parse(OS.GetCmdlineUserArgs());
-                if (launch.Observe) { StartObserverCampaign(launch.Loop); return; }
+                if (launch.Observe) { StartObserverCampaign(launch.Loop, launch.ScenarioId, launch.Seed, launch.RecordingDirectory, launch.CompleteCampaign); return; }
             }
             catch (ArgumentException ex)
             {
@@ -57,24 +75,37 @@ public partial class AppRoot : Control
 
     private ulong? _lastObserverSeed;
 
-    public void StartObserverCampaign(bool loop, string? scenarioId = null)
+    public void StartObserverCampaign(bool loop, string? scenarioId = null, ulong? seedOverride = null, string? recordingDirectory = null, bool completeCampaign = false)
     {
-        var seed = (ulong)Random.Shared.NextInt64();
-        if (seed == _lastObserverSeed) seed++;
+        var seed = seedOverride ?? (ulong)Random.Shared.NextInt64();
+        if (seedOverride is null && seed == _lastObserverSeed) seed++;
         _lastObserverSeed = seed;
         var selection = new NewGameSelection { ObserverMode = true };
         if (scenarioId is not null)
             selection.SelectedCard = RulesetPresets.CardForScenario(GameDataContext.Repository.Resolve(scenarioId));
         var session = GameSessionFactory.CreateSession(GameDataContext.Repository, selection, seed);
         var screen = new MainGameScreen { Session = session, RepositoryRoot = GameDataContext.RepositoryRoot,
-            AutoStartObserver = true, StartObserverLoop = loop };
+            AutoStartObserver = true, StartObserverLoop = loop, ObserverRecordingDirectory = recordingDirectory,
+            ObserverViewpointSeed = recordingDirectory is null ? null : unchecked((int)seed ^ (int)(seed >> 32)) };
         WireObserverRestart(screen);
+        if (completeCampaign) screen.ObserverCampaignFinished += ending => {
+            GD.Print("OBSERVER_END " + System.Text.Json.JsonSerializer.Serialize(new {
+                scenarioId=session.Scenario.Id, seed=seed.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ending, turn=session.State.Calendar.TurnIndex, yearBc=session.State.Calendar.YearBc,
+                frame=Godot.Engine.GetProcessFrames() }));
+            GetTree().Quit();
+        };
         SwapTo(screen);
         GD.Print($"Observer launch: {session.Scenario.Id}, loop={loop}, seed={seed}.");
+        if (recordingDirectory is not null)
+            GD.Print("OBSERVER_CAMPAIGN " + System.Text.Json.JsonSerializer.Serialize(new {
+                scenarioId = session.Scenario.Id, scenarioName = session.Scenario.Name, seed = seed.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                frame = Godot.Engine.GetProcessFrames(), pack = SettingsScreen.SelectedPackId }));
     }
 
     private void WireObserverRestart(MainGameScreen screen) => screen.ObserverRestartRequested +=
-        () => Callable.From(() => StartObserverCampaign(true, screen.Session.Scenario.Id)).CallDeferred();
+        () => Callable.From(() => StartObserverCampaign(true, screen.Session.Scenario.Id,
+            recordingDirectory: screen.ObserverRecordingDirectory)).CallDeferred();
 
     public override void _Notification(int what)
     {
