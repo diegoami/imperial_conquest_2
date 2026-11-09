@@ -130,6 +130,15 @@ public static class OriginalAssetPackBuilder
             new("TUnitMap", "TerrainList", 4, AssetKeys.TerrainForestTile, "terrain/forest.png"),
             new("TUnitMap", "TerrainList", 5, AssetKeys.TerrainMountainTile, "terrain/mountain.png"),
         ]),
+        new("river tiles",
+        [
+            new("TUnitMap", "TerrainList", 6, AssetKeys.OriginalRiverTiles[0], "terrain/river_ew.png"),
+            new("TUnitMap", "TerrainList", 7, AssetKeys.OriginalRiverTiles[1], "terrain/river_ns.png"),
+            new("TUnitMap", "TerrainList", 8, AssetKeys.OriginalRiverTiles[2], "terrain/river_ne.png"),
+            new("TUnitMap", "TerrainList", 9, AssetKeys.OriginalRiverTiles[3], "terrain/river_es.png"),
+            new("TUnitMap", "TerrainList", 10, AssetKeys.OriginalRiverTiles[4], "terrain/river_sw.png"),
+            new("TUnitMap", "TerrainList", 11, AssetKeys.OriginalRiverTiles[5], "terrain/river_nw.png"),
+        ]),
         new("army and fleet markers",
         [
             new("TUnitMap", "ArmiesList", 0, AssetKeys.ArmyTier1Icon, "army/tier1.png"),

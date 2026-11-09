@@ -42,3 +42,7 @@ The #223 crosswalk and the corrected extraction spec settle the source component
 ## Update: army and fleet markers, battle pieces (T292b)
 
 Written all-or-none per group from `TUnitMap.ArmiesList` and `FleetsList` (three size bands each) and `TBattleMap.BatMapList` (index 3 x type + size for light infantry, heavy infantry, archers, light cavalry, heavy cavalry; cell 15 is the ground). Measured locally: the army and fleet templates have a **black** corner pixel with the purple field inside (battle pieces a lime dotted frame), so the map's template test now also accepts an army or fleet image that is at least a quarter purple; battle recolouring was already unconditional. Cells are written opaque (masks not used). Towns and capitals (16 owner pictures), the six river shapes and the toolbar glyphs are not yet built.
+
+## Update: river tiles (T292b, owner decision 2026-11-09)
+
+`TUnitMap.TerrainList` cells 6 to 11 (east-west, north-south, north-east, east-south, south-west, north-west) are written as `terrain.river_ew/ns/ne/es/sw/nw.tile`, all or none. When the local cache supplies all six at the tile size, the Classic tiles style adds them as texture-array layers 6 to 11, river cells (codes 6 to 11) draw them in place of a plain tile, and the blue river stroke is not drawn over them. Without them nothing changes (plain plus stroke). The keys exist only in the cache and are not in `AssetKeys.AllKeys`.

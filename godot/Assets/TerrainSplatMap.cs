@@ -298,16 +298,17 @@ public sealed class TerrainSplatMap
     /// 3, forest 4, mountain 5. A river cell (6–11) is a plain under its drawn river, and an unknown code
     /// is a plain, as <see cref="ClassOf"/> treats them.
     /// </summary>
-    public static byte TileLayerOf(int code) => code is >= 0 and <= 5 ? (byte)code : (byte)2;
+    public static byte TileLayerOf(int code, bool riverLayers = false) =>
+        code is >= 0 and <= 5 ? (byte)code : riverLayers && code is >= 6 and <= 11 ? (byte)code : (byte)2;
 
     /// <summary>One <see cref="TileLayerOf"/> byte per cell, row by row.</summary>
-    public static byte[] BakeTileLayers(int[] cells)
+    public static byte[] BakeTileLayers(int[] cells, bool riverLayers = false)
     {
         ArgumentNullException.ThrowIfNull(cells);
         var layers = new byte[cells.Length];
         for (var i = 0; i < cells.Length; i++)
         {
-            layers[i] = TileLayerOf(cells[i]);
+            layers[i] = TileLayerOf(cells[i], riverLayers);
         }
 
         return layers;
