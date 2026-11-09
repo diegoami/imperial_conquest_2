@@ -175,8 +175,9 @@ public static class LoadGameModel
         {
             return Fail(
                 path,
-                $"'{name}' names a world/ruleset/scenario this build does not have "
-                + $"(world '{summary.WorldId}', ruleset '{summary.RulesetId}', scenario '{summary.ScenarioId}').");
+                $"'{name}' was saved by a different version of the game: it needs content this version does not have "
+                + $"(scenario '{summary.ScenarioId}'). Open it in the newer version, or update this one. "
+                + $"Technical detail: world '{summary.WorldId}', ruleset '{summary.RulesetId}'.");
         }
 
         SaveGame save;
