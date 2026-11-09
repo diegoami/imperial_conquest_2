@@ -178,7 +178,7 @@ public sealed class MapMarkerKeysTests
 
     /// <summary>
     /// T163 DoD 2: every shipped ruleset on the classical scale ships the report's [25, 50, 100]. #1309: the
-    /// Italy and the Near East campaigns share the designed smaller-town scale,
+    /// Italy, the Near East and the Diadochi campaigns share the designed smaller-town scale,
     /// pinned in their campaign tests.
     /// </summary>
     [Fact]
@@ -187,7 +187,7 @@ public sealed class MapMarkerKeysTests
         Assert.NotEmpty(Repository.Rulesets);
         foreach (var ruleset in Repository.Rulesets)
         {
-            var expected = ruleset.Id is "italy-500bc" or "near-east-1350bc" or "near-east-750bc"
+            var expected = ruleset.Id is "italy-500bc" or "near-east-1350bc" or "near-east-750bc" or "diadochi-323bc" or "diadochi-301bc"
                 ? new[] { 6, 10, 18 } : new[] { 25, 50, 100 };
             Assert.True(
                 ruleset.MapMarkers.CityPopulationTierThresholds.SequenceEqual(expected),
