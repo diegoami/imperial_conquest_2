@@ -41,7 +41,7 @@ public sealed class DiagnosticJournal : IDisposable
     {
         // Trusted application/SDK metadata is reduced to a bounded identifier alphabet.
         Write(DiagnosticEvent.Startup, "POINT", 0, "app", metadata: new {
-            product = "Imperial Conquest 2", version = SafeIdentifier(version, 80), development = version == "development",
+            product = "Open Imperial Conquest", version = SafeIdentifier(version, 80), development = version == "development",
             build = SafeIdentifier(build, 120), engine = SafeIdentifier(engine, 80), runtime = SafeIdentifier(runtime, 40),
             platform = SafeIdentifier(platform, 40), pack = SafeIdentifier(pack, 40), backend = "unavailable", adapter = "unavailable", driver = "unavailable" });
     }

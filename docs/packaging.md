@@ -81,8 +81,8 @@ Every tag's GitHub Release carries two Windows x64 files, built from that tag by
 
 | File | How a player runs it |
 | --- | --- |
-| `ImperialConquest2-<tag>-windows-x64.zip` | Extract it anywhere and start `ic2\game\IC2.MapViewer.exe`. The `ic2` folder is the package of the section above. |
-| `ImperialConquest2-<tag>-windows-x64-setup.exe` | A per-user installer (Inno Setup 6, [`installer/ic2.iss`](../installer/ic2.iss)): no administrator rights, installs under `%LOCALAPPDATA%\Programs\Imperial Conquest 2`, adds a Start-menu entry and an optional desktop shortcut, and upgrades an earlier install in place. The player's saves live in the user profile and are untouched. Neither file is code-signed, so Windows SmartScreen warns on the installer. |
+| `OpenImperialConquest-<tag>-windows-x64.zip` | Extract it anywhere and start `ic2\game\IC2.MapViewer.exe`. The `ic2` folder is the package of the section above. |
+| `OpenImperialConquest-<tag>-windows-x64-setup.exe` | A per-user installer (Inno Setup 6, [`installer/ic2.iss`](../installer/ic2.iss)): no administrator rights, installs under `%LOCALAPPDATA%\Programs\Imperial Conquest 2`, adds a Start-menu entry and an optional desktop shortcut, and upgrades an earlier install in place. The player's saves live in the user profile and are untouched. Neither file is code-signed, so Windows SmartScreen warns on the installer. |
 
 The installer's `AppId` is **fixed** (`{5B7E2C1A-6F3D-4E8B-9A41-1C2D3E4F5A6B}`) and must never change:
 it is how a newer Setup finds and upgrades the existing install. A different `AppId` would install a

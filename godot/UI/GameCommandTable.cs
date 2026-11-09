@@ -266,7 +266,7 @@ public sealed class GameCommandTable
         {
             new GameCommandRow("help.topics", "Help", null, "Help topics", null, null, Wired: true),
             new GameCommandRow("help.show_hints", "Help", null, "Show hints", null, null, Wired: true),
-            new GameCommandRow("help.about", "Help", null, "About Imperial Conquest", null, null, Wired: true),
+            new GameCommandRow("help.about", "Help", null, "About Open Imperial Conquest", null, null, Wired: true),
         });
 
         return rows;
