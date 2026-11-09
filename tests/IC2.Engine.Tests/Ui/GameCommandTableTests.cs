@@ -96,7 +96,7 @@ public sealed class GameCommandTableTests
         // Help (§1.7)
         ("Help", null, "Help topics"),
         ("Help", null, "Show hints"),
-        ("Help", null, "About Imperial Conquest"),
+        ("Help", null, "About Open Imperial Conquest"),
     };
 
     /// <summary>

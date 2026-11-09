@@ -1,6 +1,6 @@
-; Imperial Conquest 2 - Inno Setup 6 script (T131).
+; Open Imperial Conquest - Inno Setup 6 script (T131).
 ;
-; Builds ImperialConquest2-v<AppVersion>-windows-x64-setup.exe from the exported package folder
+; Builds OpenImperialConquest-v<AppVersion>-windows-x64-setup.exe from the exported package folder
 ; (rendered/export/ic2/: game\, data\, assets\). Driven by scripts/release-assets.ps1:
 ;   ISCC /DAppVersion=0.4.1 /DSourceDir=<ic2 folder> /DOutputDir=<dir> installer/ic2.iss
 ;
@@ -26,15 +26,15 @@
 AppId={{5B7E2C1A-6F3D-4E8B-9A41-1C2D3E4F5A6B}
 AppName={#AppName}
 AppVersion={#AppVersion}
-AppPublisher=Imperial Conquest 2
+AppPublisher=Open Imperial Conquest
 PrivilegesRequired=lowest
-DefaultDirName={localappdata}\Programs\Imperial Conquest 2
+DefaultDirName={localappdata}\Programs\Open Imperial Conquest
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir={#OutputDir}
-OutputBaseFilename=ImperialConquest2-v{#AppVersion}-windows-x64-setup
+OutputBaseFilename=OpenImperialConquest-v{#AppVersion}-windows-x64-setup
 UninstallDisplayIcon={app}\game\{#AppExe}
 CloseApplications=yes
 Compression=lzma2

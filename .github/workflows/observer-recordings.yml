@@ -1,0 +1,46 @@
+name: Publish observer pilot page
+on:
+  workflow_dispatch:
+    inputs:
+      generation:
+        description: 'Generation of the single completed, uploaded and HD-verified pilot'
+        required: true
+# One YouTube pilot first: no recurring capture or publication is enabled.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: observer-recordings-pages
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate recording and playlist contracts
+        run: node --test tests/web/observer-media.test.mjs
+      - name: Fetch the already verified pilot manifest
+        env:
+          GENERATION: ${{ inputs.generation }}
+        run: |
+          if [[ ! "$GENERATION" =~ ^[A-Za-z0-9_-]+$ ]]; then exit 1; fi
+          mkdir -p rendered/public-manifest
+          gh release download observer-media --repo "$GITHUB_REPOSITORY" --pattern "manifest-${GENERATION}.json" --dir rendered/public-manifest
+          node scripts/assemble-observer-site.mjs --manifest="rendered/public-manifest/manifest-${GENERATION}.json" --out=rendered/observer-site
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: rendered/observer-site
+      - name: Deploy the single paired pilot
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -163,7 +163,7 @@ jobs:
         run: |
           $dir = Join-Path 'rendered/release' $env:TAG
           "### Release assets for ``$env:TAG``" | Add-Content -Path $env:GITHUB_STEP_SUMMARY
-          foreach ($file in Get-ChildItem -LiteralPath $dir -File | Where-Object { $_.Name -like 'ImperialConquest2-*' }) {
+          foreach ($file in Get-ChildItem -LiteralPath $dir -File | Where-Object { $_.Name -like 'OpenImperialConquest-*' }) {
             $hash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
             "- ``$($file.Name)`` $($file.Length) bytes, sha256 ``$hash``" | Add-Content -Path $env:GITHUB_STEP_SUMMARY
           }
@@ -173,8 +173,8 @@ jobs:
         with:
           name: release-assets
           path: |
-            rendered/release/${{ env.TAG }}/ImperialConquest2-*-windows-x64.zip
-            rendered/release/${{ env.TAG }}/ImperialConquest2-*-windows-x64-setup.exe
+            rendered/release/${{ env.TAG }}/OpenImperialConquest-*-windows-x64.zip
+            rendered/release/${{ env.TAG }}/OpenImperialConquest-*-windows-x64-setup.exe
           if-no-files-found: error
           compression-level: 0
           # [designed] 3 days (#1076, the CI-storage cut) bounds how long the build's files stay on the run
