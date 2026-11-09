@@ -49,7 +49,7 @@ public partial class MapViewer : Control
     {
         GetWindow().Mode = Window.ModeEnum.Maximized;
         TextureFilter = TextureFilterEnum.Nearest;
-        _title = MakeLabel("Imperial Conquest 2 · world map", AppTheme.Header);
+        _title = MakeLabel("Open Imperial Conquest · world map", AppTheme.Header);
         _legend = MakeLabel("Colored squares: cities  ·  flags: armies  ·  sails: fleets  ·  blue lines: rivers", AppTheme.Body);
         _status = MakeLabel("Loading original data…", AppTheme.Header);
         _title.Position = new Vector2(24, 16);
