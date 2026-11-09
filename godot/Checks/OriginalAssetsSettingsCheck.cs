@@ -73,14 +73,20 @@ public partial class OriginalAssetsSettingsCheck : Node
         var clear = Find(screen!, SettingsScreen.OriginalClearName) as Button;
         if (!Check(status is not null && rebuild is not null && clear is not null, "section, status and buttons exist")) return;
 
+        var artwork = Find(screen!, SettingsScreen.OriginalArtworkName) as OptionButton;
+        Check(artwork is not null && artwork.IsItemDisabled(1) && artwork.Selected == 0, "no folder: Authored is chosen and Original cannot be");
         Check(status!.Text.Contains("No original installation"), "no folder: says authored art is used");
         Check(rebuild!.Disabled, "no folder: Rebuild is disabled");
         Check(SettingsScreen.Current.OriginalInstallPath is null, "no folder is saved by default");
 
-        SettingsScreen.Commit(SettingsScreen.Current with { OriginalInstallPath = install });
+        SettingsScreen.Commit(SettingsScreen.Current with { OriginalInstallPath = install, UseOriginalAssets = true });
         rebuild.Disabled = false;
         rebuild.EmitSignal(BaseButton.SignalName.Pressed);
         Check(status.Text.Contains("1 of"), $"rebuild reports partial coverage (got '{status.Text}')");
+        Check(!artwork!.IsItemDisabled(1) && artwork.Selected == 1, "after a build Original can be chosen and is in force");
+        artwork.Select(0); artwork.EmitSignal(OptionButton.SignalName.ItemSelected, 0);
+        Check(OriginalAssetCache.ActiveDirectory(SettingsScreen.Current) is null && !SettingsScreen.Current.UseOriginalAssets, "picking Authored stops using the cache");
+        artwork.Select(1); artwork.EmitSignal(OptionButton.SignalName.ItemSelected, 1);
         Check(OriginalAssetCache.ActiveDirectory(SettingsScreen.Current) is not null, "partial cache is in use");
 
         var player = new Audio.SoundPlayer(Path.Combine(GameDataContext.RepositoryRoot, "assets", "packs", "authored"),
@@ -107,10 +113,13 @@ public partial class OriginalAssetsSettingsCheck : Node
             "{\"schemaVersion\":1,\"name\":\"t\",\"description\":\"t\",\"assets\":{\"terrain.plain.tile\":\"terrain/plain.png\"}}");
         Directory.CreateDirectory(install);
         OriginalAssetCache.CacheDirectory = tileCache;
-        SettingsScreen.Commit(SettingsScreen.Current with { OriginalInstallPath = install });
+        SettingsScreen.Commit(SettingsScreen.Current with { OriginalInstallPath = install, UseOriginalAssets = true });
         var loader = AssetPackTextureLoader.TryLoadPack(GameDataContext.RepositoryRoot, "authored", _ => { });
         Check(loader?.TryGetTexture(IC2.Engine.Assets.AssetKeys.TerrainPlainTile)?.GetSize() == new Vector2(8, 8), "a tile in the cache is the one the map loads");
         Check(loader?.TryGetTexture(IC2.Engine.Assets.AssetKeys.TerrainDesertTile)?.GetSize().X > 8, "a tile the cache lacks comes from the authored pack");
+        SettingsScreen.Commit(SettingsScreen.Current with { UseOriginalAssets = false });
+        Check(AssetPackTextureLoader.TryLoadPack(GameDataContext.RepositoryRoot, "authored", _ => { })?.TryGetTexture(IC2.Engine.Assets.AssetKeys.TerrainPlainTile)?.GetSize().X > 8,
+            "choosing Authored switches back to the authored tile while the cache stays built");
         SettingsScreen.Commit(SettingsScreen.Current with { OriginalInstallPath = null });
         Check(AssetPackTextureLoader.TryLoadPack(GameDataContext.RepositoryRoot, "authored", _ => { })?.TryGetTexture(IC2.Engine.Assets.AssetKeys.TerrainPlainTile)?.GetSize().X > 8,
             "with no folder chosen the authored tile is used");

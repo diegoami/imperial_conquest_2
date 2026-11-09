@@ -24,7 +24,7 @@ public partial class DiadochiScreenshotTour : Control
         if (System.Environment.GetEnvironmentVariable("IC2_TOUR_ORIGINAL_INSTALL") is { Length: > 0 } install)
         {
             IC2.Slice.Assets.OriginalAssetCache.CacheDirectory = System.Environment.GetEnvironmentVariable("IC2_TOUR_ORIGINAL_CACHE")!;
-            SettingsScreen.Commit(SettingsScreen.Current with { OriginalInstallPath = install });
+            SettingsScreen.Commit(SettingsScreen.Current with { OriginalInstallPath = install, UseOriginalAssets = true });
         }
         Size = GetViewport().GetVisibleRect().Size;
         _app = new AppRoot();

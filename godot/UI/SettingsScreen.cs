@@ -505,6 +505,17 @@ public partial class SettingsScreen : Control
     public const string OriginalChooseName = "OriginalAssetsChoose";
     public const string OriginalRebuildName = "OriginalAssetsRebuild";
     public const string OriginalClearName = "OriginalAssetsClear";
+    public const string OriginalArtworkName = "OriginalAssetsArtwork";
+    private OptionButton? _artworkPicker;
+
+    /// <summary>Original can be chosen only while the cache can supply it; the picker shows the setting in force.</summary>
+    private void SyncArtworkPicker()
+    {
+        if (_artworkPicker is null) return;
+        var usable = Assets.OriginalAssetCache.Status(Current).InUse;
+        _artworkPicker.SetItemDisabled(1, !usable);
+        _artworkPicker.Selected = Current.UseOriginalAssets && usable ? 1 : 0;
+    }
 
     /// <summary>T292d: optional use of the player's own Imperial Conquest installation; status and three actions.</summary>
     private void BuildOriginalAssets(VBoxContainer column)
@@ -534,8 +545,11 @@ public partial class SettingsScreen : Control
         dialog.DirSelected += dir =>
         {
             Commit(Current with { OriginalInstallPath = dir });
-            Refresh(Assets.OriginalAssetCache.Rebuild(Current));
-            Refresh(status.Text);
+            var message = Assets.OriginalAssetCache.Rebuild(Current);
+            // Choosing a folder is a request to use it, when it supplied anything.
+            if (Assets.OriginalAssetCache.Status(Current).InUse) Commit(Current with { UseOriginalAssets = true });
+            Refresh(message);
+            SyncArtworkPicker();
         };
         column.AddChild(dialog);
 
@@ -543,18 +557,25 @@ public partial class SettingsScreen : Control
         choose.Name = OriginalChooseName;
         rebuild.Name = OriginalRebuildName;
         clear.Name = OriginalClearName;
-        rebuild.Pressed += () => Refresh(Assets.OriginalAssetCache.Rebuild(Current));
-        clear.Pressed += () => { Refresh(Assets.OriginalAssetCache.Clear()); };
+        rebuild.Pressed += () => { Refresh(Assets.OriginalAssetCache.Rebuild(Current)); SyncArtworkPicker(); };
+        clear.Pressed += () => { Refresh(Assets.OriginalAssetCache.Clear()); SyncArtworkPicker(); };
+        var artworkRow = Row(column, "Artwork");
+        _artworkPicker = new OptionButton { Name = OriginalArtworkName };
+        _artworkPicker.AddItem("Authored (default)");
+        _artworkPicker.AddItem("Original (from your installation)");
+        _artworkPicker.ItemSelected += index => { Commit(Current with { UseOriginalAssets = index == 1 }); Refresh(); };
+        artworkRow.AddChild(_artworkPicker);
+        if (InGame)
+        {
+            artworkRow.AddChild(UiKit.MakeLabel("(applies to the next game started or loaded)", AppTheme.Note, UiKit.MutedTextColor));
+        }
         var row = Row(column, "Installation");
         row.AddChild(choose);
         row.AddChild(rebuild);
         row.AddChild(clear);
         column.AddChild(status);
-        if (InGame)
-        {
-            column.AddChild(UiKit.MakeLabel("Applies to the next game started or loaded.", AppTheme.Note, UiKit.MutedTextColor));
-        }
         Refresh();
+        SyncArtworkPicker();
     }
 
     private static int IndexOf<T>(IReadOnlyList<T> items, Func<T, bool> match)
