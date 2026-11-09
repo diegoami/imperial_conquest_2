@@ -93,9 +93,10 @@ public static class OriginalAssetPackBuilder
             var length = new FileInfo(source).Length;
             if (length > MaxWavBytes) { rejected.Add($"SOUND{number}.WAV is too large"); continue; }
             var bytes = File.ReadAllBytes(source);
-            if (!IsPcmWave(bytes)) { rejected.Add($"SOUND{number}.WAV is not 16-bit PCM"); continue; }
+            var playable = ToMono16(bytes);
+            if (playable is null) { rejected.Add($"SOUND{number}.WAV is not mono 8-bit or 16-bit PCM"); continue; }
             var relative = "sfx/" + key["sfx.".Length..] + ".wav";
-            File.WriteAllBytes(Path.Combine(staging, relative.Replace('/', Path.DirectorySeparatorChar)), bytes);
+            File.WriteAllBytes(Path.Combine(staging, relative.Replace('/', Path.DirectorySeparatorChar)), playable);
             assets[key] = relative;
             found++;
         }
@@ -177,6 +178,54 @@ public static class OriginalAssetPackBuilder
         if (!Directory.Exists(parent)) return null;
         return Directory.EnumerateDirectories(parent)
             .FirstOrDefault(d => string.Equals(Path.GetFileName(d), name, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// The game's sound player plays mono 16-bit PCM only (asset-specification.md section 1.4), and the installation's
+    /// shipped files are mostly 8-bit, so the cache stores a mono 16-bit copy: 16-bit passes through unchanged, 8-bit
+    /// (unsigned) is widened to signed 16-bit at the same rate. Anything else (stereo, other formats) returns null so the
+    /// key falls back to the authored sound instead of going silent.
+    /// </summary>
+    public static byte[]? ToMono16(byte[] file)
+    {
+        if (!IsPcmWave(file)) return null;
+        var position = 12;
+        ushort channels = 0, bits = 0;
+        uint rate = 0;
+        ReadOnlySpan<byte> data = default;
+        while (position + 8 <= file.Length)
+        {
+            var id = file.AsSpan(position, 4);
+            var size = BitConverter.ToUInt32(file, position + 4);
+            var body = position + 8;
+            if (id.SequenceEqual("fmt "u8))
+            {
+                channels = BitConverter.ToUInt16(file, body + 2);
+                rate = BitConverter.ToUInt32(file, body + 4);
+                bits = BitConverter.ToUInt16(file, body + 14);
+            }
+            else if (id.SequenceEqual("data"u8))
+            {
+                data = file.AsSpan(body, (int)Math.Min(size, (uint)(file.Length - body)));
+            }
+            var next = (long)body + size + (size & 1);
+            if (next > file.Length) break;
+            position = (int)next;
+        }
+        if (channels != 1 || rate == 0 || data.IsEmpty) return null;
+        if (bits == 16 && file.Length >= 44) return file;
+        if (bits != 8) return null;
+
+        var samples = new byte[data.Length * 2];
+        for (var i = 0; i < data.Length; i++)
+            BitConverter.TryWriteBytes(samples.AsSpan(i * 2), (short)((data[i] - 128) << 8));
+        using var ms = new MemoryStream();
+        using var w = new BinaryWriter(ms);
+        w.Write("RIFF"u8); w.Write(36 + samples.Length); w.Write("WAVE"u8);
+        w.Write("fmt "u8); w.Write(16); w.Write((ushort)1); w.Write((ushort)1); w.Write(rate);
+        w.Write(rate * 2); w.Write((ushort)2); w.Write((ushort)16);
+        w.Write("data"u8); w.Write(samples.Length); w.Write(samples);
+        return ms.ToArray();
     }
 
     /// <summary>RIFF/WAVE with a PCM 'fmt ' chunk (format 1), 1 or 2 channels, 8 or 16 bit, and a 'data' chunk.</summary>

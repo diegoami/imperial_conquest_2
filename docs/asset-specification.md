@@ -723,6 +723,8 @@ new, and follows directly from that confirmed fact).
 
 **Resolved by [T148](https://github.com/diegoami/imperial_conquest_2/blob/archive/desktop-2026-10-20/docs/tasks/T148.md) (merged)**: the game map never draws terrain per cell — it blends the six `terrain.*.surface` textures (§6) through a splat map baked from the terrain grid — and rivers are drawn as smooth strokes whose chains follow exactly these six connectivity codes, so no river tile variants are needed. The seven `terrain.*.tile` keys remain. **Since the owner's request of 2026-10-21 the map draws them by default**: Settings → Map style → "Classic tiles" (the default) lays one tile per cell, as the original does, through `godot/UI/TerrainTiles.gdshader` (cell code 0 calm sea, 1 rough sea, 2 plain, 3 desert, 4 forest, 5 mountain; a river cell is a plain under its stroke); "Painted" keeps T148's blended surface. The authored pack's tiles are drawn by [`scripts/generate-strategic-markers.py`](../scripts/generate-strategic-markers.py), seamless at the cell edges, in the general idea of the original's: plains with grass strokes, round trees, snow-capped peaks, sand with specks and dunes, waves on calm and rough sea **[designed]**.
 
+**The original's own river tiles** (for the optional local original-assets pack only, never shipped): `TUnitMap.TerrainList[6..11]` stores one 32×32 picture per connectivity code: 6 E–W, 7 N–S, 8 N–E, 9 E–S, 10 S–W, 11 N–W **[confirmed: resources and code; research [extraction spec](https://github.com/diegoami/imperial-conquest-2-research/blob/963c58d/docs/reports/2026-11-07-original-assets218-extraction-spec.md), research `963c58d`, category matrix]**. Showing them needs six keys in place of `terrain.river.tile`; see [original-assets-implementation-plan.md](design/original-assets-implementation-plan.md).
+
 ### 4.6 Sound effects — ten keys, and the original's ten sounds
 
 | Key | Plays on (the clone's event) | Original sound | Exists today |
@@ -757,6 +759,8 @@ pack lacks plays nothing **[designed: T149]**. The placeholder pack's ten are si
 | 8 | a fleet battle (a fleet is sunk); a fleet lost in a storm; a human scuttles a fleet |
 | 9 | a field battle between two computer nations (a human's own field battle opens the tactical screen instead, and its end window plays nothing) |
 | 10 | a nation is conquered |
+
+The file-to-key order in the first table is the [extraction spec](https://github.com/diegoami/imperial-conquest-2-research/blob/963c58d/docs/reports/2026-11-07-original-assets218-extraction-spec.md)'s sound crosswalk too (research `963c58d`), and the optional local original-assets cache uses it. The shipped files are mostly 8-bit (§1.4) and the game's loader plays only mono 16-bit, so that cache has to convert them (#1870).
 
 Sounds 6 to 10 play whoever is involved, the computer's turns included, and the tactical-battle sounds
 for both sides. The original has **no sound
@@ -812,7 +816,7 @@ section actually require:
     The attacker's copies in the original are images 0–14 and the defender's 15–29. Rome, Gaul and an edited Numidian army were drawn in Wine, and every sprite equals its template recoloured, pixel for pixel
     **[confirmed: decompile; the drawn match a Wine candidate, [`2026-10-09-battle-map-units-use-the-nation-recolour.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-battle-map-units-use-the-nation-recolour.md), research `ef19e2c`;
     [`2026-10-09-numidian-battle-drawn-in-wine.md`](https://github.com/diegoami/imperial-conquest-2-research/blob/main/docs/reports/2026-10-09-numidian-battle-drawn-in-wine.md), research `ca08a33`]**.
-    The templates are `BatMapList` images 0–14 of 17, with a lime frame that is not recoloured. Image 15 is the ground tile (lime, with green, olive, white and black). Image 16 is not identified.
+    The templates are `BatMapList` images 0–14 of 17, with a lime frame that is not recoloured. Image 15 is the ground tile (lime, with green, olive, white and black). Image 16 is the selection cursor (`battle.cursor`), drawn with a raster operation **[research [extraction spec](https://github.com/diegoami/imperial-conquest-2-research/blob/963c58d/docs/reports/2026-11-07-original-assets218-extraction-spec.md), research `963c58d`, category matrix]**.
     Numidia's background colour is lime, so a Numidian unit is a flat lime square with a black outline and a grey fill on the lime ground. Macedonia, Numidia and Gaul all have a grey fill.
   - **The ground tile and the cursor** keep the static tag: they were not compared with the running game. There is no routed, selected or wounded image: a routed unit's cell becomes empty ground.
   - **The eight glyphs**: Unit moves, Friendly units, Enemy units, Cancel selection, End turn, Change pauses, Computer general on, Surrender.
@@ -883,6 +887,8 @@ section actually require:
   unit-map strip's 15th button is most likely Cancel selection, a Wine candidate (audit §3.3). Every key is
   `ui.command.<id>.icon`, 32×32 32-bit BGRA with straight alpha (§1.2, §1.3).
   A later command that gains a toolbar icon extends this table and `AssetKeys` together.
+
+  **Settled 2026-11-09 by the [#223 crosswalk](https://github.com/diegoami/imperial-conquest-2-research/blob/963c58d/docs/reports/2026-11-09-assets223-command-glyph-crosswalk.md), research `963c58d`, §A:** each of the 36 `ui.command.*` keys and the 8 `battle.toolbar.*` keys is one original `TSpeedButton` whose `OnClick` handler does exactly that command **[confirmed: code]**. That confirms the four fleet buttons above by their handlers (`SplitFleet`, `JoinFleets`, `FleetToFleetTransfer`, `ScuttleFleet`), not by their shape. It also confirms the unit-map strip's 15th button as `TUnitMap.sb_cancel` → `CancelSelection`, so the key `cancel_selection` names a real original command. The Area-map strip holds the 12 keyed buttons plus `sb_areatog` (Toggle colour), so its coin button is `sb_findcity` ("Find a city") **[derived]**. The authored depictions below stay `[designed]`.
 
 **The 36 toolbar-command keys and their commands (T101).** Each depiction is `[designed]` — the
 original's own art cannot ship, so every icon is new work; the command each key serves is the audit's.
