@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "id": "persia-480bc",
+  "scenarioIds": [
+    "persia-480bc"
+  ],
+  "kind": "historical",
+  "period": "Xerxes in Greece, 480 BC",
+  "background": "Xerxes' invasion is under way. The empire marches with its satrapies and allied contingents down the Thracian coast, and the resisting coalition led by Sparta and Athens holds the Isthmus and the sea. Boeotia, Thessaly and Macedon have medized; Argos watches from neutrality.",
+  "abstractions": "The empire is one large seat with its satrapy seats on the map: Thrace is the mustering coast, Egypt a re-subdued satrapy, Caria stands for Artemisia and the aligned dynasts, Lycia for the smaller ship contingents. The Mesopotamian and Levantine towns are Persia's own holdings. Borders, forces and populations are designed; the medizing seats' allegiance is a labelled snapshot.",
+  "brief": "docs/campaign-guides.md",
+  "validation": "Provisional recommendations: playable IDs, opening city networks, one army per regular seat and starting fleets checked. Human difficulty, balance and mountain-crossing routes have not been playtested for this guidance.",
+  "powers": [
+    {
+      "nationId": "athens",
+      "focus": "The fleet and the evacuated city",
+      "advice": "Suggested as the default opening: at war with Persia, strong at sea with several coastal allies, weak on land against the invader. The war is decided by keeping the fleet alive and the straits contested.",
+      "suggested": true,
+      "requiresStartingFleet": true
+    },
+    {
+      "nationId": "sparta",
+      "focus": "The coalition's land leadership",
+      "advice": "At war with Persia from turn one, with a compact Peloponnesian base and the Isthmus behind it. Land battles decide this seat; the northern medizing towns are a temptation and a trap.",
+      "suggested": true
+    },
+    {
+      "nationId": "persia",
+      "focus": "The established empire",
+      "advice": "The largest seat on the map, from the Nile to the Plateau, at war with Sparta, Athens and Corinth. Fewer cities march to war than the census suggests; supply across the Hellespont is the real enemy.",
+      "suggested": false
+    },
+    {
+      "nationId": "caria",
+      "focus": "Artemisia's aligned coast",
+      "advice": "A small fleet-centred seat on the empire's side, at peace with Persia but exposed to the Greek seats. Rewards careful coastal play.",
+      "suggested": false,
+      "requiresStartingFleet": true
+    },
+    {
+      "nationId": "egypt",
+      "focus": "The re-subdued satrapy",
+      "advice": "A distant, quiet satrapy far from the Greek theatre. Large, rich and isolated; good for a slow game, far from the decisive coast.",
+      "suggested": false
+    }
+  ],
+  "sources": [
+    {
+      "title": "Metropolitan Museum: The Achaemenid Persian Empire (550-330 B.C.)",
+      "url": "https://www.metmuseum.org/essays/the-achaemenid-persian-empire-550-330-b-c"
+    },
+    {
+      "title": "Livius: Xerxes",
+      "url": "https://www.livius.org/articles/people/xerxes/"
+    }
+  ]
+}

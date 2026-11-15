@@ -19,17 +19,9 @@ cross-family review) is frozen on the `local` branch and is **not** in force her
 10. **Use the manual before GUI work.** Read the relevant original-game manual sections and screenshots through [the operating-guide entry point](docs/operating-guide.md#original-game-ui-reference-private). Cite the expected behavior and any specifically approved exception; do not infer permission for a different screen from a narrow convenience change. Find and record discrepancies proactively before asking the owner to rediscover them through playtesting.
 11. **Author hills and passes deliberately.** For authored historical/random maps, reserve mountains for severe high relief, use forest terrain as the hill/foothill metaphor, and create usable plain passes through ranges. Follow [the owner's terrain-authoring rule](docs/design/terrain-authoring.md); correct tile placement rather than changing movement penalties.
 
-## v0.11 task entry points
+## Task entry points (v0.11 shipped; the rest under #1808/#1809, milestone v0.12.0)
 
-Merged: New Game setup, independent panels, campaign guidance, product naming (T291), Near East
-terrain revision 2 (#1822; the original worlds are frozen for old saves, new games use the `-r2`
-worlds, see `docs/design/near-east-passes.md`) and the observer pilot. Contracts with the owner's
-2026-11-09 decisions: `docs/tasks/T292.md` (original assets), `T293.md` (eleven campaigns),
-`T294.md` (random maps); sub-issues #1837-#1853. Design context:
-`docs/design/v011-campaigns-and-random-maps.md`. **Resume at #1837 (Diadochi 323/301 BC):** the
-brief is approved (`docs/design/diadochi-campaigns.md`); `tools/Diadochi/README.md` lists the weak
-city matches and the next steps. The owner's priority is UI/usability. Read GitHub labels, not this
-file, for status.
+Shipped in v0.11.0: New Game setup, independent panels, campaign guidance, product naming (T291), Near East terrain revision 2 (#1822; the original worlds are frozen for old saves, new games use the `-r2` worlds, see `docs/design/near-east-passes.md`), the Diadochi campaigns (#1837; brief `docs/design/diadochi-campaigns.md`, authoring in `tools/Diadochi/`) and the observer pilot. Contracts with the owner's 2026-11-09 decisions: `docs/tasks/T292.md` (original assets), `T293.md` (eleven campaigns), `T294.md` (random maps); sub-issues #1837-#1853. Design context: `docs/design/v011-campaigns-and-random-maps.md`. **Resume at #1839 (Mediterranean 431/280/218 BC):** staged order after Persia (#1838, brief approved 2026-11-15, `docs/design/persia-campaigns.md`, authoring in `tools/Persia/`); each campaign task starts with a draft brief whose seat lists, default seat, horizon and opening diplomacy the owner approves before data is authored. Read GitHub labels, not this file, for status.
 
 Observer delivery is T285/T286/T287, [PR 1829](https://github.com/diegoami/imperial_conquest_2/pull/1829)
 and `docs/observer-recordings.md`. The owner authorized **one

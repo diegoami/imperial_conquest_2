@@ -46,6 +46,18 @@ Applies to `diadochi-301bc`. The setting is the balance after the battle of Ipsu
 
 Suggested openings: Seleucid kingdom, Egypt (the default seat) and Thrace and Anatolia. Macedon and Demetrius explain a European base and a fleet-centred position. No difficulty or route certification is implied.
 
+## `persia-550bc`
+
+Applies to `persia-550bc`. The setting is the war of Astyages and Cyrus, with Lydia, Babylon and Saite Egypt as the other established powers; see [Met, The Achaemenid Persian Empire](https://www.metmuseum.org/essays/the-achaemenid-persian-empire-550-330-b-c). Susiana's allegiance is a labelled regional abstraction, and Cyrus's eastern conquests are off the map, as the [Persia brief](design/persia-campaigns.md) records.
+
+Suggested openings: Persis (the default seat, the campaign's challenger), Media for the established empire, Lydia for western wealth and a fleet. Babylon and Sparta explain other positions. No difficulty or route certification is implied.
+
+## `persia-480bc`
+
+Applies to `persia-480bc`. The setting is Xerxes' invasion: the empire and its satrapy seats against the resisting coalition, with the medizing seats' allegiance labelled as a designed snapshot; see [Livius, Xerxes](https://www.livius.org/articles/people/xerxes/). The [Persia brief](design/persia-campaigns.md) records the grouped seats and the dated evidence.
+
+Suggested openings: Athens (the default seat, the fleet and the evacuated city) and Sparta for the coalition, Caria for a fleet-centred position on the empire's side, Egypt for a distant quiet game. No difficulty or route certification is implied.
+
 ## Authoring and future coverage
 
 Each guide uses schema version 1: stable guide ID; unique scenario IDs; `historical` or `generated` kind; period/geography caption; background; abstractions; repository brief; validation limits; powers (`nationId`, focus, advice, suggested, optional `requiresStartingFleet`); source title/HTTPS URL pairs. Plain text is English; no markup or translated-resource system is introduced. Keep paragraphs under 900 characters and advice under 600. Localization can replace strings without changing nation/scenario identities.
