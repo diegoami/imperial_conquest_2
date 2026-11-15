@@ -1,6 +1,6 @@
 # Persia campaigns, c.550 BC and 480 BC: draft brief for T293.2
 
-**Status: draft for owner approval; no scenario data exists yet.** Tracks [#1838](https://github.com/diegoami/imperial_conquest_2/issues/1838), part of [#1808](https://github.com/diegoami/imperial_conquest_2/issues/1808). Contract: [T293](../tasks/T293.md). Openings fixed by [v011-campaigns-and-random-maps.md](v011-campaigns-and-random-maps.md#historical-starts): **c.550 BC** "Rise of Cyrus: an emerging empire among competing regional powers" and **480 BC** "Xerxes: an established empire and the Greek maritime/land coalition". Dates establish campaign identity, not proven city ownership, troop counts or diplomacy.
+**Status: brief approved by the owner 2026-11-15; no scenario data exists yet.** Tracks [#1838](https://github.com/diegoami/imperial_conquest_2/issues/1838), part of [#1808](https://github.com/diegoami/imperial_conquest_2/issues/1808). Contract: [T293](../tasks/T293.md). Openings fixed by [v011-campaigns-and-random-maps.md](v011-campaigns-and-random-maps.md#historical-starts): **c.550 BC** "Rise of Cyrus: an emerging empire among competing regional powers" and **480 BC** "Xerxes: an established empire and the Greek maritime/land coalition". Dates establish campaign identity, not proven city ownership, troop counts or diplomacy.
 
 ## Map and engine
 
@@ -32,7 +32,7 @@ The war between Astyages and his grandson Cyrus is in progress; Lydia, Babylon a
 | Sparta | the Peloponnesian League | the Peloponnese |
 | Athens | Athens under the Peisistratids | Attica |
 
-**Uncertainty to label in the brief:** Susiana's allegiance in 550 BC is not established (Neo-Elamite princes, Babylonian influence or Median control); the seat is a labelled regional abstraction. Cappadocia sits in the contested Lydia-Media sphere. Caria has no separate seat — its cities carry the Lydian tribute abstraction. Cyrus's eastern conquests (Hyrcania, Parthia, Bactria) lie off-frame and are not seats. Proposed opening diplomacy: **Persis and Media at war** (the war of the opening, 553-550 BC, a designed abstraction); every other pair neutral.
+**Uncertainty to label in the brief:** Susiana's allegiance in 550 BC is not established (Neo-Elamite princes, Babylonian influence or Median control); the seat is a labelled regional abstraction. Cappadocia sits in the contested Lydia-Media sphere. Caria has no separate seat — its cities carry the Lydian tribute abstraction. Cyrus's eastern conquests (Hyrcania, Parthia, Bactria) lie off-frame and are not seats. Opening diplomacy (owner decision 2026-11-15): **Persis and Media at war** (the war of the opening, 553-550 BC, a designed abstraction); every other pair neutral.
 
 ## 480 BC: proposed seats (15 regular)
 
@@ -56,7 +56,7 @@ Xerxes' invasion is under way: the empire marches with its subject and allied co
 | Phoenicia and Cyprus | the fleet's core contingents | Tyre, Sidon, Cyprus |
 | Egypt | the satrapy, re-subdued after the 486 revolt | the Nile |
 
-**Uncertainty to label:** Argos stayed out of the coalition; Herodotus reports Persian negotiation — the opening keeps Argos neutral and labels the stance. Egypt's and Babylonia's revolts (486-484 BC) were suppressed before the invasion; Egypt is a re-subdued satrapy seat, and there is **no Babylon seat** — the Mesopotamian towns are Persia's own holdings, labelled as such, so the empire seats one huge but playable core. Lycia stands in for the empire's smaller ship contingents; the Ionian cities carry Persian garrison influence. Proposed opening diplomacy: **Persia at war with Sparta, Athens and Corinth** (the resisting coalition); every other pair neutral, with the medizing seats' stance labelled in the scenario brief.
+**Uncertainty to label:** Argos stayed out of the coalition; Herodotus reports Persian negotiation — the opening keeps Argos neutral and labels the stance. Egypt's and Babylonia's revolts (486-484 BC) were suppressed before the invasion; Egypt is a re-subdued satrapy seat, and there is **no Babylon seat** — the Mesopotamian towns are Persia's own holdings, labelled as such, so the empire seats one huge but playable core. Lycia stands in for the empire's smaller ship contingents; the Ionian cities carry Persian garrison influence. Opening diplomacy (owner decision 2026-11-15): **Persia at war with Sparta, Athens and Corinth** (the resisting coalition); every other pair neutral, with the medizing seats' stance labelled in the scenario brief.
 
 ## Cities, sources and evidence
 
@@ -70,11 +70,11 @@ Xerxes' invasion is under way: the empire marches with its subject and allied co
 
 Both campaigns selectable with guide entries (T290), valid deterministic data, a viable opening for every playable seat, several rounds of real AI play without stalls or rejections, a cross-range route check, save/load and copied-package launch, and a build script reproducing the data. Each year has its own world file (cities, owners, forces) on a derived revision-2 sidecar, as the Diadochi pair does. `PersiaCampaignTests` mirror the Diadochi suite (load and validation, Italy-rules identity, 200 AI seat turns on two seeds per year, fleet orders, barbarian arrival, embark/landing, dated evidence, derived-sidecar diff, pinned per-seat opening counts, default-seat agreement with the guide); the listed-cards test's pinned scenario list gains the two Persia entries.
 
-## Owner decisions to take
+## Owner decisions, 2026-11-15
 
-1. **Both seat lists** as drafted (uncertain holdings stay labelled in the scenario brief), or amended.
-2. **Default human seat**: proposed **Persis (Cyrus) at 550** and **Athens at 480**. Alternatives: Media or Lydia at 550 for an easier opening; Sparta (the land leadership) or Persia (the established empire) at 480.
-3. **Horizon**: 20 years, total conquest (ends 530 and 460 BC), as the Diadochi and Near East campaigns.
-4. **Opening diplomacy**: proposed wars in progress (Persis-Media at 550; Persia against Sparta, Athens and Corinth at 480), all other pairs neutral. The alternative is the Diadochi precedent: all-neutral openings.
+1. Both seat lists approved as drafted (uncertain holdings stay labelled in the scenario brief).
+2. Default human seat: **Persis (Cyrus) at 550**, **Athens at 480**.
+3. Horizon: 20 years, total conquest (ends 530 and 460 BC).
+4. Opening diplomacy: wars in progress — **Persis-Media at 550**, **Persia against Sparta, Athens and Corinth at 480**; every other pair neutral.
 
-**Next:** with the decisions recorded, the curated city list with dated Pleiades evidence and supplemental chronology in `tools/Persia/`, then worlds, rulesets, scenarios, guides and the acceptance checks.
+**Next:** the curated city list with dated Pleiades evidence and supplemental chronology (new `tools/Persia/` authoring scripts on the shared revision-2 terrain), then worlds, rulesets, scenarios, guides and the acceptance checks.
