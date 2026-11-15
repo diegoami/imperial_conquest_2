@@ -1,0 +1,35 @@
+{
+  "madaktu": [
+    {
+      "kind": "contextual-range",
+      "from": -750,
+      "to": -520,
+      "uri": "https://en.wikipedia.org/wiki/Madaktu",
+      "certainty": "broad context",
+      "basis": "Overview of the Neo-Elamite royal city identified with Darreh Shahr; the Elamite city was attacked by Assyria and the Susiana plain passed to Persia with the fall of the empire.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding. The Pleiades record carries no dated rows."
+    }
+  ],
+  "mycenae": [
+    {
+      "kind": "contextual-range",
+      "from": -750,
+      "to": -400,
+      "uri": "https://en.wikipedia.org/wiki/Mycenae",
+      "certainty": "broad context",
+      "basis": "Overview of the Argolid town: declined after the Bronze Age but still inhabited; Herodotus lists the Mycenaeans among the Thermopylae contingent of 480 BC.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "pydna": [
+    {
+      "kind": "contextual-range",
+      "from": -540,
+      "to": -168,
+      "uri": "https://en.wikipedia.org/wiki/Pydna",
+      "certainty": "broad context",
+      "basis": "Overview of the Macedonian coastal town, the same range the Diadochi authoring carries.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ]
+}

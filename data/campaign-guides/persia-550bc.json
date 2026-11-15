@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "persia-550bc",
+  "scenarioIds": [
+    "persia-550bc"
+  ],
+  "kind": "historical",
+  "period": "Rise of Cyrus, c.550 BC",
+  "background": "Astyages' Median kingdom dominates the plateau, Lydia rules west of the Halys, Babylon and Saite Egypt are the old powers of the rivers and the Nile. Cyrus of Persis has risen against his grandfather and the war between them is in progress as the campaign opens.",
+  "abstractions": "Each seat is a grouped polity or regional command, not a unified state: Judah stands for the Babylonian west, Ionia for the Greek coastal cities under Lydian tribute, Sparta for the Peloponnesian League with the Isthmus towns. Susiana's allegiance is uncertain and is a labelled regional abstraction. Cyrus's eastern conquests are off the map. Borders, forces and populations are designed.",
+  "brief": "docs/campaign-guides.md",
+  "validation": "Provisional recommendations: playable IDs, opening city networks, one army per regular seat and starting fleets checked. Human difficulty, balance and mountain-crossing routes have not been playtested for this guidance.",
+  "powers": [
+    {
+      "nationId": "persis",
+      "focus": "The challenger in the Zagros",
+      "advice": "Suggested as the default opening: few centres but a compact highland core, at war with Media from turn one. Win early on the plateau before the older empires turn on you, or strike Susiana for the river towns.",
+      "suggested": true
+    },
+    {
+      "nationId": "media",
+      "focus": "The established empire",
+      "advice": "The strongest plateau seat, at war with Persis from turn one. Ending the revolt quickly frees the whole east, but Babylon and Lydia watch the west.",
+      "suggested": true
+    },
+    {
+      "nationId": "lydia",
+      "focus": "Western wealth and the Aegean coast",
+      "advice": "A rich holding from Sardis to the coast and the Hellespont towns, with a fleet. The Greek cities pay tribute but are restless; an Anatolian campaign is close to home.",
+      "suggested": true
+    },
+    {
+      "nationId": "babylon",
+      "focus": "The river plain",
+      "advice": "A large inland core on the Euphrates and Tigris with no starting fleet. Safe centres, slow expansion; the Zagros passes toward Susiana are the natural direction.",
+      "suggested": false
+    },
+    {
+      "nationId": "sparta",
+      "focus": "The Peloponnesian League",
+      "advice": "A distant European seat whose war is with Argos' sphere and the northern towns, not with the great empires. For a quiet campaign far from the Persian storm.",
+      "suggested": false
+    }
+  ],
+  "sources": [
+    {
+      "title": "Metropolitan Museum: The Achaemenid Persian Empire (550-330 B.C.)",
+      "url": "https://www.metmuseum.org/essays/the-achaemenid-persian-empire-550-330-b-c"
+    },
+    {
+      "title": "Livius: Cyrus",
+      "url": "https://www.livius.org/articles/people/cyrus-the-great/"
+    }
+  ]
+}
