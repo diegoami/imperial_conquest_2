@@ -1,0 +1,3424 @@
+{
+  "attribution": "Pleiades contributors, with project editors; copyright the contributors. Adapted location/title/date facts; political grouping and balance are our design.",
+  "licence": "CC BY 3.0",
+  "licenceUrl": "https://creativecommons.org/licenses/by/3.0/",
+  "credits": "https://pleiades.stoa.org/credits",
+  "source": "https://atlantides.org/downloads/pleiades/gis/",
+  "snapshotDate": "2026-11-15",
+  "retrieved": "2026-11-15",
+  "archiveSha256": "cf2fc9aed0333b585e40bbaf012147e17c5145f9984d1cf31d4713ef50c2ba9b",
+  "sites": [
+    {
+      "id": "pataliputra",
+      "pleiades": "https://pleiades.stoa.org/places/59978",
+      "sourceTitle": "Palibothra",
+      "lon": 85.13502,
+      "lat": 25.614443,
+      "coordinateSource": "https://pleiades.stoa.org/places/59978",
+      "precision": "precise",
+      "sourceProvenance": "Barrington Atlas: BAtlas 6 F4 Palibothra",
+      "population": 26,
+      "regional": false,
+      "eras": {
+        "325": {
+          "name": "Pataliputra",
+          "owner": "magadha",
+          "evidence": [
+            {
+              "kind": "location_points",
+              "uri": "https://pleiades.stoa.org/places/59978/darmc-location-905",
+              "from": -330,
+              "to": 640,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/59978/palibothra",
+              "from": -330,
+              "to": 640,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/59978/palimbothra",
+              "from": -330,
+              "to": -30,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            }
+          ]
+        },
+        "185": {
+          "name": "Pataliputra",
+          "owner": "sunga",
+          "evidence": [
+            {
+              "kind": "location_points",
+              "uri": "https://pleiades.stoa.org/places/59978/darmc-location-905",
+              "from": -330,
+              "to": 640,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/59978/palibothra",
+              "from": -330,
+              "to": 640,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/59978/palimbothra",
+              "from": -330,
+              "to": -30,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "rajagriha",
+      "pleiades": "https://pleiades.stoa.org/places/60016",
+      "sourceTitle": "Rājagṛha",
+      "lon": 85.420057,
+      "lat": 25.024108,
+      "coordinateSource": "https://pleiades.stoa.org/places/60016",
+      "precision": "precise",
+      "sourceProvenance": "Barrington Atlas: BAtlas 6 F4 Rājagṛha",
+      "population": 12,
+      "regional": false,
+      "eras": {
+        "325": {
+          "name": "Rajagriha",
+          "owner": "magadha",
+          "evidence": [
+            {
+              "kind": "location_points",
+              "uri": "https://pleiades.stoa.org/places/60016/darmc-location-13485",
+              "from": -330,
+              "to": 300,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/60016/rajagr323ha",
+              "from": -330,
+              "to": 300,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            }
+          ]
+        },
+        "185": {
+          "name": "Rajagriha",
+          "owner": "sunga",
+          "evidence": [
+            {
+              "kind": "location_points",
+              "uri": "https://pleiades.stoa.org/places/60016/darmc-location-13485",
+              "from": -330,
+              "to": 300,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/60016/rajagr323ha",
+              "from": -330,
+              "to": 300,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "varanasi",
+      "pleiades": "",
+      "sourceTitle": "varanasi (author hint)",
+      "lon": 83.02,
+      "lat": 25.38,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 16,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Varanasi",
+          "owner": "magadha",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -1200,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Varanasi",
+              "certainty": "broad context",
+              "basis": "Overview of Varanasi as a long-inhabited Ganges city in the Kashi country; the precise founding is tradition, not excavation.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Varanasi",
+          "owner": "sunga",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -1200,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Varanasi",
+              "certainty": "broad context",
+              "basis": "Overview of Varanasi as a long-inhabited Ganges city in the Kashi country; the precise founding is tradition, not excavation.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "kaushambi",
+      "pleiades": "https://pleiades.stoa.org/places/59873",
+      "sourceTitle": "Kauśāmbī",
+      "lon": 81.392899,
+      "lat": 25.338984,
+      "coordinateSource": "https://pleiades.stoa.org/places/59873",
+      "precision": "precise",
+      "sourceProvenance": "Barrington Atlas: BAtlas 6 E4 Kauśāmbī",
+      "population": 13,
+      "regional": false,
+      "eras": {
+        "325": {
+          "name": "Kaushambi",
+          "owner": "magadha",
+          "evidence": [
+            {
+              "kind": "location_points",
+              "uri": "https://pleiades.stoa.org/places/59873/geohack-location-of-kosambi",
+              "from": -1000,
+              "to": 599,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/59873/kausambi",
+              "from": -330,
+              "to": 300,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            }
+          ]
+        },
+        "185": {
+          "name": "Kaushambi",
+          "owner": "sunga",
+          "evidence": [
+            {
+              "kind": "location_points",
+              "uri": "https://pleiades.stoa.org/places/59873/geohack-location-of-kosambi",
+              "from": -1000,
+              "to": 599,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/59873/kausambi",
+              "from": -330,
+              "to": 300,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "sravasti",
+      "pleiades": "https://pleiades.stoa.org/places/60067",
+      "sourceTitle": "Śrāvastī",
+      "lon": 81.682871,
+      "lat": 27.722423,
+      "coordinateSource": "https://pleiades.stoa.org/places/60067",
+      "precision": "precise",
+      "sourceProvenance": "Barrington Atlas: BAtlas 6 E4 Śrāvastī",
+      "population": 12,
+      "regional": false,
+      "eras": {
+        "325": {
+          "name": "Sravasti",
+          "owner": "magadha",
+          "evidence": [
+            {
+              "kind": "location_points",
+              "uri": "https://pleiades.stoa.org/places/60067/darmc-location-14853",
+              "from": -330,
+              "to": 300,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/60067/sravasti",
+              "from": -330,
+              "to": 300,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            }
+          ]
+        },
+        "185": {
+          "name": "Sravasti",
+          "owner": "sunga",
+          "evidence": [
+            {
+              "kind": "location_points",
+              "uri": "https://pleiades.stoa.org/places/60067/darmc-location-14853",
+              "from": -330,
+              "to": 300,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/60067/sravasti",
+              "from": -330,
+              "to": 300,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "vaisali",
+      "pleiades": "https://pleiades.stoa.org/places/60097",
+      "sourceTitle": "Vaiśālī",
+      "lon": 85.354435,
+      "lat": 25.682066,
+      "coordinateSource": "https://pleiades.stoa.org/places/60097",
+      "precision": "precise",
+      "sourceProvenance": "Barrington Atlas: BAtlas 6 F4 Vaiśālī",
+      "population": 11,
+      "regional": false,
+      "eras": {
+        "325": {
+          "name": "Vaisali",
+          "owner": "magadha",
+          "evidence": [
+            {
+              "kind": "location_points",
+              "uri": "https://pleiades.stoa.org/places/60097/darmc-location-4549",
+              "from": -330,
+              "to": 300,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/60097/vaisali",
+              "from": -330,
+              "to": 300,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            }
+          ]
+        },
+        "185": {
+          "name": "Vaisali",
+          "owner": "sunga",
+          "evidence": [
+            {
+              "kind": "location_points",
+              "uri": "https://pleiades.stoa.org/places/60097/darmc-location-4549",
+              "from": -330,
+              "to": 300,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/60097/vaisali",
+              "from": -330,
+              "to": 300,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "champa_ganges",
+      "pleiades": "",
+      "sourceTitle": "champa_ganges (author hint)",
+      "lon": 86.97,
+      "lat": 25.25,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 10,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Champa",
+          "owner": "magadha",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 500,
+              "uri": "https://en.wikipedia.org/wiki/Champa_(Anga_Mahajanapada)",
+              "certainty": "broad context",
+              "basis": "Overview of Champapura, the Anga capital on the Champa river at modern Bhagalpur, before and after Anga's absorption into Magadha.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Champa",
+          "owner": "sunga",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 500,
+              "uri": "https://en.wikipedia.org/wiki/Champa_(Anga_Mahajanapada)",
+              "certainty": "broad context",
+              "basis": "Overview of Champapura, the Anga capital on the Champa river at modern Bhagalpur, before and after Anga's absorption into Magadha.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ayodhya",
+      "pleiades": "",
+      "sourceTitle": "ayodhya (author hint)",
+      "lon": 82.2,
+      "lat": 26.8,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 11,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Ayodhya",
+          "owner": "magadha",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Ayodhya",
+              "certainty": "broad context",
+              "basis": "Overview of Ayodhya/Saketa: an early Ganges-janapada capital, attested in Buddhist and epic literature and by the later Hanuman-garhi layers.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Ayodhya",
+          "owner": "sunga",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Ayodhya",
+              "certainty": "broad context",
+              "basis": "Overview of Ayodhya/Saketa: an early Ganges-janapada capital, attested in Buddhist and epic literature and by the later Hanuman-garhi layers.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "gaya",
+      "pleiades": "https://pleiades.stoa.org/places/963537714",
+      "sourceTitle": "Bodhgaya",
+      "lon": 84.987942,
+      "lat": 24.6991876,
+      "coordinateSource": "https://pleiades.stoa.org/places/963537714",
+      "precision": "precise",
+      "sourceProvenance": "Pleiades",
+      "population": 8,
+      "regional": false,
+      "eras": {
+        "325": {
+          "name": "Gaya",
+          "owner": "magadha",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -500,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Gaya,_India",
+              "certainty": "broad context",
+              "basis": "Overview of Gaya in Magadha: an early-historical city of the Buddhist and epic lists, with continuous occupation layers.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Gaya",
+          "owner": "sunga",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -500,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Gaya,_India",
+              "certainty": "broad context",
+              "basis": "Overview of Gaya in Magadha: an early-historical city of the Buddhist and epic lists, with continuous occupation layers.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "kapilavastu",
+      "pleiades": "",
+      "sourceTitle": "kapilavastu (author hint)",
+      "lon": 83.05,
+      "lat": 27.48,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 6,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Kapilavastu",
+          "owner": "magadha",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 300,
+              "uri": "https://en.wikipedia.org/wiki/Kapilavastu",
+              "certainty": "broad context",
+              "basis": "Overview of Kapilavastu (Piprahwa/Tilaurakot): the Shakya capital of the Buddha's time, with stupa evidence from about the sixth century BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Kapilavastu",
+          "owner": "sunga",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 300,
+              "uri": "https://en.wikipedia.org/wiki/Kapilavastu",
+              "certainty": "broad context",
+              "basis": "Overview of Kapilavastu (Piprahwa/Tilaurakot): the Shakya capital of the Buddha's time, with stupa evidence from about the sixth century BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "kushinagar",
+      "pleiades": "",
+      "sourceTitle": "kushinagar (author hint)",
+      "lon": 83.7,
+      "lat": 26.74,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 5,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Kushinagar",
+          "owner": "magadha",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 600,
+              "uri": "https://en.wikipedia.org/wiki/Kushinagar",
+              "certainty": "broad context",
+              "basis": "Overview of Kusinara/Kushinagar, the Malla town of the Buddha's passing, with occupation through the early historical period.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Kushinagar",
+          "owner": "sunga",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 600,
+              "uri": "https://en.wikipedia.org/wiki/Kushinagar",
+              "certainty": "broad context",
+              "basis": "Overview of Kusinara/Kushinagar, the Malla town of the Buddha's passing, with occupation through the early historical period.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "tamralipti",
+      "pleiades": "",
+      "sourceTitle": "tamralipti (author hint)",
+      "lon": 88.3,
+      "lat": 22.28,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 11,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Tamralipti",
+          "owner": "magadha",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 1200,
+              "uri": "https://en.wikipedia.org/wiki/Tamluk",
+              "certainty": "broad context",
+              "basis": "Overview of Tamralipti (Tamluk): the delta port of the Gangaridai country, occupied from the Northern Black Polished Ware period through the medieval era.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Tamralipti",
+          "owner": "sunga",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 1200,
+              "uri": "https://en.wikipedia.org/wiki/Tamluk",
+              "certainty": "broad context",
+              "basis": "Overview of Tamralipti (Tamluk): the delta port of the Gangaridai country, occupied from the Northern Black Polished Ware period through the medieval era.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "chandraketugarh",
+      "pleiades": "",
+      "sourceTitle": "chandraketugarh (author hint)",
+      "lon": 88.68,
+      "lat": 22.85,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 6,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Chandraketugarh",
+          "owner": "magadha",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Chandraketugarh",
+              "certainty": "broad context",
+              "basis": "Overview of the Chandraketugarh excavations in the eastern delta: Northern Black Polished Ware through Gupta-period settlement.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Chandraketugarh",
+          "owner": "sunga",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Chandraketugarh",
+              "certainty": "broad context",
+              "basis": "Overview of the Chandraketugarh excavations in the eastern delta: Northern Black Polished Ware through Gupta-period settlement.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "pundranagar",
+      "pleiades": "https://pleiades.stoa.org/places/60011",
+      "sourceTitle": "Puṇḍranagara",
+      "lon": 89.371189,
+      "lat": 24.870868,
+      "coordinateSource": "https://pleiades.stoa.org/places/60011",
+      "precision": "precise",
+      "sourceProvenance": "Barrington Atlas: BAtlas 6 F5 Puṇḍranagara",
+      "population": 7,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Pundranagara",
+          "owner": "magadha",
+          "evidence": [
+            {
+              "kind": "location_points",
+              "uri": "https://pleiades.stoa.org/places/60011/darmc-location-13472",
+              "from": -330,
+              "to": 300,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/60011/pun323d323ranagara",
+              "from": -330,
+              "to": 300,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            }
+          ]
+        },
+        "185": {
+          "name": "Pundranagara",
+          "owner": "sunga",
+          "evidence": [
+            {
+              "kind": "location_points",
+              "uri": "https://pleiades.stoa.org/places/60011/darmc-location-13472",
+              "from": -330,
+              "to": 300,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/60011/pun323d323ranagara",
+              "from": -330,
+              "to": 300,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "wari_bateshwar",
+      "pleiades": "",
+      "sourceTitle": "wari_bateshwar (author hint)",
+      "lon": 92.15,
+      "lat": 24.08,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 5,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Wari-Bateshwar",
+          "owner": "magadha",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 300,
+              "uri": "https://en.wikipedia.org/wiki/Wari-Bateshwar_ruins",
+              "certainty": "broad context",
+              "basis": "Overview of the Wari-Bateshwar fortified settlement on the old Brahmaputra: radiocarbon and coin evidence from about the mid-first millennium BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Wari-Bateshwar",
+          "owner": "sunga",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 300,
+              "uri": "https://en.wikipedia.org/wiki/Wari-Bateshwar_ruins",
+              "certainty": "broad context",
+              "basis": "Overview of the Wari-Bateshwar fortified settlement on the old Brahmaputra: radiocarbon and coin evidence from about the mid-first millennium BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "bhita",
+      "pleiades": "",
+      "sourceTitle": "bhita (author hint)",
+      "lon": 81.8,
+      "lat": 25.2,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 5,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Bhita",
+          "owner": "magadha",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 600,
+              "uri": "https://en.wikipedia.org/wiki/Bhita",
+              "certainty": "broad context",
+              "basis": "Overview of the Bhita excavations near Allahabad: early-historical occupation from the Northern Black Polished Ware period.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Bhita",
+          "owner": "sunga",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 600,
+              "uri": "https://en.wikipedia.org/wiki/Bhita",
+              "certainty": "broad context",
+              "basis": "Overview of the Bhita excavations near Allahabad: early-historical occupation from the Northern Black Polished Ware period.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "hastinapura",
+      "pleiades": "",
+      "sourceTitle": "hastinapura (author hint)",
+      "lon": 78.05,
+      "lat": 29.17,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 8,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Hastinapura",
+          "owner": "magadha",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 300,
+              "uri": "https://en.wikipedia.org/wiki/Hastinapur",
+              "certainty": "broad context",
+              "basis": "Overview of Hastinapura: Painted Grey Ware occupation ends in an ancient flood, and the site is reoccupied in the historical layers; the epic association is later literature.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Hastinapura",
+          "owner": "panchala",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 300,
+              "uri": "https://en.wikipedia.org/wiki/Hastinapur",
+              "certainty": "broad context",
+              "basis": "Overview of Hastinapura: Painted Grey Ware occupation ends in an ancient flood, and the site is reoccupied in the historical layers; the epic association is later literature.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "indraprastha",
+      "pleiades": "",
+      "sourceTitle": "indraprastha (author hint)",
+      "lon": 77.17,
+      "lat": 28.61,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 10,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Indraprastha",
+          "owner": "magadha",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Indraprastha",
+              "certainty": "broad context",
+              "basis": "Overview of Indraprastha/Purana Qila: Painted Grey Ware and Northern Black Polished Ware layers on the Yamuna; the epic association is later literature.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Indraprastha",
+          "owner": "panchala",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Indraprastha",
+              "certainty": "broad context",
+              "basis": "Overview of Indraprastha/Purana Qila: Painted Grey Ware and Northern Black Polished Ware layers on the Yamuna; the epic association is later literature.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "mathura",
+      "pleiades": "https://pleiades.stoa.org/places/59931",
+      "sourceTitle": "Methora",
+      "lon": 77.678846,
+      "lat": 27.483527,
+      "coordinateSource": "https://pleiades.stoa.org/places/59931",
+      "precision": "precise",
+      "sourceProvenance": "Barrington Atlas: BAtlas 6 D4 Methora",
+      "population": 13,
+      "regional": false,
+      "eras": {
+        "325": {
+          "name": "Mathura",
+          "owner": "magadha",
+          "evidence": [
+            {
+              "kind": "location_points",
+              "uri": "https://pleiades.stoa.org/places/59931/darmc-location-20487",
+              "from": -330,
+              "to": 300,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/59931/methora",
+              "from": -330,
+              "to": 300,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            }
+          ]
+        },
+        "185": {
+          "name": "Mathura",
+          "owner": "panchala",
+          "evidence": [
+            {
+              "kind": "location_points",
+              "uri": "https://pleiades.stoa.org/places/59931/darmc-location-20487",
+              "from": -330,
+              "to": 300,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/59931/methora",
+              "from": -330,
+              "to": 300,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ahichchhatra",
+      "pleiades": "",
+      "sourceTitle": "ahichchhatra (author hint)",
+      "lon": 79.13,
+      "lat": 28.42,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 9,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Ahichchhatra",
+          "owner": "magadha",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Ahichchhatra",
+              "certainty": "broad context",
+              "basis": "Overview of Ahichchhatra, the Panchala capital: Painted Grey Ware through Northern Black Polished Ware and historical layers.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Ahichchhatra",
+          "owner": "panchala",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Ahichchhatra",
+              "certainty": "broad context",
+              "basis": "Overview of Ahichchhatra, the Panchala capital: Painted Grey Ware through Northern Black Polished Ware and historical layers.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "kampil",
+      "pleiades": "",
+      "sourceTitle": "kampil (author hint)",
+      "lon": 79.4,
+      "lat": 27.6,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 6,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Kampilya",
+          "owner": "magadha",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Kampil",
+              "certainty": "broad context",
+              "basis": "Overview of Kampilya, a Panchala town of the epic and Buddhist lists, with early historical occupation.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Kampilya",
+          "owner": "panchala",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Kampil",
+              "certainty": "broad context",
+              "basis": "Overview of Kampilya, a Panchala town of the epic and Buddhist lists, with early historical occupation.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "sringaverapura",
+      "pleiades": "",
+      "sourceTitle": "sringaverapura (author hint)",
+      "lon": 78.9,
+      "lat": 27.2,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 5,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Sringaverapura",
+          "owner": "magadha",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 500,
+              "uri": "https://en.wikipedia.org/wiki/Sringaverapura",
+              "certainty": "broad context",
+              "basis": "Overview of Sringaverapura on the Ganges: Painted Grey Ware and Northern Black Polished Ware settlement, with a later early-historical water structure.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Sringaverapura",
+          "owner": "sunga",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 500,
+              "uri": "https://en.wikipedia.org/wiki/Sringaverapura",
+              "certainty": "broad context",
+              "basis": "Overview of Sringaverapura on the Ganges: Painted Grey Ware and Northern Black Polished Ware settlement, with a later early-historical water structure.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "taxila",
+      "pleiades": "https://pleiades.stoa.org/places/60083",
+      "sourceTitle": "Taxila",
+      "lon": 72.815207,
+      "lat": 33.745685,
+      "coordinateSource": "https://pleiades.stoa.org/places/60083",
+      "precision": "precise",
+      "sourceProvenance": "Barrington Atlas: BAtlas 6 C3 Taxila",
+      "population": 18,
+      "regional": false,
+      "eras": {
+        "325": {
+          "name": "Takshashila",
+          "owner": "taxila",
+          "evidence": [
+            {
+              "kind": "location_points",
+              "uri": "https://pleiades.stoa.org/places/60083/darmc-location-3589",
+              "from": -330,
+              "to": 640,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/60083/taxila",
+              "from": -330,
+              "to": 640,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            }
+          ]
+        },
+        "185": {
+          "name": "Takshashila",
+          "owner": "indo_greek",
+          "evidence": [
+            {
+              "kind": "location_points",
+              "uri": "https://pleiades.stoa.org/places/60083/darmc-location-3589",
+              "from": -330,
+              "to": 640,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/60083/taxila",
+              "from": -330,
+              "to": 640,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "pushkalavati",
+      "pleiades": "https://pleiades.stoa.org/places/59993",
+      "sourceTitle": "Peukelaotis/Kaspatyros?",
+      "lon": 71.616854,
+      "lat": 34.143959,
+      "coordinateSource": "https://pleiades.stoa.org/places/59993",
+      "precision": "precise",
+      "sourceProvenance": "Barrington Atlas: BAtlas 6 C3 Peukelaotis/Kaspatyros?",
+      "population": 9,
+      "regional": false,
+      "eras": {
+        "325": {
+          "name": "Pushkalavati",
+          "owner": "taxila",
+          "evidence": [
+            {
+              "kind": "location_points",
+              "uri": "https://pleiades.stoa.org/places/59993/darmc-location-24172",
+              "from": -550,
+              "to": 640,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/59993/peukelaotis",
+              "from": -330,
+              "to": 640,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            }
+          ]
+        },
+        "185": {
+          "name": "Pushkalavati",
+          "owner": "indo_greek",
+          "evidence": [
+            {
+              "kind": "location_points",
+              "uri": "https://pleiades.stoa.org/places/59993/darmc-location-24172",
+              "from": -550,
+              "to": 640,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/59993/peukelaotis",
+              "from": -330,
+              "to": 640,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "bazira",
+      "pleiades": "https://pleiades.stoa.org/places/59740",
+      "sourceTitle": "Bazira",
+      "lon": 72.2128014,
+      "lat": 34.6813245,
+      "coordinateSource": "https://pleiades.stoa.org/places/59740",
+      "precision": "precise",
+      "sourceProvenance": "Barrington Atlas: BAtlas 6 C3 Bazira",
+      "population": 4,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Bazira",
+          "owner": "macedonian_indus",
+          "evidence": [
+            {
+              "kind": "location_points",
+              "uri": "https://pleiades.stoa.org/places/59740/darmc-location-20037",
+              "from": -330,
+              "to": -30,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "location_points",
+              "uri": "https://pleiades.stoa.org/places/59740/osm-location-of-ancient-bazira",
+              "from": -330,
+              "to": -30,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/59740/bazira",
+              "from": -330,
+              "to": -30,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/59740/beira",
+              "from": -330,
+              "to": -30,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            }
+          ]
+        },
+        "185": {
+          "name": "Bazira",
+          "owner": "indo_greek",
+          "evidence": [
+            {
+              "kind": "location_points",
+              "uri": "https://pleiades.stoa.org/places/59740/darmc-location-20037",
+              "from": -330,
+              "to": -30,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "location_points",
+              "uri": "https://pleiades.stoa.org/places/59740/osm-location-of-ancient-bazira",
+              "from": -330,
+              "to": -30,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/59740/bazira",
+              "from": -330,
+              "to": -30,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/59740/beira",
+              "from": -330,
+              "to": -30,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "alexandria_indus",
+      "pleiades": "https://pleiades.stoa.org/places/59987",
+      "sourceTitle": "Patala/Minnagar",
+      "lon": 68.065079,
+      "lat": 24.72237,
+      "coordinateSource": "https://pleiades.stoa.org/places/59987",
+      "precision": "precise",
+      "sourceProvenance": "Barrington Atlas: BAtlas 6 B4 Patala/Minnagar",
+      "population": 9,
+      "regional": false,
+      "eras": {
+        "325": {
+          "name": "Alexandria on the Indus",
+          "owner": "macedonian_indus",
+          "evidence": [
+            {
+              "kind": "location_points",
+              "uri": "https://pleiades.stoa.org/places/59987/darmc-location-19848",
+              "from": -330,
+              "to": 640,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/59987/patala",
+              "from": -330,
+              "to": 300,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            }
+          ]
+        },
+        "185": {
+          "name": "Alexandria on the Indus",
+          "owner": "indo_greek",
+          "evidence": [
+            {
+              "kind": "location_points",
+              "uri": "https://pleiades.stoa.org/places/59987/darmc-location-19848",
+              "from": -330,
+              "to": 640,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/59987/patala",
+              "from": -330,
+              "to": 300,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "roruka",
+      "pleiades": "",
+      "sourceTitle": "roruka (author hint)",
+      "lon": 68.88,
+      "lat": 27.18,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 6,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Roruka",
+          "owner": "macedonian_indus",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Rohri",
+              "certainty": "broad context",
+              "basis": "Overview of Roruka/Rohri on the upper Indus: named in Buddhist tradition as the Sindhu country's city; its precise site and dating are tradition, not excavation.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Roruka",
+          "owner": "indo_greek",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Rohri",
+              "certainty": "broad context",
+              "basis": "Overview of Roruka/Rohri on the upper Indus: named in Buddhist tradition as the Sindhu country's city; its precise site and dating are tradition, not excavation.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "sehwan",
+      "pleiades": "",
+      "sourceTitle": "sehwan (author hint)",
+      "lon": 67.8,
+      "lat": 26.42,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 6,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Sehwan",
+          "owner": "macedonian_indus",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 400,
+              "uri": "https://en.wikipedia.org/wiki/Sehwan",
+              "certainty": "broad context",
+              "basis": "Overview of Sehwan on the Indus: identified by some with Alexander's Sodra or the Sindimana seat of the lower province; the range is contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Sehwan",
+          "owner": "indo_greek",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 400,
+              "uri": "https://en.wikipedia.org/wiki/Sehwan",
+              "certainty": "broad context",
+              "basis": "Overview of Sehwan on the Indus: identified by some with Alexander's Sodra or the Sindimana seat of the lower province; the range is contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "bucephala",
+      "pleiades": "https://pleiades.stoa.org/places/59750",
+      "sourceTitle": "Boukephala",
+      "lon": 73.4473758,
+      "lat": 32.6888648,
+      "coordinateSource": "https://pleiades.stoa.org/places/59750",
+      "precision": "precise",
+      "sourceProvenance": "Barrington Atlas: BAtlas 6 C3 Boukephala",
+      "population": 7,
+      "regional": false,
+      "eras": {
+        "325": {
+          "name": "Bucephala",
+          "owner": "puru",
+          "evidence": [
+            {
+              "kind": "location_points",
+              "uri": "https://pleiades.stoa.org/places/59750/batlas-point-location",
+              "from": -330,
+              "to": 640,
+              "certainty": "less-certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/59750/boukephala",
+              "from": -330,
+              "to": 640,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "contextual-range",
+              "from": -326,
+              "to": 300,
+              "uri": "https://en.wikipedia.org/wiki/Bucephala_(city)",
+              "certainty": "broad context",
+              "basis": "Bucephala on the Hydaspes was founded by Alexander for Bucephalus after the battle of 326 BC; the foundation year is the evidence.",
+              "note": "Author-interpreted contextual range from the cited overview."
+            }
+          ]
+        },
+        "185": {
+          "name": "Bucephala",
+          "owner": "indo_greek",
+          "evidence": [
+            {
+              "kind": "location_points",
+              "uri": "https://pleiades.stoa.org/places/59750/batlas-point-location",
+              "from": -330,
+              "to": 640,
+              "certainty": "less-certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/59750/boukephala",
+              "from": -330,
+              "to": 640,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "contextual-range",
+              "from": -326,
+              "to": 300,
+              "uri": "https://en.wikipedia.org/wiki/Bucephala_(city)",
+              "certainty": "broad context",
+              "basis": "Bucephala on the Hydaspes was founded by Alexander for Bucephalus after the battle of 326 BC; the foundation year is the evidence.",
+              "note": "Author-interpreted contextual range from the cited overview."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "nicaea_india",
+      "pleiades": "",
+      "sourceTitle": "nicaea_india (author hint)",
+      "lon": 72.32,
+      "lat": 32.62,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 5,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Nicaea on the Hydaspes",
+          "owner": "puru",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -326,
+              "to": 300,
+              "uri": "https://en.wikipedia.org/wiki/Battle_of_the_Hydaspes",
+              "certainty": "broad context",
+              "basis": "Nicaea on the Hydaspes was founded by Alexander after the battle of 326 BC; the foundation year is the evidence.",
+              "note": "Author-interpreted contextual range from the cited overview."
+            }
+          ]
+        },
+        "185": {
+          "name": "Nicaea on the Hydaspes",
+          "owner": "indo_greek",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -326,
+              "to": 300,
+              "uri": "https://en.wikipedia.org/wiki/Battle_of_the_Hydaspes",
+              "certainty": "broad context",
+              "basis": "Nicaea on the Hydaspes was founded by Alexander after the battle of 326 BC; the foundation year is the evidence.",
+              "note": "Author-interpreted contextual range from the cited overview."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "sagala",
+      "pleiades": "https://pleiades.stoa.org/places/59812",
+      "sourceTitle": "Euthymedeia/Sangala",
+      "lon": 74.541542,
+      "lat": 32.238201,
+      "coordinateSource": "https://pleiades.stoa.org/places/59812",
+      "precision": "precise",
+      "sourceProvenance": "Barrington Atlas: BAtlas 6 C3 Euthymedeia/Sangala",
+      "population": 13,
+      "regional": false,
+      "eras": {
+        "325": {
+          "name": "Sagala",
+          "owner": "puru",
+          "evidence": [
+            {
+              "kind": "location_points",
+              "uri": "https://pleiades.stoa.org/places/59812/darmc-location-10049",
+              "from": -330,
+              "to": 300,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/59812/sangala",
+              "from": -330,
+              "to": 300,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            }
+          ]
+        },
+        "185": {
+          "name": "Sagala",
+          "owner": "indo_greek",
+          "evidence": [
+            {
+              "kind": "location_points",
+              "uri": "https://pleiades.stoa.org/places/59812/darmc-location-10049",
+              "from": -330,
+              "to": 300,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/59812/sangala",
+              "from": -330,
+              "to": 300,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "mulasthana",
+      "pleiades": "",
+      "sourceTitle": "mulasthana (author hint)",
+      "lon": 71.45,
+      "lat": 30.22,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 10,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Mulasthana",
+          "owner": "malloi",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -500,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Multan",
+              "certainty": "broad context",
+              "basis": "Overview of Multan: traditionally the Malli country's chief town on the Chenab-Ravi edge, encountered by Alexander's campaign in the Malli campaign of 326-325 BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Mulasthana",
+          "owner": "sibi",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -500,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Multan",
+              "certainty": "broad context",
+              "basis": "Overview of Multan: traditionally the Malli country's chief town on the Chenab-Ravi edge, encountered by Alexander's campaign in the Malli campaign of 326-325 BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "harappa",
+      "pleiades": "https://pleiades.stoa.org/places/93441396",
+      "sourceTitle": "Harappa",
+      "lon": 72.8652575,
+      "lat": 30.6296177,
+      "coordinateSource": "https://pleiades.stoa.org/places/93441396",
+      "precision": "precise",
+      "sourceProvenance": "Pleiades",
+      "population": 5,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Harappa",
+          "owner": "malloi",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 300,
+              "uri": "https://en.wikipedia.org/wiki/Harappa",
+              "certainty": "broad context",
+              "basis": "Overview of the Harappa mound: the Bronze Age city's decline long predates the campaign, and the later historical-period occupation of the mound and its region is the labelled context for the Malli country's centre.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Harappa",
+          "owner": "sibi",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 300,
+              "uri": "https://en.wikipedia.org/wiki/Harappa",
+              "certainty": "broad context",
+              "basis": "Overview of the Harappa mound: the Bronze Age city's decline long predates the campaign, and the later historical-period occupation of the mound and its region is the labelled context for the Malli country's centre.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "abhisara",
+      "pleiades": "",
+      "sourceTitle": "abhisara (author hint)",
+      "lon": 74.3,
+      "lat": 33.2,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 5,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Abhisara (hill town)",
+          "owner": "abhisara",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -500,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Abhisara",
+              "certainty": "broad context",
+              "basis": "Overview of Abhisara, the hill country between the Jhelum and Chenab whose king met Alexander's campaign; the region's towns are labelled abstractions.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Abhisara (hill town)",
+          "owner": "indo_greek",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -500,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Abhisara",
+              "certainty": "broad context",
+              "basis": "Overview of Abhisara, the hill country between the Jhelum and Chenab whose king met Alexander's campaign; the region's towns are labelled abstractions.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ujjain",
+      "pleiades": "https://pleiades.stoa.org/places/59972",
+      "sourceTitle": "Ozene",
+      "lon": 75.782933,
+      "lat": 23.177194,
+      "coordinateSource": "https://pleiades.stoa.org/places/59972",
+      "precision": "precise",
+      "sourceProvenance": "Barrington Atlas: BAtlas 6 D5 Ozene",
+      "population": 17,
+      "regional": false,
+      "eras": {
+        "325": {
+          "name": "Ujjain",
+          "owner": "malava",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Ujjain",
+              "certainty": "broad context",
+              "basis": "Overview of Ujjain/Avantika: excavated occupation from about the seventh-sixth century BC, the classical Ozene of the trade routes.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Ujjain",
+          "owner": "malava",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Ujjain",
+              "certainty": "broad context",
+              "basis": "Overview of Ujjain/Avantika: excavated occupation from about the seventh-sixth century BC, the classical Ozene of the trade routes.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "mahishmati",
+      "pleiades": "",
+      "sourceTitle": "mahishmati (author hint)",
+      "lon": 75.58,
+      "lat": 22.17,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 10,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Mahishmati",
+          "owner": "malava",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 700,
+              "uri": "https://en.wikipedia.org/wiki/Mahishmati",
+              "certainty": "broad context",
+              "basis": "Overview of Mahishmati on the Narmada at Maheshwar, the Haihaiya/Avanti capital of epic and Puranic tradition, identified with the Maheshwar occupation site.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Mahishmati",
+          "owner": "malava",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 700,
+              "uri": "https://en.wikipedia.org/wiki/Mahishmati",
+              "certainty": "broad context",
+              "basis": "Overview of Mahishmati on the Narmada at Maheshwar, the Haihaiya/Avanti capital of epic and Puranic tradition, identified with the Maheshwar occupation site.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "vidisha",
+      "pleiades": "",
+      "sourceTitle": "vidisha (author hint)",
+      "lon": 77.7,
+      "lat": 23.55,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 11,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Vidisha",
+          "owner": "malava",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Vidisha",
+              "certainty": "broad context",
+              "basis": "Overview of Vidisha/Besnagar: early historical occupation on the Betwa, the Heliodorus pillar of about 110 BC and the Sunga-period monuments nearby.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Vidisha",
+          "owner": "malava",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Vidisha",
+              "certainty": "broad context",
+              "basis": "Overview of Vidisha/Besnagar: early historical occupation on the Betwa, the Heliodorus pillar of about 110 BC and the Sunga-period monuments nearby.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "eran",
+      "pleiades": "",
+      "sourceTitle": "eran (author hint)",
+      "lon": 78.15,
+      "lat": 24.1,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 5,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Erakina",
+          "owner": "malava",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Eran",
+              "certainty": "broad context",
+              "basis": "Overview of Eran/Erakina on the Bina: Northern Black Polished Ware settlement through the Sunga and later periods.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Erakina",
+          "owner": "malava",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Eran",
+              "certainty": "broad context",
+              "basis": "Overview of Eran/Erakina on the Bina: Northern Black Polished Ware settlement through the Sunga and later periods.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "madhyamika",
+      "pleiades": "",
+      "sourceTitle": "madhyamika (author hint)",
+      "lon": 76.35,
+      "lat": 27.4,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 6,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Madhyamika",
+          "owner": "malava",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -500,
+              "to": 300,
+              "uri": "https://en.wikipedia.org/wiki/Bairat",
+              "certainty": "broad context",
+              "basis": "Overview of Bairat/Madhyamika in the Matsya country: Painted Grey Ware and Mauryan-period occupation, with the Ashokan inscription nearby.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Madhyamika",
+          "owner": "malava",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -500,
+              "to": 300,
+              "uri": "https://en.wikipedia.org/wiki/Bairat",
+              "certainty": "broad context",
+              "basis": "Overview of Bairat/Madhyamika in the Matsya country: Painted Grey Ware and Mauryan-period occupation, with the Ashokan inscription nearby.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "pauni",
+      "pleiades": "",
+      "sourceTitle": "pauni (author hint)",
+      "lon": 79.65,
+      "lat": 21.03,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 7,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Pauni",
+          "owner": "vidarbha",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 400,
+              "uri": "https://en.wikipedia.org/wiki/Pauni",
+              "certainty": "broad context",
+              "basis": "Overview of Pauni in Vidarbha: excavated stupa and rampart remains from the early historical period; the pre-Mauryan opening is a contextual extension, not an excavation claim.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Pauni",
+          "owner": "vidarbha",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 400,
+              "uri": "https://en.wikipedia.org/wiki/Pauni",
+              "certainty": "broad context",
+              "basis": "Overview of Pauni in Vidarbha: excavated stupa and rampart remains from the early historical period; the pre-Mauryan opening is a contextual extension, not an excavation claim.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "kaundanyapur",
+      "pleiades": "",
+      "sourceTitle": "kaundanyapur (author hint)",
+      "lon": 78.25,
+      "lat": 21.35,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 5,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Kaundanyapur",
+          "owner": "vidarbha",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 400,
+              "uri": "https://en.wikipedia.org/wiki/Kaundanyapur",
+              "certainty": "broad context",
+              "basis": "Overview of Kaundanyapur on the Wardha in Vidarbha: an early-historical site of the region's chiefdoms; the range is contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Kaundanyapur",
+          "owner": "vidarbha",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 400,
+              "uri": "https://en.wikipedia.org/wiki/Kaundanyapur",
+              "certainty": "broad context",
+              "basis": "Overview of Kaundanyapur on the Wardha in Vidarbha: an early-historical site of the region's chiefdoms; the range is contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "pratishthana",
+      "pleiades": "https://pleiades.stoa.org/places/50192",
+      "sourceTitle": "Paithana",
+      "lon": 75.385416,
+      "lat": 19.468043,
+      "coordinateSource": "https://pleiades.stoa.org/places/50192",
+      "precision": "precise",
+      "sourceProvenance": "Barrington Atlas: BAtlas 5 D3 Paithana",
+      "population": 15,
+      "regional": false,
+      "eras": {
+        "325": {
+          "name": "Pratishthana",
+          "owner": "asmaka",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Paithan",
+              "certainty": "broad context",
+              "basis": "Overview of Paithan/Pratishthana: Ptolemy's Paithana, capital of the Satavahanas; the pre-Greek Deccan occupation is contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Pratishthana",
+          "owner": "satavahana",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Paithan",
+              "certainty": "broad context",
+              "basis": "Overview of Paithan/Pratishthana: Ptolemy's Paithana, capital of the Satavahanas; the pre-Greek Deccan occupation is contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "nasik",
+      "pleiades": "https://pleiades.stoa.org/places/50162",
+      "sourceTitle": "Nasika",
+      "lon": 73.777681,
+      "lat": 19.993198,
+      "coordinateSource": "https://pleiades.stoa.org/places/50162",
+      "precision": "precise",
+      "sourceProvenance": "Barrington Atlas: BAtlas 5 C3 Nasika",
+      "population": 10,
+      "regional": false,
+      "eras": {
+        "325": {
+          "name": "Nasika",
+          "owner": "asmaka",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Nashik",
+              "certainty": "broad context",
+              "basis": "Overview of Nasik on the Godavari: early-historical occupation with the Pandu Leni cave establishments from about the first century BC; the earlier range is contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Nasika",
+          "owner": "satavahana",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Nashik",
+              "certainty": "broad context",
+              "basis": "Overview of Nasik on the Godavari: early-historical occupation with the Pandu Leni cave establishments from about the first century BC; the earlier range is contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "tagara",
+      "pleiades": "https://pleiades.stoa.org/places/50294",
+      "sourceTitle": "Tagara",
+      "lon": 76.14594,
+      "lat": 18.301382,
+      "coordinateSource": "https://pleiades.stoa.org/places/50294",
+      "precision": "precise",
+      "sourceProvenance": "Barrington Atlas: BAtlas 5 D3 Tagara",
+      "population": 9,
+      "regional": false,
+      "eras": {
+        "325": {
+          "name": "Tagara",
+          "owner": "asmaka",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Ter,_Maharashtra",
+              "certainty": "broad context",
+              "basis": "Overview of the Ter (Tagara) excavations: an early-historical trade town of the Deccan interior from about the third century BC; the earlier range is contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Tagara",
+          "owner": "satavahana",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Ter,_Maharashtra",
+              "certainty": "broad context",
+              "basis": "Overview of the Ter (Tagara) excavations: an early-historical trade town of the Deccan interior from about the third century BC; the earlier range is contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "nevasa",
+      "pleiades": "https://pleiades.stoa.org/places/50167",
+      "sourceTitle": "Nevasa",
+      "lon": 74.894449,
+      "lat": 19.62041,
+      "coordinateSource": "https://pleiades.stoa.org/places/50167",
+      "precision": "precise",
+      "sourceProvenance": "Barrington Atlas: BAtlas 5 C3 Nevasa",
+      "population": 6,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Nevasa",
+          "owner": "asmaka",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Nevasa",
+              "certainty": "broad context",
+              "basis": "Overview of the Nevasa excavations: Chalcolithic through early-historical occupation, continuous across the era.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Nevasa",
+          "owner": "satavahana",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Nevasa",
+              "certainty": "broad context",
+              "basis": "Overview of the Nevasa excavations: Chalcolithic through early-historical occupation, continuous across the era.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "bhokardan",
+      "pleiades": "",
+      "sourceTitle": "bhokardan (author hint)",
+      "lon": 75.65,
+      "lat": 20.65,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 5,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Bhogavardhana",
+          "owner": "asmaka",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 400,
+              "uri": "https://en.wikipedia.org/wiki/Bhokardan",
+              "certainty": "broad context",
+              "basis": "Overview of the Bhokardan (Bhogavardhana) excavations in the Deccan's northern edge: early-historical occupation with Satavahana-era layers.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Bhogavardhana",
+          "owner": "satavahana",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 400,
+              "uri": "https://en.wikipedia.org/wiki/Bhokardan",
+              "certainty": "broad context",
+              "basis": "Overview of the Bhokardan (Bhogavardhana) excavations in the Deccan's northern edge: early-historical occupation with Satavahana-era layers.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "kotalingala",
+      "pleiades": "",
+      "sourceTitle": "kotalingala (author hint)",
+      "lon": 79.2,
+      "lat": 18.5,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 5,
+      "regional": true,
+      "eras": {
+        "185": {
+          "name": "Kotalingala",
+          "owner": "satavahana",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -300,
+              "to": 300,
+              "uri": "https://en.wikipedia.org/wiki/Kotalingala",
+              "certainty": "broad context",
+              "basis": "Overview of Kotalingala on the Godavari: pre-Satavahana and early Satavahana coin hoards and settlement.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "banavasi",
+      "pleiades": "https://pleiades.stoa.org/places/49895",
+      "sourceTitle": "Banabasi",
+      "lon": 75.01242,
+      "lat": 14.535519,
+      "coordinateSource": "https://pleiades.stoa.org/places/49895",
+      "precision": "precise",
+      "sourceProvenance": "Barrington Atlas: BAtlas 5 D4 Banabasi",
+      "population": 8,
+      "regional": false,
+      "eras": {
+        "325": {
+          "name": "Vanavasa",
+          "owner": "kuntala",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Banavasi",
+              "certainty": "broad context",
+              "basis": "Overview of Banavasi (Vanavasa) in the Kanara country: an early historical trade centre centuries before its Kadamba-capital fame.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Vanavasa",
+          "owner": "kuntala",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Banavasi",
+              "certainty": "broad context",
+              "basis": "Overview of Banavasi (Vanavasa) in the Kanara country: an early historical trade centre centuries before its Kadamba-capital fame.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "sannati",
+      "pleiades": "",
+      "sourceTitle": "sannati (author hint)",
+      "lon": 76.75,
+      "lat": 16.75,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 5,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Sannati",
+          "owner": "kuntala",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 500,
+              "uri": "https://en.wikipedia.org/wiki/Sannati",
+              "certainty": "broad context",
+              "basis": "Overview of Sannati on the Bhima: Mauryan-period inscriptions and Satavahana-era stupa layers; the pre-Mauryan range is contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Sannati",
+          "owner": "satavahana",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 500,
+              "uri": "https://en.wikipedia.org/wiki/Sannati",
+              "certainty": "broad context",
+              "basis": "Overview of Sannati on the Bhima: Mauryan-period inscriptions and Satavahana-era stupa layers; the pre-Mauryan range is contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "brahmapuri",
+      "pleiades": "",
+      "sourceTitle": "brahmapuri (author hint)",
+      "lon": 74.22,
+      "lat": 16.72,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 5,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Brahmapuri",
+          "owner": "kuntala",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 400,
+              "uri": "https://en.wikipedia.org/wiki/Brahmapuri,_Kolhapur",
+              "certainty": "broad context",
+              "basis": "Overview of the Brahmapuri (Kolhapur) excavations: Satavahana-period occupation with Roman-trade finds; the pre-Satavahana range is contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Brahmapuri",
+          "owner": "satavahana",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 400,
+              "uri": "https://en.wikipedia.org/wiki/Brahmapuri,_Kolhapur",
+              "certainty": "broad context",
+              "basis": "Overview of the Brahmapuri (Kolhapur) excavations: Satavahana-period occupation with Roman-trade finds; the pre-Satavahana range is contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "dharanikota",
+      "pleiades": "https://pleiades.stoa.org/places/50219",
+      "sourceTitle": "Dharanikota/Pitoura",
+      "lon": 80.3483711,
+      "lat": 16.5776502,
+      "coordinateSource": "https://pleiades.stoa.org/places/50219",
+      "precision": "precise",
+      "sourceProvenance": "Barrington Atlas: BAtlas 5 E3 Pitoura",
+      "population": 13,
+      "regional": false,
+      "eras": {
+        "325": {
+          "name": "Dharanikota",
+          "owner": "andhra",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 600,
+              "uri": "https://en.wikipedia.org/wiki/Dharanikota",
+              "certainty": "broad context",
+              "basis": "Overview of Dharanikota/Amaravati on the Krishna: the great stupa's beginnings under the Mauryas are the firm terminus; the coastal chiefdoms before that are contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Dharanikota",
+          "owner": "satavahana",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 600,
+              "uri": "https://en.wikipedia.org/wiki/Dharanikota",
+              "certainty": "broad context",
+              "basis": "Overview of Dharanikota/Amaravati on the Krishna: the great stupa's beginnings under the Mauryas are the firm terminus; the coastal chiefdoms before that are contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "salihundam",
+      "pleiades": "",
+      "sourceTitle": "salihundam (author hint)",
+      "lon": 83.93,
+      "lat": 18.3,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 4,
+      "regional": true,
+      "eras": {
+        "185": {
+          "name": "Salihundam",
+          "owner": "satavahana",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -200,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Salihundam",
+              "certainty": "broad context",
+              "basis": "Overview of the Salihundam Buddhist site on the Vamsadhara: establishments from about the second century BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "pithunda",
+      "pleiades": "",
+      "sourceTitle": "pithunda (author hint)",
+      "lon": 83.35,
+      "lat": 17.85,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 8,
+      "regional": true,
+      "eras": {
+        "185": {
+          "name": "Pithunda",
+          "owner": "satavahana",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -200,
+              "to": 500,
+              "uri": "https://en.wikipedia.org/wiki/Pithunda",
+              "certainty": "broad context",
+              "basis": "Overview of Pithunda, named by Pliny among the Andhra-country towns on the eastern coast; its precise site is unlocated and the range is literary.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "peddavegi",
+      "pleiades": "",
+      "sourceTitle": "peddavegi (author hint)",
+      "lon": 80.98,
+      "lat": 16.71,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 7,
+      "regional": true,
+      "eras": {
+        "185": {
+          "name": "Peddavegi",
+          "owner": "satavahana",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -300,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Pedavegi",
+              "certainty": "broad context",
+              "basis": "Overview of Peddavegi (Vengi) near Eluru: early historical occupation and later Vengi-chalukya capital layers.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "sisupalgarh",
+      "pleiades": "",
+      "sourceTitle": "sisupalgarh (author hint)",
+      "lon": 85.82,
+      "lat": 20.25,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 13,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Sisupalgarh",
+          "owner": "kalinga",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 400,
+              "uri": "https://en.wikipedia.org/wiki/Sisupalgarh",
+              "certainty": "broad context",
+              "basis": "Overview of the Sisupalgarh excavations near Bhubaneswar: a fortified early-historical city whose radiocarbon sequence reaches back centuries before the Mauryan edicts at Dhauli.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Sisupalgarh",
+          "owner": "kalinga",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 400,
+              "uri": "https://en.wikipedia.org/wiki/Sisupalgarh",
+              "certainty": "broad context",
+              "basis": "Overview of the Sisupalgarh excavations near Bhubaneswar: a fortified early-historical city whose radiocarbon sequence reaches back centuries before the Mauryan edicts at Dhauli.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "jaugada",
+      "pleiades": "",
+      "sourceTitle": "jaugada (author hint)",
+      "lon": 84.75,
+      "lat": 19.65,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 6,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Jaugada",
+          "owner": "kalinga",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 500,
+              "uri": "https://en.wikipedia.org/wiki/Jaugada",
+              "certainty": "broad context",
+              "basis": "Overview of Jaugada in Kalinga's southern coastal country: the Ashokan rock edict of about 250 BC is the firm terminus; the town's earlier occupation is contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Jaugada",
+          "owner": "kalinga",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 500,
+              "uri": "https://en.wikipedia.org/wiki/Jaugada",
+              "certainty": "broad context",
+              "basis": "Overview of Jaugada in Kalinga's southern coastal country: the Ashokan rock edict of about 250 BC is the firm terminus; the town's earlier occupation is contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "kalingapatnam",
+      "pleiades": "",
+      "sourceTitle": "kalingapatnam (author hint)",
+      "lon": 84.6,
+      "lat": 18.3,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 5,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Kalingapatnam",
+          "owner": "kalinga",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 500,
+              "uri": "https://en.wikipedia.org/wiki/Kalingapatnam",
+              "certainty": "broad context",
+              "basis": "Overview of Kalingapatnam on the Andhra-Kalinga coast: an ancient port of the coastal kingdom; the range is contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Kalingapatnam",
+          "owner": "kalinga",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 500,
+              "uri": "https://en.wikipedia.org/wiki/Kalingapatnam",
+              "certainty": "broad context",
+              "basis": "Overview of Kalingapatnam on the Andhra-Kalinga coast: an ancient port of the coastal kingdom; the range is contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "bharukachchha",
+      "pleiades": "https://pleiades.stoa.org/places/59737",
+      "sourceTitle": "Barygaza",
+      "lon": 72.983068,
+      "lat": 21.70078,
+      "coordinateSource": "https://pleiades.stoa.org/places/59737",
+      "precision": "precise",
+      "sourceProvenance": "Barrington Atlas: BAtlas 6 C5 Barygaza",
+      "population": 13,
+      "regional": false,
+      "eras": {
+        "325": {
+          "name": "Barygaza",
+          "owner": "saurashtra",
+          "evidence": [
+            {
+              "kind": "location_points",
+              "uri": "https://pleiades.stoa.org/places/59737/darmc-location-20032",
+              "from": -330,
+              "to": 300,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/59737/bargose",
+              "from": -330,
+              "to": 300,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            }
+          ]
+        },
+        "185": {
+          "name": "Barygaza",
+          "owner": "saurashtra",
+          "evidence": [
+            {
+              "kind": "location_points",
+              "uri": "https://pleiades.stoa.org/places/59737/darmc-location-20032",
+              "from": -330,
+              "to": 300,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/59737/bargose",
+              "from": -330,
+              "to": 300,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "sopara",
+      "pleiades": "https://pleiades.stoa.org/places/50282",
+      "sourceTitle": "Souppara",
+      "lon": 72.804527,
+      "lat": 19.434113,
+      "coordinateSource": "https://pleiades.stoa.org/places/50282",
+      "precision": "precise",
+      "sourceProvenance": "Barrington Atlas: BAtlas 5 C3 Souppara",
+      "population": 9,
+      "regional": false,
+      "eras": {
+        "325": {
+          "name": "Souppara",
+          "owner": "saurashtra",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Nala_Sopara",
+              "certainty": "broad context",
+              "basis": "Overview of Sopara (Shurparaka): an Ashokan edict fragment marks the Mauryan port; the earlier coastal occupation is contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Souppara",
+          "owner": "satavahana",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Nala_Sopara",
+              "certainty": "broad context",
+              "basis": "Overview of Sopara (Shurparaka): an Ashokan edict fragment marks the Mauryan port; the earlier coastal occupation is contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "junagadh",
+      "pleiades": "",
+      "sourceTitle": "junagadh (author hint)",
+      "lon": 70.45,
+      "lat": 21.52,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 7,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Girinagar",
+          "owner": "saurashtra",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Junagadh",
+              "certainty": "broad context",
+              "basis": "Overview of Junagadh and the Girnar hill: the Ashokan edicts of about 250 BC are the firm terminus; the Surashtra coast's towns before that are contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Girinagar",
+          "owner": "saurashtra",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Junagadh",
+              "certainty": "broad context",
+              "basis": "Overview of Junagadh and the Girnar hill: the Ashokan edicts of about 250 BC are the firm terminus; the Surashtra coast's towns before that are contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "prabhasa",
+      "pleiades": "https://pleiades.stoa.org/places/50227",
+      "sourceTitle": "Prabhas Patan",
+      "lon": 70.402269,
+      "lat": 20.890744,
+      "coordinateSource": "https://pleiades.stoa.org/places/50227",
+      "precision": "precise",
+      "sourceProvenance": "Barrington Atlas: BAtlas 5 C2 Prabhas Patan",
+      "population": 5,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Prabhasa",
+          "owner": "saurashtra",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Somnath",
+              "certainty": "broad context",
+              "basis": "Overview of Prabhas Patan on the Saurashtra coast: the epic and Puranic tirtha tradition and early-historical settlement layers; the range is a labelled abstraction.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Prabhasa",
+          "owner": "saurashtra",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Somnath",
+              "certainty": "broad context",
+              "basis": "Overview of Prabhas Patan on the Saurashtra coast: the epic and Puranic tirtha tradition and early-historical settlement layers; the range is a labelled abstraction.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "dwarka",
+      "pleiades": "",
+      "sourceTitle": "dwarka (author hint)",
+      "lon": 68.97,
+      "lat": 22.24,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 6,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Dvaraka",
+          "owner": "saurashtra",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Dwarka",
+              "certainty": "broad context",
+              "basis": "Overview of Dwarka on the Saurashtra coast: the epic tradition and the underwater investigations are debated; the range is a labelled abstraction, not a dated claim.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Dvaraka",
+          "owner": "saurashtra",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 800,
+              "uri": "https://en.wikipedia.org/wiki/Dwarka",
+              "certainty": "broad context",
+              "basis": "Overview of Dwarka on the Saurashtra coast: the epic tradition and the underwater investigations are debated; the range is a labelled abstraction, not a dated claim.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "uraiyur",
+      "pleiades": "",
+      "sourceTitle": "uraiyur (author hint)",
+      "lon": 78.85,
+      "lat": 10.85,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 11,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Uraiyur",
+          "owner": "chola",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 900,
+              "uri": "https://en.wikipedia.org/wiki/Uraiyur",
+              "certainty": "broad context",
+              "basis": "Overview of Uraiyur: Ptolemy's Argaru, the Chola capital; the Sangam corpus is later literature, so the pre-300 BC range is contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Uraiyur",
+          "owner": "chola",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 900,
+              "uri": "https://en.wikipedia.org/wiki/Uraiyur",
+              "certainty": "broad context",
+              "basis": "Overview of Uraiyur: Ptolemy's Argaru, the Chola capital; the Sangam corpus is later literature, so the pre-300 BC range is contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "kaveripattinam",
+      "pleiades": "https://pleiades.stoa.org/places/49939",
+      "sourceTitle": "Kaveripumpattinam/Poombuhar",
+      "lon": 79.8537308,
+      "lat": 11.1452914,
+      "coordinateSource": "https://pleiades.stoa.org/places/49939",
+      "precision": "precise",
+      "sourceProvenance": "Barrington Atlas: BAtlas 5 D4 Chaberis Emporion",
+      "population": 8,
+      "regional": false,
+      "eras": {
+        "325": {
+          "name": "Kaveripumpattinam",
+          "owner": "chola",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 1000,
+              "uri": "https://en.wikipedia.org/wiki/Poompuhar",
+              "certainty": "broad context",
+              "basis": "Overview of Kaveripumpattinam (Puhar): the Chola port of the Sangam corpus, excavated underwater; the corpus is later literature, so the pre-300 BC range is contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Kaveripumpattinam",
+          "owner": "chola",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 1000,
+              "uri": "https://en.wikipedia.org/wiki/Poompuhar",
+              "certainty": "broad context",
+              "basis": "Overview of Kaveripumpattinam (Puhar): the Chola port of the Sangam corpus, excavated underwater; the corpus is later literature, so the pre-300 BC range is contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "kodumanal",
+      "pleiades": "",
+      "sourceTitle": "kodumanal (author hint)",
+      "lon": 77.6,
+      "lat": 11.1,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 4,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Kodumanal",
+          "owner": "chola",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 300,
+              "uri": "https://en.wikipedia.org/wiki/Kodumanal",
+              "certainty": "broad context",
+              "basis": "Overview of the Kodumanal excavations: a bead-and-iron industry site occupied from about the third century BC, with radiocarbon pushing the start earlier.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Kodumanal",
+          "owner": "chera",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 300,
+              "uri": "https://en.wikipedia.org/wiki/Kodumanal",
+              "certainty": "broad context",
+              "basis": "Overview of the Kodumanal excavations: a bead-and-iron industry site occupied from about the third century BC, with radiocarbon pushing the start earlier.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "arikamedu",
+      "pleiades": "https://pleiades.stoa.org/places/50221",
+      "sourceTitle": "Podouke/Arikamedu",
+      "lon": 79.8197505,
+      "lat": 11.9022992,
+      "coordinateSource": "https://pleiades.stoa.org/places/50221",
+      "precision": "precise",
+      "sourceProvenance": "Barrington Atlas: BAtlas 5 D4 Podouke/Arikamedu",
+      "population": 5,
+      "regional": true,
+      "eras": {
+        "185": {
+          "name": "Podouke",
+          "owner": "chola",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -250,
+              "to": 400,
+              "uri": "https://en.wikipedia.org/wiki/Arikamedu",
+              "certainty": "broad context",
+              "basis": "Overview of the Arikamedu (Podouke) excavations: occupation and Mediterranean-trade finds from about the second century BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "muziris",
+      "pleiades": "https://pleiades.stoa.org/places/50146",
+      "sourceTitle": "Muziris",
+      "lon": 76.213146,
+      "lat": 10.153976,
+      "coordinateSource": "https://pleiades.stoa.org/places/50146",
+      "precision": "precise",
+      "sourceProvenance": "Barrington Atlas: BAtlas 5 D4 Muziris",
+      "population": 10,
+      "regional": false,
+      "eras": {
+        "185": {
+          "name": "Muziris",
+          "owner": "chera",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -300,
+              "to": 600,
+              "uri": "https://en.wikipedia.org/wiki/Muziris",
+              "certainty": "broad context",
+              "basis": "Overview of Muziris (Pattanam): the Malabar trade port of the Periplus and Sangam texts; the excavated early phase begins around the third-second century BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "kanchipuram",
+      "pleiades": "",
+      "sourceTitle": "kanchipuram (author hint)",
+      "lon": 79.7,
+      "lat": 12.83,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 7,
+      "regional": true,
+      "eras": {
+        "185": {
+          "name": "Kanchipuram",
+          "owner": "chola",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -250,
+              "to": 900,
+              "uri": "https://en.wikipedia.org/wiki/Kanchipuram",
+              "certainty": "broad context",
+              "basis": "Overview of Kanchipuram: early historical occupation from about the second century BC; the Pallava capital fame is later.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "korkai",
+      "pleiades": "https://pleiades.stoa.org/places/50064",
+      "sourceTitle": "Korkai/Kolchoi",
+      "lon": 78.05799,
+      "lat": 8.63948,
+      "coordinateSource": "https://pleiades.stoa.org/places/50064",
+      "precision": "precise",
+      "sourceProvenance": "Barrington Atlas: BAtlas 5 D5 Kolchoi",
+      "population": 7,
+      "regional": false,
+      "eras": {
+        "325": {
+          "name": "Korkai",
+          "owner": "pandya",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 500,
+              "uri": "https://en.wikipedia.org/wiki/Korkai",
+              "certainty": "broad context",
+              "basis": "Overview of the Korkai excavations: the Pandya pearl-fishery port, with megalithic-to-historical occupation from about the first millennium BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Korkai",
+          "owner": "pandya",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 500,
+              "uri": "https://en.wikipedia.org/wiki/Korkai",
+              "certainty": "broad context",
+              "basis": "Overview of the Korkai excavations: the Pandya pearl-fishery port, with megalithic-to-historical occupation from about the first millennium BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "alagankulam",
+      "pleiades": "https://pleiades.stoa.org/places/49850",
+      "sourceTitle": "Alagankulam",
+      "lon": 78.9793549,
+      "lat": 9.358891,
+      "coordinateSource": "https://pleiades.stoa.org/places/49850",
+      "precision": "precise",
+      "sourceProvenance": "Barrington Atlas: BAtlas 5 D5 Alagankulam",
+      "population": 6,
+      "regional": false,
+      "eras": {
+        "325": {
+          "name": "Alagankulam",
+          "owner": "pandya",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 700,
+              "uri": "https://en.wikipedia.org/wiki/Alagankulam",
+              "certainty": "broad context",
+              "basis": "Overview of the Alagankulam excavations: an eastern-coast trade site with Northern Black Polished Ware and Mediterranean finds from about the third century BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Alagankulam",
+          "owner": "pandya",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 700,
+              "uri": "https://en.wikipedia.org/wiki/Alagankulam",
+              "certainty": "broad context",
+              "basis": "Overview of the Alagankulam excavations: an eastern-coast trade site with Northern Black Polished Ware and Mediterranean finds from about the third century BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "madurai",
+      "pleiades": "",
+      "sourceTitle": "madurai (author hint)",
+      "lon": 78.12,
+      "lat": 9.92,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 15,
+      "regional": true,
+      "eras": {
+        "325": {
+          "name": "Madurai",
+          "owner": "pandya",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 900,
+              "uri": "https://en.wikipedia.org/wiki/Madurai",
+              "certainty": "broad context",
+              "basis": "Overview of Madurai: the Pandya capital named in the Ashokan edicts about 250 BC; the Sangam corpus that describes it is later literature, so the pre-300 BC range is contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Madurai",
+          "owner": "pandya",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 900,
+              "uri": "https://en.wikipedia.org/wiki/Madurai",
+              "certainty": "broad context",
+              "basis": "Overview of Madurai: the Pandya capital named in the Ashokan edicts about 250 BC; the Sangam corpus that describes it is later literature, so the pre-300 BC range is contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "karur",
+      "pleiades": "https://pleiades.stoa.org/places/50048",
+      "sourceTitle": "Karur",
+      "lon": 78.079902,
+      "lat": 10.951893,
+      "coordinateSource": "https://pleiades.stoa.org/places/50048",
+      "precision": "precise",
+      "sourceProvenance": "Barrington Atlas: BAtlas 5 D4 Karur",
+      "population": 9,
+      "regional": false,
+      "eras": {
+        "325": {
+          "name": "Karur",
+          "owner": "chola",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 900,
+              "uri": "https://en.wikipedia.org/wiki/Karur",
+              "certainty": "broad context",
+              "basis": "Overview of Karur (Karuvur): a Sangam-era Chera capital on the Amaravati; the corpus is later literature, so the pre-300 BC range is contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "185": {
+          "name": "Karur",
+          "owner": "chera",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 900,
+              "uri": "https://en.wikipedia.org/wiki/Karur",
+              "certainty": "broad context",
+              "basis": "Overview of Karur (Karuvur): a Sangam-era Chera capital on the Amaravati; the corpus is later literature, so the pre-300 BC range is contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "kuninda",
+      "pleiades": "",
+      "sourceTitle": "kuninda (author hint)",
+      "lon": 77.1,
+      "lat": 31.4,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 5,
+      "regional": true,
+      "eras": {
+        "185": {
+          "name": "Kulinda (hill country)",
+          "owner": "kuninda",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -300,
+              "to": 300,
+              "uri": "https://en.wikipedia.org/wiki/Kuninda_Kingdom",
+              "certainty": "broad context",
+              "basis": "Overview of the Kuninda kingdom of the middle Himalaya: copper coinage from about the second-first century BC; the pre-coin history is contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "audumbara",
+      "pleiades": "",
+      "sourceTitle": "audumbara (author hint)",
+      "lon": 75.65,
+      "lat": 32.3,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 4,
+      "regional": true,
+      "eras": {
+        "185": {
+          "name": "Audumbara (hill country)",
+          "owner": "audumbara",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -250,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Audumbara_State",
+              "certainty": "broad context",
+              "basis": "Overview of the Audumbara republic of the Punjab hills: coinage from about the second-first century BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "sibi",
+      "pleiades": "",
+      "sourceTitle": "sibi (author hint)",
+      "lon": 72.1,
+      "lat": 30.8,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 4,
+      "regional": true,
+      "eras": {
+        "185": {
+          "name": "Sibi (hill country)",
+          "owner": "sibi",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -300,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Sibi",
+              "certainty": "broad context",
+              "basis": "Overview of the Sibi people and country of the northern Punjab: named by the classical geographers among the free peoples; the range is contextual.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
