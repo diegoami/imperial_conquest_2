@@ -308,10 +308,10 @@ public sealed class TacticalBattleViewModelTests
             new[]
             {
                 $"{own.Name} · {display.AttackerNationName.ToUpperInvariant()}",
-                $"{display.UnitTypeNames[own.Type]} · {own.Troops:N0} troops",
+                $"{display.UnitTypeNames[own.Type]} · {own.Troops.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} troops",
                 "ATTACKS",
                 $"{enemy.Name} · {display.DefenderNationName.ToUpperInvariant()}",
-                $"{display.UnitTypeNames[enemy.Type]} · {enemy.Troops:N0} troops",
+                $"{display.UnitTypeNames[enemy.Type]} · {enemy.Troops.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} troops",
                 "At End turn · No other unit attacks it.",
             },
             model.PlannedExchangeLines.ToArray());
