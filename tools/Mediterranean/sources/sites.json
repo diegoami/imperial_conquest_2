@@ -928,7 +928,7 @@
         },
         "218": {
           "name": "Bovianum",
-          "owner": "samnites",
+          "owner": "rome",
           "evidence": [
             {
               "kind": "location_points",
@@ -994,7 +994,7 @@
         },
         "218": {
           "name": "Saepinum",
-          "owner": "samnites",
+          "owner": "rome",
           "evidence": [
             {
               "kind": "location_points",
@@ -1052,7 +1052,7 @@
         },
         "218": {
           "name": "Compsa",
-          "owner": "samnites",
+          "owner": "rome",
           "evidence": [
             {
               "kind": "names",
@@ -1080,7 +1080,7 @@
       "eras": {
         "218": {
           "name": "Aesernia",
-          "owner": "samnites",
+          "owner": "rome",
           "evidence": [
             {
               "kind": "location_points",
@@ -1154,7 +1154,7 @@
         },
         "218": {
           "name": "Grumentum",
-          "owner": "lucanians",
+          "owner": "rome",
           "evidence": [
             {
               "kind": "location_points",
@@ -1220,7 +1220,7 @@
         },
         "218": {
           "name": "Petelia",
-          "owner": "lucanians",
+          "owner": "rome",
           "evidence": [
             {
               "kind": "location_points",
@@ -3891,44 +3891,6 @@
       "population": 16,
       "regional": false,
       "eras": {
-        "280": {
-          "name": "Carthago Nova",
-          "owner": "carthage",
-          "evidence": [
-            {
-              "kind": "location_points",
-              "uri": "https://pleiades.stoa.org/places/265849/darmc-location-20118",
-              "from": -330,
-              "to": 640,
-              "certainty": "certain",
-              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
-            },
-            {
-              "kind": "location_points",
-              "uri": "https://pleiades.stoa.org/places/265849/dare-location",
-              "from": -330,
-              "to": 640,
-              "certainty": "certain",
-              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
-            },
-            {
-              "kind": "names",
-              "uri": "https://pleiades.stoa.org/places/265849/carthago-nova",
-              "from": -330,
-              "to": 640,
-              "certainty": "certain",
-              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
-            },
-            {
-              "kind": "names",
-              "uri": "https://pleiades.stoa.org/places/265849/col-urbs-iulia",
-              "from": -330,
-              "to": 640,
-              "certainty": "certain",
-              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
-            }
-          ]
-        },
         "218": {
           "name": "Carthago Nova",
           "owner": "carthage",
@@ -5186,6 +5148,80 @@
               "uri": "https://pleiades.stoa.org/places/589815/ialysia",
               "from": -750,
               "to": 640,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "rhodes_city",
+      "pleiades": "https://pleiades.stoa.org/places/590030",
+      "sourceTitle": "Rhodos (settlement)",
+      "lon": 28.227611,
+      "lat": 36.443113,
+      "coordinateSource": "https://pleiades.stoa.org/places/590030",
+      "precision": "precise",
+      "sourceProvenance": "Barrington Atlas: BAtlas 60 G3 Rhodos",
+      "population": 22,
+      "regional": false,
+      "eras": {
+        "280": {
+          "name": "Rhodes",
+          "owner": "rhodes",
+          "evidence": [
+            {
+              "kind": "location_points",
+              "uri": "https://pleiades.stoa.org/places/590030/dare-location",
+              "from": -550,
+              "to": 640,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/590030/rhodos",
+              "from": -550,
+              "to": 640,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/590030/rhodos-1",
+              "from": -1200,
+              "to": 2000,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            }
+          ]
+        },
+        "218": {
+          "name": "Rhodes",
+          "owner": "rhodes",
+          "evidence": [
+            {
+              "kind": "location_points",
+              "uri": "https://pleiades.stoa.org/places/590030/dare-location",
+              "from": -550,
+              "to": 640,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/590030/rhodos",
+              "from": -550,
+              "to": 640,
+              "certainty": "certain",
+              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
+            },
+            {
+              "kind": "names",
+              "uri": "https://pleiades.stoa.org/places/590030/rhodos-1",
+              "from": -1200,
+              "to": 2000,
               "certainty": "certain",
               "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
             }
@@ -9535,28 +9571,6 @@
       "population": 5,
       "regional": false,
       "eras": {
-        "431": {
-          "name": "Thermon",
-          "owner": "aetolia",
-          "evidence": [
-            {
-              "kind": "location_points",
-              "uri": "https://pleiades.stoa.org/places/541139/dare-location",
-              "from": -750,
-              "to": 300,
-              "certainty": "certain",
-              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
-            },
-            {
-              "kind": "names",
-              "uri": "https://pleiades.stoa.org/places/541139/thermon",
-              "from": -750,
-              "to": 300,
-              "certainty": "certain",
-              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
-            }
-          ]
-        },
         "280": {
           "name": "Thermon",
           "owner": "aetolia",
@@ -9615,36 +9629,6 @@
       "population": 5,
       "regional": false,
       "eras": {
-        "431": {
-          "name": "Kalydon",
-          "owner": "aetolia",
-          "evidence": [
-            {
-              "kind": "location_points",
-              "uri": "https://pleiades.stoa.org/places/540699/darmc-location-11880",
-              "from": -750,
-              "to": 640,
-              "certainty": "certain",
-              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
-            },
-            {
-              "kind": "location_points",
-              "uri": "https://pleiades.stoa.org/places/540699/dare-location",
-              "from": -750,
-              "to": 640,
-              "certainty": "certain",
-              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
-            },
-            {
-              "kind": "names",
-              "uri": "https://pleiades.stoa.org/places/540699/calydon",
-              "from": -750,
-              "to": 640,
-              "certainty": "certain",
-              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
-            }
-          ]
-        },
         "280": {
           "name": "Kalydon",
           "owner": "aetolia",
@@ -9719,36 +9703,6 @@
       "population": 4,
       "regional": true,
       "eras": {
-        "431": {
-          "name": "Oiniadai",
-          "owner": "aetolia",
-          "evidence": [
-            {
-              "kind": "location_points",
-              "uri": "https://pleiades.stoa.org/places/531016/darmc-location-13993",
-              "from": -550,
-              "to": 300,
-              "certainty": "certain",
-              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
-            },
-            {
-              "kind": "location_points",
-              "uri": "https://pleiades.stoa.org/places/531016/dare-location",
-              "from": -550,
-              "to": 300,
-              "certainty": "certain",
-              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
-            },
-            {
-              "kind": "names",
-              "uri": "https://pleiades.stoa.org/places/531016/oiniadai",
-              "from": -550,
-              "to": 300,
-              "certainty": "certain",
-              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
-            }
-          ]
-        },
         "280": {
           "name": "Oiniadai",
           "owner": "aetolia",
@@ -14795,44 +14749,6 @@
       "population": 30,
       "regional": false,
       "eras": {
-        "431": {
-          "name": "Alexandria",
-          "owner": "egypt",
-          "evidence": [
-            {
-              "kind": "names",
-              "uri": "https://pleiades.stoa.org/places/727070/alexandria-1",
-              "from": -1548,
-              "to": 2000,
-              "certainty": "certain",
-              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
-            },
-            {
-              "kind": "names",
-              "uri": "https://pleiades.stoa.org/places/727070/al-iskandariya-1",
-              "from": -2010,
-              "to": 2000,
-              "certainty": "certain",
-              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
-            },
-            {
-              "kind": "names",
-              "uri": "https://pleiades.stoa.org/places/727070/alexandreia",
-              "from": -540,
-              "to": 650,
-              "certainty": "certain",
-              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
-            },
-            {
-              "kind": "names",
-              "uri": "https://pleiades.stoa.org/places/727070/alexandrea-ad-aegyptum",
-              "from": -540,
-              "to": 640,
-              "certainty": "certain",
-              "note": "Broad resource bounds, not proof of precise-year ownership or continuous urban occupation."
-            }
-          ]
-        },
         "280": {
           "name": "Alexandria",
           "owner": "egypt",

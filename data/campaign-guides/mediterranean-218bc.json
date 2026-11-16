@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "mediterranean-218bc",
+  "scenarioIds": [
+    "mediterranean-218bc"
+  ],
+  "kind": "historical",
+  "period": "Hannibal in Italy, 218 BC",
+  "background": "Hannibal has taken Saguntum, Rome declares war, and the Second Punic War opens in Iberia with Carthage's Barcid state holding New Carthage, Gades and Africa. Syracuse, Hiero II's long allyhip with Rome, Philip V's Macedon, the Hellenistic east and the Numidian kingdoms complete the Mediterranean.",
+  "abstractions": "Each seat is a grouped polity or regional command, not a unified state: the Numidian seat holds both royal houses as one abstraction, with Masinissa and Syphax named leaders of its two halves in the guide, not seats. Syracuse's loyalty to Rome is Hiero's peace, labelled as designed; Philip V is neutral at the opening, his pact with Hannibal came in 215. Roman colonies founded in 218 (Placentia, Cremona) are excluded, not labelled. The off-map arrival role carries the era's frontier riders, Numidian and Iberian. Borders, forces and populations are designed.",
+  "brief": "docs/campaign-guides.md",
+  "validation": "Provisional recommendations: playable IDs, opening city networks, one army per regular seat and starting fleets checked. Human difficulty, balance and mountain-crossing routes have not been playtested for this guidance.",
+  "powers": [
+    {
+      "nationId": "carthage",
+      "focus": "The Barcid state",
+      "advice": "Suggested as the default opening: at war with Rome from turn one, with Iberia, Africa and Hannibal's army. Carry the war into Italy over the passes, but keep the sea lanes to Africa and the Numidian towns friendly.",
+      "suggested": true
+    },
+    {
+      "nationId": "rome",
+      "focus": "The republic and its Italian allies",
+      "advice": "Suggested as a strong alternative: the largest seat in the west, with Iberia's Saguntum as the war's first stake and an invasion incoming. Hold the alliance towns, wear the invader down, and answer Carthage in Africa.",
+      "suggested": true
+    },
+    {
+      "nationId": "syracuse",
+      "focus": "Hiero II, Rome's ally",
+      "advice": "Suggested as the watcher's seat: eastern Sicily with a long peace with Rome. The war will pass your coasts; timing any change of side decides whether Sicily ends Greek or Punic.",
+      "suggested": true
+    },
+    {
+      "nationId": "macedon",
+      "focus": "Philip V",
+      "advice": "Neutral at the opening; the pact with Hannibal came in 215. The Aegean towns and the Achaean and Aetolian leagues around you are the board; the Italian war is an opportunity, not yet a commitment.",
+      "suggested": false
+    },
+    {
+      "nationId": "egypt",
+      "focus": "Ptolemy IV",
+      "advice": "The Nile and Cyprus with the most centres in the east, far from the Punic storm. Antiochus III's frontier is the contest that matters; the west can wait.",
+      "suggested": false
+    }
+  ],
+  "sources": [
+    {
+      "title": "Livius: Second Punic War",
+      "url": "https://www.livius.org/articles/war/second-punic-war/"
+    },
+    {
+      "title": "Livius: Hannibal",
+      "url": "https://www.livius.org/articles/people/hannibal/"
+    }
+  ]
+}

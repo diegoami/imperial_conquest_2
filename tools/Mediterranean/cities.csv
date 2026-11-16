@@ -12,12 +12,12 @@ clusium,413096,Clusium,etruria,Clusium,rome,Clusium,rome,10,false
 caere,422859,Caere,etruria,Caere,rome,Caere,rome,10,false
 tarquinii,413332,Tarquinii,etruria,Tarquinii,rome,Tarquinii,rome,8,false
 populonia,403212,Populonia,etruria,Populonia,rome,Populonia,rome,6,false
-bovianum,432725,,,Bovianum,samnites,Bovianum,samnites,8,false
-saepinum,433073,,,Saepinum,samnites,Saepinum,samnites,6,false
-compsa,442550,,,Compsa,samnites,Compsa,samnites,6,false
-aesernia,432652,,,,,Aesernia,samnites,5,false
-grumentum,442603,,,Grumentum,lucanians,Grumentum,lucanians,8,true
-petelia,452403,,,Petelia,lucanians,Petelia,lucanians,6,true
+bovianum,432725,,,Bovianum,samnites,Bovianum,rome,8,false
+saepinum,433073,,,Saepinum,samnites,Saepinum,rome,6,false
+compsa,442550,,,Compsa,samnites,Compsa,rome,6,false
+aesernia,432652,,,,,Aesernia,rome,5,false
+grumentum,442603,,,Grumentum,lucanians,Grumentum,rome,8,true
+petelia,452403,,,Petelia,lucanians,Petelia,rome,6,true
 heracleia_lucania,452333,,,Herakleia,lucanians,Herakleia,rome,6,false
 taras,442810,Taras,taras,Taras,epirus,Taras,rome,18,false
 metapontum,442658,Metapontum,taras,Metapontum,epirus,Metapontum,rome,10,false
@@ -47,7 +47,7 @@ agatha,147985,Agathe,massalia,Agathe,massalia,Agathe,massalia,5,true
 emporion,246382,Emporion,massalia,Emporion,massalia,Emporion,massalia,8,false
 rhode_iberia,246588,Rhoda,massalia,Rhoda,massalia,Rhoda,massalia,5,false
 saguntum,266021,Saguntum,,Saguntum,carthage,Saguntum,carthage,8,false
-carthago_nova,265849,,,Carthago Nova,carthage,Carthago Nova,carthage,16,false
+carthago_nova,265849,,,,,Carthago Nova,carthage,16,false
 gades,256177,Gades,carthage,Gades,carthage,Gades,carthage,12,false
 scodra,481986,,,Scodra,illyria,Scodra,illyria,10,false
 lissos,481896,,,Lissos,illyria,Lissos,illyria,6,false
@@ -63,6 +63,7 @@ antioch,658381,,,Antiocheia,seleucid,Antiocheia,seleucid,20,false
 elaea,550523,,,Elaia,pergamon,Elaia,pergamon,6,false
 camirus,589836,Kamiros,athens,Kamiros,rhodes,Kamiros,rhodes,5,false
 ialysos,589815,Ialysos,athens,Ialysos,rhodes,Ialysos,rhodes,4,false
+rhodes_city,590030,,,Rhodes,rhodes,Rhodes,rhodes,22,false
 athens,579885,Athens,athens,Athens,athens,Athens,athens,26,false
 piraeus,580062,Peiraieus,athens,Peiraieus,athens,Peiraieus,athens,10,false
 eleusis,579920,Eleusis,athens,Eleusis,athens,Eleusis,athens,5,false
@@ -115,9 +116,9 @@ ambracia,530794,Ambrakia,epirus,Ambrakia,epirus,Ambrakia,epirus,8,false
 dodona,530843,Dodona,epirus,Dodona,epirus,Dodona,epirus,4,true
 cassope,530922,Kassope,epirus,Kassope,epirus,Kassope,epirus,5,false
 bouthroton,530824,Bouthroton,epirus,Bouthroton,epirus,Bouthroton,epirus,4,true
-thermon,541139,Thermon,aetolia,Thermon,aetolia,Thermon,aetolia,5,false
-calydon,540699,Kalydon,aetolia,Kalydon,aetolia,Kalydon,aetolia,5,false
-oiniadai,531016,Oiniadai,aetolia,Oiniadai,aetolia,Oiniadai,aetolia,4,true
+thermon,541139,,,Thermon,aetolia,Thermon,aetolia,5,false
+calydon,540699,,,Kalydon,aetolia,Kalydon,aetolia,5,false
+oiniadai,531016,,,Oiniadai,aetolia,Oiniadai,aetolia,4,true
 sardis,550867,Sardis,persia,Sardis,pergamon,Sardis,pergamon,18,false
 abydos,501325,Abydos,persia,,,Abydos,pergamon,8,false
 lampsacus,501570,Lampsakos,persia,,,Lampsakos,pergamon,8,false
@@ -167,7 +168,7 @@ naucratis,727169,Naucratis,persia,Naucratis,egypt,Naucratis,egypt,8,false
 pelusium,727192,Pelusium,persia,Pelusium,egypt,Pelusium,egypt,8,false
 coptos,786010,Coptos,persia,Coptos,egypt,Coptos,egypt,6,false
 syene,786123,Syene,persia,Syene,egypt,Syene,egypt,4,true
-alexandria,727070,Alexandria,egypt,Alexandria,egypt,Alexandria,egypt,30,false
+alexandria,727070,,,Alexandria,egypt,Alexandria,egypt,30,false
 cyrene,373778,,,Cyrene,egypt,Cyrene,egypt,12,false
 salamis_cy,707617,Salamis,persia,Salamis,egypt,Salamis,egypt,12,false
 paphos,707586,Paphos,persia,Paphos,egypt,Paphos,egypt,6,false

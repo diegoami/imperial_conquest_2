@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "mediterranean-431bc",
+  "scenarioIds": [
+    "mediterranean-431bc"
+  ],
+  "kind": "historical",
+  "period": "The Peloponnesian War, 431 BC",
+  "background": "Athens' Delian empire and Sparta's Peloponnesian League open the war that Thucydides recorded, and it is already in progress. Persia's imperial west, Carthage's trade empire, Syracuse and the Italiote cities, Macedon and a one-city Rome are the other powers of the sea.",
+  "abstractions": "Each seat is a grouped polity or regional command, not a unified state: Athens stands for the Delian League empire, Boeotia for the Boeotian league at Thebes, Persia for the empire's western satrapies only, with Egypt inside it as a re-annexed satrapy after the Inaros revolt failed (454 BC) and Cyprus inside its sphere. Carthage and Syracuse are formally at peace at the opening; their rivalry is labelled, not scripted. The off-map arrival role carries the era's frontier raiders, Thracian and Illyrian. Borders, forces and populations are designed.",
+  "brief": "docs/campaign-guides.md",
+  "validation": "Provisional recommendations: playable IDs, opening city networks, one army per regular seat and starting fleets checked. Human difficulty, balance and mountain-crossing routes have not been playtested for this guidance.",
+  "powers": [
+    {
+      "nationId": "athens",
+      "focus": "The Delian League empire",
+      "advice": "Suggested as the default opening: the largest naval power, rich from tribute and already at war with Sparta. Defend the tribute lines, wear the league down by sea, and decide the Aegean before Persia stirs.",
+      "suggested": true
+    },
+    {
+      "nationId": "sparta",
+      "focus": "The Peloponnesian League",
+      "advice": "Suggested as a strong alternative: the land power of Greece, at war with Athens from turn one. Thrace and the Hellespont towns feed Athens' empire; cutting them off wins the war without a fleet battle.",
+      "suggested": true
+    },
+    {
+      "nationId": "persia",
+      "focus": "The imperial west",
+      "advice": "Suggested as the giants' game: the most centres on the map, from Sardis to Memphis, but far from the Greek storm. Gold and neutrality are weapons; fund the Greeks' war or take Egypt's old towns when the moment comes.",
+      "suggested": true
+    },
+    {
+      "nationId": "carthage",
+      "focus": "The Punic trade empire",
+      "advice": "A maritime seat at peace with Syracuse at the opening, holding Africa, western Sicily and Sardinia. The western sea lanes and the Sicilian towns are the natural prize; watch the young powers across the straits.",
+      "suggested": false
+    },
+    {
+      "nationId": "rome",
+      "focus": "The Latin republic",
+      "advice": "A deliberate one-city challenge: Roma alone, with the Etruscan cities and the Italiote towns all around. Survive, take Latium's neighbours, and grow while the Greek world bleeds.",
+      "suggested": false
+    }
+  ],
+  "sources": [
+    {
+      "title": "Livius: Peloponnesian War",
+      "url": "https://www.livius.org/articles/war/peloponnesian-war/"
+    },
+    {
+      "title": "Livius: Athens",
+      "url": "https://www.livius.org/articles/place/athens/"
+    }
+  ]
+}

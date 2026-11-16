@@ -6,17 +6,17 @@ using IC2.Slice.UI;
 namespace IC2.Slice.Checks;
 
 /// <summary>
-/// T201 Done-when 2: a portrait (160×200) and a wide (400×120) world fit the area map inside its pixel budget and
-/// fill the main map with no background showing, at the opening fit, fully zoomed out and fully zoomed in. The
-/// classical world keeps its 320×140, scale-1 area map. Runs the real <see cref="MainGameScreen"/> at the shipped
-/// window size.
+/// T201 Done-when 2: a portrait (160×200), a wide (400×120) and the Mediterranean's 400×220 world fit the area map
+/// inside its pixel budget and fill the main map with no background showing, at the opening fit, fully zoomed out and
+/// fully zoomed in. The classical world keeps its 320×140, scale-1 area map. Runs the real <see cref="MainGameScreen"/>
+/// at the shipped window size.
 /// </summary>
 public partial class MapFitCheck : Control
 {
     private const int SettleFrames = 8;
     private const float CoverageRounding = 0.001f;
 
-    private static readonly (int Width, int Height)[] Worlds = { (160, 200), (400, 120) };
+    private static readonly (int Width, int Height)[] Worlds = { (160, 200), (400, 120), (400, 220) };
 
     private readonly List<(int WaitFrames, Action Run)> _plan = new();
     private MainGameScreen? _mainGame;
