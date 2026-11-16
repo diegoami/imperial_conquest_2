@@ -1,5 +1,6 @@
 using Godot;
 using IC2.Engine.Presentation;
+using IC2.Slice.Assets;
 using IC2.Slice.UI;
 
 namespace IC2.Slice.Checks;
@@ -45,6 +46,35 @@ public partial class UnitActionIconsCheck : Node
                     Check(pixels.GetWidth() == 24 && pixels.GetHeight() == 24 && pixels.GetPixel(0, 0).A == 0
                         && colors.Count >= 4, name + " decodes natively with transparency and illustration colors");
                 }
+                probe.Free();
+            }
+            // #1815 SHOULD FIX-1: distinctness and logical-key correspondence. The presence/alpha/
+            // colour checks above cannot tell a copied file apart (rally.png over rally_clear.png
+            // passed the v0.10.2 review) or a swapped manifest mapping; this guard does both,
+            // without model generation, against the authored pack's own manifest.
+            var pack = AssetPackManifestLoader.TryLoadPack(GameDataContext.RepositoryRoot,
+                AssetPackManifestLoader.DefaultPackId, message => GD.PushWarning("UnitActionIconsCheck: " + message),
+                out var packId, out var packDirectory);
+            Check(pack is not null && packId == AssetPackManifestLoader.DefaultPackId,
+                "the illustrated actions resolve from the authored pack itself");
+            var digests = new Dictionary<string, string>();
+            foreach (var name in QolCommandIcons.IllustratedNames)
+            {
+                var mapped = pack is not null && pack.TryResolveAsset("ui.action." + name, out var relative) ? relative : null;
+                Check(mapped == $"ui/actions/{name}.png", name + " maps to its own ui/actions file");
+                var fromFile = mapped is null ? null : Image.LoadFromFile(Path.Combine(packDirectory!, mapped));
+                Check(fromFile is not null, name + " reads its manifest file natively");
+                if (fromFile is null) continue;
+                fromFile.Convert(Image.Format.Rgba8);
+                fromFile.Resize(24, 24, Image.Interpolation.Lanczos);
+                var probe = new Button();
+                QolCommandIcons.Apply(probe, name, name);
+                var applied = probe.Icon!.GetImage();
+                applied.Convert(Image.Format.Rgba8);
+                var appliedDigest = Digest(applied);
+                Check(appliedDigest == Digest(fromFile), name + " renders the bytes of its own manifest file");
+                Check(!digests.ContainsValue(appliedDigest), name + " does not duplicate another action's artwork");
+                digests[name] = appliedDigest;
                 probe.Free();
             }
             foreach (var scheme in ColorSchemes.All)
@@ -114,4 +144,8 @@ public partial class UnitActionIconsCheck : Node
         GD.Print((condition ? "PASS: " : "FAIL: ") + message);
         _ok &= condition;
     }
+
+    /// <summary>#1815: content identity of one rendered icon, so copies and swaps cannot pass.</summary>
+    private static string Digest(Image image) =>
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image.GetData()));
 }

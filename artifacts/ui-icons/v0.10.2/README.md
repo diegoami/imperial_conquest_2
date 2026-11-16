@@ -24,6 +24,8 @@ These are newly generated project illustrations, not original Imperial Conquest 
 
 The 36 existing colored `ui.command.*` icons and eight colored battle-toolbar glyphs are preserved. The old travel icon has no active Set target action after ordinary-click travel was introduced; its legacy fallback is retained. Menus/dialog choices and speed/nation values keep their useful text. Numeric watch counts remain visible. This is a presentation refresh, not new battle history, AI, movement or save behavior.
 
+Controls deliberately outside this family (disposition inventory, #1815): the strategic-travel **Skip** and **Fast** controls in the top bar (`MainGameScreen.cs`'s travel controls) stay plain text buttons — they appear only while movement plays, orders are locked, and Fast is a toggle, so text is their readable treatment; and the **F12** right-hand-column toggle (T132) is a keyboard shortcut mirroring the existing beside-column button, with no icon of its own. Neither joins the illustrated family, and neither control's callback changes.
+
 ## Reproduce without a model call
 
 Use Python with Pillow. From the checkout root:
