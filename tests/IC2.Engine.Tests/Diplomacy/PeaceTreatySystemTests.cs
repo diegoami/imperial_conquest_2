@@ -94,7 +94,7 @@ public sealed class PeaceTreatySystemTests
         Assert.Contains(lines, l => l.Contains("ends all current trading agreements", StringComparison.Ordinal));
         Assert.Contains(lines, l => l.Contains("ends all current alliances", StringComparison.Ordinal));
         Assert.Contains(lines, l => l.Contains("pays reparations of", StringComparison.Ordinal));
-        Assert.Contains(lines, l => l.Contains($"{reparations:N0}", StringComparison.Ordinal));
+        Assert.Contains(lines, l => l.Contains(reparations.ToString("N0", System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal));
         Assert.DoesNotContain(lines, l => l.Contains("have agreed to end their war", StringComparison.Ordinal));
     }
 
