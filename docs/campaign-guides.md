@@ -58,6 +58,24 @@ Applies to `persia-480bc`. The setting is Xerxes' invasion: the empire and its s
 
 Suggested openings: Athens (the default seat, the fleet and the evacuated city) and Sparta for the coalition, Caria for a fleet-centred position on the empire's side, Egypt for a distant quiet game. No difficulty or route certification is implied.
 
+## `mediterranean-431bc`
+
+Applies to `mediterranean-431bc`. The setting is the Peloponnesian War already in progress between Athens' Delian empire and Sparta's league, with Persia's imperial west, Carthage, Syracuse, Macedon and a one-city Rome as the sea's other powers; see [Livius, Peloponnesian War](https://www.livius.org/articles/war/peloponnesian-war/). The [Mediterranean brief](design/mediterranean-campaigns.md) records the grouped seats, the labelled Persian satrapy west (Egypt inside it) and the off-frame interior.
+
+Suggested openings: Athens (the default seat, the largest fleet and the tribute empire) and Sparta for the land league, Persia for the most centres, Carthage for the western sea, Rome as a deliberate one-city challenge. No difficulty or route certification is implied.
+
+## `mediterranean-280bc`
+
+Applies to `mediterranean-280bc`. The setting is one consistent snapshot, spring 280 BC: Pyrrhus answering Tarentum's call and Rome meeting an invasion from Epirus, with Carthage, the Sicilian towns and the Hellenistic east across the sea; see [Livius, Pyrrhus](https://www.livius.org/articles/people/pyrrhus/). Macedon's allegiance is a labelled snapshot choice between claimants, Thrace has no seat, and the Gauls are the off-map arrival role, as the [Mediterranean brief](design/mediterranean-campaigns.md) records.
+
+Suggested openings: Epirus (the default seat, Pyrrhus' war with Rome), Rome for the republic's manpower, Carthage for the patient maritime game, Egypt and the Seleucid kingdom for the eastern powers. No difficulty or route certification is implied.
+
+## `mediterranean-218bc`
+
+Applies to `mediterranean-218bc`. The setting is the opening of the Second Punic War: Hannibal has taken Saguntum and the war opens in Iberia, with Hiero II's Syracuse at peace with Rome and Philip V neutral (his pact with Hannibal came in 215); see [Livius, Second Punic War](https://www.livius.org/articles/war/second-punic-war/). The Numidian seat abstracts both royal houses, and the Roman colonies founded in 218 are excluded, as the [Mediterranean brief](design/mediterranean-campaigns.md) records.
+
+Suggested openings: Carthage (the default seat, Hannibal's war), Rome for the alliance towns and the long game, Syracuse for the watcher's seat, Macedon and Egypt for the neutral and eastern positions. No difficulty or route certification is implied.
+
 ## Authoring and future coverage
 
 Each guide uses schema version 1: stable guide ID; unique scenario IDs; `historical` or `generated` kind; period/geography caption; background; abstractions; repository brief; validation limits; powers (`nationId`, focus, advice, suggested, optional `requiresStartingFleet`); source title/HTTPS URL pairs. Plain text is English; no markup or translated-resource system is introduced. Keep paragraphs under 900 characters and advice under 600. Localization can replace strings without changing nation/scenario identities.

@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "mediterranean-280bc",
+  "scenarioIds": [
+    "mediterranean-280bc"
+  ],
+  "kind": "historical",
+  "period": "Pyrrhus in Italy, 280 BC",
+  "background": "Pyrrhus of Epirus answers Tarentum's call and lands in Italy, so Rome faces an invasion from Epirus while Carthage watches the straits of Sicily. Across the sea sit the contemporary Hellenistic powers: Ptolemy II's Egypt, Antiochus I's Seleucid kingdom, Pergamon, Rhodes, and a Macedon between kings.",
+  "abstractions": "One consistent snapshot, labelled as spring 280 BC: Macedon sits between the fall of Ptolemy Keraunos and Antigonus Gonatas' rise, and its allegiance is a labelled snapshot choice between claimants. Each seat is a grouped polity or regional command: the Samnites and Lucanians are highland federations, Thrace has no seat and its towns carry the Macedon and Illyria abstractions, Tarentum belongs to Pyrrhus' seat with the other Italiote towns as labelled friends or neutrals. The Gauls appear only as the off-map arrival role. Borders, forces and populations are designed.",
+  "brief": "docs/campaign-guides.md",
+  "validation": "Provisional recommendations: playable IDs, opening city networks, one army per regular seat and starting fleets checked. Human difficulty, balance and mountain-crossing routes have not been playtested for this guidance.",
+  "powers": [
+    {
+      "nationId": "epirus",
+      "focus": "Pyrrhus and the Tarentine call",
+      "advice": "Suggested as the default opening: at war with Rome from turn one, with Taras and Epirus under one crown. Pyrrhus needs a quick Italian win before the republic's manpower tells; Sicily is the second prize.",
+      "suggested": true
+    },
+    {
+      "nationId": "rome",
+      "focus": "The republic through the Samnite wars",
+      "advice": "Suggested as a strong alternative: the largest Italian seat, but with an invasion already landing in the south. End Pyrrhus' adventure fast, then the Samnite hills and Lucania are the road to a unified Italy.",
+      "suggested": true
+    },
+    {
+      "nationId": "carthage",
+      "focus": "The Punic empire",
+      "advice": "Suggested as the patient power: Africa, Sardinia and western Sicily with the sea's best fleets. Pyrrhus' Sicilian ambitions are the threat to plan for; the straits and the trade towns are yours to keep.",
+      "suggested": true
+    },
+    {
+      "nationId": "egypt",
+      "focus": "Ptolemy II's kingdom",
+      "advice": "The Nile, Cyprus and the Levant coast with the most centres in the east. Naval strength and distance are your safety; the Seleucid frontier is the contest that matters.",
+      "suggested": false
+    },
+    {
+      "nationId": "seleucid",
+      "focus": "Antiochus I's kingdom",
+      "advice": "Syria and Mesopotamia to the Euphrates bend, the interior labelled as the seat's edge. A long frontier with Ptolemy's Egypt and the Anatolian towns; the west is a distant stage.",
+      "suggested": false
+    }
+  ],
+  "sources": [
+    {
+      "title": "Metropolitan Museum: Art of the Hellenistic Age and the Hellenistic Tradition",
+      "url": "https://www.metmuseum.org/essays/art-of-the-hellenistic-age-and-the-hellenistic-tradition"
+    },
+    {
+      "title": "Livius: Pyrrhus",
+      "url": "https://www.livius.org/articles/people/pyrrhus/"
+    }
+  ]
+}

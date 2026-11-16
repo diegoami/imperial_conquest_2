@@ -1,0 +1,79 @@
+{
+  "solus": [
+    {
+      "kind": "contextual-range",
+      "from": -400,
+      "to": -200,
+      "uri": "https://en.wikipedia.org/wiki/Solunto",
+      "certainty": "broad context",
+      "basis": "Overview of the Punic Sicilian town founded after Motya's destruction, about 390 BC.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding. The centre is therefore absent from the 431 BC opening."
+    }
+  ],
+  "hadrumetum": [
+    {
+      "kind": "contextual-range",
+      "from": -800,
+      "to": -300,
+      "uri": "https://en.wikipedia.org/wiki/Hadrumetum",
+      "certainty": "broad context",
+      "basis": "Overview of the Phoenician trading colony in modern Tunisia.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "hippo_regius": [
+    {
+      "kind": "contextual-range",
+      "from": -1000,
+      "to": -300,
+      "uri": "https://en.wikipedia.org/wiki/Hippo_Regius",
+      "certainty": "broad context",
+      "basis": "Overview of the Phoenician trading post in modern Algeria.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "leptis_magna": [
+    {
+      "kind": "contextual-range",
+      "from": -700,
+      "to": -300,
+      "uri": "https://en.wikipedia.org/wiki/Leptis_Magna",
+      "certainty": "broad context",
+      "basis": "Overview of the Phoenician foundation of the seventh to sixth century BC.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ],
+  "colophon": [
+    {
+      "kind": "contextual-range",
+      "from": -1000,
+      "to": -250,
+      "uri": "https://en.wikipedia.org/wiki/Colophon,_Ionia",
+      "certainty": "broad context",
+      "basis": "Overview of the Ionian city, declining after Lysimachus moved its people to Ephesus around 294 BC.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding. The same range the Persia authoring carries."
+    }
+  ],
+  "mycenae": [
+    {
+      "kind": "contextual-range",
+      "from": -750,
+      "to": -400,
+      "uri": "https://en.wikipedia.org/wiki/Mycenae",
+      "certainty": "broad context",
+      "basis": "Overview of the Argolid town: declined after the Bronze Age but still inhabited; Herodotus lists the Mycenaeans among the Thermopylae contingent of 480 BC. Destroyed by Argos in 468 BC.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding. The same range the Persia authoring carries."
+    }
+  ],
+  "pella": [
+    {
+      "kind": "contextual-range",
+      "from": -420,
+      "to": -150,
+      "uri": "https://en.wikipedia.org/wiki/Pella",
+      "certainty": "broad context",
+      "basis": "Overview of the Macedonian capital founded by Archelaus about 400 BC.",
+      "note": "Author-interpreted contextual range from the cited overview, not a precise-year occupation or ownership finding."
+    }
+  ]
+}
