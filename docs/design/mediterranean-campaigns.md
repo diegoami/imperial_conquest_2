@@ -1,6 +1,6 @@
 # Mediterranean campaigns, 431, 280 and 218 BC: draft brief for T293.3
 
-**Status: draft for owner approval; no scenario data exists yet.** Tracks [#1839](https://github.com/diegoami/imperial_conquest_2/issues/1839), part of [#1808](https://github.com/diegoami/imperial_conquest_2/issues/1808). Contract: [T293](../tasks/T293.md). Openings fixed by [v011-campaigns-and-random-maps.md](v011-campaigns-and-random-maps.md#historical-starts): **431 BC** "whole-Mediterranean power balance including Persia, Carthage, Syracuse, Greek leagues, Macedon, early Rome and other regional powers; the Peloponnesian War is one theatre"; **280 BC** "Pyrrhus entering Italy, with Rome, Carthage, Sicily and the contemporary Hellenistic powers across the whole Mediterranean"; **218 BC** "Hannibal and the opening of the Second Punic War, within the wider Mediterranean". Dates establish campaign identity, not proven city ownership, troop counts or diplomacy. Owner decision 2026-11-09: a **new map**, not the classical 320x140 world; **280 BC uses one consistent snapshot**.
+**Status: brief approved by the owner 2026-11-16; no scenario data exists yet.** Tracks [#1839](https://github.com/diegoami/imperial_conquest_2/issues/1839), part of [#1808](https://github.com/diegoami/imperial_conquest_2/issues/1808). Contract: [T293](../tasks/T293.md). Openings fixed by [v011-campaigns-and-random-maps.md](v011-campaigns-and-random-maps.md#historical-starts): **431 BC** "whole-Mediterranean power balance including Persia, Carthage, Syracuse, Greek leagues, Macedon, early Rome and other regional powers; the Peloponnesian War is one theatre"; **280 BC** "Pyrrhus entering Italy, with Rome, Carthage, Sicily and the contemporary Hellenistic powers across the whole Mediterranean"; **218 BC** "Hannibal and the opening of the Second Punic War, within the wider Mediterranean". Dates establish campaign identity, not proven city ownership, troop counts or diplomacy. Owner decision 2026-11-09: a **new map**, not the classical 320x140 world; **280 BC uses one consistent snapshot**.
 
 ## Map and engine
 
@@ -93,11 +93,11 @@ Hannibal has taken Saguntum; Rome declares war and the war opens in Iberia.
 
 All three campaigns selectable with guide entries (T290), valid deterministic data, a viable opening for every playable seat, several rounds of real AI play without stalls or rejections on the larger map, a cross-range route check (the Alpine and Pyrenean crossings, the Greek corridors), save/load and copied-package launch, and a build script reproducing the data. The three openings share the authored sidecar and each carries a derived sidecar diff test (the Persia bound). `MediterraneanCampaignTests` mirror the Persia suite for the three years; the listed-cards test and the map-fit checks (400x220) gain the new entries.
 
-## Owner decisions to take
+## Owner decisions, 2026-11-16
 
-1. **Map frame and scale**: proposed 10W-40E, 24N-46N at 8x10 tiles per degree (400x220). Alternatives: a narrower sea frame (30N-46N — Egypt without Thebes, 400x170); or a coarser 6x8 tiles per degree (288x176, closer to classical pacing and cheaper to author).
-2. **All three seat lists** as drafted (uncertain holdings stay labelled), or amended.
-3. **Default human seats**: proposed **Athens at 431**, **Epirus (Pyrrhus) at 280**, **Carthage (Hannibal) at 218**. Alternatives: Sparta at 431; Rome at 280; Rome at 218.
-4. **Opening diplomacy**: wars in progress — **Sparta-Athens at 431**, **Epirus-Rome at 280**, **Rome-Carthage at 218**; every other pair neutral. The alternative is the all-neutral Diadochi precedent.
+1. **Map frame and scale**: 10W-40E, 24N-46N at 8x10 tiles per degree (400x220), approved as drafted.
+2. **All three seat lists** approved as drafted (uncertain holdings stay labelled in the scenario brief).
+3. **Default human seats**: **Athens at 431**, **Epirus (Pyrrhus) at 280**, **Carthage (Hannibal) at 218**.
+4. **Opening diplomacy**: wars in progress — **Sparta-Athens at 431**, **Epirus-Rome at 280**, **Rome-Carthage at 218**; every other pair neutral.
 
-**Next:** with the decisions recorded, the map authoring script (geography subsets, relief and passes, terrain import), then the curated city list, worlds, rulesets, scenarios, guides and the acceptance checks.
+**Next:** the map authoring script (geography subsets, relief and passes, terrain import), then the curated city list, worlds, rulesets, scenarios, guides and the acceptance checks.
