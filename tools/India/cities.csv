@@ -1,0 +1,76 @@
+id,pleiades,caption325,owner325,caption185,owner185,population,regional
+pataliputra,59978,Pataliputra,magadha,Pataliputra,sunga,26,false
+rajagriha,60016,Rajagriha,magadha,Rajagriha,sunga,12,false
+varanasi,,Varanasi,magadha,Varanasi,sunga,16,true
+kaushambi,59873,Kaushambi,magadha,Kaushambi,sunga,13,false
+sravasti,60067,Sravasti,magadha,Sravasti,sunga,12,false
+vaisali,60097,Vaisali,magadha,Vaisali,sunga,11,false
+champa_ganges,,Champa,magadha,Champa,sunga,10,true
+ayodhya,,Ayodhya,magadha,Ayodhya,sunga,11,true
+gaya,963537714,Gaya,magadha,Gaya,sunga,8,false
+kapilavastu,,Kapilavastu,magadha,Kapilavastu,sunga,6,true
+kushinagar,,Kushinagar,magadha,Kushinagar,sunga,5,true
+tamralipti,,Tamralipti,magadha,Tamralipti,sunga,11,true
+chandraketugarh,,Chandraketugarh,magadha,Chandraketugarh,sunga,6,true
+pundranagar,60011,Pundranagara,magadha,Pundranagara,sunga,7,true
+wari_bateshwar,,Wari-Bateshwar,magadha,Wari-Bateshwar,sunga,5,true
+bhita,,Bhita,magadha,Bhita,sunga,5,true
+hastinapura,,Hastinapura,magadha,Hastinapura,panchala,8,true
+indraprastha,,Indraprastha,magadha,Indraprastha,panchala,10,true
+mathura,59931,Mathura,magadha,Mathura,panchala,13,false
+ahichchhatra,,Ahichchhatra,magadha,Ahichchhatra,panchala,9,true
+kampil,,Kampilya,magadha,Kampilya,panchala,6,true
+sringaverapura,,Sringaverapura,magadha,Sringaverapura,sunga,5,true
+taxila,60083,Takshashila,taxila,Takshashila,indo_greek,18,false
+pushkalavati,59993,Pushkalavati,taxila,Pushkalavati,indo_greek,9,false
+bazira,59740,Bazira,macedonian_indus,Bazira,indo_greek,4,true
+alexandria_indus,59987,Alexandria on the Indus,macedonian_indus,Alexandria on the Indus,indo_greek,9,false
+roruka,,Roruka,macedonian_indus,Roruka,indo_greek,6,true
+sehwan,,Sehwan,macedonian_indus,Sehwan,indo_greek,6,true
+bucephala,59750,Bucephala,puru,Bucephala,indo_greek,7,false
+nicaea_india,,Nicaea on the Hydaspes,puru,Nicaea on the Hydaspes,indo_greek,5,true
+sagala,59812,Sagala,puru,Sagala,indo_greek,13,false
+mulasthana,,Mulasthana,malloi,Mulasthana,sibi,10,true
+harappa,93441396,Harappa,malloi,Harappa,sibi,5,true
+abhisara,,Abhisara (hill town),abhisara,Abhisara (hill town),indo_greek,5,true
+ujjain,59972,Ujjain,malava,Ujjain,malava,17,false
+mahishmati,,Mahishmati,malava,Mahishmati,malava,10,true
+vidisha,,Vidisha,malava,Vidisha,malava,11,true
+eran,,Erakina,malava,Erakina,malava,5,true
+madhyamika,,Madhyamika,malava,Madhyamika,malava,6,true
+pauni,,Pauni,vidarbha,Pauni,vidarbha,7,true
+kaundanyapur,,Kaundanyapur,vidarbha,Kaundanyapur,vidarbha,5,true
+pratishthana,50192,Pratishthana,asmaka,Pratishthana,satavahana,15,false
+nasik,50162,Nasika,asmaka,Nasika,satavahana,10,false
+tagara,50294,Tagara,asmaka,Tagara,satavahana,9,false
+nevasa,50167,Nevasa,asmaka,Nevasa,satavahana,6,true
+bhokardan,,Bhogavardhana,asmaka,Bhogavardhana,satavahana,5,true
+kotalingala,,,,Kotalingala,satavahana,5,true
+banavasi,49895,Vanavasa,kuntala,Vanavasa,kuntala,8,false
+sannati,,Sannati,kuntala,Sannati,satavahana,5,true
+brahmapuri,,Brahmapuri,kuntala,Brahmapuri,satavahana,5,true
+dharanikota,50219,Dharanikota,andhra,Dharanikota,satavahana,13,false
+salihundam,,,,Salihundam,satavahana,4,true
+pithunda,,,,Pithunda,satavahana,8,true
+peddavegi,,,,Peddavegi,satavahana,7,true
+sisupalgarh,,Sisupalgarh,kalinga,Sisupalgarh,kalinga,13,true
+jaugada,,Jaugada,kalinga,Jaugada,kalinga,6,true
+kalingapatnam,,Kalingapatnam,kalinga,Kalingapatnam,kalinga,5,true
+bharukachchha,59737,Barygaza,saurashtra,Barygaza,saurashtra,13,false
+sopara,50282,Souppara,saurashtra,Souppara,satavahana,9,false
+junagadh,,Girinagar,saurashtra,Girinagar,saurashtra,7,true
+prabhasa,50227,Prabhasa,saurashtra,Prabhasa,saurashtra,5,true
+dwarka,,Dvaraka,saurashtra,Dvaraka,saurashtra,6,true
+uraiyur,,Uraiyur,chola,Uraiyur,chola,11,true
+kaveripattinam,49939,Kaveripumpattinam,chola,Kaveripumpattinam,chola,8,false
+kodumanal,,Kodumanal,chola,Kodumanal,chera,4,true
+arikamedu,50221,,,Podouke,chola,5,true
+muziris,50146,,,Muziris,chera,10,false
+kanchipuram,,,,Kanchipuram,chola,7,true
+korkai,50064,Korkai,pandya,Korkai,pandya,7,false
+alagankulam,49850,Alagankulam,pandya,Alagankulam,pandya,6,false
+madurai,,Madurai,pandya,Madurai,pandya,15,true
+karur,50048,Karur,chola,Karur,chera,9,false
+kuninda,,,,Kulinda (hill country),kuninda,5,true
+audumbara,,,,Audumbara (hill country),audumbara,4,true
+sibi,,,,Sibi (hill country),sibi,4,true

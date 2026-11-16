@@ -1,0 +1,323 @@
+{
+  "varanasi": [
+    {"kind": "contextual-range", "from": -1200, "to": 800, "uri": "https://en.wikipedia.org/wiki/Varanasi",
+     "certainty": "broad context", "basis": "Overview of Varanasi as a long-inhabited Ganges city in the Kashi country; the precise founding is tradition, not excavation.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "ayodhya": [
+    {"kind": "contextual-range", "from": -800, "to": 800, "uri": "https://en.wikipedia.org/wiki/Ayodhya",
+     "certainty": "broad context", "basis": "Overview of Ayodhya/Saketa: an early Ganges-janapada capital, attested in Buddhist and epic literature and by the later Hanuman-garhi layers.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "champa_ganges": [
+    {"kind": "contextual-range", "from": -700, "to": 500, "uri": "https://en.wikipedia.org/wiki/Champa_(Anga_Mahajanapada)",
+     "certainty": "broad context", "basis": "Overview of Champapura, the Anga capital on the Champa river at modern Bhagalpur, before and after Anga's absorption into Magadha.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "kapilavastu": [
+    {"kind": "contextual-range", "from": -700, "to": 300, "uri": "https://en.wikipedia.org/wiki/Kapilavastu",
+     "certainty": "broad context", "basis": "Overview of Kapilavastu (Piprahwa/Tilaurakot): the Shakya capital of the Buddha's time, with stupa evidence from about the sixth century BC.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "kushinagar": [
+    {"kind": "contextual-range", "from": -700, "to": 600, "uri": "https://en.wikipedia.org/wiki/Kushinagar",
+     "certainty": "broad context", "basis": "Overview of Kusinara/Kushinagar, the Malla town of the Buddha's passing, with occupation through the early historical period.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "hastinapura": [
+    {"kind": "contextual-range", "from": -700, "to": 300, "uri": "https://en.wikipedia.org/wiki/Hastinapur",
+     "certainty": "broad context", "basis": "Overview of Hastinapura: Painted Grey Ware occupation ends in an ancient flood, and the site is reoccupied in the historical layers; the epic association is later literature.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "indraprastha": [
+    {"kind": "contextual-range", "from": -800, "to": 800, "uri": "https://en.wikipedia.org/wiki/Indraprastha",
+     "certainty": "broad context", "basis": "Overview of Indraprastha/Purana Qila: Painted Grey Ware and Northern Black Polished Ware layers on the Yamuna; the epic association is later literature.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "ahichchhatra": [
+    {"kind": "contextual-range", "from": -800, "to": 800, "uri": "https://en.wikipedia.org/wiki/Ahichchhatra",
+     "certainty": "broad context", "basis": "Overview of Ahichchhatra, the Panchala capital: Painted Grey Ware through Northern Black Polished Ware and historical layers.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "kampil": [
+    {"kind": "contextual-range", "from": -800, "to": 800, "uri": "https://en.wikipedia.org/wiki/Kampil",
+     "certainty": "broad context", "basis": "Overview of Kampilya, a Panchala town of the epic and Buddhist lists, with early historical occupation.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "sringaverapura": [
+    {"kind": "contextual-range", "from": -800, "to": 500, "uri": "https://en.wikipedia.org/wiki/Sringaverapura",
+     "certainty": "broad context", "basis": "Overview of Sringaverapura on the Ganges: Painted Grey Ware and Northern Black Polished Ware settlement, with a later early-historical water structure.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "mahishmati": [
+    {"kind": "contextual-range", "from": -700, "to": 700, "uri": "https://en.wikipedia.org/wiki/Mahishmati",
+     "certainty": "broad context", "basis": "Overview of Mahishmati on the Narmada at Maheshwar, the Haihaiya/Avanti capital of epic and Puranic tradition, identified with the Maheshwar occupation site.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "vidisha": [
+    {"kind": "contextual-range", "from": -600, "to": 800, "uri": "https://en.wikipedia.org/wiki/Vidisha",
+     "certainty": "broad context", "basis": "Overview of Vidisha/Besnagar: early historical occupation on the Betwa, the Heliodorus pillar of about 110 BC and the Sunga-period monuments nearby.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "eran": [
+    {"kind": "contextual-range", "from": -400, "to": 800, "uri": "https://en.wikipedia.org/wiki/Eran",
+     "certainty": "broad context", "basis": "Overview of Eran/Erakina on the Bina: Northern Black Polished Ware settlement through the Sunga and later periods.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "madhyamika": [
+    {"kind": "contextual-range", "from": -500, "to": 300, "uri": "https://en.wikipedia.org/wiki/Bairat",
+     "certainty": "broad context", "basis": "Overview of Bairat/Madhyamika in the Matsya country: Painted Grey Ware and Mauryan-period occupation, with the Ashokan inscription nearby.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "pauni": [
+    {"kind": "contextual-range", "from": -450, "to": 400, "uri": "https://en.wikipedia.org/wiki/Pauni",
+     "certainty": "broad context", "basis": "Overview of Pauni in Vidarbha: excavated stupa and rampart remains from the early historical period; the pre-Mauryan opening is a contextual extension, not an excavation claim.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "brahmapuri": [
+    {"kind": "contextual-range", "from": -200, "to": 400, "uri": "https://en.wikipedia.org/wiki/Brahmapuri,_Kolhapur",
+     "certainty": "broad context", "basis": "Overview of the Brahmapuri (Kolhapur) excavations: Satavahana-period occupation with Roman-trade finds.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "salihundam": [
+    {"kind": "contextual-range", "from": -200, "to": 800, "uri": "https://en.wikipedia.org/wiki/Salihundam",
+     "certainty": "broad context", "basis": "Overview of the Salihundam Buddhist site on the Vamsadhara: establishments from about the second century BC.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "pithunda": [
+    {"kind": "contextual-range", "from": -200, "to": 500, "uri": "https://en.wikipedia.org/wiki/Pithunda",
+     "certainty": "broad context", "basis": "Overview of Pithunda, named by Pliny among the Andhra-country towns on the eastern coast; its precise site is unlocated and the range is literary.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "peddavegi": [
+    {"kind": "contextual-range", "from": -300, "to": 800, "uri": "https://en.wikipedia.org/wiki/Pedavegi",
+     "certainty": "broad context", "basis": "Overview of Peddavegi (Vengi) near Eluru: early historical occupation and later Vengi-chalukya capital layers.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "kotalingala": [
+    {"kind": "contextual-range", "from": -300, "to": 300, "uri": "https://en.wikipedia.org/wiki/Kotalingala",
+     "certainty": "broad context", "basis": "Overview of Kotalingala on the Godavari: pre-Satavahana and early Satavahana coin hoards and settlement.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "sannati": [
+    {"kind": "contextual-range", "from": -300, "to": 500, "uri": "https://en.wikipedia.org/wiki/Sannati",
+     "certainty": "broad context", "basis": "Overview of Sannati on the Bhima: Mauryan-period inscriptions and Satavahana-era stupa layers.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "banavasi": [
+    {"kind": "contextual-range", "from": -400, "to": 800, "uri": "https://en.wikipedia.org/wiki/Banavasi",
+     "certainty": "broad context", "basis": "Overview of Banavasi (Vanavasa) in the Kanara country: an early historical trade centre centuries before its Kadamba-capital fame.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "sisupalgarh": [
+    {"kind": "contextual-range", "from": -700, "to": 400, "uri": "https://en.wikipedia.org/wiki/Sisupalgarh",
+     "certainty": "broad context", "basis": "Overview of the Sisupalgarh excavations near Bhubaneswar: a fortified early-historical city whose radiocarbon sequence reaches back centuries before the Mauryan edicts at Dhauli.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "jaugada": [
+    {"kind": "contextual-range", "from": -450, "to": 500, "uri": "https://en.wikipedia.org/wiki/Jaugada",
+     "certainty": "broad context", "basis": "Overview of Jaugada in Kalinga's southern coastal country: the Ashokan rock edict of about 250 BC is the firm terminus; the town's earlier occupation is contextual.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "tamralipti": [
+    {"kind": "contextual-range", "from": -400, "to": 1200, "uri": "https://en.wikipedia.org/wiki/Tamluk",
+     "certainty": "broad context", "basis": "Overview of Tamralipti (Tamluk): the delta port of the Gangaridai country, occupied from the Northern Black Polished Ware period through the medieval era.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "chandraketugarh": [
+    {"kind": "contextual-range", "from": -400, "to": 800, "uri": "https://en.wikipedia.org/wiki/Chandraketugarh",
+     "certainty": "broad context", "basis": "Overview of the Chandraketugarh excavations in the eastern delta: Northern Black Polished Ware through Gupta-period settlement.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "wari_bateshwar": [
+    {"kind": "contextual-range", "from": -450, "to": 300, "uri": "https://en.wikipedia.org/wiki/Wari-Bateshwar_ruins",
+     "certainty": "broad context", "basis": "Overview of the Wari-Bateshwar fortified settlement on the old Brahmaputra: radiocarbon and coin evidence from about the mid-first millennium BC.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "madurai": [
+    {"kind": "contextual-range", "from": -450, "to": 900, "uri": "https://en.wikipedia.org/wiki/Madurai",
+     "certainty": "broad context", "basis": "Overview of Madurai: the Pandya capital named in the Ashokan edicts about 250 BC; the Sangam corpus that describes it is later literature, so the pre-300 BC range is contextual.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "uraiyur": [
+    {"kind": "contextual-range", "from": -450, "to": 900, "uri": "https://en.wikipedia.org/wiki/Uraiyur",
+     "certainty": "broad context", "basis": "Overview of Uraiyur: Ptolemy's Argaru, the Chola capital; the Sangam corpus is later literature, so the pre-300 BC range is contextual.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "karur": [
+    {"kind": "contextual-range", "from": -450, "to": 900, "uri": "https://en.wikipedia.org/wiki/Karur",
+     "certainty": "broad context", "basis": "Overview of Karur (Karuvur): a Sangam-era Chera capital on the Amaravati; the corpus is later literature, so the pre-300 BC range is contextual.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "kaveripattinam": [
+    {"kind": "contextual-range", "from": -450, "to": 1000, "uri": "https://en.wikipedia.org/wiki/Poompuhar",
+     "certainty": "broad context", "basis": "Overview of Kaveripumpattinam (Puhar): the Chola port of the Sangam corpus, excavated underwater; the corpus is later literature, so the pre-300 BC range is contextual.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "arikamedu": [
+    {"kind": "contextual-range", "from": -250, "to": 400, "uri": "https://en.wikipedia.org/wiki/Arikamedu",
+     "certainty": "broad context", "basis": "Overview of the Arikamedu (Podouke) excavations: occupation and Mediterranean-trade finds from about the second century BC.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "muziris": [
+    {"kind": "contextual-range", "from": -300, "to": 600, "uri": "https://en.wikipedia.org/wiki/Muziris",
+     "certainty": "broad context", "basis": "Overview of Muziris (Pattanam): the Malabar trade port of the Periplus and Sangam texts; the excavated early phase begins around the third-second century BC.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "kodumanal": [
+    {"kind": "contextual-range", "from": -450, "to": 300, "uri": "https://en.wikipedia.org/wiki/Kodumanal",
+     "certainty": "broad context", "basis": "Overview of the Kodumanal excavations: a bead-and-iron industry site occupied from about the third century BC, with radiocarbon pushing the start earlier.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "alagankulam": [
+    {"kind": "contextual-range", "from": -450, "to": 700, "uri": "https://en.wikipedia.org/wiki/Alagankulam",
+     "certainty": "broad context", "basis": "Overview of the Alagankulam excavations: an eastern-coast trade site with Northern Black Polished Ware and Mediterranean finds from about the third century BC.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "korkai": [
+    {"kind": "contextual-range", "from": -800, "to": 500, "uri": "https://en.wikipedia.org/wiki/Korkai",
+     "certainty": "broad context", "basis": "Overview of the Korkai excavations: the Pandya pearl-fishery port, with megalithic-to-historical occupation from about the first millennium BC.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "mulasthana": [
+    {"kind": "contextual-range", "from": -500, "to": 800, "uri": "https://en.wikipedia.org/wiki/Multan",
+     "certainty": "broad context", "basis": "Overview of Multan: traditionally the Malli country's chief town on the Chenab-Ravi edge, encountered by Alexander's campaign in the Malli campaign of 326-325 BC.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "roruka": [
+    {"kind": "contextual-range", "from": -600, "to": 200, "uri": "https://en.wikipedia.org/wiki/Rohri",
+     "certainty": "broad context", "basis": "Overview of Roruka/Rohri on the upper Indus: named in Buddhist tradition as the Sindhu country's city; its precise site and dating are tradition, not excavation.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "nicaea_india": [
+    {"kind": "contextual-range", "from": -326, "to": 300, "uri": "https://en.wikipedia.org/wiki/Battle_of_the_Hydaspes",
+     "certainty": "broad context", "basis": "Nicaea on the Hydaspes was founded by Alexander after the battle of 326 BC; the foundation year is the evidence.",
+     "note": "Author-interpreted contextual range from the cited overview."}
+  ],
+  "bucephala": [
+    {"kind": "contextual-range", "from": -326, "to": 300, "uri": "https://en.wikipedia.org/wiki/Bucephala_(city)",
+     "certainty": "broad context", "basis": "Bucephala on the Hydaspes was founded by Alexander for Bucephalus after the battle of 326 BC; the foundation year is the evidence.",
+     "note": "Author-interpreted contextual range from the cited overview."}
+  ],
+  "abhisara": [
+    {"kind": "contextual-range", "from": -500, "to": 200, "uri": "https://en.wikipedia.org/wiki/Abhisara",
+     "certainty": "broad context", "basis": "Overview of Abhisara, the hill country between the Jhelum and Chenab whose king met Alexander's campaign; the region's towns are labelled abstractions.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "kuninda": [
+    {"kind": "contextual-range", "from": -300, "to": 300, "uri": "https://en.wikipedia.org/wiki/Kuninda_Kingdom",
+     "certainty": "broad context", "basis": "Overview of the Kuninda kingdom of the middle Himalaya: copper coinage from about the second-first century BC; the pre-coin history is contextual.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "audumbara": [
+    {"kind": "contextual-range", "from": -250, "to": 200, "uri": "https://en.wikipedia.org/wiki/Audumbara_State",
+     "certainty": "broad context", "basis": "Overview of the Audumbara republic of the Punjab hills: coinage from about the second-first century BC.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "sibi": [
+    {"kind": "contextual-range", "from": -300, "to": 200, "uri": "https://en.wikipedia.org/wiki/Sibi",
+     "certainty": "broad context", "basis": "Overview of the Sibi people and country of the northern Punjab: named by the classical geographers among the free peoples; the range is contextual.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "junagadh": [
+    {"kind": "contextual-range", "from": -700, "to": 800, "uri": "https://en.wikipedia.org/wiki/Junagadh",
+     "certainty": "broad context", "basis": "Overview of Junagadh and the Girnar hill: the Ashokan edicts of about 250 BC are the firm terminus; the Surashtra coast's towns before that are contextual.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "dwarka": [
+    {"kind": "contextual-range", "from": -800, "to": 800, "uri": "https://en.wikipedia.org/wiki/Dwarka",
+     "certainty": "broad context", "basis": "Overview of Dwarka on the Saurashtra coast: the epic tradition and the underwater investigations are debated; the range is a labelled abstraction, not a dated claim.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "prabhasa": [
+    {"kind": "contextual-range", "from": -800, "to": 800, "uri": "https://en.wikipedia.org/wiki/Somnath",
+     "certainty": "broad context", "basis": "Overview of Prabhas Patan on the Saurashtra coast: the epic and Puranic tirtha tradition and early-historical settlement layers; the range is a labelled abstraction.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "bharukachchha_extra": [],
+  "kaundanyapur": [
+    {"kind": "contextual-range", "from": -450, "to": 400, "uri": "https://en.wikipedia.org/wiki/Kaundanyapur",
+     "certainty": "broad context", "basis": "Overview of Kaundanyapur on the Wardha in Vidarbha: an early-historical site of the region's chiefdoms; the range is contextual.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "bhita": [
+    {"kind": "contextual-range", "from": -600, "to": 600, "uri": "https://en.wikipedia.org/wiki/Bhita",
+     "certainty": "broad context", "basis": "Overview of the Bhita excavations near Allahabad: early-historical occupation from the Northern Black Polished Ware period.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "bhokardan": [
+    {"kind": "contextual-range", "from": -450, "to": 400, "uri": "https://en.wikipedia.org/wiki/Bhokardan",
+     "certainty": "broad context", "basis": "Overview of the Bhokardan (Bhogavardhana) excavations in the Deccan's northern edge: early-historical occupation with Satavahana-era layers.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "kanchipuram": [
+    {"kind": "contextual-range", "from": -250, "to": 900, "uri": "https://en.wikipedia.org/wiki/Kanchipuram",
+     "certainty": "broad context", "basis": "Overview of Kanchipuram: early historical occupation from about the second century BC; the Pallava capital fame is later.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "kalingapatnam": [
+    {"kind": "contextual-range", "from": -450, "to": 500, "uri": "https://en.wikipedia.org/wiki/Kalingapatnam",
+     "certainty": "broad context", "basis": "Overview of Kalingapatnam on the Andhra-Kalinga coast: an ancient port of the coastal kingdom; the range is contextual.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "sehwan": [
+    {"kind": "contextual-range", "from": -450, "to": 400, "uri": "https://en.wikipedia.org/wiki/Sehwan",
+     "certainty": "broad context", "basis": "Overview of Sehwan on the Indus: identified by some with Alexander's Sodra or the Sindimana seat of the lower province; the range is contextual.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "gaya": [
+    {"kind": "contextual-range", "from": -500, "to": 800, "uri": "https://en.wikipedia.org/wiki/Gaya,_India",
+     "certainty": "broad context", "basis": "Overview of Gaya in Magadha: an early-historical city of the Buddhist and epic lists, with continuous occupation layers.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "harappa": [
+    {"kind": "contextual-range", "from": -600, "to": 300, "uri": "https://en.wikipedia.org/wiki/Harappa",
+     "certainty": "broad context", "basis": "Overview of the Harappa mound: the Bronze Age city's decline long predates the campaign, and the later historical-period occupation of the mound and its region is the labelled context for the Malli country's centre.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "ujjain": [
+    {"kind": "contextual-range", "from": -600, "to": 800, "uri": "https://en.wikipedia.org/wiki/Ujjain",
+     "certainty": "broad context", "basis": "Overview of Ujjain/Avantika: excavated occupation from about the seventh-sixth century BC, the classical Ozene of the trade routes.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "pratishthana": [
+    {"kind": "contextual-range", "from": -450, "to": 800, "uri": "https://en.wikipedia.org/wiki/Paithan",
+     "certainty": "broad context", "basis": "Overview of Paithan/Pratishthana: Ptolemy's Paithana, capital of the Satavahanas; the pre-Greek Deccan occupation is contextual.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "nasik": [
+    {"kind": "contextual-range", "from": -450, "to": 800, "uri": "https://en.wikipedia.org/wiki/Nashik",
+     "certainty": "broad context", "basis": "Overview of Nasik on the Godavari: early-historical occupation with the Pandu Leni cave establishments from about the first century BC; the earlier range is contextual.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "tagara": [
+    {"kind": "contextual-range", "from": -450, "to": 800, "uri": "https://en.wikipedia.org/wiki/Ter,_Maharashtra",
+     "certainty": "broad context", "basis": "Overview of the Ter (Tagara) excavations: an early-historical trade town of the Deccan interior from about the third century BC; the earlier range is contextual.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "nevasa": [
+    {"kind": "contextual-range", "from": -450, "to": 800, "uri": "https://en.wikipedia.org/wiki/Nevasa",
+     "certainty": "broad context", "basis": "Overview of the Nevasa excavations: Chalcolithic through early-historical occupation, continuous across the era.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "sannati": [
+    {"kind": "contextual-range", "from": -450, "to": 500, "uri": "https://en.wikipedia.org/wiki/Sannati",
+     "certainty": "broad context", "basis": "Overview of Sannati on the Bhima: Mauryan-period inscriptions and Satavahana-era stupa layers; the pre-Mauryan range is contextual.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "brahmapuri": [
+    {"kind": "contextual-range", "from": -450, "to": 400, "uri": "https://en.wikipedia.org/wiki/Brahmapuri,_Kolhapur",
+     "certainty": "broad context", "basis": "Overview of the Brahmapuri (Kolhapur) excavations: Satavahana-period occupation with Roman-trade finds; the pre-Satavahana range is contextual.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "dharanikota": [
+    {"kind": "contextual-range", "from": -450, "to": 600, "uri": "https://en.wikipedia.org/wiki/Dharanikota",
+     "certainty": "broad context", "basis": "Overview of Dharanikota/Amaravati on the Krishna: the great stupa's beginnings under the Mauryas are the firm terminus; the coastal chiefdoms before that are contextual.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ],
+  "sopara": [
+    {"kind": "contextual-range", "from": -450, "to": 800, "uri": "https://en.wikipedia.org/wiki/Nala_Sopara",
+     "certainty": "broad context", "basis": "Overview of Sopara (Shurparaka): an Ashokan edict fragment marks the Mauryan port; the earlier coastal occupation is contextual.",
+     "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."}
+  ]
+}

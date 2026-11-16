@@ -76,6 +76,18 @@ Applies to `mediterranean-218bc`. The setting is the opening of the Second Punic
 
 Suggested openings: Carthage (the default seat, Hannibal's war), Rome for the alliance towns and the long game, Syracuse for the watcher's seat, Macedon and Egypt for the neutral and eastern positions. No difficulty or route certification is implied.
 
+## `india-325bc`
+
+Applies to `india-325bc`. The setting is the subcontinent before the Mauryan unification: the Nanda empire of Magadha in the Ganges plain, the Punjab kings and the provisional Macedonian Indus command in the northwest, and the Deccan and Tamil regional powers; see [Livius, Porus](https://www.livius.org/articles/people/porus/). The [India brief](design/india-campaigns.md) records the grouped seats, the Deccan and Tamil abstractions and the off-frame edges.
+
+Suggested openings: Magadha (the default seat, the Ganges plain and the unification ahead), Puru for the Punjab, the Macedonian Indus command for the outsider's war, Taxila and Pandya for the quiet corners. No difficulty or route certification is implied.
+
+## `india-185bc`
+
+Applies to `india-185bc`. The setting is the Mauryan fall: Pushyamitra Sunga's coup realm at Pataliputra against the Indo-Greek command across the northwestern hills, with the early Satavahanas in the Deccan, Kalinga's coastal court and the Tamil kingdoms in the south; see [the Met's Mauryan essay](https://www.metmuseum.org/essays/mauryan-empire-ca-323-185-b-c). The [India brief](design/india-campaigns.md) records the hill-republic seats and the debated chronologies, all labelled.
+
+Suggested openings: Sunga (the default seat, the usurper's core), the Indo-Greek kingdom for the invader's war, the Satavahanas for the Deccan builder's game, Kalinga and Pandya for the coastal courts. No difficulty or route certification is implied.
+
 ## Authoring and future coverage
 
 Each guide uses schema version 1: stable guide ID; unique scenario IDs; `historical` or `generated` kind; period/geography caption; background; abstractions; repository brief; validation limits; powers (`nationId`, focus, advice, suggested, optional `requiresStartingFleet`); source title/HTTPS URL pairs. Plain text is English; no markup or translated-resource system is introduced. Keep paragraphs under 900 characters and advice under 600. Localization can replace strings without changing nation/scenario identities.

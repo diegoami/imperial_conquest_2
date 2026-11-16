@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "india-185bc",
+  "scenarioIds": [
+    "india-185bc"
+  ],
+  "kind": "historical",
+  "period": "The Mauryan Fall, c.185 BC",
+  "background": "The Mauryan empire has ended with a coup: Pushyamitra Sunga holds the old core at Pataliputra while Indo-Greek kings press across the northwestern hills. In the Deccan the early Satavahanas are rising at Pratishthana, Kalinga keeps its own court, and the Tamil kingdoms rule the far south.",
+  "abstractions": "Each seat is a grouped polity or regional command, not a unified state: the Indo-Greek seat stands for the Euthydemid command across the hills (Bactra itself is off-frame), the Sunga seat for the coup's realm and its contested reach, the Numidia-like hill republics - Audumbara, Kuninda, Sibi-Madraka - for the coin-minting gana-sanghas. Kalinga's court is the Mahameghavahana line with debated dates, labelled. Vidarbha's ruling house is unnamed in the sources. The off-map arrival role carries the era's northwestern pressure. Borders, forces and populations are designed.",
+  "brief": "docs/campaign-guides.md",
+  "validation": "Provisional recommendations: playable IDs, opening city networks, one army per regular seat and starting fleets checked. Human difficulty, balance and mountain-crossing routes have not been playtested for this guidance.",
+  "powers": [
+    {
+      "nationId": "sunga",
+      "focus": "Pushyamitra's realm",
+      "advice": "Suggested as the default opening: the largest seat in the east, at war with the Indo-Greek command from turn one. Hold Pataliputra and the Ganges core, and answer the hills with the empire's old manpower.",
+      "suggested": true
+    },
+    {
+      "nationId": "indo_greek",
+      "focus": "The Euthydemid command",
+      "advice": "Suggested as a strong alternative: at war with the Sunga from turn one, with the Indus towns and Sagala. The war in the plains is the campaign; Bactra behind the hills is off the map and out of reach.",
+      "suggested": true
+    },
+    {
+      "nationId": "satavahana",
+      "focus": "The early Satavahanas",
+      "advice": "Suggested as the Deccan builder: Pratishthana and the Godavari towns with room to grow north and east. The campaign's southern half belongs to whoever holds the crossings.",
+      "suggested": true
+    },
+    {
+      "nationId": "kalinga",
+      "focus": "The coastal court",
+      "advice": "Sisupalgarh and the coastal towns under the Mahameghavahana court. A mid-sized maritime seat with room east along the coast before the great powers turn south.",
+      "suggested": false
+    },
+    {
+      "nationId": "pandya",
+      "focus": "The pearl coast",
+      "advice": "Madurai, Korkai's pearls and the Gulf trade. The southernmost court; the sea and the Western Ghats are its moat.",
+      "suggested": false
+    }
+  ],
+  "sources": [
+    {
+      "title": "Metropolitan Museum: The Mauryan Empire (ca. 323-185 B.C.)",
+      "url": "https://www.metmuseum.org/essays/mauryan-empire-ca-323-185-b-c"
+    },
+    {
+      "title": "Livius: Chandragupta Maurya",
+      "url": "https://www.livius.org/articles/people/chandragupta-maurya/"
+    }
+  ]
+}

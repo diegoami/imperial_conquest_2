@@ -1,6 +1,6 @@
 # India campaigns, c.325 and c.185 BC: draft brief for T293.4
 
-**Status: draft brief for owner approval; no scenario data exists yet.** Tracks [#1840](https://github.com/diegoami/imperial_conquest_2/issues/1840), part of [#1808](https://github.com/diegoami/imperial_conquest_2/issues/1808). Contract: [T293](../tasks/T293.md). Openings fixed by [v011-campaigns-and-random-maps.md](v011-campaigns-and-random-maps.md#historical-starts): **c.325 BC** "regional powers before Mauryan unification"; **c.185 BC** "Mauryan fragmentation and the later political map". Dates establish campaign identity, not proven city ownership, troop counts or diplomacy. Owner decisions 2026-11-09: a **new map** (India has no existing geography — this task is also the geography-sourcing task), and **existing troop roles with authored names and art, labelled as abstractions; no new rules**. This brief proposes everything the owner must approve before data is authored; nothing here is a claim yet.
+**Status: brief approved by the owner 2026-11-16; the map and both openings' data are authored on the T293.4 branch (build script, worlds, rulesets, scenarios, guides, engine and Godot checks; see [tools/India/README.md](../../tools/India/README.md)).** Tracks [#1840](https://github.com/diegoami/imperial_conquest_2/issues/1840), part of [#1808](https://github.com/diegoami/imperial_conquest_2/issues/1808). Contract: [T293](../tasks/T293.md). Openings fixed by [v011-campaigns-and-random-maps.md](v011-campaigns-and-random-maps.md#historical-starts): **c.325 BC** "regional powers before Mauryan unification"; **c.185 BC** "Mauryan fragmentation and the later political map". Dates establish campaign identity, not proven city ownership, troop counts or diplomacy. Owner decisions 2026-11-09: a **new map** (this task is also the geography-sourcing task), and **existing troop roles with authored names and art, labelled as abstractions; no new rules**.
 
 ## Map and engine
 
@@ -73,11 +73,11 @@ The Mauryan empire has ended in a coup: Pushyamitra Sunga holds the old core, In
 
 Both India openings selectable with guide entries (T290), valid deterministic data, a viable opening for every playable seat, several rounds of real AI play without stalls or rejections on the larger map, a cross-range route check (the Khyber and Bolan corridors, the Vindhya/Ganges routes, the Deccan north-south crossings), save/load and copied-package launch, and a build script reproducing the data. The two openings share the authored sidecar and each carries a derived sidecar diff test (the Persia bound). `IndiaCampaignTests` mirror the Persia suite for the two years; the listed-cards test and the map-fit checks gain the new 272x320 entry.
 
-## Owner decisions (pending)
+## Owner decisions, 2026-11-16 (approved as drafted)
 
-1. **Map frame and scale**: 60E-94E, 5N-37N at 8x10 tiles per degree (272x320) — approve as drafted, or adjust the frame.
-2. **Both seat lists** (c.325 and c.185) as drafted, with the labelled uncertainties.
-3. **Default human seats**: Magadha at c.325; Sunga at c.185.
-4. **Opening diplomacy**: Macedonian Indus command-Malloi-Madraka at war at c.325; Indo-Greek kingdom-Sunga at war at c.185; every other pair neutral.
-5. **Horizons**: 20 years each (c.325 to 305; c.185 to 165).
-6. **Troop labels**: Longbowmen/Spearmen/Skirmishers/Light horse/Heavy horse as proposed, or the neutral Persia labels.
+1. **Map frame and scale**: 60E-94E, 5N-37N at 8x10 tiles per degree (272x320) — approved.
+2. **Both seat lists** (c.325 and c.185) as drafted, with the labelled uncertainties — approved.
+3. **Default human seats**: Magadha at c.325; Sunga at c.185 — approved.
+4. **Opening diplomacy**: Macedonian Indus command-Malloi-Madraka at war at c.325; Indo-Greek kingdom-Sunga at war at c.185; every other pair neutral — approved.
+5. **Horizons**: 20 years each (c.325 to 305; c.185 to 165) — approved.
+6. **Troop labels**: Longbowmen/Spearmen/Skirmishers/Light horse/Heavy horse — approved.

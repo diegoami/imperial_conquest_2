@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "india-325bc",
+  "scenarioIds": [
+    "india-325bc"
+  ],
+  "kind": "historical",
+  "period": "Before the Mauryas, c.325 BC",
+  "background": "Alexander's campaign has ended and his Indus command holds the rivers while client kings rule between them. In the east the Nanda empire of Magadha dominates the Ganges, and the Deccan and the far south are a set of regional powers the sources barely name. The Mauryan unification is twenty years away - and it is yours to make or to stop.",
+  "abstractions": "Each seat is a grouped polity or regional command, not a unified state: Magadha stands for the Nanda consolidation across the middle Ganges, the Macedonian Indus command for the provisional satrapal administration of Peithon and Philip, the Malloi-Madraka seat for the Punjab confederacies. The Deccan's Vidarbha, Asmaka and Kuntala seats and the Tamil kingdoms' existence at this date are labelled designed abstractions - the sources barely name them. The off-map arrival role carries the era's hill and forest peoples. Borders, forces and populations are designed.",
+  "brief": "docs/campaign-guides.md",
+  "validation": "Provisional recommendations: playable IDs, opening city networks, one army per regular seat and starting fleets checked. Human difficulty, balance and mountain-crossing routes have not been playtested for this guidance.",
+  "powers": [
+    {
+      "nationId": "magadha",
+      "focus": "The Nanda empire",
+      "advice": "Suggested as the default opening: the most centres in the rich Ganges plain, with the whole subcontinent's unification twenty years ahead. The Macedonian command and the Punjab kings are far away; the Deccan routes are the natural expansion.",
+      "suggested": true
+    },
+    {
+      "nationId": "puru",
+      "focus": "Porus' restored kingdom",
+      "advice": "Suggested as a strong alternative: the famous king between the rivers, enlarged by Alexander's grant and standing next to his Macedonian neighbours. Consolidate the Punjab before the east wakes up.",
+      "suggested": true
+    },
+    {
+      "nationId": "macedonian_indus",
+      "focus": "The provisional command",
+      "advice": "Suggested as the outsider's game: the Indus towns, the new foundations and the coast, already at war with the Punjab confederacy. Hold the rivers and the passes, or the command becomes a memory in a decade.",
+      "suggested": true
+    },
+    {
+      "nationId": "taxila",
+      "focus": "Ambhi's Gandhara",
+      "advice": "Takshashila's schools and the Indus confluence under a king who bought his throne with cooperation. Small, defensible, and rich in the northwest trade.",
+      "suggested": false
+    },
+    {
+      "nationId": "pandya",
+      "focus": "The pearl coast",
+      "advice": "The far southern kingdom at Madurai, with Korkai's pearl fishery and the Gulf coast. Distance is safety; the Tamil ports feed a quiet growth game.",
+      "suggested": false
+    }
+  ],
+  "sources": [
+    {
+      "title": "Livius: Porus",
+      "url": "https://www.livius.org/articles/people/porus/"
+    },
+    {
+      "title": "Metropolitan Museum: The Mauryan Empire (ca. 323-185 B.C.)",
+      "url": "https://www.metmuseum.org/essays/mauryan-empire-ca-323-185-b-c"
+    }
+  ]
+}
