@@ -117,3 +117,14 @@ Open and recent tasks only. Merged tasks (T01–T191 and others) are in their cl
 - [T280](tasks/T280.md) — Persistent ordinary-click travel
 - [T281](tasks/T281.md) — Army and fleet rally map feedback
 - [T284](tasks/T284.md) — Illustrated action icons
+- [T282](tasks/T282.md) — Faithful AI audit corrections for v0.10
+- [T283](tasks/T283.md) — Selected-civilization observer playback
+- [T288](tasks/T288.md) — Visible New Game action and right-side setup
+- [T289](tasks/T289.md) — Independent right-side strategic panels and compact toolbars
+- [T290](tasks/T290.md) — Campaign-selection background and playable-power guidance
+- [T291](tasks/T291.md) — Open Imperial Conquest naming sweep
+- [T292](tasks/T292.md) — Optional original-assets loading with authored fallback (contract only)
+- [T293](tasks/T293.md) — Eleven historical campaigns (contract and decomposition)
+- [T294](tasks/T294.md) — Seeded random maps with five regional styles (contract and decomposition)
+- [T295](tasks/T295.md) — Intermittent ConqueredHumanTreasuryTests failure under suite load (#1816)
+- [T296](tasks/T296.md) — Pin the continuous observer's followed nation (`--observe-follow`)
