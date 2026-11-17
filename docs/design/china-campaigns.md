@@ -1,6 +1,6 @@
 # China campaigns, c.350 and 230 BC: draft brief for T293.5
 
-**Status: draft awaiting owner review.** Tracks [#1841](https://github.com/diegoami/imperial_conquest_2/issues/1841), part of [#1808](https://github.com/diegoami/imperial_conquest_2/issues/1808). Contract: [T293](../tasks/T293.md). Openings fixed by [v011-campaigns-and-random-maps.md](v011-campaigns-and-random-maps.md#historical-starts): **c.350 BC** "a more open Warring States contest"; **230 BC** "Qin's final unification campaigns". Dates establish campaign identity, not proven city ownership, troop counts or diplomacy. Owner decisions 2026-11-09: a **new map** (this task is also the geography-sourcing task), and **existing troop roles with authored names and art, labelled as abstractions; no new rules** — the same troop-role decision India took.
+**Status: brief approved by the owner 2026-11-17; authoring follows on the T293.5 branch (the India pipeline: build script, worlds, rulesets, scenarios, guides, engine and Godot checks).** Tracks [#1841](https://github.com/diegoami/imperial_conquest_2/issues/1841), part of [#1808](https://github.com/diegoami/imperial_conquest_2/issues/1808). Contract: [T293](../tasks/T293.md). Openings fixed by [v011-campaigns-and-random-maps.md](v011-campaigns-and-random-maps.md#historical-starts): **c.350 BC** "a more open Warring States contest"; **230 BC** "Qin's final unification campaigns". Dates establish campaign identity, not proven city ownership, troop counts or diplomacy. Owner decisions 2026-11-09: a **new map** (this task is also the geography-sourcing task), and **existing troop roles with authored names and art, labelled as abstractions; no new rules** — the same troop-role decision India took.
 
 ## Map and engine
 
@@ -69,11 +69,11 @@ Qin holds Shu-Ba, has ended the Zhou (249) and broken the coalition era; the end
 
 Both China openings selectable with guide entries (T290), valid deterministic data, a viable opening for every playable seat, several rounds of real AI play without stalls or rejections on the larger map, a cross-range route check (the Hangu/Xiao corridor, Wu Pass, the middle Yellow River fords, Jingxing and the Taihang crossings, the Daba crossings and the gorges, the Ming'e/Fangcheng lines, the Huai corridor), save/load and copied-package launch, and a build script reproducing the data. The two openings share the authored sidecar and each carries a derived sidecar diff test (the Persia bound). `ChinaCampaignTests` mirror the India suite for the two years; the listed-cards test and the map-fit checks gain the new 208x220 entry.
 
-## Owner decisions requested
+## Owner decisions, 2026-11-17 (approved as drafted)
 
-1. **Map frame and scale**: 98E-124E, 22N-44N at 8x10 tiles per degree (208x220), with Lingnan, the Korean peninsula, the deep steppe and the Gansu corridor's far west off-frame — proposed.
-2. **Both seat lists** as drafted — **including the deliberate reduction to 11 regular seats at 230** (the seven states, Wey and the three steppe powers) instead of India's uniform 15 — the draft's biggest deviation, needing sign-off.
-3. **Default human seats**: Wei at c.350; Qin at 230 — proposed.
-4. **Opening diplomacy**: Qin-Wei at war at c.350; Qin-Han at war at 230; every other pair neutral — proposed.
-5. **Horizons**: 20 years each (c.350 to 330; 230 to 210) — proposed.
-6. **Troop labels**: Crossbowmen/Halberdiers/Skirmishers/Light horse/Chariots — proposed.
+1. **Map frame and scale**: 98E-124E, 22N-44N at 8x10 tiles per degree (208x220), with Lingnan, the Korean peninsula, the deep steppe and the Gansu corridor's far west off-frame — approved.
+2. **Both seat lists** as drafted — 15 regular at c.350, and the deliberate labelled reduction to 11 regular at 230 (the seven states, Wey and the three steppe powers) — approved.
+3. **Default human seats**: Wei at c.350; Qin at 230 — approved.
+4. **Opening diplomacy**: Qin-Wei at war at c.350; Qin-Han at war at 230; every other pair neutral — approved.
+5. **Horizons**: 20 years each (c.350 to 330; 230 to 210) — approved.
+6. **Troop labels**: Crossbowmen/Halberdiers/Skirmishers/Light horse/Chariots — approved.
