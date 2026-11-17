@@ -4,12 +4,17 @@ using IC2.Engine.Presentation;
 namespace IC2.Slice.UI;
 
 /// <summary>Transient spectator policy; see docs/design/v011-continuous-observer.md.
-/// Choosing a viewpoint never consumes the campaign's RNG.</summary>
+/// Choosing a viewpoint never consumes the campaign's RNG. A pinned nation (--observe-follow)
+/// is watched until elimination and costs no chooser call; only the fallback selection draws.</summary>
 public sealed class ContinuousObserverPolicy
 {
     private readonly Func<int, int> _choose;
     public string? WatchedNationId { get; private set; }
-    public ContinuousObserverPolicy(Func<int, int>? choose = null) => _choose = choose ?? Random.Shared.Next;
+    public ContinuousObserverPolicy(Func<int, int>? choose = null, string? pinnedNationId = null)
+    {
+        _choose = choose ?? Random.Shared.Next;
+        WatchedNationId = pinnedNationId;
+    }
 
     public string? SelectSurvivor(GameState state, Scenario scenario)
     {

@@ -9,7 +9,7 @@ import {encodeObserver} from './observer-encoding.mjs';
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const options=Object.fromEntries(process.argv.slice(2).map(arg=>{const m=/^--([a-z-]+)=(.+)$/.exec(arg);if(!m)throw Error('Expected --option=value');return[m[1],m[2]];}));
-for(const key of Object.keys(options))if(!['out','godot','ffmpeg','ffprobe','seed','scenario','max-seconds','excerpt-seconds'].includes(key))throw Error(`Unknown option ${key}`);
+for(const key of Object.keys(options))if(!['out','godot','ffmpeg','ffprobe','seed','scenario','max-seconds','excerpt-seconds','follow'].includes(key))throw Error(`Unknown option ${key}`);
 if(!options.out)throw Error('Use --out=<new-folder>; one full campaign is recorded, no upload is performed');
 const output=resolve(options.out),scenarioId=options.scenario??'classical-mediterranean',seed=seedValue(options.seed??'44');
 if(existsSync(output))throw Error('Output exists; preserve the prior attempt and choose a new folder');
@@ -17,6 +17,8 @@ const maximum=Number(options['max-seconds']??21600),excerptSeconds=Number(option
 if(!Number.isInteger(maximum)||maximum<5||maximum>21600||!Number.isInteger(excerptSeconds)||excerptSeconds<5||excerptSeconds>180)throw Error('Bound capture to 5–21600 seconds and excerpt to 5–180 seconds');
 const scenario=productionScenarios(root,readdirSync(join(root,'data/scenarios')).filter(f=>f.endsWith('.json'))).find(s=>s.id===scenarioId);
 if(!scenario)throw Error('Choose a listed production scenario, not a shortened test campaign');
+const followNation=options.follow;
+if(followNation&&!scenario.seats.some(seat=>seat.nation===followNation))throw Error(`Scenario ${scenarioId} has no seat nation '${followNation}'`);
 const tools={godot:options.godot??'godot',ffmpeg:options.ffmpeg??'ffmpeg',ffprobe:options.ffprobe??'ffprobe',dotnet:'dotnet',pwsh:'pwsh',git:'git'};
 function sync(tool,args,allowed=[0]){const result=spawnSync(tools[tool],args,{cwd:root,encoding:'utf8',windowsHide:true,maxBuffer:4*1024*1024,timeout:180000});if(result.error||!allowed.includes(result.status))throw Error(`${tool} failed: ${result.error?.message??result.stderr}`);return result.stdout;}
 const commit=sync('git',['rev-parse','HEAD']).trim();
@@ -28,12 +30,14 @@ if(sync('git',['status','--porcelain','--untracked-files=no']).trim())throw Erro
 mkdirSync(dirname(output),{recursive:true});mkdirSync(output);mkdirSync(join(output,'profile'));
 const logPath=join(output,'capture.log'),source=join(output,'campaign.ogv');
 const request={scenarioId,seed:String(seed),sourceCommit:commit,maximumSeconds:maximum,fps,nativeWidth:1920,nativeHeight:1080,
+  followNation:followNation??null,
   startedAt:new Date().toISOString(),uploadAuthorizedCount:1,channelId:'UCQHMx6rNOKfLxFRI4_Tf6cA',profile:'lynxsupercluster',playlistTitle:'Open Imperial Conquest'};
 writeFileSync(join(output,'capture-request.json'),JSON.stringify(request,null,2)+'\n');
 console.log(`Capturing one complete ${scenario.name} campaign, seed ${seed}, source ${commit}. An exhausted budget will NOT count as completion.`);
 const args=['--path',join(root,'godot'),'--windowed','--resolution','1920x1080','--disable-vsync','--rendering-method','gl_compatibility','--write-movie',source,
   '--fixed-fps',String(fps),'--quit-after',String(maximum*fps),'--log-file',join(output,'profile/engine.log'),'--','--observe-loop',
-  `--observe-scenario=${scenarioId}`,`--observe-seed=${seed}`,`--observe-recording=${join(output,'profile')}`,'--observe-complete'];
+  `--observe-scenario=${scenarioId}`,`--observe-seed=${seed}`,`--observe-recording=${join(output,'profile')}`,
+  ...(followNation?[`--observe-follow=${followNation}`]:[]),'--observe-complete'];
 await new Promise((resolveCapture,reject)=>{
   const child=spawn(tools.godot,args,{cwd:root,windowsHide:true,env:{...process.env,XDG_DATA_HOME:join(output,'profile'),XDG_CONFIG_HOME:join(output,'profile'),XDG_CACHE_HOME:join(output,'profile')}});
   const deadline=setTimeout(()=>{child.kill();reject(Error('Full capture exceeded its bounded wall-clock runtime; no upload is allowed'));},maximum*3000+180000);

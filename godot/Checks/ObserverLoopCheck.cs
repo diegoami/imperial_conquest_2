@@ -37,6 +37,23 @@ public partial class ObserverLoopCheck : Control
             Check(main.ObserverLoopNation is null && !main.ObserverFollowChoice.ButtonPressed && main.ObserverSpeedChoice.GetSelectedId() == 800,
                 "leaving loop restores remembered presentation choices");
             Check(SettingsScreen.Current == unusual, "loop does not write user preferences");
+            Check(ObserverLaunchOptions.Parse(new[] { "--observe-loop", "--observe-follow=rome" }).FollowNationId == "rome",
+                "launch parse keeps the pinned nation");
+            CheckThrows(() => ObserverLaunchOptions.Parse(new[] { "--observe-follow=rome" }), "--observe-follow without --observe is rejected");
+            CheckThrows(() => ObserverLaunchOptions.Parse(new[] { "--observe-loop", "--observe-follow=" }), "an empty --observe-follow is rejected");
+            root.StartObserverCampaign(true, followNationId: "rome");
+            main = (MainGameScreen)root.CurrentScreen!; main.SetProcess(false);
+            Check(main.ObserverLoopNation == "rome", "pinned loop watches the requested nation");
+            main._Process(1);
+            Check(main.ObserverLoopNation == "rome", "the pin survives loop ticks");
+            var pin = new ContinuousObserverPolicy(_ => throw new InvalidOperationException("pinned viewpoint consumed the chooser"), "rome");
+            var pinWatched = pin.SelectSurvivor(main.Session.State, main.Session.Scenario);
+            Check(pinWatched == "rome" && pin.WatchedNationId == "rome", "the pin selects itself without consuming the chooser");
+            var fallback = new ContinuousObserverPolicy(_ => 0, "atlantis");
+            var picked = fallback.SelectSurvivor(main.Session.State, main.Session.Scenario);
+            Check(picked is not null && fallback.WatchedNationId == picked, "an unknown pin falls back to selection");
+            CheckThrows(() => root.StartObserverCampaign(true, followNationId: "atlantis"), "a nation outside the scenario seats is rejected");
+            main.ObserverPause(); main.SetObserverLoop(false);
             if (OS.GetCmdlineUserArgs().Contains("--capture"))
             {
                 // Optional real-renderer QA; never called by the headless CI lane.
@@ -96,5 +113,11 @@ public partial class ObserverLoopCheck : Control
     {
         if (condition) GD.Print("PASS: " + message);
         else { _ok = false; GD.PrintErr("FAIL: " + message); }
+    }
+
+    private void CheckThrows(Action action, string message)
+    {
+        try { action(); Check(false, message + " (no exception thrown)"); }
+        catch (ArgumentException) { Check(true, message); }
     }
 }
