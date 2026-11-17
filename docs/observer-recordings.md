@@ -52,7 +52,7 @@ node scripts/record-full-observer.mjs --out=rendered/observer/pilot --seed=44 --
   '--ffprobe=C:\Users\diego\projects\imperial_conquest_2\rendered\tools\ffmpeg\ffmpeg-9.0.2-essentials_build\bin\ffprobe.exe'
 ```
 
-Optional `--scenario=<production-scenario-id>` chooses another listed historical scenario; `--seed=<integer>` selects its seed. The default capture budget is 21,600 recorded seconds (six hours); `--max-seconds=...` can reduce it. Reaching the budget is a failure, not evidence of a full campaign. This command captures exactly one campaign, using authored assets, isolated settings, slow movement-following and tactical observer battles. It exits at the actual terminal boundary, derives the paired excerpt and writes metadata. It performs no upload.
+Optional `--scenario=<production-scenario-id>` chooses another listed historical scenario; `--seed=<integer>` selects its seed. Optional `--follow=<nationId>` pins the continuous observer's camera to one seat — it is forwarded to the game as `--observe-follow=` and recorded in `capture-request.json`; the camera follows that nation until it is eliminated, then falls back to the usual selection (the pin consumes no campaign RNG). The default capture budget is 21,600 recorded seconds (six hours); `--max-seconds=...` can reduce it. Reaching the budget is a failure, not evidence of a full campaign. This command captures exactly one campaign, using authored assets, isolated settings, slow movement-following and tactical observer battles. It exits at the actual terminal boundary, derives the paired excerpt and writes metadata. It performs no upload.
 
 ## Verify picture, cadence and completion
 

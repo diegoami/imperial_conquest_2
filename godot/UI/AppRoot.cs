@@ -61,7 +61,7 @@ public partial class AppRoot : Control
         {
             try
             {
-                if (launch.Observe) { StartObserverCampaign(launch.Loop, launch.ScenarioId, launch.Seed, launch.RecordingDirectory, launch.CompleteCampaign); return; }
+                if (launch.Observe) { StartObserverCampaign(launch.Loop, launch.ScenarioId, launch.Seed, launch.RecordingDirectory, launch.CompleteCampaign, launch.FollowNationId); return; }
             }
             catch (ArgumentException ex)
             {
@@ -75,7 +75,7 @@ public partial class AppRoot : Control
 
     private ulong? _lastObserverSeed;
 
-    public void StartObserverCampaign(bool loop, string? scenarioId = null, ulong? seedOverride = null, string? recordingDirectory = null, bool completeCampaign = false)
+    public void StartObserverCampaign(bool loop, string? scenarioId = null, ulong? seedOverride = null, string? recordingDirectory = null, bool completeCampaign = false, string? followNationId = null)
     {
         var seed = seedOverride ?? (ulong)Random.Shared.NextInt64();
         if (seedOverride is null && seed == _lastObserverSeed) seed++;
@@ -84,9 +84,12 @@ public partial class AppRoot : Control
         if (scenarioId is not null)
             selection.SelectedCard = RulesetPresets.CardForScenario(GameDataContext.Repository.Resolve(scenarioId));
         var session = GameSessionFactory.CreateSession(GameDataContext.Repository, selection, seed);
+        if (followNationId is not null && session.Scenario.Seats.All(s => s.Nation != followNationId))
+            throw new ArgumentException($"--observe-follow names '{followNationId}', which is not a seat of scenario '{session.Scenario.Id}'.");
         var screen = new MainGameScreen { Session = session, RepositoryRoot = GameDataContext.RepositoryRoot,
             AutoStartObserver = true, StartObserverLoop = loop, ObserverRecordingDirectory = recordingDirectory,
-            ObserverViewpointSeed = recordingDirectory is null ? null : unchecked((int)seed ^ (int)(seed >> 32)) };
+            ObserverViewpointSeed = recordingDirectory is null ? null : unchecked((int)seed ^ (int)(seed >> 32)),
+            ObserverFollowNationId = followNationId };
         WireObserverRestart(screen);
         if (completeCampaign) screen.ObserverCampaignFinished += ending => {
             GD.Print("OBSERVER_END " + System.Text.Json.JsonSerializer.Serialize(new {

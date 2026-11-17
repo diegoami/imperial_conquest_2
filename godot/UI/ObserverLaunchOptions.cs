@@ -2,14 +2,15 @@ namespace IC2.Slice.UI;
 
 /// <summary>User arguments after Godot's -- separator. Ordinary startup remains menu-driven.</summary>
 public sealed record ObserverLaunchOptions(bool Observe = false, bool Loop = false,
-    string? ScenarioId = null, ulong? Seed = null, string? RecordingDirectory = null, bool CompleteCampaign = false)
+    string? ScenarioId = null, ulong? Seed = null, string? RecordingDirectory = null, bool CompleteCampaign = false,
+    string? FollowNationId = null)
 {
     public static ObserverLaunchOptions Parse(IEnumerable<string> arguments)
     {
         var observe = false;
         var loop = false;
         var complete = false;
-        string? scenario = null, recording = null;
+        string? scenario = null, recording = null, follow = null;
         ulong? seed = null;
         foreach (var argument in arguments)
         {
@@ -33,13 +34,18 @@ public sealed record ObserverLaunchOptions(bool Observe = false, bool Loop = fal
                 recording = argument["--observe-recording=".Length..];
                 if (!Path.IsPathFullyQualified(recording)) throw new ArgumentException("--observe-recording needs an absolute output directory.");
             }
+            else if (argument.StartsWith("--observe-follow=", StringComparison.Ordinal))
+            {
+                follow = argument["--observe-follow=".Length..];
+                if (string.IsNullOrWhiteSpace(follow)) throw new ArgumentException("--observe-follow needs a nation ID.");
+            }
             else if (argument.StartsWith("--observe", StringComparison.Ordinal))
                 throw new ArgumentException($"Unknown observer option '{argument}'. Use --observe or --observe-loop.");
         }
-        if (!observe && (scenario is not null || seed is not null || recording is not null))
-            throw new ArgumentException("Observer scenario/seed/recording options require --observe or --observe-loop.");
+        if (!observe && (scenario is not null || seed is not null || recording is not null || follow is not null))
+            throw new ArgumentException("Observer scenario/seed/recording/follow options require --observe or --observe-loop.");
         if (recording is not null && !loop) throw new ArgumentException("Recording requires --observe-loop.");
         if (complete && recording is null) throw new ArgumentException("--observe-complete requires an observer recording directory.");
-        return new(observe, loop, scenario, seed, recording, complete);
+        return new(observe, loop, scenario, seed, recording, complete, follow);
     }
 }

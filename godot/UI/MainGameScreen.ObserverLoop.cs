@@ -9,6 +9,7 @@ public partial class MainGameScreen
     public bool StartObserverLoop { get; init; }
     public string? ObserverRecordingDirectory { get; init; }
     public int? ObserverViewpointSeed { get; init; }
+    public string? ObserverFollowNationId { get; init; }
     public event Action? ObserverRestartRequested;
     public event Action<string>? ObserverCampaignFinished;
     public CheckBox ObserverLoopChoice { get; private set; } = null!;
@@ -29,7 +30,7 @@ public partial class MainGameScreen
     public void SetObserverLoop(bool enabled)
     {
         if (!Session.IsObserverMode || !ObserverAtBoundary) return;
-        _observerLoop = enabled ? new ContinuousObserverPolicy(ObserverViewpointSeed is { } seed ? new Random(seed).Next : null) : null;
+        _observerLoop = enabled ? new ContinuousObserverPolicy(ObserverViewpointSeed is { } seed ? new Random(seed).Next : null, ObserverFollowNationId) : null;
         _observerSeatDelay = 0;
         _observerEndingHold = 0;
         ObserverLoopChoice.SetPressedNoSignal(enabled);
