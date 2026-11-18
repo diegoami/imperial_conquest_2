@@ -42,6 +42,13 @@ namespace IC2.Engine.Persistence;
 public sealed record SaveSummary(
     string Id, string Label, string ScenarioId, string WorldId, string RulesetId, int TurnIndex);
 
+/// <summary>
+/// A save loaded together with the records it runs under: the save itself, and the
+/// World/Ruleset/Scenario its ids resolve to — a shipped set through the repository, a generated
+/// world and its scenario through the save's own embedded records (T294e, #1846).
+/// </summary>
+public sealed record ResolvedSave(SaveGame Save, World World, Ruleset Ruleset, Scenario Scenario);
+
 public static class SaveManager
 {
     private static readonly JsonSerializerOptions WriteOptions = new(GameJson.Options) { WriteIndented = true };
@@ -144,6 +151,32 @@ public static class SaveManager
     }
 
     /// <summary>
+    /// Loads a save file without checking it against a running game's World and Ruleset — the shape
+    /// <see cref="LoadFile(string, GameDataRepository)"/>'s resolution needs, since a save carrying an
+    /// <see cref="SaveGame.EmbeddedWorld"/> names records the caller has not loaded yet.
+    /// </summary>
+    /// <exception cref="GameDataException">
+    /// The file is unreadable, malformed, or declares a save format version newer than this build
+    /// supports (<see cref="UnsupportedSaveFormatException"/>).
+    /// </exception>
+    public static SaveGame LoadFile(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        string json;
+        try
+        {
+            json = File.ReadAllText(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            throw new MalformedGameDataException(path, $"the file could not be read: {ex.Message}", ex);
+        }
+
+        return Load(path, json);
+    }
+
+    /// <summary>
     /// Loads a save from envelope text, checking it against the World and Ruleset the caller is
     /// currently running under.
     /// </summary>
@@ -166,9 +199,7 @@ public static class SaveManager
         ArgumentNullException.ThrowIfNull(expectedWorld);
         ArgumentNullException.ThrowIfNull(expectedRuleset);
 
-        var envelope = ParseEnvelope(documentPath, json);
-        var foundVersion = ReadVersion(documentPath, envelope);
-
+        var (envelope, foundVersion) = ParseVersioned(documentPath, json);
         if (foundVersion > SaveFormat.CurrentVersion)
         {
             throw new UnsupportedSaveFormatException(documentPath, foundVersion, SaveFormat.CurrentVersion);
@@ -183,7 +214,61 @@ public static class SaveManager
         var current = foundVersion < SaveFormat.CurrentVersion
             ? SaveMigrations.MigrateToCurrent(documentPath, envelope, foundVersion, expectedWorld)
             : envelope;
+        var save = DeserializeCurrent(documentPath, current);
 
+        if (!string.Equals(save.WorldId, expectedWorld.Id, StringComparison.Ordinal))
+        {
+            throw new SaveContextMismatchException(documentPath, "world", expectedWorld.Id, save.WorldId);
+        }
+
+        if (!string.Equals(save.RulesetId, expectedRuleset.Id, StringComparison.Ordinal))
+        {
+            throw new SaveContextMismatchException(documentPath, "ruleset", expectedRuleset.Id, save.RulesetId);
+        }
+
+        return save;
+    }
+
+    /// <summary>
+    /// Loads a save from envelope text without checking it against a running game's World and
+    /// Ruleset: everything structural is checked (envelope, format version, the state the payload
+    /// carries, the save's own embedded records), and the caller resolves the World/Ruleset/Scenario
+    /// afterwards — a save naming a shipped set resolves as always, one carrying an
+    /// <see cref="SaveGame.EmbeddedWorld"/> resolves from itself (<see cref="LoadFile(string, GameDataRepository)"/>).
+    /// </summary>
+    /// <exception cref="MalformedGameDataException">The text is not a valid save envelope.</exception>
+    /// <exception cref="MissingRequiredFieldException">The envelope is missing a required field.</exception>
+    /// <exception cref="UnsupportedSaveFormatException">
+    /// The envelope declares a save format version newer than this build supports.
+    /// </exception>
+    public static SaveGame Load(string documentPath, string json)
+    {
+        ArgumentNullException.ThrowIfNull(json);
+
+        var (envelope, foundVersion) = ParseVersioned(documentPath, json);
+        if (foundVersion > SaveFormat.CurrentVersion)
+        {
+            throw new UnsupportedSaveFormatException(documentPath, foundVersion, SaveFormat.CurrentVersion);
+        }
+
+        var current = foundVersion < SaveFormat.CurrentVersion
+            ? SaveMigrations.MigrateToCurrent(documentPath, envelope, foundVersion)
+            : envelope;
+        return DeserializeCurrent(documentPath, current);
+    }
+
+    private static (JsonObject Envelope, int FoundVersion) ParseVersioned(string documentPath, string json)
+    {
+        var envelope = ParseEnvelope(documentPath, json);
+        return (envelope, ReadVersion(documentPath, envelope));
+    }
+
+    /// <summary>
+    /// The migration-and-deserialize half every <see cref="Load"/> shares: the payload's presence, the
+    /// envelope turn index agreeing with the state it describes, and the document validation itself.
+    /// </summary>
+    private static SaveGame DeserializeCurrent(string documentPath, JsonObject current)
+    {
         if (!current.TryGetPropertyValue(SaveFormat.PayloadField, out var payloadNode) || payloadNode is null)
         {
             throw new MissingRequiredFieldException(documentPath, SaveFormat.PayloadField, "the save envelope");
@@ -206,17 +291,31 @@ public static class SaveManager
                 + $"the save's own state.calendar.turnIndex ({save.State.Calendar.TurnIndex}).");
         }
 
-        if (!string.Equals(save.WorldId, expectedWorld.Id, StringComparison.Ordinal))
-        {
-            throw new SaveContextMismatchException(documentPath, "world", expectedWorld.Id, save.WorldId);
-        }
-
-        if (!string.Equals(save.RulesetId, expectedRuleset.Id, StringComparison.Ordinal))
-        {
-            throw new SaveContextMismatchException(documentPath, "ruleset", expectedRuleset.Id, save.RulesetId);
-        }
-
         return save;
+    }
+
+    /// <summary>
+    /// Loads a save file and resolves what it names: the repository is asked first, so shipped saves
+    /// behave exactly as before; a save naming a world or scenario the build does not ship falls back
+    /// to its own <see cref="SaveGame.EmbeddedWorld"/>/<see cref="SaveGame.EmbeddedScenario"/>, so a
+    /// generated game reloads without its generator, the shipped data set or any preview cache. The
+    /// ruleset always comes from the repository: a generated game runs under a shipped ruleset.
+    /// </summary>
+    /// <exception cref="UnresolvedReferenceException">
+    /// The save names a ruleset the build does not ship, or a world/scenario it does not ship and does
+    /// not embed.
+    /// </exception>
+    public static ResolvedSave LoadFile(string path, GameDataRepository repository)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        var save = LoadFile(path);
+        var world = repository.WorldById(save.WorldId) ?? save.EmbeddedWorld
+            ?? throw new UnresolvedReferenceException(path, "world", save.WorldId);
+        var scenario = repository.ScenarioById(save.ScenarioId) ?? save.EmbeddedScenario
+            ?? throw new UnresolvedReferenceException(path, "scenario", save.ScenarioId);
+        var ruleset = repository.RulesetById(save.RulesetId)
+            ?? throw new UnresolvedReferenceException(path, "ruleset", save.RulesetId);
+        return new ResolvedSave(save, world, ruleset, scenario);
     }
 
     private static JsonObject ParseEnvelope(string documentPath, string json)

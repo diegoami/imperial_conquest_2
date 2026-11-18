@@ -33,6 +33,19 @@ namespace IC2.Engine.Model;
 /// newest this-many entries, so its first <c>end</c> lists them too. <see langword="null"/> (absent from the
 /// JSON) for a save made after the first <c>end</c> and for every older save.
 /// </param>
+/// <param name="EmbeddedWorld">
+/// T294e (#1846): a generated world carried inside its save, absent (<see langword="null"/>, and absent
+/// from the JSON) for every save of a shipped world. The save is then self-contained: loading needs
+/// neither the shipped data set, nor the generator that made the world, nor any preview cache — the
+/// world reloads exactly as written, its provenance recording the generator version, style and seed
+/// for information only; reloading never regenerates. The id must agree with <see cref="WorldId"/>.
+/// </param>
+/// <param name="EmbeddedScenario">
+/// T294e (#1846): the scenario a generated game started from, absent for every save of a shipped
+/// scenario. A generated game's scenario ships in no data directory, so the save carries it the same
+/// way as <see cref="EmbeddedWorld"/>. The id must agree with <see cref="ScenarioId"/>, and the
+/// scenario's own world and ruleset ids with <see cref="WorldId"/> and <see cref="RulesetId"/>.
+/// </param>
 public sealed record SaveGame(
     int SchemaVersion,
     string Id,
@@ -47,7 +60,9 @@ public sealed record SaveGame(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ValueList<ArmyTravelTarget>? ArmyTravelTargets = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ValueList<RetreatSupplyPlan>? RetreatSupplyPlans = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ValueList<NationRallyPoint>? NationRallyPoints = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ValueList<FleetRallyOrder>? FleetRallyOrders = null) : IVersionedDocument;
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ValueList<FleetRallyOrder>? FleetRallyOrders = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] World? EmbeddedWorld = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Scenario? EmbeddedScenario = null) : IVersionedDocument;
 
 /// <summary>A fixed destination chosen for an army in this campaign's native JSON save.</summary>
 public sealed record ArmyTravelTarget(string ArmyId, string NationId, int X, int Y,

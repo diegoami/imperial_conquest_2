@@ -884,6 +884,34 @@ public static class GameDataValidation
             throw new MalformedGameDataException(
                 documentPath, "the save's world/ruleset/scenario ids disagree with the state it carries.");
         }
+
+        // T294e (#1846): an embedded generated world or scenario must be the one the save names, and
+        // the embedded scenario must reference the save's own world and ruleset — otherwise the save
+        // would resolve to records that disagree with the state it carries.
+        if (save.EmbeddedWorld is { } embeddedWorld
+            && !string.Equals(embeddedWorld.Id, save.WorldId, StringComparison.Ordinal))
+        {
+            throw new MalformedGameDataException(
+                documentPath, $"the save embeds world '{embeddedWorld.Id}' but names world '{save.WorldId}'.");
+        }
+
+        if (save.EmbeddedScenario is { } embeddedScenario)
+        {
+            if (!string.Equals(embeddedScenario.Id, save.ScenarioId, StringComparison.Ordinal))
+            {
+                throw new MalformedGameDataException(
+                    documentPath,
+                    $"the save embeds scenario '{embeddedScenario.Id}' but names scenario '{save.ScenarioId}'.");
+            }
+
+            if (!string.Equals(embeddedScenario.WorldId, save.WorldId, StringComparison.Ordinal)
+                || !string.Equals(embeddedScenario.RulesetId, save.RulesetId, StringComparison.Ordinal))
+            {
+                throw new MalformedGameDataException(
+                    documentPath,
+                    "the save's embedded scenario references a different world or ruleset than the save names.");
+            }
+        }
     }
 
     private static void ValidateState(string documentPath, GameState state)

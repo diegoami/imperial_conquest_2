@@ -53,6 +53,8 @@ public static class OriginalSaveExportFieldMapping
         new(typeof(SaveGame), "RetreatSupplyPlans", Kind.Omitted, "none", "Per-unit recovery plans are reported but cannot be encoded by the original."),
         new(typeof(SaveGame), "FleetRallyOrders", Kind.Omitted, "none", "Campaign fleet journeys are explicitly reported as omitted."),
         new(typeof(SaveGame), "NationRallyPoints", Kind.Omitted, "none", "Campaign rally targets are reported but cannot be encoded by the original."),
+        new(typeof(SaveGame), "EmbeddedWorld EmbeddedScenario", Kind.Omitted, "none",
+            "T294e: a generated world and its scenario have no original SAV representation; the exporter only ever runs the shipped classical world."),
 
         new(typeof(GameState), "SchemaVersion WorldId RulesetId ScenarioId", Kind.Validated,
             "original classical context", "Schema and context must match the supported original campaign."),

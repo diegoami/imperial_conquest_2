@@ -389,17 +389,22 @@ internal static class Program
                 values.GetValueOrDefault("--template"),
                 values.GetValueOrDefault("--config") ?? Path.Combine(repositoryRoot, "assets.local.ini"));
             var repository = GameDataRepository.Load(Path.Combine(repositoryRoot, "data"));
-            var summary = SaveManager.PeekSummaryFile(input);
-            var world = repository.WorldById(summary.WorldId);
-            var ruleset = repository.RulesetById(summary.RulesetId);
-            if (world is null || ruleset is null)
+            ResolvedSave resolved;
+            try
+            {
+                resolved = SaveManager.LoadFile(input, repository);
+            }
+            catch (UnresolvedReferenceException ex) when (ex.Kind is "world" or "ruleset")
             {
                 Console.Error.WriteLine($"Save '{input}' names a world or ruleset this build does not have.");
                 return 1;
             }
 
+            var world = resolved.World;
+            var save = resolved.Save;
+            var ruleset = resolved.Ruleset;
+            var summary = SaveManager.PeekSummaryFile(input);
             var inputHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(input)));
-            var save = SaveManager.LoadFile(input, world, ruleset);
             var written = OriginalSaveExporter.ExportFile(save, world, ruleset, templatePath, output);
             var result = written.Export;
 
@@ -432,39 +437,26 @@ internal static class Program
     private static (GameSession? Session, string? Error) LoadSession(
         GameDataRepository repository, string loadPath, HumanBattleMode humanBattles)
     {
-        SaveSummary summary;
+        ResolvedSave resolved;
         try
         {
-            summary = SaveManager.PeekSummaryFile(loadPath);
+            resolved = SaveManager.LoadFile(loadPath, repository);
+        }
+        catch (UnresolvedReferenceException ex) when (ex.Kind is "world" or "ruleset" or "scenario")
+        {
+            return (null,
+                $"Save '{loadPath}' names a world/ruleset/scenario this build does not have "
+                + $"({ex.Kind} '{ex.Id}').");
         }
         catch (GameDataException ex)
         {
             return (null, $"Could not read save '{loadPath}': {ex.Message}");
         }
 
-        var world = repository.WorldById(summary.WorldId);
-        var ruleset = repository.RulesetById(summary.RulesetId);
-        var scenario = repository.ScenarioById(summary.ScenarioId);
-        if (world is null || ruleset is null || scenario is null)
-        {
-            return (null,
-                $"Save '{loadPath}' names a world/ruleset/scenario this build does not have "
-                + $"(world '{summary.WorldId}', ruleset '{summary.RulesetId}', scenario '{summary.ScenarioId}').");
-        }
-
-        SaveGame save;
-        try
-        {
-            save = SaveManager.LoadFile(loadPath, world, ruleset);
-        }
-        catch (GameDataException ex)
-        {
-            return (null, $"Could not load save '{loadPath}': {ex.Message}");
-        }
-
+        var (save, world, ruleset, scenario) = (resolved.Save, resolved.World, resolved.Ruleset, resolved.Scenario);
         Console.Error.WriteLine(
-            $"Loaded save '{summary.Label}': scenario '{scenario.Id}', world '{world.Id}', "
-            + $"ruleset '{ruleset.Id}', turn {summary.TurnIndex}.");
+            $"Loaded save '{save.Label}': scenario '{scenario.Id}', world '{world.Id}', "
+            + $"ruleset '{ruleset.Id}', turn {save.State.Calendar.TurnIndex}.");
 
         return (new GameSession(world, ruleset, scenario, save) { HumanBattles = humanBattles }, null);
     }
