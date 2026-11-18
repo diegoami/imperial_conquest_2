@@ -41,21 +41,6 @@ public sealed class CentralAsiaStyle : IMapStyle
         TownsMin: 3,
         TownsMax: 5,
         Fleets: 1,
-        Names: new NameBank(
-            Nations:
-            [
-                "Karchal", "Tengir", "Ortagai", "Beshkul", "Saratal", "Uzunda", "Kalmir", "Argalyn",
-                "Dzhamir", "Tepstan", "Urmand", "Zharken", "Ishtyk", "Kobdan", "Lapkhan", "Mirash",
-                "Azhgar", "Kelteber",
-            ],
-            CityPrefixes:
-            ["Ka", "Or", "Bes", "Sar", "Uz", "Kha", "Dzha", "Te", "Zh", "Ish", "Ko", "La", "Mi", "Az"],
-            CitySuffixes:
-            ["kent", "kul", "tash", "gai", "tal", "anda", "mir", "gan", "stan", "lyk", "dan", "ken", "tyk", "han"],
-            Leaders:
-            [
-                "Altan", "Batur", "Chogan", "Dorji", "Ergal", "Temir", "Gilgar", "Khangal", "Orman",
-                "Pervan", "Saryan", "Togan", "Uzgal", "Yanchar", "Zheren", "Ardzhu", "Kartan",
-                "Selbek", "Tural", "Ombar",
-            ]));
+        ForceWeights: [2, 1, 2, 4, 3], // the steppe profile: mounted arms lead
+        Names: StyleNames.CentralAsia);
 }

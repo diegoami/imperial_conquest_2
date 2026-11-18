@@ -1,6 +1,7 @@
 using IC2.Engine.MapGen;
 using IC2.Engine.MapGen.Styles;
 using IC2.Engine.Model;
+using IC2.Engine.Tests.Model;
 using Xunit;
 
 namespace IC2.Engine.Tests.MapGen;
@@ -151,6 +152,102 @@ public sealed class StyleRecipesTests
             MapStyles.All.Select(s => s.Id).ToArray());
         Assert.IsType<MediterraneanStyle>(MapStyles.ById("mediterranean"));
         Assert.Null(MapStyles.ById("atlantis"));
+    }
+
+    /// <summary>Each shipped style with its declared plan (the plans are static per style class).</summary>
+    private static (IMapStyle Style, StylePlan Plan)[] Pairs =>
+    [
+        (new MediterraneanStyle(), MediterraneanStyle.Plan),
+        (new MiddleEastStyle(), MiddleEastStyle.Plan),
+        (new CentralAsiaStyle(), CentralAsiaStyle.Plan),
+        (new IndiaStyle(), IndiaStyle.Plan),
+        (new ChinaStyle(), ChinaStyle.Plan),
+    ];
+
+    [Fact]
+    public void Names_come_from_the_authored_bank_and_stay_unique()
+    {
+        foreach (var (style, plan) in Pairs)
+        {
+            var bank = plan.Names;
+            Assert.True(bank.Nations.Count >= plan.Seats, $"{style.Id}: too few authored nations for its seats");
+            Assert.True(bank.Leaders.Count >= plan.Seats, $"{style.Id}: too few authored leaders");
+            Assert.True(bank.Cities.Count >= 24, $"{style.Id}: too few curated city names");
+
+            var world = MapGenerator.Generate("t294d-test", style, 17, Size, "names", "Names").World;
+            var nationNames = world.Nations.Select(n => n.Name).ToList();
+            Assert.Equal(nationNames.Count, nationNames.Distinct().Count());
+            Assert.All(nationNames, n => Assert.Contains(n, bank.Nations));
+            var cityNames = world.Cities.Select(c => c.Name).ToList();
+            Assert.Equal(cityNames.Count, cityNames.Distinct().Count());
+        }
+    }
+
+    [Fact]
+    public void No_style_ships_a_historical_power()
+    {
+        string[] powers =
+        [
+            "rome", "carthage", "macedon", "athens", "sparta", "thebes", "persia", "parthia",
+            "media", "lydia", "egypt", "assyria", "babylon", "seleucid", "ptolemy", "antigonid",
+            "qin", "chu", "zhao", "wei", "qi", "yan", "han", "zhou", "xia", "shang", "sui",
+            "tang", "song", "ming", "qing", "maurya", "gupta", "nanda", "kushan", "satavahana",
+        ];
+        foreach (var bank in new[]
+                 {
+                     StyleNames.Mediterranean, StyleNames.MiddleEast, StyleNames.CentralAsia,
+                     StyleNames.India, StyleNames.China,
+                 })
+        {
+            var offenders = bank.Nations.Concat(bank.Cities)
+                .Where(n => powers.Contains(n.ToLowerInvariant())).ToList();
+            Assert.True(offenders.Count == 0, $"authored bank ships a historical power: {string.Join(", ", offenders)}");
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(Styles))]
+    public void Opening_forces_follow_the_authored_style_profile(IMapStyle style)
+    {
+        // Three seeds pooled (~150 unit slots) so the authored weights show through the noise.
+        var counts = new Dictionary<string, int>();
+        foreach (var seed in new ulong[] { 21, 22, 23 })
+        {
+            var world = MapGenerator.Generate("t294d-test", style, seed, Size, "forces", "Forces").World;
+            foreach (var unit in world.StartingArmies.SelectMany(a => a.Units))
+                counts[unit.UnitTypeId] = counts.GetValueOrDefault(unit.UnitTypeId) + 1;
+        }
+
+        var slots = counts.Values.Sum();
+        var infantry = counts.GetValueOrDefault("light_infantry") + counts.GetValueOrDefault("heavy_infantry");
+        var cavalry = counts.GetValueOrDefault("light_cavalry") + counts.GetValueOrDefault("heavy_cavalry");
+        switch (style.Id)
+        {
+            case "central-asia":
+                Assert.True(cavalry > infantry * 1.5, $"central asia drew {cavalry} cavalry against {infantry} infantry");
+                break;
+            case "china":
+                Assert.True(counts.GetValueOrDefault("archers") + counts.GetValueOrDefault("heavy_infantry")
+                    > slots / 2, "china's halberdier-and-bow profile did not dominate");
+                break;
+            case "india":
+                Assert.True(counts.GetValueOrDefault("archers") > counts.GetValueOrDefault("light_infantry"),
+                    $"india drew too few archers: {string.Join(",", counts)}");
+                Assert.True(counts.GetValueOrDefault("archers") > cavalry, "india's bow line should lead its mounted arm");
+                break;
+            case "mediterranean":
+                Assert.True(counts.GetValueOrDefault("heavy_infantry") > counts.GetValueOrDefault("light_infantry"),
+                    "the mediterranean line should lean on its heavy infantry");
+                break;
+            case "middle-east":
+                Assert.True(counts.GetValueOrDefault("light_infantry") > counts.GetValueOrDefault("heavy_infantry"),
+                    "the middle east profile should lean on its foot");
+                break;
+        }
+
+        // Every generated unit id exists in every shipped ruleset.
+        var shipped = File.ReadAllText(Path.Combine(TestPaths.DataRoot, "rulesets", "mediterranean-280bc.json"));
+        Assert.All(counts.Keys, k => Assert.Contains($"\"{k}\"", shipped, StringComparison.Ordinal));
     }
 
     private static List<CityDefinition> CoastalCities(World world)

@@ -214,6 +214,9 @@ public static class StyleComposer
         var leaders = plan.Names.Leaders.ToArray();
         Shuffle(names, nationNames);
         Shuffle(names, leaders);
+        var curatedCities = plan.Names.Cities.ToArray();
+        Shuffle(names, curatedCities);
+        var curatedCursor = 0;
         var usedCityNames = new HashSet<string>();
         var occupied = capitals.ToHashSet();
         var fleetsPlaced = 0;
@@ -232,11 +235,12 @@ public static class StyleComposer
                 Treasury(names, towns.Length), 760,
                 Wealth(names, towns.Length), TaxBase(names, towns.Length),
                 10, 20, Population(names, towns.Length)));
-            cities.Add(City(names, plan.Names, usedCityNames, capitalId, cx, cy, id, isCapital: true));
+            cities.Add(City(NextCityName(names, plan.Names, usedCityNames, curatedCities, ref curatedCursor),
+                capitalId, cx, cy, id, isCapital: true, names));
             occupied.Add((cx, cy));
             if (TryPlaceArmy(armyRolls, canvas, occupied, cx, cy) is { } spot)
             {
-                armies.Add(Army($"{id}-army-1", id, spot.X, spot.Y, names));
+                armies.Add(Army($"{id}-army-1", id, spot.X, spot.Y, names, plan.ForceWeights));
                 occupied.Add(spot);
             }
 
@@ -253,7 +257,8 @@ public static class StyleComposer
             for (var t = 0; t < towns.Length; t++)
             {
                 var (tx, ty) = towns[t];
-                cities.Add(City(names, plan.Names, usedCityNames, $"{id}-town-{t + 1}", tx, ty, id, isCapital: false));
+                cities.Add(City(NextCityName(names, plan.Names, usedCityNames, curatedCities, ref curatedCursor),
+                    $"{id}-town-{t + 1}", tx, ty, id, isCapital: false, names));
                 occupied.Add((tx, ty));
             }
         }
@@ -273,11 +278,11 @@ public static class StyleComposer
     private static int Population(SplitMix64Rng rng, int towns) => 15 + (towns * 24) + rng.NextInt(20);
 
     private static CityDefinition City(
-        SplitMix64Rng rng, NameBank bank, HashSet<string> used, string id, int x, int y, string owner, bool isCapital)
+        string name, string id, int x, int y, string owner, bool isCapital, SplitMix64Rng rng)
     {
         var population = isCapital ? 8 + rng.NextInt(7) : 4 + rng.NextInt(6);
         return new CityDefinition(
-            id, CityName(rng, bank, used), x, y, owner, owner,
+            id, name, x, y, owner, owner,
             isCapital ? 80 + rng.NextInt(11) : 75 + rng.NextInt(11),
             isCapital ? 220 + rng.NextInt(100) : 150 + rng.NextInt(100),
             isCapital ? 100 : 60 + rng.NextInt(30),
@@ -290,32 +295,61 @@ public static class StyleComposer
                 : new ValueList<UnitSlot>(Array.Empty<UnitSlot>()));
     }
 
-    private static string CityName(SplitMix64Rng rng, NameBank bank, HashSet<string> used)
+    /// <summary>
+    /// The next city name: the style's curated list first (shuffled once per world, no repeats),
+    /// then authored prefix/suffix parts, then a numbered last resort.
+    /// </summary>
+    private static string NextCityName(
+        SplitMix64Rng rng, NameBank bank, HashSet<string> used, string[] curated, ref int curatedCursor)
     {
-        for (var tries = 0; tries < 200; tries++)
+        while (curatedCursor < curated.Length)
+        {
+            var name = curated[curatedCursor++];
+            if (used.Add(name)) return name;
+        }
+
+        for (var tries = 0; tries < 400; tries++)
         {
             var name = bank.CityPrefixes[rng.NextInt(bank.CityPrefixes.Count)]
                 + bank.CitySuffixes[rng.NextInt(bank.CitySuffixes.Count)];
             if (used.Add(name)) return name;
         }
 
-        return bank.CityPrefixes[rng.NextInt(bank.CityPrefixes.Count)] + rng.NextInt(90) + 10;
+        var fallback = bank.CityPrefixes[rng.NextInt(bank.CityPrefixes.Count)] + rng.NextInt(900) + 100;
+        used.Add(fallback);
+        return fallback;
     }
 
-    private static StartingArmy Army(string id, string nation, int x, int y, SplitMix64Rng rng)
+    /// <summary>The canonical unit kinds, in <see cref="StylePlan.ForceWeights"/>' order.</summary>
+    public static readonly string[] UnitKinds =
+        ["light_infantry", "heavy_infantry", "archers", "light_cavalry", "heavy_cavalry"];
+
+    private static StartingArmy Army(
+        string id, string nation, int x, int y, SplitMix64Rng rng, IReadOnlyList<int> forceWeights)
     {
         var units = new List<UnitSlot>();
-        string[] kinds = ["heavy_infantry", "archers", "light_cavalry", "light_infantry"];
         var count = 3 + rng.NextInt(2);
         for (var u = 0; u < count; u++)
         {
-            var kind = kinds[u % kinds.Length];
+            var kind = WeightedKind(rng, forceWeights);
             units.Add(new UnitSlot(0, kind, 3000 + rng.NextInt(3000), 5 + rng.NextInt(3),
                 $"{u + 1}{Ordinal(u + 1)} {KindLabel(kind)} Battalion"));
         }
 
         return new StartingArmy(id, nation, x, y, 60 + rng.NextInt(16), 100 + rng.NextInt(100),
             150 + rng.NextInt(100), 8, new ValueList<UnitSlot>(units));
+    }
+
+    private static string WeightedKind(SplitMix64Rng rng, IReadOnlyList<int> weights)
+    {
+        var roll = rng.NextInt(weights.Sum());
+        for (var i = 0; i < weights.Count; i++)
+        {
+            if (roll < weights[i]) return UnitKinds[i];
+            roll -= weights[i];
+        }
+
+        return UnitKinds[^1];
     }
 
     private static string KindLabel(string kind) => kind switch
