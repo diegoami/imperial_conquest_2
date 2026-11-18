@@ -41,21 +41,6 @@ public sealed class ChinaStyle : IMapStyle
         TownsMin: 3,
         TownsMax: 4,
         Fleets: 4,
-        Names: new NameBank(
-            Nations:
-            [
-                "Beilan", "Changwu", "Donglin", "Huaizhou", "Linrao", "Minyan", "Ningtai", "Qianzhou",
-                "Ruizhou", "Tailing", "Wuzhan", "Yunqi", "Zhaoyang", "Anxuan", "Beiheng", "Cangming",
-                "Shuolai", "Tieyun",
-            ],
-            CityPrefixes:
-            ["Jin", "Chang", "Luo", "Gui", "Qing", "Ping", "Yan", "Fu", "Hai", "Ning", "Teng", "Xin", "An", "Bao"],
-            CitySuffixes:
-            ["shan", "yang", "zhou", "rao", "tai", "ling", "qi", "an", "jiang", "cheng", "pu", "xi"],
-            Leaders:
-            [
-                "Liangyu", "Hongzhan", "Shiuan", "Wenzao", "Kangze", "Yuanlang", "Zhaoming", "Fuyan",
-                "Guanhao", "Jingru", "Shenmu", "Taizhong", "Xiangyu", "Yonglin", "Zhiran", "Baoshan",
-                "Chengen", "Daowu",
-            ]));
+        ForceWeights: [2, 4, 4, 1, 1], // halberdiers and bow, little mounted arm
+        Names: StyleNames.China);
 }

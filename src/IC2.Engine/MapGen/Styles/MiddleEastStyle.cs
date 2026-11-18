@@ -39,21 +39,6 @@ public sealed class MiddleEastStyle : IMapStyle
         TownsMin: 4,
         TownsMax: 5,
         Fleets: 2,
-        Names: new NameBank(
-            Nations:
-            [
-                "Suhmar", "Qadirra", "Bakhra", "Nawria", "Tashmin", "Harzan", "Yildara", "Karwan",
-                "Zafra", "Mizran", "Alwana", "Sarvand", "Dihistan", "Ravandi", "Ghavand", "Ormara",
-                "Sulandra", "Farsana",
-            ],
-            CityPrefixes:
-            ["Al", "Ba", "Dar", "Ha", "Kar", "Ma", "Nas", "Qal", "Sa", "Sha", "Tir", "Za", "Ku", "Fer"],
-            CitySuffixes:
-            ["bad", "min", "rah", "stan", "ura", "wah", "zir", "ara", "mun", "dis", "qar", "van", "shar", "rud"],
-            Leaders:
-            [
-                "Ardan", "Bahir", "Cihan", "Davan", "Emren", "Farud", "Givash", "Hordan", "Iltan",
-                "Jamshad", "Kavir", "Loran", "Mehran", "Naveen", "Omid", "Parsal", "Rustel",
-                "Shirvan", "Tavir", "Yamin", "Zorrin", "Kambiz", "Adnan", "Soran",
-            ]));
+        ForceWeights: [4, 3, 3, 2, 1], // infantry and bow with a slower mounted arm
+        Names: StyleNames.MiddleEast);
 }

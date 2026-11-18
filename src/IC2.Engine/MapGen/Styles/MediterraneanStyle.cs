@@ -51,21 +51,6 @@ public sealed class MediterraneanStyle : IMapStyle
         TownsMin: 3,
         TownsMax: 5,
         Fleets: 8,
-        Names: new NameBank(
-            Nations:
-            [
-                "Meridia", "Corvana", "Thalassia", "Ostria", "Seloria", "Varencia", "Calissa", "Norica",
-                "Ithara", "Pelagia", "Torvia", "Essaria", "Ligessa", "Arvenia", "Casuria", "Meloria",
-                "Ophira", "Tesseria",
-            ],
-            CityPrefixes:
-            ["Al", "Bar", "Cor", "Del", "Far", "Gal", "Mar", "Nor", "Pel", "Tor", "Val", "Ser", "Cal", "Ost", "Ven", "Tar", "Mes", "Ral"],
-            CitySuffixes:
-            ["adia", "essa", "oria", "inda", "ona", "ara", "ium", "ena", "issa", "anto", "ura", "elia", "asto", "ovia"],
-            Leaders:
-            [
-                "Athar", "Belor", "Cador", "Darion", "Emun", "Feras", "Gilar", "Haron", "Joran",
-                "Kaleth", "Lumor", "Miron", "Noran", "Olfar", "Peran", "Quirin", "Rastan", "Sedor",
-                "Tavor", "Ulmar", "Voran", "Yoran", "Zarel", "Ondar",
-            ]));
+        ForceWeights: [3, 4, 3, 2, 1], // a heavy-infantry line with archers and a cavalry edge
+        Names: StyleNames.Mediterranean);
 }

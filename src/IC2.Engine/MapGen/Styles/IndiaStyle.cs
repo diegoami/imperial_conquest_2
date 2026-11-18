@@ -38,21 +38,6 @@ public sealed class IndiaStyle : IMapStyle
         TownsMin: 4,
         TownsMax: 5,
         Fleets: 5,
-        Names: new NameBank(
-            Nations:
-            [
-                "Avantika", "Malendra", "Tamarasa", "Kalyira", "Dandara", "Urjana", "Parnika",
-                "Sindhura", "Vatsala", "Nehara", "Talajara", "Ambira", "Kuntala", "Rohanta",
-                "Mahisha", "Trapura", "Ujjara", "Kaverata",
-            ],
-            CityPrefixes:
-            ["Ava", "Mal", "Tam", "Kal", "Dan", "Ur", "Par", "Sin", "Vat", "Neh", "Tal", "Amb", "Kun", "Roh", "Tra", "Uj"],
-            CitySuffixes:
-            ["antika", "endra", "arasa", "yira", "dara", "jana", "ika", "dhura", "sala", "naha", "jara", "ira", "tala", "nta", "pura", "jjara"],
-            Leaders:
-            [
-                "Rishan", "Vimal", "Antrik", "Ekaraj", "Jayadr", "Kirtan", "Manjun", "Praval",
-                "Rajata", "Suran", "Taruns", "Udayar", "Vasvan", "Yaudha", "Indran", "Chandrav",
-                "Harivan", "Somdutt",
-            ]));
+        ForceWeights: [3, 2, 4, 2, 1], // bow-forward lines with light foot
+        Names: StyleNames.India);
 }
