@@ -60,6 +60,8 @@ The owner requests five regional composition types, not maps of the actual regio
 
 Proposed first flow: **New Game → Random map → choose type/seed → generate three candidate previews → choose one → choose playable seats**. The owner requested a few generated maps; three previews is the builder's proposed starting limit. Sizes, faction counts, naming and detailed controls require a bounded contract. A world editor is outside this first option.
 
+Delivered 2026-11-18 (#1844): the five compositions are shipped recipes in `src/IC2.Engine/MapGen/Styles` — each composes land, texture, crest ridges with plain passes, rivers on the shipped exit codes, settlements bound to the mainland component and fleets to the main sea, then runs the T294b validator. The name banks are first-pass generic; T294d owns the authored lists.
+
 Before implementing, audit the engine's terrain/river encodings, limits, city/port rules, pathfinding and AI navigation. Original/classical navigation tables cannot simply be applied to arbitrary worlds; the supported AI policy needs an explicit decision. Define authored factions and naming rather than silently transplanting historical powers to fictional geography.
 
 The same generator version/seed/type/parameters must reproduce world and starting placements without consuming campaign RNG. Saves must retain enough generated world/scenario data to survive generator upgrades or preview-cache eviction. Existing campaigns and save compatibility remain supported; the representation is an implementation decision requiring a contract.
