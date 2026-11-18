@@ -76,21 +76,6 @@ public sealed class StyleCanvas
             }
     }
 
-    /// <summary>A cardinal-step line: the passes' and bridges' straight corridors.</summary>
-    public void PaintCorridor((int X, int Y) from, (int X, int Y) to, int thickness, int code)
-    {
-        var (x, y) = from;
-        Set(x, y, code);
-        while (x != to.X || y != to.Y)
-        {
-            if (Math.Abs(to.X - x) >= Math.Abs(to.Y - y)) x += Math.Sign(to.X - x);
-            else y += Math.Sign(to.Y - y);
-            for (var dy = -thickness; dy <= thickness; dy++)
-                for (var dx = -thickness; dx <= thickness; dx++)
-                    Set(x + dx, y + dy, code);
-        }
-    }
-
     /// <summary>
     /// One crest ridge from <paramref name="from"/> to <paramref name="to"/>: mountain tiles only on
     /// the crest line itself, forest-coded foothills on the flanking cells, and <paramref name="passes"/>
