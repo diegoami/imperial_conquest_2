@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "china-350bc",
+  "scenarioIds": [
+    "china-350bc"
+  ],
+  "kind": "historical",
+  "period": "The Contending States, c.350 BC",
+  "background": "Wei's hegemony has just been broken at Guiling, and Duke Xiao's Qin has begun the Shang Yang reforms behind the Hangu corridor. Chu spreads across the middle Yangtze, Qi rules the eastern coast from Linzi, and the Zhao, Yan and Han courts hold the Jin lands' shares. The Zhou king still keeps a court at Luoyang; Shu and Ba rule the Sichuan basin behind their mountains; the steppe presses the northern rim. No power's victory is written yet - the contest is open.",
+  "abstractions": "Each seat is a grouped polity, not a unified state: the Wei of Liang seat for the Jin successor's holdings (Wei of Puyang is a separate small seat), the Zhou royal domain for the court and its split halves, Yue as a coastal remnant abstraction. Zhongshan rests partly on the Lingshou tomb archaeology; Shu and Ba's dynasties come from late, thin sources; Wei's capital at this date sits at Anyi or is already moving to Daliang - the sources differ, and the seat anchors at Anyi. The off-map arrival role carries the Yiqu and the northern frontier peoples. Borders, forces and populations are designed.",
+  "brief": "docs/campaign-guides.md",
+  "validation": "Provisional recommendations: playable IDs, opening city networks, one army per regular seat and river/coast fleets for the naval seats checked. Human difficulty, balance and pass-crossing routes have not been playtested for this guidance.",
+  "powers": [
+    {
+      "nationId": "wei",
+      "focus": "The deposed hegemon",
+      "advice": "Suggested as the default opening: the largest central-plain seat, holding the Yellow River bend and the western marches while Qi rises in the east and Qin's reforms bite in the west. Defend the Hangu approaches and pick your war carefully.",
+      "suggested": true
+    },
+    {
+      "nationId": "qi",
+      "focus": "The eastern maritime state",
+      "advice": "Suggested as a strong alternative: Linzi's wealth, the Shandong coast and the Guiling momentum. The Huai corridor and the central plain's merchant cities are within reach.",
+      "suggested": true
+    },
+    {
+      "nationId": "qin",
+      "focus": "The reforming west",
+      "advice": "Suggested as the reformer's game: Guanzhong's fortress corridor, a new-law army, and Shang Yang's fief at Shang. The historical unification starts here, a lifetime early - the long game.",
+      "suggested": true
+    },
+    {
+      "nationId": "chu",
+      "focus": "The great southern kingdom",
+      "advice": "The giant of the Yangtze and the Huai: more centres than anyone, but long fronts on every side and the gorges, Fangcheng and Huai corridors to hold.",
+      "suggested": false
+    },
+    {
+      "nationId": "zhongshan",
+      "focus": "The restored Di kingdom",
+      "advice": "Lingshou and the eastern Taihang margin: a one-to-two-centre challenge wedged between Zhao and Wei, labelled as partly archaeological.",
+      "suggested": false
+    }
+  ],
+  "sources": [
+    {
+      "title": "UK Defence Academy: China as a military power to 1700",
+      "url": "https://www.gov.uk/government/publications/china-as-a-military-power-to-1700/china-as-a-military-power-to-1700"
+    },
+    {
+      "title": "Wikipedia: Warring States period",
+      "url": "https://en.wikipedia.org/wiki/Warring_States_period"
+    }
+  ]
+}
