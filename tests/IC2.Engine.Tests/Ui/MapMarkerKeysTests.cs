@@ -190,7 +190,7 @@ public sealed class MapMarkerKeysTests
             var expected = ruleset.Id is "italy-500bc" or "near-east-1350bc" or "near-east-750bc" or "diadochi-323bc" or "diadochi-301bc"
                 or "persia-550bc" or "persia-480bc"
                 or "mediterranean-431bc" or "mediterranean-280bc" or "mediterranean-218bc"
-                or "india-325bc" or "india-185bc"
+                or "india-325bc" or "india-185bc" or "china-350bc" or "china-230bc"
                 ? new[] { 6, 10, 18 } : new[] { 25, 50, 100 };
             Assert.True(
                 ruleset.MapMarkers.CityPopulationTierThresholds.SequenceEqual(expected),

@@ -1,0 +1,3413 @@
+{
+  "attribution": "Pleiades contributors, with project editors; copyright the contributors. Adapted location/title/date facts; political grouping and balance are our design.",
+  "licence": "CC BY 3.0",
+  "licenceUrl": "https://creativecommons.org/licenses/by/3.0/",
+  "credits": "https://pleiades.stoa.org/credits",
+  "source": "https://atlantides.org/downloads/pleiades/gis/",
+  "snapshotDate": "2026-11-15",
+  "retrieved": "2026-11-15",
+  "archiveSha256": "cf2fc9aed0333b585e40bbaf012147e17c5145f9984d1cf31d4713ef50c2ba9b",
+  "sites": [
+    {
+      "id": "xianyang",
+      "pleiades": "",
+      "sourceTitle": "xianyang (author hint)",
+      "lon": 108.71,
+      "lat": 34.34,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 26,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Xianyang",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 100,
+              "uri": "https://en.wikipedia.org/wiki/Xianyang",
+              "certainty": "broad context",
+              "basis": "Overview of Xianyang: Qin's capital from about the mid-fourth century BC until its destruction around 206 BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Xianyang",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 100,
+              "uri": "https://en.wikipedia.org/wiki/Xianyang",
+              "certainty": "broad context",
+              "basis": "Overview of Xianyang: Qin's capital from about the mid-fourth century BC until its destruction around 206 BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "yong",
+      "pleiades": "",
+      "sourceTitle": "yong (author hint)",
+      "lon": 107.4,
+      "lat": 34.52,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 14,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Yong",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Qin_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Qin state: Yong in the Wei valley served as an early capital and stayed a major Qin city.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Yong",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Qin_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Qin state: Yong in the Wei valley served as an early capital and stayed a major Qin city.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "yueyang",
+      "pleiades": "",
+      "sourceTitle": "yueyang (author hint)",
+      "lon": 109.3,
+      "lat": 34.66,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 12,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Yueyang",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -420,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Qin_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Qin state: Yueyang (Lirang) held the capital for part of the fourth century BC and remained a Qin city.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Yueyang",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -420,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Qin_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Qin state: Yueyang (Lirang) held the capital for part of the fourth century BC and remained a Qin city.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "du",
+      "pleiades": "",
+      "sourceTitle": "du (author hint)",
+      "lon": 108.94,
+      "lat": 34.2,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 10,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Du",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -1100,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Qin_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Qin state: the old Du country in the Wei valley's south bank was absorbed early and stayed a Qin town.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Du",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -1100,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Qin_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Qin state: the old Du country in the Wei valley's south bank was absorbed early and stayed a Qin town.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "chencang",
+      "pleiades": "",
+      "sourceTitle": "chencang (author hint)",
+      "lon": 107.15,
+      "lat": 34.38,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 11,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Chencang",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Chencang,_Baoji",
+              "certainty": "broad context",
+              "basis": "Overview of Chencang at modern Baoji: Qin's Guanzhong west gate, long inhabited before and after the Warring States era.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Chencang",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Chencang,_Baoji",
+              "certainty": "broad context",
+              "basis": "Overview of Chencang at modern Baoji: Qin's Guanzhong west gate, long inhabited before and after the Warring States era.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "hangu",
+      "pleiades": "",
+      "sourceTitle": "hangu (author hint)",
+      "lon": 110.31,
+      "lat": 34.55,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 9,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Hangu",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Hangu_Pass",
+              "certainty": "broad context",
+              "basis": "Overview of Hangu Pass: the Xiao corridor's fortress guarding Guanzhong's eastern approach, famous from the fourth century BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Hangu",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Hangu_Pass",
+              "certainty": "broad context",
+              "basis": "Overview of Hangu Pass: the Xiao corridor's fortress guarding Guanzhong's eastern approach, famous from the fourth century BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "wuguan",
+      "pleiades": "",
+      "sourceTitle": "wuguan (author hint)",
+      "lon": 110.26,
+      "lat": 33.71,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 8,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Wuguan",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Wuguan_(China)",
+              "certainty": "broad context",
+              "basis": "Overview of Wu Pass: the Dan river route from Guanzhong into Chu's north, one of the era's named fortresses.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Wuguan",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Wuguan_(China)",
+              "certainty": "broad context",
+              "basis": "Overview of Wu Pass: the Dan river route from Guanzhong into Chu's north, one of the era's named fortresses.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "shangyi",
+      "pleiades": "",
+      "sourceTitle": "shangyi (author hint)",
+      "lon": 110.65,
+      "lat": 33.51,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 8,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Shang",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -360,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Shang_Yang",
+              "certainty": "broad context",
+              "basis": "Overview of Shang Yang: his fifteenth-city fief at Shang, granted in the mid-fourth century BC, gives the town its era name.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Shang",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -360,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Shang_Yang",
+              "certainty": "broad context",
+              "basis": "Overview of Shang Yang: his fifteenth-city fief at Shang, granted in the mid-fourth century BC, gives the town its era name.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "nanzheng",
+      "pleiades": "",
+      "sourceTitle": "nanzheng (author hint)",
+      "lon": 107.03,
+      "lat": 33.06,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 10,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Nanzheng",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Hanzhong",
+              "certainty": "broad context",
+              "basis": "Overview of Hanzhong: Nanzheng as the Han river's principal town, contested between Qin and Chu before Qin's 312 BC victory.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Nanzheng",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Hanzhong",
+              "certainty": "broad context",
+              "basis": "Overview of Hanzhong: Nanzheng as the Han river's principal town, contested between Qin and Chu before Qin's 312 BC victory.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "didao",
+      "pleiades": "",
+      "sourceTitle": "didao (author hint)",
+      "lon": 103.86,
+      "lat": 35.34,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 8,
+      "regional": true,
+      "eras": {
+        "230": {
+          "name": "Didao",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -300,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Lintao_County",
+              "certainty": "broad context",
+              "basis": "Overview of Lintao/Didao: the Longxi seat of Qin's western marches in the later Warring States and imperial era.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "anyi",
+      "pleiades": "",
+      "sourceTitle": "anyi (author hint)",
+      "lon": 110.51,
+      "lat": 34.92,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 18,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Anyi",
+          "owner": "wei",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Anyi",
+              "certainty": "broad context",
+              "basis": "Overview of Anyi: Wei's early capital in the Yellow River bend before the court's move east.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Anyi",
+          "owner": "wei",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Anyi",
+              "certainty": "broad context",
+              "basis": "Overview of Anyi: Wei's early capital in the Yellow River bend before the court's move east.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "daliang",
+      "pleiades": "",
+      "sourceTitle": "daliang (author hint)",
+      "lon": 114.31,
+      "lat": 34.79,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 24,
+      "regional": true,
+      "eras": {
+        "230": {
+          "name": "Daliang",
+          "owner": "wei",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -450,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Daliang,_Kaifeng",
+              "certainty": "broad context",
+              "basis": "Overview of Daliang at Kaifeng: Wei's later capital on the central plain; the court's move date from Anyi differs across sources.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "yewang",
+      "pleiades": "",
+      "sourceTitle": "yewang (author hint)",
+      "lon": 112.9,
+      "lat": 35.25,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 11,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Yewang",
+          "owner": "wei",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Qinyuan_County",
+              "certainty": "broad context",
+              "basis": "Overview of the He-nei marches: Yewang (Qinyang) as the region's Wei seat between the Taihang edge and the plain.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Yewang",
+          "owner": "wei",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Qinyuan_County",
+              "certainty": "broad context",
+              "basis": "Overview of the He-nei marches: Yewang (Qinyang) as the region's Wei seat between the Taihang edge and the plain.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ye",
+      "pleiades": "",
+      "sourceTitle": "ye (author hint)",
+      "lon": 114.4,
+      "lat": 36.1,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 10,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Ye",
+          "owner": "wei",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Anyang",
+              "certainty": "broad context",
+              "basis": "Overview of the Anyang region: Ye as a Wei border town in the northern plain, associated with Ximen Bao's administration.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Ye",
+          "owner": "wei",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Anyang",
+              "certainty": "broad context",
+              "basis": "Overview of the Anyang region: Ye as a Wei border town in the northern plain, associated with Ximen Bao's administration.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "quwo",
+      "pleiades": "",
+      "sourceTitle": "quwo (author hint)",
+      "lon": 111.5,
+      "lat": 35.62,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 9,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Quwo",
+          "owner": "wei",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Quwo_County",
+              "certainty": "broad context",
+              "basis": "Overview of Quwo: the Jin heartland's old seat country, held by Wei among the Jin successor lands.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Quwo",
+          "owner": "wei",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Quwo_County",
+              "certainty": "broad context",
+              "basis": "Overview of Quwo: the Jin heartland's old seat country, held by Wei among the Jin successor lands.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "xingyang",
+      "pleiades": "",
+      "sourceTitle": "xingyang (author hint)",
+      "lon": 113.39,
+      "lat": 34.8,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 12,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Xingyang",
+          "owner": "wei",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Xingyang",
+              "certainty": "broad context",
+              "basis": "Overview of Xingyang: the central plain's Yellow River crossing town, contested among Wei, Han and Qin.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Xingyang",
+          "owner": "wei",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Xingyang",
+              "certainty": "broad context",
+              "basis": "Overview of Xingyang: the central plain's Yellow River crossing town, contested among Wei, Han and Qin.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "yanling",
+      "pleiades": "",
+      "sourceTitle": "yanling (author hint)",
+      "lon": 114.15,
+      "lat": 34.1,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 8,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Yanling",
+          "owner": "wei",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Yanling_County,_Henan",
+              "certainty": "broad context",
+              "basis": "Overview of Yanling: the central plain town of the era's battles, held by Wei in the Warring States period.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Yanling",
+          "owner": "wei",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Yanling_County,_Henan",
+              "certainty": "broad context",
+              "basis": "Overview of Yanling: the central plain town of the era's battles, held by Wei in the Warring States period.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "chaoge",
+      "pleiades": "",
+      "sourceTitle": "chaoge (author hint)",
+      "lon": 113.92,
+      "lat": 35.61,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 8,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Chaoge",
+          "owner": "wei",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -1100,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Chaoge",
+              "certainty": "broad context",
+              "basis": "Overview of Chaoge: the late Shang capital region, a Wei town of the central plain's north in the Warring States era.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Chaoge",
+          "owner": "wei",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -1100,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Chaoge",
+              "certainty": "broad context",
+              "basis": "Overview of Chaoge: the late Shang capital region, a Wei town of the central plain's north in the Warring States era.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "xinzheng",
+      "pleiades": "",
+      "sourceTitle": "xinzheng (author hint)",
+      "lon": 113.73,
+      "lat": 34.4,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 15,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Xinzheng",
+          "owner": "han",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Xinzheng",
+              "certainty": "broad context",
+              "basis": "Overview of Xinzheng: the Zheng capital, Han's seat from absorbing Zheng in the early fourth century BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Xinzheng",
+          "owner": "han",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Xinzheng",
+              "certainty": "broad context",
+              "basis": "Overview of Xinzheng: the Zheng capital, Han's seat from absorbing Zheng in the early fourth century BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "yiyang",
+      "pleiades": "",
+      "sourceTitle": "yiyang (author hint)",
+      "lon": 112.1,
+      "lat": 34.52,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 11,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Yiyang",
+          "owner": "han",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Yiyang_County",
+              "certainty": "broad context",
+              "basis": "Overview of Yiyang: Han's fortified store city west of Luoyang, taken by Qin after a famous siege in 307 BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Yiyang",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Yiyang_County",
+              "certainty": "broad context",
+              "basis": "Overview of Yiyang: Han's fortified store city west of Luoyang, taken by Qin after a famous siege in 307 BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "changzi",
+      "pleiades": "",
+      "sourceTitle": "changzi (author hint)",
+      "lon": 112.88,
+      "lat": 36.2,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 8,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Changzi",
+          "owner": "han",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Shangdang",
+              "certainty": "broad context",
+              "basis": "Overview of Shangdang: the high basin between the Jin lands, Han's portion before Qin's cut-off campaigns.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Changzi",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Shangdang",
+              "certainty": "broad context",
+              "basis": "Overview of Shangdang: the high basin between the Jin lands, Han's portion before Qin's cut-off campaigns.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "pingyang",
+      "pleiades": "",
+      "sourceTitle": "pingyang (author hint)",
+      "lon": 111.5,
+      "lat": 36.08,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 9,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Pingyang",
+          "owner": "han",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -900,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Han_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Han state: Pingyang in the Fen valley as Han's early seat before the move south to Xinzheng.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Pingyang",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -900,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Han_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Han state: Pingyang in the Fen valley as Han's early seat before the move south to Xinzheng.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "handan",
+      "pleiades": "",
+      "sourceTitle": "handan (author hint)",
+      "lon": 114.49,
+      "lat": 36.61,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 22,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Handan",
+          "owner": "zhao",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Handan",
+              "certainty": "broad context",
+              "basis": "Overview of Handan: Zhao's capital from the early fourth century BC, with rich archaeological layers of the era.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Handan",
+          "owner": "zhao",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Handan",
+              "certainty": "broad context",
+              "basis": "Overview of Handan: Zhao's capital from the early fourth century BC, with rich archaeological layers of the era.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "jinyang",
+      "pleiades": "",
+      "sourceTitle": "jinyang (author hint)",
+      "lon": 112.42,
+      "lat": 37.85,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 12,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Jinyang",
+          "owner": "zhao",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Taiyuan",
+              "certainty": "broad context",
+              "basis": "Overview of Taiyuan/Jinyang: Zhao's original capital in the Fen upper valley, still a major Zhao city.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Jinyang",
+          "owner": "zhao",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Taiyuan",
+              "certainty": "broad context",
+              "basis": "Overview of Taiyuan/Jinyang: Zhao's original capital in the Fen upper valley, still a major Zhao city.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "dai",
+      "pleiades": "",
+      "sourceTitle": "dai (author hint)",
+      "lon": 114.15,
+      "lat": 39.85,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 8,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Dai",
+          "owner": "zhao",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Zhao_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Zhao state: the Dai country beyond the north passes, absorbed by Zhao and kept as its northern base.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Dai",
+          "owner": "zhao",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Zhao_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Zhao state: the Dai country beyond the north passes, absorbed by Zhao and kept as its northern base.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "yuci",
+      "pleiades": "",
+      "sourceTitle": "yuci (author hint)",
+      "lon": 112.72,
+      "lat": 37.7,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 8,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Yuci",
+          "owner": "zhao",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Jinzhong",
+              "certainty": "broad context",
+              "basis": "Overview of the Taiyuan basin's towns: Yuci as a Zhao town on the Taihang's western side.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Yuci",
+          "owner": "zhao",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Jinzhong",
+              "certainty": "broad context",
+              "basis": "Overview of the Taiyuan basin's towns: Yuci as a Zhao town on the Taihang's western side.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "hejian",
+      "pleiades": "",
+      "sourceTitle": "hejian (author hint)",
+      "lon": 116.1,
+      "lat": 38.45,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 9,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Hejian",
+          "owner": "zhao",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Zhao_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Zhao state: the Hejian country between the rivers on the plain's north-eastern edge.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Hejian",
+          "owner": "zhao",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Zhao_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Zhao state: the Hejian country between the rivers on the plain's north-eastern edge.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "jingxing",
+      "pleiades": "",
+      "sourceTitle": "jingxing (author hint)",
+      "lon": 114.15,
+      "lat": 38.03,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 7,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Jingxing",
+          "owner": "zhao",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Jingxing_County",
+              "certainty": "broad context",
+              "basis": "Overview of Jingxing: the Taihang's famous narrow pass, named among the era's nine fortresses, on Zhao's eastern margin.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Jingxing",
+          "owner": "zhao",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Jingxing_County",
+              "certainty": "broad context",
+              "basis": "Overview of Jingxing: the Taihang's famous narrow pass, named among the era's nine fortresses, on Zhao's eastern margin.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "yanmen",
+      "pleiades": "",
+      "sourceTitle": "yanmen (author hint)",
+      "lon": 112.85,
+      "lat": 39.3,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 7,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Yanmen",
+          "owner": "zhao",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Yanmen_Pass",
+              "certainty": "broad context",
+              "basis": "Overview of Yanmen: the northern pass line between the Jin lands and the steppe, held by Zhao.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Yanmen",
+          "owner": "zhao",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Yanmen_Pass",
+              "certainty": "broad context",
+              "basis": "Overview of Yanmen: the northern pass line between the Jin lands and the steppe, held by Zhao.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "yunzhong",
+      "pleiades": "",
+      "sourceTitle": "yunzhong (author hint)",
+      "lon": 111.15,
+      "lat": 40.55,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 8,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Yunzhong",
+          "owner": "zhao",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Zhao_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Zhao state: the Yunzhong commandery on the Ordos edge, Zhao's steppe-facing north-western base.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Yunzhong",
+          "owner": "zhao",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Zhao_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Zhao state: the Yunzhong commandery on the Ordos edge, Zhao's steppe-facing north-western base.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "jiuyuan",
+      "pleiades": "",
+      "sourceTitle": "jiuyuan (author hint)",
+      "lon": 109.95,
+      "lat": 40.58,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 7,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Jiuyuan",
+          "owner": "zhao",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Zhao_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Zhao state: the Jiuyuan commandery on the northern Yellow River bend.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Jiuyuan",
+          "owner": "zhao",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Zhao_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Zhao state: the Jiuyuan commandery on the northern Yellow River bend.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "wuan",
+      "pleiades": "",
+      "sourceTitle": "wuan (author hint)",
+      "lon": 114.19,
+      "lat": 36.75,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 8,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Wu'an",
+          "owner": "zhao",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Wu%27an",
+              "certainty": "broad context",
+              "basis": "Overview of Wu'an: the Zhao town south of Handan at the Taihang foot, in the era's campaign country.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Wu'an",
+          "owner": "zhao",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Wu%27an",
+              "certainty": "broad context",
+              "basis": "Overview of Wu'an: the Zhao town south of Handan at the Taihang foot, in the era's campaign country.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "linzi",
+      "pleiades": "",
+      "sourceTitle": "linzi (author hint)",
+      "lon": 118.06,
+      "lat": 36.8,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 24,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Linzi",
+          "owner": "qi",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -1100,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Linzi",
+              "certainty": "broad context",
+              "basis": "Overview of Linzi: Qi's capital from the state's foundation, among the era's largest cities.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Linzi",
+          "owner": "qi",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -1100,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Linzi",
+              "certainty": "broad context",
+              "basis": "Overview of Linzi: Qi's capital from the state's foundation, among the era's largest cities.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "jimo",
+      "pleiades": "",
+      "sourceTitle": "jimo (author hint)",
+      "lon": 120.35,
+      "lat": 36.58,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 11,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Jimo",
+          "owner": "qi",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Jimo,_Qingdao",
+              "certainty": "broad context",
+              "basis": "Overview of Jimo: Qi's second polar city on the Shandong peninsula, the seat of the era's sieges.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Jimo",
+          "owner": "qi",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Jimo,_Qingdao",
+              "certainty": "broad context",
+              "basis": "Overview of Jimo: Qi's second polar city on the Shandong peninsula, the seat of the era's sieges.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ju",
+      "pleiades": "",
+      "sourceTitle": "ju (author hint)",
+      "lon": 118.83,
+      "lat": 35.58,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 10,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Ju",
+          "owner": "qi",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -1000,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Ju_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the old Ju state: absorbed by Qi early, its capital a Qi city of the Shandong south.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Ju",
+          "owner": "qi",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -1000,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Ju_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the old Ju state: absorbed by Qi early, its capital a Qi city of the Shandong south.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "gaomi",
+      "pleiades": "",
+      "sourceTitle": "gaomi (author hint)",
+      "lon": 119.75,
+      "lat": 36.38,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 9,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Gaomi",
+          "owner": "qi",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Gaomi",
+              "certainty": "broad context",
+              "basis": "Overview of the Jiaolai plain's towns: Gaomi as a Qi town between Linzi and the peninsula.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Gaomi",
+          "owner": "qi",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Gaomi",
+              "certainty": "broad context",
+              "basis": "Overview of the Jiaolai plain's towns: Gaomi as a Qi town between Linzi and the peninsula.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "langya",
+      "pleiades": "",
+      "sourceTitle": "langya (author hint)",
+      "lon": 119.9,
+      "lat": 35.7,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 9,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Langya",
+          "owner": "qi",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Langya",
+              "certainty": "broad context",
+              "basis": "Overview of Langya: Qi's coastal seat on the Shandong cape, known from the era and the early empire.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Langya",
+          "owner": "qi",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Langya",
+              "certainty": "broad context",
+              "basis": "Overview of Langya: Qi's coastal seat on the Shandong cape, known from the era and the early empire.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "xue",
+      "pleiades": "",
+      "sourceTitle": "xue (author hint)",
+      "lon": 117.42,
+      "lat": 34.93,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 10,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Xue",
+          "owner": "qi",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -1000,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Xue_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of Xue: the old Si river state city, a Qi-held fief in the fourth century BC under Lord Mengchang.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Xue",
+          "owner": "qi",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -1000,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Xue_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of Xue: the old Si river state city, a Qi-held fief in the fourth century BC under Lord Mengchang.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "tao",
+      "pleiades": "",
+      "sourceTitle": "tao (author hint)",
+      "lon": 115.53,
+      "lat": 35.08,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 10,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Tao",
+          "owner": "qi",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Dingtao_District",
+              "certainty": "broad context",
+              "basis": "Overview of Dingtao/Tao: the central plain's great merchant city, contested between Song, Qi and Wei.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Tao",
+          "owner": "qi",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Dingtao_District",
+              "certainty": "broad context",
+              "basis": "Overview of Dingtao/Tao: the central plain's great merchant city, contested between Song, Qi and Wei.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ji",
+      "pleiades": "",
+      "sourceTitle": "ji (author hint)",
+      "lon": 116.35,
+      "lat": 39.9,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 14,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Ji",
+          "owner": "yan",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -1100,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Beijing",
+              "certainty": "broad context",
+              "basis": "Overview of the Beijing region: Ji as the Yan capital country at the plain's northern rim.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Ji",
+          "owner": "yan",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -1100,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Beijing",
+              "certainty": "broad context",
+              "basis": "Overview of the Beijing region: Ji as the Yan capital country at the plain's northern rim.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "xiadu",
+      "pleiades": "",
+      "sourceTitle": "xiadu (author hint)",
+      "lon": 115.75,
+      "lat": 39.35,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 11,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Xiadu",
+          "owner": "yan",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Yi_County,_Hebei",
+              "certainty": "broad context",
+              "basis": "Overview of the Yan lower capital at Yixian: the extensive Warring States site on the plain's northern edge.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Xiadu",
+          "owner": "yan",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Yi_County,_Hebei",
+              "certainty": "broad context",
+              "basis": "Overview of the Yan lower capital at Yixian: the extensive Warring States site on the plain's northern edge.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "xiangping",
+      "pleiades": "",
+      "sourceTitle": "xiangping (author hint)",
+      "lon": 123.17,
+      "lat": 41.27,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 9,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Xiangping",
+          "owner": "yan",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Liaoyang",
+              "certainty": "broad context",
+              "basis": "Overview of Liaoyang: Xiangping as the Liaodong seat of Yan's northeastern reach.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Xiangping",
+          "owner": "yan",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Liaoyang",
+              "certainty": "broad context",
+              "basis": "Overview of Liaoyang: Xiangping as the Liaodong seat of Yan's northeastern reach.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "juyong",
+      "pleiades": "",
+      "sourceTitle": "juyong (author hint)",
+      "lon": 116.08,
+      "lat": 40.29,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 7,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Juyong",
+          "owner": "yan",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Juyong_Pass",
+              "certainty": "broad context",
+              "basis": "Overview of Juyong: named among the era's nine fortresses, the steppe gate beyond Yan's and Zhao's north.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Juyong",
+          "owner": "yan",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Juyong_Pass",
+              "certainty": "broad context",
+              "basis": "Overview of Juyong: named among the era's nine fortresses, the steppe gate beyond Yan's and Zhao's north.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "shanggu",
+      "pleiades": "",
+      "sourceTitle": "shanggu (author hint)",
+      "lon": 115.5,
+      "lat": 40.4,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 7,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Shanggu",
+          "owner": "yan",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Yan_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Yan state: the Shanggu commandery below the northern mountains, Yan's steppe-facing west.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Shanggu",
+          "owner": "yan",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Yan_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Yan state: the Shanggu commandery below the northern mountains, Yan's steppe-facing west.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "yuyang",
+      "pleiades": "",
+      "sourceTitle": "yuyang (author hint)",
+      "lon": 117.15,
+      "lat": 40.4,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 7,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Yuyang",
+          "owner": "yan",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Yan_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Yan state: the Yuyang commandery on the northeastern frontier hills.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Yuyang",
+          "owner": "yan",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Yan_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Yan state: the Yuyang commandery on the northeastern frontier hills.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "jiangling",
+      "pleiades": "",
+      "sourceTitle": "jiangling (author hint)",
+      "lon": 112.2,
+      "lat": 30.35,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 20,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Ying",
+          "owner": "chu",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -1000,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Jingzhou",
+              "certainty": "broad context",
+              "basis": "Overview of Jingzhou/Jiangling: Ying, Chu's capital until 278 BC, afterwards Qin's Nan commandery seat.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Jiangling",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -1000,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Jingzhou",
+              "certainty": "broad context",
+              "basis": "Overview of Jingzhou/Jiangling: Ying, Chu's capital until 278 BC, afterwards Qin's Nan commandery seat.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "chen",
+      "pleiades": "",
+      "sourceTitle": "chen (author hint)",
+      "lon": 114.88,
+      "lat": 33.73,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 13,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Chen",
+          "owner": "chu",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -1000,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Huaiyang,_Henan",
+              "certainty": "broad context",
+              "basis": "Overview of Huaiyang/Chen: the old Chen state city, Chu's from the fifth century BC and its interim capital after 278 BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Chen",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -1000,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Huaiyang,_Henan",
+              "certainty": "broad context",
+              "basis": "Overview of Huaiyang/Chen: the old Chen state city, Chu's from the fifth century BC and its interim capital after 278 BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "shouchun",
+      "pleiades": "",
+      "sourceTitle": "shouchun (author hint)",
+      "lon": 116.78,
+      "lat": 32.57,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 14,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Shouchun",
+          "owner": "chu",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Shou_County",
+              "certainty": "broad context",
+              "basis": "Overview of Shou County: Shouchun, Chu's last capital from 241 BC, in the Huai's southern plain.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Shouchun",
+          "owner": "chu",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Shou_County",
+              "certainty": "broad context",
+              "basis": "Overview of Shou County: Shouchun, Chu's last capital from 241 BC, in the Huai's southern plain.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "kuaiji",
+      "pleiades": "",
+      "sourceTitle": "kuaiji (author hint)",
+      "lon": 120.62,
+      "lat": 31.3,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 11,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Kuaiji",
+          "owner": "chu",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -500,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Suzhou",
+              "certainty": "broad context",
+              "basis": "Overview of Suzhou: the Kuaiji country of the old Yue lands, under Chu from the fourth century BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Kuaiji",
+          "owner": "chu",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -500,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Suzhou",
+              "certainty": "broad context",
+              "basis": "Overview of Suzhou: the Kuaiji country of the old Yue lands, under Chu from the fourth century BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "wan",
+      "pleiades": "",
+      "sourceTitle": "wan (author hint)",
+      "lon": 112.52,
+      "lat": 33.0,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 12,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Wan",
+          "owner": "chu",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Nanyang",
+              "certainty": "broad context",
+              "basis": "Overview of Nanyang: Wan as Chu's northern iron and craft centre, taken by Qin early in the third century BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Wan",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Nanyang",
+              "certainty": "broad context",
+              "basis": "Overview of Nanyang: Wan as Chu's northern iron and craft centre, taken by Qin early in the third century BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "pengcheng",
+      "pleiades": "",
+      "sourceTitle": "pengcheng (author hint)",
+      "lon": 117.18,
+      "lat": 34.26,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 11,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Pengcheng",
+          "owner": "song",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Xuzhou",
+              "certainty": "broad context",
+              "basis": "Overview of Xuzhou/Pengcheng: the Si-Si river crossroads town among Song, Chu and Qi's spheres.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Pengcheng",
+          "owner": "chu",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Xuzhou",
+              "certainty": "broad context",
+              "basis": "Overview of Xuzhou/Pengcheng: the Si-Si river crossroads town among Song, Chu and Qi's spheres.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "qianzhong",
+      "pleiades": "",
+      "sourceTitle": "qianzhong (author hint)",
+      "lon": 109.6,
+      "lat": 28.3,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 7,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Qianzhong",
+          "owner": "chu",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Chu_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Chu state: the Qianzhong commandery in the Yuan river country, Chu's southwest until Qin's 277 BC push.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Qianzhong",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Chu_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Chu state: the Qianzhong commandery in the Yuan river country, Chu's southwest until Qin's 277 BC push.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "zhongli",
+      "pleiades": "",
+      "sourceTitle": "zhongli (author hint)",
+      "lon": 117.8,
+      "lat": 32.9,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 8,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Zhongli",
+          "owner": "chu",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Bengbu",
+              "certainty": "broad context",
+              "basis": "Overview of the Huai crossing country: Zhongli as an old Huai-yi town in Chu's Huai heartland.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Zhongli",
+          "owner": "chu",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Bengbu",
+              "certainty": "broad context",
+              "basis": "Overview of the Huai crossing country: Zhongli as an old Huai-yi town in Chu's Huai heartland.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "xiapi",
+      "pleiades": "",
+      "sourceTitle": "xiapi (author hint)",
+      "lon": 118.3,
+      "lat": 34.3,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 8,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Xiapi",
+          "owner": "song",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Pizhou",
+              "certainty": "broad context",
+              "basis": "Overview of Pizhou/Xiapi: the Yi river town of the Song-Chu border country.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Xiapi",
+          "owner": "chu",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Pizhou",
+              "certainty": "broad context",
+              "basis": "Overview of Pizhou/Xiapi: the Yi river town of the Song-Chu border country.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "fan",
+      "pleiades": "",
+      "sourceTitle": "fan (author hint)",
+      "lon": 112.14,
+      "lat": 32.05,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 8,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Fan",
+          "owner": "chu",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Xiangyang",
+              "certainty": "broad context",
+              "basis": "Overview of the Han river towns: Fan (Fancheng) opposite Xiangyang as Chu's northern bank city.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Fan",
+          "owner": "chu",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Xiangyang",
+              "certainty": "broad context",
+              "basis": "Overview of the Han river towns: Fan (Fancheng) opposite Xiangyang as Chu's northern bank city.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "deng",
+      "pleiades": "",
+      "sourceTitle": "deng (author hint)",
+      "lon": 112.4,
+      "lat": 32.2,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 7,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Deng",
+          "owner": "chu",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Chu_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Chu state: the old Deng country absorbed by Chu, in the Han river's middle reach.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Deng",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Chu_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Chu state: the old Deng country absorbed by Chu, in the Han river's middle reach.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "shangcai",
+      "pleiades": "",
+      "sourceTitle": "shangcai (author hint)",
+      "lon": 114.48,
+      "lat": 33.38,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 10,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Shangcai",
+          "owner": "chu",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Cai_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the old Cai state: its Shangcai capital Chu's from the fifth century BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Shangcai",
+          "owner": "chu",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Cai_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the old Cai state: its Shangcai capital Chu's from the fifth century BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "guangling",
+      "pleiades": "",
+      "sourceTitle": "guangling (author hint)",
+      "lon": 119.42,
+      "lat": 32.39,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 9,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Guangling",
+          "owner": "chu",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -500,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Yangzhou",
+              "certainty": "broad context",
+              "basis": "Overview of Yangzhou/Guangling: the old Wu-Yangtze mouth country, Chu's from the early third century BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Guangling",
+          "owner": "chu",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -500,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Yangzhou",
+              "certainty": "broad context",
+              "basis": "Overview of Yangzhou/Guangling: the old Wu-Yangtze mouth country, Chu's from the early third century BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "pei",
+      "pleiades": "",
+      "sourceTitle": "pei (author hint)",
+      "lon": 116.92,
+      "lat": 34.72,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 8,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Pei",
+          "owner": "song",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Pei_County",
+              "certainty": "broad context",
+              "basis": "Overview of Pei county: the Si river town of the Song-Chu border country, later famous in the early empire.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Pei",
+          "owner": "chu",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -700,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Pei_County",
+              "certainty": "broad context",
+              "basis": "Overview of Pei county: the Si river town of the Song-Chu border country, later famous in the early empire.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "e",
+      "pleiades": "",
+      "sourceTitle": "e (author hint)",
+      "lon": 114.87,
+      "lat": 30.39,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 8,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "E",
+          "owner": "chu",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -900,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Ezhou",
+              "certainty": "broad context",
+              "basis": "Overview of Ezhou: the old E country on the middle Yangtze's south bank, Chu's from early times.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "E",
+          "owner": "chu",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -900,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Ezhou",
+              "certainty": "broad context",
+              "basis": "Overview of Ezhou: the old E country on the middle Yangtze's south bank, Chu's from early times.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "luoyang",
+      "pleiades": "",
+      "sourceTitle": "luoyang (author hint)",
+      "lon": 112.45,
+      "lat": 34.62,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 14,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Luoyang",
+          "owner": "zhou",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -1100,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Luoyang",
+              "certainty": "broad context",
+              "basis": "Overview of Luoyang: the Zhou royal seat through the Eastern Zhou; the last royal remnant ended in 249 BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Luoyang",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -1100,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Luoyang",
+              "certainty": "broad context",
+              "basis": "Overview of Luoyang: the Zhou royal seat through the Eastern Zhou; the last royal remnant ended in 249 BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "gong",
+      "pleiades": "",
+      "sourceTitle": "gong (author hint)",
+      "lon": 112.98,
+      "lat": 34.75,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 8,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Gong",
+          "owner": "zhou",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -1000,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Gongyi",
+              "certainty": "broad context",
+              "basis": "Overview of Gongyi/Gong: the East Zhou dukes' seat in the Yi-Luo basin's east.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Gong",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -1000,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Gongyi",
+              "certainty": "broad context",
+              "basis": "Overview of Gongyi/Gong: the East Zhou dukes' seat in the Yi-Luo basin's east.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "chenggao",
+      "pleiades": "",
+      "sourceTitle": "chenggao (author hint)",
+      "lon": 113.4,
+      "lat": 34.88,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 8,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Chenggao",
+          "owner": "zhou",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Hulao_Pass",
+              "certainty": "broad context",
+              "basis": "Overview of Hulao/Chenggao: the royal domain's eastern gate town on the central plain's approach.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Chenggao",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Hulao_Pass",
+              "certainty": "broad context",
+              "basis": "Overview of Hulao/Chenggao: the royal domain's eastern gate town on the central plain's approach.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "mengjin",
+      "pleiades": "",
+      "sourceTitle": "mengjin (author hint)",
+      "lon": 112.42,
+      "lat": 34.85,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 7,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Mengjin",
+          "owner": "zhou",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -1100,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Mengjin,_Luoyang",
+              "certainty": "broad context",
+              "basis": "Overview of Mengjin: the famous Yellow River ford north of Luoyang, the royal domain's crossing.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Mengjin",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -1100,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Mengjin,_Luoyang",
+              "certainty": "broad context",
+              "basis": "Overview of Mengjin: the famous Yellow River ford north of Luoyang, the royal domain's crossing.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "shangqiu",
+      "pleiades": "",
+      "sourceTitle": "shangqiu (author hint)",
+      "lon": 115.65,
+      "lat": 34.41,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 13,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Shangqiu",
+          "owner": "song",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -1100,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Shangqiu",
+              "certainty": "broad context",
+              "basis": "Overview of Shangqiu/Suiyang: the Song capital, partitioned after Song's 286 BC destruction, Wei's share.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Shangqiu",
+          "owner": "wei",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -1100,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Shangqiu",
+              "certainty": "broad context",
+              "basis": "Overview of Shangqiu/Suiyang: the Song capital, partitioned after Song's 286 BC destruction, Wei's share.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "puyang",
+      "pleiades": "",
+      "sourceTitle": "puyang (author hint)",
+      "lon": 115.03,
+      "lat": 35.71,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 9,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Puyang",
+          "owner": "wey",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -1100,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Wey_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Wey state: Puyang as its capital through the era, a nominal margraviate under Qin's hand by the third century BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Puyang",
+          "owner": "wey",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -1100,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Wey_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Wey state: Puyang as its capital through the era, a nominal margraviate under Qin's hand by the third century BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "lingshou",
+      "pleiades": "",
+      "sourceTitle": "lingshou (author hint)",
+      "lon": 114.58,
+      "lat": 38.35,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 10,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Lingshou",
+          "owner": "zhongshan",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -500,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Zhongshan_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Zhongshan state: Lingshou as its capital country, known richly from the Pingshan tomb finds, Zhao's after 296 BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Lingshou",
+          "owner": "zhao",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -500,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Zhongshan_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Zhongshan state: Lingshou as its capital country, known richly from the Pingshan tomb finds, Zhao's after 296 BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "quyang",
+      "pleiades": "",
+      "sourceTitle": "quyang (author hint)",
+      "lon": 114.7,
+      "lat": 38.62,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 8,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Quyang",
+          "owner": "zhongshan",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -500,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Zhongshan_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Zhongshan state: the eastern Taihang margin towns of its territory.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Quyang",
+          "owner": "zhao",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -500,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Zhongshan_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Zhongshan state: the eastern Taihang margin towns of its territory.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "qufu",
+      "pleiades": "",
+      "sourceTitle": "qufu (author hint)",
+      "lon": 116.99,
+      "lat": 35.6,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 11,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Qufu",
+          "owner": "lu",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -1100,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Qufu",
+              "certainty": "broad context",
+              "basis": "Overview of Qufu: the Lu ducal seat from the Zhou foundation, Chu's after 256 BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Qufu",
+          "owner": "chu",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -1100,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Qufu",
+              "certainty": "broad context",
+              "basis": "Overview of Qufu: the Lu ducal seat from the Zhou foundation, Chu's after 256 BC.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "shanyin",
+      "pleiades": "",
+      "sourceTitle": "shanyin (author hint)",
+      "lon": 120.55,
+      "lat": 30.01,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 9,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Shanyin",
+          "owner": "yue",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -500,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Yue_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Yue state: the Qiantang country of the old Yue court, its remnant absorbed into Chu's coastal commanderies.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Shanyin",
+          "owner": "chu",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -500,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Yue_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Yue state: the Qiantang country of the old Yue court, its remnant absorbed into Chu's coastal commanderies.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "chengdu",
+      "pleiades": "",
+      "sourceTitle": "chengdu (author hint)",
+      "lon": 104.07,
+      "lat": 30.67,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 16,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Chengdu",
+          "owner": "shu",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Chengdu",
+              "certainty": "broad context",
+              "basis": "Overview of Chengdu: the Shu basin capital, Qin's from the 316 BC conquest and a grain base afterwards.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Chengdu",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -800,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Chengdu",
+              "certainty": "broad context",
+              "basis": "Overview of Chengdu: the Shu basin capital, Qin's from the 316 BC conquest and a grain base afterwards.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "pix",
+      "pleiades": "",
+      "sourceTitle": "pix (author hint)",
+      "lon": 103.9,
+      "lat": 30.8,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 7,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Pi",
+          "owner": "shu",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -500,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Shu_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Shu state: the Chengdu plain's satellite towns around the capital.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Pi",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -500,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Shu_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Shu state: the Chengdu plain's satellite towns around the capital.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "linqiong",
+      "pleiades": "",
+      "sourceTitle": "linqiong (author hint)",
+      "lon": 103.46,
+      "lat": 30.41,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 8,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Linqiong",
+          "owner": "shu",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -500,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Qionglai",
+              "certainty": "broad context",
+              "basis": "Overview of Qionglai/Linqiong: the Shu plain's salt and iron town on the western edge.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Linqiong",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -500,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Qionglai",
+              "certainty": "broad context",
+              "basis": "Overview of Qionglai/Linqiong: the Shu plain's salt and iron town on the western edge.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "jiangzhou",
+      "pleiades": "",
+      "sourceTitle": "jiangzhou (author hint)",
+      "lon": 106.55,
+      "lat": 29.56,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 12,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Jiangzhou",
+          "owner": "ba",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Ba_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Ba state: Jiangzhou at modern Chongqing as its capital country above the gorges.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Jiangzhou",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Ba_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Ba state: Jiangzhou at modern Chongqing as its capital country above the gorges.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "zhi",
+      "pleiades": "",
+      "sourceTitle": "zhi (author hint)",
+      "lon": 107.4,
+      "lat": 29.7,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 7,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Zhi",
+          "owner": "ba",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Ba_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Ba state: the river towns of its middle reach below the capital.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Zhi",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Ba_(state)",
+              "certainty": "broad context",
+              "basis": "Overview of the Ba state: the river towns of its middle reach below the capital.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "yufu",
+      "pleiades": "",
+      "sourceTitle": "yufu (author hint)",
+      "lon": 109.57,
+      "lat": 31.03,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 8,
+      "regional": true,
+      "eras": {
+        "350": {
+          "name": "Yufu",
+          "owner": "ba",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Fengjie_County",
+              "certainty": "broad context",
+              "basis": "Overview of Fengjie/Yufu: Ba's gorge gate at Qutang, guarding the Yangtze route into the basin.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        },
+        "230": {
+          "name": "Yufu",
+          "owner": "qin",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -600,
+              "to": 200,
+              "uri": "https://en.wikipedia.org/wiki/Fengjie_County",
+              "certainty": "broad context",
+              "basis": "Overview of Fengjie/Yufu: Ba's gorge gate at Qutang, guarding the Yangtze route into the basin.",
+              "note": "Author-interpreted contextual range from the cited overview, not a precise-year claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "longcheng",
+      "pleiades": "",
+      "sourceTitle": "longcheng (author hint)",
+      "lon": 107.6,
+      "lat": 41.6,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 8,
+      "regional": true,
+      "eras": {
+        "230": {
+          "name": "Longcheng",
+          "owner": "xiongnu",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 100,
+              "uri": "https://en.wikipedia.org/wiki/Xiongnu",
+              "certainty": "broad context",
+              "basis": "Overview of the Xiongnu: the steppe confederation's court country, known from the Shiji's retrospective account of Modu's rise.",
+              "note": "Author-interpreted contextual range for a designed court seat at the frame edge, not a precise city claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "donghu_court",
+      "pleiades": "",
+      "sourceTitle": "donghu_court (author hint)",
+      "lon": 118.2,
+      "lat": 43.3,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 8,
+      "regional": true,
+      "eras": {
+        "230": {
+          "name": "Donghu court",
+          "owner": "donghu",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 100,
+              "uri": "https://en.wikipedia.org/wiki/Donghu_people",
+              "certainty": "broad context",
+              "basis": "Overview of the Donghu: the eastern steppe power beyond Yan's north until Modu's destruction of it.",
+              "note": "Author-interpreted contextual range for a designed court seat, not a precise city claim."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "yuezhi_court",
+      "pleiades": "",
+      "sourceTitle": "yuezhi_court (author hint)",
+      "lon": 100.2,
+      "lat": 38.3,
+      "coordinateSource": "author geographic hint",
+      "precision": "author hint",
+      "sourceProvenance": "designed: author geographic hint for a centre the archive does not carry; the population and era owners are our design.",
+      "population": 8,
+      "regional": true,
+      "eras": {
+        "230": {
+          "name": "Yuezhi court",
+          "owner": "yuezhi",
+          "evidence": [
+            {
+              "kind": "contextual-range",
+              "from": -400,
+              "to": 100,
+              "uri": "https://en.wikipedia.org/wiki/Yuezhi",
+              "certainty": "broad context",
+              "basis": "Overview of the Yuezhi: the western steppe power of the Hexi corridor's approaches, at the frame's edge.",
+              "note": "Author-interpreted contextual range for a designed court seat, not a precise city claim."
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

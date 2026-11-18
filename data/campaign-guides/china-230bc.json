@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "china-230bc",
+  "scenarioIds": [
+    "china-230bc"
+  ],
+  "kind": "historical",
+  "period": "Qin's Endgame, 230 BC",
+  "background": "Qin holds Guanzhong, Longxi, Shu and Ba - twenty-eight of the world's represented centres - under the young King Zheng. Han is the first target and holds little more than Xinzheng; Zhao fights on from Handan and the Dai frontier; Chu has withdrawn to Shouchun and the Huai; Qi watches from Shandong behind decades of armed neutrality; Yan endures to the northeast. Beyond the passes the Xiongnu, Donghu and Yuezhi share the steppe. The historical unification completes within eleven years - but history is not forced to repeat.",
+  "abstractions": "The roster is deliberately smaller than the c.350 opening's, matching the swept field: the seven states, Wey as a title seat kept only if it proves playable, and the steppe tripartition as edge abstractions - the Xiongnu, Donghu and Yuezhi rest on the Shiji's retrospective account of Modu's rise, written about a century later. Modu's unification and the Donghu's destruction fall inside the window as horizons, not scripted events; Qi's neutrality is an opening stance, never a rule; Yan's Jing Ke affair is history, not a script. Borders, forces and populations are designed.",
+  "brief": "docs/campaign-guides.md",
+  "validation": "Provisional recommendations: playable IDs, opening city networks, one army per regular seat and river/coast fleets for the naval seats checked. Human difficulty, balance and pass-crossing routes have not been playtested for this guidance.",
+  "powers": [
+    {
+      "nationId": "qin",
+      "focus": "The unification state",
+      "advice": "Suggested as the default opening: half the represented world, interior lines to every front, and the endgame's own engine. The historical sweep took eleven years; yours may take the whole twenty or fail.",
+      "suggested": true
+    },
+    {
+      "nationId": "chu",
+      "focus": "The great southern kingdom",
+      "advice": "Suggested as a strong alternative: the court at Shouchun, the Huai line and the Yangtze fleet against the historical conqueror. The south resisted for fifteen years; hold the gorges and the Fangcheng gap.",
+      "suggested": true
+    },
+    {
+      "nationId": "zhao",
+      "focus": "The stubborn north",
+      "advice": "Handan, the Dai frontier and the Ordos commanderies against the army that broke them at Changping: the defender's long game with the steppe at its back.",
+      "suggested": false
+    },
+    {
+      "nationId": "qi",
+      "focus": "The neutral giant",
+      "advice": "Linzi and the Shandong coast watched the endgame come and went last, in 221. The neutrality is an opening stance, not a rule - choose your moment or be last.",
+      "suggested": false
+    },
+    {
+      "nationId": "han",
+      "focus": "The first target",
+      "advice": "Xinzheng alone against the unification machine: the authentic desperate seat, labelled as such. Survival is a fine result; anything more is legend.",
+      "suggested": false
+    }
+  ],
+  "sources": [
+    {
+      "title": "UK Defence Academy: China as a military power to 1700",
+      "url": "https://www.gov.uk/government/publications/china-as-a-military-power-to-1700/china-as-a-military-power-to-1700"
+    },
+    {
+      "title": "Wikipedia: Qin's wars of unification",
+      "url": "https://en.wikipedia.org/wiki/Qin%27s_wars_of_unification"
+    }
+  ]
+}

@@ -88,6 +88,18 @@ Applies to `india-185bc`. The setting is the Mauryan fall: Pushyamitra Sunga's c
 
 Suggested openings: Sunga (the default seat, the usurper's core), the Indo-Greek kingdom for the invader's war, the Satavahanas for the Deccan builder's game, Kalinga and Pandya for the coastal courts. No difficulty or route certification is implied.
 
+## `china-350bc`
+
+Applies to `china-350bc`. The setting is the open Warring States contest: Wei's hegemony broken at Guiling, Qin's Shang Yang reforms beginning behind the Hangu corridor, Chu across the middle Yangtze, Qi on the eastern coast, and the Zhou court's memory at Luoyang; see [the UK Defence Academy's China overview](https://www.gov.uk/government/publications/china-as-a-military-power-to-1700/china-as-a-military-power-to-1700). The [China brief](design/china-campaigns.md) records the fifteen grouped seats, the Wey/Wei distinction, the Yue remnant and the Shu-Ba abstractions.
+
+Suggested openings: Wei (the default seat, the deposed hegemon's contested position), Qi for the eastern maritime game, Qin for the reformer's long game, Chu for the giant's broad fronts, Zhongshan for the wedged-in challenge. No difficulty or route certification is implied.
+
+## `china-230bc`
+
+Applies to `china-230bc`. The setting is Qin's endgame: the young King Zheng holding half the represented world from Xianyang, Han the first target at Xinzheng, Zhao fighting from Handan and the Dai frontier, Chu withdrawn to Shouchun, Qi watching from Shandong, and the Xiongnu-Donghu-Yuezhi tripartition beyond the passes; see [Wikipedia's unification wars overview](https://en.wikipedia.org/wiki/Qin%27s_wars_of_unification). The [China brief](design/china-campaigns.md) records the deliberate eleven-seat roster, the steppe edge abstractions and the labelled horizons.
+
+Suggested openings: Qin (the default seat, the unification's engine), Chu for the southern defence, Zhao for the stubborn north, Qi for the neutral giant, Han for the authentic desperate seat. No difficulty or route certification is implied.
+
 ## Authoring and future coverage
 
 Each guide uses schema version 1: stable guide ID; unique scenario IDs; `historical` or `generated` kind; period/geography caption; background; abstractions; repository brief; validation limits; powers (`nationId`, focus, advice, suggested, optional `requiresStartingFleet`); source title/HTTPS URL pairs. Plain text is English; no markup or translated-resource system is introduced. Keep paragraphs under 900 characters and advice under 600. Localization can replace strings without changing nation/scenario identities.

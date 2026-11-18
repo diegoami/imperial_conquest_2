@@ -1,0 +1,196 @@
+{
+  "schemaVersion": 1,
+  "id": "china-350bc",
+  "name": "China, 350 BC",
+  "worldId": "china-350bc",
+  "rulesetId": "china-350bc",
+  "seats": [
+    {
+      "nation": "wei",
+      "control": "human",
+      "personality": null
+    },
+    {
+      "nation": "qin",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "chu",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "qi",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "zhao",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "yan",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "han",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "zhou",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "song",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "zhongshan",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "lu",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "wey",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "yue",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "shu",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "ba",
+      "control": "ai",
+      "personality": {
+        "aggression": 0.5,
+        "expansionDrive": 0.5,
+        "loyaltyToAlliances": 0.5
+      }
+    },
+    {
+      "nation": "barbarians",
+      "control": "ai",
+      "personality": null
+    }
+  ],
+  "victory": {
+    "type": "totalConquest",
+    "goal": null
+  },
+  "turnLimit": null,
+  "blindHotseat": false,
+  "randomSeed": 350,
+  "listed": true,
+  "barbarians": {
+    "nationId": "barbarians",
+    "arrivalUnits": [
+      {
+        "mercenaryLabel": 0,
+        "unitTypeId": "light_infantry",
+        "troops": 6000,
+        "quality": 6,
+        "name": "Frontier infantry"
+      },
+      {
+        "mercenaryLabel": 0,
+        "unitTypeId": "light_infantry",
+        "troops": 6000,
+        "quality": 6,
+        "name": "Frontier infantry"
+      },
+      {
+        "mercenaryLabel": 0,
+        "unitTypeId": "archers",
+        "troops": 3000,
+        "quality": 6,
+        "name": "Frontier archers"
+      },
+      {
+        "mercenaryLabel": 0,
+        "unitTypeId": "archers",
+        "troops": 3000,
+        "quality": 6,
+        "name": "Frontier archers"
+      }
+    ],
+    "fleetShips": 40,
+    "armyMorale": 70,
+    "chancePercent": 25,
+    "armyCap": 4,
+    "fleetCap": 4
+  },
+  "_provenance": {
+    "_group": "designed: owner-approved opening with explicit grouped-polity and regional-centre abstractions (docs/design/china-campaigns.md, decisions 2026-11-17); all numerical setup is gameplay balance.",
+    "victory": "designed: existing total conquest and twenty-year horizon.",
+    "barbarians": "designed: approved shared boundary-arrival policy and provisional Italy force, with generic frontier labels."
+  }
+}
