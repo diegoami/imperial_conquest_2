@@ -12,7 +12,7 @@ yewang 112.90 35.25|ye 114.40 36.10|quwo 111.50 35.62|xingyang 113.39 34.80|
 yanling 114.15 34.10|chaoge 113.92 35.61|xinzheng 113.73 34.40|yiyang 112.10 34.52|
 changzi 112.88 36.20|pingyang 111.50 36.08|handan 114.49 36.61|jinyang 112.42 37.85|
 dai 114.15 39.85|yuci 112.72 37.70|hejian 116.10 38.45|jingxing 114.15 38.03|
-yanmen 112.85 39.30|yunzhong 111.15 40.55|jiuyuan 109.95 40.58|wu'an 114.19 36.75|
+yanmen 112.85 39.30|yunzhong 111.15 40.55|jiuyuan 109.95 40.58|wuan 114.19 36.75|
 linzi 118.06 36.80|jimo 120.35 36.58|ju 118.83 35.58|gaomi 119.75 36.38|
 langya 119.90 35.70|xue 117.42 34.93|tao 115.53 35.08|ji 116.35 39.90|
 xiadu 115.75 39.35|xiangping 123.17 41.27|juyong 116.08 40.29|shanggu 115.50 40.40|
@@ -26,3 +26,4 @@ qufu 116.99 35.60|shanyin 120.55 30.01|chengdu 104.07 30.67|pix 103.90 30.80|
 linqiong 103.46 30.41|jiangzhou 106.55 29.56|zhi 107.40 29.70|yufu 109.57 31.03|
 longcheng 107.60 41.60|donghu_court 118.20 43.30|yuezhi_court 100.20 38.30|
 """
+TARGETS = [(a[0], float(a[1]), float(a[2])) for a in (x.split() for x in T.replace("\n", "|").split("|") if x.strip())]
