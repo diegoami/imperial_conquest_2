@@ -47,7 +47,10 @@ public partial class ScenarioSeatScreen : Control
     {
         UiKit.ApplyBackground(this, UiKit.Background);
 
-        var resolved = GameDataContext.Repository.Resolve(Selection.SelectedCard.ScenarioId);
+        // T294f: a generated selection carries its own resolved triple (the records ship in no data
+        // directory); every shipped flow resolves the repository exactly as before.
+        var resolved = Selection.GeneratedResolved
+                       ?? GameDataContext.Repository.Resolve(Selection.SelectedCard.ScenarioId);
         _seatOptions = GameSessionFactory.SeatOptionsFor(resolved);
         _drawnNames = GameSessionFactory.LeaderNamePreview(resolved);
 

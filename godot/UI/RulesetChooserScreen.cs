@@ -19,6 +19,12 @@ public partial class RulesetChooserScreen : Control
     /// <summary>Raised by the "Back" button — returns to the main menu.</summary>
     public event Action? BackRequested;
 
+    /// <summary>
+    /// T294f: raised by the "Random map…" button — opens the generated-map screen instead of the
+    /// scenario/seat step, under this step's chosen ruleset.
+    /// </summary>
+    public event Action<RulesetCard>? RandomMapRequested;
+
     /// <summary>Both cards' own root buttons, keyed by preset — see this class's own remarks.</summary>
     public Dictionary<RulesetPreset, Button> CardButtons { get; } = new();
 
@@ -44,7 +50,11 @@ public partial class RulesetChooserScreen : Control
     public ScrollContainer ScenarioListScroll => _listScroll;
     public Button ContinueButton => _continueButton;
 
+    /// <summary>T294f: the "Random map…" button, for the flow checks that drive this screen.</summary>
+    public Button RandomMapButton => _randomMapButton;
+
     private Button _continueButton = null!;
+    private Button _randomMapButton = null!;
 
     public override void _Ready()
     {
@@ -115,6 +125,12 @@ public partial class RulesetChooserScreen : Control
         _continueButton = UiKit.MakeButton("Continue", OnContinuePressed, AppTheme.Button);
         _continueButton.SizeFlagsHorizontal = SizeFlags.ShrinkEnd;
         column.AddChild(_continueButton);
+
+        // T294f: the generated-map path keeps this step's ruleset choice (a generated game runs under
+        // a shipped ruleset) and replaces only the scenario/seat sourcing.
+        _randomMapButton = UiKit.MakeButton("Random map…", () => RandomMapRequested?.Invoke(SelectedCard), AppTheme.Button);
+        _randomMapButton.SizeFlagsHorizontal = SizeFlags.ShrinkEnd;
+        column.AddChild(_randomMapButton);
 
         HighlightSelectedCard();
     }
