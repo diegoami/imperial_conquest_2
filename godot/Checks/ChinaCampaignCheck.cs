@@ -3,6 +3,8 @@ using IC2.Engine.Model;
 using IC2.Engine.Presentation;
 using IC2.Slice.UI;
 
+namespace IC2.Slice.Checks;
+
 /// <summary>T293.5 (#1841): actual New Game, capital framing, period captions and native loaded-map paths
 /// for the China campaigns, c.350 and 230 BC (docs/design/china-campaigns.md).</summary>
 public partial class ChinaCampaignCheck : Node
