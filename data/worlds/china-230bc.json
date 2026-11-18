@@ -3363,8 +3363,8 @@
     {
       "id": "chu-fleet-1",
       "nation": "chu",
-      "x": 112,
-      "y": 119,
+      "x": 181,
+      "y": 138,
       "ships": 60,
       "conditionPercent": 100,
       "money": 200,

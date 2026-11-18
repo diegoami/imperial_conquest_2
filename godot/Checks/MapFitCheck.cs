@@ -16,7 +16,7 @@ public partial class MapFitCheck : Control
     private const int SettleFrames = 8;
     private const float CoverageRounding = 0.001f;
 
-    private static readonly (int Width, int Height)[] Worlds = { (160, 200), (400, 120), (400, 220), (272, 320) };
+    private static readonly (int Width, int Height)[] Worlds = { (160, 200), (400, 120), (400, 220), (272, 320), (208, 220) };
 
     private readonly List<(int WaitFrames, Action Run)> _plan = new();
     private MainGameScreen? _mainGame;

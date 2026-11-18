@@ -34,8 +34,6 @@ NAMES = {350: "The Contending States", 230: "Qin's Endgame"}
 # Owner decision 2026-11-17 (approved): wars in progress at the openings.
 WARS = {350: [("qin", "wei")], 230: [("qin", "han")]}
 MARITIME = {350: ("yan", "qi", "chu", "yue"), 230: ("yan", "qi", "chu")}
-# The Yangtze powers keep river fleets (the era's inland waterway story); the northern seats do not.
-RIVERINE = {350: ("chu", "ba"), 230: ("chu", "ba")}
 # Approved period labels: the crossbow is the era's signature arm and the chariot its heavy arm;
 # every numeric statistic is the existing Italy/classical archetype, unchanged.
 PERIOD_LABELS = {
@@ -102,8 +100,8 @@ RIDGES = [
 CREST_FRACTION = .5
 PASS_RADIUS = .1
 PASSES = [
-    ("Hangu-Xiao corridor", [(110.5, 34.75), (111.0, 34.68), (111.6, 34.62)]),
-    ("Wu Pass route", [(110.2, 33.8), (110.3, 33.3), (110.1, 32.8)]),
+    ("Hangu-Xiao corridor", [(110.35, 34.5), (110.9, 34.42), (111.55, 34.38)]),
+    ("Wu Pass route", [(110.2, 33.8), (110.3, 33.3), (110.15, 33.0)]),
     ("Zhongtiao crossing", [(110.7, 35.0), (111.1, 35.2), (111.5, 35.4)]),
     ("Jingxing crossing", [(114.0, 37.9), (114.2, 38.1), (114.4, 38.3)]),
     ("Taihang south crossing", [(113.3, 36.0), (113.5, 36.3), (113.7, 36.6)]),
@@ -173,15 +171,6 @@ def terrain():
                 grid[y][x] = 3
             elif italy.value_noise(x, y, 9, 1350) > .68:
                 grid[y][x] = 4
-    # Plain passes: continuous corridors across each belt. Pass lines and the corridor width
-    # are authored gameplay abstractions at this map scale, named for the routes they approximate.
-    for _name, line in PASSES:
-        for y in range(HEIGHT):
-            for x in range(WIDTH):
-                if grid[y][x] in (4, 5):
-                    lon, lat = centre(x, y)
-                    if any(italy.dist_to_segment(lon, lat, a, b) <= PASS_RADIUS for a, b in zip(line, line[1:])):
-                        grid[y][x] = 2
     # Natural inland water uses the existing navigable-water convention, as in Italy.
     for lake in GEOGRAPHY["lakes"]:
         paint_ring(grid, lake["rings"][0], 0)
@@ -204,6 +193,17 @@ def terrain():
         if len(exits) < 2:
             exits += [italy.OPPOSITE[exits[0]]] if exits else ["N", "S"]
         grid[y][x] = italy.EXIT_CODE[frozenset(exits[:2])]
+    # Plain passes: continuous corridors across each belt, painted after the rivers so a river
+    # along the line (the Huang through the Hangu-Xiao corridor, the Yangtze through the gorges)
+    # keeps its navigable codes while the pass opens the banks. Pass lines and the corridor width
+    # are authored gameplay abstractions at this map scale, named for the routes they approximate.
+    for _name, line in PASSES:
+        for y in range(HEIGHT):
+            for x in range(WIDTH):
+                if grid[y][x] in (3, 4, 5):
+                    lon, lat = centre(x, y)
+                    if any(italy.dist_to_segment(lon, lat, a, b) <= PASS_RADIUS for a, b in zip(line, line[1:])):
+                        grid[y][x] = 2
     return grid
 
 
@@ -256,8 +256,8 @@ def site_positions(grid, sites):
         if point in taken:
             point = nearest_free(grid, point, taken, radius=2)
         x, y = point
-        if grid[y][x] < 2:
-            grid[y][x] = 2  # Source points can lie on sub-cell coasts or tiny islands.
+        if grid[y][x] < 2 or grid[y][x] >= 6:
+            grid[y][x] = 2  # Source points can lie on sub-cell coasts, tiny islands or river codes; a centre is army land.
         positions[site["id"]] = point
         taken.add(point)
     for site in sites:
@@ -358,10 +358,8 @@ def world_for(year, grid, sites, positions, rules):
         armies.append(dict(id=f"{nation_id}-army-1", nation=nation_id, x=ax, y=ay, morale=70, money=100,
             supplyTons=troops // rules["economy"]["armySupplyTonsPerTroops"], moves=8, units=units,
             _provenance={"_group": "designed: one field army near the administrative capital; existing five-role mix scaled by represented population, quality 6, full normal supply."}))
-        if nation_id not in MARITIME[year] and nation_id not in RIVERINE[year]:
-            continue
         ports = [(c, (nx, ny)) for c in own for nx, ny in neighbours(c["x"], c["y"])
-                 if (grid[ny][nx] in (0, 1) or grid[ny][nx] >= 6) and (nx, ny) not in taken
+                 if grid[ny][nx] in (0, 1) and (nx, ny) not in taken
                  and any(grid[ly][lx] >= 2 and grid[ly][lx] < 6 and ((lx, ly) not in taken or (lx, ly) == (ax, ay))
                          for lx, ly in neighbours(nx, ny))]
         if ports:

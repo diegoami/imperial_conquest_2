@@ -3548,20 +3548,6 @@
   ],
   "startingFleets": [
     {
-      "id": "chu-fleet-1",
-      "nation": "chu",
-      "x": 112,
-      "y": 136,
-      "ships": 60,
-      "conditionPercent": 100,
-      "money": 200,
-      "supplyTons": 480,
-      "moves": 25,
-      "_provenance": {
-        "_group": "designed: sixty-ship fleet at a represented coast/large river, full normal supply; no exact historical fleet count."
-      }
-    },
-    {
       "id": "qi-fleet-1",
       "nation": "qi",
       "x": 176,
@@ -3580,20 +3566,6 @@
       "nation": "yue",
       "x": 181,
       "y": 138,
-      "ships": 60,
-      "conditionPercent": 100,
-      "money": 200,
-      "supplyTons": 480,
-      "moves": 25,
-      "_provenance": {
-        "_group": "designed: sixty-ship fleet at a represented coast/large river, full normal supply; no exact historical fleet count."
-      }
-    },
-    {
-      "id": "ba-fleet-1",
-      "nation": "ba",
-      "x": 68,
-      "y": 143,
       "ships": 60,
       "conditionPercent": 100,
       "money": 200,
