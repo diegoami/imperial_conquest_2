@@ -69,6 +69,14 @@ public sealed class NewGameSelection
 
     /// <summary>T200: the chosen card; a preset's, or a listed scenario's (<see cref="RulesetPresets.CardsFor"/>).</summary>
     public RulesetCard SelectedCard { get; set; } = RulesetPresets.CardFor(RulesetPresets.Default);
+
+    /// <summary>
+    /// T294f: the generated game's resolved triple (world, ruleset, synthesized scenario), set when the
+    /// flow went through the random-map screen. When present it replaces the repository resolution
+    /// everywhere — the generated records ship in no data directory — and the session it starts embeds
+    /// the world and scenario in every save (T294e). <see langword="null"/> for every shipped flow.
+    /// </summary>
+    public ResolvedScenario? GeneratedResolved { get; set; }
 }
 
 /// <summary>
@@ -129,12 +137,25 @@ public static class GameSessionFactory
     /// </summary>
     public static GameSession CreateSession(GameDataRepository repository, NewGameSelection selection, ulong? seedOverride = null)
     {
+        // T294f: a generated selection carries its own resolved triple; the repository lookup below
+        // would throw on records that ship in no data directory.
+        if (selection.GeneratedResolved is { } generated)
+        {
+            return CreateSession(generated, selection, seedOverride, embedRecords: true);
+        }
+
+        return CreateSession(ResolveSelectedScenario(repository, selection), selection, seedOverride);
+    }
+
+    /// <summary>The session a resolved triple starts — shared by the shipped and generated paths.</summary>
+    public static GameSession CreateSession(ResolvedScenario resolved, NewGameSelection selection,
+        ulong? seedOverride = null, bool embedRecords = false)
+    {
         if (!selection.ObserverMode && selection.HumanNationIds.Count == 0)
         {
             throw new ArgumentException("New Game needs at least one human nation.", nameof(selection));
         }
 
-        var resolved = ResolveSelectedScenario(repository, selection);
         var scenario = resolved.Scenario;
         IReadOnlyList<string> humans = selection.ObserverMode ? Array.Empty<string>() : selection.HumanNationIds;
 
@@ -161,7 +182,9 @@ public static class GameSessionFactory
             leaderNames: selection.LeaderNames.ToDictionary(
                 pair => pair.Key,
                 pair => pair.Value.Trim()[..Math.Min(pair.Value.Trim().Length, NewGameSelection.MaxLeaderNameLength)],
-                StringComparer.Ordinal))
+                StringComparer.Ordinal),
+            embeddedWorld: embedRecords ? resolved.World : null,
+            embeddedScenario: embedRecords ? resolved.Scenario : null)
         {
             // All-AI battles resolve automatically through their existing path. Keep the
             // human preference ready for an observer who later takes control.

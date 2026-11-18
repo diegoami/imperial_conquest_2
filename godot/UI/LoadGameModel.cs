@@ -158,39 +158,32 @@ public static class LoadGameModel
     private static Outcome OpenJson(string path, GameDataRepository repository, HumanBattleMode humanBattles)
     {
         var name = Path.GetFileName(path);
-        SaveSummary summary;
+        ResolvedSave resolved;
         try
         {
-            summary = SaveManager.PeekSummaryFile(path);
+            // T294e/#1846: repository-first resolution, falling back to the save's own embedded
+            // world/scenario — a generated save reloads without its generator or the shipped data set.
+            resolved = SaveManager.LoadFile(path, repository);
         }
-        catch (Exception ex)
-        {
-            return Fail(path, $"Could not read '{name}': {ex.Message}");
-        }
-
-        var world = repository.WorldById(summary.WorldId);
-        var ruleset = repository.RulesetById(summary.RulesetId);
-        var scenario = repository.ScenarioById(summary.ScenarioId);
-        if (world is null || ruleset is null || scenario is null)
+        catch (UnresolvedReferenceException ex)
         {
             return Fail(
                 path,
                 $"'{name}' was saved by a different version of the game: it needs content this version does not have "
-                + $"(scenario '{summary.ScenarioId}'). Open it in the newer version, or update this one. "
-                + $"Technical detail: world '{summary.WorldId}', ruleset '{summary.RulesetId}'.");
-        }
-
-        SaveGame save;
-        try
-        {
-            save = SaveManager.LoadFile(path, world, ruleset);
+                + $"({ex.Kind} '{ex.Id}'). Open it in the newer version, or update this one.");
         }
         catch (Exception ex)
         {
             return Fail(path, $"Could not load '{name}': {ex.Message}");
         }
 
-        return new Outcome(new GameSession(world, ruleset, scenario, save) { HumanBattles = humanBattles }, null, path);
+        return new Outcome(
+            new GameSession(resolved.World, resolved.Ruleset, resolved.Scenario, resolved.Save)
+            {
+                HumanBattles = humanBattles,
+            },
+            null,
+            path);
     }
 
     private static Outcome OpenOriginal(string path, GameDataRepository repository, HumanBattleMode humanBattles)

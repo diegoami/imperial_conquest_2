@@ -785,7 +785,8 @@ public sealed partial class GameSession
     /// </exception>
     public GameSession(
         World world, Ruleset ruleset, Scenario scenario, ulong? seedOverride = null,
-        string? humanSeatNationId = null, IReadOnlyDictionary<string, string>? leaderNames = null)
+        string? humanSeatNationId = null, IReadOnlyDictionary<string, string>? leaderNames = null,
+        World? embeddedWorld = null, Scenario? embeddedScenario = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(ruleset);
@@ -800,6 +801,11 @@ public sealed partial class GameSession
 
         if (humanSeatNationId is not null && humanSeatNationId == scenario.Barbarians?.NationId)
             throw new ArgumentException("The barbarian faction is AI-only.", nameof(humanSeatNationId));
+
+        // T294e/#1846: a generated game's world and scenario ship in no data directory, so the
+        // session keeps them and every save it writes embeds them. Null for every shipped game.
+        EmbeddedWorld = embeddedWorld;
+        EmbeddedScenario = embeddedScenario;
 
         _humanSeatNationId = humanSeatNationId;
         _isWatchMode = humanSeatNationId is null && !scenario.Seats.Any(s => s.Control == SeatControl.Human);
@@ -900,6 +906,12 @@ public sealed partial class GameSession
         World = world;
         Ruleset = ruleset;
         Scenario = scenario;
+
+        // T294e/#1846: a resumed generated save keeps riding its embedded records, so the next save
+        // embeds them again (the CLI's and Godot's resolvers passed the save's own records as
+        // world/scenario when the build ships none).
+        EmbeddedWorld = save.EmbeddedWorld;
+        EmbeddedScenario = save.EmbeddedScenario;
 
         _registry = SystemRegistry.FromEngineAssembly();
         _dispatcher = new CommandDispatcher(_registry, ruleset, world, NullEventSink.Instance)
@@ -1347,6 +1359,19 @@ public sealed partial class GameSession
 
     /// <summary>The scenario this session started from.</summary>
     public Scenario Scenario { get; }
+
+    /// <summary>
+    /// T294e/#1846: the generated world this session plays on, when it ships in no data directory and
+    /// must therefore ride inside every save the session writes; <see langword="null"/> for a shipped
+    /// world. Informational provenance — reloading never regenerates.
+    /// </summary>
+    public World? EmbeddedWorld { get; }
+
+    /// <summary>
+    /// T294e/#1846: the generated scenario this session started from, when it ships in no data
+    /// directory; <see langword="null"/> for a shipped scenario.
+    /// </summary>
+    public Scenario? EmbeddedScenario { get; }
 
     /// <summary>The session's current state. Advances only through <see cref="Submit"/>.</summary>
     public GameState State { get; private set; }
