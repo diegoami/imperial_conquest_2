@@ -140,8 +140,15 @@ public sealed class SaveArmyTable
     private static ushort ReadWord(byte[] data, int offset) =>
         BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(offset, 2));
 
-    // Word +6 (moves) is the one field on this record the original reads signed — see
-    // ArmyRecord.Moves's own doc comment. Every other header word here is read unsigned.
+    // Three header words on this record are read signed by the original: moves (+6 — the signed
+    // reader below; see ArmyRecord.Moves's own doc comment), and supplies (+0x0A) and money (+0x0C) —
+    // every original reader widens those signed (MOVSX) and every guard on them is a signed
+    // JLE/JGE (the quarterly purse < 1 desert test at 0x00451C1C, the hire gate at :43633), with no
+    // unsigned JAE/JBE-class comparison on either field anywhere
+    // (research report 2026-10-07-army-supplies-and-money-signedness.md, decompilation-plan item 14).
+    // This parser still reads supplies and money unsigned into their ushort fields: no write path can
+    // persist a negative value (every overdraw is capped or floored in the same pass), so every
+    // persisted word decodes identically either way.
     private static short ReadShort(byte[] data, int offset) =>
         BinaryPrimitives.ReadInt16LittleEndian(data.AsSpan(offset, 2));
 }
