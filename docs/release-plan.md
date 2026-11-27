@@ -534,6 +534,23 @@ Owner scope, 2026-11-06: [milestone 27](https://github.com/diegoami/imperial_con
 
 This patch adds icon artwork/presentation and the owner-requested campaign-turn regression coverage. v0.11's browser/original-assets and Improved-general work remain separate. The private manual defines original toolbar meanings; these observer/QOL controls and their presentation are explicitly owner-designed.
 
+### 2.21 v0.12.0: historical campaigns and random maps
+
+Owner decision, 2026-11-28. Ship nine historical campaigns and five seeded random map styles in [milestone 28](https://github.com/diegoami/imperial_conquest_2/milestone/28). The independent review will check these claims.
+
+| Claim | Proof / acceptance |
+| --- | --- |
+| C1 Historical campaigns | New Game lists Persia (c. 550 and 480 BC), Mediterranean (431, 280 and 218 BC), India (c. 325 and c. 185 BC), and China (c. 350 and 230 BC), with guides and selectable seats. Run the regional campaign and route tests and Godot campaign checks. Start, advance and save/reload representative games. |
+| C2 Random maps | New Game generates three selectable previews from a seed and one of five regional styles. Check reproducibility, valid starts and terrain, AI rounds, and the preview and seat flow using the MapGen tests and RandomMapFlowCheck. |
+| C3 Saves and upgrades | Reload a generated game with no preview cache and open representative v0.11 saves. Run SaveEmbeddingTests and verify an in-place Windows upgrade with test saves. |
+| C4 Delivery | Build and test the solution and Godot client. Build a self-contained Windows ZIP and installer, test historical and random starts from a copied package, scan for original-game content, and report test skips and package checksums. |
+
+Outside this release: the playable web application, Improved Computer general and battle mode (#1362 and #1363), the observer recordings refresh (#1882), and the Diadochi follow-ups (#1866). The parent trackers #1808 and #1809 retain their acceptance follow-ups. Owner playthroughs for Mediterranean, India and China remain outstanding. Independent milestone review precedes tagging.
+
+### 2.22 v0.13.0: playable web application
+
+Owner decision, 2026-11-28. The next release targets a playable browser application using the production rules engine shared with desktop. Begin with a runtime and hosting proof: load a shipped scenario, show the map, issue an army order, end a turn, save and reload, and compare the resulting state with desktop from the same starting state, seed and orders. Use the proof to settle the browser, hosting and minimum playable release contract. Track the work in [milestone 29](https://github.com/diegoami/imperial_conquest_2/milestone/29) and [#1905](https://github.com/diegoami/imperial_conquest_2/issues/1905).
+
 ## 3. Tag and GitHub Release conventions
 
 ### 3.1 Naming and placement — **DECIDED**
