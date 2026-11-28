@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <OverrideHtmlAssetPlaceholders>true</OverrideHtmlAssetPlaceholders>
+    <!-- The engine's JSON converters have not been audited for trimming. -->
+    <PublishTrimmed>false</PublishTrimmed>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.15" />
+    <ProjectReference Include="../../src/IC2.Engine/IC2.Engine.csproj" />
+    <Content Include="../../data/scenarios/italy-500bc.json" Link="wwwroot/data/scenarios/italy-500bc.json" />
+    <Content Include="../../data/worlds/italy-500bc.json;../../data/worlds/italy-500bc.terrain.b64" Link="wwwroot/data/worlds/%(Filename)%(Extension)" />
+    <Content Include="../../data/rulesets/italy-500bc.json" Link="wwwroot/data/rulesets/italy-500bc.json" />
+  </ItemGroup>
+</Project>
