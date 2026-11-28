@@ -273,7 +273,15 @@ jobs:
             run=$((run + 1))
             log="$RUNNER_TEMP/check-${name}.txt"
             echo "== ${name} =="
-            godot --headless --path godot "res://${scene#godot/}" --quit-after 900 2>&1 | tee "$log"
+            command=(godot --headless --path godot "res://${scene#godot/}")
+            if [ "$name" = "RandomMapFlowCheck" ]; then
+              # The scene waits up to 30 seconds for background generation. Keep
+              # an external watchdog for startup, generation and game launch.
+              command=(timeout --kill-after=5s 60s "${command[@]}")
+            else
+              command+=(--quit-after 900)
+            fi
+            "${command[@]}" 2>&1 | tee "$log"
             code="${PIPESTATUS[0]}"
             if [ "$code" -ne 0 ]; then echo "FAIL ${name}: exit $code"; failed=$((failed + 1)); failed_names="${failed_names} ${name}"; continue; fi
             if ! grep -q "${name}: exiting with code 0." "$log"; then echo "FAIL ${name}: no completion marker"; failed=$((failed + 1)); failed_names="${failed_names} ${name}"; continue; fi
