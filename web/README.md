@@ -13,6 +13,6 @@ python -m http.server 8765 --bind 127.0.0.1 --directory rendered/web-proof
 
 Open `http://127.0.0.1:8765/wwwroot/`. The publish output is a static site. Keep the trailing slash when testing under a hosting subpath. A GitHub Pages deployment would need to retain the `_framework` directory (use the Pages artifact workflow or add a `.nojekyll` marker for branch-based hosting).
 
-The **Browser proof** workflow publishes the static files, runs the native CLI with the same scenario, seed and orders, then compares the full parsed saves in Chromium before and after reload. It uses an authored campaign and requires no private fixtures. The existing spectator page has its own deployment.
+The **Browser proof** workflow publishes the static files, runs the native CLI with the same scenario, seed and orders, then compares the full canonical save text before and after reload in Chromium. It uses an authored campaign and requires no private fixtures. The existing spectator page has its own deployment.
 
 This proof covers one strategic turn flow. Scenario selection, tactical battle controls, save import/export and the published hosting path are decisions for the first playable web release.

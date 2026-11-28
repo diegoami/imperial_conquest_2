@@ -9,7 +9,8 @@ if (!url || !desktopSavePath || !modulesRoot) {
 }
 const require = createRequire(resolve(modulesRoot, "package.json"));
 const { chromium } = require("playwright");
-const desktop = JSON.parse(readFileSync(desktopSavePath, "utf8"));
+const normalizeLines = text => text.replaceAll("\r\n", "\n");
+const desktop = normalizeLines(readFileSync(desktopSavePath, "utf8"));
 const browser = await chromium.launch();
 
 try {
@@ -32,15 +33,15 @@ try {
 
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await page.getByText("Saved in this browser.", { exact: true }).waitFor();
-    const readSave = () => page.evaluate(() => JSON.parse(localStorage.getItem("ic2.web.proof.italy-500bc")));
-    assert.deepEqual(await readSave(), desktop, "browser and native CLI saved the same state");
+    const readSave = async () => normalizeLines(await page.evaluate(() => localStorage.getItem("ic2.web.proof.italy-500bc")));
+    assert.ok(await readSave() === desktop, "browser and native CLI wrote the same canonical save");
 
     await page.reload();
     await page.getByRole("button", { name: "Reload save" }).click();
     await page.getByText("Saved campaign reloaded.", { exact: true }).waitFor();
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await page.getByText("Saved in this browser.", { exact: true }).waitFor();
-    assert.deepEqual(await readSave(), desktop, "reloaded browser game preserved the desktop save state");
+    assert.ok(await readSave() === desktop, "reloaded browser game preserved the desktop save state");
     assert.deepEqual(errors, [], "no browser errors");
     console.log("Browser and desktop matched after movement, end turn, save and reload.");
 } catch (error) {
