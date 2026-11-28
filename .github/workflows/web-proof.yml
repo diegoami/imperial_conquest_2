@@ -1,0 +1,39 @@
+name: Browser proof
+
+on:
+  push:
+    branches: [main]
+    paths: ['web/**', 'scripts/check-web-proof.mjs', '.github/workflows/web-proof.yml', 'src/**', 'data/**']
+  pull_request:
+    paths: ['web/**', 'scripts/check-web-proof.mjs', '.github/workflows/web-proof.yml', 'src/**', 'data/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-parity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Publish the browser app and run the desktop reference
+        run: |
+          dotnet publish web/IC2.Web/IC2.Web.csproj -c Release -o rendered/web-proof
+          printf '%s\n' 'move army-rome 101 105' end 'save rendered/desktop-proof.json' > rendered/web-proof-orders.txt
+          dotnet run --project src/IC2.Cli -c Release -- --scenario italy-500bc --seat rome --seed 42 --script rendered/web-proof-orders.txt
+      - name: Run the same orders in Chromium under a static subpath
+        run: |
+          npm install --prefix rendered/web-proof-tests --no-package-lock playwright@1.56.1
+          rendered/web-proof-tests/node_modules/.bin/playwright install --with-deps chromium
+          python3 -m http.server 8765 --bind 127.0.0.1 --directory rendered/web-proof &
+          server=$!
+          trap 'kill "$server"' EXIT
+          curl -fsS --retry 5 --retry-connrefused http://127.0.0.1:8765/wwwroot/ >/dev/null
+          node scripts/check-web-proof.mjs http://127.0.0.1:8765/wwwroot/ rendered/desktop-proof.json rendered/web-proof-tests

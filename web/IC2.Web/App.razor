@@ -1,0 +1,177 @@
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<main>
+    <header>
+        <p>Open Imperial Conquest</p>
+        <h1>Italy, 500 BC</h1>
+        <p class="subtitle">Browser prototype · Rome · Seed 42</p>
+    </header>
+    @if (_session is null)
+    {
+        <p role="status">@_message</p>
+    }
+    else
+    {
+        <div class="board">
+            <canvas width="@_session.World.Width" height="@_session.World.Height"
+                    aria-label="Strategic map of Italy. Choose a tile or use the coordinate fields."
+                    @ref="_canvas" @onclick="PickTile"></canvas>
+            <section class="orders">
+                <h2>Orders</h2>
+                <p>Turn <strong id="turn">@_session.State.Calendar.TurnIndex</strong> · @_session.State.Calendar.YearBc BC</p>
+                <label for="army">Army</label>
+                <select id="army" @bind="_armyId">
+                    @foreach (var army in Armies)
+                    {
+                        <option value="@army.Id">@army.Id (@army.X, @army.Y) · @army.Moves moves</option>
+                    }
+                </select>
+                <div class="coordinates">
+                    <label>X <input id="destination-x" type="number" min="0" max="@(_session.World.Width - 1)" @bind="_x" /></label>
+                    <label>Y <input id="destination-y" type="number" min="0" max="@(_session.World.Height - 1)" @bind="_y" /></label>
+                </div>
+                <div class="actions">
+                    <button @onclick="Move" disabled="@(_armyId is null || _session.IsGameOver)">Move army</button>
+                    <button @onclick="EndTurn" disabled="@_session.IsGameOver">End turn</button>
+                </div>
+                <div class="actions">
+                    <button @onclick="Save" disabled="@_session.IsGameOver">Save</button>
+                    <button @onclick="Reload" disabled="@(!_hasSave)">Reload save</button>
+                </div>
+                <pre role="status" id="result">@_message</pre>
+            </section>
+        </div>
+    }
+</main>
+
+@code {
+    private const string ScenarioId = "italy-500bc";
+    private const string SavePath = "/ic2-proof-save.json";
+    private const ulong Seed = 42;
+    private const string HumanNation = "rome";
+
+    private ResolvedScenario? _opening;
+    private GameSession? _session;
+    private ElementReference _canvas;
+    private byte[] _terrain = [];
+    private string? _armyId;
+    private int _x;
+    private int _y;
+    private string _message = "Loading the campaign…";
+    private bool _hasSave;
+    private IEnumerable<ArmyState> Armies => _session!.State.Armies.Where(army => army.Nation == HumanNation);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Fetch the authored documents into the runtime's in-memory filesystem so
+            // the browser uses the same JSON loader and terrain validation as desktop.
+            const string root = "/ic2-data";
+            string[] documents =
+            [
+                "worlds/italy-500bc.json", "worlds/italy-500bc.terrain.b64",
+                "rulesets/italy-500bc.json", "scenarios/italy-500bc.json"
+            ];
+
+            foreach (var document in documents)
+            {
+                var path = Path.Combine(root, document);
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                File.WriteAllBytes(path, await Http.GetByteArrayAsync($"data/{document}"));
+            }
+
+            _opening = GameDataRepository.Load(root).Resolve(ScenarioId);
+            var world = _opening.World;
+            _terrain = world.Terrain.Decode(world.Width, world.Height).Select(code => checked((byte)code)).ToArray();
+            _hasSave = await JS.InvokeAsync<bool>("ic2.hasSave");
+            _session = new GameSession(world, _opening.Ruleset, _opening.Scenario, Seed, HumanNation);
+            SelectArmy();
+            _message = "Select a destination on the map or enter its coordinates.";
+        }
+        catch (Exception error)
+        {
+            _message = $"Could not load Italy: {error.Message}";
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_session is null)
+            return;
+
+        await JS.InvokeVoidAsync("ic2.draw", _canvas, _terrain,
+            _session.State.Cities.Select(city => new { city.X, city.Y, Human = city.Owner == HumanNation }).ToArray(),
+            _session.State.Armies.Select(army => new { army.X, army.Y, Human = army.Nation == HumanNation }).ToArray(),
+            _x, _y);
+    }
+
+    private async Task PickTile(MouseEventArgs mouse)
+    {
+        var coordinates = await JS.InvokeAsync<int[]>("ic2.pick", _canvas, mouse.ClientX, mouse.ClientY);
+        (_x, _y) = (coordinates[0], coordinates[1]);
+    }
+
+    private void Move()
+    {
+        if (_armyId is null)
+            return;
+
+        var output = _session!.Submit($"move {_armyId} {_x} {_y}");
+        _message = string.Join('\n', output.Lines);
+        SelectArmy();
+    }
+
+    private void EndTurn()
+    {
+        _message = string.Join('\n', _session!.Submit("end").Lines);
+        SelectArmy();
+    }
+
+    private async Task Save()
+    {
+        try
+        {
+            File.Delete(SavePath);
+            var output = _session!.Submit($"save {SavePath}");
+            if (!File.Exists(SavePath))
+            {
+                _message = string.Join('\n', output.Lines);
+                return;
+            }
+
+            await JS.InvokeVoidAsync("ic2.writeSave", File.ReadAllText(SavePath));
+            _hasSave = true;
+            _message = "Saved in this browser.";
+        }
+        catch (Exception error)
+        {
+            _message = $"Could not save: {error.Message}";
+        }
+    }
+
+    private async Task Reload()
+    {
+        try
+        {
+            var json = await JS.InvokeAsync<string>("ic2.readSave");
+            var opening = _opening!;
+            var save = SaveManager.Load(SavePath, json, opening.World, opening.Ruleset);
+            _session = new GameSession(opening.World, opening.Ruleset, opening.Scenario, save);
+            SelectArmy();
+            _message = "Saved campaign reloaded.";
+        }
+        catch (Exception error)
+        {
+            _message = $"Could not reload: {error.Message}";
+        }
+    }
+
+    private void SelectArmy()
+    {
+        var army = Armies.FirstOrDefault(army => army.Id == _armyId) ?? Armies.FirstOrDefault();
+        _armyId = army?.Id;
+        (_x, _y) = (army?.X ?? 0, army?.Y ?? 0);
+    }
+}
