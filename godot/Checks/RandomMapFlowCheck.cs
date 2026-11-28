@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Godot;
 using IC2.Engine.Persistence;
 using IC2.Engine.Presentation;
@@ -16,13 +17,14 @@ namespace IC2.Slice.Checks;
 public partial class RandomMapFlowCheck : Control
 {
     private const int SettleFrames = 6;
-    private const int MaxPollFrames = 900;
+    private const int PreviewTimeoutSeconds = 30;
+    private const string ExpectedWorldId = "random-central-asia-43"; // Seed 42, second preview.
 
     private readonly List<(int WaitFrames, Action Run)> _plan = new();
     private NewGameFlow _flow = null!;
     private MainGameScreen? _mainGame;
     private string _savePath = string.Empty;
-    private int _previewPolls;
+    private long _previewStart;
     private bool _ok = true;
     private int _frame;
     private int _planIndex;
@@ -98,6 +100,7 @@ public partial class RandomMapFlowCheck : Control
         screen.SeedEdit.Text = "42";
         screen.SeedEdit.EmitSignal(LineEdit.SignalName.TextChanged, screen.SeedEdit.Text);
         Check(!screen.GenerateButton.Disabled, "a valid seed enables Generate");
+        _previewStart = Stopwatch.GetTimestamp();
         screen.GenerateButton.EmitSignal(BaseButton.SignalName.Pressed);
         Check(screen.GenerateButton.Disabled, "generation disables Generate until the previews are back");
     }
@@ -105,15 +108,19 @@ public partial class RandomMapFlowCheck : Control
     private void WaitForPreviews()
     {
         var screen = _flow.RandomMapScreen!;
-        var ready = screen.PreviewRects.Count > 0 && screen.PreviewRects.All(rect => rect.Texture is not null);
-        if (!ready && _previewPolls < MaxPollFrames)
+        var ready = screen.PreviewRects.Count == 3 && screen.PreviewRects.All(rect => rect.Texture is not null);
+        if (!ready && Stopwatch.GetElapsedTime(_previewStart).TotalSeconds < PreviewTimeoutSeconds)
         {
-            _previewPolls++;
             _planIndex--; // stay on this plan entry; generation runs off the UI thread
             return;
         }
 
-        Check(ready, $"the three candidate previews rendered within {MaxPollFrames} frames");
+        Check(ready, $"the three candidate previews rendered within {PreviewTimeoutSeconds} seconds");
+        if (!ready)
+        {
+            _planIndex = _plan.Count; // The next step needs rendered previews.
+            return;
+        }
         Check(screen.CandidateButtons.All(button => !button.Disabled), "each candidate is pickable once previews are back");
     }
 
@@ -127,8 +134,8 @@ public partial class RandomMapFlowCheck : Control
         var selection = _flow.SeatScreen!.Selection;
         Check(selection.GeneratedResolved is not null, "the seat step's selection carries the generated triple");
         var generated = selection.GeneratedResolved!;
-        Check(generated.World.Id.StartsWith("random-central-asia-", StringComparison.Ordinal),
-            $"the chosen candidate's world id ({generated.World.Id})");
+        Check(generated.World.Id == ExpectedWorldId && generated.Scenario.RandomSeed == 43,
+            $"the chosen candidate is {ExpectedWorldId} with seed 43 ({generated.World.Id}, {generated.Scenario.RandomSeed})");
         Check(generated.Scenario.Seats.Count == generated.World.Nations.Count,
             "the generated scenario seats every world nation");
         Check(generated.Ruleset.Id == _flow.SeatScreen.Selection.SelectedCard.RulesetId,
@@ -148,7 +155,7 @@ public partial class RandomMapFlowCheck : Control
     {
         var session = _mainGame?.Session
                       ?? throw new InvalidOperationException("the flow did not start the main game screen");
-        Check(session.World.Id.StartsWith("random-central-asia-", StringComparison.Ordinal), $"the playable session runs the generated world ({session.World.Id})");
+        Check(session.World.Id == ExpectedWorldId, $"the playable session runs {ExpectedWorldId} ({session.World.Id})");
         Check(session.EmbeddedWorld is not null && session.EmbeddedScenario is not null,
             "the session keeps its generated records for embedding");
 
